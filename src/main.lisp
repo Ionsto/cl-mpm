@@ -1,9 +1,15 @@
 ;(ql:quickload "l-math")
 (ql:quickload "cl-autodiff")
 (ql:quickload "cl-math")
+(ql:quickload "magicl")
 (ql:quickload "vgplot")
 (ql:quickload "array-operations")
 (ql:quickload "ltk")
+
+(ltk:with-ltk ()  (let ((b (make-instance 'button
+                                        :master nil
+                                        :text "Hello")))
+                                        (ltk:pack b)))
 (defpackage :cl-mpm
   (:use :cl))
 (in-package :cl-mpm)
