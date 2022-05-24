@@ -1,8 +1,8 @@
-#|
-Copyright Aleksander Ksiazek 
-Made for the course Obliczenia Symboliczne II at AGH in 2014
-Developed and tested using Emacs with SLIME and SBCL 1.1
-|#
+;
+;Copyright Aleksander Ksiazek 
+;Made for the course Obliczenia Symboliczne II at AGH in 2014
+;Developed and tested using Emacs with SLIME and SBCL 1.1
+
 
 ;; to compile into a standalone executable with sbcl
 
@@ -10,9 +10,9 @@ Developed and tested using Emacs with SLIME and SBCL 1.1
 
 ;; and use (sb-ext:save-lisp-and-die "symbolic" :executable t :toplevel 'main)
 
-(defpackage :cl-mpm
+(defpackage :cl-mpm/shape-function
   (:use :cl))
-(in-package :cl-mpm)
+(in-package :cl-mpm/shape-function)
 
 (defun flatten (list)
   (cond
@@ -76,10 +76,11 @@ Developed and tested using Emacs with SLIME and SBCL 1.1
   `(derive (quote ,var) (quote ,expr)))
 
 (defun is-named-function (name)
-  (if (member name '(expt sin cos tg ctg sqrt exp ln log asin acos atg actg)) T nil))
+  (if (member name '(expt abs sin cos tg ctg sqrt exp ln log asin acos atg actg)) T nil))
 
 (defun named-function-derivative (name arg)
   (cond
+    ((eq name 'abs) `(signum ,(rewrite arg)))
     ((eq name 'sin) `(cos ,(rewrite arg)))
     ((eq name 'cos) `(- (sin ,(rewrite arg))))
     ((eq name 'tg) `(+ 1 (expt (tg ,(rewrite arg)) 2)))
@@ -145,3 +146,11 @@ Developed and tested using Emacs with SLIME and SBCL 1.1
 		(rewrite (list '* (named-function-derivative operator arg1) (derive var arg1)))
 		(error "unknown function")))
 	   )))))
+
+(defmacro create-svp (arg form)
+  `(lambda (,arg) ,form))
+
+(defmacro create-dsvp (arg form)
+  (let ((dx (derive arg form)))
+    `(lambda (,arg) ,dx)))
+
