@@ -3,6 +3,8 @@
 (defsystem "cl-mpm"
   :class :package-inferred-system
   :depends-on ("magicl"
+               "alexandria"
+               "array-operations"
                "cl-autodiff"
                ;"cl-mpm/constitutive"
                ;"cl-mpm/particle"
@@ -14,8 +16,10 @@
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
   :serial t
   :components (
+               (:file "src/symbolic-derivation")
                (:file "src/shape-function")
                (:file "src/constitutive")
+               (:file "src/forces")
                (:file "src/particle")
                (:file "src/mesh")
                (:file "src/core")

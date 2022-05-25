@@ -1,9 +1,5 @@
 (defpackage :cl-mpm
   (:use :cl)
-  (:export 
-    ;#:make-shape-function
-    ;#:make-shape-function-linear
-    )
   )
 (in-package :cl-mpm)
 
@@ -18,12 +14,6 @@
     `(lambda (,arg) ,dx)))
 
 
-(let* (
-       (svp (create-svp x (- 1 (abs x))))
-       (dsvp (create-dsvp x (- 1 (abs x))))
-       (svp-bi (lambda (x y) (* (funcall svp x) (funcall svp y))))
-      ))
-
 (defun svp-1d (svp dsvp)
   svp)
 (defun svp-2d (svp dsvp)
@@ -32,7 +22,7 @@
   (lambda (x y z) (* (funcall svp x) (funcall svp y) (funcall svp y))))
 
 (defun dsvp-1d (svp dsvp)
-  dsvp)
+  (lambda (x) (list (funcall dsvp x))))
 (defun dsvp-2d (svp dsvp)
   (lambda (x y) (let (
                       (wx (funcall svp x))
@@ -67,10 +57,6 @@
     (2 (dsvp-2d svp dsvp))
     (3 (dsvp-3d svp dsvp))))
 
-(defparameter *svp* (create-svp x (- 1 (abs x))))
-(defparameter *dsvp* (create-dsvp x (- 1 (abs x))))
-(funcall (nd-dsvp 3 *svp* *dsvp*) 0 0 0)
-
 (defclass shape-function ()
   ((nD 
      :accessor nD
@@ -103,3 +89,41 @@
                     :dsvp (nd-dsvp ,nD svp dsvp))))
 (defun make-shape-function-linear (nD)
   (make-shape-function x (- 1 (abs x)) nD 1))
+
+;(defun assemble-dsvp (dsvp)
+;  "Assemble d/di to the strain-displacement matrix"
+;  (let ((nD 2)
+;        (dx (aref dsvp 0))
+;        (dy (aref dsvp 1)))
+;    (magicl:from-list (list dx 0d0 0d0 dy dy 0d0) '(3 2) :type 'double-float)))
+(defun assemble-dsvp-1d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp)))
+    (magicl:from-list (list dx) '(1 1) :type 'double-float)))
+
+(defun assemble-dsvp-2d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp)))
+    (magicl:from-list (list dx 0d0 0d0 dy dy 0d0) '(3 2) :type 'double-float)))
+
+(defun assemble-dsvp-3d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp))
+        (dz (nth 2 dsvp)))
+    (magicl:from-list (list dx  0d0 0d0;xx
+                            0d0 dy  0d0;yy
+                            0d0 0d0  dz;zz
+                            0d0 dz  0d0;yz
+                            dz  0d0 0d0;xz
+                            dx  0d0 0d0;xy
+                            ) '(6 3) :type 'double-float)))
+
+(defun assemble-dsvp (nD dsvp)
+  (case nD
+    (1 (assemble-dsvp-1d dsvp))
+    (2 (assemble-dsvp-2d dsvp))
+    (3 (assemble-dsvp-3d dsvp))))
+
+

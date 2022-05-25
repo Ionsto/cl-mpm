@@ -10,9 +10,9 @@
 
 ;; and use (sb-ext:save-lisp-and-die "symbolic" :executable t :toplevel 'main)
 
-(defpackage :cl-mpm/shape-function
+(defpackage :cl-mpm
   (:use :cl))
-(in-package :cl-mpm/shape-function)
+(in-package :cl-mpm)
 
 (defun flatten (list)
   (cond

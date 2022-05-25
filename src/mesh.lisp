@@ -4,11 +4,18 @@
 (in-package :cl-mpm)
 
 (defclass node ()
-  ((mass :initform 0)
+  ((mass 
+     :initform 0)
   (index :initarg :index)
-  (acceleration :initform (magicl:zeros '(2 1)))
-  (force :initform (magicl:zeros '(2 1)))
-  (velocity :initform (magicl:zeros '(2 1))))
+  (acceleration
+    :initarg :acceleration
+    :initform (magicl:zeros '(1 1)))
+  (force 
+    :initarg :force
+    :initform (magicl:zeros '(1 1)))
+  (velocity
+    :initarg :velocity
+    :initform (magicl:zeros '(1 1))))
   (:documentation "A node on the computational mesh"))
 
 
@@ -21,33 +28,52 @@
     (shape-func :initarg :shape-func))
     (:documentation "MPM computational mesh"))
 
-(defun make-node (x y)
+(defun make-node (nD pos)
   (make-instance 'node 
-                 :index (magicl:from-list (list x y) '(2 1))))
+                 :force (magicl:zeros (list nD 1))
+                 :velocity (magicl:zeros (list nD 1))
+                 :acceleration (magicl:zeros (list nD 1))
+                 :index (magicl:from-list pos (list nD 1))))
+
+
+
+(defun make-nodes (nD size)
+	(let* ((pos (loop for d from 0 to (- nD 1) 
+					collect	(loop for x from 0 to (- (nth d size) 1) 
+                        collect x)))
+           (total-size (reduce #'* size)))
+      (aops:reshape 
+        (make-array total-size 
+                    :initial-contents 
+                    (loop for id in (apply #'alexandria:map-product #'list pos)
+                        collect (apply #'make-node (cons nD (list id))))) size)))
 
 (defun make-mesh (nD size resolution shape-function)
   (let* ((meshcount (loop for d in size collect (+ (floor d resolution) 1)))
-         (nodes (loop for x from 0 to (- (nth 0 meshcount) 1)
-                      collect (loop for y from 0 to (- (nth 1 meshcount) 1)
-                      collect (make-node x y)))))
-    (progn
+         (nodes (make-nodes nd meshcount)))
+    
     (make-instance 'mesh
       :nD nD
       :mesh-size size
       :mesh-count meshcount
       :mesh-res resolution
-      :nodes (make-array meshcount :initial-contents nodes)
+      :nodes nodes
       :shape-func shape-function
-      ))))
+      )))
 
-(defun in-bounds (mesh value dim)
+(defun in-bounds-value (mesh value dim)
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
+(defun in-bounds (mesh pos)
+  "Check a single dimension is inside a mesh"
+  (apply (lambda (x) x) (loop for d from 0 to (- (slot-value mesh 'nD) 1)
+    collect (and (>= (nth d pos) 0) 
+                 (< (nth d pos) (nth d (slot-value mesh 'mesh-count)))))))
 
-(defun get-node (mesh x y)
+(defun get-node (mesh pos)
   "Check bounds and get node"
-  (if (and (in-bounds mesh x 0) (in-bounds mesh y 1))
-    (aref (get-nodes mesh) x y)
+  (if (in-bounds mesh pos)
+      (apply #'aref (cons (get-nodes mesh) pos))
     (error "Access grid out of bounds")))
 
 (defun reset-node (node)

@@ -1,18 +1,13 @@
 (defpackage :cl-mpm
-  (:use :cl 
-;        :cl-mpm/mesh
-;        :cl-mpm/shape-function
-;        :cl-mpm/particle
-;        :cl-mpm/constitutive
-        )
+  (:use :cl )
   (:export
     #:mpm-sim
     #:make-mpm-sim
     #:make-shape-function-linear
     ))
 ;    #:make-shape-function
-(ql:quickload "alexandria")
 (in-package :cl-mpm)
+
 (defclass mpm-sim ()
   ((dt 
      :accessor :get-dt
@@ -41,7 +36,7 @@
                (dt dt))
                 sim
                 (progn
-                    (reset-grid *mesh*)
+                    (reset-grid mesh)
                     (p2g mesh mps)
                     (filter-grid mesh 1e-3)
                     (update-nodes mesh dt)
@@ -57,55 +52,46 @@
 (defun iterate-over-neighbours (mesh mp func)
   (iterate-over-neighbours-shape mesh (slot-value mesh 'shape-func) mp func))
 
-(defparameter *nD* 2)
-(defparameter *order* 1)
-(apply #'alexandria:map-product (lambda (x y) (format t "~d,~d~%" x y)) '((1 2) (1 2)))
-(loop for n from 1 to *nD* collect (loop for x from 0 to *order* collect x))
-
-(defparameter *mesh* (make-mesh 2 '(1 1) 1 (cl-mpm/shape-function:make-shape-function-linear 1) ))
-(defparameter *mesh* (make-mesh 2 '(1 1) 1 (cl-mpm/shape-function:make-shape-function-linear 1) ))
-(defparameter *mps* (list (make-particle :x 0.5 :y 5)))
-(iterate-over-neighbours *mesh* (first *mps*) nil)
 (defmethod iterate-over-neighbours-shape (mesh shape-func mp func)
-;(apply #'alexandria:map-product #'list '((1 2) (1 2)))
   (let* ((pos (slot-value mp 'position))
           (h (slot-value mesh 'mesh-res))
           (nD (slot-value mesh 'nD))
           (order (slot-value shape-func 'order))
-          (pos-i (magicl:map! (lambda (x) (floor x)) pos)))
+          (pos-i (magicl:map! (lambda (x) (floor x)) (magicl:scale pos (/ 1 h)))))
     (dolist (dindex (apply #'alexandria:map-product #'list
-                         (loop for d from 0 to nD
+                         (loop for d from 1 to nD
                                collect (loop for v from 0 to order collect v))))
       (progn
-        (print dindex)
-        ;(let (
-        ;      (idpos (magicl.+ pos-i (magicl:from-list dindex (list nD 1))))
-        ;      (vpos (magicl:.- pos (magicl.+ )))
-        ;      (vx (- x-mp xi dx))
-        ;       (vy (- y-mp yi dy))
-        ;              (node (get-node mesh (+ xi dx) (+ yi dy))))
-        ;                (multiple-value-bind (svp grads) 
-        ;                (funcall (slot-value shape-func 'svp) vx vy)
-        ;                  (funcall func mesh mp node svp (assemble-dsvp grads))))
-        ))))
+        ;(print dindex)
+        (let* ((idpos (loop for i from 0 to (- nD 1) 
+                            collect (floor (+ (magicl:tref pos-i i 0) 
+                                              (nth i dindex)))))
+               (node (apply #'get-node (cons mesh (list idpos))))
+               (vpos (magicl:.- pos 
+                                (magicl:.+ pos-i (magicl:from-list dindex (list nD 1)))))
+               (vpos-list (loop for i from 0 to (- nD 1) collect (magicl:tref vpos i 0)))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-linear) mp func)
-  (let* ((pos (slot-value mp 'position))
-          (h (slot-value mesh 'mesh-res))
-          (order (slot-value shape-func 'order))
-          (x-mp (magicl:tref pos 0 0))
-          (y-mp (magicl:tref pos 1 0))
-          (xi (floor (/ x-mp h)))
-          (yi (floor (/ y-mp h))))
-          (loop for dx from 0 to 1
-          do (loop for dy from 0 to 1
-            do (let ( (vx (- x-mp xi dx))
-                      (vy (- y-mp yi dy))
-                      (node (get-node mesh (+ xi dx) (+ yi dy))))
-                        (multiple-value-bind (svp grads) 
-                        (funcall (slot-value shape-func 'svp) vx vy)
-                          (funcall func mesh mp node svp (assemble-dsvp grads))))))))
-
+               (weight (apply (svp shape-func) vpos-list))
+               (grads (apply (dsvp shape-func) vpos-list)))
+          (funcall func mesh mp node weight (assemble-dsvp nD grads))
+        )))))
+;(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-linear) mp func)
+;  (let* ((pos (slot-value mp 'position))
+;          (h (slot-value mesh 'mesh-res))
+;          (order (slot-value shape-func 'order))
+;          (x-mp (magicl:tref pos 0 0))
+;          (y-mp (magicl:tref pos 1 0))
+;          (xi (floor (/ x-mp h)))
+;          (yi (floor (/ y-mp h))))
+;          (loop for dx from 0 to 1
+;          do (loop for dy from 0 to 1
+;            do (let ( (vx (- x-mp xi dx))
+;                      (vy (- y-mp yi dy))
+;                      (node (get-node mesh (+ xi dx) (+ yi dy))))
+;                        (multiple-value-bind (svp grads) 
+;                        (funcall (slot-value shape-func 'svp) vx vy)
+;                          (funcall func mesh mp node svp (assemble-dsvp grads))))))))
+;
 
 
 (defun p2g (mesh mps)
