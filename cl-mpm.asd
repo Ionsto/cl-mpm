@@ -2,10 +2,9 @@
 
 (defsystem "cl-mpm"
   :class :package-inferred-system
-  :depends-on ("magicl"
+  :depends-on ("magicl/core"
                "alexandria"
                "array-operations"
-               "cl-autodiff"
                ;"cl-mpm/constitutive"
                ;"cl-mpm/particle"
                ;"cl-mpm/shape-function"

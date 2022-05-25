@@ -1,4 +1,3 @@
-(ql:quickload "magicl")
 (defpackage :cl-mpm
   (:use :cl))
 (in-package :cl-mpm)

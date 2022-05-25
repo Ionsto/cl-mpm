@@ -20,7 +20,11 @@
      :initarg :mps)
    (nD 
      :accessor :get-nd
-     :initarg :nD)))
+     :initarg :nD)
+   (bc-list
+     :initarg :bc-list
+     :initform '())
+   ))
 
 (defun make-mpm-sim (nD size resolution shape-function)
   (make-instance 'mpm-sim
@@ -33,6 +37,7 @@
 (defun update-sim (sim)
   (with-slots ((mesh mesh)
                (mps mps)
+               (bcs bc-list)
                (dt dt))
                 sim
                 (progn
@@ -40,7 +45,7 @@
                     (p2g mesh mps)
                     (filter-grid mesh 1e-3)
                     (update-nodes mesh dt)
-                    (apply-bc mesh)
+                    (apply-bc mesh bcs)
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mps dt) 
@@ -152,19 +157,29 @@
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           )))))))
 
-(defun apply-bc (mesh)
+(defun apply-bc (mesh bcs)
   (with-slots ((nodes nodes)
-                (mc mesh-count)) mesh
-    (dotimes (x   (nth 0 mc))
-      (dotimes (y (nth 1 mc))
-      (progn
-        (with-slots ((vel velocity)) (get-node mesh x y)
-          (when (or (<= y 0) (>= y (- (nth 1 mc) 1)))
-            (setf (magicl:tref vel 1 0)
-                  0d0))
-          (when (or (<= x 0) (>= x (- (nth 0 mc) 1)))
-            (setf (magicl:tref vel 0 0)
-                  0d0))))))))
+               (nD nD)
+               (mc mesh-count)) mesh
+    ;each bc is a list (pos value)
+    (dolist (bc bcs)
+      (destructuring-bind (index val) bc
+        (when (in-bounds mesh index)
+          (with-slots ((vel velocity)) 
+            (get-node mesh index)
+            (loop for d from 0 to (- nD 1)
+                  do (when (not (nth d val))
+                        (setf (magicl:tref d 0) val)))))))))
+    ;(dotimes (x   (nth 0 mc))
+    ;  (dotimes (y (nth 1 mc))
+    ;  (progn
+    ;    (with-slots ((vel velocity)) (get-node mesh x y)
+    ;      (when (or (<= y 0) (>= y (- (nth 1 mc) 1)))
+    ;        (setf (magicl:tref vel 1 0)
+    ;              0d0))
+    ;      (when (or (<= x 0) (>= x (- (nth 0 mc) 1)))
+    ;        (setf (magicl:tref vel 0 0)
+    ;              0d0))))))))
 
 (defun update-particle (mps dt)
   (loop for mp in mps

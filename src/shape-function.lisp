@@ -73,10 +73,6 @@
    ))
 
 (defclass shape-function-linear (shape-function)
-  ((order :initform 2)
-   (svp :initform (autodiff:lambda-ad (x y) (* (shape-linear x) (shape-linear y))))))
-
-(defclass shape-function-linear (shape-function)
   ((order :initform 1)))
 
 (defmacro make-shape-function (arg shape-form nD order)
