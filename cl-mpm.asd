@@ -2,13 +2,13 @@
 
 (defsystem "cl-mpm"
   :class :package-inferred-system
-  :depends-on ("magicl/core"
+  :depends-on ("magicl"
                "alexandria"
                "array-operations"
                ;"cl-mpm/constitutive"
                ;"cl-mpm/particle"
                ;"cl-mpm/shape-function"
-               ;"cl-mpm/mesh"
+               "cl-mpm/bc"
                )
   :description ""
   :in-order-to ((test-op (load-op "test/all")))
@@ -17,12 +17,18 @@
   :components (
                (:file "src/symbolic-derivation")
                (:file "src/shape-function")
+               (:file "src/particle")
                (:file "src/constitutive")
                (:file "src/forces")
-               (:file "src/particle")
                (:file "src/mesh")
                (:file "src/core")
                ))
+
+(defsystem "cl-mpm/bc"
+  :depends-on ("magicl")
+  :description "MPM boundary conditions"
+  :serial t
+  :components ((:file "src/bc")))
 
 ;(defsystem "cl-mpm/constitutive"
 ;  :depends-on ("magicl")
