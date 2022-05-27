@@ -1,43 +1,53 @@
 (defpackage :cl-mpm
-  (:use :cl )
+  (:use :cl)
+  (:import-from 
+    :magicl tref .+ .-)
   (:export
     #:mpm-sim
     #:make-mpm-sim
     #:make-shape-function-linear
+    #:sim-mesh
+    #:sim-mps
+    #:sim-bcs
+    #:sim-dt
     ))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
 (defclass mpm-sim ()
   ((dt 
-     :accessor :get-dt
+     :accessor sim-dt
      :initarg :dt)
    (mesh 
-     :accessor :get-mesh
+     :accessor sim-mesh
      :initarg :mesh)
    (mps 
-     :accessor :get-mps
+     :accessor sim-mps
      :initarg :mps)
-   (nD 
-     :accessor :get-nd
-     :initarg :nD)
-   (bc-list
-     :initarg :bc-list
+   (bcs
+     :accessor sim-bcs
+     :initarg :bcs
      :initform '())
    ))
 
-(defun make-mpm-sim (nD size resolution shape-function)
+(defun make-mpm-sim (size resolution dt shape-function)
   (make-instance 'mpm-sim
-                 :dt 1
-                 :mesh (make-mesh nD size resolution shape-function)
+                 :dt dt
+                 :mesh (make-mesh size resolution shape-function)
                  :mps '()))
 
-
+(defun voight-to-matrix (vec)
+  (let* ( (exx (tref vec 0 0))
+          (eyy (tref vec 1 0))
+          (exy (tref vec 2 0)))
+    (magicl:from-list (list exx exy 
+                            exy eyy)
+                      '(2 2) :type 'double-float)))
 
 (defun update-sim (sim)
   (with-slots ((mesh mesh)
                (mps mps)
-               (bcs bc-list)
+               (bcs bcs)
                (dt dt))
                 sim
                 (progn
@@ -45,10 +55,10 @@
                     (p2g mesh mps)
                     (filter-grid mesh 1e-3)
                     (update-nodes mesh dt)
-                    (apply-bc mesh bcs)
+                    (apply-bcs mesh bcs)
                     (g2p mesh mps)
                     (update-particle mps dt)
-                    (update-stress mps dt) 
+                    (update-stress mesh mps dt) 
                   )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -59,33 +69,34 @@
 
 (defmethod iterate-over-neighbours-shape (mesh shape-func mp func)
   (let* ((pos (slot-value mp 'position))
-          (h (slot-value mesh 'mesh-res))
-          (nD (slot-value mesh 'nD))
-          (order (slot-value shape-func 'order))
-          (pos-i (magicl:map! (lambda (x) (floor x)) (magicl:scale pos (/ 1 h)))))
-    (dolist (dindex (apply #'alexandria:map-product #'list
-                         (loop for d from 1 to nD
-                               collect (loop for v from 0 to order collect v))))
-      (progn
-        ;(print dindex)
-        (let* ((idpos (loop for i from 0 to (- nD 1) 
-                            collect (floor (+ (magicl:tref pos-i i 0) 
-                                              (nth i dindex)))))
-               (node (apply #'get-node (cons mesh (list idpos))))
-               (vpos (magicl:.- pos 
-                                (magicl:.+ pos-i (magicl:from-list dindex (list nD 1)))))
-               (vpos-list (loop for i from 0 to (- nD 1) collect (magicl:tref vpos i 0)))
+         (pos-x (tref pos 0 0))
+         (pos-y (tref pos 1 0))
+         (nD (slot-value mesh 'nD))
+         (h (slot-value mesh 'mesh-res))
+         (order (slot-value shape-func 'order))
+         (pos-i (magicl:map! (lambda (x) (floor x)) (magicl:scale pos (/ 1 h))))
+         (pos-ix (tref pos-i 0 0))
+         (pos-iy (tref pos-i 1 0)))
+    (loop for dx from 0 to order
+          do (loop for dy from 0 to order
+                   do
+                   (let* (
+                          (id-x (floor (+ pos-ix dx)))
+                          (id-y (floor (+ pos-iy dy)))
+                          (dist-x (- pos-x (* id-x h)))
+                          (dist-y (- pos-y (* id-y h)))
+                          (node (get-node mesh (list id-x id-y)))
+                          (weight (apply (svp shape-func) (list dist-x dist-y)))
+                          (grads (apply (dsvp shape-func) (list dist-x dist-y))) 
+                          )
+                          (funcall func mesh mp node weight (assemble-dsvp nD grads)))))))
 
-               (weight (apply (svp shape-func) vpos-list))
-               (grads (apply (dsvp shape-func) vpos-list)))
-          (funcall func mesh mp node weight (assemble-dsvp nD grads))
-        )))))
 ;(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-linear) mp func)
 ;  (let* ((pos (slot-value mp 'position))
 ;          (h (slot-value mesh 'mesh-res))
 ;          (order (slot-value shape-func 'order))
-;          (x-mp (magicl:tref pos 0 0))
-;          (y-mp (magicl:tref pos 1 0))
+;          (x-mp (tref pos 0 0))
+;          (y-mp (tref pos 1 0))
 ;          (xi (floor (/ x-mp h)))
 ;          (yi (floor (/ y-mp h))))
 ;          (loop for dx from 0 to 1
@@ -114,8 +125,8 @@
                   (+ node-mass (* mp-mass svp)))
                 (setf node-vel 
                   (magicl:.+ node-vel (magicl:scale mp-vel (* mp-mass svp))))
-                ;(setf node-force 
-                ;  (magicl:.- node-force  (det-int-force mp node dsvp)))
+                (setf node-force 
+                  (magicl:.- node-force  (det-int-force mp node dsvp)))
                 (setf node-force 
                   (magicl:.+ node-force  (det-ext-force mp node svp)))
                          ))))))))
@@ -124,19 +135,21 @@
   "Map grid to particle for one mp-node pair"
   (with-slots ((node-vel velocity)) node
     (with-slots ((vel velocity)
-                 (strain-rate strain-rate)
+                 ;(strain-rate strain-rate)
                  (mass mass)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
-        (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
+        ;(setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
         ))))
 
 (defun g2p (mesh mps)
   "Map grid values to all particles"
   (dolist (mp mps)
     (progn
-      (setf (slot-value mp 'velocity) (magicl:zeros '(2 1)))
-      (setf (slot-value mp 'strain-rate) (magicl:zeros '(3 1)))
+      (with-slots ((vel velocity))
+                    mp
+                    (progn
+                    (setf vel (magicl:scale vel 0d0))))
       (iterate-over-neighbours mesh mp #'g2p-mp))))
 
 (defun update-nodes (mesh dt)
@@ -157,29 +170,15 @@
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           )))))))
 
-(defun apply-bc (mesh bcs)
+(defun apply-bcs (mesh bcs)
   (with-slots ((nodes nodes)
                (nD nD)
                (mc mesh-count)) mesh
     ;each bc is a list (pos value)
     (dolist (bc bcs)
-      (destructuring-bind (index val) bc
+      (let ((index (cl-mpm/bc:bc-index bc)))
         (when (in-bounds mesh index)
-          (with-slots ((vel velocity)) 
-            (get-node mesh index)
-            (loop for d from 0 to (- nD 1)
-                  do (when (not (nth d val))
-                        (setf (magicl:tref d 0) val)))))))))
-    ;(dotimes (x   (nth 0 mc))
-    ;  (dotimes (y (nth 1 mc))
-    ;  (progn
-    ;    (with-slots ((vel velocity)) (get-node mesh x y)
-    ;      (when (or (<= y 0) (>= y (- (nth 1 mc) 1)))
-    ;        (setf (magicl:tref vel 1 0)
-    ;              0d0))
-    ;      (when (or (<= x 0) (>= x (- (nth 0 mc) 1)))
-    ;        (setf (magicl:tref vel 0 0)
-    ;              0d0))))))))
+          (cl-mpm/bc:apply-bc bc (get-node mesh index)))))))
 
 (defun update-particle (mps dt)
   (loop for mp in mps
@@ -187,28 +186,29 @@
                     (pos position)) mp
       (progn 
       (setf pos (magicl:.+ pos (magicl:scale vel dt)))))))
-(defun update-stress (mps dt)
+
+;Could include this in p2g but idk
+(defun calculate-strain-rate (mesh mp dt)
+  (let ((dstrain (magicl:zeros '(3 1))))
+    (progn
+      (iterate-over-neighbours mesh mp 
+       (lambda (mesh mp node svp dsvp)
+         (setf dstrain (.+ dstrain (magicl:@ dsvp (node-velocity node))))))
+      (magicl:scale  dstrain dt))))
+
+(defun update-stress (mesh mps dt)
   (loop for mp in mps
     do (with-slots ((stress stress)
                     (volume volume)
-                    (strain-rate strain-rate)
+                    (strain strain)
                     (def deformation-matrix)) mp
          
-           (let ((eng-strain (magicl:scale strain-rate dt)))
+           (let ((dstrain (calculate-strain-rate mesh mp dt)))
              (progn
-               ;Engineering strain increment
-               (setf eng-strain (magicl:.* eng-strain (magicl:from-list '(1d0 1d0 1d0) '(3 1))))
-               ;Update stress incrementally
-               (setf stress (magicl:.+ stress (constitutive-model mp eng-strain)))
-               (let* (
-                      (exx (magicl:tref eng-strain 0 0))
-                      (eyy (magicl:tref eng-strain 1 0))
-                      (exy (magicl:tref eng-strain 2 0))
-                      )
-                 (let ((df (magicl:from-list (list (+ 1 exx) exy 
-                                                    exy (+ 1 eyy)) '(2 2) :type 'double-float)))
+               (setf strain (magicl:.+ strain dstrain))
+               (setf stress (constitutive-model mp strain))
+                (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
                    (progn
                      (setf def (magicl:@ df def))
                      (setf volume (* volume (magicl:det df)))
-                     ))))
-             ))))
+                     )))))))

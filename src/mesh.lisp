@@ -1,59 +1,79 @@
 (defpackage :cl-mpm
-  (:use :cl))
+  (:use :cl)
+  (:export
+    #:mesh-mesh-size
+    #:node-velocity
+    #:node-mass
+    #:get-node
+  ))
 
 (in-package :cl-mpm)
 
 (defclass node ()
   ((mass 
-     :initform 0)
+     :accessor :node-mass
+     :initform 0
+     )
   (index :initarg :index)
   (acceleration
+     :accessor :node-acceleration
     :initarg :acceleration
-    :initform (magicl:zeros '(1 1)))
+    :initform (magicl:zeros '(1 1))
+    :accessor node-mass
+    )
   (force 
     :initarg :force
+    :accessor :node-force
     :initform (magicl:zeros '(1 1)))
   (velocity
+    :accessor node-velocity
     :initarg :velocity
     :initform (magicl:zeros '(1 1))))
   (:documentation "A node on the computational mesh"))
 
 
 (defclass mesh ()
-  ( (nD :initarg :nD)
-    (mesh-count :initarg :mesh-count)
-    (mesh-size :initarg :mesh-size)
-    (mesh-res :initarg :mesh-res)
-    (nodes :initarg :nodes :accessor get-nodes)
-    (shape-func :initarg :shape-func))
+  ( (nD
+      :accessor mesh-nd
+      :initarg :nD)
+    (mesh-count 
+      :accessor mesh-mesh-count
+      :initarg :mesh-count)
+    (mesh-size 
+      :accessor mesh-mesh-size
+      :initarg :mesh-size)
+    (mesh-res 
+      :accessor mesh-mesh-res
+      :initarg :mesh-res)
+    (nodes 
+      :accessor mesh-nodes
+      :initarg :nodes :accessor get-nodes)
+    (shape-func
+      :accessor mesh-shape-func
+      :initarg :shape-func))
     (:documentation "MPM computational mesh"))
 
-(defun make-node (nD pos)
+(defun make-node (pos)
+  "Default initialise a 2d node at pos"
   (make-instance 'node 
-                 :force (magicl:zeros (list nD 1))
-                 :velocity (magicl:zeros (list nD 1))
-                 :acceleration (magicl:zeros (list nD 1))
-                 :index (magicl:from-list pos (list nD 1))))
+                 :force (magicl:zeros (list 2 1))
+                 :velocity (magicl:zeros (list 2 1))
+                 :acceleration (magicl:zeros (list 2 1))
+                 :index (magicl:from-list pos (list 2 1))))
 
+(defun make-nodes (size)
+  "Make a 2d mesh of specific size"
+  (make-array size :initial-contents 
+      (loop for x from 0 to (- (nth 0 size) 1)
+            collect (loop for y from 0 to (- (nth 1 size) 1)
+                     collect (make-node (list x y))))))
 
-
-(defun make-nodes (nD size)
-	(let* ((pos (loop for d from 0 to (- nD 1) 
-					collect	(loop for x from 0 to (- (nth d size) 1) 
-                        collect x)))
-           (total-size (reduce #'* size)))
-      (aops:reshape 
-        (make-array total-size 
-                    :initial-contents 
-                    (loop for id in (apply #'alexandria:map-product #'list pos)
-                        collect (apply #'make-node (cons nD (list id))))) size)))
-
-(defun make-mesh (nD size resolution shape-function)
+(defun make-mesh (size resolution shape-function)
+  "Create a 2D mesh and fill it with nodes"
   (let* ((meshcount (loop for d in size collect (+ (floor d resolution) 1)))
-         (nodes (make-nodes nd meshcount)))
-    
+         (nodes (make-nodes meshcount)))
     (make-instance 'mesh
-      :nD nD
+      :nD 2 
       :mesh-size size
       :mesh-count meshcount
       :mesh-res resolution
@@ -61,14 +81,13 @@
       :shape-func shape-function
       )))
 
-(defun in-bounds-value (mesh value dim)
+(defun in-bounds-1d (mesh value dim)
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
 (defun in-bounds (mesh pos)
-  "Check a single dimension is inside a mesh"
-  (apply (lambda (x) x) (loop for d from 0 to (- (slot-value mesh 'nD) 1)
-    collect (and (>= (nth d pos) 0) 
-                 (< (nth d pos) (nth d (slot-value mesh 'mesh-count)))))))
+  "Check a position (list) is inside a mesh"
+  (every (lambda (x) x) (loop for d from 0 to (- (slot-value mesh 'nD) 1)
+      collect (in-bounds-1d mesh (nth d pos) d))))
 
 (defun get-node (mesh pos)
   "Check bounds and get node"
@@ -76,7 +95,10 @@
       (apply #'aref (cons (get-nodes mesh) pos))
     (error "Access grid out of bounds")))
 
-(defun reset-node (node)
+(defgeneric reset-node (node)
+  (:documentation "Reset grid to default state"))
+
+(defmethod reset-node (node)
   (with-slots ( (mass mass)
                  (vel velocity)
                  (force force))
