@@ -7,3 +7,8 @@
 (defun test-suite ()
   (format T "Test Suite~%"))
 
+
+
+(defun test-performance ()
+  
+  )

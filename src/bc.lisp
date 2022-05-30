@@ -25,6 +25,7 @@
 
 (defgeneric apply-bc (bc node)
   (:documentation "Apply a boundary condition onto a node"))
+
 (defmethod apply-bc ((bc bc-fixed) node)
   (with-slots ((value value))
     bc

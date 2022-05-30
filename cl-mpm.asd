@@ -5,6 +5,7 @@
   :depends-on ("magicl"
                "alexandria"
                "array-operations"
+               "lparallel"
                ;"cl-mpm/constitutive"
                ;"cl-mpm/particle"
                ;"cl-mpm/shape-function"
@@ -24,11 +25,20 @@
                (:file "src/core")
                ))
 
-(defsystem "cl-mpm/bc"
+(defsystem "cl-mpm/mesh"
   :depends-on ("magicl")
   :description "MPM boundary conditions"
   :serial t
+  :components ((:file "src/mesh")))
+
+(defsystem "cl-mpm/bc"
+  :depends-on ("magicl"
+               "cl-mpm/mesh"
+               )
+  :description "MPM boundary conditions"
+  :serial t
   :components ((:file "src/bc")))
+
 
 ;(defsystem "cl-mpm/constitutive"
 ;  :depends-on ("magicl")

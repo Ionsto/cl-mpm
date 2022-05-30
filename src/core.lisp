@@ -131,7 +131,7 @@
                   (magicl:.+ node-force  (det-ext-force mp node svp)))
                          ))))))))
 
-(defun g2p-mp (mesh mp node svp dsvp) 
+(defun g2p-mp-node (mesh mp node svp dsvp) 
   "Map grid to particle for one mp-node pair"
   (with-slots ((node-vel velocity)) node
     (with-slots ((vel velocity)
@@ -141,22 +141,26 @@
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
         ;(setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
         ))))
+(defun g2p-mp (mesh mp)
+  "Map one MP onto the grid"
+  (with-slots ((vel velocity))
+    mp
+    (progn
+      (setf vel (magicl:scale vel 0d0)))
+    (iterate-over-neighbours mesh mp #'g2p-mp-node)))
 
 (defun g2p (mesh mps)
   "Map grid values to all particles"
-  (dolist (mp mps)
-    (progn
-      (with-slots ((vel velocity))
-                    mp
-                    (progn
-                    (setf vel (magicl:scale vel 0d0))))
-      (iterate-over-neighbours mesh mp #'g2p-mp))))
+  (lparallel:pdotimes (i (length mps)) 
+    (g2p-mp mesh (nth i mps))))
 
-(defun update-nodes (mesh dt)
-  "Explicitly integrate nodes"
-  (let ((nodes (slot-value mesh 'nodes)))
-  (dotimes (i (array-total-size nodes))
-    (let ((node (row-major-aref nodes i)))
+(defun g2p-serial (mesh mps)
+  "Map grid values to all particles"
+  (dolist (mp mps)
+    (g2p-mp mesh mp)))
+
+
+(defun update-node (mesh dt node)
     (when (> (slot-value node 'mass) 0)
       (with-slots ( (mass mass)
                     (vel velocity)
@@ -168,7 +172,21 @@
           (setf acc (magicl:scale force (/ 1.0 mass)))
           (setf acc (magicl:.- acc (magicl:scale vel 0.5)))
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
-          )))))))
+          ))))
+
+(defun update-nodes (mesh dt)
+  "Explicitly integrate nodes"
+  (let ((nodes (slot-value mesh 'nodes)))
+  (lparallel:pdotimes (i (array-total-size nodes))
+    (let ((node (row-major-aref nodes i)))
+      (update-node mesh dt node)))))
+
+(defun update-nodes-serial (mesh dt)
+  "Explicitly integrate nodes"
+  (let ((nodes (slot-value mesh 'nodes)))
+  (dotimes (i (array-total-size nodes))
+    (let ((node (row-major-aref nodes i)))
+      (update-node mesh dt node)))))
 
 (defun apply-bcs (mesh bcs)
   (with-slots ((nodes nodes)
@@ -196,9 +214,8 @@
          (setf dstrain (.+ dstrain (magicl:@ dsvp (node-velocity node))))))
       (magicl:scale  dstrain dt))))
 
-(defun update-stress (mesh mps dt)
-  (loop for mp in mps
-    do (with-slots ((stress stress)
+(defun update-stress-mp (mesh mp dt)
+    (with-slots ((stress stress)
                     (volume volume)
                     (strain strain)
                     (def deformation-matrix)) mp
@@ -211,4 +228,11 @@
                    (progn
                      (setf def (magicl:@ df def))
                      (setf volume (* volume (magicl:det df)))
-                     )))))))
+                     ))))))
+
+(defun update-stress (mesh mps dt)
+  (lparallel:pdotimes (i (length mps))
+     (update-stress-mp mesh (nth i mps) dt)))
+(defun update-stress-serial (mesh mps dt)
+  (loop for mp in mps
+    do (update-stress-mp mesh mp dt)))
