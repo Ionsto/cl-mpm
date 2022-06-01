@@ -28,7 +28,8 @@
   (velocity
     :accessor node-velocity
     :initarg :velocity
-    :initform (magicl:zeros '(1 1))))
+    :initform (magicl:zeros '(1 1)))
+  (lock :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))
 
 

@@ -109,10 +109,28 @@
 ;                          (funcall func mesh mp node svp (assemble-dsvp grads))))))))
 ;
 
-
-(defun p2g (mesh mps)
-  (loop for mp in mps
-    do (iterate-over-neighbours mesh mp
+(defun p2g-mp (mesh mp)
+    (iterate-over-neighbours mesh mp
+      (lambda (mesh mp node svp dsvp) 
+      (progn
+        (with-slots ( (node-vel velocity)
+                      (node-mass mass)
+                      (node-force force)
+                      (node-lock lock)) node
+          (with-slots ( (mp-vel velocity)
+                        (mp-mass mass)) mp 
+            (sb-thread:with-mutex (node-lock)
+                (setf node-mass 
+                  (+ node-mass (* mp-mass svp)))
+                (setf node-vel 
+                  (magicl:.+ node-vel (magicl:scale mp-vel (* mp-mass svp))))
+                (setf node-force 
+                  (magicl:.- node-force  (det-int-force mp node dsvp)))
+                (setf node-force 
+                  (magicl:.+ node-force  (det-ext-force mp node svp)))
+                         )))))))
+(defun p2g-mp-serial (mesh mp)
+    (iterate-over-neighbours mesh mp
       (lambda (mesh mp node svp dsvp) 
       (progn
         (with-slots ( (node-vel velocity)
@@ -129,7 +147,16 @@
                   (magicl:.- node-force  (det-int-force mp node dsvp)))
                 (setf node-force 
                   (magicl:.+ node-force  (det-ext-force mp node svp)))
-                         ))))))))
+                         )))))))
+
+(defun p2g (mesh mps)
+  (lparallel:pdotimes (i (length mps)) 
+    (p2g-mp mesh (nth i mps))))
+
+(defun p2g-serial (mesh mps)
+  (loop for mp in mps
+    do 
+    (p2g-mp-serial mesh mp)))
 
 (defun g2p-mp-node (mesh mp node svp dsvp) 
   "Map grid to particle for one mp-node pair"
@@ -158,7 +185,6 @@
   "Map grid values to all particles"
   (dolist (mp mps)
     (g2p-mp mesh mp)))
-
 
 (defun update-node (mesh dt node)
     (when (> (slot-value node 'mass) 0)
@@ -233,6 +259,7 @@
 (defun update-stress (mesh mps dt)
   (lparallel:pdotimes (i (length mps))
      (update-stress-mp mesh (nth i mps) dt)))
+
 (defun update-stress-serial (mesh mps dt)
   (loop for mp in mps
     do (update-stress-mp mesh mp dt)))

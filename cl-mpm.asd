@@ -39,6 +39,14 @@
   :serial t
   :components ((:file "src/bc")))
 
+(defsystem "cl-mpm/setup"
+  :depends-on ("magicl"
+               "cl-mpm"
+               )
+  :description "MPM test simulations"
+  :serial t
+  :components ((:file "src/setup")))
+
 
 ;(defsystem "cl-mpm/constitutive"
 ;  :depends-on ("magicl")
