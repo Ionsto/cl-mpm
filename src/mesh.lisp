@@ -1,35 +1,51 @@
-(defpackage :cl-mpm
+(defpackage :cl-mpm/mesh
   (:use :cl)
   (:export
+    #:make-mesh
     #:mesh-mesh-size
+    #:mesh-count
+    #:mesh-nodes
+    #:mesh-shape-func
+    #:mesh-resolution
+    #:mesh-nd
     #:node-velocity
+    #:node-acceleration
     #:node-mass
+    #:node-force
+    #:node-lock
+    #:node-index
     #:get-node
+    #:reset-node
+    #:in-bounds
+    #:position-to-index
   ))
 
-(in-package :cl-mpm)
+(in-package :cl-mpm/mesh)
 
 (defclass node ()
   ((mass 
-     :accessor :node-mass
+     :accessor node-mass
      :initform 0
      )
-  (index :initarg :index)
+  (index 
+    :accessor node-index
+    :initarg :index)
   (acceleration
-     :accessor :node-acceleration
+    :accessor node-acceleration
     :initarg :acceleration
     :initform (magicl:zeros '(1 1))
-    :accessor node-mass
     )
   (force 
+    :accessor node-force
     :initarg :force
-    :accessor :node-force
     :initform (magicl:zeros '(1 1)))
   (velocity
     :accessor node-velocity
     :initarg :velocity
     :initform (magicl:zeros '(1 1)))
-  (lock :initform (sb-thread:make-mutex)))
+  (lock 
+    :accessor node-lock
+    :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))
 
 
@@ -38,17 +54,17 @@
       :accessor mesh-nd
       :initarg :nD)
     (mesh-count 
-      :accessor mesh-mesh-count
+      :accessor mesh-count
       :initarg :mesh-count)
     (mesh-size 
       :accessor mesh-mesh-size
       :initarg :mesh-size)
     (mesh-res 
-      :accessor mesh-mesh-res
+      :accessor mesh-resolution
       :initarg :mesh-res)
     (nodes 
       :accessor mesh-nodes
-      :initarg :nodes :accessor get-nodes)
+      :initarg :nodes)
     (shape-func
       :accessor mesh-shape-func
       :initarg :shape-func))
@@ -71,7 +87,9 @@
 
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
-  (let* ((meshcount (loop for d in size collect (+ (floor d resolution) 1)))
+  (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
+         (resolution (coerce resolution 'double-float))
+         (meshcount (loop for d in size collect (+ (floor d resolution) 1)))
          (nodes (make-nodes meshcount)))
     (make-instance 'mesh
       :nD 2 
@@ -87,39 +105,29 @@
   (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
 (defun in-bounds (mesh pos)
   "Check a position (list) is inside a mesh"
-  (every (lambda (x) x) (loop for d from 0 to (- (slot-value mesh 'nD) 1)
+  (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
       collect (in-bounds-1d mesh (nth d pos) d))))
+
+
+(defun position-to-index (mesh pos &optional (round-operator 'round))
+  "Turn a vector position into a list of indexes with rounding"
+  (mapcar (lambda (x) (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))) '(0 1)))
 
 (defun get-node (mesh pos)
   "Check bounds and get node"
   (if (in-bounds mesh pos)
-      (apply #'aref (cons (get-nodes mesh) pos))
-    (error "Access grid out of bounds")))
+      (apply #'aref (cons (mesh-nodes mesh) pos))
+    (error (format nil "Access grid out of bounds at: ~a" pos))))
 
 (defgeneric reset-node (node)
   (:documentation "Reset grid to default state"))
 
 (defmethod reset-node (node)
   (with-slots ( (mass mass)
-                 (vel velocity)
-                 (force force))
+                (vel velocity)
+                (force force))
                 node
                (setf mass 0)
                (setf vel (magicl:scale vel 0))
                (setf force (magicl:scale force 0))))
-
-(defun reset-grid (mesh)
-  (let ((nodes (slot-value mesh 'nodes)))
-  (dotimes (i (array-total-size nodes))
-    (let ((node (row-major-aref nodes i)))
-    (when (> (slot-value node 'mass) 0)
-      (reset-node node))))))
-
-(defun filter-grid (mesh mass-thresh)
-  (let ((nodes (slot-value mesh 'nodes)))
-  (dotimes (i (array-total-size nodes))
-    (let ((node (row-major-aref nodes i)))
-      (when (and (> (slot-value node 'mass) 0) 
-                 (< (slot-value node 'mass) mass-thresh))
-        (reset-node node))))))
 

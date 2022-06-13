@@ -5,7 +5,7 @@
 
 (ql:quickload "magicl")
 
-(declaim (optimize speed))
+(declaim (optimize (speed 3)))
 
 (defparameter *nD* 2)
 

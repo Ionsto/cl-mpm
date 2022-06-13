@@ -10,9 +10,10 @@
 
 ;; and use (sb-ext:save-lisp-and-die "symbolic" :executable t :toplevel 'main)
 
-(defpackage :cl-mpm
-  (:use :cl))
-(in-package :cl-mpm)
+(defpackage :symbolic-derivation
+  (:use :cl)
+  (:export #:derive))
+(in-package :symbolic-derivation)
 
 (defun flatten (list)
   (cond
@@ -141,6 +142,9 @@
 	   
 	   ((eq operator 'expt) 
 	    (pow var arg1 arg2))
+	   ((eq operator 'if) 
+        (let ((arg3 (rewrite (cadddr expr))))
+          (rewrite (list 'if arg1 (derive var arg2) (derive var arg3)))))
 	   (T 
 	    (if (is-named-function operator) 
 		(rewrite (list '* (named-function-derivative operator arg1) (derive var arg1)))

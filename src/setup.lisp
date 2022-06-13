@@ -6,20 +6,29 @@
 
 (in-package :cl-mpm/setup)
 
-(defun make-column (size)
+
+(defun make-column-mps (size mp-spacing constructor &rest args)
+  (let ((mp-spacing-x (first mp-spacing))
+        (mp-spacing-y (second mp-spacing)))
+    (loop for i from 0 to (- size 1) collect 
+          (apply constructor (append '(2) args 
+                                     (list
+                                       :pos (list (/ mp-spacing-x 2) 
+                                                  (+ (/ mp-spacing-y 2) (* mp-spacing-y i)))
+                                       :volume (* mp-spacing-x mp-spacing-y)))))))
+
+(defun make-column-mps-elastic (element-count spacing E nu)
+  (make-column-mps element-count spacing 'cl-mpm::make-particle-elastic E nu))
+
+(defun make-column (height element-count)
   "Make a 2D column of heigh size, and width 1 - filled with elements"
   (let* ((nD 2)
-         (mp-spacing 1d0)
-         (sim (cl-mpm:make-mpm-sim (list 1 size) 1 1e-3 
-                                                  (cl-mpm::make-shape-function-linear nD))))
-    (progn (setf (cl-mpm:sim-mps sim) 
-                 (loop for i from 0 to (- size 1) collect 
-                       (cl-mpm::make-particle-elastic nD
-                                                      1e2
-                                                      0
-                                                      :pos (list 0.5 (+ 0.5d0 (* mp-spacing i)))
-                                                      :volume mp-spacing)))
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:mesh-mesh-size (cl-mpm:sim-mesh sim)))) 
+         (mp-spacing (/ height element-count))
+         (sim (cl-mpm:make-mpm-sim (list mp-spacing height) mp-spacing 1e-3
+                                                  (cl-mpm::make-shape-function-bspline nD mp-spacing))))
+    (progn 
+          (setf (cl-mpm:sim-mps sim) '())
+          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
 
 (defun make-block-mps (offset size mps)
