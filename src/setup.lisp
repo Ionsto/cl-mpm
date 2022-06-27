@@ -20,6 +20,16 @@
 (defun make-column-mps-elastic (element-count spacing E nu)
   (make-column-mps element-count spacing 'cl-mpm::make-particle-elastic E nu))
 
+(defun make-block (res element-count)
+  "Make a 2D column of heigh size, and width 1 - filled with elements"
+  (let* ((nD 2)
+         (size (mapcar (lambda (x) (* x res)) element-count))
+         (sim (cl-mpm:make-mpm-sim size res 1e-3 (cl-mpm::make-shape-function-bspline nD res))))
+    (progn 
+          (setf (cl-mpm:sim-mps sim) '())
+          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
+           sim)))
+
 (defun make-column (height element-count)
   "Make a 2D column of heigh size, and width 1 - filled with elements"
   (let* ((nD 2)
@@ -31,7 +41,7 @@
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
 
-(defun make-block-mps (offset size mps)
+(defun make-block-mps (offset size mps )
   (let*  ((nD 2)
           (spacing (mapcar #'/ size mps)))
     (loop for x from 0 to (- (first mps) 1)
@@ -39,8 +49,8 @@
           collect 
           (let* ((i (+ y (* x (first mps)))))
             (cl-mpm::make-particle-elastic nD
-                                           1e2
-                                           0
                                            :pos (list (+ (first offset) (* (first spacing) x))
                                                       (+ (second offset) (* (second spacing) i)))
                                            :volume (* (first spacing) (second spacing)))))))
+
+

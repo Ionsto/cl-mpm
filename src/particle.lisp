@@ -81,24 +81,20 @@
    )
   (:documentation "A linear-elastic material point"))
 
-(defun make-particle (nD &key (pos nil) (volume 1))
+(defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1))
   (progn
     (if (eq pos nil)
         (setf pos (magicl:zeros (list nD 1)))
         (setf pos (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) pos) (list nD 1))))
     (let ((stress-size 3))
-      (make-instance 'particle
+      (make-instance constructor
                      :nD nD
                      :volume (coerce volume 'double-float)
-                     :velocity (magicl:zeros (list 2 1))
-                     :deformation-gradient (magicl:eye 2)
-                     :stress (magicl:zeros '(3 1))
                      :position pos))))
 
 (defun make-particle-elastic (nD E nu &key (pos nil) (volume 1))
-  (let ((p (make-particle nD :pos pos :volume volume)))
+  (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic) ))
     (progn
-      (change-class p 'particle-elastic)
       (setf (mp-E p) E)
       (setf (mp-nu p) nu)
       p)))
