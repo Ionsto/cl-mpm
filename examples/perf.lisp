@@ -38,10 +38,12 @@
 
 (defun test-throughput ()
   (progn
-    (let* ((sizes (loop for i from 1 to 12 collect (expt 2 i)))
+    (let* ((sizes (loop for i from 1 to 8 collect (expt 2 i)))
            (times (loop for size in sizes collect 
                         (let ((sim (make-test-column size)))
-                          (time-form-noprint (cl-mpm::update-sim sim) 10))))
+                          (progn
+                            (format t "Testing size ~d ~%" size)
+                            (time-form-noprint (cl-mpm::update-sim sim) 1000)))))
            (throughput (loop for dt in times collect (/ 1 dt)))
            )
       (values sizes times throughput)
@@ -62,21 +64,33 @@
 (progn
   (defparameter *perf-sizes* '())
   (defparameter *perf-times* '())
-  (loop for cores in '(1 4 8)
+  (defparameter *perf-throughput* '())
+  (defparameter *test-corecount* '(1 2 4 8))
+  (loop for cores in *test-corecount*
         do (progn
+             (format t "Testing core count: ~d ~%" cores)
              (setf lparallel:*kernel* (lparallel:make-kernel cores :name "custom-kernel"))
              (multiple-value-bind (sizes times throughput) (test-throughput)
                (push sizes *perf-sizes*)
-               (push times *perf-times*))))
-
+               (push times *perf-times*)
+               (push throughput *perf-throughput*) 
+               )))
   (vgplot:close-all-plots)
   (vgplot:figure)
   (vgplot:xlabel "Size")
+  (vgplot:ylabel "Frame time")
+  (apply #'vgplot:loglog (loop for i from 0 to (length *test-corecount*)
+                           append (list (nth i *perf-sizes*) 
+                                        (nth i *perf-times*)
+                                        (format nil "~d" (nth i *test-corecount*)))))
+  (vgplot:legend)
+  (vgplot:figure)
+  (vgplot:xlabel "Size")
   (vgplot:ylabel "Throughput")
-  (vgplot:loglog    (nth 0 *perf-sizes*) (nth 0 *perf-times*) "0"
-                    (nth 1 *perf-sizes*) (nth 1 *perf-times*) "4"
-                    (nth 2 *perf-sizes*) (nth 2 *perf-times*) "8"
-                 )
+  (apply #'vgplot:loglog (loop for i from 0 to (length *test-corecount*)
+                           append (list (nth i *perf-sizes*) 
+                                        (nth i *perf-throughput*)
+                                        (format nil "~d" (nth i *test-corecount*)))))
   (vgplot:legend)
   )
 ;(setf lparallel:*kernel* (lparallel:make-kernel 1 :name "custom-kernel"))

@@ -155,10 +155,12 @@
               )))))))
 
 (defun p2g (mesh mps)
+  (declare (array mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
-    (p2g-mp mesh (nth i mps))))
+    (p2g-mp mesh (aref mps i))))
 
 (defun g2p-mp-node (mesh mp node svp dsvp) 
+  (declare (cl-mpm/mesh::mesh mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
     (with-accessors ((vel cl-mpm/particle:mp-velocity)
@@ -170,6 +172,7 @@
         ))))
 
 (defun g2p-mp (mesh mp)
+  (declare (cl-mpm/mesh::mesh mesh))
   "Map one MP onto the grid"
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
     mp
@@ -178,9 +181,10 @@
     (iterate-over-neighbours mesh mp #'g2p-mp-node)))
 
 (defun g2p (mesh mps)
+  (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
   (lparallel:pdotimes (i (length mps)) 
-    (g2p-mp mesh (nth i mps))))
+    (g2p-mp mesh (aref mps i))))
 
 (defun g2p-serial (mesh mps)
   "Map grid values to all particles"
@@ -209,6 +213,7 @@
       (update-node mesh dt node damping)))))
 
 (defun apply-bcs (mesh bcs)
+  (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ( (nodes  mesh-nodes)
                     (nD     mesh-nD)
                     (mc     mesh-count)) mesh
@@ -219,7 +224,8 @@
           (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index)))))))
 
 (defun update-particle (mps dt)
-  (loop for mp in mps
+  (declare (array mps))
+  (loop for mp across mps
     do (with-accessors ((vel cl-mpm/particle:mp-velocity)
                         (pos cl-mpm/particle:mp-position)) mp
       (progn 
@@ -253,8 +259,9 @@
                      ))))))
 
 (defun update-stress (mesh mps dt)
+  (declare (array mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
-     (update-stress-mp mesh (nth i mps) dt)))
+     (update-stress-mp mesh (aref mps i) dt)))
 
 (defun update-stress-serial (mesh mps dt)
   (loop for mp in mps

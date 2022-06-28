@@ -27,20 +27,20 @@
       (swank.live:update-swank)
       (sleep .05)
       ))
-(defun make-column (size)
-  (let* ((nD 2)
-         (mp-spacing 1d0)
-         (sim (cl-mpm:make-mpm-sim (list 1 size) 1 1e-3 
-                                                  (cl-mpm::make-shape-function-linear nD))))
-    (progn (setf (cl-mpm:sim-mps sim) 
-                 (loop for i from 0 to (- size 1) collect 
-                       (cl-mpm::make-particle-elastic nD
-                                                      1e2
-                                                      0
-                                                      :pos (list 0.5 (+ 0.5d0 (* mp-spacing i)))
-                                                      :volume mp-spacing)))
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:mesh-mesh-size (cl-mpm:sim-mesh sim)))) 
-           sim)))
+;(defun make-column (size)
+;  (let* ((nD 2)
+;         (mp-spacing 1d0)
+;         (sim (cl-mpm:make-mpm-sim (list 1 size) 1 1e-3 
+;                                                  (cl-mpm::make-shape-function-linear nD))))
+;    (progn (setf (cl-mpm:sim-mps sim) 
+;                 (loop for i from 0 to (- size 1) collect 
+;                       (cl-mpm::make-particle-elastic nD
+;                                                      1e2
+;                                                      0
+;                                                      :pos (list 0.5 (+ 0.5d0 (* mp-spacing i)))
+;                                                      :volume mp-spacing)))
+;          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:mesh-size (cl-mpm:sim-mesh sim)))) 
+;           sim)))
 
 
 ;(progn 
@@ -152,9 +152,22 @@
       )))
 
 
-(setf lparallel:*kernel* (lparallel:make-kernel 1 :name "custom-kernel"))
-(defparameter *sim* (make-column 64))
-(test-sub-steps *sim*)
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(progn
+    (defparameter *sim* (cl-mpm/setup::make-column 1 64))
+    (setf (cl-mpm:sim-mps *sim*) 
+           (cl-mpm/setup::make-column-mps-elastic
+             63 
+             (list 1 63)
+             1e4 0d0)))
+;(test-sub-steps *sim*)
+(let* ( (mesh (cl-mpm:sim-mesh *sim*))
+        (mps (cl-mpm:sim-mps *sim*)))
+  (time-form (cl-mpm::p2g mesh mps) 5000)
+  (time-form (cl-mpm::p2g-array mesh mps) 5000)
+  )
+
+
 ;(let ((mesh (cl-mpm:sim-mesh *sim*))
 ;      (mps (cl-mpm:sim-mps *sim*))
 ;      (bcs (cl-mpm:sim-bcs *sim*))

@@ -9,7 +9,7 @@
 
 (defun plot (sim)
   (multiple-value-bind (x y)
-    (loop for mp in (cl-mpm:sim-mps sim)
+    (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
           finally (return (values x y)))
