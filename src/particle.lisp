@@ -93,11 +93,11 @@
                      :position pos))))
 
 (defun make-particle-elastic (nD E nu &key (pos nil) (volume 1))
-  (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic) ))
-    (progn
-      (setf (mp-E p) E)
-      (setf (mp-nu p) nu)
-      p)))
+    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic) ))
+        (progn
+            (setf (mp-E p) E)
+            (setf (mp-nu p) nu)
+        p)))
 
 (defgeneric constitutive-model (mp elastic-trial-strain)  
     (:documentation "Compute new stress state given elastic strain")

@@ -81,7 +81,8 @@
 
 (defun named-function-derivative (name arg)
   (cond
-    ((eq name 'abs) `(signum ,(rewrite arg)))
+    ;((eq name 'abs) `(signum ,(rewrite arg)))
+    ((eq name 'abs) `(if (> ,(rewrite arg) 0) 1 -1))
     ((eq name 'sin) `(cos ,(rewrite arg)))
     ((eq name 'cos) `(- (sin ,(rewrite arg))))
     ((eq name 'tg) `(+ 1 (expt (tg ,(rewrite arg)) 2)))

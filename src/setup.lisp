@@ -31,12 +31,12 @@
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
 
-(defun make-column (height element-count)
+(defun make-column (height element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear))
   "Make a 2D column of heigh size, and width 1 - filled with elements"
   (let* ((nD 2)
          (mp-spacing (/ height element-count))
          (sim (cl-mpm:make-mpm-sim (list mp-spacing height) mp-spacing 1e-3
-                                                  (cl-mpm::make-shape-function-bspline nD mp-spacing))))
+                                                  (funcall shape-maker nD mp-spacing))))
     (progn 
           (setf (cl-mpm:sim-mps sim) #())
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 

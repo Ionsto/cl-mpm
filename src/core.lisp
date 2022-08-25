@@ -1,6 +1,7 @@
 (defpackage :cl-mpm
   (:use :cl 
         :cl-mpm/particle
+        :cl-mpm/mesh
         )
   (:import-from 
     :magicl tref .+ .-)
@@ -47,7 +48,7 @@
 (defun make-mpm-sim (size resolution dt shape-function)
   (make-instance 'mpm-sim
                  :dt (coerce dt 'double-float)
-                 :mesh (cl-mpm/mesh:make-mesh size resolution shape-function)
+                 :mesh (make-mesh size resolution shape-function)
                  :mps '()))
 
 (defun voight-to-matrix (vec)
@@ -59,7 +60,7 @@
                       '(2 2) :type 'double-float)))
 
 (defgeneric update-sim (sim)
-  (:documentation "Update an mpm simulation simulation"))
+  (:documentation "Update an mpm simulation by one timestep"))
 
 (defmethod update-sim (sim)
   (with-slots ((mesh mesh)
@@ -70,8 +71,8 @@
                 (progn
                     (reset-grid mesh)
                     (p2g mesh mps)
-                    (when (sim-mass-filter sim)
-                      (filter-grid mesh 1e-3))
+                    (when (> (sim-mass-filter sim) 0)
+                      (filter-grid mesh (sim-mass-filter sim)))
                     (update-nodes mesh dt (sim-damping-factor sim))
                     (apply-bcs mesh bcs)
                     (g2p mesh mps)
@@ -163,9 +164,8 @@
   (declare (cl-mpm/mesh::mesh mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
-    (with-accessors ((vel cl-mpm/particle:mp-velocity)
-                     ;(strain-rate strain-rate)
-                     (mass cl-mpm/particle:mp-mass)) mp
+    (with-accessors ((vel mp-velocity)
+                     (mass mp-mass)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
         ;(setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
@@ -174,7 +174,7 @@
 (defun g2p-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh))
   "Map one MP onto the grid"
-  (with-accessors ((vel cl-mpm/particle:mp-velocity))
+  (with-accessors ((vel mp-velocity))
     mp
     (progn
       (setf vel (magicl:scale vel 0d0)))
@@ -186,20 +186,15 @@
   (lparallel:pdotimes (i (length mps)) 
     (g2p-mp mesh (aref mps i))))
 
-(defun g2p-serial (mesh mps)
-  "Map grid values to all particles"
-  (dolist (mp mps)
-    (g2p-mp mesh mp)))
-
 (defun update-node (mesh dt node damping)
     (when (> (cl-mpm/mesh:node-mass node) 0)
-      (with-accessors ( (mass  cl-mpm/mesh:node-mass)
-                        (vel   cl-mpm/mesh:node-velocity)
-                        (force cl-mpm/mesh:node-force)
-                        (acc   cl-mpm/mesh:node-acceleration))
+      (with-accessors ( (mass  node-mass)
+                        (vel   node-velocity)
+                        (force node-force)
+                        (acc   node-acceleration))
         node
         (progn 
-          (setf vel (magicl:scale vel (/ 1 mass)))
+          (setf vel (magicl:scale vel (/ 1.0 mass)))
           (setf acc (magicl:scale force (/ 1.0 mass)))
           (setf acc (magicl:.- acc (magicl:scale vel damping)))
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
@@ -233,12 +228,12 @@
 
 ;Could include this in p2g but idk
 (defun calculate-strain-rate (mesh mp dt)
-  (let ((dstrain (magicl:zeros '(3 1))))
-    (progn
-      (iterate-over-neighbours mesh mp 
-       (lambda (mesh mp node svp dsvp)
-         (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
-      (magicl:scale  dstrain dt))))
+    (let ((dstrain (magicl:zeros '(3 1))))
+        (progn
+            (iterate-over-neighbours mesh mp 
+                (lambda (mesh mp node svp dsvp)
+                    (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
+            (magicl:scale  dstrain dt))))
 
 (defun update-stress-mp (mesh mp dt)
     (with-accessors (   (stress cl-mpm/particle:mp-stress)
@@ -248,7 +243,9 @@
                         (strain-rate cl-mpm/particle:mp-strain-rate)
                         ) mp
          
-           (let ((dstrain (magicl:scale strain-rate dt)))
+           (let ((dstrain (calculate-strain-rate mesh mp dt)
+                          ;(magicl:scale strain-rate dt)
+                          ))
              (progn
                (setf strain (magicl:.+ strain dstrain))
                (setf stress (cl-mpm/particle:constitutive-model mp strain))
@@ -256,16 +253,13 @@
                    (progn
                      (setf def (magicl:@ df def))
                      (setf volume (* volume (magicl:det df)))
+                     (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
                      ))))))
 
 (defun update-stress (mesh mps dt)
   (declare (array mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
      (update-stress-mp mesh (aref mps i) dt)))
-
-(defun update-stress-serial (mesh mps dt)
-  (loop for mp in mps
-    do (update-stress-mp mesh mp dt)))
 
 (defun reset-grid (mesh)
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))

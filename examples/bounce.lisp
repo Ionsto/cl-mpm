@@ -1,7 +1,9 @@
-;(declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (ql:quickload "cl-mpm")
 (ql:quickload "cl-mpm/setup")
+(ql:quickload "cl-mpm/particle")
+(ql:quickload "cl-mpm/bc")
 (ql:quickload "vgplot")
 (ql:quickload "swank.live")
 (ql:quickload "cl-mpm/output")
@@ -17,13 +19,8 @@
     (vgplot:plot x y ";;with points pt 7"))
   (vgplot:replot))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
-
-(defparameter *run-sim* nil)
-(defparameter *run-sim* t)
-
 (defun setup-test-column (size &optional (e-scale 1))
-  (let* ((sim (cl-mpm/setup::make-column 1 size)) 
+  (let* ((sim (cl-mpm/setup::make-column 1 size #'cl-mpm::make-shape-function-linear)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x h)
@@ -35,17 +32,27 @@
               elements
               (list h-x h-y)
               1e5 0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 0)
-      (setf (cl-mpm:sim-mass-filter sim) 0)
+      (loop for mp across (cl-mpm:sim-mps sim) 
+            do (progn
+                 (with-accessors ((pos cl-mpm/particle::mp-position)) mp
+                   (setf (magicl:tref pos 1 0) (+ 0.5d0 (magicl:tref pos 1 0))))))
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
       (setf (cl-mpm:sim-dt sim) 1e-3)
+      (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;Setup
 (progn
-  (defparameter *sim* (setup-test-column 16 2))
+  (defparameter *sim* (setup-test-column 8 2))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
   )
+
+
+(defparameter *run-sim* nil)
+(defparameter *run-sim* t)
 
 (progn 
     (vgplot:close-all-plots)
