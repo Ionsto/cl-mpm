@@ -83,3 +83,8 @@
 ;
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
+(defsystem "cl-mpm/example"
+  :class :package-inferred-system
+  :depends-on ("cl-mpm")
+  :serial t
+  :components ((:file "examples/bounce")))

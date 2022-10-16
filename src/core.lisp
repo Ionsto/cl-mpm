@@ -51,6 +51,13 @@
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
 
+(defun matrix-to-voight (matrix)
+  (let* ( (exx (tref matrix 0 0))
+          (eyy (tref matrix 1 1))
+          (exy (tref matrix 1 0)))
+    (magicl:from-list (list exx eyy
+                            exy)
+                      '(3 1) :type 'double-float)))
 (defun voight-to-matrix (vec)
   (let* ( (exx (tref vec 0 0))
           (eyy (tref vec 1 0))
@@ -102,6 +109,28 @@
                           (node (cl-mpm/mesh:get-node mesh id))
                           (weight (apply (svp shape-func) dist))
                           (grads (apply (dsvp shape-func) dist)) 
+                          )
+                          (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
+
+(defmethod iterate-over-neighbours-shape (mesh
+                                          (shape-func shape-function-linear)
+                                          (mp cl-mpm/particle::particle-damage)
+                                          func)
+  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+         (h (cl-mpm/mesh:mesh-resolution mesh))
+         (order (slot-value shape-func 'order))
+         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
+         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+    (loop for dx from 0 to order
+          do (loop for dy from 0 to order
+                   do
+                   (let* (
+                          (id (mapcar #'+ pos-index (list dx dy)))
+                          (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+                          (node (cl-mpm/mesh:get-node mesh id))
+                          (weight (apply (svp shape-func) dist))
+                          (grads (apply (dsvp shape-func) dist))
                           )
                           (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
 
@@ -218,6 +247,7 @@
         (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
           (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index)))))))
 
+
 (defun update-particle (mps dt)
   (declare (array mps))
   (loop for mp across mps
@@ -235,12 +265,38 @@
                     (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
             (magicl:scale  dstrain dt))))
 
+(defun update-damage (mp dt)
+  (let ((critical-stress 1)
+        (damage-increment 0))
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (damage cl-mpm/particle:mp-damage)) mp
+        (progn
+          (multiple-value-bind (u s v) (magicl:svd (voight-to-matrix stress))
+            (loop for i from 0 to 1
+                  do (when (< (tref s i i) critical-stress)
+                       (incf damage-increment 1)))
+            (incf damage damage-increment)
+            (setf damage (min 1 (max 0 damage-increment)))
+            (loop for i from 0 to 1
+                  do (when (< (tref s i i) 0)
+                       (setf (tref s i i) (* (tref s i i) (- 1 damage)))))
+            (setf stress (matrix-to-voight (magicl:@ u s v)))
+            ))
+      )))
+(defun rotation-matrix (degrees)
+  (let ((angle (/ (* pi degrees) 180)))
+    (magicl:from-list (list (cos angle) (- (sin angle))
+                            (sin angle) (cos angle))
+                      '(2 2)
+                      :type 'double-float
+                      )))
 (defun update-stress-mp (mesh mp dt)
-    (with-accessors (   (stress cl-mpm/particle:mp-stress)
-                        (volume cl-mpm/particle:mp-volume)
-                        (strain cl-mpm/particle:mp-strain)
-                        (def    cl-mpm/particle:mp-deformation-gradient)
-                        (strain-rate cl-mpm/particle:mp-strain-rate)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (volume cl-mpm/particle:mp-volume)
+                     (strain cl-mpm/particle:mp-strain)
+                     (def    cl-mpm/particle:mp-deformation-gradient)
+                     (strain-rate cl-mpm/particle:mp-strain-rate)
+                     (damage cl-mpm/particle:mp-damage)
                         ) mp
          
            (let ((dstrain (calculate-strain-rate mesh mp dt)
@@ -254,6 +310,7 @@
                      (setf def (magicl:@ df def))
                      (setf volume (* volume (magicl:det df)))
                      (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
+                     (update-damage mp dt)
                      ))))))
 
 (defun update-stress (mesh mps dt)

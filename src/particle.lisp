@@ -3,6 +3,7 @@
   (:export
     #:make-particle
     #:make-particle-elastic
+    #:make-particle-elastic-damage
     #:mp-mass
     #:mp-nd
     #:mp-volume
@@ -12,6 +13,7 @@
     #:mp-strain
     #:mp-strain-rate
     #:mp-gravity
+    #:mp-damage
     #:mp-deformation-gradient
     #:constitutive-model
     )
@@ -50,8 +52,12 @@
    (strain 
      :accessor mp-strain
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-     :accessor mp-strain
      :initarg :strain
+     :initform (magicl:zeros '(3 1)))
+   (strain-plastic
+     :accessor mp-strain-plastic
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :initarg :strain-plastic
      :initform (magicl:zeros '(3 1)))
    (strain-rate 
      :accessor mp-strain-rate
@@ -81,6 +87,18 @@
    )
   (:documentation "A linear-elastic material point"))
 
+(defclass particle-damage (particle)
+  ((damage
+    :accessor mp-damage
+    :type DOUBLE-FLOAT
+    :initarg :damage
+    :initform 0))
+  (:documentation "A material point with a damage tensor"))
+
+(defclass particle-elastic-damage (particle-elastic particle-damage)
+  ()
+  (:documentation "A mp with damage influanced elastic model"))
+
 (defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1))
   (progn
     (if (eq pos nil)
@@ -94,6 +112,13 @@
 
 (defun make-particle-elastic (nD E nu &key (pos nil) (volume 1))
     (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic) ))
+        (progn
+            (setf (mp-E p) E)
+            (setf (mp-nu p) nu)
+        p)))
+
+(defun make-particle-elastic-damage (nD E nu &key (pos nil) (volume 1))
+    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic-damage) ))
         (progn
             (setf (mp-E p) E)
             (setf (mp-nu p) nu)

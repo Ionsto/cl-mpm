@@ -28,9 +28,10 @@
          (elements (* e-scale (/ size 2))))
     (progn
       (setf (cl-mpm:sim-mps sim) 
-            (cl-mpm/setup::make-column-mps-elastic
+            (cl-mpm/setup::make-column-mps
               elements
               (list h-x h-y)
+              'cl-mpm::make-particle-elastic-damage
               1e5 0d0))
       (loop for mp across (cl-mpm:sim-mps sim) 
             do (progn
@@ -62,12 +63,12 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 10)
+                  (dotimes (i 50)
                     (cl-mpm::update-sim *sim*)
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
