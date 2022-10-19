@@ -1,32 +1,11 @@
 (in-package :asdf-user)
 
-(defsystem "cl-mpm"
-  :class :package-inferred-system
-  :depends-on ("magicl"
-               "alexandria"
-               "array-operations"
-               "lparallel"
-               "symbolic-derivation"
-               "cl-mpm/constitutive"
-               "cl-mpm/particle"
-               ;"cl-mpm/shape-function"
-               "cl-mpm/bc"
-               "cl-mpm/mesh"
-               )
-  :description ""
-  :in-order-to ((test-op (load-op "test/all")))
-  :perform (test-op (o c) (symbol-call :test/all :test-suite))
-  :serial t
-  :components (
-               (:file "src/shape-function")
-               (:file "src/forces")
-               (:file "src/core")
-               ))
 (defsystem "symbolic-derivation"
   :description "Symbolic derivation library from #TODO"
   :author "Aleksander Ksiazek"
   :serial t
   :components ((:file "src/symbolic-derivation")))
+
 
 (defsystem "cl-mpm/mesh"
   :depends-on ("magicl")
@@ -81,6 +60,28 @@
 ;  :serial t
 ;  :components ((:file "src/mesh")))
 ;
+(defsystem "cl-mpm"
+  ;; :class :package-inferred-system
+  :depends-on ("magicl"
+               "alexandria"
+               "array-operations"
+               "lparallel"
+               "symbolic-derivation"
+               "cl-mpm/constitutive"
+               "cl-mpm/particle"
+               ;"cl-mpm/shape-function"
+               "cl-mpm/bc"
+               "cl-mpm/mesh"
+               )
+  :description ""
+  :in-order-to ((test-op (load-op "test/all")))
+  :perform (test-op (o c) (symbol-call :test/all :test-suite))
+  :serial t
+  :components (
+               (:file "src/shape-function")
+               (:file "src/forces")
+               (:file "src/core")
+               ))
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
 (defsystem "cl-mpm/example"
@@ -88,3 +89,15 @@
   :depends-on ("cl-mpm")
   :serial t
   :components ((:file "examples/bounce")))
+
+(defsystem "cl-mpm/examples/fracture"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "vgplot"
+               "swank.live"
+               "magicl"
+               "py4cl2")
+  :serial t
+  :components ((:file "examples/fracture")))

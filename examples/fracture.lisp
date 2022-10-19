@@ -1,25 +1,24 @@
-(declaim (optimize (debug 3) (safety 0) (speed 0)))
+(defpackage :cl-mpm/examples/fracture
+  (:use :cl))
+(in-package :cl-mpm/examples/fracture)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
-(ql:quickload "cl-mpm")
-(ql:quickload "cl-mpm/setup")
-(ql:quickload "cl-mpm/particle")
-(ql:quickload "cl-mpm/bc")
-(ql:quickload "vgplot")
-(ql:quickload "swank.live")
-(ql:quickload "cl-mpm/output")
-(ql:quickload "magicl")
+;; (ql:quickload "cl-mpm")
+;; (ql:quickload "cl-mpm/setup")
+;; (ql:quickload "cl-mpm/particle")
+;; (ql:quickload "cl-mpm/bc")
+;; (ql:quickload "vgplot")
+;; (ql:quickload "swank.live")
+;; (ql:quickload "cl-mpm/output")
+;; (ql:quickload "magicl")
 ;; (ql:quickload "py4cl")
 ;; (setf py4cl:*python-command* "python3")
 ;; (py4cl:import-module "matplotlib.pyplot" :as "plt")
-(ql:quickload "py4cl2")
-(py4cl2:defpymodule "matplotlib" nil :lisp-package "MPL")
-(mpl:use :backend "TKAgg")
-(py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT")
-;; (plt:figure)
-;; (plt:ion)
-;; (plt:ioff)
-;; (plt:plot '(1 2 3))
-;; (plt:show)
+;; (ql:quickload "py4cl2")
+;; (defun setup ()
+;;   (py4cl2:defpymodule "matplotlib" nil :lisp-package "MPL")
+;;   (mpl:use :backend "TKAgg")
+;;   (py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT"))
 (defun plot (sim)
   (multiple-value-bind (x y)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -28,19 +27,19 @@
           finally (return (values x y)))
     (vgplot:plot x y ";;with points pt 7"))
   (vgplot:replot))
-(defun plot-pyplot (sim)
-  (multiple-value-bind (x y c)
-    (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (cl-mpm/particle:mp-damage mp) into c
-          finally (return (values x y c)))
-    (plt:scatter :x x :y y :c c))
-  (plt:xlim 0 (first (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))))
-  (plt:ylim 0 (second (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))))
-  (plt:clim 0 1)
-  ;; (plt:colorbar)
-  (plt:show))
+;; (defun plot-pyplot (sim)
+;;   (multiple-value-bind (x y c)
+;;     (loop for mp across (cl-mpm:sim-mps sim)
+;;           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
+;;           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+;;           collect (cl-mpm/particle:mp-damage mp) into c
+;;           finally (return (values x y c)))
+;;     (plt:scatter :x x :y y :c c))
+;;   (plt:xlim 0 (first (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))))
+;;   (plt:ylim 0 (second (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))))
+;;   (plt:clim 0 1)
+;;   ;; (plt:colorbar)
+;;   (plt:show))
 
 (defun setup-test-column (size &optional (e-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
@@ -60,7 +59,7 @@
              block-size
              (mapcar (lambda (e) (* e e-scale)) block-size)
               'cl-mpm::make-particle-elastic-damage
-              1e5 0d0 :mass 5))
+              1e3 0.2d0 :mass 5))
       ;; (setf (cl-mpm:sim-mps sim) 
       ;;       (cl-mpm/setup::make-block-mps
       ;;        (list (* 1.5 h-x e-scale)
@@ -75,26 +74,29 @@
       ;;              (setf (magicl:tref pos 1 0) (+ 0.5d0 (magicl:tref pos 1 0))))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
-      (loop for i from 1 to e-scale do
-        (setf (cl-mpm/particle:mp-mass (aref (cl-mpm:sim-mps sim) (- (length (cl-mpm:sim-mps sim)) i))) 1000))
+      (loop for i from 1 to (+ 1 e-scale) do
+        (setf (cl-mpm/particle:mp-mass
+               (aref (cl-mpm:sim-mps sim)
+                     (- (length (cl-mpm:sim-mps sim)) i)))
+              4000))
       (setf (cl-mpm:sim-dt sim) 1e-3)
       ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;Setup
-(progn
-  (defparameter *sim* (setup-test-column '(4 8) 2))
+(defun setup ()
+  (defparameter *sim* (setup-test-column '(4 8) 1))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
+  (defparameter *run-sim* nil)
+  (defparameter *run-sim* t)
   )
 
-
 (defparameter *run-sim* nil)
-(defparameter *run-sim* t)
 
-(progn 
+(defun run ()
     (vgplot:close-all-plots)
     (vgplot:figure)
     (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*))) 
