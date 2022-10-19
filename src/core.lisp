@@ -266,7 +266,7 @@
             (magicl:scale  dstrain dt))))
 
 (defun update-damage (mp dt)
-  (let ((critical-stress 1)
+  (let ((critical-stress 1e3)
         (damage-increment 0))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (damage cl-mpm/particle:mp-damage)) mp
@@ -274,13 +274,16 @@
           (multiple-value-bind (u s v) (magicl:svd (voight-to-matrix stress))
             (loop for i from 0 to 1
                   do (when (< (tref s i i) critical-stress)
-                       (incf damage-increment 1)))
+                       (progn
+                         ;; (format t "tensile stress: ~f damage ~f ~%" (tref s i i) damage)
+                         (incf damage-increment (* 0.1 dt)))))
             (incf damage damage-increment)
             (setf damage (min 1 (max 0 damage-increment)))
             (loop for i from 0 to 1
                   do (when (< (tref s i i) 0)
                        (setf (tref s i i) (* (tref s i i) (- 1 damage)))))
-            (setf stress (matrix-to-voight (magicl:@ u s v)))
+            ;; (setf stress (matrix-to-voight (magicl:@ u s v)))
+            ;; (setf stress (magicl:scale stress (- 1  damage)))
             ))
       )))
 (defun rotation-matrix (degrees)
@@ -303,7 +306,7 @@
                           ;(magicl:scale strain-rate dt)
                           ))
              (progn
-               (setf strain (magicl:.+ strain dstrain))
+               (setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
                (setf stress (cl-mpm/particle:constitutive-model mp strain))
                 (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
                    (progn

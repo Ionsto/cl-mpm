@@ -99,7 +99,7 @@
   ()
   (:documentation "A mp with damage influanced elastic model"))
 
-(defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1))
+(defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1) (mass 1))
   (progn
     (if (eq pos nil)
         (setf pos (magicl:zeros (list nD 1)))
@@ -108,17 +108,17 @@
       (make-instance constructor
                      :nD nD
                      :volume (coerce volume 'double-float)
+                     :mass (coerce mass 'double-float)
                      :position pos))))
-
-(defun make-particle-elastic (nD E nu &key (pos nil) (volume 1))
-    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic) ))
+(defun make-particle-elastic (nD E nu &key (pos nil) (volume 1) (mass 1))
+    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic :mass mass) ))
         (progn
             (setf (mp-E p) E)
             (setf (mp-nu p) nu)
         p)))
 
-(defun make-particle-elastic-damage (nD E nu &key (pos nil) (volume 1))
-    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic-damage) ))
+(defun make-particle-elastic-damage (nD E nu &key (pos nil) (volume 1) (mass 1))
+    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic-damage :mass mass) ))
         (progn
             (setf (mp-E p) E)
             (setf (mp-nu p) nu)
