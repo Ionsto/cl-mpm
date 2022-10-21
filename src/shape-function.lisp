@@ -1,6 +1,7 @@
 (defpackage :cl-mpm
   (:use :cl))
 (in-package :cl-mpm)
+(declaim (optimize (debug 3) (safety 0) (speed 0)))
 
 (defmacro shape-linear (x)
   `(- 1d0 (abs ,x)))

@@ -129,7 +129,7 @@
     (format t "Filter ~%")
     (setf filter-grid-time  (time-form (cl-mpm::filter-grid mesh 1e-3) 10000)) 
     (format t "Update-nodes ~%")
-    (setf update-nodes-time (time-form (cl-mpm::update-nodes mesh dt) 1000)) 
+    (setf update-nodes-time (time-form (cl-mpm::update-nodes mesh dt (cl-mpm::sim-damping-factor sim)) 1000)) 
     (format t "Apply-bcs ~%")
     (setf apply-bcs-time (time-form (cl-mpm::apply-bcs mesh bcs) 1000)) 
     (format t "G2P ~%")
@@ -158,14 +158,15 @@
     (setf (cl-mpm:sim-mps *sim*) 
            (cl-mpm/setup::make-column-mps-elastic
              63 
-             (list 1 63)
+             (list (/ 1 64) (/ 1 64))
+             ;; (list 1 63)
              1e4 0d0)))
 ;(test-sub-steps *sim*)
-(let* ( (mesh (cl-mpm:sim-mesh *sim*))
-        (mps (cl-mpm:sim-mps *sim*)))
-  (time-form (cl-mpm::p2g mesh mps) 5000)
-  (time-form (cl-mpm::p2g-array mesh mps) 5000)
-  )
+;; (let* ( (mesh (cl-mpm:sim-mesh *sim*))
+;;         (mps (cl-mpm:sim-mps *sim*)))
+;;   (time-form (cl-mpm::p2g mesh mps) 5000)
+;;   (time-form (cl-mpm::p2g-array mesh mps) 5000)
+;;   )
 
 
 ;(let ((mesh (cl-mpm:sim-mesh *sim*))

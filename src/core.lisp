@@ -2,6 +2,7 @@
   (:use :cl 
         :cl-mpm/particle
         :cl-mpm/mesh
+        :cl-mpm/utils
         )
   (:import-from 
     :magicl tref .+ .-)
@@ -15,7 +16,9 @@
     #:sim-dt
     #:sim-damping-factor
     #:sim-mass-filter
+    #:post-stress-step
     ))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -51,20 +54,6 @@
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
 
-(defun matrix-to-voight (matrix)
-  (let* ( (exx (tref matrix 0 0))
-          (eyy (tref matrix 1 1))
-          (exy (tref matrix 1 0)))
-    (magicl:from-list (list exx eyy
-                            exy)
-                      '(3 1) :type 'double-float)))
-(defun voight-to-matrix (vec)
-  (let* ( (exx (tref vec 0 0))
-          (eyy (tref vec 1 0))
-          (exy (tref vec 2 0)))
-    (magicl:from-list (list exx exy 
-                            exy eyy)
-                      '(2 2) :type 'double-float)))
 
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
@@ -112,27 +101,27 @@
                           )
                           (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
 
-(defmethod iterate-over-neighbours-shape (mesh
-                                          (shape-func shape-function-linear)
-                                          (mp cl-mpm/particle::particle-damage)
-                                          func)
-  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-         (h (cl-mpm/mesh:mesh-resolution mesh))
-         (order (slot-value shape-func 'order))
-         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
-         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
-    (loop for dx from 0 to order
-          do (loop for dy from 0 to order
-                   do
-                   (let* (
-                          (id (mapcar #'+ pos-index (list dx dy)))
-                          (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
-                          (node (cl-mpm/mesh:get-node mesh id))
-                          (weight (apply (svp shape-func) dist))
-                          (grads (apply (dsvp shape-func) dist))
-                          )
-                          (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
+;; (defmethod iterate-over-neighbours-shape (mesh
+;;                                           (shape-func shape-function-linear)
+;;                                           (mp cl-mpm/particle::particle-damage)
+;;                                           func)
+;;   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+;;          (h (cl-mpm/mesh:mesh-resolution mesh))
+;;          (order (slot-value shape-func 'order))
+;;          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
+;;          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+;;          (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+;;     (loop for dx from 0 to order
+;;           do (loop for dy from 0 to order
+;;                    do
+;;                    (let* (
+;;                           (id (mapcar #'+ pos-index (list dx dy)))
+;;                           (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+;;                           (node (cl-mpm/mesh:get-node mesh id))
+;;                           (weight (apply (svp shape-func) dist))
+;;                           (grads (apply (dsvp shape-func) dist))
+;;                           )
+;;                           (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-bspline) mp func)
   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
@@ -141,8 +130,8 @@
          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
          (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec)))
-    (loop for dx from 0 to order
-          do (loop for dy from 0 to order
+    (loop for dx from -1 to 1 
+          do (loop for dy from -1 to 1 
                    do
                    (let* (
                           (id (mapcar #'+ pos-index (list dx dy)))
@@ -265,27 +254,6 @@
                     (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
             (magicl:scale  dstrain dt))))
 
-(defun update-damage (mp dt)
-  (let ((critical-stress 1e3)
-        (damage-increment 0))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (damage cl-mpm/particle:mp-damage)) mp
-        (progn
-          (multiple-value-bind (u s v) (magicl:svd (voight-to-matrix stress))
-            (loop for i from 0 to 1
-                  do (when (< (tref s i i) critical-stress)
-                       (progn
-                         ;; (format t "tensile stress: ~f damage ~f ~%" (tref s i i) damage)
-                         (incf damage-increment (* 0.1 dt)))))
-            (incf damage damage-increment)
-            (setf damage (min 1 (max 0 damage-increment)))
-            (loop for i from 0 to 1
-                  do (when (< (tref s i i) 0)
-                       (setf (tref s i i) (* (tref s i i) (- 1 damage)))))
-            ;; (setf stress (matrix-to-voight (magicl:@ u s v)))
-            ;; (setf stress (magicl:scale stress (- 1  damage)))
-            ))
-      )))
 (defun rotation-matrix (degrees)
   (let ((angle (/ (* pi degrees) 180)))
     (magicl:from-list (list (cos angle) (- (sin angle))
@@ -299,21 +267,23 @@
                      (strain cl-mpm/particle:mp-strain)
                      (def    cl-mpm/particle:mp-deformation-gradient)
                      (strain-rate cl-mpm/particle:mp-strain-rate)
-                     (damage cl-mpm/particle:mp-damage)
+                     ;; (damage cl-mpm/particle:mp-damage)
                         ) mp
          
            (let ((dstrain (calculate-strain-rate mesh mp dt)
                           ;(magicl:scale strain-rate dt)
                           ))
              (progn
-               (setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
+               ;;(setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
+               (setf strain (magicl:.+ strain dstrain))
                (setf stress (cl-mpm/particle:constitutive-model mp strain))
                 (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
                    (progn
                      (setf def (magicl:@ df def))
                      (setf volume (* volume (magicl:det df)))
                      (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
-                     (update-damage mp dt)
+                     (cl-mpm/particle:post-stress-step mesh mp dt)
+                     ;; (update-damage mp dt)
                      ))))))
 
 (defun update-stress (mesh mps dt)

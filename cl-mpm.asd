@@ -6,6 +6,11 @@
   :serial t
   :components ((:file "src/symbolic-derivation")))
 
+(defsystem "cl-mpm/utils"
+  :depends-on ("magicl")
+  :description "MPM utility functiosn definitions"
+  :serial t
+  :components ((:file "src/utils")))
 
 (defsystem "cl-mpm/mesh"
   :depends-on ("magicl")
@@ -42,6 +47,14 @@
   :serial t
   :components ((:file "src/particle")))
 
+(defsystem "cl-mpm/damage"
+  :depends-on ("magicl"
+               "cl-mpm/utils"
+               "cl-mpm/particle")
+  :description "MPM smeared damage mechanics"
+  :serial t
+  :components ((:file "src/damage")))
+
 (defsystem "cl-mpm/output"
   :depends-on ("magicl")
   :description "MPM output helper functions"
@@ -63,6 +76,7 @@
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("magicl"
+               "cl-mpm/utils"
                "alexandria"
                "array-operations"
                "lparallel"
@@ -72,6 +86,7 @@
                ;"cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
+               "cl-mpm/damage"
                )
   :description ""
   :in-order-to ((test-op (load-op "test/all")))

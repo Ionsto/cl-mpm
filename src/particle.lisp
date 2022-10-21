@@ -16,9 +16,13 @@
     #:mp-damage
     #:mp-deformation-gradient
     #:constitutive-model
+    #:particle
+    #:particle-damage
+    #:post-stress-step
     )
   )
 (in-package :cl-mpm/particle)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass particle ()
   ((mass 
@@ -135,5 +139,9 @@
                 mp
         (cl-mpm/constitutive:linear-elastic strain E nu)))
 
+(defgeneric post-stress-step (mesh mp dt)
+  (:documentation "This step gets called after full stress state resolved and allows for other processing"))
+(defmethod post-stress-step (mesh mp dt)
+  ())
 
 
