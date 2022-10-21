@@ -19,16 +19,24 @@
 ;;   (py4cl2:defpymodule "matplotlib" nil :lisp-package "MPL")
 ;;   (mpl:use :backend "TKAgg")
 ;;   (py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT"))
+(defun length-from-def (sim mp dim)
+  (let ((h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2)))
+    (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
 (defun plot-lambda (sim &optional (c-val (lambda (x) (cl-mpm/particle:mp-damage x))))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y c)
+  (multiple-value-bind (x y c lx ly)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+          collect (length-from-def sim mp 0) into lx
+          collect (length-from-def sim mp 1) into ly
           collect (funcall c-val mp) into c
-          finally (return (values x y c)))
+          finally (return (values x y c lx ly)))
        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-       (vgplot:plot x y c ";;with points pt 7 lc palette"))
+    ;; (vgplot:plot x y c ";;with points pt 7 lc palette")
+    (break)
+    (vgplot:plot x y lx ly ";;with ellipses")
+    )
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
@@ -39,26 +47,42 @@
   (vgplot:replot))
 (defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y c stress-y)
+  (multiple-value-bind (x y c stress-y lx ly)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+          collect (length-from-def sim mp 0) into lx
+          collect (length-from-def sim mp 1) into ly
           collect (cl-mpm/particle:mp-damage mp) into c
           collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
-          finally (return (values x y c stress-y)))
+          finally (return (values x y c stress-y lx ly)))
     (cond
       ((eq plot :damage)
         (vgplot:format-plot t "set cbrange [0:1]")
        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
         (vgplot:plot x y c ";;with points pt 7 lc palette")
        )
-      ((eq plot :stress)
+      (
+       (eq plot :stress)
        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y stress-y ";;with points pt 7 lc palette")
-       )))
+       (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
+      ((eq plot :deformed)
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+       (vgplot:plot x y lx ly ";;with ellipses")))
+    )
   
-  (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))) 
-                     0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))))
+  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+         (ms-x (first ms))
+         (ms-y (second ms))
+         )
+    (vgplot:axis (list 0 ms-x
+                       0 ms-y))
+    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h))
+  ;; (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))) 
+  ;;                    0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))))
   (vgplot:replot))
 ;; (defun plot-pyplot (sim)
 ;;   (multiple-value-bind (x y c)
@@ -148,23 +172,23 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 50
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 100)
+                  (dotimes (i 10)
                     (cl-mpm::update-sim *sim*)
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
                     ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
                     ;; (setf *time*     (cons *t* *time*))
                     )
-                  (plot *sim*)
-                  ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
-                  (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm"
-                                                                         (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                          *sim*)
+                  (plot *sim* :deformed)
+                  (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                  ;; (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm"
+                  ;;                                                        (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                  ;;                         *sim*)
                   (incf *sim-step*)
                   (swank.live:update-swank)
                   (sleep .01)
