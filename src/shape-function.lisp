@@ -1,11 +1,52 @@
 (defpackage :cl-mpm
   (:use :cl))
 (in-package :cl-mpm)
-(declaim (optimize (debug 3) (safety 0) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-(defmacro shape-linear (x)
-  `(- 1d0 (abs ,x)))
-
+(defmacro shape-linear-form (x)
+  `(quote (- 1d0 (abs ,x))))
+(defun shape-linear (x)
+  (- 1d0 (abs x)))
+(declaim (inline dispatch) (ftype (function (double-float) double-float) shape-linear))
+(defun shape-linear (x)
+  (declare (type double-float x)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (the double-float (- 1d0 (abs x))))
+(declaim (inline dispatch) (ftype (function (double-float) double-float) shape-linear-dsvp))
+(defun shape-linear-dsvp (x)
+  (declare (type double-float x)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (the double-float (if (> x 0d0)
+                        1d0
+                        -1d0)))
+(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-bspline))
+(defun shape-bspline (x h)
+  (if (< (abs x) (/ h 2)) 
+          (- (/ 3 4) (expt (/ (abs x) h) 2))
+          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
+(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-bspline-dsvp))
+(defun shape-bspline-dsvp (X H)
+  (IF (< (ABS X) (/ H 2))
+    (-
+     (* (* 2 (/ (ABS X) H))
+        (/
+         (*
+          (IF (> X 0)
+              1
+              -1)
+          H)
+         (EXPT H 2))))
+    (* 1/8
+       (* (* 2 (- 3 (/ (* 2 (ABS X)) H)))
+          (-
+           (/
+            (*
+             (* 2
+                (IF (> X 0)
+                    1
+                    -1))
+             H)
+            (EXPT H 2)))))))
 (defmacro create-svp (arg form)
   `(lambda (,arg) ,form))
 
@@ -24,6 +65,15 @@
 
 (defun dsvp-1d (svp dsvp)
   (lambda (x) (list (funcall dsvp x))))
+(defmacro execute-dsvp-2d (svp dsvp x y)
+  `(let (
+          (wx (,svp ,x))
+          (wy (,svp ,y))
+          (dx (,dsvp ,x))
+          (dy (,dsvp ,y))
+          )
+                                        ;(d/dx d/dy)
+      (list (* wy dx) (* wx dy))))
 (defun dsvp-2d (svp dsvp)
   (lambda (x y) (let (
                       (wx (funcall svp x))
@@ -89,12 +139,12 @@
                     :dsvp (nd-dsvp ,nD svp dsvp))))
 
 (defun make-shape-function-linear (nD h)
-  (make-shape-function x (- 1 (abs (/ x h))) nD 1 'shape-function-linear))
+  (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
 
 (defmacro bspline (x h)
-  (if (< (abs x) (/ h 2)) 
-      (- (/ 3 4) (expt (/ (abs x) h) 2))
-      (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
+  (if (< (abs x) (/ h 2d0)) 
+      (- (/ 3d0 4d0) (expt (/ (abs x) h) 2d0))
+      (* (/ 1d0 8d0) (expt (- 3d0 (/ (* 2d0 (abs x)) h)) 2d0))))
 
 (defun make-shape-function-bspline (nD h)
   (make-shape-function x 
@@ -102,6 +152,10 @@
           (- (/ 3 4) (expt (/ (abs x) h) 2))
           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))) 
                        nD 2 'shape-function-bspline))
+(symbolic-derivation:derive 'x
+      '(if (< (abs x) (/ h 2)) 
+          (- (/ 3 4) (expt (/ (abs x) h) 2))
+          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
 ;(defun assemble-dsvp (dsvp)
 ;  "Assemble d/di to the strain-displacement matrix"
 ;  (let ((nD 2)

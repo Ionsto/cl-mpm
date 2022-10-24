@@ -14,4 +14,8 @@
 (defun det-ext-force (mp node svp)
   "Calculate external force contribution from mp at node"
   (with-accessors ( (mass cl-mpm/particle:mp-mass)) mp
-    (magicl:scale (magicl:from-list (list 0d0 (cl-mpm/particle:mp-gravity mp)) '(2 1)) (* mass svp))))
+    (magicl:scale
+     (magicl:.+
+      (magicl:from-list (list 0d0 (* mass (cl-mpm/particle:mp-gravity mp))) '(2 1))
+      (cl-mpm/particle:mp-body-force mp)
+      ) svp)))

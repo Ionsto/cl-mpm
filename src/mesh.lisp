@@ -26,6 +26,7 @@
 (defclass node ()
   ((mass 
      :accessor node-mass
+     :type double-float
      :initform 0
      )
   (index 
@@ -34,15 +35,18 @@
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1))
     )
   (force 
     :accessor node-force
     :initarg :force
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1)))
   (velocity
     :accessor node-velocity
     :initarg :velocity
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1)))
   (lock 
     :accessor node-lock
@@ -101,13 +105,16 @@
       :shape-func shape-function
       )))
 
+(declaim (inline in-bounds-1d))
 (defun in-bounds-1d (mesh value dim)
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
 (defun in-bounds (mesh pos)
   "Check a position (list) is inside a mesh"
-  (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
-      collect (in-bounds-1d mesh (nth d pos) d))))
+  (and (in-bounds-1d mesh (first pos) 0) (in-bounds-1d mesh (second pos) 1))
+  ;; (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
+  ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
+  )
 
 
 (defun position-to-index (mesh pos &optional (round-operator 'round))

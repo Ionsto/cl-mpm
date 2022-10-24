@@ -59,6 +59,7 @@
   (:documentation "Update an mpm simulation by one timestep"))
 
 (defmethod update-sim (sim)
+  (declare (cl-mpm::mpm-sim sim))
   (with-slots ((mesh mesh)
                (mps mps)
                (bcs bcs)
@@ -74,32 +75,121 @@
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
-                  )))
+                    )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
   (:documentation "For a given shape function iterate over relevant nodes and call func with mesh, mp, node, weight and gradients"))
 
+(declaim (inline iterate-over-neighbours)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours))
 (defun iterate-over-neighbours (mesh mp func)
-  (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func))
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  ;; (iterate-over-neighbours-shape-linear mesh mp func)
+  (iterate-over-neighbours-shape-bspline mesh mp func)
+  ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
+  (values)
+  )
 
-(defmethod iterate-over-neighbours-shape (mesh shape-func mp func)
+(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-linear) mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm::shape-function shape-func)
+           (cl-mpm/particle:particle mp))
   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
          (h (cl-mpm/mesh:mesh-resolution mesh))
-         (order (slot-value shape-func 'order))
+         ;(order (slot-value shape-func 'order))
          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
          (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
-    (loop for dx from 0 to order
-          do (loop for dy from 0 to order
+    (loop for dx from 0 to 1
+          do (loop for dy from 0 to 1
                    do
-                   (let* (
-                          (id (mapcar #'+ pos-index (list dx dy)))
-                          (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
-                          (node (cl-mpm/mesh:get-node mesh id))
-                          (weight (apply (svp shape-func) dist))
-                          (grads (apply (dsvp shape-func) dist)) 
+                   (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                     (when (cl-mpm/mesh:in-bounds mesh id)
+                       (let* ((dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+                              (node (cl-mpm/mesh:get-node mesh id))
+                              (weight (apply (svp shape-func) dist))
+                              (grads (apply (dsvp shape-func) dist))) 
+                         (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))))
+
+;; (declaim (inline dispatch)
+;;          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours-shape-linear))
+(declaim (inline iterate-over-neighbours-shape-linear))
+(defun iterate-over-neighbours-shape-linear (mesh mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec (cl-mpm/particle:mp-position mp))
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos-index (magicl:scale pos-vec (/ 1 h)))
+           ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+           )
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (let* ((id (list (+ (floor (tref pos-index 0 0)) dx)
+                                         (+ (floor (tref pos-index 1 0)) dy))))
+                          (when (cl-mpm/mesh:in-bounds mesh id)
+                            (let* ((dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+                                   (node (cl-mpm/mesh:get-node mesh id))
+                                   (weights (mapcar (lambda (x) (- 1d0 (abs (/ x h)))) dist))
+                                   (weight (reduce #'* weights))
+                                   (grads (mapcar (lambda (d w)
+                                                    (* (/ 1 h) (shape-linear-dsvp d) w))
+                                                  dist (nreverse weights)))
+                                   (dsvp (assemble-dsvp-2d grads)))
+                              (funcall func mesh mp node weight dsvp)))))))))
+(declaim (inline iterate-over-neighbours-shape-bspline))
+(defun iterate-over-neighbours-shape-bspline (mesh mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec (cl-mpm/particle:mp-position mp))
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           ;; (pos-index (magicl:scale pos-vec (/ 1 h)))
+           ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+           )
+      (loop for dx from -1 to 1
+            do (loop for dy from -1 to 1
+                     do (let* ((id (list (+ (round (/ (tref pos-vec 0 0) h)) dx)
+                                         (+ (round (/ (tref pos-vec 1 0) h)) dy))))
+                          (when (cl-mpm/mesh:in-bounds mesh id)
+                            (let* ((dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+                                   (node (cl-mpm/mesh:get-node mesh id))
+                                   (weights (mapcar (lambda (x) (shape-bspline x h)) dist))
+                                   (weight (reduce #'* weights))
+                                   (grads (mapcar (lambda (d w)
+                                                (* (shape-bspline-dsvp d h) w))
+                                                dist (nreverse weights)))
+                                   (dsvp (assemble-dsvp-2d grads)))
+                              (funcall func mesh mp node weight dsvp)))))))))
+(defmacro iterate-over-neighbours-shape-linear-macro (mesh mp func-body)
+  `(progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution ,mesh))
+           (pos-vec (cl-mpm/particle:mp-position ,mp))
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos-index (magicl:scale pos-vec (/ 1 h)))
+           ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+           )
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (let* (
+                               (id (list (+ (floor (tref pos-index 0 0)) dx)
+                                         (+ (floor (tref pos-index 1 0)) dy)
+                                         ))
+                               (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
+                               (node (cl-mpm/mesh:get-node ,mesh id))
+                               (weights (mapcar #'shape-linear dist))
+                               (weight (reduce #'* weights))
+                               (dsvp (mapcar (lambda (d w) (* (shape-linear-dsvp d) w)) dist (nreverse weights)))
+                               ;; (dsvp (assemble-dsvp-2d (list (* (shape-linear-dsvp (first dist)) wy)
+                               ;;                               (* (shape-linear-dsvp (second dist)) wx))
+                               ;;        ))
+                               )
+                          ,func-body
                           )
-                          (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
+                     )))))
 
 ;; (defmethod iterate-over-neighbours-shape (mesh
 ;;                                           (shape-func shape-function-linear)
@@ -124,6 +214,9 @@
 ;;                           (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-bspline) mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm::shape-function-bspline shape-func)
+           (cl-mpm/particle:particle mp))
   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
          (h (cl-mpm/mesh:mesh-resolution mesh))
          (order (slot-value shape-func 'order))
@@ -147,55 +240,105 @@
 ;(defparameter *mp* (cl-mpm/particle:make-particle 2 :pos '(0.5 0.1)))
 ;(iterate-over-neighbours-shape *mesh* *sf* *mp* 
 ;                               (lambda (mesh mp node w dsvp) (print (cl-mpm/mesh:node-index  node))))
-
-(defun p2g-mp (mesh mp)
-    (iterate-over-neighbours mesh mp
-      (lambda (mesh mp node svp dsvp) 
-      (progn
-        (with-accessors (   (node-vel   cl-mpm/mesh:node-velocity)
-                            (node-mass  cl-mpm/mesh:node-mass)
-                            (node-force cl-mpm/mesh:node-force)
-                            (node-lock  cl-mpm/mesh:node-lock)) node
-          (with-accessors ( (mp-vel  cl-mpm/particle:mp-velocity)
+(declaim
+ (inline p2g-mp-node)
+ (ftype (function (cl-mpm/particle:particle
+                           cl-mpm/mesh::node
+                           double-float
+                           magicl:matrix/double-float) (values))
+                p2g-mp-node
+                          ))
+(defun p2g-mp-node (mp node svp dsvp)
+        (declare
+         (cl-mpm/particle:particle mp)
+         (cl-mpm/mesh::node node)
+         (double-float svp)
+         )
+  (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                   (node-mass  cl-mpm/mesh:node-mass)
+                   (node-force cl-mpm/mesh:node-force)
+                   (node-lock  cl-mpm/mesh:node-lock)) node
+    (with-accessors ( (mp-vel  cl-mpm/particle:mp-velocity)
                             (mp-mass cl-mpm/particle:mp-mass)
-                            (strain-rate cl-mpm/particle:mp-strain-rate)) mp 
+                     ;; (strain-rate cl-mpm/particle:mp-strain-rate)
+                     ) mp 
+            ;; (declare (double-float mp-mass
+            ;;                        node-mass))
             (progn
-              (setf strain-rate (magicl:scale strain-rate 0))
-              (sb-thread:with-mutex (node-lock)
-                (setf node-mass 
-                      (+ node-mass (* mp-mass svp)))
-                (setf node-vel 
-                      (magicl:.+ node-vel (magicl:scale mp-vel (* mp-mass svp))))
-                (setf node-force 
-                      (magicl:.- node-force  (det-int-force mp node dsvp)))
-                (setf node-force 
-                      (magicl:.+ node-force  (det-ext-force mp node svp)))
-                (setf strain-rate (.+ strain-rate (magicl:@ dsvp node-vel))))
-              )))))))
+                (let* ((weighted-mass (* mp-mass svp))
+                      (weighted-vel (magicl:scale mp-vel weighted-mass))
+                      (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
+                       )
+                  (sb-thread:with-mutex (node-lock)
+                    (setf node-mass 
+                          (+ node-mass weighted-mass))
+                    (setf node-vel 
+                          (magicl:.+ node-vel weighted-vel))
+                    (setf node-force 
+                          (magicl:.+ node-force force))
+                    ))
+              )))
+  (values))
+(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
+                p2g-mp))
+(defun p2g-mp (mesh mp)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (iterate-over-neighbours
+   mesh mp
+      (lambda (mesh mp node svp dsvp) 
+        (p2g-mp-node mp node svp dsvp)))
+  (values))
+;; (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
+;;                 p2g-mp-new))
+;; (defun p2g-mp-new (mesh mp)
+;;   (declare (cl-mpm/mesh::mesh mesh)
+;;            (cl-mpm/particle:particle mp))
+;;   (iterate-over-neighbours-shape-linear
+;;    mesh mp
+;;       (lambda (mesh mp node svp dsvp) 
+;;         ;; (p2g-mp-node mp node svp dsvp)
+;;         ))
+;;   (values))
 
 (defun p2g (mesh mps)
-  (declare (array mps) (cl-mpm/mesh::mesh mesh))
+  (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
     (p2g-mp mesh (aref mps i))))
 
+(declaim
+ (inline g2p-mp-node)
+ (ftype (function (cl-mpm/mesh::mesh
+                           cl-mpm/particle:particle
+                           cl-mpm/mesh::node double-float magicl:matrix/double-float) (values))
+                g2p-mp-node
+                          ))
 (defun g2p-mp-node (mesh mp node svp dsvp) 
-  (declare (cl-mpm/mesh::mesh mesh))
+  (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
     (with-accessors ((vel mp-velocity)
-                     (mass mp-mass)) mp
+                     (mass mp-mass)
+                     (strain-rate cl-mpm/particle:mp-strain-rate)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
-        ;(setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
+        (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
         ))))
 
+(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
+                g2p-mp))
 (defun g2p-mp (mesh mp)
-  (declare (cl-mpm/mesh::mesh mesh))
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
   "Map one MP onto the grid"
-  (with-accessors ((vel mp-velocity))
+  (with-accessors ((vel mp-velocity)
+                   (strain-rate mp-strain-rate))
     mp
     (progn
-      (setf vel (magicl:scale vel 0d0)))
+      (setf vel (magicl:scale vel 0d0))
+      (setf strain-rate (magicl:scale strain-rate 0d0))
+      )
+    ;; (iterate-over-neighbours mesh mp)
     (iterate-over-neighbours mesh mp #'g2p-mp-node)))
 
 (defun g2p (mesh mps)
@@ -237,22 +380,36 @@
           (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index)))))))
 
 
-(defun update-particle (mps dt)
-  (declare (array mps))
-  (loop for mp across mps
-    do (with-accessors ((vel cl-mpm/particle:mp-velocity)
-                        (pos cl-mpm/particle:mp-position)) mp
+;; (defun update-particle (mps dt)
+;;   (declare (array mps))
+;;   (loop for mp across mps
+;;     do (with-accessors ((vel cl-mpm/particle:mp-velocity)
+;;                         (pos cl-mpm/particle:mp-position)) mp
+;;       (progn 
+;;       (setf pos (magicl:.+ pos (magicl:scale vel dt)))))))
+(declaim (inline update-particle-mp))
+(defun update-particle-mp (mp dt)
+  (declare (cl-mpm/particle:particle mp) (double-float dt))
+  (with-accessors ((vel cl-mpm/particle:mp-velocity)
+                   (pos cl-mpm/particle:mp-position)) mp
       (progn 
-      (setf pos (magicl:.+ pos (magicl:scale vel dt)))))))
+        (setf pos (magicl:.+ pos (magicl:scale vel dt))))))
+(defun update-particle (mps dt)
+  (declare (array mps) (double-float dt))
+  (lparallel:pdotimes (i (length mps))
+     (update-particle-mp (aref mps i) dt)))
 
 ;Could include this in p2g but idk
 (defun calculate-strain-rate (mesh mp dt)
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
     (let ((dstrain (magicl:zeros '(3 1))))
         (progn
-            (iterate-over-neighbours mesh mp 
-                (lambda (mesh mp node svp dsvp)
-                    (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
-            (magicl:scale  dstrain dt))))
+            ;; (iterate-over-neighbours mesh mp 
+            ;;     (lambda (mesh mp node svp dsvp)
+            ;;         (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
+          ;; (magicl:scale  dstrain dt)
+          (magicl:scale (cl-mpm/particle:mp-strain-rate mp) dt)
+          )))
 
 (defun rotation-matrix (degrees)
   (let ((angle (/ (* pi degrees) 180)))
@@ -262,6 +419,7 @@
                       :type 'double-float
                       )))
 (defun update-stress-mp (mesh mp dt)
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)
                      (strain cl-mpm/particle:mp-strain)
@@ -292,6 +450,7 @@
      (update-stress-mp mesh (aref mps i) dt)))
 
 (defun reset-grid (mesh)
+  (declare (cl-mpm/mesh::mesh mesh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   (dotimes (i (array-total-size nodes))
     (let ((node (row-major-aref nodes i)))
@@ -299,10 +458,11 @@
       (cl-mpm/mesh:reset-node node))))))
 
 (defun filter-grid (mesh mass-thresh)
+  (declare (cl-mpm/mesh::mesh mesh) (double-float mass-thresh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   (dotimes (i (array-total-size nodes))
     (let ((node (row-major-aref nodes i)))
-      (when (and (> (cl-mpm/mesh:node-mass node) 0) 
+      (when (and (> (cl-mpm/mesh:node-mass node) 0d0) 
                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
         (cl-mpm/mesh:reset-node node))))))
 

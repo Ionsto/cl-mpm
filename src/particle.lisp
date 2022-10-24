@@ -13,7 +13,9 @@
     #:mp-strain
     #:mp-strain-rate
     #:mp-gravity
+    #:mp-body-force
     #:mp-damage
+    #:mp-critical-stress
     #:mp-deformation-gradient
     #:constitutive-model
     #:particle
@@ -77,7 +79,13 @@
    (gravity
      :type double-float
      :accessor mp-gravity
-     :initform -9.8d0))
+     :initform -9.8d0)
+   (body-force
+     :accessor mp-body-force
+     :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :initarg :body-force
+     :initform (magicl:zeros '(2 1)))
+   )
   (:documentation "A single material point"))
 
 (defclass particle-elastic (particle)
@@ -92,10 +100,16 @@
   (:documentation "A linear-elastic material point"))
 
 (defclass particle-damage (particle)
-  ((damage
+  (
+   (damage
     :accessor mp-damage
     :type DOUBLE-FLOAT
     :initarg :damage
+    :initform 0)
+   (critical-stress
+    :accessor mp-critical-stress
+    :type DOUBLE-FLOAT
+    :initarg :critical-stress
     :initform 0))
   (:documentation "A material point with a damage tensor"))
 

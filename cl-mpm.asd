@@ -54,6 +54,14 @@
   :description "MPM smeared damage mechanics"
   :serial t
   :components ((:file "src/damage")))
+(defsystem "cl-mpm/eigenerosion"
+  :depends-on ("magicl"
+               "cl-mpm"
+               "cl-mpm/utils"
+               "cl-mpm/particle")
+  :description "MPM eigenerosion damage mechanics"
+  :serial t
+  :components ((:file "src/eigenerosion")))
 
 (defsystem "cl-mpm/output"
   :depends-on ("magicl")
