@@ -47,22 +47,27 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-x ms-y)))
   (vgplot:replot))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y c stress-y lx ly)
+  (multiple-value-bind (x y c stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
           collect (cl-mpm/particle:mp-damage mp) into c
+          collect (cl-mpm/particle::mp-strain-energy-density mp) into e
           collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
-          finally (return (values x y c stress-y lx ly)))
+          finally (return (values x y c stress-y lx ly e)))
     (cond
       ((eq plot :damage)
         (vgplot:format-plot t "set cbrange [0:1]")
         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
         (vgplot:plot x y c ";;with points pt 7 lc palette")
+       )
+      ((eq plot :energy)
+        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
+        (vgplot:plot x y e ";;with points pt 7 lc palette")
        )
       (
        (eq plot :stress)
@@ -100,6 +105,23 @@
 ;;   ;; (plt:colorbar)
 ;;   (plt:show))
 
+(defun remove-sdf (sim sdf)
+      (setf (cl-mpm:sim-mps sim)
+            (remove-if (lambda (mp)
+                         (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                           (>= 0 (funcall sdf pos))
+                           ))
+                       (cl-mpm:sim-mps sim))))
+(defun ellipse-sdf (position x-l y-l)
+  (let ((aspect (/ x-l y-l)))
+    (lambda (pos)
+      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+             (dist-vec (magicl:.* (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
+                                                                             :type 'double-float)))
+             (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
+                                                    dist-vec) 0 0))))
+        (- distance x-l)))))
+
 (defun remove-hole (sim position size)
       (setf (cl-mpm:sim-mps sim)
             (remove-if (lambda (mp)
@@ -113,7 +135,7 @@
 (defun setup-test-column (size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm::make-shape-function-bspline)) 
+                                        #'cl-mpm::make-shape-function-linear)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1))
@@ -128,40 +150,51 @@
                    (* h-y (+ (/ 1 (* 2 mp-scale)) (* (- 8 (second block-size)) e-scale))))
              block-size
              (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-              'cl-mpm::make-particle-elastic-damage
-              1e5 0.2d0
+              'cl-mpm::make-particle
+              'cl-mpm/particle::particle-elastic-fracture
+              :E 1e5 :nu 0.2d0
               :mass mass
-              :critical-stress 1e2))
+              :critical-stress 1e5
+              :fracture-toughness 1e2))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
-      (remove-hole sim '(2d0 5.5d0) 0.30)
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
-      (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
-      (let ((least-pos
-              (apply #'min (loop for mp across (cl-mpm:sim-mps sim)
-                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
+      ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
+      ;; (remove-hole sim '(2d0 5.5d0) 0.30)
 
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-                   (when (<= (magicl:tref pos 1 0) (+ least-pos 0.001))
-                     ;; (setf (cl-mpm/particle:mp-mass mp) (* 50 mass))
-                     (setf (magicl:tref  (cl-mpm/particle:mp-body-force mp) 1 0) -100)
-                     ))))
-      (setf (cl-mpm:sim-dt sim) 1d-4)
+      (setf (cl-mpm:sim-damping-factor sim) 0.05d0)
+      (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4 8) 8 1))
+  (defparameter *sim* (setup-test-column '(4 8) 4 2))
+  (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *run-sim* t)
+  (defparameter *load-mps*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (least-pos
+              (apply #'min (loop for mp across mps
+                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
+      (loop for id from 0 to (- (length mps) 1)
+            when (<= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (+ least-pos 0.001))
+              collect id)))
+  ;; (increase-load *sim* *load-mps* -100)
   )
+
+
+(defun increase-load (sim load-mps amount)
+  (let ((mps (cl-mpm:sim-mps sim)))
+    (loop for id in load-mps
+          do (with-accessors ((pos cl-mpm/particle:mp-position)
+                              (force cl-mpm/particle:mp-body-force)) (aref mps id) 
+               (incf (magicl:tref force 1 0) amount)))))
 
 (defparameter *run-sim* nil)
 
@@ -187,14 +220,15 @@
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 100)
+                  (dotimes (i 10)
                     (cl-mpm::update-sim *sim*)
                     (cl-mpm/eigenerosion:update-fracture *sim*)
+                    (increase-load *sim* *load-mps* (* -1000 (cl-mpm:sim-dt *sim*)))
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
                     ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
                     ;; (setf *time*     (cons *t* *time*))
-                    )
+                            )
                   (plot *sim*)
                   (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
@@ -202,17 +236,7 @@
                   (incf *sim-step*)
                   (swank.live:update-swank)
                   (sleep .01)
-      (let ((least-pos
-              (apply #'min (loop for mp across (cl-mpm:sim-mps *sim*)
-                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
 
-        (loop for mp across (cl-mpm:sim-mps *sim*)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-                   (when (<= (magicl:tref pos 1 0) (+ least-pos 0.001))
-                     ;; (setf (cl-mpm/particle:mp-mass mp) (* 50 mass))
-                     (incf (magicl:tref  (cl-mpm/particle:mp-body-force mp) 1 0) -10)
-                     ))))
                   )))
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
@@ -241,23 +265,14 @@
         do (cl-mpm::update-sim *sim*))
   (sb-profile:report))
 
-;; (defparameter *mat* (magicl:zeros '(3 1)))
-;; (defparameter *vec* (3d-vectors:vec3 0 0 0))
-;; (declaim (ftype (function (3d-vectors:vec3) (values)) zero-3d))
-;; (defun zero-3d (x)
-;;   (declare (optimize (speed 3)) (type 3d-vectors:vec3 x))
-;;   (3d-vectors:nv* x 0)
-;;   (values))
-;; (declaim (ftype (function (magicl:matrix/double-float) (values)) zero-magicl))
-;; (defun zero-magicl (x)
-;;   (declare (optimize (speed 3)) (type magicl:matrix/double-float x))
-;;   (setf x (magicl:scale x 0d0))
-;;   (values))
-;; (time-form (zero-3d *vec*) 100000)
-
-;; (time-form (zero-magicl *mat*) 100000)
-           
-
+;; (progn 
+;;   (cl-mpm::iterate-over-neighbours-shape-linear (cl-mpm:sim-mesh *sim*) *test-mp* (lambda (m mp n weight dsvp)
+;;                                                                                     (print weight)
+;;                                                                                     (print dsvp)))
+;;   (print "next")
+;;   (cl-mpm::iterate-over-neighbours-shape (cl-mpm:sim-mesh *sim*) (cl-mpm/mesh::mesh-shape-func (cl-mpm:sim-mesh *sim*)) *test-mp* (lambda (m mp n weight dsvp)
+;;                                                                                 (print weight)
+;;                                                                                 (print dsvp))))
 (defmacro time-form (form it)
   `(progn
     (declaim (optimize speed))
@@ -271,33 +286,4 @@
         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
         (format t "Throughput: ~f~%" (/ 1 dt))
         dt))))
-(with-slots ((mesh cl-mpm::mesh)
-             (mps  cl-mpm::mps)
-             (bcs  cl-mpm::bcs)
-             (dt   cl-mpm::dt)
-)
-            *sim*
-  (progn
-    (let ((repeats 1000)
-          (work (lambda (mesh mp node weight dsvp) (cl-mpm::p2g-mp-node mp node weight dsvp))))
-      ;; (time (loop repeat repeats do
-      ;;                       (cl-mpm::p2g-mp mesh (aref mps 0))))
-      (time-form (cl-mpm::update-sim *sim*) 100)
-      ;; (time (loop repeat repeats do
-      ;;                       (cl-mpm::p2g-mp-new mesh (aref mps 0))))
-      ;; (time (loop repeat repeats do
-      ;;   (cl-mpm::iterate-over-neighbours mesh
-      ;;                                    (aref mps 0)
-      ;;                                    work)))
-      ;; (time (loop repeat repeats do
-      ;;   (cl-mpm::iterate-over-neighbours-shape-bspline mesh
-      ;;                                                 (aref mps 0)
-      ;;                                                 work))))
-    ;; (time (loop repeat 10000 do
-    ;;                       (cl-mpm::iterate-over-neighbours-shape-linear-macro mesh
-    ;;                                                        (aref mps 0)
-    ;;                                                        '(* weight weight))))
-    )))
 
-
-;; (time-form (cl-mpm::assemble-dsvp 1 '(1)) 100000)

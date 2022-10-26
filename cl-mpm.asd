@@ -118,6 +118,7 @@
                "cl-mpm/setup"
                "cl-mpm/particle"
                "cl-mpm/output"
+               "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
                "magicl"

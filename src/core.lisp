@@ -114,6 +114,23 @@
 
 ;; (declaim (inline dispatch)
 ;;          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours-shape-linear))
+(defmacro iterate-over-neighbours-general (mesh mp order body)
+  `(progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution ,mesh))
+           (pos-vec (cl-mpm/particle:mp-position ,mp))
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos-index (magicl:scale pos-vec (/ 1 h)))
+           )
+      (loop for dx from (- ,order) to ,order
+            do (loop for dy from (- ,order) to ,order
+                     do (let* ((id (list (+ (round (tref pos-index 0 0)) dx)
+                                         (+ (round (tref pos-index 1 0)) dy))))
+                          (when (cl-mpm/mesh:in-bounds ,mesh id)
+                            (funcall ,body
+                                     ,mesh
+                                     ,mp
+                                     id
+                                     (mapcar (lambda (p i) (- p (* i h))) pos id)))))))))
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -127,15 +144,14 @@
            )
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
-                     do (let* ((id (list (+ (floor (tref pos-index 0 0)) dx)
-                                         (+ (floor (tref pos-index 1 0)) dy))))
+                     do (let* ((id (list (+ (floor (/ (tref pos-index 0 0) h)) dx)
+                                         (+ (floor (/ (tref pos-index 1 0) h)) dy))))
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar (lambda (p i) (- p (* i h))) pos id))
                                    (node (cl-mpm/mesh:get-node mesh id))
-                                   (weights (mapcar (lambda (x) (- 1d0 (abs (/ x h)))) dist))
+                                   (weights (mapcar (lambda (x) (shape-linear x h)) dist))
                                    (weight (reduce #'* weights))
-                                   (grads (mapcar (lambda (d w)
-                                                    (* (/ 1 h) (shape-linear-dsvp d) w))
+                                   (grads (mapcar (lambda (d w) (* (shape-linear-dsvp d h) w))
                                                   dist (nreverse weights)))
                                    (dsvp (assemble-dsvp-2d grads)))
                               (funcall func mesh mp node weight dsvp)))))))))

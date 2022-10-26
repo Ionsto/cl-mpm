@@ -110,33 +110,63 @@
     :accessor mp-critical-stress
     :type DOUBLE-FLOAT
     :initarg :critical-stress
-    :initform 0))
+    :initform 0)
+   )
   (:documentation "A material point with a damage tensor"))
+(defclass particle-fracture (particle-damage)
+  (
+   (strain-energy-density
+    :accessor mp-strain-energy-density
+    :type DOUBLE-FLOAT
+    :initform 0)
+   (fracture-toughness
+    :accessor mp-fracture-toughness
+    :type DOUBLE-FLOAT
+    :initform 0
+    :initarg :fracture-toughness)
+   )
+  (:documentation "A material point with fracture mechanics"))
 
 (defclass particle-elastic-damage (particle-elastic particle-damage)
   ()
   (:documentation "A mp with damage influanced elastic model"))
+(defclass particle-elastic-fracture (particle-elastic particle-fracture)
+  ()
+  (:documentation "A mp with fracture mechanics"))
 
-(defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1) (mass 1))
+(defun make-particle (nD &optional (constructor 'particle) &rest args &key  (position nil) (volume 1) (mass 1) &allow-other-keys)
   (progn
-    (if (eq pos nil)
-        (setf pos (magicl:zeros (list nD 1)))
-        (setf pos (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) pos) (list nD 1))))
+    (if (eq position nil)
+        (setf position (magicl:zeros (list nD 1)))
+        (setf position (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) position) (list nD 1))))
     (let ((stress-size 3))
-      (make-instance constructor
+      (apply #'make-instance constructor
                      :nD nD
                      :volume (coerce volume 'double-float)
                      :mass (coerce mass 'double-float)
-                     :position pos))))
+                     :position position
+                     args))))
+;; (defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1) (mass 1))
+;;   (progn
+;;     (if (eq pos nil)
+;;         (setf pos (magicl:zeros (list nD 1)))
+;;         (setf pos (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) pos) (list nD 1))))
+;;     (let ((stress-size 3))
+;;       (make-instance constructor
+;;                      :nD nD
+;;                      :volume (coerce volume 'double-float)
+;;                      :mass (coerce mass 'double-float)
+;;                      :position pos))))
 (defun make-particle-elastic (nD E nu &key (pos nil) (volume 1) (mass 1))
-    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic :mass mass) ))
+    (let ((p (make-particle nD 'particle-elastic :position pos :volume volume :mass mass) ))
         (progn
             (setf (mp-E p) E)
             (setf (mp-nu p) nu)
         p)))
 
 (defun make-particle-elastic-damage (nD E nu &key (pos nil) (volume 1) (mass 1))
-    (let ((p (make-particle nD :pos pos :volume volume :constructor 'particle-elastic-damage :mass mass) ))
+    (let ((p (make-particle nD 'particle-elastic-damage :position pos :volume volume :mass mass
+                            ) ))
         (progn
             (setf (mp-E p) E)
             (setf (mp-nu p) nu)

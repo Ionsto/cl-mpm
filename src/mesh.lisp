@@ -53,6 +53,12 @@
     :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))
 
+(defclass node-fracture (node)
+  ((strain-energy-density
+     :accessor node-strain-energy-density
+     :type double-float
+     :initform 0
+     )))
 
 (defclass mesh ()
   ( (nD
@@ -77,7 +83,7 @@
 
 (defun make-node (pos)
   "Default initialise a 2d node at pos"
-  (make-instance 'node 
+  (make-instance 'node-fracture 
                  :force (magicl:zeros (list 2 1))
                  :velocity (magicl:zeros (list 2 1))
                  :acceleration (magicl:zeros (list 2 1))

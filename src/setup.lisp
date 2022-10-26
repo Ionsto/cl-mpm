@@ -41,7 +41,7 @@
                         (let* ((i (+ y (* x (first mps)))))
                           (apply constructor (append '(2) args
                                                      (list
-                                                      :pos (list (+ (first offset) (* (first spacing) x))
+                                                      :position (list (+ (first offset) (* (first spacing) x))
                                                                  (+ (second offset) (* (second spacing) y)))
                                                       :volume (* (first spacing) (second spacing)))))
                           )))))

@@ -17,5 +17,5 @@
     (magicl:scale
      (magicl:.+
       (magicl:from-list (list 0d0 (* mass (cl-mpm/particle:mp-gravity mp))) '(2 1))
-      (cl-mpm/particle:mp-body-force mp)
+      (magicl:scale (cl-mpm/particle:mp-body-force mp) mass)
       ) svp)))

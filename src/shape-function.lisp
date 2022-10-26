@@ -5,20 +5,22 @@
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
-(defun shape-linear (x)
-  (- 1d0 (abs x)))
-(declaim (inline dispatch) (ftype (function (double-float) double-float) shape-linear))
-(defun shape-linear (x)
-  (declare (type double-float x)
+(defun shape-linear (x h)
+  (- 1d0 (abs (/ x h))))
+(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-linear))
+(defun shape-linear (x h)
+  (declare (type double-float x h)
            (optimize (speed 3) (safety 0) (debug 0)))
-  (the double-float (- 1d0 (abs x))))
-(declaim (inline dispatch) (ftype (function (double-float) double-float) shape-linear-dsvp))
-(defun shape-linear-dsvp (x)
-  (declare (type double-float x)
+  (the double-float (- 1d0 (abs (/ x h)))))
+(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
+(defun shape-linear-dsvp (x h)
+  (declare (type double-float x h)
            (optimize (speed 3) (safety 0) (debug 0)))
-  (the double-float (if (> x 0d0)
-                        1d0
-                        -1d0)))
+  (the double-float (/ (if (> x 0d0)
+                           -1d0
+                           1d0) h)
+  ;; (the double-float (/ (signum x) h)
+       ))
 (declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-bspline))
 (defun shape-bspline (x h)
   (if (< (abs x) (/ h 2)) 
@@ -152,10 +154,10 @@
           (- (/ 3 4) (expt (/ (abs x) h) 2))
           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))) 
                        nD 2 'shape-function-bspline))
-(symbolic-derivation:derive 'x
-      '(if (< (abs x) (/ h 2)) 
-          (- (/ 3 4) (expt (/ (abs x) h) 2))
-          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
+;; (symbolic-derivation:derive 'x
+;;       '(if (< (abs x) (/ h 2)) 
+;;           (- (/ 3 4) (expt (/ (abs x) h) 2))
+;;           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
 ;(defun assemble-dsvp (dsvp)
 ;  "Assemble d/di to the strain-displacement matrix"
 ;  (let ((nD 2)
@@ -171,7 +173,9 @@
   "Assemble d/di to the strain-displacement matrix"
   (let ((dx (nth 0 dsvp))
         (dy (nth 1 dsvp)))
-    (magicl:from-list (list dx 0d0 0d0 dy dy 0d0) '(3 2) :type 'double-float)))
+    (magicl:from-list (list dx 0d0
+                            0d0 dy
+                            dy dx) '(3 2) :type 'double-float)))
 
 (defun assemble-dsvp-3d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
@@ -181,9 +185,9 @@
     (magicl:from-list (list dx  0d0 0d0;xx
                             0d0 dy  0d0;yy
                             0d0 0d0  dz;zz
-                            0d0 dz  0d0;yz
-                            dz  0d0 0d0;xz
-                            dx  0d0 0d0;xy
+                            dy  dx  0d0;yx
+                            0d0 dz  dy ;yz
+                            dz  0d0 dx ;xy
                             ) '(6 3) :type 'double-float)))
 
 (defun assemble-dsvp (nD dsvp)
