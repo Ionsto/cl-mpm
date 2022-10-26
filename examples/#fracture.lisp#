@@ -223,7 +223,7 @@
                   (dotimes (i 10)
                     (cl-mpm::update-sim *sim*)
                     (cl-mpm/eigenerosion:update-fracture *sim*)
-                    (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                    (increase-load *sim* *load-mps* (* -10 (cl-mpm:sim-dt *sim*)))
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
                     ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
