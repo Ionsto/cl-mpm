@@ -75,7 +75,7 @@
       (format fs "ASCII~%")
       (format fs "DATASET UNSTRUCTURED_GRID~%")
       (with-accessors ((nodes cl-mpm/mesh::mesh-nodes)
-                       (size cl-mpm/mesh::mesh-mesh-size)
+                       (size cl-mpm/mesh::mesh-count)
                        (h cl-mpm/mesh::mesh-resolution)) mesh
         (format fs "POINTS ~d double~%" (floor (apply #'* size)))
         (loop for x from 0 to (- (first size) 1)
