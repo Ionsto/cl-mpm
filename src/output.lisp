@@ -1,6 +1,8 @@
 (defpackage :cl-mpm/output
   (:use :cl)
-  (:export #:save-vtk))
+  (:export
+   #:save-vtk-mesh
+   #:save-vtk))
 
 (in-package :cl-mpm/output)
 
@@ -65,6 +67,51 @@
   `(progn
      (format-scalar fs ,name id mps (lambda (mp) ,accessor))
      (incf id)))
+(defun save-vtk-mesh (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (with-open-file (fs filename :direction :output :if-exists :supersede)
+      (format fs "# vtk DataFile Version 2.0~%")
+      (format fs "Lisp generated vtk file, SJVS~%")
+      (format fs "ASCII~%")
+      (format fs "DATASET UNSTRUCTURED_GRID~%")
+      (with-accessors ((nodes cl-mpm/mesh::mesh-nodes)
+                       (size cl-mpm/mesh::mesh-mesh-size)
+                       (h cl-mpm/mesh::mesh-resolution)) mesh
+        (format fs "POINTS ~d double~%" (floor (apply #'* size)))
+        (loop for x from 0 to (- (first size) 1)
+              do
+                 (loop for y from 0 to (- (second size) 1)
+                       do
+                          (format fs "~f ~f ~f ~%" (* h x) (* h y)
+                                  ;(magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+                                  ;(magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
+                                  0)))
+        (let ((nels (floor (* (- (first size) 1) (- (second size) 1)))))
+          (format fs "CELLS ~D ~D~%"
+                  nels
+                  (floor (* 5 nels)))
+          (flet ((id (x y) (floor (+ y (* x (second size))))))
+            (loop for x from 0 to (- (first size) 2)
+                  do
+                     (loop for y from 0 to (- (second size) 2)
+                           do
+                              (format fs "~D ~D ~D ~D ~D ~%"
+                                      4
+                                      (id x y)
+                                      (id x (+ y 1))
+                                      (id (+ x 1) y)
+                                      (id (+ x 1) (+ y 1))
+                                      ))))
+
+          (format fs "CELL_TYPES ~d~%" nels)
+          (loop repeat nels
+                do (format fs "~D~%" 8))
+          ;; (loop for x from 0 to (- (first size) 1)
+          ;;       do
+          ;;          (loop for y from 0 to (- (second size) 1)
+          ;;                do
+          ;;                   (format fs "~D~%" 8)))
+          )))))
 (defun save-vtk (filename sim)
   (with-accessors ((mps cl-mpm:sim-mps)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
