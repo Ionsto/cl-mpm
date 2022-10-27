@@ -21,8 +21,10 @@
 ;;   (py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT"))
 
 (defun length-from-def (sim mp dim)
-  (let* ((mp-scale 1)
-         (h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale)))
+  (let* ((mp-scale 2)
+         (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
+         ;(h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale))
+         )
     (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
 (defun plot-lambda (sim &optional (c-val (lambda (x) (cl-mpm/particle:mp-damage x))))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
@@ -47,7 +49,7 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-x ms-y)))
   (vgplot:replot))
-(defun plot (sim &optional (plot :energy))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -155,7 +157,7 @@
               :E 1e5 :nu 0.2d0
               :mass mass
               :critical-stress 1d5
-              :fracture-toughness 2d0))
+              :fracture-toughness 0.5d0))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
       ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
       ;; (remove-hole sim '(2d0 5.5d0) 0.30)
@@ -185,7 +187,7 @@
       (loop for id from 0 to (- (length mps) 1)
             when (<= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (+ least-pos 0.001))
               collect id)))
-  ;; (increase-load *sim* *load-mps* -100)
+  (increase-load *sim* *load-mps* -100)
   )
 
 
@@ -199,6 +201,8 @@
 (defparameter *run-sim* nil)
 
 (defun run ()
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+                          *sim*)
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
@@ -223,17 +227,17 @@
                   (dotimes (i 10)
                     (cl-mpm::update-sim *sim*)
                     (cl-mpm/eigenerosion:update-fracture *sim*)
-                    (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                    (increase-load *sim* *load-mps* (* -200 (cl-mpm:sim-dt *sim*)))
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
                     ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
                     ;; (setf *time*     (cons *t* *time*))
-                            )
-                  (plot *sim*)
-                  (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                    )
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
                   (incf *sim-step*)
+                  (plot *sim*)
+                  (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (swank.live:update-swank)
                   (sleep .01)
 
@@ -287,3 +291,25 @@
         (format t "Throughput: ~f~%" (/ 1 dt))
         dt))))
 
+
+;; (progn
+;;   (let ((its 1000000))
+;;     (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                      (mps cl-mpm:sim-mps)) *sim*
+;;       (time (loop repeat its do (cl-mpm::iterate-over-neighbours-general mesh (aref mps 0) 1
+;;                                                                       (lambda (mesh mp id dist)
+;;                                                                         (* (first dist) (second dist)))
+;;                                                                       )))
+;;       (time (loop repeat its do (cl-mpm::iterate-over-neighbours-general-pure mesh (aref mps 0) 1
+;;                                                                            (mesh mp id dist)
+;;                                                                            (* (first dist) (second dist))
+;;                                                                            )))
+;;       (time-form (cl-mpm::iterate-over-neighbours-general mesh (aref mps 0) 1
+;;                                                             (lambda (mesh mp id dist)
+;;                                                               (* (first dist) (second dist)))
+;;                                                             ) its)
+;;       (time-form (cl-mpm::iterate-over-neighbours-general-pure mesh (aref mps 0) 1
+;;                                                                (mesh mp id dist)
+;;                                                                (* (first dist) (second dist))
+;;                                                                  ) its)
+;;       )))

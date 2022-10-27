@@ -43,7 +43,8 @@
                                                      (list
                                                       :position (list (+ (first offset) (* (first spacing) x))
                                                                  (+ (second offset) (* (second spacing) y)))
-                                                      :volume (* (first spacing) (second spacing)))))
+                                                      :volume (* (first spacing) (second spacing))
+                                                      :size (magicl:from-list spacing (list nD 1) :type 'double-float))))
                           )))))
     (make-array (length data) :initial-contents data)))
 

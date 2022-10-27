@@ -41,6 +41,11 @@
      :type double-float
      :initarg :volume 
      :initform 1d0)
+   (size
+     :accessor mp-domain-size
+     :type magicl:matrix/double-float
+     :initarg :size
+     :initform (magicl:zeros '(2 1)))
    (position 
      :accessor mp-position
      :type MAGICL:MATRIX/DOUBLE-FLOAT

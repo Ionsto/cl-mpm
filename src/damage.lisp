@@ -9,12 +9,15 @@
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (critical-stress stress damage)
+  "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 1/2 critical-stress))
       (* (/ (max 0 stress) critical-stress) 0.1)
       0)
   0
   )
+
 (defun damage-profile (damage)
+  "Constitive law describing the scalar stress decrease as a function of damage"
   (expt (- 1 damage) 2)
   )
 (defun update-damage (mp dt)
