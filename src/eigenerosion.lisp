@@ -82,7 +82,7 @@
                        (volume cl-mpm/particle:mp-volume)
                        (strain-energy cl-mpm/particle::mp-strain-energy-density))
           (aref mps i)
-        (when (> (* volume strain-energy) gc)
+        (when (> (* 1 strain-energy) gc)
           (setf damage 1)
           ))))
 
