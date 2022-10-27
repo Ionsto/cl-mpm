@@ -69,12 +69,12 @@
     (append 
       (loop for x from 0 to xsize 
             append 
-            (list (make-bc-fixed (list x 0)     '(nil 0d0))
-                  (make-bc-fixed (list x ysize) '(nil 0d0))))
+            (list (make-bc-fixed (list x 0)     '(0d0 0d0))
+                  (make-bc-fixed (list x ysize) '(0d0 0d0))))
        (loop for y from 0 to ysize 
             append 
-            (list (make-bc-fixed (list 0     y) '(0d0 nil))
-                  (make-bc-fixed (list xsize y) '(0d0 nil)))))))
+            (list (make-bc-fixed (list 0     y) '(0d0 0d0))
+                  (make-bc-fixed (list xsize y) '(0d0 0d0)))))))
 
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"
