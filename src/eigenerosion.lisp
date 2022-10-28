@@ -96,6 +96,20 @@
                    mp
                  (> strain-energy gc)))
              mps))
+(defun diff-squared (mp-a mp-b)
+  (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
+                         (cl-mpm/particle:mp-position mp-b))))
+    (magicl:dot dist (magicl:transpose dist))))
+(defun find-neighbours (mps)
+  (let* ((nmps (length mps))
+         (neighbours (lparallel.queue:make-queue))
+         )
+    (lparallel:pdotimes (i nmps)
+      (let ((mp (aref mps i))
+            (nqueue (aref neighbours i)))
+        (loop for j from 0 to nmps
+              do (when t
+                   (lparallel.queue:push-queue j nqueue)))))))
 (defun update-fracture (sim)
   (with-accessors ((mps sim-mps)
                    (mesh sim-mesh))
