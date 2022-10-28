@@ -84,7 +84,8 @@
    (gravity
      :type double-float
      :accessor mp-gravity
-     :initform -9.8d0)
+     :initform 0d0;-9.8d0
+     )
    (body-force
      :accessor mp-body-force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -122,6 +123,10 @@
   (
    (strain-energy-density
     :accessor mp-strain-energy-density
+    :type DOUBLE-FLOAT
+    :initform 0)
+   (strain-energy-density-local
+    :accessor mp-strain-energy-density-local
     :type DOUBLE-FLOAT
     :initform 0)
    (fracture-toughness
