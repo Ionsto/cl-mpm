@@ -20,6 +20,20 @@
 ;;   (mpl:use :backend "TKAgg")
 ;;   (py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT"))
 
+
+(defun pescribe-velocity (sim load-mps vel)
+  (let ((mps (cl-mpm:sim-mps sim)))
+    (loop for id in load-mps
+          do
+             (progn
+               (setf (cl-mpm/particle:mp-velocity (aref mps id)) vel)
+               ))))
+(defun increase-load (sim load-mps amount)
+  (let ((mps (cl-mpm:sim-mps sim)))
+    (loop for id in load-mps
+          do (with-accessors ((pos cl-mpm/particle:mp-position)
+                              (force cl-mpm/particle:mp-body-force)) (aref mps id) 
+               (incf (magicl:tref force 1 0) amount)))))
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
@@ -49,7 +63,7 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-x ms-y)))
   (vgplot:replot))
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :energy))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -59,7 +73,7 @@
           collect (length-from-def sim mp 1) into ly
           collect (cl-mpm/particle:mp-damage mp) into c
           collect (cl-mpm/particle::mp-strain-energy-density mp) into e
-          collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
+          collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0) 1e0) into stress-y
           finally (return (values x y c stress-y lx ly e)))
     (cond
       ((eq plot :damage)
@@ -134,7 +148,7 @@
                                                                          dist-vec) 0 0))))
                              (>= size distance))))
                        (cl-mpm:sim-mps sim))))
-(defun setup-test-column (size &optional (e-scale 1) (mp-scale 1))
+(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm::make-shape-function-linear)) 
@@ -143,7 +157,6 @@
          (h-x (/ h 1))
          (h-y (/ h 1))
          (mass (/ 1 (* e-scale mp-scale)))
-         (block-size '(2 5))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (setf (cl-mpm:sim-mps sim) 
@@ -157,21 +170,22 @@
               :E 1e5 :nu 0.2d0
               :mass mass
               :critical-stress 1d5
-              :fracture-toughness 0.5d0))
+              :fracture-toughness 10d0))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
       ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
       ;; (remove-hole sim '(2d0 5.5d0) 0.30)
 
-      (setf (cl-mpm:sim-damping-factor sim) 0.05d0)
-      (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-damping-factor sim) 0.001d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-4)
+      (setf (cl-mpm:sim-dt sim) 1d-4)
       ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4 8) 4 1))
+  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 6 1))
+  ;; (defparameter *sim* (setup-test-column '(8 10) '(6 5) 4 1))
   (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -187,16 +201,18 @@
       (loop for id from 0 to (- (length mps) 1)
             when (<= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (+ least-pos 0.001))
               collect id)))
-  (increase-load *sim* *load-mps* -100)
+  (defparameter *load-mps-top*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (least-pos
+              (apply #'max (loop for mp across mps
+                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
+      (loop for id from 0 to (- (length mps) 1)
+            when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
+              collect id)))
+  (increase-load *sim* *load-mps* -500)
+  ;; (increase-load *sim* *load-mps-top* 500)
   )
 
-
-(defun increase-load (sim load-mps amount)
-  (let ((mps (cl-mpm:sim-mps sim)))
-    (loop for id in load-mps
-          do (with-accessors ((pos cl-mpm/particle:mp-position)
-                              (force cl-mpm/particle:mp-body-force)) (aref mps id) 
-               (incf (magicl:tref force 1 0) amount)))))
 
 (defparameter *run-sim* nil)
 
@@ -219,15 +235,18 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 50
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
                   (dotimes (i 10)
+                    ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -0.5d0) '(2 1) ))
+                    ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 0.5d0) '(2 1) ))
+                    (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                    ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
                     (cl-mpm::update-sim *sim*)
                     (cl-mpm/eigenerosion:update-fracture *sim*)
-                    (increase-load *sim* *load-mps* (* -200 (cl-mpm:sim-dt *sim*)))
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                     ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
                     ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
@@ -239,7 +258,7 @@
                   (plot *sim*)
                   (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (swank.live:update-swank)
-                  (sleep .01)
+                  ;; (sleep .01)
 
                   )))
     ;; (vgplot:figure)
@@ -313,3 +332,5 @@
 ;;                                                                (* (first dist) (second dist))
 ;;                                                                  ) its)
 ;;       )))
+
+(time-form (cl-mpm/eigenerosion:update-fracture *sim*) 100)

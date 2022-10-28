@@ -123,8 +123,8 @@
            )
       (loop for dx from (- ,order) to ,order
             do (loop for dy from (- ,order) to ,order
-                     do (let* ((id (list (+ (round (tref pos-index 0 0)) dx)
-                                         (+ (round (tref pos-index 1 0)) dy))))
+                     do (let* ((id (list (+ (round (/ (tref pos-index 0 0) h)) dx)
+                                         (+ (round (/ (tref pos-index 1 0) h)) dy))))
                           (when (cl-mpm/mesh:in-bounds ,mesh id)
                             (funcall ,body
                                      ,mesh
