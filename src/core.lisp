@@ -66,15 +66,16 @@
                (dt dt))
                 sim
                 (progn
-                    (reset-grid mesh)
-                    (p2g mesh mps)
-                    (when (> (sim-mass-filter sim) 0)
-                      (filter-grid mesh (sim-mass-filter sim)))
-                    (update-nodes mesh dt (sim-damping-factor sim))
-                    (apply-bcs mesh bcs)
-                    (g2p mesh mps)
-                    (update-particle mps dt)
-                    (update-stress mesh mps dt) 
+                  (print "Start timing")
+                  (time (reset-grid mesh))
+                  (time (p2g mesh mps))
+                  (time (when (> (sim-mass-filter sim) 0)
+                          (filter-grid mesh (sim-mass-filter sim))))
+                  (time (update-nodes mesh dt (sim-damping-factor sim)))
+                  (time (apply-bcs mesh bcs))
+                  (time (g2p mesh mps))
+                  (time (update-particle mps dt))
+                  (time (update-stress mesh mps dt)) 
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -466,6 +467,60 @@
                       '(2 2)
                       :type 'double-float
                       )))
+(defun update-strain-linear (mp dstrain)
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ) mp
+    (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
+                   (progn
+                     (setf def (magicl:@ df def))
+                     (setf strain (magicl:.+ strain dstrain))
+                     (setf volume (* volume (magicl:det df)))
+                     ))))
+
+(defun update-strain-kirchoff (mp dstrain)
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ) mp
+    (progn
+      (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
+        (progn
+          (setf def (magicl:@ df def))
+          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
+            ;; (print strain)
+            ;; (print l)
+            ;; (print v)
+            ;; (print df)
+            (let ((trial-lgs (magicl:@ df
+                                       (magicl:@
+                                        v
+                                        (magicl:from-diag (mapcar (lambda (x) (exp (* x 2d0))) l) :type 'double-float)
+                                        (magicl:transpose v))
+                                       (magicl:transpose df))))
+              (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
+                (setf strain (magicl:scale
+                              (matrix-to-voight
+                               (magicl:@ vf
+                                         (magicl:from-diag (mapcar (lambda (x) (log x)) lf) :type 'double-float)
+                                         (magicl:transpose vf)))
+                              0.5d0))
+                ;; (print (magicl:scale
+                ;;               (matrix-to-voight
+                ;;                (magicl:@ vf
+                ;;                          (magicl:from-diag (mapcar (lambda (x) (log x)) lf) :type 'double-float)
+                ;;                          (magicl:transpose vf)))
+                ;;               0.5d0))
+              )
+            )
+
+            )
+          (setf volume (* volume (magicl:det df)))
+          )))))
+
 (defun update-stress-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -476,21 +531,18 @@
                      ;; (damage cl-mpm/particle:mp-damage)
                         ) mp
          
-           (let ((dstrain (calculate-strain-rate mesh mp dt)
-                          ;(magicl:scale strain-rate dt)
-                          ))
+           (let ((dstrain (calculate-strain-rate mesh mp dt)))
              (progn
                ;;(setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
-               (setf strain (magicl:.+ strain dstrain))
-               (setf stress (cl-mpm/particle:constitutive-model mp strain))
-                (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
-                   (progn
-                     (setf def (magicl:@ df def))
-                     (setf volume (* volume (magicl:det df)))
-                     (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
-                     (cl-mpm/particle:post-stress-step mesh mp dt)
-                     ;; (update-damage mp dt)
-                     ))))))
+                (progn
+                  ;; (update-strain-linear mp dstrain)
+                  (update-strain-kirchoff mp dstrain)
+                  ;; (setf strain (magicl:.+ strain dstrain))
+                  (setf stress (cl-mpm/particle:constitutive-model mp strain))
+                  (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
+                  (cl-mpm/particle:post-stress-step mesh mp dt)
+                  ;; (update-damage mp dt)
+                  )))))
 
 (defun update-stress (mesh mps dt)
   (declare (array mps) (cl-mpm/mesh::mesh mesh))

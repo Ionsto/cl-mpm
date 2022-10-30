@@ -12,3 +12,5 @@
 *.dat
 /.vscode
 /output
+
+\#*\#
