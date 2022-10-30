@@ -184,8 +184,9 @@
 (declaim (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
 (defun diff-squared (mp-a mp-b)
   (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
-                         (cl-mpm/particle:mp-position mp-b))))
-    (the double-float (magicl:tref (magicl:@ (magicl:transpose dist) dist) 0 0))))
+                         (cl-mpm/particle:mp-position mp-b)))
+        )
+    (values (the double-float (magicl::sum (magicl:.* dist dist))))))
 
 (defparameter *neighbour-queue* nil)
 (defparameter *neighbour-array* nil)
@@ -211,7 +212,7 @@
       (setf *neighbour-array* (make-neighbour-array nmps))))
 
 (defun make-neighbour-count (nmps)
-  (make-array nmps :element-type 'fixnum :initial-element 0))
+  (make-array nmps :element-type '(unsigned-byte 64) :initial-element 0))
 (defun ensure-neighbour-count (nmps)
   (if *neighbour-count*
       (if (>= (length *neighbour-count*) nmps)
@@ -219,7 +220,7 @@
           (setf *neighbour-count* (make-neighbour-count nmps)))
       (setf *neighbour-count* (make-neighbour-count nmps))))
 
-(declaim (ftype (function ((array cl-mpm/particle:particle) double-float) (array fixnum)) find-neighbours))
+(declaim (ftype (function ((array cl-mpm/particle:particle) double-float) (values)) find-neighbours))
 (defun find-neighbours (mps length-scale)
   (declare ((array cl-mpm/particle:particle) mps)
            (double-float length-scale))
@@ -228,18 +229,25 @@
          (lsquared (* length-scale length-scale)))
     (let ((neighbour-array (ensure-neighbour-array nmps))
           (neighbour-count (ensure-neighbour-count nmps)))
-      (declare ((simple-array fixnum) neighbour-count neighbour-array))
+      (declare ((simple-array (unsigned-byte 64)) neighbour-count)
+               ((simple-array fixnum) neighbour-array)
+               (double-float lsquared))
       ;; (print (type-of neighbour-array))
+      (lparallel:pdotimes (i nmps)
+                          (setf (aref neighbour-count i) 0))
       (lparallel:pdotimes (i (- nmps 1))
         (progn
-             (setf (aref neighbour-count i) 0)
-             (loop for j from 0 to (- nmps 1)
-                   do (when (< (diff-squared (aref mps i) (aref mps j)) lsquared)
-                        (setf (aref *neighbour-array* i (aref neighbour-count i)) j)
-                        (incf (aref neighbour-count i) 1)))
-             ))
-      neighbour-array)
-    ))
+          (let ((mp-i (aref mps i)))
+            (loop for j from (+ i 1) to (- nmps 1)
+                  do (when (< (diff-squared mp-i (aref mps j)) lsquared)
+                       (let ((pos (sb-ext:atomic-incf (aref neighbour-count i))))
+                         (setf (aref neighbour-array i pos) j))
+                       (let ((pos (sb-ext:atomic-incf (aref neighbour-count j))))
+                         (setf (aref neighbour-array j pos) i))
+                       )))
+             ))))
+  (values)
+  )
 (defparameter *neighbour-search-counter* 0)
 (defun update-fracture (sim)
   (with-accessors ((mps sim-mps)
@@ -247,17 +255,17 @@
       sim
     ;; Caclulate local strain value
     (calculate-strain-energy mps)
-    (when (<= (incf *neighbour-search-counter* -1) 0)
-      (progn
-        (find-neighbours mps (* 1.5d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
-        (setf *neighbour-search-counter* 100)))
+    ;; (when (<= (incf *neighbour-search-counter* -1) 0)
+    ;;   (progn
+    ;;     (find-neighbours mps (* 1.5d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+    ;;     (setf *neighbour-search-counter* 100)))
+    (find-neighbours mps (* 1.5d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
     (delocalise-strain-energy sim mps)
     ;; (errode-material mps)
     (remove-material mps)
     ;; (reset-strain mesh)
     ;; Apply some nonlocal smoothing?
     ))
-
 
 
 
