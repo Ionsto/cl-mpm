@@ -134,11 +134,9 @@
       (loop while (not (lparallel.queue:queue-empty-p pq))
             do (destructuring-bind (energy mpid) (lparallel.queue:pop-queue pq)
                  (symbol-macrolet ((slot-strain-energy (cl-mpm/particle::mp-strain-energy-density (aref mps mpid)))
-                                   (old-strain-energy (cl-mpm/particle::mp-strain-energy-density-local (aref mps mpid)))
-                                   (setf slot-strain-energy (max old-strain-energy energy))
-                                   (setf old-strain-energy (max old-strain-energy energy))
-                                   )
-                   ))
+                                   (old-strain-energy (cl-mpm/particle::mp-strain-energy-density-local (aref mps mpid))))
+                   (setf slot-strain-energy (max old-strain-energy energy))
+                   (setf old-strain-energy (max old-strain-energy energy))))
       ;; (let ((pqarray (loop while (not (lparallel.queue:queue-empty-p pq))
       ;;                      collect (lparallel.queue:pop-queue pq))))
       ;;   (loop for vals in pqarray
@@ -146,7 +144,7 @@
       ;;              (setf (cl-mpm/particle::mp-strain-energy-density (aref mps mpid)) energy)
       ;;              ))
       ;;   )
-      ))
+            ))
   ;; (let ((order 1)
   ;;       (length-parameter (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim)))
   ;;       )
@@ -161,7 +159,7 @@
   ;;     (progn
   ;;         (setf (cl-mpm/particle::mp-damage mp) 1)
   ;;       )))
-  )
+    ))
 
 (defun errode-material (mps)
   "Damages mps that exceeed fracture threshold"
