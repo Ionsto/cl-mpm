@@ -314,8 +314,8 @@
             ;;                        node-mass))
             (progn
                 (let* ((weighted-mass (* mp-mass svp))
-                      (weighted-vel (magicl:scale mp-vel weighted-mass))
-                      (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
+                       (weighted-vel (magicl:scale mp-vel weighted-mass))
+                       (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
                        )
                   (sb-thread:with-mutex (node-lock)
                     (setf node-mass 
