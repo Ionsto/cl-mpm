@@ -63,7 +63,7 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-x ms-y)))
   (vgplot:replot))
-(defun plot (sim &optional (plot :energy))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
