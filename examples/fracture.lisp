@@ -2,7 +2,23 @@
   (:use :cl))
 (in-package :cl-mpm/examples/fracture)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (ql:quickload "cl-mpm")
+;; (ql:quickload "cl-mpm/setup")
+;; (ql:quickload "cl-mpm/particle")
+;; (ql:quickload "cl-mpm/bc")
 (ql:quickload "vgplot")
+;; (ql:quickload "swank.live")
+;; (ql:quickload "cl-mpm/output")
+;; (ql:quickload "magicl")
+;; (ql:quickload "py4cl")
+;; (setf py4cl:*python-command* "python3")
+;; (py4cl:import-module "matplotlib.pyplot" :as "plt")
+;; (ql:quickload "py4cl2")
+;; (defun setup ()
+;;   (py4cl2:defpymodule "matplotlib" nil :lisp-package "MPL")
+;;   (mpl:use :backend "TKAgg")
+;;   (py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT"))
 
 
 (defun pescribe-velocity (sim load-mps vel)
@@ -154,23 +170,24 @@
               :E 1e5 :nu 0.2d0
               :mass mass
               :critical-stress 1d5
-              :fracture-toughness 20d0))
+              :fracture-toughness 5d0))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
       ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
       ;; (remove-hole sim '(2d0 5.5d0) 0.30)
 
       (setf (cl-mpm:sim-damping-factor sim) 0.001d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-4)
-      (setf (cl-mpm:sim-dt sim) 1d-4)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  ;; (defparameter *sim* (setup-test-column '(12 10) '(10 5) 4 2))
-  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 2 2))
-  (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.15))
+  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 3 2))
+  ;; (defparameter *sim* (setup-test-column '(8 10) '(6 5) 4 1))
+  ;; (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
+  (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 0.5 0.5))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -193,8 +210,8 @@
       (loop for id from 0 to (- (length mps) 1)
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
               collect id)))
-  ;; (increase-load *sim* *load-mps* -200)
-  ;; (increase-load *sim* *load-mps-top* 200)
+  ;; (increase-load *sim* *load-mps* -500)
+  ;; (increase-load *sim* *load-mps-top* 500)
   )
 
 
@@ -224,33 +241,31 @@
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 10)
-                           (let ((pull-speed 0.5d0))
-                             (pescribe-velocity *sim* *load-mps* (magicl:from-list (list 0d0 (- pull-speed)) '(2 1) ))
-                             ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list (list 0d0 pull-speed) '(2 1) )))
-                           ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
-                           ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
-                           (cl-mpm::update-sim *sim*)
-                           (cl-mpm/eigenerosion:update-fracture *sim*)
-                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                           ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
-                           ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
-                           ;; (setf *time*     (cons *t* *time*))
-                           ))
+                  (dotimes (i 1)
+                    (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) ))
+                    ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 0.5d0) '(2 1) ))
+                    ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                    ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
+                    (cl-mpm::update-sim *sim*)
+                    (cl-mpm/eigenerosion:update-fracture *sim*)
+                    (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                    ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
+                    ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
+                    ;; (setf *time*     (cons *t* *time*))
+                    )
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
                   (incf *sim-step*)
                   (plot *sim*)
                   (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (swank.live:update-swank)
-                  (sb-ext:gc :full t)
-                  ;; (sleep .01)
+                  (sleep .01)
 
-                  ))
+                  )))
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
-    ))
+    )
 (defun profile ()
   (sb-profile:unprofile)
   (sb-profile:reset)
@@ -269,12 +284,9 @@
                       cl-mpm::g2p-mp
                       cl-mpm::p2g-mp-node
                       cl-mpm::g2p-mp-node
-                      cl-mpm/eigenerosion::update-fracture
                       )
   (loop repeat 10
-        do (progn
-             (cl-mpm::update-sim *sim*)
-             (cl-mpm/eigenerosion:update-fracture *sim*)))
+        do (cl-mpm::update-sim *sim*))
   (sb-profile:report))
 
 ;; (progn 
@@ -323,27 +335,3 @@
 ;;       )))
 
 ;; (time-form (cl-mpm/eigenerosion:update-fracture *sim*) 100)
-;; (lparallel.queue:push-queue 2 *q*)
-
-;; (defparameter *test* ni
-;;   l)
-;; (loop while *test* do (print "hello"))
-
-;; (let* ((size 10000)
-;;        (a (make-array size 
-;;                      :element-type 'fixnum
-;;                      :adjustable t
-;;                      :initial-element 0))
-;;        (b (make-array size 
-;;                      :element-type 'fixnum
-;;                      :initial-element 0))
-;;        )
-;;   (print (type-of a))
-;;   (time-form (loop for i across a
-;;               do
-;;                  (setf i (the fixnum (* i 2))))
-;;              10000)
-;;   (time-form (loop for i across b
-;;               do (setf i (the fixnum (* i 2))))
-;;             10000)
-;;   )
