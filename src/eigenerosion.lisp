@@ -7,7 +7,7 @@
     )
   )
 (in-package :cl-mpm/eigenerosion)
-(declaim (optimize (debug 2) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim (ftype (function (cl-mpm/particle:particle) (values double-float)) calculate-strain-energy-mp))
 (defun calculate-strain-energy-mp (mp)
   (declare (cl-mpm/particle:particle-damage mp))
@@ -40,111 +40,49 @@
     (let ((node (row-major-aref nodes i)))
       (when (> (cl-mpm/mesh::node-strain-energy-density node) 0)
         (setf (cl-mpm/mesh::node-strain-energy-density node) 0))))))
-(defun scatter-local-energy (sim mps length-parameter order)
-  (let ((mesh (cl-mpm:sim-mesh sim)))
-    (lparallel:pdotimes (i (length mps))
-        (cl-mpm::iterate-over-neighbours-shape-bspline mesh (aref mps i)
-                                                       (lambda (mesh mp node weight dsvp)
-                                                   (with-accessors ((strain cl-mpm/mesh::node-strain-energy-density)
-                                                                   (lock cl-mpm/mesh::node-lock) 
-                                                                    )
-                                                       node
-                                                     (let* ((mp-strain (cl-mpm/particle::mp-strain-energy-density mp))
-                                                          (mass (cl-mpm/particle:mp-mass mp))
-                                                          (volume (cl-mpm/particle:mp-volume mp))
-                                                          (strain-inc (* mp-strain weight volume)))
-                                                     (sb-thread:with-mutex (lock)
-                                                       (progn
-                                                         (incf strain strain-inc)))))))
-      )))
-(defun gather-local-energy (sim mps length-parameter order)
-  (let ((mesh (cl-mpm:sim-mesh sim)))
-    (lparallel:pdotimes (i (length mps))
-      (let ((total-energy 0)
-            (mp (aref mps i)))
-        (cl-mpm::iterate-over-neighbours-shape-bspline mesh mp
-                                                       (lambda (mesh mp node weight dsvp)
-                                                   (with-accessors ((strain cl-mpm/mesh::node-strain-energy-density)
-                                                                    (mass cl-mpm/mesh::node-mass)
-                                                                    )
-                                                       node
-                                                     (when (> mass (cl-mpm:sim-mass-filter sim))
-                                                       (incf total-energy (/ (* strain weight) 1))))))
-        (setf (cl-mpm/particle::mp-strain-energy-density mp) total-energy)))))
 
 (defparameter *priority-queue* (lparallel.queue:make-queue))
-(defun collect-strain-energy (mps mp-i length-parameter pq)
-  (let* ((pq *priority-queue*)
-          (nmps (length mps))
-          ;; (neighbours (find-neighbours mps length-parameter))
-          (neighbours (ensure-neighbour-array nmps))
-          (neighbours-count (ensure-neighbour-count nmps)))
-    (lparallel:pdotimes (i nmps)
-                                        ;loop for i from 0 to (- nmps 1)
-      (let ((mp (aref mps i))
-            (mpneighbour-count (aref neighbours-count i))
-            ;; (neighbour-list (aref neighbours i))
-            (local-energy 0)
-            (mass-total 0))
-        (loop for mp-i from 0 to (- mpneighbour-count 1)  
-              do (let* ((mp-id (aref neighbours i mp-i))
-                        (mp-b (aref mps mp-id))
-                        (mp-mass (cl-mpm/particle::mp-mass mp)))
-                   (incf local-energy (* mp-mass
-                                         (cl-mpm/particle::mp-strain-energy-density-local mp-b)))
-                   (incf mass-total mp-mass)))
-        (when (> mass-total 0)
-          (setf local-energy (/ local-energy mass-total))
-          (lparallel.queue:push-queue (list local-energy i) pq))
-        ))))
-;; (defun remove-neighbour-energy (mps mp-id)
-;;   (let ((neighbours *neighbour-array*)
-;;         (neighbour-count *neighbour-count*)
-;;         (strain-increment (cl-mpm/particle::strain-energy-density )))
-;;     (loop for i from 0 below (aref neighbour-count mp-id)
-;;           do (let* ((n-id (aref neighbours i))
-;;                    (n-mp (aref mps n-id)))
-;;                (with-accessors (seng (cl-mpm/particle::strain-energy-density)) n-mp
-;;                  (incf seng))
-
-;;                )))
-;;   )
 (defun delocalise-strain-energy (sim mps)
-  "Take some strain energy value and generate a delocalised variation"
-  ;; (lparallel:pmapcar (lambda (mp)
-  ;;                      (setf (cl-mpm/particle::mp-strain-energy-density-local mp)
-  ;;                            (cl-mpm/particle::mp-strain-energy-density mp))) mps)
+  "Run the delocalised strain energy eigenerosion"
+  ;Find the local strain of each MP
   (lparallel:pmapcar (lambda (mp)
-                       (setf (cl-mpm/particle::mp-strain-energy-density-local mp)
-                             (calculate-strain-energy-mp mp))) mps)
+                       (with-accessors ((strain-energy cl-mpm/particle::mp-strain-energy-density-local)) mp
+                         (setf strain-energy
+                               (max strain-energy (calculate-strain-energy-mp mp))))) mps)
+  ;Using a general length-param
   (let ((length-parameter (* 1.5d0 (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim)))))
     (let* (
-           (pq *priority-queue*)
+          (pq *priority-queue*)
           (nmps (length mps))
           ;; (neighbours (find-neighbours mps length-parameter))
           (neighbours (ensure-neighbour-array nmps))
-           (neighbours-count (ensure-neighbour-count nmps))
-           (fracture-count 3))
-      (loop for i from 0 to fracture-count
+          (neighbours-count (ensure-neighbour-count nmps))
+          (fracture-count 3))
+      ;We only allow a finite amount of fracture per timestep
+      (loop for f from 0 to fracture-count
             do
+               ;Update each mps local strain
                (lparallel:pdotimes (i nmps)
-                                        ;loop for i from 0 to (- nmps 1)
-                 (let ((mp (aref mps i))
+                 (let* ((mp (aref mps i))
                        (mpneighbour-count (aref neighbours-count i))
-                       ;; (neighbour-list (aref neighbours i))
-                       (local-energy 0)
-                       (mass-total 0))
-                   (loop for mp-i from 0 to (- mpneighbour-count 1)  
+                       (local-energy (with-accessors ((mass cl-mpm/particle:mp-mass)
+                                                       (seng cl-mpm/particle::mp-strain-energy-density-local)) mp
+                                        (* mass seng)))
+                       (mass-total (cl-mpm/particle:mp-mass mp)))
+                   (loop for mp-i from 0 below mpneighbour-count
+                         ;Get the index of the mp-ith neighbour of mp i
                          do (let* ((mp-id (aref neighbours i mp-i))
                                    (mp-b (aref mps mp-id))
                                    (mp-mass (cl-mpm/particle::mp-mass mp)))
-                              (incf local-energy (* mp-mass
-                                                    (cl-mpm/particle::mp-strain-energy-density-local mp-b)))
+                              (incf local-energy (* mp-mass (cl-mpm/particle::mp-strain-energy-density-local mp-b)))
                               (incf mass-total mp-mass)))
                    (when (> mass-total 0)
                      (setf local-energy (/ local-energy mass-total))
-                     (setf (cl-mpm/particle::mp-strain-energy-density (aref mps i)) local-energy)
-                     (lparallel.queue:push-queue (list local-energy i) pq))
+                     (with-accessors ((actual-strain-energy cl-mpm/particle::mp-strain-energy-density))
+                         mp
+                       (setf actual-strain-energy (max actual-strain-energy local-energy)))
+                     (when (< (cl-mpm/particle::mp-damage mp) 1)
+                       (lparallel.queue:push-queue (list local-energy i) pq)))
                    ))
                (let* ((mp-fracture-list (loop while (not (lparallel.queue:queue-empty-p pq))
                                               collect (lparallel.queue:pop-queue pq)))
@@ -156,72 +94,47 @@
                                               (setf max-mp (second fl))))))
                  (when max-mp
                    (when (> max-e (cl-mpm/particle::mp-fracture-toughness (aref mps max-mp))) 
-                     (symbol-macrolet ((damage (cl-mpm/particle::mp-damage (aref mps max-mp)))
-                                       (local-strain (cl-mpm/particle::mp-strain-energy-density-local (aref mps max-mp)))
-                                       )
+                     (with-accessors ((damage cl-mpm/particle:mp-damage)
+                                      (local-strain cl-mpm/particle::mp-strain-energy-density-local))
+                         (aref mps max-mp)
                        (setf damage 1)
-                       (setf local-strain 0))))
-                 
-                 ;;       (pop-counter 4))
-                 ;;   (loop for i from 0 to pop-counter
-                 ;;         do (let (mp-adjusted-frac-list (loop for fl in mp-fracture-list
-                 ;;                                              collect (append (cl-mpm/particle::mp-strain-energy-density
-                 ;;                                                               (aref mps (first fl))) fl)))
-                 ;;              (let ((frac-mp-pair (loop for fl in mp-adjusted-frac-list
-                 ;;                                        maximizing fl)))
-                 ;;                (destructuring-bind (energy mpid) (lparallel.queue:pop-queue pq)
-                 ;;                  (symbol-macrolet ((strain-energy (cl-mpm/particle::mp-strain-energy-density (aref mps mpid))))
-                 ;;                    (setf strain-energy (max strain-energy energy))))))))
-                 ;; (loop while (not (lparallel.queue:queue-empty-p pq))
-                 ;;       do (destructuring-bind (energy mpid) (lparallel.queue:pop-queue pq)
-                 ;;            (symbol-macrolet ((strain-energy (cl-mpm/particle::mp-strain-energy-density (aref mps mpid))))
-                 ;;              (setf strain-energy (max strain-energy energy))))
-                 ;;       ))
-                 ;; (let ((pqarray (loop while (not (lparallel.queue:queue-empty-p pq))
-                 ;;                      collect (lparallel.queue:pop-queue pq))))
-                 ;;   (loop for vals in pqarray
-                 ;;         do (destructuring-bind (energy mpid) vals
-                 ;;              (setf (cl-mpm/particle::mp-strain-energy-density (aref mps mpid)) energy)
-                 ;;              ))
-                 ;;   )
-                 ;; (let ((order 1)
-                 ;;       (length-parameter (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim)))
-                 ;;       )
-                 ;;   (scatter-local-energy sim mps length-parameter order)
-                 ;;   (gather-local-energy sim mps length-parameter order)
-                 ;;   )
-                 ;; (let ((potential-mps (lparallel:premove-if-not
-                 ;;                       (lambda (mp) (> (cl-mpm/particle::mp-strain-energy-density mp) 0))
-                 ;;                       mps)))
-                 ;;   (multiple-value-bind (energy mp) (loop for mp in potential-mps
-                 ;;                                          maximizing (values (cl-mpm/particle::mp-strain-energy-density mp) mp))
-                 ;;     (progn
-                 ;;         (setf (cl-mpm/particle::mp-damage mp) 1)
-                 ;;       )))
+                       ;; (setf local-strain 0)
+                       )))
                  ))
-      (remove-material-damaged mps)))
+      ;; (errode-material)
+      (remove-material-damaged sim)
+      )))
 
-  (defun errode-material (mps)
-    "Damages mps that exceeed fracture threshold"
-    (lparallel:pdotimes (i (length mps))
-      (with-accessors ((gc cl-mpm/particle::mp-fracture-toughness)
-                       (damage cl-mpm/particle:mp-damage)
-                       (volume cl-mpm/particle:mp-volume)
-                       (strain-energy cl-mpm/particle::mp-strain-energy-density))
-          (aref mps i)
-        (when (> (* 1 strain-energy) gc)
-          (setf damage 1)
-          )))))
+(defun errode-material (mps)
+"Damages mps that exceeed fracture threshold"
+(lparallel:pdotimes (i (length mps))
+    (with-accessors ((gc cl-mpm/particle::mp-fracture-toughness)
+                    (damage cl-mpm/particle:mp-damage)
+                    (volume cl-mpm/particle:mp-volume)
+                    (strain-energy cl-mpm/particle::mp-strain-energy-density))
+        (aref mps i)
+    (when (> (* 1 strain-energy) gc)
+        (setf damage 1)
+        ))))
 
-(defun remove-material-damaged (mps)
+(defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
-  (delete-if (lambda (mp)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (setf mps (remove-if (lambda (mp)
                (with-accessors ((gc cl-mpm/particle::mp-fracture-toughness)
                                 (damage cl-mpm/particle:mp-damage)
                                 (volume cl-mpm/particle:mp-volume))
                    mp
-                 (>= damage 1)))
-             mps))
+                 (>= damage 1))) mps)))
+  ;; (delete-if (lambda (mp)
+  ;;              (with-accessors ((gc cl-mpm/particle::mp-fracture-toughness)
+  ;;                               (damage cl-mpm/particle:mp-damage)
+  ;;                               (volume cl-mpm/particle:mp-volume))
+  ;;                  mp
+  ;;                (>= damage 1)))
+  ;;            mps)
+  )
 (defun remove-material (mps)
   "Remove material points that have strain energy density exceeding fracture toughness"
   (delete-if (lambda (mp)
@@ -232,7 +145,9 @@
                    mp
                  (> strain-energy gc)))
              mps))
-(declaim (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
+(declaim
+ (inline diff-squared)
+ (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
 (defun diff-squared (mp-a mp-b)
   (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
                          (cl-mpm/particle:mp-position mp-b)))
@@ -253,7 +168,7 @@
                                                (loop repeat nmps collect (lparallel.queue:make-queue))))))
 
 (defun make-neighbour-array (nmps)
-  (make-array (list nmps (max 10 (floor (/ nmps 4)))) :element-type 'fixnum :initial-element 0))
+  (make-array (list nmps (max 10 (floor (/ nmps 2)))) :element-type 'fixnum :initial-element 0))
 
 (defun ensure-neighbour-array (nmps)
   (if *neighbour-array*
@@ -273,6 +188,7 @@
 
 (declaim (ftype (function ((array cl-mpm/particle:particle) double-float) (values)) find-neighbours))
 (defun find-neighbours (mps length-scale)
+  "Find the neighbours and stuff it into the global array"
   (declare ((array cl-mpm/particle:particle) mps)
            (double-float length-scale))
   (let* ((nmps (length mps))
@@ -283,22 +199,33 @@
       (declare ((simple-array (unsigned-byte 64)) neighbour-count)
                ((simple-array fixnum) neighbour-array)
                (double-float lsquared))
-      ;; (print (type-of neighbour-array))
+      ;Reset neighbour counter
       (lparallel:pdotimes (i nmps)
                           (setf (aref neighbour-count i) 0))
+      ;Iterate over every mp except last
       (lparallel:pdotimes (i (- nmps 1))
         (progn
           (let ((mp-i (aref mps i)))
-            (loop for j from (+ i 1) to (- nmps 1)
-                  do (when (< (diff-squared mp-i (aref mps j)) lsquared)
-                       (let ((pos (sb-ext:atomic-incf (aref neighbour-count i))))
-                         (setf (aref neighbour-array i pos) j))
-                       (let ((pos (sb-ext:atomic-incf (aref neighbour-count j))))
-                         (setf (aref neighbour-array j pos) i))
-                       )))
-             ))))
-  (values)
-  )
+            ;Compare every mp ahead of us in the list
+            (loop for j from (+ i 1) below nmps
+                  do (let ((mp-j (aref mps j)))
+                       (when (< (diff-squared mp-i mp-j) lsquared)
+                                        ;Atomic update the list with less distance comparisons 
+                                                  (let ((pos (sb-ext:atomic-incf (aref neighbour-count i))))
+                                                    (setf (aref neighbour-array i pos) j))
+                                                  (let ((pos (sb-ext:atomic-incf (aref neighbour-count j))))
+                                                    (setf (aref neighbour-array j pos) i))
+                                                  ))))))))
+  (values))
+
+(defun print-neighbours (mps)
+  (loop for i from 0 below (length mps)
+        do
+           (progn
+             (format t "MP: ~D : " i)
+             (loop for n from 0 below (aref *neighbour-count* i)
+                                      do (format t "~D " (aref *neighbour-array* i n)))
+             (format t "~%"))))
 (defparameter *neighbour-search-counter* 0)
 (defun update-fracture (sim)
   (with-accessors ((mps sim-mps)

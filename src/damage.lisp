@@ -34,11 +34,6 @@
                          (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
             (incf damage damage-increment)
             (setf damage (min 1 (max 0 damage)))
-            (loop for i from 0 to 1
-                  do (let ((sii (nth i l)))
-                       (progn
-                         (when (> sii 0)
-                           (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
 
             ;; (loop for sii in l
             ;;       do (when (> sii 0)
@@ -48,6 +43,11 @@
             ;;                                          (magicl:from-list (list (first l) 0 0 (second l)) '(2 2) :type 'double-float)
             ;;                                          (magicl:inv v))))
             (when (> damage 0)
+            (loop for i from 0 to 1
+                  do (let ((sii (nth i l)))
+                       (progn
+                         (when (> sii 0)
+                           (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
                                                        (magicl:inv v)))))

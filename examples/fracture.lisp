@@ -29,11 +29,10 @@
                (setf (cl-mpm/particle:mp-velocity (aref mps id)) vel)
                ))))
 (defun increase-load (sim load-mps amount)
-  (let ((mps (cl-mpm:sim-mps sim)))
-    (loop for id in load-mps
-          do (with-accessors ((pos cl-mpm/particle:mp-position)
-                              (force cl-mpm/particle:mp-body-force)) (aref mps id) 
-               (incf (magicl:tref force 1 0) amount)))))
+  (loop for mp in load-mps
+        do (with-accessors ((pos cl-mpm/particle:mp-position)
+                            (force cl-mpm/particle:mp-body-force)) mp
+             (incf (magicl:tref force 1 0) amount))))
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
@@ -63,6 +62,44 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-x ms-y)))
   (vgplot:replot))
+(defun plot-neighbours (sim mp-id)
+  (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
+  (with-accessors ((mps cl-mpm:sim-mps)) sim
+    (multiple-value-bind (x y c)
+        (labels ((indirect-id (id) (aref cl-mpm/eigenerosion::*neighbour-array* mp-id id))
+                (indirect (id) (aref mps (indirect-id id))))
+          (loop for id from 0 below (aref cl-mpm/eigenerosion::*neighbour-count* mp-id)
+                when (< id (array-dimension cl-mpm/eigenerosion::*neighbour-array* 1))
+                collect (magicl:tref (cl-mpm::mp-position (indirect id)) 0 0) into x
+                when (< id (array-dimension cl-mpm/eigenerosion::*neighbour-array* 1))
+                collect (magicl:tref (cl-mpm::mp-position (indirect id)) 1 0) into y
+                when (< id (array-dimension cl-mpm/eigenerosion::*neighbour-array* 1))
+                collect 0 into c
+                finally (return (values x y c))))
+      ;; (loop for mp across (cl-mpm:sim-mps sim)
+      ;;       for i from 0
+      ;;     collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
+      ;;     collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+      ;;     collect (if (eq i mp-id) 1 0) into c
+      ;;     finally (return (values x y c)))
+      (push (magicl:tref (cl-mpm::mp-position (aref mps mp-id)) 0 0) x)
+      (push (magicl:tref (cl-mpm::mp-position (aref mps mp-id)) 1 0) y)
+      (push 1 c)
+      (vgplot:format-plot t "set cbrange [0:1]")
+      (vgplot:plot x y c ";;with points pt 7 lc palette")))
+  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+         (ms-x (first ms))
+         (ms-y (second ms))
+         )
+    (vgplot:axis (list 0 ms-x
+                       0 ms-y))
+    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h))
+  ;; (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))) 
+  ;;                    0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))))
+  (vgplot:replot))
 (defun plot (sim &optional (plot :energy))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e)
@@ -73,7 +110,7 @@
           collect (length-from-def sim mp 1) into ly
           collect (cl-mpm/particle:mp-damage mp) into c
           collect (cl-mpm/particle::mp-strain-energy-density mp) into e
-          collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0) 1e0) into stress-y
+          collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
           finally (return (values x y c stress-y lx ly e)))
     (cond
       ((eq plot :damage)
@@ -181,13 +218,17 @@
       ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 4 2))
+  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 8 2))
   ;; (defparameter *sim* (setup-test-column '(8 10) '(6 5) 4 1))
   ;; (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
   (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 0.5 0.5))
+  ;; (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 5 0.5))
+  ;; (setf (cl-mpm:sim-mps *sim*) (reverse (cl-mpm:sim-mps *sim*)))
+  ;; (with-accessors ((mps cl-mpm:sim-mps)) *sim*
+  ;;   (rotatef (aref mps 0) (aref mps (- (length mps) 1))))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -201,7 +242,7 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
       (loop for id from 0 to (- (length mps) 1)
             when (<= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (+ least-pos 0.001))
-              collect id)))
+              collect (aref mps id))))
   (defparameter *load-mps-top*
     (let* ((mps (cl-mpm:sim-mps *sim*))
            (least-pos
@@ -209,8 +250,8 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
       (loop for id from 0 to (- (length mps) 1)
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
-              collect id)))
-  (increase-load *sim* *load-mps* -100)
+              collect (aref mps id))))
+  (increase-load *sim* *load-mps* -500)
   ;; (increase-load *sim* *load-mps-top* 500)
   )
 
@@ -241,7 +282,7 @@
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 100)
+                  (dotimes (i 10)
                     ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) ))
                     ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 0.5d0) '(2 1) ))
                     (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
@@ -284,9 +325,15 @@
                       cl-mpm::g2p-mp
                       cl-mpm::p2g-mp-node
                       cl-mpm::g2p-mp-node
+                      cl-mpm/eigenerosion:update-fracture
+                      cl-mpm/eigenerosion::remove-material-damaged
+                      cl-mpm/eigenerosion::find-neighbours
                       )
   (loop repeat 10
-        do (cl-mpm::update-sim *sim*))
+        do (progn
+             (cl-mpm::update-sim *sim*)
+             (cl-mpm/eigenerosion:update-fracture *sim*)
+             ))
   (sb-profile:report))
 
 ;; (progn 
@@ -335,3 +382,42 @@
 ;;       )))
 
 ;; (time-form (cl-mpm/eigenerosion:update-fracture *sim*) 100)
+
+
+;; (loop for i from 0 below (length (cl-mpm:sim-mps *sim*))
+;;       do (progn
+;;            (plot-neighbours *sim* i)
+;;            (sleep 0.5)))
+
+;; (declaim (ftype
+;;           (function (magicl:matrix/double-float magicl:matrix/double-float)
+;;                     (values double-float))
+;;           distance))
+;; (defun distance (a b)
+;;   (declare (optimize (speed 3) (safety 0) (debug 0))
+;;            (type magicl:matrix/double-float a b))
+;;   (let ((diff (magicl:.- a b)))
+;;     (values (magicl::sum (magicl:.* diff diff)))))
+
+;; (declaim (ftype
+;;           (function ((simple-array double-float (2))
+;;                      (simple-array double-float (2)))
+;;                     (values double-float))
+;;           distance-numericals))
+;; (defun distance-numericals (a b)
+;;   (declare (optimize (speed 3) (safety 0) (debug 0))
+;;            (type (simple-array double-float (2)) a b))
+;;   (let ((diff (numericals:- a b)))
+;;     (declare (type (simple-array double-float (2)) diff))
+;;     (values (the double-float (numericals:vdot diff diff)))))
+
+;; (setf numericals:*array-element-type* 'double-float)
+;; (setf numericals:*default-float-format* 'double-float)
+;; (let ((a (magicl:from-list '(1d0 1d0) '(2 1)))
+;;       (b (make-array 2 :initial-contents #(2d0 1d0) :element-type 'double-float)))
+;;   (print "MAGICL")
+;;   (time-form (distance a a) 100000)
+;;   (print "NUMERICALS")
+;;   (time-form (distance-numericals b b) 100000)
+;;   )
+

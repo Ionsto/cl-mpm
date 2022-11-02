@@ -53,7 +53,11 @@
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
-
+(defun check-mps (mps)
+  "Function to check that stresses and positions are sane"
+  (loop for mp in mps
+        do
+        (progn)))
 
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
@@ -565,3 +569,8 @@
                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
         (cl-mpm/mesh:reset-node node))))))
 
+#||
+(progn
+(ql:quickload :cl-mpm/examples/fracture)
+(in-package :cl-mpm/examples/fracture))
+||#
