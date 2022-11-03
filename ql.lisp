@@ -17,5 +17,5 @@
 ;;; If the install-dist step gives a "can't create directory" error, manually
 ;;; create the directory $QUICKLISP_HOME/dists/digikar99
 (ql:update-dist "digikar99/specialized-array-dispatch")
-(ql:quickload "dense-numericals") ; or "numericals"
-(asdf:test-system "dense-numericals") ; or "numericals"
+(ql:quickload "numericals") ; or "numericals"
+(asdf:test-system "numericals") ; or "numericals"
