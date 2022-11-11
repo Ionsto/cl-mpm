@@ -76,13 +76,14 @@
       (format fs "DATASET UNSTRUCTURED_GRID~%")
       (with-accessors ((nodes cl-mpm/mesh::mesh-nodes)
                        (size cl-mpm/mesh::mesh-count)
-                       (h cl-mpm/mesh::mesh-resolution)) mesh
+                       (h cl-mpm/mesh::mesh-resolution)
+                       (border cl-mpm/mesh::mesh-boundary-order)) mesh
         (format fs "POINTS ~d double~%" (floor (apply #'* size)))
         (loop for x from 0 to (- (first size) 1)
               do
                  (loop for y from 0 to (- (second size) 1)
                        do
-                          (format fs "~f ~f ~f ~%" (* h x) (* h y)
+                          (format fs "~f ~f ~f ~%" (* h (- x border)) (* h (- y border))
                                   ;(magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
                                   ;(magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
                                   0)))

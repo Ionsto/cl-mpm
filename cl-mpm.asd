@@ -13,7 +13,8 @@
   :components ((:file "src/utils")))
 
 (defsystem "cl-mpm/mesh"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
   :components ((:file "src/mesh")))
@@ -69,11 +70,11 @@
   :serial t
   :components ((:file "src/output")))
 ;
-;(defsystem "cl-mpm/shape-function"
-;  :depends-on ("magicl")
-;  :description "MPM shape function definitions"
-;  :serial t
-;  :components ((:file "src/shape-function")))
+(defsystem "cl-mpm/shape-function"
+ :depends-on ("magicl")
+ :description "MPM shape function definitions"
+ :serial t
+ :components ((:file "src/shape-function")))
 ;
 ;(defsystem "cl-mpm/mesh"
 ;  :depends-on ("magicl")
@@ -91,7 +92,7 @@
                "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
-               ;"cl-mpm/shape-function"
+               "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
                "cl-mpm/damage"
@@ -101,7 +102,7 @@
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
   :serial t
   :components (
-               (:file "src/shape-function")
+               ;; (:file "src/shape-function")
                (:file "src/forces")
                (:file "src/core")
                ))
@@ -125,3 +126,15 @@
                "py4cl2")
   :serial t
   :components ((:file "examples/fracture")))
+
+(defsystem "cl-mpm/examples/plate-with-hole"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/plate-with-hole")))

@@ -3,6 +3,7 @@
         :cl-mpm/particle
         :cl-mpm/mesh
         :cl-mpm/utils
+        :cl-mpm/shape-function
         )
   (:import-from 
     :magicl tref .+ .-)
@@ -89,9 +90,9 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
+  ;; (iterate-over-neighbours-shape-bspline mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
-  (iterate-over-neighbours-shape-bspline mesh mp func)
-  ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
+  (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
   (values)
   )
 
@@ -191,6 +192,7 @@
                                                   dist (nreverse weights)))
                                    (dsvp (assemble-dsvp-2d grads)))
                               (funcall func mesh mp node weight dsvp)))))))))
+
 (declaim (inline iterate-over-neighbours-shape-bspline))
 (defun iterate-over-neighbours-shape-bspline (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -200,21 +202,20 @@
            (pos-vec (cl-mpm/particle:mp-position mp))
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
            ;; (pos-index (magicl:scale pos-vec (/ 1 h)))
-           ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round))
            )
       (loop for dx from -1 to 1
             do (loop for dy from -1 to 1
-                     do (let* ((id (list (+ (round (/ (tref pos-vec 0 0) h)) dx)
-                                         (+ (round (/ (tref pos-vec 1 0) h)) dy))))
+                     do (let* ((id (mapcar #'+ pos-index (list dx dy))))
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar (lambda (p i) (- p (* i h))) pos id))
                                    (node (cl-mpm/mesh:get-node mesh id))
-                                   (weights (mapcar (lambda (x) (shape-bspline x h)) dist))
+                                   (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-bspline x h)) dist))
                                    (weight (reduce #'* weights))
                                    (grads (mapcar (lambda (d w)
-                                                (* (shape-bspline-dsvp d h) w))
+                                                (* (cl-mpm/shape-function::shape-bspline-dsvp d h) w))
                                                 dist (nreverse weights)))
-                                   (dsvp (assemble-dsvp-2d grads)))
+                                   (dsvp (cl-mpm/shape-function::assemble-dsvp-2d grads)))
                               (funcall func mesh mp node weight dsvp)))))))))
 (defmacro iterate-over-neighbours-shape-linear-macro (mesh mp func-body)
   `(progn
@@ -242,28 +243,6 @@
                           ,func-body
                           )
                      )))))
-
-;; (defmethod iterate-over-neighbours-shape (mesh
-;;                                           (shape-func shape-function-linear)
-;;                                           (mp cl-mpm/particle::particle-damage)
-;;                                           func)
-;;   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-;;          (h (cl-mpm/mesh:mesh-resolution mesh))
-;;          (order (slot-value shape-func 'order))
-;;          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
-;;          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-;;          (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
-;;     (loop for dx from 0 to order
-;;           do (loop for dy from 0 to order
-;;                    do
-;;                    (let* (
-;;                           (id (mapcar #'+ pos-index (list dx dy)))
-;;                           (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
-;;                           (node (cl-mpm/mesh:get-node mesh id))
-;;                           (weight (apply (svp shape-func) dist))
-;;                           (grads (apply (dsvp shape-func) dist))
-;;                           )
-;;                           (funcall func mesh mp node weight (assemble-dsvp nd grads)))))))
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-bspline) mp func)
   (declare (cl-mpm/mesh::mesh mesh)

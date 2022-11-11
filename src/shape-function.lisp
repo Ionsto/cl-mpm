@@ -1,6 +1,19 @@
-(defpackage :cl-mpm
-  (:use :cl))
-(in-package :cl-mpm)
+(defpackage :cl-mpm/shape-function
+  (:use :cl)
+  (:export
+   #:order
+   #:svp
+   #:dsvp
+   #:shape-function
+   #:shape-function-linear
+   #:shape-function-bspline
+   #:make-shape-function-linear
+   #:make-shape-function-bspline
+   #:assemble-dsvp
+   #:shape-bspline
+   #:shape-bspline-dsvp
+   ))
+(in-package :cl-mpm/shape-function)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defmacro shape-linear-form (x)

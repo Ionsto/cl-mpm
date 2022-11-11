@@ -100,7 +100,7 @@
   ;; (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim))) 
   ;;                    0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))))
   (vgplot:replot))
-(defun plot (sim &optional (plot :energy))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -191,23 +191,24 @@
                                         #'cl-mpm::make-shape-function-linear)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
-         (h-x (/ h 1))
-         (h-y (/ h 1))
+         (h-x (/ h 1d0))
+         (h-y (/ h 1d0))
          (mass (/ 1 (* e-scale mp-scale)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
-      (setf (cl-mpm:sim-mps sim) 
-            (cl-mpm/setup::make-block-mps
-             (list (* h-x (- (+ (/ 1 (* 2 mp-scale)) e-scale) 0))
-                   (* h-y (+ (/ 1 (* 2 mp-scale)) (* (- 8 (second block-size)) e-scale))))
-             block-size
-             (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-              'cl-mpm::make-particle
-              'cl-mpm/particle::particle-elastic-fracture
-              :E 1e5 :nu 0.2d0
-              :mass mass
-              :critical-stress 1d5
-              :fracture-toughness 5d0))
+      (let ((block-position (list (* h-x (- (+ (/ 1 (* 2 mp-scale)) e-scale) 0))
+                                  (* h-y (+ (/ 1d0 (* 2d0 mp-scale)) (* (- (second size) (second block-size)) e-scale))))))
+        (setf (cl-mpm:sim-mps sim) 
+              (cl-mpm/setup::make-block-mps
+               block-position 
+               block-size
+               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               'cl-mpm::make-particle
+               'cl-mpm/particle::particle-elastic-fracture
+               :E 1e5 :nu 0.0d0
+               :mass mass
+               :critical-stress 1d5
+               :fracture-toughness 5d0)))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
       ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
       ;; (remove-hole sim '(2d0 5.5d0) 0.30)
@@ -221,10 +222,13 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 8 2))
+  (defparameter *sim* (setup-test-column '(4 8) '(2 5) 2 2))
+  (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 0.5 0.5))
+  ;; (defparameter *sim* (setup-test-column '(7 9) '(5 8) 4 2))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 3.5d0 (- 9 4)) 0.5 0.5))
+  (setf (cl-mpm:sim-damping-factor *sim*) 10d0)
   ;; (defparameter *sim* (setup-test-column '(8 10) '(6 5) 4 1))
   ;; (remove-sdf *sim* (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
-  (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 0.5 0.5))
   ;; (remove-sdf *sim* (ellipse-sdf '(2d0 5.5d0) 5 0.5))
   ;; (setf (cl-mpm:sim-mps *sim*) (reverse (cl-mpm:sim-mps *sim*)))
   ;; (with-accessors ((mps cl-mpm:sim-mps)) *sim*
@@ -251,7 +255,7 @@
       (loop for id from 0 to (- (length mps) 1)
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
               collect (aref mps id))))
-  (increase-load *sim* *load-mps* -500)
+  (increase-load *sim* *load-mps* -100)
   ;; (increase-load *sim* *load-mps-top* 500)
   )
 
@@ -277,7 +281,7 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 50
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
@@ -285,7 +289,7 @@
                   (dotimes (i 10)
                     ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) ))
                     ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 0.5d0) '(2 1) ))
-                    (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                    ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
                     ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
                     (cl-mpm::update-sim *sim*)
                     (cl-mpm/eigenerosion:update-fracture *sim*)

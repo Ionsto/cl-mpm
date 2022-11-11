@@ -6,6 +6,7 @@
     #:bc-value
     #:make-outside-bc
     #:make-outside-bc-nostick
+    #:make-outside-bc-roller
     )
   )
 (in-package :cl-mpm/bc)
@@ -63,6 +64,8 @@
         (when (< rel-vel 0)
           (setf node-vel (magicl:.- (magicl:scale normal rel-vel) node-vel)))))))
 
+;; (defun make-wall-bc (mesh &rest args)
+;;   (loop for v from 0 to ()))
 (defun make-outside-bc (mesh-count)
   "Construct fixed bcs over the outside of a mesh"
   (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
@@ -88,3 +91,36 @@
                 append 
                 (list (make-bc-surface (list 0     y) (magicl:from-list '( 1d0 0d0) '(2 1)))
                       (make-bc-surface (list xsize y) (magicl:from-list '(-1d0 0d0) '(2 1))))))))
+
+(defun make-outside-bc-roller (mesh-count order)
+  "Construct fixed bcs over the outside of a mesh"
+  (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
+    (loop for o from 0 to order
+          append
+          (append
+           (loop for x from 0 to xsize 
+                 append 
+                 (list (make-bc-fixed (list x order)     '(nil 0d0))
+                       (make-bc-fixed (list x (- ysize order)) '(nil 0d0))))
+           (loop for y from 0 to ysize 
+                 append 
+                 (list (make-bc-fixed (list order     y) '(0d0 nil))
+                       (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))
+
+(defun make-outside-bc-var (mesh left right top bottom)
+  "Construct fixed bcs over the outside of a mesh"
+  (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
+                   (order cl-mpm/mesh::mesh-boundary-order))
+      mesh
+    (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
+      (loop for o from 0 to order
+            append
+            (append
+             (loop for x from 0 to xsize 
+                   append 
+                   (list (funcall bottom (list x order))
+                         (funcall top (list x (- ysize order)))))
+             (loop for y from 0 to ysize 
+                   append 
+                   (list (funcall left (list order y))
+                         (funcall right (list (- xsize order) y)))))))))

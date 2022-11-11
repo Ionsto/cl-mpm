@@ -78,7 +78,10 @@
       :initarg :nodes)
     (shape-func
       :accessor mesh-shape-func
-      :initarg :shape-func))
+      :initarg :shape-func)
+   (boundary-order
+    :accessor mesh-boundary-order
+    :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
 
 (defun make-node (pos)
@@ -100,7 +103,9 @@
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
          (resolution (coerce resolution 'double-float))
-         (meshcount (loop for d in size collect (+ (floor d resolution) 1)))
+         (boundary-order 2;(- (cl-mpm/shape-function::order shape-function) 1)
+           )
+         (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
          (nodes (make-nodes meshcount)))
     (make-instance 'mesh
       :nD 2 
@@ -109,6 +114,7 @@
       :mesh-res resolution
       :nodes nodes
       :shape-func shape-function
+      :boundary-order boundary-order
       )))
 
 (declaim (inline in-bounds-1d))
@@ -125,7 +131,8 @@
 
 (defun position-to-index (mesh pos &optional (round-operator 'round))
   "Turn a vector position into a list of indexes with rounding"
-  (mapcar (lambda (x) (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))) '(0 1)))
+  (mapcar (lambda (x) (+ (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))
+                         (mesh-boundary-order mesh))) '(0 1)))
 
 (defun get-node (mesh pos)
   "Check bounds and get node"
