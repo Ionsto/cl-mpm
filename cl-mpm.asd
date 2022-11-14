@@ -114,6 +114,18 @@
   :serial t
   :components ((:file "examples/bounce")))
 
+(defsystem "cl-mpm/examples/column"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/column")))
+
 (defsystem "cl-mpm/examples/fracture"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
@@ -122,8 +134,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
-               "magicl"
-               "py4cl2")
+               "magicl")
   :serial t
   :components ((:file "examples/fracture")))
 

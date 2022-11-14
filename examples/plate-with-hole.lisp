@@ -16,7 +16,8 @@
   (loop for mp in load-mps
         do (with-accessors ((pos cl-mpm/particle:mp-position)
                             (force cl-mpm/particle:mp-body-force)) mp
-             (incf (magicl:tref force 0 0) amount))))
+             (incf (magicl:tref force 1 0) amount))))
+
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
@@ -56,7 +57,6 @@
        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
        (vgplot:plot x y lx ly ";;with ellipses")))
     )
-  
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
@@ -86,7 +86,7 @@
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
 
-(defun setup-test-column (size block-size block-offset &optional (e-scale 1) (mp-scale 1))
+(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline)) 
@@ -116,23 +116,23 @@
       (setf (cl-mpm:sim-damping-factor sim) 0.001d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-4)
       (setf (cl-mpm:sim-dt sim) 1d-3)
-      ;; ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
+      (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim)
       ;;       (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim)
       ;;       (cl-mpm/bc:make-outside-bc-roller (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)) 1))
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           ))
+      ;; (setf (cl-mpm:sim-bcs sim)
+      ;;       (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
+      ;;                                      (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
+      ;;                                      (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
+      ;;                                      (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+      ;;                                      (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+      ;;                                      ))
       sim)))
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4.5 3) '(4 2.5) (list 0 0) 4 3))
+  (defparameter *sim* (setup-test-column '(4.5 3) '(4 2.5) (list 0 0) 2 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   (defparameter *velocity* '())
@@ -149,8 +149,8 @@
       (loop for id from 0 to (- (length mps) 1)
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
               collect (aref mps id))))
-  (increase-load *sim* *load-mps* 500)
-  ;; (increase-load *sim* *load-mps-top* 500)
+  ;; (increase-load *sim* *load-mps* 1)
+  (increase-load *sim* *load-mps* 100)
   )
 
 
@@ -175,7 +175,7 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                 (progn

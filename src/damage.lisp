@@ -7,7 +7,7 @@
     )
   )
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 2)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 1/2 critical-stress))
@@ -54,5 +54,5 @@
             ;; (setf stress (magicl:scale stress (damage-profile damage)))
             )))))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
-  (update-damage mp dt)
+  ;; (update-damage mp dt)
   )

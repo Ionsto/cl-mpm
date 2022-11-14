@@ -9,6 +9,7 @@
     #:make-outside-bc-roller
     )
   )
+(declaim (optimize (debug 3) (safety 3) (speed 2)))
 (in-package :cl-mpm/bc)
 (defclass bc ()
   ( (index 

@@ -10,58 +10,65 @@
    #:make-shape-function-linear
    #:make-shape-function-bspline
    #:assemble-dsvp
+   #:assemble-dsvp-2d
    #:shape-bspline
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 2)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
 (defun shape-linear (x h)
   (- 1d0 (abs (/ x h))))
-(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-linear))
+
+(declaim (inline shape-linear)
+         (ftype (function (double-float double-float) double-float) shape-linear))
 (defun shape-linear (x h)
   (declare (type double-float x h)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           (optimize (speed 3) (safety 3) (debug 3)))
   (the double-float (- 1d0 (abs (/ x h)))))
-(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
+
+(declaim (inline shape-linear-dsvp)
+         (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
 (defun shape-linear-dsvp (x h)
   (declare (type double-float x h)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           (optimize (speed 3) (safety 3) (debug 3)))
   (the double-float (/ (if (> x 0d0)
                            -1d0
                            1d0) h)
   ;; (the double-float (/ (signum x) h)
        ))
-(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-bspline))
+(declaim (inline shape-bspline)
+         (ftype (function (double-float double-float) double-float) shape-bspline))
 (defun shape-bspline (x h)
   (if (< (abs x) (/ h 2)) 
           (- (/ 3 4) (expt (/ (abs x) h) 2))
           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
-(declaim (inline dispatch) (ftype (function (double-float double-float) double-float) shape-bspline-dsvp))
+(declaim (inline shape-bspline-dsvp)
+         (ftype (function (double-float double-float) double-float) shape-bspline-dsvp))
 (defun shape-bspline-dsvp (X H)
-  (IF (< (ABS X) (/ H 2))
+  (IF (< (ABS X) (/ H 2d0))
     (-
-     (* (* 2 (/ (ABS X) H))
+     (* (* 2d0 (/ (ABS X) H))
         (/
          (*
-          (IF (> X 0)
-              1
-              -1)
+          (IF (> X 0d0)
+              1d0
+              -1d0)
           H)
-         (EXPT H 2))))
+         (EXPT H 2d0))))
     (* 1/8
-       (* (* 2 (- 3 (/ (* 2 (ABS X)) H)))
+       (* (* 2d0 (- 3d0 (/ (* 2d0 (ABS X)) H)))
           (-
            (/
             (*
-             (* 2
-                (IF (> X 0)
-                    1
-                    -1))
+             (* 2d0
+                (IF (> X 0d0)
+                    1d0
+                    -1d0))
              H)
-            (EXPT H 2)))))))
+            (EXPT H 2d0)))))))
 (defmacro create-svp (arg form)
   `(lambda (,arg) ,form))
 

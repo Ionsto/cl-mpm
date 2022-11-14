@@ -55,7 +55,7 @@
         (data (loop for i from 0 to (- size 1) collect 
                     (apply constructor (append '(2) args 
                                                (list
-                                                 :pos (list (/ mp-spacing-x 2) 
+                                                 :position (list (/ mp-spacing-x 2) 
                                                             (+ (/ mp-spacing-y 2) (* mp-spacing-y i)))
                                                  :volume (* mp-spacing-x mp-spacing-y)))))))
     (make-array (length data) :initial-contents data)))

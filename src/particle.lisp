@@ -24,7 +24,7 @@
     )
   )
 (in-package :cl-mpm/particle)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 2)))
 
 (defclass particle ()
   ((mass 
@@ -111,12 +111,12 @@
     :accessor mp-damage
     :type DOUBLE-FLOAT
     :initarg :damage
-    :initform 0)
+    :initform 0d0)
    (critical-stress
     :accessor mp-critical-stress
     :type DOUBLE-FLOAT
     :initarg :critical-stress
-    :initform 0)
+    :initform 0d0)
    )
   (:documentation "A material point with a damage tensor"))
 (defclass particle-fracture (particle-damage)
@@ -124,15 +124,15 @@
    (strain-energy-density
     :accessor mp-strain-energy-density
     :type DOUBLE-FLOAT
-    :initform 0)
+    :initform 0d0)
    (strain-energy-density-local
     :accessor mp-strain-energy-density-local
     :type DOUBLE-FLOAT
-    :initform 0)
+    :initform 0d0)
    (fracture-toughness
     :accessor mp-fracture-toughness
     :type DOUBLE-FLOAT
-    :initform 0
+    :initform 0d0
     :initarg :fracture-toughness)
    )
   (:documentation "A material point with fracture mechanics"))

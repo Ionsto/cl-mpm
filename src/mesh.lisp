@@ -21,13 +21,13 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 3)))
 
 (defclass node ()
   ((mass 
      :accessor node-mass
      :type double-float
-     :initform 0
+     :initform 0d0
      )
   (index 
     :accessor node-index
@@ -36,18 +36,18 @@
     :accessor node-acceleration
     :initarg :acceleration
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1))
+    :initform (magicl:zeros '(1 1) :type 'double-float)
     )
   (force 
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1)))
+    :initform (magicl:zeros '(1 1) :type 'double-float))
   (velocity
     :accessor node-velocity
     :initarg :velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1)))
+    :initform (magicl:zeros '(1 1) :type 'double-float))
   (lock 
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -57,7 +57,7 @@
   ((strain-energy-density
      :accessor node-strain-energy-density
      :type double-float
-     :initform 0
+     :initform 0d0
      )))
 
 (defclass mesh ()
@@ -87,23 +87,27 @@
 (defun make-node (pos)
   "Default initialise a 2d node at pos"
   (make-instance 'node-fracture 
-                 :force (magicl:zeros (list 2 1))
-                 :velocity (magicl:zeros (list 2 1))
-                 :acceleration (magicl:zeros (list 2 1))
-                 :index (magicl:from-list pos (list 2 1))))
+                 :force (magicl:zeros (list 2 1) :type 'double-float)
+                 :velocity (magicl:zeros (list 2 1) :type 'double-float)
+                 :acceleration (magicl:zeros (list 2 1) :type 'double-float)
+                 :index (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float))
+                                                  pos)
+                                          (list 2 1) :type 'double-float)
+                 )
+  )
 
 (defun make-nodes (size)
   "Make a 2d mesh of specific size"
   (make-array size :initial-contents 
       (loop for x from 0 to (- (nth 0 size) 1)
             collect (loop for y from 0 to (- (nth 1 size) 1)
-                     collect (make-node (list x y))))))
+                          collect (make-node (list x y))))))
 
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
          (resolution (coerce resolution 'double-float))
-         (boundary-order 2;(- (cl-mpm/shape-function::order shape-function) 1)
+         (boundary-order (- (cl-mpm/shape-function::order shape-function) 1)
            )
          (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
          (nodes (make-nodes meshcount)))
@@ -148,7 +152,7 @@
                 (vel velocity)
                 (force force))
                 node
-               (setf mass 0)
+               (setf mass 0d0)
                (setf vel (magicl:scale vel 0))
                (setf force (magicl:scale force 0))))
 
