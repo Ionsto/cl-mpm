@@ -37,7 +37,8 @@
 
 
 (defsystem "cl-mpm/constitutive"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "cl-mpm/utils")
   :description "Various constitutive models"
   :serial t
   :components ((:file "src/constitutive")))
@@ -149,3 +150,15 @@
                "magicl")
   :serial t
   :components ((:file "examples/plate-with-hole")))
+
+(defsystem "cl-mpm/examples/slump"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/slump")))

@@ -85,6 +85,7 @@
      :type double-float
      :accessor mp-gravity
      :initform 0d0;-9.8d0
+     :initarg :gravity
      )
    (body-force
      :accessor mp-body-force
@@ -104,6 +105,17 @@
      :initarg :nu)
    )
   (:documentation "A linear-elastic material point"))
+
+(defclass particle-viscoelastic (particle)
+  ((E
+    :accessor mp-E
+    :initarg :E
+    )
+   (nu
+    :accessor mp-nu
+    :initarg :nu)
+   )
+  (:documentation "A visco-elastic material point"))
 
 (defclass particle-damage (particle)
   (
@@ -143,6 +155,10 @@
 (defclass particle-elastic-fracture (particle-elastic particle-fracture)
   ()
   (:documentation "A mp with fracture mechanics"))
+
+(defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
+  ()
+  (:documentation "A viscoelastic mp with fracture mechanics"))
 
 (defun make-particle (nD &optional (constructor 'particle) &rest args &key  (position nil) (volume 1) (mass 1) &allow-other-keys)
   (progn
@@ -192,6 +208,14 @@
                  (nu nu))
                 mp
         (cl-mpm/constitutive:linear-elastic strain E nu)))
+
+(defmethod constitutive-model ((mp particle-viscoelastic) strain)
+  (with-slots ((E E)
+               (nu nu)
+               (strain-rate strain-rate)
+               (stress stress))
+      mp
+    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate E nu))))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))

@@ -7,6 +7,7 @@
    #:shape-function
    #:shape-function-linear
    #:shape-function-bspline
+   #:shape-function-gimp
    #:make-shape-function-linear
    #:make-shape-function-bspline
    #:assemble-dsvp
@@ -131,16 +132,16 @@
     (3 (dsvp-3d svp dsvp))))
 
 (defclass shape-function ()
-  ((nD 
+  ((nD
      :accessor nD
      :initarg :nD)
-   (order 
+   (order
      :accessor order
      :initarg :order)
-   (svp 
+   (svp
      :accessor svp
      :initarg :svp)
-   (dsvp 
+   (dsvp
      :accessor dsvp
      :initarg :dsvp)
    ))
@@ -151,12 +152,15 @@
 (defclass shape-function-bspline (shape-function)
   ((order :initform 2)))
 
+(defclass shape-function-bspline-c2 (shape-function)
+  ((order :initform 3)))
+
 (defmacro make-shape-function (arg shape-form nD order &optional (shape-class 'shape-function))
   `(let ((svp (create-svp ,arg ,shape-form))
          (dsvp (create-dsvp ,arg ,shape-form)))
      (make-instance ,shape-class
-                    :nD ,nD 
-                    :order ,order 
+                    :nD ,nD
+                    :order ,order
                     :svp (nd-svp ,nD svp dsvp)
                     :dsvp (nd-dsvp ,nD svp dsvp))))
 
@@ -164,16 +168,17 @@
   (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
 
 (defmacro bspline (x h)
-  (if (< (abs x) (/ h 2d0)) 
+  (if (< (abs x) (/ h 2d0))
       (- (/ 3d0 4d0) (expt (/ (abs x) h) 2d0))
       (* (/ 1d0 8d0) (expt (- 3d0 (/ (* 2d0 (abs x)) h)) 2d0))))
 
 (defun make-shape-function-bspline (nD h)
-  (make-shape-function x 
-      (if (< (abs x) (/ h 2)) 
+  (make-shape-function x
+      (if (< (abs x) (/ h 2))
           (- (/ 3 4) (expt (/ (abs x) h) 2))
-          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))) 
+          (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2)))
                        nD 2 'shape-function-bspline))
+
 ;; (symbolic-derivation:derive 'x
 ;;       '(if (< (abs x) (/ h 2)) 
 ;;           (- (/ 3 4) (expt (/ (abs x) h) 2))

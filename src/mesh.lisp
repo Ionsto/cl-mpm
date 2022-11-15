@@ -18,6 +18,7 @@
     #:reset-node
     #:in-bounds
     #:position-to-index
+    #:index-to-position
   ))
 
 (in-package :cl-mpm/mesh)
@@ -107,7 +108,7 @@
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
          (resolution (coerce resolution 'double-float))
-         (boundary-order (- (cl-mpm/shape-function::order shape-function) 1)
+         (boundary-order (* 2 (- (cl-mpm/shape-function::order shape-function) 1))
            )
          (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
          (nodes (make-nodes meshcount)))
@@ -137,6 +138,10 @@
   "Turn a vector position into a list of indexes with rounding"
   (mapcar (lambda (x) (+ (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))
                          (mesh-boundary-order mesh))) '(0 1)))
+
+(defun index-to-position (mesh index)
+  "Turn a vector position into a list of indexes with rounding"
+  (mapcar (lambda (i) (* (- i (mesh-boundary-order mesh)) (mesh-resolution mesh))) index))
 
 (defun get-node (mesh pos)
   "Check bounds and get node"

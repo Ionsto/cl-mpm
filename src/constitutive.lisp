@@ -1,7 +1,9 @@
 (defpackage :cl-mpm/constitutive
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils)
   (:export
     #:linear-elastic
+    #:maxwell
     )
   )
 (in-package :cl-mpm/constitutive)
@@ -31,6 +33,18 @@
 
 
 (defun newtonian-fluid (strain pressure viscosity)
+  "A newtonian fluid model"
   (magicl:.+ (magicl:from-list (list pressure pressure 0) '(3 1))
              (magicl:scale strain viscosity)))
 
+(defun maxwell (strain-increment elasticity viscosity)
+  "A stress increment form of a viscoelastic maxwell material"
+  (let* ((order 2)
+         (strain-matrix (voight-to-matrix strain-increment))
+         (pressure (magicl:trace strain-matrix))
+         (pressure-matrix (magicl:eye order :value pressure))
+         (dev-stress (magicl:.- strain-matrix pressure-matrix)))
+    (matrix-to-voight (magicl:.-
+                      (magicl:scale pressure-matrix elasticity)
+                      (magicl:scale dev-stress viscosity)
+                      ))))

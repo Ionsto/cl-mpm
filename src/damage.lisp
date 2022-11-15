@@ -10,10 +10,10 @@
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
-  (if (> stress (* 1/2 critical-stress))
-      (* (/ (max 0 stress) critical-stress) 0.1)
-      0)
-  0
+  (if (> stress (* 0d0 1/2 critical-stress))
+      (* (/ (max 0d0 stress) critical-stress) 0.1d0)
+      0d0)
+  0d0
   )
 
 (defun damage-profile (damage)
@@ -33,7 +33,7 @@
                        (progn
                          (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
             (incf damage damage-increment)
-            (setf damage (min 1 (max 0 damage)))
+            (setf damage (min 1d0 (max 0d0 damage)))
 
             ;; (loop for sii in l
             ;;       do (when (> sii 0)
@@ -42,17 +42,17 @@
             ;; (setf stress (matrix-to-voight (magicl:@ v
             ;;                                          (magicl:from-list (list (first l) 0 0 (second l)) '(2 2) :type 'double-float)
             ;;                                          (magicl:inv v))))
-            (when (> damage 0)
-            (loop for i from 0 to 1
-                  do (let ((sii (nth i l)))
-                       (progn
-                         (when (> sii 0)
-                           (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
+            (when (> damage 0d0)
+              (loop for i from 0 to 1
+                    do (let ((sii (nth i l)))
+                         (progn
+                           (when (> sii 0)
+                             (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
                                                        (magicl:inv v)))))
             ;; (setf stress (magicl:scale stress (damage-profile damage)))
             )))))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
-  ;; (update-damage mp dt)
+  (update-damage mp dt)
   )

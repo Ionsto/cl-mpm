@@ -1,7 +1,6 @@
-
-(defpackage :cl-mpm/examples/plate-with-hole
+(defpackage :cl-mpm/examples/slump
   (:use :cl))
-(in-package :cl-mpm/examples/plate-with-hole)
+(in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 
@@ -108,34 +107,31 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic-fracture
-               :E 1e5 :nu 0.3d0
+               :E 1e6 :nu 10.0d0
                :mass mass
-               :critical-stress 1d5
+               :critical-stress 1d6
+               :gravity -9.8d0
                :fracture-toughness 5d0)))
 
       (setf (cl-mpm:sim-damping-factor sim) 1d-6)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-4)
-      ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
-      ;; (setf (cl-mpm:sim-bcs sim)
-      ;;       (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
-      ;; (setf (cl-mpm:sim-bcs sim)
-      ;;       (cl-mpm/bc:make-outside-bc-roller (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)) 1))
+
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
+                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0)))
                                            ))
       sim)))
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4.5 3) '(4 2.5) (list 0 0) 4 4))
+  (defparameter *sim* (setup-test-column '(5 4) '(3 3) (list 1 0) 2 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
-  (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.0 1.0))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -151,7 +147,7 @@
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
               collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* 1)
-  (increase-load *sim* *load-mps* 100)
+  ;; (increase-load *sim* *load-mps* 100)
   )
 
 
@@ -176,12 +172,12 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 10
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 10)
+                  (dotimes (i 100)
                     (cl-mpm::update-sim *sim*)
                     ;; (cl-mpm/eigenerosion:update-fracture *sim*)
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
