@@ -104,7 +104,7 @@
   (values)
   )
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-linear) mp func)
+(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm::shape-function shape-func)
            (cl-mpm/particle:particle mp))
@@ -215,12 +215,12 @@
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                    (node (cl-mpm/mesh:get-node mesh id))
-                                   (weights (mapcar (lambda (x) (shape-bspline x h)) dist))
+                                   (weights (mapcar (lambda (x) (cl-mpm/shape-function:shape-bspline x h)) dist))
                                    (weight (reduce #'* weights))
                                    (grads (mapcar (lambda (d w)
-                                                (* (shape-bspline-dsvp d h) w))
+                                                    (* (cl-mpm/shape-function:shape-bspline-dsvp d h) w))
                                                 dist (nreverse weights)))
-                                   (dsvp (assemble-dsvp-2d grads)))
+                                   (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
                               (funcall func mesh mp node weight dsvp)))))))))
 (defmacro iterate-over-neighbours-shape-linear-macro (mesh mp func-body)
   `(progn
@@ -249,7 +249,7 @@
                           )
                      )))))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func shape-function-bspline) mp func)
+(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm::shape-function-bspline shape-func)
            (cl-mpm/particle:particle mp))

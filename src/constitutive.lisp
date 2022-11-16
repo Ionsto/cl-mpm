@@ -46,5 +46,5 @@
          (dev-stress (magicl:.- strain-matrix pressure-matrix)))
     (matrix-to-voight (magicl:.-
                       (magicl:scale pressure-matrix elasticity)
-                      (magicl:scale dev-stress viscosity)
+                      (magicl:scale dev-stress (/ 1d0 viscosity))
                       ))))

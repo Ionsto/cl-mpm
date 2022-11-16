@@ -6,11 +6,10 @@
 
 (defun pescribe-velocity (sim load-mps vel)
   (let ((mps (cl-mpm:sim-mps sim)))
-    (loop for id in load-mps
+    (loop for mp in load-mps
           do
              (progn
-               (setf (cl-mpm/particle:mp-velocity (aref mps id)) vel)
-               ))))
+               (setf (cl-mpm/particle:mp-velocity mp) vel)))))
 (defun increase-load (sim load-mps amount)
   (loop for mp in load-mps
         do (with-accessors ((pos cl-mpm/particle:mp-position)
@@ -93,21 +92,21 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ 1 (* e-scale mp-scale)))
+         (mass (/ 917 (* e-scale mp-scale)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
               (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
                                 (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
                       block-offset)))
-        (setf (cl-mpm:sim-mps sim) 
+        (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
-               block-position 
+               block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic-fracture
-               :E 1e6 :nu 10.0d0
+               'cl-mpm/particle::particle-viscoelastic-fracture
+               :E 1e2 :nu 1.0d0
                :mass mass
                :critical-stress 1d6
                :gravity -9.8d0
@@ -115,20 +114,20 @@
 
       (setf (cl-mpm:sim-damping-factor sim) 1d-6)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
-      (setf (cl-mpm:sim-dt sim) 1d-4)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
+                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0)))
                                            ))
       sim)))
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(5 4) '(3 3) (list 1 0) 2 4))
+  (defparameter *sim* (setup-test-column '(600 130) '(500 125) '(0 0) (/ 1 20) 1))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -178,6 +177,7 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (dotimes (i 100)
+                    (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                     (cl-mpm::update-sim *sim*)
                     ;; (cl-mpm/eigenerosion:update-fracture *sim*)
                     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
