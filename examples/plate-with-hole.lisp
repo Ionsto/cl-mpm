@@ -132,7 +132,7 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(4.5 3) '(4 2.5) (list 0 0) 4 4))
+  (defparameter *sim* (setup-test-column '(5 3) '(4 2.5) (list 0 0) 16 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.0 1.0))
@@ -193,9 +193,15 @@
                   ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (swank.live:update-swank)
                   (sleep .01)
-
                   )))
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     )
+
+(defun single-perf ()
+  (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+  (format t "MPs: ~D~%" (length (cl-mpm::sim-mps *sim*)))
+  (format t "Mesh resolution: ~f~%" (cl-mpm/mesh::mesh-resolution (cl-mpm::sim-mesh *sim*)))
+  (time (cl-mpm::update-sim *sim*))
+  )
