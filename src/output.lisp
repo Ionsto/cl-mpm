@@ -60,7 +60,7 @@
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
     (loop for mp across mps
-        do (format stream "~f ~%" (funcall accessor mp)))
+        do (format stream "~E ~%" (funcall accessor mp)))
   (format stream "~%")
   )
 (defmacro save-parameter (name accessor)
