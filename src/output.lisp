@@ -132,6 +132,8 @@
         (format fs "POINT_DATA ~d~%" (length mps))
         (save-parameter "damage" (cl-mpm/particle:mp-damage mp))
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
+        (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
+        (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
         (save-parameter "stress_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (save-parameter "stress_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
         (save-parameter "stress_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))

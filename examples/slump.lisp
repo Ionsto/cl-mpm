@@ -1,8 +1,21 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
+(sb-ext:restrict-compiler-policy 'speed 3 3)
+(sb-ext:restrict-compiler-policy 'debug 0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+
+(defun find-max-cfl (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (dt cl-mpm:sim-dt))
+      sim
+    (let ((max-v (loop for mp across mps
+                       maximize (with-accessors ((vel cl-mpm/particle:mp-velocity)) mp
+                                  (magicl::sum (magicl:map #'abs vel))))))
+      (* dt (/ max-v (cl-mpm/mesh:mesh-resolution mesh))))))
 
 (defun pescribe-velocity (sim load-mps vel)
   (let ((mps (cl-mpm:sim-mps sim)))
@@ -106,13 +119,13 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoelastic-fracture
-               :E 1e2 :nu 1.0d0
+               :E 8d9 :nu 1d12
                :mass mass
                :critical-stress 1d6
                :gravity -9.8d0
                :fracture-toughness 5d0)))
 
-      (setf (cl-mpm:sim-damping-factor sim) 1d-6)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-3)
 
@@ -124,10 +137,10 @@
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
                                            ))
       sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(600 130) '(500 125) '(0 0) (/ 1 20) 1))
+  (defparameter *sim* (setup-test-column '(600 130) '(500 125) '(0 0) (/ 1 40) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -176,11 +189,28 @@
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 100)
-                    (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
-                    (cl-mpm::update-sim *sim*)
-                    ;; (cl-mpm/eigenerosion:update-fracture *sim*)
-                    (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                  ;;; Adaptive timestepping
+                  ;; (let* ((target-dt 1e-1)
+                  ;;        (courent (find-max-cfl *sim*))
+                  ;;        (c-value 0.001d0)
+                  ;;        (cfl-dt (if (> courent 0d0) (/ c-value (/ courent (cl-mpm:sim-dt *sim*))) nil))
+                  ;;        (new-dt (/ c-value (if (> courent 0d0)
+                  ;;                               (/ courent (cl-mpm:sim-dt *sim*))
+                  ;;                               (/ c-value 1e-6))))
+                  ;;        (sub-steps (max (min (floor (/ target-dt new-dt)) 100) 1)))
+                  ;;   (format t "C: ~f - steps: ~D - %dt: ~f~%" courent sub-steps new-dt)
+                  ;;   (format t "Cfl derived dt:~f~%" cfl-dt)
+                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
+                  ;; (break)
+                  (let ((max-cfl 0))
+                    (dotimes (i 100)
+                      ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
+                      (cl-mpm::update-sim *sim*)
+                      ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
+                      ;; (cl-mpm/eigenerosion:update-fracture *sim*)
+                      (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                      )
+                    ;; (format t "Max cfl: ~f~%" max-cfl)
                     )
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
@@ -195,3 +225,7 @@
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     )
+
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+;; (time (dotimes (i 100)
+;;         (cl-mpm::update-sim *sim*))))
