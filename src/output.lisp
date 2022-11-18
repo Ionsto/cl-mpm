@@ -60,7 +60,8 @@
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
     (loop for mp across mps
-        do (format stream "~E ~%" (funcall accessor mp)))
+          do (format stream "~E ~%"
+                     (coerce (funcall accessor mp) 'single-float)))
   (format stream "~%")
   )
 (defmacro save-parameter (name accessor)
@@ -83,10 +84,10 @@
               do
                  (loop for y from 0 to (- (second size) 1)
                        do
-                          (format fs "~E ~E ~E ~%" (* h (- x border)) (* h (- y border))
-                                  ;(magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                                  ;(magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                                  0)))
+                          (format fs "~E ~E ~E ~%"
+                                  (coerce (* h (- x border)) 'single-float)
+                                  (coerce (* h (- y border)) 'single-float)
+                                  0e0)))
         (let ((nels (floor (* (- (first size) 1) (- (second size) 1)))))
           (format fs "CELLS ~D ~D~%"
                   nels
@@ -123,9 +124,9 @@
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
             do (format fs "~E ~E ~E ~%"
-                       (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                       (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                       0))
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
+                       0e0))
       (format fs "~%")
       (let ((id 1))
         (declare (special id))
