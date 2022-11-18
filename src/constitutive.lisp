@@ -41,7 +41,7 @@
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 2)
          (strain-matrix (voight-to-matrix strain-increment))
-         (pressure (magicl:trace strain-matrix))
+         (pressure (/ (magicl:trace strain-matrix) 3d0))
          (pressure-matrix (magicl:eye order :value pressure))
          (dev-stress (magicl:.- strain-matrix pressure-matrix)))
     (matrix-to-voight (magicl:.-
