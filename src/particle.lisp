@@ -215,7 +215,7 @@
                (strain-rate strain-rate)
                (stress stress))
       mp
-    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate E nu))))
+    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu))))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))
