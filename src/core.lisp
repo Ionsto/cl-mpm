@@ -511,7 +511,7 @@
                 (progn
                   ;; (update-strain-linear mp dstrain)
                   (update-strain-kirchoff mp dstrain)
-                  (setf stress (cl-mpm/particle:constitutive-model mp strain))
+                  (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
                   (when (<= volume 0d0)
                     (error "Negative volume"))
                   (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))

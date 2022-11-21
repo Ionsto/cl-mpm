@@ -37,7 +37,7 @@
   (magicl:.+ (magicl:from-list (list pressure pressure 0) '(3 1))
              (magicl:scale strain viscosity)))
 
-(defun maxwell (strain-increment stress elasticity viscosity)
+(defun maxwell (strain-increment stress elasticity viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 2)
          ;; (strain-matrix (voight-to-matrix strain-increment))
@@ -46,9 +46,9 @@
          ;; ( (magicl:eye order :value (/ elasticity viscosity)))
          ;; (dev-stress (magicl:.- strain-matrix pressure-matrix))
          )
-    (magicl:.-
-        (magicl:@ (linear-elastic-matrix elasticity 0.5d0) strain-increment)
-        ;; (magicl: (linear-elastic-matrix elastic 0.5d0) strain-increment)
-        ;; (magicl:scale pressure-matrix elasticity)
-        (magicl:scale stress (/ elasticity viscosity))
-        )))
+    (magicl:@ (linear-elastic-matrix elasticity 0.5d0) strain-increment)
+    ;; (magicl:scale (magicl:@ (linear-elastic-matrix elasticity 0.5d0) (magicl:scale strain-increment (/ 1d0 dt))) dt)
+    ;; (magicl:.-
+    ;;     (magicl:scale stress (/ (* dt elasticity) viscosity))
+    ;;     )
+    ))

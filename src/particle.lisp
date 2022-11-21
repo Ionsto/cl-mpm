@@ -198,24 +198,27 @@
             (setf (mp-nu p) nu)
         p)))
 
-(defgeneric constitutive-model (mp elastic-trial-strain)  
+(defgeneric constitutive-model (mp elastic-trial-strain dt)
     (:documentation "Compute new stress state given elastic strain")
-    (:method (mp strain)
+    (:method (mp strain dt)
         (magicl:scale strain 0)))
 
-(defmethod constitutive-model ((mp particle-elastic) strain)
+(defmethod constitutive-model ((mp particle-elastic) strain dt)
     (with-slots ((E E)
                  (nu nu))
                 mp
         (cl-mpm/constitutive:linear-elastic strain E nu)))
 
-(defmethod constitutive-model ((mp particle-viscoelastic) strain)
+(defmethod constitutive-model ((mp particle-viscoelastic) strain dt)
   (with-slots ((E E)
                (nu nu)
                (strain-rate strain-rate)
                (stress stress))
       mp
-    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu))))
+    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))
+    ;; stress
+    )
+  )
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))
