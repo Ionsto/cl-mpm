@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed 3 3)
-(sb-ext:restrict-compiler-policy 'debug 0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed 2 2)
+(sb-ext:restrict-compiler-policy 'debug 2 2)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -119,7 +119,9 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoelastic-fracture
-               :E 8d9 :nu 1d12
+               ;:E 8d9 :nu 1d12
+               :E 1e6 :nu 1d8
+               ;; :E 1e6 :nu 0.33
                :mass mass
                :critical-stress 1d6
                :gravity -9.8d0
@@ -127,7 +129,7 @@
 
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -140,7 +142,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(600 130) '(500 125) '(0 0) (/ 1 40) 2))
+  (defparameter *sim* (setup-test-column '(600 200) '(200 125) '(0 0) (/ 1 40) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -203,7 +205,7 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (dotimes (i 100)
+                    (dotimes (i 1000)
                       ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                       (cl-mpm::update-sim *sim*)
                       ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
@@ -229,3 +231,4 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;; (time (dotimes (i 100)
 ;;         (cl-mpm::update-sim *sim*))))
+

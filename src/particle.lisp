@@ -212,13 +212,10 @@
 (defmethod constitutive-model ((mp particle-viscoelastic) strain dt)
   (with-slots ((E E)
                (nu nu)
-               (strain-rate strain-rate)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment over dt
                (stress stress))
       mp
-    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))
-    ;; stress
-    )
-  )
+    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))
