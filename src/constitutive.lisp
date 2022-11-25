@@ -45,25 +45,27 @@
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 3)
          (strain-matrix (voight-to-matrix strain-increment))
-         (pressure (/ (magicl:trace strain-matrix) 3d0))
+         (pressure (/ (magicl:trace strain-matrix) 2d0))
          (pressure-matrix (magicl:eye 2 :value pressure))
          (viscosity-matrix (magicl:eye 3 :value (/ elasticity viscosity)))
          (dev-stress (magicl:.- strain-matrix pressure-matrix))
          )
     (magicl:.+ stress
-               ;;This is the jaumann stress-rate relationship fo 
-               (magicl:.- (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
+               (magicl:.-
+                ;;I think this is correct but not sure
+                ;; (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
+                ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)
+                (magicl:scale (magicl:from-list (list pressure pressure 0) '(3 1)) elasticity)
+                (magicl:scale stress (/ (* dt elasticity) viscosity))
                                         ;(magicl:scale stress (/ (* dt elasticity) viscosity))
-                                ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)
-                                ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
-                                (magicl:zeros '(3 1))
-                                )
-               ;;To translate our jaumann stress increment to cauchy stress increment we need this corrector
-               ;; Note this is also a dt adjusted vorticity factor
-               (matrix-to-voight
-                (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix vorticity))
-                            (magicl:@ (voight-to-matrix vorticity) (voight-to-matrix stress))
-                            ))))
+                          ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
+                          ;; (magicl:zeros '(3 1))
+                          ;;To translate our jaumann stress increment to cauchy stress increment we need this corrector
+                          ;; Note this is also a dt adjusted vorticity factor
+                          (matrix-to-voight
+                           (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix vorticity))
+                                       (magicl:@ (voight-to-matrix vorticity) (voight-to-matrix stress))
+                                       )))))
     )
 (defun maxwell-exp (strain-increment stress elasticity viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
