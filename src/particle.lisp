@@ -12,6 +12,7 @@
     #:mp-stress
     #:mp-strain
     #:mp-strain-rate
+    #:mp-vorticity
     #:mp-gravity
     #:mp-body-force
     #:mp-damage
@@ -27,35 +28,35 @@
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
 (defclass particle ()
-  ((mass 
+  ((mass
      :accessor mp-mass
      :type double-float
-     :initarg :mass 
+     :initarg :mass
      :initform 1d0)
-   (nD 
+   (nD
      :accessor mp-nd
      :type integer
      :initarg :nD)
-   (volume 
+   (volume
      :accessor mp-volume
      :type double-float
-     :initarg :volume 
+     :initarg :volume
      :initform 1d0)
    (size
      :accessor mp-domain-size
      :type magicl:matrix/double-float
      :initarg :size
      :initform (magicl:zeros '(2 1)))
-   (position 
+   (position
      :accessor mp-position
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :position)
-   (velocity 
+   (velocity
      :accessor mp-velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :velocity
      :initform (magicl:zeros '(2 1)))
-   (stress 
+   (stress
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :stress
@@ -70,12 +71,16 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :strain-plastic
      :initform (magicl:zeros '(3 1)))
-   (strain-rate 
+   (strain-rate
      :accessor mp-strain-rate
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :accessor mp-strain-rate
      :initarg :strain-rate
      :initform (magicl:zeros '(3 1)))
+   (vorticity
+    :accessor mp-vorticity
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(3 1)))
    (deformation-gradient
      :accessor mp-deformation-gradient
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -204,18 +209,24 @@
         (magicl:scale strain 0)))
 
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
     (with-slots ((E E)
                  (nu nu))
                 mp
         (cl-mpm/constitutive:linear-elastic strain E nu)))
 
 (defmethod constitutive-model ((mp particle-viscoelastic) strain dt)
+  "Function for modelling stress intergrated viscoelastic maxwell material"
   (with-slots ((E E)
                (nu nu)
-               (strain-rate strain-rate) ;Note strain rate is actually strain increment over dt
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (vorticity vorticity)
                (stress stress))
       mp
-    (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))))
+    (cl-mpm/constitutive::maxwell strain-rate stress E nu dt vorticity)
+    ;; (clempm/constitutive:maxwell strain-rate stress E nu dt)
+    ;; (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))
+    ))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))

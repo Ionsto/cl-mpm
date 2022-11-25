@@ -359,7 +359,7 @@
                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
-        (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
+        ;; (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
         ))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
@@ -373,7 +373,7 @@
     mp
     (progn
       (setf vel (magicl:scale vel 0d0))
-      (setf strain-rate (magicl:scale strain-rate 0d0))
+      ;; (setf strain-rate (magicl:scale strain-rate 0d0))
       )
     ;; (iterate-over-neighbours mesh mp)
     (iterate-over-neighbours mesh mp #'g2p-mp-node)))
@@ -439,14 +439,23 @@
 ;Could include this in p2g but idk
 (defun calculate-strain-rate (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-    (let ((dstrain (magicl:zeros '(3 1))))
+  (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
+                   (vorticity cl-mpm/particle:mp-vorticity)
+                   ) mp
         (progn
-            ;; (iterate-over-neighbours mesh mp 
-            ;;     (lambda (mesh mp node svp dsvp)
-            ;;         (setf dstrain (.+ dstrain (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))))
-          ;; (magicl:scale  dstrain dt)
-          (magicl:scale (cl-mpm/particle:mp-strain-rate mp) dt)
-          )))
+          (setf strain-rate (magicl:scale strain-rate 0d0))
+          (setf vorticity (magicl:scale vorticity 0d0))
+            (iterate-over-neighbours mesh mp 
+                (lambda (mesh mp node svp dsvp)
+                  ;;(setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
+                  (let* ((dv-voigt (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)))
+                        (dv (voight-to-matrix dv-voigt))
+                        )
+                    (setf strain-rate (.+ strain-rate (matrix-to-voight (.+ dv (magicl:transpose dv)))))
+                    (setf vorticity (.+ vorticity (matrix-to-voight (.- dv (magicl:transpose dv))))))
+                  ))
+            (setf strain-rate (magicl:scale strain-rate dt))
+            (setf vorticity (magicl:scale vorticity dt)))))
 
 (defun rotation-matrix (degrees)
   (let ((angle (/ (* pi degrees) 180)))
@@ -504,19 +513,21 @@
                      (strain-rate cl-mpm/particle:mp-strain-rate)
                      ;; (damage cl-mpm/particle:mp-damage)
                         ) mp
-           (let ((dstrain (calculate-strain-rate mesh mp dt)))
-             (progn
-               (setf strain-rate dstrain)
-               ;;(setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
-                (progn
-                  (update-strain-linear mp dstrain)
-                  ;; (update-strain-kirchoff mp dstrain)
-                  (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
-                  (when (<= volume 0d0)
-                    (error "Negative volume"))
-                  (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
-                  (cl-mpm/particle:post-stress-step mesh mp dt)
-                  )))))
+      (progn
+        (calculate-strain-rate mesh mp dt)
+        (let ((dstrain strain-rate))
+          (progn
+            ;; (setf strain-rate dstrain)
+            ;;(setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
+            (progn
+              (update-strain-linear mp dstrain)
+              ;; (update-strain-kirchoff mp dstrain)
+              (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+              (when (<= volume 0d0)
+                (error "Negative volume"))
+              (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
+              (cl-mpm/particle:post-stress-step mesh mp dt)
+              ))))))
 
 (defun update-stress (mesh mps dt)
   (declare (array mps) (cl-mpm/mesh::mesh mesh))
