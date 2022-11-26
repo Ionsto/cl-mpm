@@ -49,6 +49,7 @@
          (pressure-matrix (magicl:eye 2 :value pressure))
          (viscosity-matrix (magicl:eye 3 :value (/ elasticity viscosity)))
          (dev-stress (magicl:.- strain-matrix pressure-matrix))
+         (relaxation-const (/ (* dt elasticity) viscosity))
          )
     (magicl:.+ stress
                (magicl:.-
@@ -56,7 +57,8 @@
                 (magicl:@ (linear-elastic-matrix elasticity 0.30d0) strain-increment)
                 ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)
                 ;; (magicl:scale (magicl:from-list (list pressure pressure 0) '(3 1)) elasticity)
-                (magicl:scale stress (/ (* dt elasticity) viscosity))
+                (magicl:from-list (list 0d0 0d0 (* (magicl:tref stress 2 0) relaxation-const)) '(3 1))
+                ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
                                         ;(magicl:scale stress (/ (* dt elasticity) viscosity))
                           ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
                           ;; (magicl:zeros '(3 1))
