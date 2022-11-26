@@ -53,9 +53,9 @@
     (magicl:.+ stress
                (magicl:.-
                 ;;I think this is correct but not sure
-                ;; (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
+                (magicl:@ (linear-elastic-matrix elasticity 0.30d0) strain-increment)
                 ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)
-                (magicl:scale (magicl:from-list (list pressure pressure 0) '(3 1)) elasticity)
+                ;; (magicl:scale (magicl:from-list (list pressure pressure 0) '(3 1)) elasticity)
                 (magicl:scale stress (/ (* dt elasticity) viscosity))
                                         ;(magicl:scale stress (/ (* dt elasticity) viscosity))
                           ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
@@ -80,8 +80,7 @@
          (lam (* (- 1 exp-rho) (/ rho dt)))
          )
     (magicl:.+ (magicl:scale stress exp-rho)
-              (magicl:scale (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment) lam)
-              )
+               (magicl:scale (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment) lam))
     ;; (magicl:.- (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
     ;;                                     ;(magicl:scale stress (/ (* dt elasticity) viscosity))
     ;;            ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)

@@ -121,7 +121,7 @@
                'cl-mpm/particle::particle-viscoelastic-fracture
                ;; :E 8d9 :nu 1d12
                ;; :E 1e6 :nu 1d8
-               :E 1e6 :nu 1d-2
+               :E 1e6 :nu 1d7
                ;; :E 1e6 :nu 0.33
                :mass mass
                :critical-stress 1d6
