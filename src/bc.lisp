@@ -100,8 +100,10 @@
           (let* ((tang-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
                  (friction-impulse (magicl:scale tang-vel mu))
                  )
-            (setf node-vel (magicl:.- node-vel (magicl:.+ (magicl:scale normal rel-vel) friction-impulse)))
-            ))))))
+            (setf node-vel (magicl:.- node-vel friction-impulse))
+            ))
+        (setf node-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
+        ))))
 
 ;; (defun make-wall-bc (mesh &rest args)
 ;;   (loop for v from 0 to ()))

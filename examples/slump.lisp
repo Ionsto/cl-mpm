@@ -132,10 +132,10 @@
                ;; :E 1e6 :nu 1d8
 
                'cl-mpm/particle::particle-viscoplastic
-               :E 1e6
+               :E 1e7
                :nu 0.45
-               :visc-factor 1e-21
-               :visc-power 2
+               :visc-factor 1e-26
+               :visc-power 3
 
                ;; Fluid
                ;; 'cl-mpm/particle::particle-fluid
@@ -191,7 +191,7 @@
                   :gravity -9.8d0
                   )))))
 
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
@@ -200,17 +200,17 @@
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
-                                           ;; (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           (lambda (i) (cl-mpm/bc:make-bc-friction i
-                                                                                   (magicl:from-list '(0d0 1d0)
-                                                                                                     '(2 1))
-                                                                                   0.25d0))
+                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+                                           ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+                                           ;;                                         (magicl:from-list '(0d0 1d0)
+                                           ;;                                                           '(2 1))
+                                           ;;                                         0.25d0))
                                            ))
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 20) 1))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 20) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))

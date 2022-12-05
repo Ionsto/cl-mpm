@@ -101,10 +101,12 @@
          (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
          (pressure-matrix (magicl:eye 2 :value pressure))
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
-         (glenn-strain-rate (magicl:scale dev-stress (* dt 0.5
+         (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
-                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress))
-                                                              visc-power))))
+                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress
+                                                                                        (magicl:from-list
+                                                                                         '(0.5d0 0.5d0 1d0) '(3 1))))
+                                                              (- visc-power 1)))))
          )
     (magicl:.+ stress
                (magicl:.-
