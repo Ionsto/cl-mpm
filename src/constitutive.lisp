@@ -3,8 +3,10 @@
         :cl-mpm/utils)
   (:export
     #:linear-elastic
+    #:newtonian-fluid
     #:maxwell
     #:maxwell-exp
+    #:norton-hoff
     )
   )
 (in-package :cl-mpm/constitutive)
@@ -35,8 +37,10 @@
 
 (defun newtonian-fluid (strain pressure viscosity)
   "A newtonian fluid model"
-  (magicl:.+ (magicl:from-list (list pressure pressure 0) '(3 1))
-             (magicl:scale strain viscosity)))
+  (let* ((strain-matrix (voight-to-matrix strain))
+         (dev-strain (matrix-to-voight (magicl:.- strain-matrix (magicl:eye 2 :value (/ (magicl:trace strain-matrix) 2))))))
+    (magicl:.+ (magicl:from-list (list (- pressure) (- pressure) 0) '(3 1))
+               (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
   (magicl:.+ stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
@@ -90,3 +94,23 @@
     ;;            (magicl:zeros '(3 1))
     ;;            ))
   ))
+(defun norton-hoff (strain-increment stress youngs-modulus poisson-ratio visc-factor visc-power dt vorticity)
+  "A stress of a viscoplastic norton-off material"
+  (let* ((order 3)
+         ;(strain-matrix (voight-to-matrix strain-increment))
+         (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
+         (pressure-matrix (magicl:eye 2 :value pressure))
+         (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
+         (glenn-strain-rate (magicl:scale dev-stress (* dt 0.5
+                                                        visc-factor
+                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress))
+                                                              visc-power))))
+         )
+    (magicl:.+ stress
+               (magicl:.-
+                ;;I think this is correct but not sure
+                (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
+                          (magicl:.- strain-increment glenn-strain-rate))
+                (matrix-to-voight
+                 (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix vorticity))
+                             (magicl:@ (voight-to-matrix vorticity) (voight-to-matrix stress))))))))

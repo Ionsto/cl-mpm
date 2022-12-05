@@ -111,6 +111,23 @@
    )
   (:documentation "A linear-elastic material point"))
 
+(defclass particle-fluid (particle)
+  ((rest-density
+    :accessor mp-rest-density
+    :initarg :rest-density
+    )
+   (stiffness
+    :accessor mp-stiffness
+    :initarg :stiffness)
+   (adiabatic-index
+    :accessor mp-adiabatic-index
+    :initarg :adiabatic-index)
+   (viscosity
+    :accessor mp-viscosity
+    :initarg :viscosity)
+   )
+  (:documentation "A fluid material point"))
+
 (defclass particle-viscoelastic (particle)
   ((E
     :accessor mp-E
@@ -121,6 +138,23 @@
     :initarg :nu)
    )
   (:documentation "A visco-elastic material point"))
+
+(defclass particle-viscoplastic (particle)
+  ((E
+    :accessor mp-E
+    :initarg :E
+    )
+   (nu
+    :accessor mp-nu
+    :initarg :nu)
+   (visc-factor
+    :accessor mp-visc-factor
+    :initarg :visc-factor)
+   (visc-power
+    :accessor mp-visc-power
+    :initarg :visc-power)
+   )
+  (:documentation "A visco-plastic material point"))
 
 (defclass particle-damage (particle)
   (
@@ -215,6 +249,20 @@
                 mp
         (cl-mpm/constitutive:linear-elastic strain E nu)))
 
+(defmethod constitutive-model ((mp particle-fluid) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((viscosity viscosity)
+               (mass mass)
+               (volume volume)
+               (rest-density rest-density)
+               (stiffness stiffness)
+               (adiabatic-index adiabatic-index)
+               )
+      mp
+    (let* ((density (/ mass volume))
+           (pressure (* stiffness (expt (- (/ density rest-density) 1) adiabatic-index))))
+      (cl-mpm/constitutive:newtonian-fluid strain pressure viscosity))))
+
 (defmethod constitutive-model ((mp particle-viscoelastic) strain dt)
   "Function for modelling stress intergrated viscoelastic maxwell material"
   (with-slots ((E E)
@@ -223,10 +271,19 @@
                (vorticity vorticity)
                (stress stress))
       mp
-    (cl-mpm/constitutive::maxwell strain-rate stress E nu dt vorticity)
-    ;; (clempm/constitutive:maxwell strain-rate stress E nu dt)
-    ;; (magicl:.+ stress (cl-mpm/constitutive:maxwell strain-rate stress E nu dt))
-    ))
+    (cl-mpm/constitutive::maxwell strain-rate stress E nu dt vorticity)))
+
+(defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
+  "Function for modelling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((E E)
+               (nu nu)
+               (visc-factor visc-factor)
+               (visc-power visc-power)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (vorticity vorticity)
+               (stress stress))
+      mp
+    (cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))

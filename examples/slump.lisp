@@ -37,28 +37,31 @@
     (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (apply #'max l)))
+    (apply #'max l)
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)))
 (defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y c stress-y lx ly e)
+  (multiple-value-bind (x y c stress-y lx ly e density)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
-          collect (cl-mpm/particle:mp-damage mp) into c
-          collect (cl-mpm/particle::mp-strain-energy-density mp) into e
+          collect (if (slot-exists-p mp 'damage) (cl-mpm/particle:mp-damage mp) 0) into c
+          collect (if (slot-exists-p mp 'damage) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
+          collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
+          ;; collect (cl-mpm/particle:mp-volume mp) into density
           collect (max-stress mp) into stress-y
-          finally (return (values x y c stress-y lx ly e)))
+          finally (return (values x y c stress-y lx ly e density)))
     (cond
       ((eq plot :damage)
-        (vgplot:format-plot t "set cbrange [0:1]")
-        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-        (vgplot:plot x y c ";;with points pt 7 lc palette")
+       (vgplot:format-plot t "set cbrange [0:1]")
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
+       (vgplot:plot x y c ";;with points pt 7 lc palette")
        )
       ((eq plot :energy)
-        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
-        (vgplot:plot x y e ";;with points pt 7 lc palette")
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
+       (vgplot:plot x y e ";;with points pt 7 lc palette")
        )
       (
        (eq plot :stress)
@@ -66,7 +69,11 @@
        (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
       ((eq plot :deformed)
        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y lx ly ";;with ellipses")))
+       (vgplot:plot x y lx ly ";;with ellipses"))
+      ((eq plot :density)
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
+       (vgplot:plot x y e ";;with points pt 7 lc palette")
+       ))
     )
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -105,7 +112,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ 917 (* e-scale mp-scale)))
+         (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
@@ -118,15 +125,71 @@
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-viscoelastic-fracture
-               ;; :E 8d9 :nu 1d12
+               ;; 'cl-mpm/particle::particle-viscoelastic-fracture
+               ;; 'cl-mpm/particle::particle-elastic
+               ;; :E 1d9
+               ;; :nu 0.3
                ;; :E 1e6 :nu 1d8
-               :E 1e6 :nu 1d7
+
+               'cl-mpm/particle::particle-viscoplastic
+               :E 1e6
+               :nu 0.45
+               :visc-factor 1e-21
+               :visc-power 2
+
+               ;; Fluid
+               ;; 'cl-mpm/particle::particle-fluid
+               ;; :stiffness 1e5
+               ;; :adiabatic-index 6
+               ;; :rest-density 900d0
+               ;; :viscosity 1.02e-3
+
                ;; :E 1e6 :nu 0.33
                :mass mass
-               :critical-stress 1d6
+               ;; :critical-stress 1d6
+               ;; :fracture-toughness 5d0
                :gravity -9.8d0
-               :fracture-toughness 5d0)))
+               )))
+      (when nil
+        (let ((block-position
+                (mapcar #'+ (list (+ (* h-x (+ (+ (/ 1 (* 2 mp-scale))))) 000)
+                                  (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
+                        '(500 0)))
+              (block-size '(500 100)))
+          (setf (cl-mpm:sim-mps sim)
+                (concatenate
+                 '(vector cl-mpm/particle:particle)
+                 (cl-mpm:sim-mps sim)
+                 (cl-mpm/setup::make-block-mps
+                  block-position
+                  block-size
+                  (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                  'cl-mpm::make-particle
+                  ;; 'cl-mpm/particle::particle-viscoelastic-fracture
+                  ;; 'cl-mpm/particle::particle-elastic
+                  ;; :E 1d9
+                  ;; :nu 0.3
+                  ;; :E 1e6 :nu 1d8
+
+                  ;; 'cl-mpm/particle::particle-viscoplastic
+                  ;; :E 1e6
+                  ;; :nu 0.45
+                  ;; :visc-factor 1e-21
+                  ;; :visc-power 2
+
+                  ;; Fluid
+                  'cl-mpm/particle::particle-fluid
+                  :stiffness 1e5
+                  :adiabatic-index 6
+                  :rest-density 900d0
+                  :viscosity 1.02e-3
+
+                  ;; :E 1e6 :nu 0.33
+                  :mass mass
+                  ;; :critical-stress 1d6
+                  ;; :fracture-toughness 5d0
+                  :gravity -9.8d0
+                  )))))
 
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
@@ -137,13 +200,17 @@
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+                                           ;; (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
+                                           (lambda (i) (cl-mpm/bc:make-bc-friction i
+                                                                                   (magicl:from-list '(0d0 1d0)
+                                                                                                     '(2 1))
+                                                                                   0.25d0))
                                            ))
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(600 200) '(300 125) '(0 0) (/ 1 10) 1))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 20) 1))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -158,8 +225,7 @@
            (least-pos
               (apply #'max (loop for mp across mps
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
-      (loop for id from 0 to (- (length mps) 1)
-            when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
+      (loop for id from 0 to (- (length mps) 1) when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
               collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
