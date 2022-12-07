@@ -202,6 +202,27 @@
                             0d0 dy
                             dy dx) '(3 2) :type 'double-float)))
 
+(defun assemble-vorticity-2d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp)))
+    (magicl:from-list (list 0d0 0d0
+                            0d0 0d0 
+                            dy (- dx)) '(3 2) :type 'double-float)))
+
+(defun assemble-vorticity-3d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp))
+        (dz (nth 2 dsvp)))
+    (magicl:from-list (list dx  0d0 0d0;xx
+                            0d0 dy  0d0;yy
+                            0d0 0d0  dz;zz
+                            dy  (- dx)  0d0;yx
+                            0d0 dz  (- dy) ;yz
+                            dz  0d0 (- dx) ;xy
+                            ) '(6 3) :type 'double-float)))
+
 (defun assemble-dsvp-3d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
   (let ((dx (nth 0 dsvp))

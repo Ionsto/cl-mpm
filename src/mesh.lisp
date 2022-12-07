@@ -33,6 +33,11 @@
   (index 
     :accessor node-index
     :initarg :index)
+   (position
+    :accessor node-position
+    :initarg :position
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(1 1) :type 'double-float))
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
@@ -85,24 +90,25 @@
     :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
 
-(defun make-node (pos)
+(defun make-node (index pos)
   "Default initialise a 2d node at pos"
   (make-instance 'node-fracture 
                  :force (magicl:zeros (list 2 1) :type 'double-float)
                  :velocity (magicl:zeros (list 2 1) :type 'double-float)
                  :acceleration (magicl:zeros (list 2 1) :type 'double-float)
                  :index (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float))
-                                                  pos)
+                                                  index)
                                           (list 2 1) :type 'double-float)
-                 )
-  )
+                 :position pos
+                 ))
 
-(defun make-nodes (size)
+(defun make-nodes (mesh size)
   "Make a 2d mesh of specific size"
   (make-array size :initial-contents 
       (loop for x from 0 to (- (nth 0 size) 1)
             collect (loop for y from 0 to (- (nth 1 size) 1)
-                          collect (make-node (list x y))))))
+                          collect (make-node (list x y)
+                                             (magicl:from-list (index-to-position mesh (list x y)) '(2 1)))))))
 
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
@@ -111,16 +117,18 @@
          (boundary-order (* 2 (- (cl-mpm/shape-function::order shape-function) 1))
            )
          (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
-         (nodes (make-nodes meshcount)))
-    (make-instance 'mesh
-      :nD 2 
-      :mesh-size size
-      :mesh-count meshcount
-      :mesh-res resolution
-      :nodes nodes
-      :shape-func shape-function
-      :boundary-order boundary-order
-      )))
+         (nodes '()))
+    (let ((mesh (make-instance 'mesh
+                              :nD 2 
+                              :mesh-size size
+                              :mesh-count meshcount
+                              :mesh-res resolution
+                              :nodes nodes
+                              :shape-func shape-function
+                              :boundary-order boundary-order
+                              )))
+      (setf (mesh-nodes mesh) (make-nodes mesh meshcount))
+      mesh)))
 
 (declaim (inline in-bounds-1d))
 (defun in-bounds-1d (mesh value dim)

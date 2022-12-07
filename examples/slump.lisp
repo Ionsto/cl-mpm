@@ -38,7 +38,7 @@
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
-    (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)))
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
 (defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density)
@@ -126,16 +126,16 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
-               ;; 'cl-mpm/particle::particle-elastic
-               ;; :E 1d9
-               ;; :nu 0.3
+               'cl-mpm/particle::particle-elastic
+               :E 9.5d9
+               :nu 0.3
                ;; :E 1e6 :nu 1d8
 
-               'cl-mpm/particle::particle-viscoplastic
-               :E 1e7
-               :nu 0.45
-               :visc-factor 1e-26
-               :visc-power 3
+               ;; 'cl-mpm/particle::particle-viscoplastic
+               ;; :E 1e7
+               ;; :nu 0.45
+               ;; :visc-factor 1e-26
+               ;; :visc-power 3
 
                ;; Fluid
                ;; 'cl-mpm/particle::particle-fluid
@@ -150,67 +150,26 @@
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
-      (when nil
-        (let ((block-position
-                (mapcar #'+ (list (+ (* h-x (+ (+ (/ 1 (* 2 mp-scale))))) 000)
-                                  (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
-                        '(500 0)))
-              (block-size '(500 100)))
-          (setf (cl-mpm:sim-mps sim)
-                (concatenate
-                 '(vector cl-mpm/particle:particle)
-                 (cl-mpm:sim-mps sim)
-                 (cl-mpm/setup::make-block-mps
-                  block-position
-                  block-size
-                  (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                  'cl-mpm::make-particle
-                  ;; 'cl-mpm/particle::particle-viscoelastic-fracture
-                  ;; 'cl-mpm/particle::particle-elastic
-                  ;; :E 1d9
-                  ;; :nu 0.3
-                  ;; :E 1e6 :nu 1d8
-
-                  ;; 'cl-mpm/particle::particle-viscoplastic
-                  ;; :E 1e6
-                  ;; :nu 0.45
-                  ;; :visc-factor 1e-21
-                  ;; :visc-power 2
-
-                  ;; Fluid
-                  'cl-mpm/particle::particle-fluid
-                  :stiffness 1e5
-                  :adiabatic-index 6
-                  :rest-density 900d0
-                  :viscosity 1.02e-3
-
-                  ;; :E 1e6 :nu 0.33
-                  :mass mass
-                  ;; :critical-stress 1d6
-                  ;; :fracture-toughness 5d0
-                  :gravity -9.8d0
-                  )))))
-
-      (setf (cl-mpm:sim-damping-factor sim) 1d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 0d0)
+      (setf (cl-mpm:sim-dt sim) 1d-5)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
-                                           ;;                                         (magicl:from-list '(0d0 1d0)
-                                           ;;                                                           '(2 1))
-                                           ;;                                         0.25d0))
-                                           ))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                            ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+                                            ;;                                         (magicl:from-list '(0d0 1d0)
+                                            ;;                                                           '(2 1))
+                                            ;;                                         0.25d0))
+                                            ))
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 20) 2))
+  (defparameter *sim* (setup-test-column '(600 200) '(500 100) '(0 0) (/ 1 20) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 1.5 1.5))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -296,6 +255,51 @@
     )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
-;; (time (dotimes (i 100)
-;;         (cl-mpm::update-sim *sim*))))
+;; (require :sb-sprof)
+;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+;; (setf sb-sprof:*max-samples* 10000)
+;; (defparameter *sim* (setup-test-column '(100 100) '(100 100) '(0 0) (/ 1 20) 2))
+;; (progn
+;;   (format t "MP count:~D~%" (length (cl-mpm:sim-mps *sim*)))
+;;   ;; (sb-sprof:reset)
+;;   ;; (sb-sprof:start-profiling :mode :time)
+;;   ;; (time (lparallel:pdotimes (i 10000000)
+;;   ;;                           (magicl:from-list '(1d0 1d0) '(2 1))))
+;;   (time (dotimes (i 1000)
+;;           (cl-mpm::update-sim *sim*)))
+;;   ;; (sb-sprof:stop-profiling)
+;;   )
+;; (sb-sprof:report :type :flat)
+;; (time (dotimes (i 1)
+;;         (cl-mpm::calculate-strain-rate-test *test-mesh* *test-mp* 1)))
 
+;; (defun profile-funcs ()
+;;   (sb-profile:unprofile)
+;;   (sb-profile:reset)
+;;   (format t "MP count:~D~%" (length (cl-mpm:sim-mps *sim*)))
+;;   (sb-profile:profile cl-mpm::update-sim
+;;                       cl-mpm::p2g
+;;                       cl-mpm::g2p
+;;                       cl-mpm::calculate-strain-rate
+;;                       cl-mpm::update-stress
+;;                       ;; cl-mpm::reset-grid
+;;                       ;; cl-mpm::p2g
+;;                       ;; cl-mpm::filter-grid
+;;                       ;; cl-mpm::update-nodes
+;;                       ;; cl-mpm::apply-bcs
+;;                       ;; cl-mpm::g2p
+;;                       ;; cl-mpm::update-particle
+;;                       ;; cl-mpm::update-stress-mp
+;;                       ;; cl-mpm::update-stress
+;;                       ;; cl-mpm::calculate-strain-rate
+;;                       ;; cl-mpm::iterate-over-neighbours-shape
+;;                       ;; cl-mpm::iterate-over-neighbours-shape-linear
+;;                       ;; cl-mpm::p2g-mp
+;;                       ;; cl-mpm::g2p-mp
+;;                       ;; cl-mpm::p2g-mp-node
+;;                       ;; cl-mpm::g2p-mp-node
+;;                       )
+;;   (time (loop repeat 100
+;;              do (progn
+;;                   (cl-mpm::update-sim *sim*))))
+;;   (sb-profile:report))

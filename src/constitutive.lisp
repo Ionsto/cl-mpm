@@ -45,6 +45,13 @@
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
   (magicl:.+ stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
+(defun assemble-vorticity-matrix (vorticity)
+  (let ((dx (magicl:tref vorticity 0 0))
+        (dy (magicl:tref vorticity 1 0))
+        (dxdy (magicl:tref vorticity 2 0))
+        )
+    (magicl:from-list (list dx dxdy (- dxdy) dy) '(2 2))))
+
 (defun maxwell (strain-increment stress elasticity viscosity dt vorticity)
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 3)
@@ -69,8 +76,8 @@
                           ;;To translate our jaumann stress increment to cauchy stress increment we need this corrector
                           ;; Note this is also a dt adjusted vorticity factor
                           (matrix-to-voight
-                           (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix vorticity))
-                                       (magicl:@ (voight-to-matrix vorticity) (voight-to-matrix stress))
+                           (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
+                                       (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress))
                                        )))))
     )
 (defun maxwell-exp (strain-increment stress elasticity viscosity dt)
@@ -114,5 +121,7 @@
                 (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
                           (magicl:.- strain-increment glenn-strain-rate))
                 (matrix-to-voight
-                 (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix vorticity))
-                             (magicl:@ (voight-to-matrix vorticity) (voight-to-matrix stress))))))))
+                 (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
+                             (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress)))
+                 )))
+    ))

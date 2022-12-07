@@ -106,7 +106,7 @@
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
   (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm::shape-function shape-func)
+           (cl-mpm/shape-function::shape-function-linear shape-func)
            (cl-mpm/particle:particle mp))
   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
          (h (cl-mpm/mesh:mesh-resolution mesh))
@@ -125,6 +125,27 @@
                               (grads (apply (cl-mpm/shape-function::dsvp shape-func) dist))) 
                          (funcall func mesh mp node weight (cl-mpm/shape-function::assemble-dsvp nd grads)))))))))
 
+(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/shape-function::shape-function-bspline shape-func)
+           (cl-mpm/particle:particle mp))
+  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+         (h (cl-mpm/mesh:mesh-resolution mesh))
+         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
+         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round)))
+    (loop for dx from -1 to 1
+          do (loop for dy from -1 to 1
+                   do
+                   (let* (
+                          (id (mapcar #'+ pos-index (list dx dy)))
+                          (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                          (weight (apply (cl-mpm/shape-function:svp shape-func) dist))
+                          (grads (apply (cl-mpm/shape-function:dsvp shape-func) dist))
+                          )
+                     (when (cl-mpm/mesh:in-bounds mesh id)
+                       (funcall func mesh mp (cl-mpm/mesh:get-node mesh id) weight
+                                (cl-mpm/shape-function:assemble-dsvp nd grads))))))))
 ;; (declaim (inline dispatch)
 ;;          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours-shape-linear))
 (defmacro iterate-over-neighbours-general (mesh mp order body)
@@ -249,28 +270,6 @@
                           )
                      )))))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm::shape-function-bspline shape-func)
-           (cl-mpm/particle:particle mp))
-  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-         (h (cl-mpm/mesh:mesh-resolution mesh))
-         (order (slot-value shape-func 'order))
-         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
-         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round)))
-    (loop for dx from -1 to 1
-          do (loop for dy from -1 to 1
-                   do
-                   (let* (
-                          (id (mapcar #'+ pos-index (list dx dy)))
-                          (dist (mapcar (lambda (p i) (- p (* i h))) pos id))
-                          (weight (apply (cl-mpm/shape-function:svp shape-func) dist))
-                          (grads (apply (cl-mpm/shape-function:dsvp shape-func) dist))
-                          )
-                     (when (cl-mpm/mesh:in-bounds mesh id)
-                       (funcall func mesh mp (cl-mpm/mesh:get-node mesh id) weight
-                                (cl-mpm/shape-function:assemble-dsvp nd grads))))))))
 
 ;(defparameter *mesh* (sim-mesh *sim*))
 ;(defparameter *sf* (cl-mpm/mesh:mesh-shape-func *mesh*))
@@ -412,9 +411,10 @@
                     (mc     mesh-count)) mesh
     ;each bc is a list (pos value)
     (dolist (bc bcs)
-      (let ((index (cl-mpm/bc:bc-index bc)))
-        (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
-          (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index)))))))
+      (when bc
+        (let ((index (cl-mpm/bc:bc-index bc)))
+          (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
+            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index))))))))
 
 
 ;; (defun update-particle (mps dt)
@@ -431,6 +431,7 @@
                    (pos cl-mpm/particle:mp-position)) mp
       (progn 
         (setf pos (magicl:.+ pos (magicl:scale vel dt))))))
+
 (defun update-particle (mps dt)
   (declare (array mps) (double-float dt))
   (lparallel:pdotimes (i (length mps))
@@ -448,14 +449,24 @@
             (iterate-over-neighbours mesh mp 
                 (lambda (mesh mp node svp dsvp)
                   ;;(setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
-                  (let* ((dv-voigt (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)))
-                        (dv (voight-to-matrix dv-voigt))
-                        )
-                    (setf strain-rate (.+ strain-rate (matrix-to-voight (.+ dv (magicl:transpose dv)))))
-                    (setf vorticity (.+ vorticity (matrix-to-voight (.- dv (magicl:transpose dv))))))
+                  (let* ((mp-pos (cl-mpm/particle::mp-position mp))
+                         (node-pos (cl-mpm/mesh::node-position node))
+                         (dist (magicl:.- mp-pos node-pos))
+                         (grads (apply (cl-mpm/shape-function:dsvp (cl-mpm/mesh:mesh-shape-func mesh)) (list (tref dist 0 0) (tref dist 1 0))))
+                         (curl (cl-mpm/shape-function::assemble-vorticity-2d grads))
+                         )
+                      (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
+                      (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
+                    )
+                  ;; (let* ((dv-voigt (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)))
+                  ;;       (dv (voight-to-matrix dv-voigt))
+                  ;;       )
+                  ;;   (setf strain-rate (.+ strain-rate (matrix-to-voight (.+ dv (magicl:transpose dv)))))
+                  ;;   (setf vorticity (.+ vorticity (matrix-to-voight (.- dv (magicl:transpose dv))))))
                   ))
             (setf strain-rate (magicl:scale strain-rate dt))
             (setf vorticity (magicl:scale vorticity dt)))))
+
 
 (defun rotation-matrix (degrees)
   (let ((angle (/ (* pi degrees) 180)))
