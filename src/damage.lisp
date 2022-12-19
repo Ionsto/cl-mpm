@@ -7,13 +7,12 @@
     )
   )
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
-  (if (> stress (* 0d0 1/2 critical-stress))
+  (if (> stress (* 0d0 0.5d0 critical-stress))
       (* (/ (max 0d0 stress) critical-stress) 0.1d0)
       0d0)
-  0d0
   )
 
 (defun damage-profile (damage)
@@ -21,7 +20,7 @@
   (expt (- 1 damage) 2)
   )
 (defun update-damage (mp dt)
-  (let ((damage-increment 0))
+  (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (critical-stress cl-mpm/particle:mp-critical-stress)

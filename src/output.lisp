@@ -138,7 +138,7 @@
         (save-parameter "stress_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (save-parameter "stress_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
         (save-parameter "stress_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
-        ;; (save-parameter "damage" (cl-mpm/particle:mp-damage mp))
+        ;(save-parameter "damage" (cl-mpm/particle:mp-damage mp))
         ;; (save-parameter "strain_energy" (cl-mpm/particle::mp-strain-energy-density mp))
         )
       )))

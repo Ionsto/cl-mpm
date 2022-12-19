@@ -1,5 +1,6 @@
 (defpackage :cl-mpm/particle
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils)
   (:export
     #:make-particle
     #:make-particle-elastic
@@ -195,6 +196,10 @@
   ()
   (:documentation "A mp with fracture mechanics"))
 
+(defclass particle-viscoplastic-damage (particle-viscoplastic particle-fracture)
+  ()
+  (:documentation "A mp with damage mechanics"))
+
 (defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
   ()
   (:documentation "A viscoelastic mp with fracture mechanics"))
@@ -280,10 +285,22 @@
                (visc-factor visc-factor)
                (visc-power visc-power)
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (strain-plastic strain-plastic)
+               (deformation-gradient deformation-gradient)
                (vorticity vorticity)
                (stress stress))
       mp
-    (cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)))
+    ;; (let* ((linear-plastic-strain (cl-mpm/constitutive::norton-hoff-plastic-strain stress visc-factor visc-power dt)))
+    ;;   (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix linear-plastic-strain))
+    ;;     (let (trial-plastic-strain ))
+    ;;     )
+    ;;   )
+    ;; (setf strain-plastic (cl-mpm/constitutive::norton-hoff-plastic-strain (magicl:scale stress (magicl:det deformation-gradient)) visc-factor visc-power dt))
+    ;; (setf strain
+    ;;       (magicl:.- strain strain-plastic))
+    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    (cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
+    ))
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))

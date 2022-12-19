@@ -16,7 +16,7 @@
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))

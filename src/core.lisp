@@ -63,8 +63,10 @@
             (loop for i from 0 to 1
                  do (progn
                       (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
+                        (print mp)
                         (error "Infinite velocity found"))
                       (when (> (abs (magicl:tref vel i 0)) 1e10)
+                        (print mp)
                         (error "High velocity found"))))))))
 
 (defgeneric update-sim (sim)
@@ -133,19 +135,25 @@
          (h (cl-mpm/mesh:mesh-resolution mesh))
          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round)))
-    (loop for dx from -1 to 1
-          do (loop for dy from -1 to 1
-                   do
-                   (let* (
-                          (id (mapcar #'+ pos-index (list dx dy)))
-                          (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                          (weight (apply (cl-mpm/shape-function:svp shape-func) dist))
-                          (grads (apply (cl-mpm/shape-function:dsvp shape-func) dist))
-                          )
-                     (when (cl-mpm/mesh:in-bounds mesh id)
-                       (funcall func mesh mp (cl-mpm/mesh:get-node mesh id) weight
-                                (cl-mpm/shape-function:assemble-dsvp nd grads))))))))
+         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round))
+         (border (not (and (cl-mpm/mesh:in-bounds (mapcar #'+ pos-index (list 1 1)))
+                          (cl-mpm/mesh:in-bounds (mapcar #'- pos-index (list 1 1)))
+                          ))))
+    (if border
+        ;; Do something janky if we are in a border element
+        ()
+        (loop for dx from -1 to 1
+              do (loop for dy from -1 to 1
+                       do
+                          (let* (
+                                 (id (mapcar #'+ pos-index (list dx dy)))
+                                 (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                                 (weight (apply (cl-mpm/shape-function:svp shape-func) dist))
+                                 (grads (apply (cl-mpm/shape-function:dsvp shape-func) dist))
+                                 )
+                            (when (cl-mpm/mesh:in-bounds mesh id)
+                              (funcall func mesh mp (cl-mpm/mesh:get-node mesh id) weight
+                                       (cl-mpm/shape-function:assemble-dsvp nd grads)))))))))
 ;; (declaim (inline dispatch)
 ;;          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours-shape-linear))
 (defmacro iterate-over-neighbours-general (mesh mp order body)

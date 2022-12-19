@@ -10,7 +10,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -120,8 +120,24 @@
                 ;;I think this is correct but not sure
                 (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
                           (magicl:.- strain-increment glenn-strain-rate))
-                (matrix-to-voight
-                 (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
-                             (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress)))
-                 )))
+                (magicl:scale (matrix-to-voight
+                               (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
+                                           (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress)))
+                               ) 0)
+                ))
+    ))
+(defun norton-hoff-plastic-strain (stress visc-factor visc-power dt)
+  (let* ((order 3)
+         ;(strain-matrix (voight-to-matrix strain-increment))
+         (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
+         (pressure-matrix (magicl:eye 2 :value pressure))
+         (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
+         (glenn-strain-rate (magicl:scale dev-stress (* dt
+                                                        visc-factor
+                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress
+                                                                                        (magicl:from-list
+                                                                                         '(0.5d0 0.5d0 1d0) '(3 1))))
+                                                              (- visc-power 1)))))
+         )
+    glenn-strain-rate
     ))
