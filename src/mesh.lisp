@@ -114,7 +114,7 @@
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
          (resolution (coerce resolution 'double-float))
-         (boundary-order (* 2 (- (cl-mpm/shape-function::order shape-function) 1))
+         (boundary-order 0;(* 2 (- (cl-mpm/shape-function::order shape-function) 1))
            )
          (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
          (nodes '()))

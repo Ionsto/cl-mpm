@@ -70,6 +70,75 @@
                     -1d0))
              H)
             (EXPT H 2d0)))))))
+
+(defun bspline (knots eta index poly)
+  (if (= poly 0)
+      (if (and (>= eta (nth index knots)) (< eta (nth (+ index 1) knots)))
+          1d0
+          0d0)
+      (+
+       (if (/= (nth index knots) (nth (+ poly index) knots))
+           (* (/ (- eta (nth index knots))
+                 (- (nth (+ poly index) knots) (nth index knots)))
+              (bspline knots eta index (- poly 1)))
+           0)
+       (if (/= (nth (+ 1 index) knots) (nth (+ 1 poly index) knots))
+           (* (/ (- (nth (+ index poly 1) knots) eta)
+                 (- (nth (+ poly index 1) knots) (nth (+ 1 index) knots)))
+              (bspline knots eta (+ 1 index) (- poly 1)))
+           0)
+       )))
+(defun bspline-dsvp (knots eta index poly)
+  (let ((dsvp-knots (cdr (butlast knots)))
+        (index (- index 1)))
+    (-
+     (let ((kpi (nth (+ poly index) knots))
+           (ki (nth index knots)))
+       (if (/= kpi ki)
+           (* (/ poly (- kpi ki))
+              (bspline dsvp-knots eta index (- poly 1)))
+           0))
+     (let ((kpi (nth (+ poly index 1) knots))
+           (ki (nth (+ 1 index) knots)))
+       (if (/= kpi ki)
+           (* (/ poly (- kpi ki))
+              (bspline dsvp-knots eta (+ 1 index) (- poly 1)))
+           0))
+     )))
+(defun make-half-knots (nodes inc)
+  (loop for n in nodes
+        for ni in (cdr nodes)
+        for pos = 0 then (incf pos inc)
+        with i = 0
+        collect (progn
+                  (cond
+                    ((and n ni)
+                     (setf i (/ (+ pos pos inc) 2))
+                     )
+                    ((and (not n) (not ni))
+                     i
+                     )
+                    ((and n (not ni))
+                     (setf i pos)
+                     )
+                    )
+                  ;; (if (and n ni)
+                  ;;         (setf i (/ (+ pos pos 1) 2))
+                  ;;         (if ni
+                  ;;             i
+                  ;;             (setf i (+ pos 0))))
+                  )))
+(defun make-bspline-knots (nodes h)
+  (let* ((mid-node-id (round (- (length nodes) 1) 2)))
+    (nreverse (append
+                     (nreverse (make-half-knots (subseq nodes mid-node-id) h))
+                     (make-half-knots (nreverse (subseq nodes 0 (+ 1 mid-node-id))) (- h))
+                     ))))
+(defun nodal-bspline (nodes eta node h)
+    (bspline (make-bspline-knots nodes h) eta (+ node 2) 2))
+(defun nodal-bspline-dsvp (nodes eta node h)
+  (bspline-dsvp (make-bspline-knots nodes h) eta (+ node 2) 2))
+
 (defmacro create-svp (arg form)
   `(lambda (,arg) ,form))
 
@@ -166,11 +235,6 @@
 
 (defun make-shape-function-linear (nD h)
   (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
-
-(defmacro bspline (x h)
-  (if (< (abs x) (/ h 2d0))
-      (- (/ 3d0 4d0) (expt (/ (abs x) h) 2d0))
-      (* (/ 1d0 8d0) (expt (- 3d0 (/ (* 2d0 (abs x)) h)) 2d0))))
 
 (defun make-shape-function-bspline (nD h)
   (make-shape-function x

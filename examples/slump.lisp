@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed 3 3)
-(sb-ext:restrict-compiler-policy 'debug 0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed 2 2)
+(sb-ext:restrict-compiler-policy 'debug 3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -161,11 +161,11 @@
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-                                            ;; (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-friction i
-                                                                                    (magicl:from-list '(0d0 1d0)
-                                                                                                      '(2 1))
-                                                                                    0.25d0))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                            ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+                                            ;;                                         (magicl:from-list '(0d0 1d0)
+                                            ;;                                                           '(2 1))
+                                            ;;                                         0.25d0))
                                             ))
       sim)))
 
@@ -256,7 +256,7 @@
     ;; (vgplot:plot *time* *velocity*)
     )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;; (require :sb-sprof)
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;; (setf sb-sprof:*max-samples* 10000)

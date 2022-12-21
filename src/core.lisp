@@ -237,20 +237,57 @@
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
            ;; (pos-index (magicl:scale pos-vec (/ 1 h)))
            (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round))
-           )
-      (loop for dx from -1 to 1
-            do (loop for dy from -1 to 1
-                     do (let* ((id (mapcar #'+ pos-index (list dx dy))))
-                          (when (cl-mpm/mesh:in-bounds mesh id)
-                            (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                                   (node (cl-mpm/mesh:get-node mesh id))
-                                   (weights (mapcar (lambda (x) (cl-mpm/shape-function:shape-bspline x h)) dist))
-                                   (weight (reduce #'* weights))
-                                   (grads (mapcar (lambda (d w)
-                                                    (* (cl-mpm/shape-function:shape-bspline-dsvp d h) w))
-                                                dist (nreverse weights)))
-                                   (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
-                              (funcall func mesh mp node weight dsvp)))))))))
+           (border (not (and (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 1 1)))
+                             (cl-mpm/mesh:in-bounds mesh (mapcar #'- pos-index (list 1 1)))
+                             ))))
+      (if border
+          (let (
+                (knots-x
+                  (loop for dy from -1 to 1
+                        collect
+                        (loop for dx from -4 to 4
+                              collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
+                (knots-y
+                  (loop for dx from -1 to 1
+                        collect
+                        (loop for dy from -4 to 4
+                              collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
+                )
+            (loop for dx from -1 to 1
+                  do (loop for dy from -1 to 1
+                           do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                                (when (cl-mpm/mesh:in-bounds mesh id)
+                                  (let* ((knot-list (list (nth (+ dy 1) knots-x)
+                                                          (nth (+ dx 1) knots-y)))
+                                         (local-id-list (list (+ dx 0) (+ dy 0)))
+                                         (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh pos-index)))
+                                         (node (cl-mpm/mesh:get-node mesh id))
+                                         (weights (mapcar (lambda (k x n)
+                                                            (cl-mpm/shape-function::nodal-bspline k x n h))
+                                                          knot-list dist local-id-list))
+                                         (weight (reduce #'* weights))
+                                         (grads (mapcar (lambda (k d n w)
+                                                          (* (cl-mpm/shape-function::nodal-bspline-dsvp k d n h) w))
+                                                        knot-list
+                                                        dist
+                                                        local-id-list
+                                                        (nreverse weights)))
+                                         (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
+                                    (print weights)
+                                    (funcall func mesh mp node weight dsvp)))))))
+          (loop for dx from -1 to 1
+                do (loop for dy from -1 to 1
+                         do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                              (when (cl-mpm/mesh:in-bounds mesh id)
+                                (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                                       (node (cl-mpm/mesh:get-node mesh id))
+                                       (weights (mapcar (lambda (x) (cl-mpm/shape-function:shape-bspline x h)) dist))
+                                       (weight (reduce #'* weights))
+                                       (grads (mapcar (lambda (d w)
+                                                        (* (cl-mpm/shape-function:shape-bspline-dsvp d h) w))
+                                                      dist (nreverse weights)))
+                                       (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
+                                  (funcall func mesh mp node weight dsvp))))))))))
 (defmacro iterate-over-neighbours-shape-linear-macro (mesh mp func-body)
   `(progn
     (let* ((h (cl-mpm/mesh:mesh-resolution ,mesh))
