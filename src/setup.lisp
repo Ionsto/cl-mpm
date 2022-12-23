@@ -57,7 +57,8 @@
                                                (list
                                                  :position (list (/ mp-spacing-x 2) 
                                                             (+ (/ mp-spacing-y 2) (* mp-spacing-y i)))
-                                                 :volume (* mp-spacing-x mp-spacing-y)))))))
+                                                 :volume (* mp-spacing-x mp-spacing-y)
+                                                 :size (magicl:from-list (list mp-spacing-x mp-spacing-y) '(2 1))))))))
     (make-array (length data) :initial-contents data)))
 
 (defun make-column-mps-elastic (element-count spacing E nu)

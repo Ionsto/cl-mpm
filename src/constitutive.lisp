@@ -113,7 +113,7 @@
                                                         (expt (magicl::sum (magicl:.* dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
-                                                              (- visc-power 1)))))
+                                                              (* 0.5 (- visc-power 1))))))
          )
     (magicl:.+ stress
                (magicl:.-
@@ -126,6 +126,15 @@
                                ) 0)
                 ))
     ))
+(defun glen-flow (strain-increment stress bulk-modulus visc-factor visc-power dt vorticity)
+  "A stress of a viscoplastic glen flow law material"
+  (let* ((order 3)
+         ;(strain-matrix (voight-to-matrix strain-increment))
+         (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
+         (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
+         (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
+         (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
+    (magicl:.+ (matrix-to-voight pressure-matrix) dev-stress)))
 (defun norton-hoff-plastic-strain (stress visc-factor visc-power dt)
   (let* ((order 3)
          ;(strain-matrix (voight-to-matrix strain-increment))
@@ -141,3 +150,14 @@
          )
     glenn-strain-rate
     ))
+
+(defun glen-stress (strain visc-factor visc-power dt)
+  (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 3d0))
+         (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 2 :value strain-trace))))
+         (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
+         (effective-strain (magicl::sum (magicl:.* dev-strain dev-strain second-invar)))
+         )
+    (if (> effective-strain 0d0)
+        (magicl:scale dev-strain (* visc-factor (expt effective-strain
+                                                 (* 0.5 (- (/ 1 visc-power)  1d0)))))
+        (magicl:scale dev-strain 0d0))))

@@ -11,10 +11,6 @@
 ;; (ql:quickload "py4cl")
 ;; (setf py4cl:*python-command* "python3")
 ;; (py4cl:import-module "matplotlib.pyplot" :as "plt")
-(ql:quickload "py4cl2")
-(py4cl2:defpymodule "matplotlib" nil :lisp-package "MPL")
-(mpl:use :backend "TKAgg")
-(py4cl2:defpymodule "matplotlib.pyplot" nil :lisp-package "PLT")
 ;; (plt:figure)
 ;; (plt:ion)
 ;; (plt:ioff)
@@ -28,21 +24,8 @@
           finally (return (values x y)))
     (vgplot:plot x y ";;with points pt 7"))
   (vgplot:replot))
-(defun plot-pyplot (sim)
-  (multiple-value-bind (x y c)
-    (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (cl-mpm/particle:mp-damage mp) into c
-          finally (return (values x y c)))
-    (plt:scatter :x x :y y :c c))
-  (plt:ylim 0 1)
-  ;; (plt:colorbar)
-  (plt:clim 0 1)
-  (plt:show))
-
 (defun setup-test-column (size &optional (e-scale 1))
-  (let* ((sim (cl-mpm/setup::make-column 1 size #'cl-mpm::make-shape-function-linear)) 
+  (let* ((sim (cl-mpm/setup::make-column 1 size #'cl-mpm/shape-function::make-shape-function-linear)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x h)

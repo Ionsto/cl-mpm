@@ -10,14 +10,14 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
-  (if (> stress (* 0d0 0.5d0 critical-stress))
-      (* (/ (max 0d0 stress) critical-stress) 0.1d0)
+  (if (> stress (* 0.0d0 critical-stress))
+      (/ (* (/ (max 0d0 stress) critical-stress) 0.1d0) (max 1d-5 (expt (- 1d0 damage) 3)))
       0d0)
   )
 
 (defun damage-profile (damage)
   "Constitive law describing the scalar stress decrease as a function of damage"
-  (expt (- 1 damage) 2)
+  (max (expt (- 1 damage) 2) 1d-6)
   )
 (defun update-damage (mp dt)
   (let ((damage-increment 0d0))
@@ -27,10 +27,14 @@
                      ) mp
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
-            (loop for i from 0 to 1
-                  do (let ((sii (nth i l)))
-                       (progn
-                         (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
+            ;; (loop for i from 0 to 1
+            ;;       do (let ((sii (nth i l)))
+            ;;            (progn
+            ;;              (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
+            (let ((s1 (loop for i from 0 to 1
+                            maximize (nth i l))))
+              (when (> s1 0d0)
+                (incf damage-increment (* (damage-rate-profile critical-stress s1 damage) dt))))
             (incf damage damage-increment)
             (setf damage (min 1d0 (max 0d0 damage)))
 
@@ -42,6 +46,7 @@
             ;;                                          (magicl:from-list (list (first l) 0 0 (second l)) '(2 2) :type 'double-float)
             ;;                                          (magicl:inv v))))
             (when (> damage 0d0)
+              ;(setf stress (magicl:scale stress (- 1d0 damage)))
               (loop for i from 0 to 1
                     do (let ((sii (nth i l)))
                          (progn
@@ -49,8 +54,8 @@
                              (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
-                                                       (magicl:inv v)))))
-            ;; (setf stress (magicl:scale stress (damage-profile damage)))
+                                                       (magicl:inv v))))
+              )
             )))))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
   (update-damage mp dt)

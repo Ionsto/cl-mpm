@@ -162,3 +162,26 @@
                "magicl")
   :serial t
   :components ((:file "examples/slump")))
+(defsystem "cl-mpm/examples/flow"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/flow")))
+
+(defsystem "cl-mpm/examples/beam"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/beam")))

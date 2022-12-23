@@ -20,14 +20,16 @@
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
          ;(h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale))
          )
-    (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
+    h-initial
+    ;(* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)
+    ))
 
 (defun max-stress (mp)
   (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)
   ;; (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
   ;;   (apply #'max l))
   )
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -63,11 +65,11 @@
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1d0 e-scale)
                                         (list (* 1 (first size)) (* e-scale (second size)))
-                                        #'cl-mpm::make-shape-function-bspline)) 
+                                        #'cl-mpm/shape-function::make-shape-function-linear)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ 1d0 (expt (* e-scale mp-scale) 2)))
+         (mass (/ (* 1 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
          (block-size (list h-x (second block-size))))
     (progn
@@ -81,14 +83,14 @@
                (list 1 (* e-scale mp-scale (second block-size)))
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic-fracture
-               :E 1d5 :nu 0.0d0
+               :E 1d3 :nu 0.0d0
                :mass mass)))
 
       (loop for mp across (cl-mpm::sim-mps sim)
-            do (setf (cl-mpm/particle::mp-gravity mp) -1d0))
+            do (setf (cl-mpm/particle::mp-gravity mp) -9.8d0))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 0d0)
-      (setf (cl-mpm:sim-dt sim) 1d-6)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim) '())
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -103,7 +105,7 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1 3) '(1 2) 4 8))
+  (defparameter *sim* (setup-test-column '(1 3) '(1 2) 4 2))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -144,12 +146,12 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 20
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 100)
+                  (dotimes (i 10)
                     ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) :type 'double-float))
                     ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 -0.5d0) '(2 1)))
                     ;; (break)

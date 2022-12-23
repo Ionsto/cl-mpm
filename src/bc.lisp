@@ -10,6 +10,7 @@
     #:make-bc-fixed
     #:make-bc-surface
     #:make-bc-friction
+    #:make-bc-buoyancy
     )
   )
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -54,6 +55,13 @@
     :type DOUBLE-FLOAT)
    )
   (:documentation "A BC applied on a normal"))
+(defclass bc-body-force (bc)
+  ((force
+    :accessor bc-force
+    :initarg :force
+    :initform (magicl:zeros '(2 1))
+    :type MAGICL:MATRIX/DOUBLE-FLOAT))
+  (:documentation "A BC applied like a body force"))
 
 (defun make-bc-surface (index normal)
   (make-instance 'bc-surface
@@ -65,6 +73,10 @@
                  :index index
                  :normal normal
                  :friction-coefficent friction-coefficent))
+(defun make-bc-buoyancy (index force)
+  (make-instance 'bc-body-force
+                 :index index
+                 :force force))
 
 (defgeneric apply-bc (bc node)
   (:documentation "Apply a boundary condition onto a node"))
@@ -104,6 +116,54 @@
             ))
         (setf node-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
         ))))
+
+(defmethod apply-bc ((bc bc-body-force) node)
+  "Fixed velocity BC over some dimensions"
+  (with-slots ((value value))
+      bc
+    (setf (cl-mpm/mesh:node-force node) (magicl:.+ (cl-mpm/mesh:node-force node)
+                                                 (magicl:scale (bc-force bc) (cl-mpm/mesh::node-volume node))
+                                                 ))))
+(defclass bc-volume (bc)
+  ((index
+     :accessor bc-index
+     :initarg :index))
+  (:documentation "A boundary condition that applies some operation over a set of nodes"))
+(defclass bc-inflow (bc-fixed)
+  ((vel-bcs
+    :accessor bc-inflow-vel
+    :initarg :vel-bcs)
+   (volume-threshold
+    :accessor bc-inflow-volume-threshold
+    :initarg :volume-threshold)
+   (particle-constructor
+    :accessor bc-inflow-particle-constructor
+    :initarg :particle-constructor
+    ))
+  (:documentation "A boundary condition that applies some operation over a set of nodes"))
+
+(defun make-bc-inflow (index vel volume-threshold p-cons)
+    (make-instance 'bc-inflow
+                   :index index
+                   :particle-constructor p-cons
+                   :volume-threshold volume-threshold
+                   :value vel)
+  )
+(defmethod apply-bc ((bc bc-inflow) node)
+  "Nodal inflow"
+  (with-slots ((value value)
+               (volume-threshold volume-threshold)
+               (pcons particle-constructor)
+               )
+      bc
+    (when (<= (cl-mpm/mesh::node-volume node) volume-threshold)
+      ;; Add particle?
+      (funcall pcons (list (magicl:tref (cl-mpm/mesh::node-position node) 0 0)
+                           (magicl:tref (cl-mpm/mesh::node-position node) 1 0)
+                           ))
+      )
+    )
+  (call-next-method))
 
 ;; (defun make-wall-bc (mesh &rest args)
 ;;   (loop for v from 0 to ()))

@@ -16,7 +16,7 @@
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 3)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
@@ -40,6 +40,50 @@
                            1d0) h)
   ;; (the double-float (/ (signum x) h)
        ))
+
+(defun shape-gimp (x l h)
+  (cond
+    ((and (< (- (+ h l)) x) (<= x (- l h)))
+     (/ (expt (+ x h l) 2) (* 4 h l)))
+    ((and (< (- l h) x) (<= x (- l)))
+     (+ 1 (/ x h)))
+    ((and (< (- l) x) (<= x l))
+     (- 1 (/ (+ (* x x) (* l l)) (* 2 h l))))
+    ((and (< l x) (<= x (- h l)))
+     (- 1 (/ x h)))
+    ((and (< (- h l) x) (<= x (+ h l)))
+     (/ (expt (- (+ h l) x) 2) (* 4 h l)))
+    (t
+     0d0)))
+(defun shape-gimp-dsvp (x l h)
+  (cond
+    ((and (< (- (+ h l)) x) (<= x (- l h)))
+     (/ (+ x h l) (* 2 h l))
+     )
+    ((and (< (- l h) x) (<= x (- l)))
+     (/ 1 h))
+    ((and (< (- l) x) (<= x l))
+     (- (/ x (* h l)))
+     )
+    ((and (< l x) (<= x (- h l)))
+     (- (/ 1 h)))
+    ((and (< (- h l) x) (<= x (+ h l)))
+     (- (/ (- (+ h l) x) (* 2 h l))))
+    (t
+     0d0)))
+
+;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x)))
+;;   (vgplot:figure)
+;;   (vgplot:plot
+;;    x
+;;    (mapcar (lambda (y) (shape-gimp y 0.5 1)) x) "r"
+;;    ;x
+;;    ;(mapcar (lambda (y) (nodal-bspline-dsvp '(t t t t t t t t) y 0 1)) x) "b"
+;;    ))
+
+
+
+
 (declaim (inline shape-bspline)
          (ftype (function (double-float double-float) double-float) shape-bspline))
 (defun shape-bspline (x h)
@@ -121,6 +165,11 @@
                     ((and n (not ni))
                      (setf i pos)
                      )
+                    ;; ((and (not n) ni)
+                    ;;  (setf i (+ pos inc))
+                    ;;  )
+                    (t
+                     i)
                     )
                   ;; (if (and n ni)
                   ;;         (setf i (/ (+ pos pos 1) 2))
@@ -216,6 +265,9 @@
    ))
 
 (defclass shape-function-linear (shape-function)
+  ((order :initform 1)))
+
+(defclass shape-function-gimp (shape-function)
   ((order :initform 1)))
 
 (defclass shape-function-bspline (shape-function)

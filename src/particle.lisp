@@ -299,7 +299,8 @@
     ;; (setf strain
     ;;       (magicl:.- strain strain-plastic))
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
-    (cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
+    ;(cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
+    (cl-mpm/constitutive::glen-flow strain-rate stress (/ E (* 3d0 (- 1d0 nu nu))) visc-factor visc-power dt vorticity)
     ))
 
 (defgeneric post-stress-step (mesh mp dt)

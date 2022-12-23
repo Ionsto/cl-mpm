@@ -25,12 +25,17 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass node ()
-  ((mass 
+  ((mass
      :accessor node-mass
      :type double-float
      :initform 0d0
      )
-  (index 
+   (volume
+    :accessor node-volume
+    :type double-float
+    :initform 0d0
+    )
+   (index
     :accessor node-index
     :initarg :index)
    (position
@@ -44,7 +49,7 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1) :type 'double-float)
     )
-  (force 
+  (force
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -70,21 +75,24 @@
   ( (nD
       :accessor mesh-nd
       :initarg :nD)
-    (mesh-count 
+    (mesh-count
       :accessor mesh-count
       :initarg :mesh-count)
-    (mesh-size 
+    (mesh-size
       :accessor mesh-mesh-size
       :initarg :mesh-size)
-    (mesh-res 
+    (mesh-res
       :accessor mesh-resolution
       :initarg :mesh-res)
-    (nodes 
+    (nodes
       :accessor mesh-nodes
       :initarg :nodes)
     (shape-func
       :accessor mesh-shape-func
       :initarg :shape-func)
+   (boundary-shapes
+    :accessor mesh-boundary-shapes
+    :initform nil)
    (boundary-order
     :accessor mesh-boundary-order
     :initarg :boundary-order))
@@ -130,13 +138,20 @@
       (setf (mesh-nodes mesh) (make-nodes mesh meshcount))
       mesh)))
 
+(defun query-boundary-shapes (mesh index)
+  (not (member index (mesh-boundary-shapes mesh) :test #'equal)))
+
 (declaim (inline in-bounds-1d))
 (defun in-bounds-1d (mesh value dim)
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
 (defun in-bounds (mesh pos)
   "Check a position (list) is inside a mesh"
-  (and (in-bounds-1d mesh (first pos) 0) (in-bounds-1d mesh (second pos) 1))
+  (and (in-bounds-1d mesh (first pos) 0)
+       (in-bounds-1d mesh (second pos) 1)
+       (if (mesh-boundary-shapes mesh)
+           (query-boundary-shapes mesh pos)
+           t))
   ;; (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
   ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
   )
@@ -163,9 +178,11 @@
 (defmethod reset-node (node)
   (with-slots ( (mass mass)
                 (vel velocity)
+               (volume volume)
                 (force force))
                 node
-               (setf mass 0d0)
-               (setf vel (magicl:scale vel 0))
-               (setf force (magicl:scale force 0))))
+    (setf mass 0d0)
+    (setf volume 0d0)
+    (setf vel (magicl:scale vel 0))
+    (setf force (magicl:scale force 0))))
 
