@@ -178,10 +178,10 @@
 
                                         ;'cl-mpm/particle::particle-viscoplastic-damage
                  'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1e7
-                 :nu 0.45
+                 :E 1e8
+                 :nu 0.325
                  ;; :visc-factor 1e-20
-                 :visc-factor 1e7
+                 :visc-factor 1e6
                  :visc-power 3
 
                  ;; Fluid
@@ -193,7 +193,7 @@
 
                  ;; :E 1e6 :nu 0.33
                  :mass mass
-                 :critical-stress 1d7
+                 :critical-stress 1d6
                  ;; :fracture-toughness 5d0
                  :gravity -9.8d0
                  )))
@@ -201,13 +201,13 @@
           (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
           (loop for mp across prev-mps
                 do (vector-push-extend mp (cl-mpm:sim-mps sim)))))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-4)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-2)
       (setf (cl-mpm:sim-mass-filter sim) 1d-8)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
@@ -226,13 +226,10 @@
         (loop for x from 0 to (round step-x h)
               do (loop for y from 0 to (round step-y h)
                        do (push
-                           ;(cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
-                           (cl-mpm/bc:make-bc-friction (list x y)
-                                                                   (magicl:from-list '(0d0 1d0)
-                                                                                     '(2 1))
-                                                                   0.25d0)
+                           (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
+                           ;(cl-mpm/bc:make-bc-friction (list x y) (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0)
                                 (cl-mpm:sim-bcs sim))))
-        (when t
+        (when nil
           (loop for x from 1 to 1
                 do (loop for y from (round 200 h) to (round 200 h)
                          do (push (cl-mpm/bc::make-bc-inflow (list x y)
@@ -266,7 +263,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(2000 400) '(200 100) '(000 200) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(2000 400) '(400 100) '(000 200) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))

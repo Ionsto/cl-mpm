@@ -133,7 +133,7 @@
 
                ;; :E 1e6 :nu 1d8
 
-               'cl-mpm/particle::particle-viscoplastic
+               'cl-mpm/particle::particle-viscoplastic-damage
                :E 1e7
                :nu 0.325
                :visc-factor 1e6
@@ -152,7 +152,7 @@
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d1)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
@@ -171,7 +171,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 40) 2))
+  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -233,7 +233,7 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 100)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                            ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))

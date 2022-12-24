@@ -157,9 +157,9 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-6)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-8)
+      (setf (cl-mpm:sim-dt sim) 0.5d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -174,7 +174,7 @@
                                             ))
 
       (let ((step-x 200)
-            (step-y 100)
+            (step-y 300)
             )
 
         (loop for x from 0 to (round step-x h)
@@ -187,7 +187,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 300) '(500 100) '(0 100) (/ 1 10) 2))
+  (defparameter *sim* (setup-test-column '(700 500) '(500 100) '(0 300) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -207,6 +207,15 @@
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
   )
+
+(defun remove-material-damaged (sim)
+  "Remove material points that have strain energy density exceeding fracture toughness"
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (delete-if (lambda (mp)
+                 (with-accessors ((damage cl-mpm/particle:mp-damage))
+                     mp
+                   (>= damage 1d0))) mps)))
 
 
 (defparameter *run-sim* nil)
@@ -249,9 +258,10 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 500)
+                    (time (dotimes (i 100)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
+                           ;(remove-material-damaged *sim*)
                            ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
                            ;; (cl-mpm/eigenerosion:update-fracture *sim*)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))

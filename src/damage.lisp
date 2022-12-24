@@ -11,7 +11,7 @@
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 0.0d0 critical-stress))
-      (/ (* (/ (max 0d0 stress) critical-stress) 0.1d0) (max 1d-5 (expt (- 1d0 damage) 3)))
+      (/ (* (/ (max 0d0 stress) critical-stress) 1d-2) (max 1d-5 (expt (- 1d0 damage) 3)))
       0d0)
   )
 
