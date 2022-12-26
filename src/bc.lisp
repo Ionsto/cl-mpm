@@ -11,6 +11,7 @@
     #:make-bc-surface
     #:make-bc-friction
     #:make-bc-buoyancy
+    #:make-bc-fixed-temp
     )
   )
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -27,6 +28,19 @@
      :initarg :value
      :initform '(nil nil)))
   (:documentation "A fixed velocity BC can be 1/0 dof"))
+
+(defclass bc-fixed-temp (bc-fixed)
+  ()
+  (:documentation "A fixed velocity BC can be 1/0 dof"))
+
+(defclass bc-ambient-temp (bc-fixed)
+  ((threshold
+    :accessor bc-threshold
+    :initarg :threshold
+    :initform 0d0
+    :type DOUBLE-FLOAT)
+   )
+  (:documentation "BC that applies the temperature if theres no mass"))
 
 (defun make-bc-fixed (index value)
   (make-instance 'bc-fixed
@@ -78,13 +92,13 @@
                  :index index
                  :force force))
 
-(defgeneric apply-bc (bc node)
+(defgeneric apply-bc (bc node mesh)
   (:documentation "Apply a boundary condition onto a node"))
 
-(defmethod apply-bc (bc node)
+(defmethod apply-bc (bc node mesh)
   "Natural BC condition is nothing")
 
-(defmethod apply-bc ((bc bc-fixed) node)
+(defmethod apply-bc ((bc bc-fixed) node mesh)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
@@ -92,7 +106,30 @@
             do (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))))))
 
-(defmethod apply-bc ((bc bc-surface) node)
+
+(defmethod apply-bc ((bc bc-fixed-temp) node mesh)
+  "Fixed velocity BC over some dimensions"
+  (with-slots ((value value))
+    bc
+    (setf (cl-mpm/mesh::node-temperature node)
+          value)))
+(defmethod apply-bc ((bc bc-ambient-temp) node mesh)
+  "Fixed velocity BC over some dimensions"
+  (with-slots ((value value)
+               (index index)
+               (threshold threshold))
+    bc
+    (when (<= (cl-mpm/mesh::node-mass node) threshold)
+      (loop for dx from -1 to 1
+            do (loop for dy from -1 to 1
+                     do
+                        (let ((ix (mapcar #'+ index (list dx dy))))
+                          (when (cl-mpm/mesh::in-bounds mesh ix)
+                            (setf (cl-mpm/mesh::node-temperature
+                                   (cl-mpm/mesh::get-node mesh ix))
+                                  value))))))))
+
+(defmethod apply-bc ((bc bc-surface) node mesh)
   "Fixed velocity BC over some non-stick surface"
   (with-slots ((normal normal))
     bc
@@ -101,7 +138,7 @@
         (when (< rel-vel 0)
           (setf node-vel (magicl:.- (magicl:scale normal rel-vel) node-vel)))))))
 
-(defmethod apply-bc ((bc bc-friction) node)
+(defmethod apply-bc ((bc bc-friction) node mesh)
   "Frictional velocity BC over some non-stick surface"
   (with-slots ((normal normal)
                (mu friction-coefficent))
@@ -117,7 +154,19 @@
         (setf node-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
         ))))
 
-(defmethod apply-bc ((bc bc-body-force) node)
+
+(defun make-bc-fixed-temp (index value)
+  (make-instance 'bc-fixed-temp
+                 :index index 
+                 :value value))
+
+(defun make-bc-ambient-temp (index value threshold)
+  (make-instance 'bc-ambient-temp
+                 :index index 
+                 :threshold threshold
+                 :value value))
+
+(defmethod apply-bc ((bc bc-body-force) node mesh)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
       bc
@@ -149,7 +198,7 @@
                    :volume-threshold volume-threshold
                    :value vel)
   )
-(defmethod apply-bc ((bc bc-inflow) node)
+(defmethod apply-bc ((bc bc-inflow) node mesh)
   "Nodal inflow"
   (with-slots ((value value)
                (volume-threshold volume-threshold)
@@ -225,3 +274,30 @@
                    append 
                    (list (funcall left (list order y))
                          (funcall right (list (- xsize order) y)))))))))
+(defun make-sub-domain-bcs (mesh start end make-bc)
+  "Construct  bcs over the outside of a mesh"
+  (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
+                   (order cl-mpm/mesh::mesh-boundary-order))
+      mesh
+    (destructuring-bind (xstart ystart) start
+      (destructuring-bind (xend yend) end
+        (loop for x from
+              xstart to xend
+              append
+              (loop for y from
+                    ystart to yend
+                    collect
+                    (funcall make-bc (list x y))))))))
+(defun make-domain-bcs (mesh make-bc)
+  "Construct  bcs over the outside of a mesh"
+  (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
+                   (order cl-mpm/mesh::mesh-boundary-order))
+      mesh
+    (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
+      (loop for x from
+            0 to xsize
+            append
+            (loop for y from
+                  0 to ysize
+                  collect
+                       (funcall make-bc (list x y)))))))

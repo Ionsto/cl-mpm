@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed 2 2)
-(sb-ext:restrict-compiler-policy 'debug 3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed 3 3)
+(sb-ext:restrict-compiler-policy 'debug 1 1)
+(sb-ext:restrict-compiler-policy 'safety 1 1)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -39,25 +39,31 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :temperature))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y c stress-y lx ly e density)
+  (multiple-value-bind (x y c stress-y lx ly e density temp)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
           collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
-          collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
+          collect (if (slot-exists-p mp 'cl-mpm/particle::temperature) (cl-mpm/particle:mp-temperature mp) 0) into temp
+          collect (if (slot-exists-p mp 'cl-mpm/particle::strain-energy-density) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
           collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
           ;; collect (cl-mpm/particle:mp-volume mp) into density
           collect (max-stress mp) into stress-y
-          finally (return (values x y c stress-y lx ly e density)))
+          finally (return (values x y c stress-y lx ly e density temp)))
     (cond
       ((eq plot :damage)
        (vgplot:format-plot t "set cbrange [0:1]")
        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
        (vgplot:plot x y c ";;with points pt 7 lc palette")
+       )
+      ((eq plot :temperature)
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min temp) (+ 0.01 (apply #'max temp)))
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
+       (vgplot:plot x y temp ";;with points pt 7 lc palette")
        )
       ((eq plot :energy)
        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
@@ -133,11 +139,13 @@
 
                ;; :E 1e6 :nu 1d8
 
-               'cl-mpm/particle::particle-viscoplastic-damage
+               'cl-mpm/particle::particle-thermoviscoplastic-damage
                :E 1e7
-               :nu 0.325
-               :visc-factor 1e6
+               :nu 0.450
+               :visc-factor 1e3
                :visc-power 3
+               :temperature 0d0
+               :heat-capacity 1d0
 
                ;; Fluid
                ;; 'cl-mpm/particle::particle-fluid
@@ -148,25 +156,36 @@
 
                ;; :E 1e6 :nu 0.33
                :mass mass
-               ;;:critical-stress 1d6
+               :critical-stress 1d6
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-1)
+      (setf (cl-mpm:sim-mass-filter sim) 0d0)
       (setf (cl-mpm:sim-dt sim) 1d-2)
-
+             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+             ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-                                            ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
-                                            ;;                                         (magicl:from-list '(0d0 1d0)
-                                            ;;                                                           '(2 1))
-                                            ;;                                         0.25d0))
-                                            ))
+            (append
+             (cl-mpm/bc::make-outside-bc-var
+              (cl-mpm:sim-mesh sim)
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0))))
+             (cl-mpm/bc::make-domain-bcs
+              (cl-mpm:sim-mesh sim)
+              (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
+                                                           10d0
+                                                           0d0)))
+             (cl-mpm/bc::make-outside-bc-var
+              (cl-mpm:sim-mesh sim)
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
+             )
+            )
       sim)))
 
 ;Setup
@@ -209,44 +228,24 @@
     (vgplot:axis (list 0 ms-x
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    ;; (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*))) 
-    ;;                    0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))))
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 20
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  ;;; Adaptive timestepping
-                  ;; (let* ((target-dt 1e-1)
-                  ;;        (courent (find-max-cfl *sim*))
-                  ;;        (c-value 0.001d0)
-                  ;;        (cfl-dt (if (> courent 0d0) (/ c-value (/ courent (cl-mpm:sim-dt *sim*))) nil))
-                  ;;        (new-dt (/ c-value (if (> courent 0d0)
-                  ;;                               (/ courent (cl-mpm:sim-dt *sim*))
-                  ;;                               (/ c-value 1e-6))))
-                  ;;        (sub-steps (max (min (floor (/ target-dt new-dt)) 100) 1)))
-                  ;;   (format t "C: ~f - steps: ~D - %dt: ~f~%" courent sub-steps new-dt)
-                  ;;   (format t "Cfl derived dt:~f~%" cfl-dt)
-                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
-                  ;; (break)
                   (let ((max-cfl 0))
                     (time (dotimes (i 100)
-                           ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
-                           ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
-                           ;; (cl-mpm/eigenerosion:update-fracture *sim*)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                            ))
-                    ;; (format t "Max cfl: ~f~%" max-cfl)
                     )
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
                   (incf *sim-step*)
                   (plot *sim*)
-                  ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                   (swank.live:update-swank)
                   (sleep .01)
 

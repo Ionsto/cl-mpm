@@ -14,6 +14,8 @@
     #:node-force
     #:node-lock
     #:node-index
+    #:node-temperature
+    #:node-dtemp
     #:get-node
     #:reset-node
     #:in-bounds
@@ -71,6 +73,18 @@
      :initform 0d0
      )))
 
+(defclass node-thermal (node)
+  ((temperature
+     :accessor node-temperature
+     :type double-float
+     :initform 0d0
+     )
+   (temperature-gradient
+     :accessor node-dtemp
+     :type double-float
+     :initform 0d0
+     )))
+
 (defclass mesh ()
   ( (nD
       :accessor mesh-nd
@@ -100,7 +114,7 @@
 
 (defun make-node (index pos)
   "Default initialise a 2d node at pos"
-  (make-instance 'node-fracture 
+  (make-instance 'node-thermal
                  :force (magicl:zeros (list 2 1) :type 'double-float)
                  :velocity (magicl:zeros (list 2 1) :type 'double-float)
                  :acceleration (magicl:zeros (list 2 1) :type 'double-float)
@@ -175,7 +189,7 @@
 (defgeneric reset-node (node)
   (:documentation "Reset grid to default state"))
 
-(defmethod reset-node (node)
+(defmethod reset-node ((node node))
   (with-slots ( (mass mass)
                 (vel velocity)
                (volume volume)
@@ -185,4 +199,13 @@
     (setf volume 0d0)
     (setf vel (magicl:scale vel 0))
     (setf force (magicl:scale force 0))))
+
+(defmethod reset-node ((node node-thermal))
+  (with-accessors ((temperature node-temperature)
+                   (dtemp node-dtemp))
+                node
+    (setf temperature 0d0)
+    (setf dtemp 0d0))
+  (call-next-method))
+
 

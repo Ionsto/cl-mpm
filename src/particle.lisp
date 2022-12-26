@@ -17,6 +17,8 @@
     #:mp-gravity
     #:mp-body-force
     #:mp-damage
+    #:mp-temperature
+    #:mp-heat-capacity
     #:mp-critical-stress
     #:mp-deformation-gradient
     #:constitutive-model
@@ -171,6 +173,20 @@
     :initform 0d0)
    )
   (:documentation "A material point with a damage tensor"))
+(defclass particle-thermal (particle)
+  (
+   (temperature
+    :accessor mp-temperature
+    :type DOUBLE-FLOAT
+    :initarg :temperature
+    :initform 0d0)
+   (heat-capacity
+    :accessor mp-heat-capacity
+    :type DOUBLE-FLOAT
+    :initarg :heat-capacity
+    :initform 0d0)
+   )
+  (:documentation "A material point with a thermal properties"))
 (defclass particle-fracture (particle-damage)
   (
    (strain-energy-density
@@ -192,6 +208,8 @@
 (defclass particle-elastic-damage (particle-elastic particle-damage)
   ()
   (:documentation "A mp with damage influanced elastic model"))
+
+
 (defclass particle-elastic-fracture (particle-elastic particle-fracture)
   ()
   (:documentation "A mp with fracture mechanics"))
@@ -199,6 +217,9 @@
 (defclass particle-viscoplastic-damage (particle-viscoplastic particle-fracture)
   ()
   (:documentation "A mp with damage mechanics"))
+(defclass particle-thermoviscoplastic-damage (particle-viscoplastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
 
 (defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
   ()
@@ -301,6 +322,24 @@
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ;(cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
     (cl-mpm/constitutive::glen-flow strain-rate stress (/ E (* 3d0 (- 1d0 nu nu))) visc-factor visc-power dt vorticity)
+    ))
+(defmethod constitutive-model ((mp particle-thermoviscoplastic-damage) strain dt)
+  "Function for modelling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((E E)
+               (nu nu)
+               (visc-factor visc-factor)
+               (visc-power visc-power)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (strain-plastic strain-plastic)
+               (deformation-gradient deformation-gradient)
+               (vorticity vorticity)
+               (temperature temperature)
+               (stress stress))
+      mp
+    (cl-mpm/constitutive::glen-flow strain-rate stress
+                                    (/ E (* 3d0 (- 1d0 nu nu)))
+                                    (* (expt (- temperature) 2) visc-factor)
+                                    visc-power dt vorticity)
     ))
 
 (defgeneric post-stress-step (mesh mp dt)

@@ -19,7 +19,7 @@
     #:sim-mass-filter
     #:post-stress-step
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 2)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -364,7 +364,7 @@
 ;(iterate-over-neighbours-shape *mesh* *sf* *mp* 
 ;                               (lambda (mesh mp node w dsvp) (print (cl-mpm/mesh:node-index  node))))
 (declaim
- (inline p2g-mp-node)
+; (inline p2g-mp-node)
  (ftype (function (cl-mpm/particle:particle
                            cl-mpm/mesh::node
                            double-float
@@ -379,11 +379,15 @@
          )
   (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
                    (node-mass  cl-mpm/mesh:node-mass)
+                   (node-temp  cl-mpm/mesh:node-temperature)
+                   (node-dtemp  cl-mpm/mesh:node-dtemp)
                    (node-volume  cl-mpm/mesh::node-volume)
                    (node-force cl-mpm/mesh:node-force)
                    (node-lock  cl-mpm/mesh:node-lock)) node
-    (with-accessors ( (mp-vel  cl-mpm/particle:mp-velocity)
-                            (mp-mass cl-mpm/particle:mp-mass)
+    (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
+                     (mp-mass cl-mpm/particle:mp-mass)
+                     (mp-temp cl-mpm/particle::mp-temperature)
+                     (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
                      (mp-volume cl-mpm/particle:mp-volume)
                      ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                      ) mp 
@@ -392,12 +396,20 @@
             (progn
               (let* ((weighted-mass (* mp-mass svp))
                      (weighted-volume (* mp-volume svp))
+                     (weighted-temp (* mp-temp mp-mass svp))
+                     (weighted-dtemp (* (/ 1 mp-heat-capaciy)
+                                        (magicl::sum
+                                         (magicl:.* dsvp dsvp))))
                        (weighted-vel (magicl:scale mp-vel weighted-mass))
                        (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
                        )
                   (sb-thread:with-mutex (node-lock)
                     (setf node-mass
                           (+ node-mass weighted-mass))
+                    (setf node-temp
+                          (+ node-temp weighted-temp))
+                    (setf node-dtemp
+                          (+ node-dtemp weighted-dtemp))
                     (setf node-volume
                           (+ node-volume weighted-volume))
                     (setf node-vel
@@ -435,7 +447,7 @@
     (p2g-mp mesh (aref mps i))))
 
 (declaim
- (inline g2p-mp-node)
+; (inline g2p-mp-node)
  (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            cl-mpm/mesh::node double-float magicl:matrix/double-float) (values))
@@ -444,12 +456,15 @@
 (defun g2p-mp-node (mesh mp node svp dsvp grads) 
   (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
+  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                   (node-temp cl-mpm/mesh:node-temperature)) node
     (with-accessors ((vel mp-velocity)
                      (mass mp-mass)
+                     (temp cl-mpm/particle::mp-temperature)
                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
+        (setf temp (+ temp (* node-temp svp)))
         ;; (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
         ))))
 
@@ -460,10 +475,12 @@
            (cl-mpm/particle:particle mp))
   "Map one MP onto the grid"
   (with-accessors ((vel mp-velocity)
+                   (temp cl-mpm/particle::mp-temperature)
                    (strain-rate mp-strain-rate))
     mp
     (progn
       (setf vel (magicl:scale vel 0d0))
+      (setf temp 0d0)
       ;; (setf strain-rate (magicl:scale strain-rate 0d0))
       )
     ;; (iterate-over-neighbours mesh mp)
@@ -480,10 +497,13 @@
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
                         (force node-force)
+                        (temp node-temperature)
+                        (dtemp node-dtemp)
                         (acc   node-acceleration))
         node
         (progn 
           (setf vel (magicl:scale vel (/ 1.0 mass)))
+          (setf temp (+ (/ temp mass) (* dtemp dt)))
           (setf acc (magicl:scale force (/ 1.0 mass)))
           (setf acc (magicl:.- acc (magicl:scale vel damping)))
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
@@ -506,7 +526,7 @@
       (when bc
         (let ((index (cl-mpm/bc:bc-index bc)))
           (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
-            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index))))))))
+            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh)))))))
 
 
 ;; (defun update-particle (mps dt)

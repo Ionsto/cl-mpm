@@ -142,6 +142,7 @@
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (loop for sii in l maximize sii)))
         (save-parameter "damage" (cl-mpm/particle:mp-damage mp))
+        (save-parameter "temp" (cl-mpm/particle::mp-temperature mp))
         ;; (save-parameter "strain_energy" (cl-mpm/particle::mp-strain-energy-density mp))
         )
       )))
