@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed 3 3)
-(sb-ext:restrict-compiler-policy 'debug 1 1)
-(sb-ext:restrict-compiler-policy 'safety 1 1)
+(sb-ext:restrict-compiler-policy 'debug 0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -118,7 +118,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
+         (mass (/ (* 9 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
@@ -141,11 +141,19 @@
 
                'cl-mpm/particle::particle-thermoviscoplastic-damage
                :E 1e7
-               :nu 0.450
-               :visc-factor 1e3
+               :nu 0.45
+               :visc-factor 1d5
                :visc-power 3
                :temperature 0d0
                :heat-capacity 1d0
+               :thermal-conductivity 1e0
+               ;; 'cl-mpm/particle::particle-thermofluid-damage
+               ;; :rest-density 900
+               ;; :stiffness 1d5
+               ;; :adiabatic-index 7
+               ;; :viscosity 1d-6
+               ;; :temperature 10d0
+               ;; :heat-capacity 1d3
 
                ;; Fluid
                ;; 'cl-mpm/particle::particle-fluid
@@ -156,13 +164,13 @@
 
                ;; :E 1e6 :nu 0.33
                :mass mass
-               :critical-stress 1d6
+               :critical-stress 1d20
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-1)
-      (setf (cl-mpm:sim-mass-filter sim) 0d0)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-9)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       (setf (cl-mpm:sim-bcs sim)
@@ -172,17 +180,20 @@
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0))))
+             ;; (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-friction i
+             (magicl:from-list '(0d0 1d0) '(2 1)) 0.2d0))
+              )
              (cl-mpm/bc::make-domain-bcs
               (cl-mpm:sim-mesh sim)
               (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
-                                                           10d0
+                                                           0d0
                                                            0d0)))
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
               (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
              )
             )
@@ -190,7 +201,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 50) 2))
+  (defparameter *sim* (setup-test-column '(400 200) '(100 100) '(0 0) (/ 1 20) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -231,76 +242,30 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 20
+    (time (loop for steps from 0 to 50
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
+                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                          *sim*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 200)
                            (cl-mpm::update-sim *sim*)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                            ))
                     )
-                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                          *sim*)
                   (incf *sim-step*)
                   (plot *sim*)
                   (swank.live:update-swank)
                   (sleep .01)
 
                   )))
+    (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                          *sim*)
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
-;; (require :sb-sprof)
-;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
-;; (setf sb-sprof:*max-samples* 10000)
-;; (defparameter *sim* (setup-test-column '(100 100) '(100 100) '(0 0) (/ 1 20) 2))
-;; (progn
-;;   (format t "MP count:~D~%" (length (cl-mpm:sim-mps *sim*)))
-;;   ;; (sb-sprof:reset)
-;;   ;; (sb-sprof:start-profiling :mode :time)
-;;   ;; (time (lparallel:pdotimes (i 10000000)
-;;   ;;                           (magicl:from-list '(1d0 1d0) '(2 1))))
-;;   (time (dotimes (i 1000)
-;;           (cl-mpm::update-sim *sim*)))
-;;   ;; (sb-sprof:stop-profiling)
-;;   )
-;; (sb-sprof:report :type :flat)
-;; (time (dotimes (i 1)
-;;         (cl-mpm::calculate-strain-rate-test *test-mesh* *test-mp* 1)))
-
-;; (defun profile-funcs ()
-;;   (sb-profile:unprofile)
-;;   (sb-profile:reset)
-;;   (format t "MP count:~D~%" (length (cl-mpm:sim-mps *sim*)))
-;;   (sb-profile:profile cl-mpm::update-sim
-;;                       cl-mpm::p2g
-;;                       cl-mpm::g2p
-;;                       cl-mpm::calculate-strain-rate
-;;                       cl-mpm::update-stress
-;;                       ;; cl-mpm::reset-grid
-;;                       ;; cl-mpm::p2g
-;;                       ;; cl-mpm::filter-grid
-;;                       ;; cl-mpm::update-nodes
-;;                       ;; cl-mpm::apply-bcs
-;;                       ;; cl-mpm::g2p
-;;                       ;; cl-mpm::update-particle
-;;                       ;; cl-mpm::update-stress-mp
-;;                       ;; cl-mpm::update-stress
-;;                       ;; cl-mpm::calculate-strain-rate
-;;                       ;; cl-mpm::iterate-over-neighbours-shape
-;;                       ;; cl-mpm::iterate-over-neighbours-shape-linear
-;;                       ;; cl-mpm::p2g-mp
-;;                       ;; cl-mpm::g2p-mp
-;;                       ;; cl-mpm::p2g-mp-node
-;;                       ;; cl-mpm::g2p-mp-node
-;;                       )
-;;   (time (loop repeat 100
-;;              do (progn
-;;                   (cl-mpm::update-sim *sim*))))
-;;   (sb-profile:report))

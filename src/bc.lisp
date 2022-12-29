@@ -111,8 +111,9 @@
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
-    (setf (cl-mpm/mesh::node-temperature node)
-          value)))
+    (when value
+      (setf (cl-mpm/mesh::node-temperature node)
+            value))))
 (defmethod apply-bc ((bc bc-ambient-temp) node mesh)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value)
@@ -123,11 +124,15 @@
       (loop for dx from -1 to 1
             do (loop for dy from -1 to 1
                      do
-                        (let ((ix (mapcar #'+ index (list dx dy))))
+                        (let* ((ix (mapcar #'+ index (list dx dy))))
                           (when (cl-mpm/mesh::in-bounds mesh ix)
                             (setf (cl-mpm/mesh::node-temperature
-                                   (cl-mpm/mesh::get-node mesh ix))
-                                  value))))))))
+                                   (cl-mpm/mesh:get-node mesh ix))
+                                  value)
+                            ;; (setf (cl-mpm/mesh::node-temperature
+                            ;;        (cl-mpm/mesh::get-node mesh ix))
+                            ;;       value)
+                            )))))))
 
 (defmethod apply-bc ((bc bc-surface) node mesh)
   "Fixed velocity BC over some non-stick surface"
@@ -287,7 +292,7 @@
               (loop for y from
                     ystart to yend
                     collect
-                    (funcall make-bc (list x y))))))))
+                    (funall make-bc (list x y))))))))
 (defun make-domain-bcs (mesh make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

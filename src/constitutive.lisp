@@ -39,7 +39,7 @@
   "A newtonian fluid model"
   (let* ((strain-matrix (voight-to-matrix strain))
          (dev-strain (matrix-to-voight (magicl:.- strain-matrix (magicl:eye 2 :value (/ (magicl:trace strain-matrix) 2))))))
-    (magicl:.+ (magicl:from-list (list (- pressure) (- pressure) 0) '(3 1))
+    (magicl:.- (magicl:from-list (list (- pressure) (- pressure) 0d0) '(3 1))
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
@@ -126,15 +126,7 @@
                                ) 0)
                 ))
     ))
-(defun glen-flow (strain-increment stress bulk-modulus visc-factor visc-power dt vorticity)
-  "A stress of a viscoplastic glen flow law material"
-  (let* ((order 3)
-         ;(strain-matrix (voight-to-matrix strain-increment))
-         (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
-         (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
-         (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
-         (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
-    (magicl:.+ (matrix-to-voight pressure-matrix) dev-stress)))
+
 (defun norton-hoff-plastic-strain (stress visc-factor visc-power dt)
   (let* ((order 3)
          ;(strain-matrix (voight-to-matrix strain-increment))
@@ -151,13 +143,23 @@
     glenn-strain-rate
     ))
 
+(defun glen-flow (strain-increment stress bulk-modulus visc-factor visc-power dt vorticity)
+  "A stress of a viscoplastic glen flow law material"
+  (let* ((order 3)
+         ;(strain-matrix (voight-to-matrix strain-increment))
+         (pressure (/ (magicl:trace (voight-to-matrix stress)) 2d0))
+         (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
+         (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
+         (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
+    (magicl:.+ (matrix-to-voight pressure-matrix) dev-stress)))
+
 (defun glen-stress (strain visc-factor visc-power dt)
-  (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 3d0))
+  (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 2d0))
          (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 2 :value strain-trace))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
          (effective-strain (magicl::sum (magicl:.* dev-strain dev-strain second-invar)))
          )
     (if (> effective-strain 0d0)
         (magicl:scale dev-strain (* visc-factor (expt effective-strain
-                                                 (* 0.5 (- (/ 1 visc-power)  1d0)))))
+                                                 (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
         (magicl:scale dev-strain 0d0))))

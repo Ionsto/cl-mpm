@@ -28,7 +28,7 @@
     )
   )
 (in-package :cl-mpm/particle)
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass particle ()
   ((mass
@@ -185,6 +185,11 @@
     :type DOUBLE-FLOAT
     :initarg :heat-capacity
     :initform 0d0)
+   (thermal-conductivity
+    :accessor mp-thermal-conductivity
+    :type DOUBLE-FLOAT
+    :initarg :thermal-conductivity
+    :initform 1d0)
    )
   (:documentation "A material point with a thermal properties"))
 (defclass particle-fracture (particle-damage)
@@ -221,6 +226,9 @@
   ()
   (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
 
+(defclass particle-thermofluid-damage (particle-fluid particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
 (defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
   ()
   (:documentation "A viscoelastic mp with fracture mechanics"))
@@ -338,9 +346,30 @@
       mp
     (cl-mpm/constitutive::glen-flow strain-rate stress
                                     (/ E (* 3d0 (- 1d0 nu nu)))
-                                    (* (expt (- temperature) 2) visc-factor)
+                                    (* (expt 2 (- temperature))
+                                       visc-factor)
                                     visc-power dt vorticity)
     ))
+
+(defmethod constitutive-model ((mp particle-thermofluid-damage) strain dt)
+  "Function for modelling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((viscosity viscosity)
+               (mass mass)
+               (volume volume)
+               (rest-density rest-density)
+               (stiffness stiffness)
+               (temp temperature)
+               (adiabatic-index adiabatic-index)
+               )
+      mp
+    (let* ((density (/ mass volume))
+           (effective-rest-density rest-density)
+           (pressure (* stiffness
+                        (expt
+                         (- (/ density effective-rest-density)
+                            1) adiabatic-index))))
+      (cl-mpm/constitutive:newtonian-fluid strain pressure viscosity)))
+  )
 
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "This step gets called after full stress state resolved and allows for other processing"))

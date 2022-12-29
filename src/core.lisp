@@ -19,7 +19,7 @@
     #:sim-mass-filter
     #:post-stress-step
     ))
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -258,7 +258,7 @@
                                    (weight (reduce #'* weights))
                                    (grads (mapcar (lambda (d l w) (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
                                                                      w))
-                                                  dist domain (reverse weights)))
+                                                  dist domain (nreverse weights)))
                                    (dsvp (cl-mpm/shape-function::assemble-dsvp-2d grads)))
                               ;; (format t "~a ~%" weights)
                               ;; (format t "~a ~%" grads)
@@ -388,6 +388,7 @@
                      (mp-mass cl-mpm/particle:mp-mass)
                      (mp-temp cl-mpm/particle::mp-temperature)
                      (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
+                     (mp-thermal-conductivity cl-mpm/particle::mp-thermal-conductivity)
                      (mp-volume cl-mpm/particle:mp-volume)
                      ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                      ) mp 
@@ -397,7 +398,11 @@
               (let* ((weighted-mass (* mp-mass svp))
                      (weighted-volume (* mp-volume svp))
                      (weighted-temp (* mp-temp mp-mass svp))
-                     (weighted-dtemp (* (/ 1 mp-heat-capaciy)
+                     (weighted-dtemp (* (/ mp-volume
+                                           (* mp-mass
+                                              mp-heat-capaciy))
+                                        mp-thermal-conductivity
+                                        mp-temp
                                         (magicl::sum
                                          (magicl:.* dsvp dsvp))))
                        (weighted-vel (magicl:scale mp-vel weighted-mass))
@@ -493,7 +498,7 @@
     (g2p-mp mesh (aref mps i))))
 
 (defun update-node (mesh dt node damping)
-    (when (> (cl-mpm/mesh:node-mass node) 0)
+    (when (> (cl-mpm/mesh:node-mass node) 0d0)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
                         (force node-force)
@@ -504,8 +509,11 @@
         (progn 
           (setf vel (magicl:scale vel (/ 1.0 mass)))
           (setf temp (+ (/ temp mass) (* dtemp dt)))
-          (setf acc (magicl:scale force (/ 1.0 mass)))
-          (setf acc (magicl:.- acc (magicl:scale vel damping)))
+          ;(setf temp (+ (/ temp mass)))
+          (setf acc (magicl:scale
+                     (magicl:.- force
+                                (magicl:scale vel damping))
+                     (/ 1.0 mass)))
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           ))))
 
