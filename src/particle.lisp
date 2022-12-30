@@ -40,6 +40,11 @@
      :accessor mp-nd
      :type integer
      :initarg :nD)
+   (index
+     :accessor mp-index
+     :type integer
+     :initform 0
+     :initarg :index)
    (volume
      :accessor mp-volume
      :type double-float
@@ -222,6 +227,9 @@
 (defclass particle-viscoplastic-damage (particle-viscoplastic particle-fracture)
   ()
   (:documentation "A mp with damage mechanics"))
+(defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with elastic mechanics with variable thermal fields"))
 (defclass particle-thermoviscoplastic-damage (particle-viscoplastic particle-damage particle-thermal)
   ()
   (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))

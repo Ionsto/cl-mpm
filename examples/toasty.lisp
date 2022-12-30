@@ -191,35 +191,47 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
+         (mass (/ (* 9 h-x h-y) (expt mp-scale 2)))
+         (mass-bread (/ (* 100 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
               (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
                                 (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
                       block-offset)))
+        ;; (setf (cl-mpm:sim-mps sim)
+        ;;       (cl-mpm/setup:make-block-mps
+        ;;        block-position
+        ;;        block-size
+        ;;        (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+        ;;        'cl-mpm::make-particle
+        ;;        'cl-mpm/particle::particle-thermoviscoplastic-damage
+        ;;          :E 1e7
+        ;;          :nu 0.325
+        ;;          :visc-factor 1d0
+        ;;          :visc-power 3
+        ;;          :temperature 0d0
+        ;;          :heat-capacity 1d0
+        ;;          :thermal-conductivity 1e0
+        ;;          :mass mass
+        ;;          :critical-stress 1d20
+        ;;          :gravity -9.8d0
+        ;;          :index 0
+        ;;        )
+        ;;       )
         (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-block-mps
-               block-position
-               block-size
-               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-               'cl-mpm::make-particle
-               'cl-mpm/particle::particle-thermoviscoplastic-damage
-                 :E 1e7
-                 :nu 0.325
-                 :visc-factor 0d0
-                 :visc-power 3
-                 :temperature 0d0
-                 :heat-capacity 1d0
-                 :thermal-conductivity 1e0
-                 :mass mass
-                 :critical-stress 1d20
-                 :gravity -9.8d0
-                 :index 0
-               )))
+              (make-mps-bread 9d0
+                              90d0
+                              '(100 100)
+                              '(300 100)
+                              e-scale
+                              mp-scale
+                              h)
+              )
+        )
       (setf (cl-mpm:sim-damping-factor sim) 1d-9)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -251,14 +263,14 @@
               (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
               (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
               (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 10d0)))
              )
             )
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(600 400) '(100 100) '(0 0) (/ 1 20) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -307,7 +319,7 @@
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                            (cl-mpm::update-sim *sim*)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                            ))
