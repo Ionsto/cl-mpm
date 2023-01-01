@@ -89,9 +89,9 @@
                     (p2g mesh mps)
                     (when (> (sim-mass-filter sim) 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
-                    (apply-bcs mesh bcs-force)
+                    (apply-bcs mesh bcs-force dt)
                     (update-nodes mesh dt (sim-damping-factor sim))
-                    (apply-bcs mesh bcs)
+                    (apply-bcs mesh bcs dt)
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
@@ -524,7 +524,7 @@
     (let ((node (row-major-aref nodes i)))
       (update-node mesh dt node damping)))))
 
-(defun apply-bcs (mesh bcs)
+(defun apply-bcs (mesh bcs dt)
   (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ( (nodes  mesh-nodes)
                     (nD     mesh-nD)
@@ -534,7 +534,7 @@
       (when bc
         (let ((index (cl-mpm/bc:bc-index bc)))
           (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
-            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh)))))))
+            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh dt)))))))
 
 
 ;; (defun update-particle (mps dt)

@@ -92,13 +92,13 @@
                  :index index
                  :force force))
 
-(defgeneric apply-bc (bc node mesh)
+(defgeneric apply-bc (bc node mesh dt)
   (:documentation "Apply a boundary condition onto a node"))
 
-(defmethod apply-bc (bc node mesh)
+(defmethod apply-bc (bc node mesh dt)
   "Natural BC condition is nothing")
 
-(defmethod apply-bc ((bc bc-fixed) node mesh)
+(defmethod apply-bc ((bc bc-fixed) node mesh dt)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
@@ -107,14 +107,14 @@
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))))))
 
 
-(defmethod apply-bc ((bc bc-fixed-temp) node mesh)
+(defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
     (when value
       (setf (cl-mpm/mesh::node-temperature node)
             value))))
-(defmethod apply-bc ((bc bc-ambient-temp) node mesh)
+(defmethod apply-bc ((bc bc-ambient-temp) node mesh dt)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value)
                (index index)
@@ -126,15 +126,27 @@
                      do
                         (let* ((ix (mapcar #'+ index (list dx dy))))
                           (when (cl-mpm/mesh::in-bounds mesh ix)
-                            (setf (cl-mpm/mesh::node-temperature
-                                   (cl-mpm/mesh:get-node mesh ix))
-                                  value)
+                            (let ((n (cl-mpm/mesh:get-node mesh ix)))
+                              (with-accessors ((mass cl-mpm/mesh::node-mass)
+                                               (temp cl-mpm/mesh::node-temperature)
+                                               (dtemp cl-mpm/mesh::node-dtemp)
+                                               )
+                                  n
+                                ;(setf temp (* value mass))
+                                ;(setf dtemp 0)
+                                (when (> mass 0d0)
+                                  (incf dtemp
+                                        (* 5d1
+                                           (- value (/ temp mass)))
+                                        ))
+                                  )
+                              )
                             ;; (setf (cl-mpm/mesh::node-temperature
                             ;;        (cl-mpm/mesh::get-node mesh ix))
                             ;;       value)
                             )))))))
 
-(defmethod apply-bc ((bc bc-surface) node mesh)
+(defmethod apply-bc ((bc bc-surface) node mesh dt)
   "Fixed velocity BC over some non-stick surface"
   (with-slots ((normal normal))
     bc
@@ -143,20 +155,25 @@
         (when (< rel-vel 0)
           (setf node-vel (magicl:.- (magicl:scale normal rel-vel) node-vel)))))))
 
-(defmethod apply-bc ((bc bc-friction) node mesh)
+(defmethod apply-bc ((bc bc-friction) node mesh dt)
   "Frictional velocity BC over some non-stick surface"
   (with-slots ((normal normal)
                (mu friction-coefficent))
       bc
-    (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
+    (with-accessors (
+                     (node-vel cl-mpm/mesh:node-velocity)
+                     (node-force cl-mpm/mesh:node-force)
+                     ) node
       (let ((rel-vel (magicl::sum (magicl:.* node-vel normal))))
         (when (< rel-vel 0)
-          (let* ((tang-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
-                 (friction-impulse (magicl:scale tang-vel mu))
+          ;Note this is momentum
+          (let* ((tang-p (magicl:.- node-vel (magicl:scale normal rel-vel)))
+                 (friction-force (magicl:scale tang-p (/ mu dt)))
                  )
-            (setf node-vel (magicl:.- node-vel friction-impulse))
+            ;(setf node-vel (magicl:.- node-vel friction-impulse))
+            (setf node-force (magicl:.- node-force friction-force))
             ))
-        (setf node-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
+        ;(setf node-vel (magicl:.- node-vel (magicl:scale normal rel-vel)))
         ))))
 
 
@@ -171,7 +188,7 @@
                  :threshold threshold
                  :value value))
 
-(defmethod apply-bc ((bc bc-body-force) node mesh)
+(defmethod apply-bc ((bc bc-body-force) node mesh dt)
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
       bc
@@ -203,7 +220,7 @@
                    :volume-threshold volume-threshold
                    :value vel)
   )
-(defmethod apply-bc ((bc bc-inflow) node mesh)
+(defmethod apply-bc ((bc bc-inflow) node mesh dt)
   "Nodal inflow"
   (with-slots ((value value)
                (volume-threshold volume-threshold)
@@ -273,12 +290,12 @@
             (append
              (loop for x from 0 to xsize 
                    append 
-                   (list (funcall bottom (list x order))
-                         (funcall top (list x (- ysize order)))))
+                   (list (when bottom (funcall bottom (list x order)))
+                         (when top (funcall top (list x (- ysize order))))))
              (loop for y from 0 to ysize 
                    append 
-                   (list (funcall left (list order y))
-                         (funcall right (list (- xsize order) y)))))))))
+                   (list (when left (funcall left (list order y)))
+                         (when right (funcall right (list (- xsize order) y))))))))))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

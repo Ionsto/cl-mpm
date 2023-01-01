@@ -39,7 +39,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :temperature))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -207,7 +207,7 @@
                'cl-mpm/particle::particle-thermoviscoplastic-damage
                  :E 1e7
                  :nu 0.325
-                 :visc-factor 0d0
+                 :visc-factor 1d0
                  :visc-power 3
                  :temperature 0d0
                  :heat-capacity 1d0
@@ -217,19 +217,26 @@
                  :gravity -9.8d0
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-9)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-5)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       (setf (cl-mpm::sim-bcs-force sim)
-            (append
-             (cl-mpm/bc::make-domain-bcs
+             (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
-                                                           0d0
-                                                           0d0))))
-            )
+              nil
+              nil
+              nil
+             (lambda (i) (cl-mpm/bc:make-bc-friction i
+             (magicl:from-list '(0d0 1d0) '(2 1)) 0.4d0))
+              ))
+      ;;       (append
+      ;;        (cl-mpm/bc::make-domain-bcs
+      ;;         (cl-mpm:sim-mesh sim)
+      ;;         (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
+      ;;                                                      0d0
+      ;;                                                      0d0)))))
       (setf (cl-mpm:sim-bcs sim)
             (append
              (cl-mpm/bc::make-outside-bc-var
@@ -258,7 +265,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -279,8 +286,48 @@
   ;; (increase-load *sim* *load-mps* 100)
   )
 
+;; (defun sample-point-gimp (sim point get-value size)
+;;   (let ((sample-mp (cl-mpm/particle:make-particle 2
+;;                                                   :pos point
+;;                                                   :size size)))
+;;         (funcall get-value (cl-mpm:sim-mesh sim) sample-mp)))
+;; (defun sample-point-volume (sim point size)
+;;     (sample-point-gimp sim point size
+;;         (scalar-average cl-mpm/mesh::node-volume)))
+;; (defun get-mp-)
+(defun add-snow-layer (sim)
+  (let ((snow-height 5))
+    (with-accessors ((mps cl-mpm:sim-mps))
+        sim
+      (loop for mp across mps
+            collect (sample-point-volume
+                     (.+ (cl-mpm/particle:mp-position)))))))
+(defun add-particles (sim position size density)
+  (vector-push-extend 
+                      (cl-mpm::make-particle
+                       2
+                       'cl-mpm/particle::particle-thermoviscoplastic-damage
+                       :position (magicl:from-list position '(2 1)) 
+                       :volume (reduce #'* size)
+                       :size (magicl:from-list size '(2 1)) 
+                       :E 1e7
+                       :nu 0.325
+                       :visc-factor 1d0
+                       :visc-power 3
+                       :temperature 0d0
+                       :heat-capacity 1d0
+                       :thermal-conductivity 1e0
+                       :mass (* (reduce #'* size) density)
+                       :critical-stress 1d20
+                       :gravity -9.8d0
+                       :index 0
+                       )
 
-(defparameter *run-sim* nil)
+                      (cl-mpm:sim-mps sim)
+                      )
+  )
+
+(defparameter *run-sim* nil))
 
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
@@ -299,19 +346,16 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                          *sim*)
+                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                   (let ((max-cfl 0))
                     (time (dotimes (i 100)
                            (cl-mpm::update-sim *sim*)
-                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                           ))
-                    )
+                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
                   (swank.live:update-swank)

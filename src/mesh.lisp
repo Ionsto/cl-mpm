@@ -186,6 +186,25 @@
       (apply #'aref (cons (mesh-nodes mesh) pos))
     (error (format nil "Access grid out of bounds at: ~a" pos))))
 
+(defgeneric node-g2p (mp node svp dsvp grads)
+  (:documentation "G2P behaviour for specific nodes"))
+(defmethod node-g2p (mp node svp dsvp grads))
+;; (defmethod node-g2p (mp node svp dsvp grads)
+;;   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+;;                    (node-temp cl-mpm/mesh:node-temperature)) node
+;;     (with-accessors ((vel mp-velocity)
+;;                      (mass mp-mass)
+;;                      (temp cl-mpm/particle::mp-temperature)
+;;                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
+;;       (progn 
+;;         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))))))
+(defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
+  (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
+    (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
+      (progn 
+        (setf temp (+ temp (* node-temp svp))))))
+  (call-next-method))
+
 (defgeneric reset-node (node)
   (:documentation "Reset grid to default state"))
 

@@ -2,6 +2,7 @@
   (:use :cl)
   (:export
     #:make-column
+    #:make-block-mps
   ))
 
 (in-package :cl-mpm/setup)
@@ -48,7 +49,7 @@
                           )))))
     data))
 (defun make-mps-from-list (mp-list)
-  (make-array (length mp-list) :initial-contents mp-list))
+  (make-array (length mp-list) :initial-contents mp-list :adjustable t))
 (defun make-block-mps (offset size mps constructor &rest args)
   (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
     (make-mps-from-list data)))
@@ -70,6 +71,6 @@
   (make-column-mps element-count spacing 'cl-mpm::make-particle-elastic E nu))
 
 (defun node-to-mp-pos (position res mps)
-  (mapcar #'+ (list (* (first res) (+ (/ 1 (* 2 mps))))
-                    (* (second res) (+ (/ 1 (* 2 mps)))))
+  (mapcar #'+ (list (* res (+ (/ 1 (* 2 mps))))
+                    (* res (+ (/ 1 (* 2 mps)))))
                       position))
