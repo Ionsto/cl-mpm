@@ -50,11 +50,16 @@
      :type double-float
      :initarg :volume
      :initform 1d0)
+   ;; (size-0
+   ;;  :accessor mp-domain-size-0
+   ;;  :type magicl:matrix/double-float
+   ;;  ;:initarg :size
+   ;;  :initform (magicl:zeros '(2 1)))
    (size
      :accessor mp-domain-size
      :type magicl:matrix/double-float
      :initarg :size
-     :initform (magicl:zeros '(2 1)))
+     :initform (magicl:ones '(2 1)))
    (position
      :accessor mp-position
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -136,14 +141,10 @@
    )
   (:documentation "A fluid material point"))
 
-(defclass particle-viscoelastic (particle)
-  ((E
-    :accessor mp-E
-    :initarg :E
-    )
-   (nu
-    :accessor mp-nu
-    :initarg :nu)
+(defclass particle-viscoelastic (particle-elastic)
+  ((viscosity
+    :accessor mp-viscosity
+    :initarg :viscosity)
    )
   (:documentation "A visco-elastic material point"))
 
@@ -171,6 +172,22 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
+   (local-damage
+    :accessor mp-local-damage
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (local-damage-increment
+    :accessor mp-local-damage-increment
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (damage-increment
+    :accessor mp-damage-increment
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (undamaged-stress
+    :accessor mp-undamaged-stress
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(3 1)))
    (critical-stress
     :accessor mp-critical-stress
     :type DOUBLE-FLOAT
@@ -223,6 +240,10 @@
 (defclass particle-elastic-fracture (particle-elastic particle-fracture)
   ()
   (:documentation "A mp with fracture mechanics"))
+
+(defclass particle-viscoelastic-damage (particle-viscoelastic particle-damage)
+  ()
+  (:documentation "A visco-elastic material point with damage"))
 
 (defclass particle-viscoplastic-damage (particle-viscoplastic particle-fracture)
   ()
@@ -284,6 +305,14 @@
     (:method (mp strain dt)
         (magicl:scale strain 0)))
 
+(defmethod constitutive-model :before ((mp particle-damage) strain dt)
+  "For rate-based equations we want them to see the undamaged stress"
+  (with-slots ((stress stress)
+               (stress-u undamaged-stress))
+      mp
+    (setf stress (magicl:scale stress-u 1d0))
+    ))
+
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
     (with-slots ((E E)
@@ -309,11 +338,12 @@
   "Function for modelling stress intergrated viscoelastic maxwell material"
   (with-slots ((E E)
                (nu nu)
+               (viscosity viscosity)
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (vorticity vorticity)
                (stress stress))
       mp
-    (cl-mpm/constitutive::maxwell strain-rate stress E nu dt vorticity)))
+    (cl-mpm/constitutive:maxwell strain-rate stress E nu viscosity dt vorticity)))
 
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
   "Function for modelling stress intergrated viscoplastic norton-hoff material"
@@ -325,7 +355,9 @@
                (strain-plastic strain-plastic)
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
-               (stress stress))
+               ;(stress stress)
+               (stress-u undamaged-stress)
+               )
       mp
     ;; (let* ((linear-plastic-strain (cl-mpm/constitutive::norton-hoff-plastic-strain stress visc-factor visc-power dt)))
     ;;   (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix linear-plastic-strain))
@@ -335,10 +367,31 @@
     ;; (setf strain-plastic (cl-mpm/constitutive::norton-hoff-plastic-strain (magicl:scale stress (magicl:det deformation-gradient)) visc-factor visc-power dt))
     ;; (setf strain
     ;;       (magicl:.- strain strain-plastic))
-    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    (cl-mpm/constitutive:linear-elastic strain E nu)
     ;(cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
-    (cl-mpm/constitutive::glen-flow strain-rate stress (/ E (* 3d0 (- 1d0 nu nu))) visc-factor visc-power dt vorticity)
+    ;; (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+    ;;   (setf stress-u
+    ;;         (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity)))
+    ;(cl-mpm/constitutive::glen-flow strain-rate stress (/ E (* 3d0 (- 1d0 nu nu))) visc-factor visc-power dt vorticity)
     ))
+
+(defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
+  "Function for modelling stress intergrated viscoelastic maxwell material"
+  (with-slots ((E E)
+               (nu nu)
+               (viscosity viscosity)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (vorticity vorticity)
+               (def deformation-gradient)
+               (stress undamaged-stress)
+               ;; (stress stress)
+               )
+      mp
+    ;; (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu) (objectify-stress-jaumann stress vorticity))
+   ;(cl-mpm/constitutive:maxwell strain-rate (magicl:scale stress (magicl:det def)) E nu viscosity dt vorticity)
+    (cl-mpm/constitutive:maxwell-exp strain-rate (magicl:scale stress (magicl:det def)) E nu viscosity dt vorticity)
+    ))
+
 (defmethod constitutive-model ((mp particle-thermoviscoplastic-damage) strain dt)
   "Function for modelling stress intergrated viscoplastic norton-hoff material"
   (with-slots ((E E)
@@ -350,13 +403,16 @@
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
                (temperature temperature)
-               (stress stress))
+               (stress-u undamaged-stress))
       mp
-    (cl-mpm/constitutive::glen-flow strain-rate stress
-                                    (/ E (* 3d0 (- 1d0 nu nu)))
-                                    (* (expt 2 (- temperature))
-                                       visc-factor)
-                                    visc-power dt vorticity)
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+      (setf stress-u
+            (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity)))
+    ;; (cl-mpm/constitutive::glen-flow strain-rate stress
+    ;;                                 (/ E (* 3d0 (- 1d0 nu nu)))
+    ;;                                 (* (expt 2 (- temperature))
+    ;;                                    visc-factor)
+    ;;                                 visc-power dt vorticity)
     ))
 
 (defmethod constitutive-model ((mp particle-thermofluid-damage) strain dt)
@@ -384,4 +440,38 @@
 (defmethod post-stress-step (mesh mp dt)
   ())
 
+(defun assemble-vorticity-matrix (vorticity)
+  (let ((dx (magicl:tref vorticity 0 0))
+        (dy (magicl:tref vorticity 1 0))
+        (dxdy (magicl:tref vorticity 2 0))
+        )
+    (magicl:from-list (list dx dxdy (- dxdy) dy) '(2 2))))
+
+(defun objectify-stress (mp)
+  (cl-mpm/particle:mp-stress mp))
+
+(defun objectify-stress-jaumann (stress vorticity)
+  (magicl:.-
+   stress
+   (matrix-to-voight
+    (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
+                (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress))))))
+
+
+(defun objectify-stress-logspin (mp)
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (def cl-mpm/particle:mp-deformation-gradient)
+                   (vorticity cl-mpm/particle:mp-vorticity))
+      mp
+      (let ((b (magicl:@ def (magicl:transpose def)))
+            (omega (assemble-vorticity-matrix vorticity)))
+        (multiple-value-bind (l v) (magicl:eig b)
+          (loop for i from 0 to 2
+                do (loop for j from 0 to 2
+                         do
+                            (when (< (abs (- (nth i l) (nth j l))) 1d-6)
+                              ;; When we have unique eigenvalues
+                              (setf omega (magicl:.+ omega
+                                                     ))
+                              )))))))
 

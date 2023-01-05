@@ -1,7 +1,7 @@
 (defpackage :cl-mpm
   (:use :cl))
 (in-package :cl-mpm)
-(declaim (optimize (debug 3) (safety 3) (speed 2)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun det-int-force (mp node dsvp)
   "Calculate internal force contribution from mp at node"

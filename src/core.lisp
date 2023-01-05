@@ -95,15 +95,16 @@
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
+                    ;(split-mps sim)
                     (check-mps mps)
-                    ;(remove-material-damaged sim)
+                    (remove-material-damaged sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
   (:documentation "For a given shape function iterate over relevant nodes and call func with mesh, mp, node, weight and gradients"))
 
 (declaim
-; (inline iterate-over-neighbours)
+(inline iterate-over-neighbours)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours))
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -234,9 +235,9 @@
                                    (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                                   dist (nreverse weights)))
                                    (dsvp (cl-mpm/shape-function::assemble-dsvp-2d grads)))
-                              (funcall func mesh mp node weight dsvp)))))))))
+                              (funcall func mesh mp node weight dsvp grads)))))))))
 
-;(declaim (inline iterate-over-neighbours-shape-gimp))
+(declaim (inline iterate-over-neighbours-shape-gimp))
 (defun iterate-over-neighbours-shape-gimp (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -316,7 +317,7 @@
                                                           local-id-list
                                                           (nreverse weights)))
                                            (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
-                                      (funcall func mesh mp node weight dsvp))))))))
+                                      (funcall func mesh mp node weight dsvp grads))))))))
           (loop for dx from -1 to 1
                 do (loop for dy from -1 to 1
                          do (let* ((id (mapcar #'+ pos-index (list dx dy))))
@@ -329,7 +330,7 @@
                                                         (* (cl-mpm/shape-function:shape-bspline-dsvp d h) w))
                                                       dist (nreverse weights)))
                                        (dsvp (cl-mpm/shape-function:assemble-dsvp-2d grads)))
-                                  (funcall func mesh mp node weight dsvp))))))))))
+                                  (funcall func mesh mp node weight dsvp grads))))))))))
 (defmacro iterate-over-neighbours-shape-linear-macro (mesh mp func-body)
   `(progn
     (let* ((h (cl-mpm/mesh:mesh-resolution ,mesh))
@@ -363,8 +364,38 @@
 ;(defparameter *mp* (cl-mpm/particle:make-particle 2 :pos '(0.5 0.1)))
 ;(iterate-over-neighbours-shape *mesh* *sf* *mp* 
 ;                               (lambda (mesh mp node w dsvp) (print (cl-mpm/mesh:node-index  node))))
+
+(defgeneric special-p2g (mp node svp dsvp)
+  (:documentation "P2G behaviour for specific features")
+  (:method (mp node svp dsvp)))
+(defmethod special-p2g ((mp cl-mpm/particle::particle-thermal) node svp dsvp)
+  (with-accessors ((node-mass  cl-mpm/mesh:node-mass)
+                   (node-temp  cl-mpm/mesh:node-temperature)
+                   (node-dtemp  cl-mpm/mesh:node-dtemp)
+                   (node-volume  cl-mpm/mesh::node-volume)
+                   (node-lock  cl-mpm/mesh:node-lock)) node
+    (with-accessors ((mp-mass cl-mpm/particle:mp-mass)
+                     (mp-temp cl-mpm/particle::mp-temperature)
+                     (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
+                     (mp-thermal-conductivity cl-mpm/particle::mp-thermal-conductivity)
+                     (mp-volume cl-mpm/particle:mp-volume)
+                     ) mp 
+            (progn
+              (let* ((weighted-temp (* mp-temp mp-mass svp))
+                     (weighted-dtemp (* (/ mp-volume
+                                           (* mp-mass
+                                              mp-heat-capaciy))
+                                        mp-thermal-conductivity
+                                        mp-temp
+                                        (magicl::sum
+                                         (magicl:.* dsvp dsvp)))))
+                  (sb-thread:with-mutex (node-lock)
+                    (setf node-temp
+                          (+ node-temp weighted-temp))
+                    (setf node-dtemp
+                          (+ node-dtemp weighted-dtemp))))))))
 (declaim
-; (inline p2g-mp-node)
+(inline p2g-mp-node)
  (ftype (function (cl-mpm/particle:particle
                            cl-mpm/mesh::node
                            double-float
@@ -379,16 +410,11 @@
          )
   (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
                    (node-mass  cl-mpm/mesh:node-mass)
-                   (node-temp  cl-mpm/mesh:node-temperature)
-                   (node-dtemp  cl-mpm/mesh:node-dtemp)
                    (node-volume  cl-mpm/mesh::node-volume)
                    (node-force cl-mpm/mesh:node-force)
                    (node-lock  cl-mpm/mesh:node-lock)) node
     (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
                      (mp-mass cl-mpm/particle:mp-mass)
-                     (mp-temp cl-mpm/particle::mp-temperature)
-                     (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
-                     (mp-thermal-conductivity cl-mpm/particle::mp-thermal-conductivity)
                      (mp-volume cl-mpm/particle:mp-volume)
                      ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                      ) mp 
@@ -397,24 +423,12 @@
             (progn
               (let* ((weighted-mass (* mp-mass svp))
                      (weighted-volume (* mp-volume svp))
-                     (weighted-temp (* mp-temp mp-mass svp))
-                     (weighted-dtemp (* (/ mp-volume
-                                           (* mp-mass
-                                              mp-heat-capaciy))
-                                        mp-thermal-conductivity
-                                        mp-temp
-                                        (magicl::sum
-                                         (magicl:.* dsvp dsvp))))
-                       (weighted-vel (magicl:scale mp-vel weighted-mass))
-                       (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
+                     (weighted-vel (magicl:scale mp-vel weighted-mass))
+                     (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
                        )
                   (sb-thread:with-mutex (node-lock)
                     (setf node-mass
                           (+ node-mass weighted-mass))
-                    (setf node-temp
-                          (+ node-temp weighted-temp))
-                    (setf node-dtemp
-                          (+ node-dtemp weighted-dtemp))
                     (setf node-volume
                           (+ node-volume weighted-volume))
                     (setf node-vel
@@ -422,9 +436,12 @@
                     (setf node-force
                           (magicl:.+ node-force force))
                     ))
+              ;(special-p2g mp node svp dsvp)
               )))
   (values))
-(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
+(declaim
+ (inline p2g-mp)
+ (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 p2g-mp))
 (defun p2g-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -451,29 +468,48 @@
   (lparallel:pdotimes (i (length mps)) 
     (p2g-mp mesh (aref mps i))))
 
-(declaim
-; (inline g2p-mp-node)
- (ftype (function (cl-mpm/mesh::mesh
-                           cl-mpm/particle:particle
-                           cl-mpm/mesh::node double-float magicl:matrix/double-float) (values))
-                g2p-mp-node
-                          ))
-(defun g2p-mp-node (mesh mp node svp dsvp grads) 
+(defgeneric special-g2p (mesh mp node svp dsvp grads)
+  (:documentation "G2P behaviour for specific features")
+  (:method (mesh mp node svp dsvp grads)))
+
+(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp dsvp grads) 
   (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                   (node-temp cl-mpm/mesh:node-temperature)) node
+  (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
+    (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
+      (progn
+        (setf temp (+ temp (* node-temp svp)))
+        ))))
+
+(declaim
+ (inline g2p-mp-node)
+ (ftype (function (cl-mpm/particle:particle
+                           cl-mpm/mesh::node double-float
+                           magicl:matrix/double-float
+                           list
+                           ) (values))
+                g2p-mp-node
+                          ))
+(defun g2p-mp-node (mp node svp dsvp grads) 
+  ;(declare (ignore mesh))
+  "Map grid to particle for one mp-node pair"
+  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
     (with-accessors ((vel mp-velocity)
                      (mass mp-mass)
-                     (temp cl-mpm/particle::mp-temperature)
                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
-        (setf temp (+ temp (* node-temp svp)))
-        ;; (setf strain-rate (magicl:.+ strain-rate (magicl:@ dsvp node-vel)))
+        ;; (special-g2p mesh mp node svp dsvp grads)
         ))))
 
-(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
+(defgeneric reset-mps-g2p (mp)
+  (:method (mp)))
+(defmethod reset-mps-g2p ((mp cl-mpm/particle::particle-thermal))
+  (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
+      (setf temp 0d0)))
+(declaim
+ (inline g2p-mp)
+ (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 g2p-mp))
 (defun g2p-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -485,11 +521,15 @@
     mp
     (progn
       (setf vel (magicl:scale vel 0d0))
-      (setf temp 0d0)
-      ;; (setf strain-rate (magicl:scale strain-rate 0d0))
+      ;; (reset-mps-g2p mp)
       )
     ;; (iterate-over-neighbours mesh mp)
-    (iterate-over-neighbours mesh mp #'g2p-mp-node)))
+    ;(iterate-over-neighbours mesh mp #'g2p-mp-node)
+    (iterate-over-neighbours
+     mesh mp
+     (lambda (mesh mp node svp dsvp grads) 
+       (g2p-mp-node mp node svp dsvp grads)))
+    ))
 
 (defun g2p (mesh mps)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
@@ -497,6 +537,17 @@
   (lparallel:pdotimes (i (length mps)) 
     (g2p-mp mesh (aref mps i))))
 
+(defgeneric special-update-node (mesh dt node damping)
+  (:documentation "Update node method")
+  (:method (mesh dt node damping)))
+(defmethod special-update-node (mesh dt (node cl-mpm/mesh::node-thermal) damping)
+  (with-accessors ((mass  node-mass)
+                   (temp node-temperature)
+                   (dtemp node-dtemp))
+      node
+    (progn
+      (setf temp (+ (/ temp mass) (* dtemp dt)))
+      )))
 (defun update-node (mesh dt node damping)
     (when (> (cl-mpm/mesh:node-mass node) 0d0)
       (with-accessors ( (mass  node-mass)
@@ -508,13 +559,12 @@
         node
         (progn 
           (setf vel (magicl:scale vel (/ 1.0 mass)))
-          (setf temp (+ (/ temp mass) (* dtemp dt)))
-          ;(setf temp (+ (/ temp mass)))
           (setf acc (magicl:scale
                      (magicl:.- force
                                 (magicl:scale vel damping))
                      (/ 1.0 mass)))
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
+          (special-update-node mesh dt node damping)
           ))))
 
 (defun update-nodes (mesh dt damping)
@@ -609,9 +659,11 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
                    ) mp
     (progn
-      (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
+      (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain)))
+            (prev-strain (magicl:copy-tensor strain)))
         (progn
           (setf def (magicl:@ df def))
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
@@ -628,13 +680,13 @@
                                          (magicl:from-diag (mapcar (lambda (x) (log x)) lf) :type 'double-float)
                                          (magicl:transpose vf)))
                               0.5d0)))))
+          (setf strain-rate (magicl:.- strain prev-strain))
           (setf volume (* volume (magicl:det df)))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ df (magicl:transpose df)))
-            (let ((stretch (magicl:@ v
-                                     (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
-                                     (magicl:transpose v))))
-              (setf (tref domain 0 0) (* (tref domain 0 0) (tref stretch 0 0)))
-              (setf (tref domain 1 0) (* (tref domain 1 0) (tref stretch 1 1)))
+            (; (setf (tref domain 0 0) (* (tref domain-0 0 0) (tref stretch 0 0)))
+              ;; (setf (tref domain 1 0) (* (tref domain-0 1 0) (tref stretch 1 1)))
+              ;; (setf (tref domain 0 0) (* (tref domain 0 0) (tref stretch 0 0)))
+              ;; (setf (tref domain 1 0) (* (tref domain 1 0) (tref stretch 1 1)))
               ;(setf domain (magicl:.* domain (magicl:diag stretch)))
               )
           ))))))
@@ -658,10 +710,11 @@
               ;; (update-strain-linear mp dstrain)
               (update-strain-kirchoff mp dstrain)
               (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+              ;(cl-mpm/particle:constitutive-model mp strain dt)
               (when (<= volume 0d0)
                 (error "Negative volume"))
+              ;(cl-mpm/particle:post-stress-step mesh mp dt)
               (setf stress (magicl:scale stress (/ 1.0 (magicl:det def))))
-              (cl-mpm/particle:post-stress-step mesh mp dt)
               ))))))
 
 (defun update-stress (mesh mps dt)
@@ -694,6 +747,32 @@
                            (with-accessors ((damage cl-mpm/particle:mp-damage))
                                mp
                              (>= damage 1d0))) mps)))
+(defun split-criteria (mp)
+  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient))
+      mp
+    (cond
+      ((< 1.5d0 (tref def 0 0)) t)
+      ((< 1.5d0 (tref def 1 1)) t)
+      ;((> 1.5d0 (tref def 0 0)) t)
+      (t nil)
+      ))
+  )
+(defun split-mps (sim)
+  "Remove material points that have strain energy density exceeding fracture toughness"
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (let ((mps-to-split (lparallel::remove-if-not #'split-criteria mps)))
+      ;; (format t "~A~%" mps-to-split)
+      ;; (print mps-to-split)
+      (delete-if #'split-criteria mps)
+      ;; (loop for mp in mps-to-split
+      ;;       do ())
+      )
+    ;; (delete-if (lambda (mp)
+    ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
+    ;;                  mp
+    ;;                (>= damage 1d0))) mps))
+  ))
 #||
 (progn
 (ql:quickload :cl-mpm/examples/fracture)

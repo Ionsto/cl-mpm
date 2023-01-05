@@ -1,7 +1,7 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed 3 3)
-(sb-ext:restrict-compiler-policy 'debug 0 0)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (in-package :cl-mpm/examples/beam)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -40,7 +40,7 @@
     (apply #'max l)
     ;(magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -113,7 +113,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
+         (mass (/ (* 100 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
@@ -129,8 +129,8 @@
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic-damage
-               :E 9.5d8
-               :nu 0.325
+               :E 1d8
+               :nu 0.325d0
 
                ;; :E 1e6 :nu 1d8
 
@@ -149,7 +149,7 @@
 
                ;; :E 1e6 :nu 0.33
                :mass mass
-               :critical-stress 1d7
+               :critical-stress 1d5
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
@@ -159,7 +159,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-8)
-      (setf (cl-mpm:sim-dt sim) 0.5d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -237,9 +237,11 @@
     ;; (vgplot:axis (list 0 (nth 0 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*))) 
     ;;                    0 (nth 1 (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))))
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+      ;; (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h)
+      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                              *sim*)
+    (time (loop for steps from 0 to 10 
                 while *run-sim*
                 do
                 (progn
@@ -261,6 +263,11 @@
                     (time (dotimes (i 100)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
+                            (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                                          (cl-mpm:sim-mps *sim*)
+                                                          (cl-mpm:sim-dt *sim*)
+                                                          25d0
+                                                          )
                            ;(remove-material-damaged *sim*)
                            ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
                            ;; (cl-mpm/eigenerosion:update-fracture *sim*)
@@ -280,6 +287,43 @@
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
-    )
+    ))
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+
+(defun profile ()
+  (sb-profile:unprofile)
+  (sb-profile:reset)
+  (sb-profile:profile cl-mpm::update-sim
+                      cl-mpm::reset-grid
+                      cl-mpm::p2g
+                      cl-mpm::filter-grid
+                      cl-mpm::update-nodes
+                      cl-mpm::apply-bcs
+                      cl-mpm::g2p
+                      cl-mpm::update-particle
+                      cl-mpm::update-stress
+                      cl-mpm::iterate-over-neighbours-shape
+                      cl-mpm::iterate-over-neighbours-shape-linear
+                      cl-mpm::p2g-mp
+                      cl-mpm::g2p-mp
+                      cl-mpm::p2g-mp-node
+                      cl-mpm::g2p-mp-node
+                      cl-mpm/damage::calculate-damage
+                      cl-mpm/damage::apply-damage
+                      cl-mpm/damage::delocalise-damage
+                      cl-mpm/damage::create-delocalisation-list
+                      ;; cl-mpm/eigenerosion:update-fracture
+                      ;; cl-mpm/eigenerosion::remove-material-damaged
+                      ;; cl-mpm/eigenerosion::find-neighbours
+                      )
+  (loop repeat 10
+        do (progn
+             (cl-mpm::update-sim *sim*)
+             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                              (cl-mpm:sim-mps *sim*)
+                                              (cl-mpm:sim-dt *sim*)
+                                              25d0)
+             ;; (cl-mpm/eigenerosion:update-fracture *sim*)
+             ))
+  (sb-profile:report))

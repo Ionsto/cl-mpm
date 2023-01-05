@@ -16,7 +16,7 @@
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 3) (safety 3) (speed 3)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
@@ -26,15 +26,13 @@
 (declaim (inline shape-linear)
          (ftype (function (double-float double-float) double-float) shape-linear))
 (defun shape-linear (x h)
-  (declare (type double-float x h)
-           (optimize (speed 3) (safety 3) (debug 3)))
+  (declare (type double-float x h))
   (the double-float (- 1d0 (abs (/ x h)))))
 
 (declaim (inline shape-linear-dsvp)
          (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
 (defun shape-linear-dsvp (x h)
-  (declare (type double-float x h)
-           (optimize (speed 3) (safety 3) (debug 3)))
+  (declare (type double-float x h))
   (the double-float (/ (if (> x 0d0)
                            -1d0
                            1d0) h)
@@ -285,6 +283,7 @@
                     :svp (nd-svp ,nD svp dsvp)
                     :dsvp (nd-dsvp ,nD svp dsvp))))
 
+
 (defun make-shape-function-linear (nD h)
   (make-shape-function x (- 1d0 (abs (/ x h))) nD 1 'shape-function-linear))
 
@@ -294,6 +293,11 @@
           (- (/ 3 4) (expt (/ (abs x) h) 2))
           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2)))
                        nD 2 'shape-function-bspline))
+
+(defun make-shape-function-gimp (nD h)
+  (make-instance
+   'shape-function-gimp
+   :nD nD))
 
 ;; (symbolic-derivation:derive 'x
 ;;       '(if (< (abs x) (/ h 2)) 

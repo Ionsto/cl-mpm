@@ -1,6 +1,9 @@
 (defpackage :cl-mpm/examples/fracture
   (:use :cl))
 (in-package :cl-mpm/examples/fracture)
+(sb-ext:restrict-compiler-policy 'speed 0 0)
+(sb-ext:restrict-compiler-policy 'debug 3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 (ql:quickload "vgplot")
 
@@ -175,7 +178,7 @@
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm::make-shape-function-bspline)) 
+                                        #'cl-mpm/shape-function::make-shape-function-gimp)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -185,9 +188,9 @@
     (progn
       (let ((block-position (list (* h-x (- (+ (/ 1 (* 2 mp-scale)) e-scale) 0))
                                   (* h-y (+ (/ 1d0 (* 2d0 mp-scale)) (* (- (second size) (second block-size)) e-scale))))))
-        (setf (cl-mpm:sim-mps sim) 
+        (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
-               block-position 
+               block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle

@@ -61,6 +61,9 @@
     :initarg :velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1) :type 'double-float))
+  (local-list
+   :accessor node-local-list
+   :initform (make-array 0 :fill-pointer 0 :adjustable t))
   (lock 
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -114,7 +117,7 @@
 
 (defun make-node (index pos)
   "Default initialise a 2d node at pos"
-  (make-instance 'node-thermal
+  (make-instance 'node
                  :force (magicl:zeros (list 2 1) :type 'double-float)
                  :velocity (magicl:zeros (list 2 1) :type 'double-float)
                  :acceleration (magicl:zeros (list 2 1) :type 'double-float)
