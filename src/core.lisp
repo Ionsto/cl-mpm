@@ -97,7 +97,7 @@
                     (update-stress mesh mps dt) 
                     (split-mps sim)
                     (check-mps mps)
-                    ;(remove-material-damaged sim)
+                    ;; (remove-material-damaged sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -757,14 +757,14 @@
                            (with-accessors ((damage cl-mpm/particle:mp-damage))
                                mp
                              (and (>= damage 1d0)
-                                  (split-criteria mp)))) mps)))
+                                  ))) mps)))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    )
       mp
     (cond
-      ((< (* 3d0 h) (tref lens 0 0)) t)
+      ((< (* 1.5d0 h) (tref lens 0 0)) t)
       ;((< 2.0d0 (tref def 1 1)) t)
       ;((> 1.5d0 (tref def 0 0)) t)
       (t nil)
@@ -789,7 +789,7 @@
                    (volume cl-mpm/particle:mp-volume))
       mp
     (cond
-      ((< (* 3d0 h) (tref lens 0 0))
+      ((< (* 1.5d0 h) (tref lens 0 0))
        (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0) '(2 1)))))
          (list

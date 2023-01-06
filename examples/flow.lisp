@@ -41,7 +41,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (when (> (length (cl-mpm:sim-mps sim)) 0)
     (multiple-value-bind (x y c stress-y lx ly e density)
@@ -113,7 +113,7 @@
                          :E 1d7
                          :nu 0.325d0
                          ;; :visc-factor 1e-20
-                         :visc-factor 1d-25
+                         :visc-factor 1d-15
                          :visc-power 3d0
                          ;; 'cl-mpm/particle::particle-elastic-damage
                          ;; :E 1e9
@@ -180,7 +180,7 @@
                  'cl-mpm/particle::particle-viscoplastic-damage
                  :E 1d7
                  :nu 0.325d0
-                 :visc-factor 1d-25
+                 :visc-factor 1d-10
                  :visc-power 3d0
                  ;; :visc-factor 1e-20
                  ;; :visc-factor 1e6
@@ -232,9 +232,10 @@
                             (push (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
                                         ;(cl-mpm/bc:make-bc-friction (list x y) (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0)
                                  (cl-mpm:sim-bcs sim))
-                            ;; (when (< (* x h) 150)
-                            ;;   (push (cl-mpm/bc:make-bc-friction (list x y) (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0)
-                            ;;         (cl-mpm::sim-bcs-force sim)))
+                            (when (< (* x h) 200)
+                              (push (cl-mpm/bc:make-bc-friction (list x y)
+                                                                (magicl:from-list '(0d0 1d0) '(2 1)) 0.4d0)
+                                    (cl-mpm::sim-bcs-force sim)))
                             )))
         (when t
           (loop for x from 1 to 1
@@ -265,7 +266,7 @@
                     append (loop for y from 0 to (floor ocean-y h)
                                  collect (cl-mpm/bc::make-bc-buoyancy
                                           (list x y)
-                                          (magicl:from-list (list 1d1 (* 9.8d0 (* 1d0 1000))) '(2 1)))))))
+                                          (magicl:from-list (list 1d2 (* 9.8d0 (* 1d0 1000))) '(2 1)))))))
       sim)))
 
 ;Setup
