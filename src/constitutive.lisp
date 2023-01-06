@@ -10,7 +10,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -55,7 +55,6 @@
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
          (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
          )
-    (format t "~A ~%" relaxation-const)
     (magicl:.+ stress
                ;; (matrix-to-voight (magicl:eye 2 :value (* (/ elasticity (* 2 (+ 1 poisson-ratio) (- 1 poisson-ratio poisson-ratio))) (magicl:trace (voight-to-matrix strain-increment))) :type 'double-float))
                (magicl:.-
@@ -72,14 +71,15 @@
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
          (rho (/ (* 2 (- 1 nu) viscosity) elasticity))
          (exp-rho (exp (- (/ dt rho))))
-         (lam (if (> 0d0 viscosity) (* (- 1 exp-rho) (/ rho dt)) 1d0))
+         (lam (* (- 1 exp-rho) (/ rho dt)))
          (stress-inc (voight-to-matrix (magicl:@ (linear-elastic-matrix elasticity nu) strain-increment)))
          (stress-inc-pressure (magicl:eye 2 :value (magicl:trace stress-inc)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
     (magicl:.+ (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
                (magicl:.+ (magicl:scale (matrix-to-voight dev-stress) exp-rho)
-                          (magicl:scale (matrix-to-voight stress-inc-dev) lam)))
+                          (magicl:scale (matrix-to-voight stress-inc-dev) lam)
+                          ))
     ;; (magicl:.- (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
     ;;                                     ;(magicl:scale stress (/ (* dt elasticity) viscosity))
     ;;            ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)

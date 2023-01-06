@@ -28,7 +28,7 @@
     )
   )
 (in-package :cl-mpm/particle)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass particle ()
   ((mass
@@ -50,11 +50,11 @@
      :type double-float
      :initarg :volume
      :initform 1d0)
-   ;; (size-0
-   ;;  :accessor mp-domain-size-0
-   ;;  :type magicl:matrix/double-float
-   ;;  ;:initarg :size
-   ;;  :initform (magicl:zeros '(2 1)))
+   (size-0
+    :accessor mp-domain-size-0
+    :type magicl:matrix/double-float
+    :initarg :size
+    :initform (magicl:zeros '(2 1)))
    (size
      :accessor mp-domain-size
      :type magicl:matrix/double-float
@@ -359,20 +359,29 @@
                (stress-u undamaged-stress)
                )
       mp
-    ;; (let* ((linear-plastic-strain (cl-mpm/constitutive::norton-hoff-plastic-strain stress visc-factor visc-power dt)))
-    ;;   (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix linear-plastic-strain))
-    ;;     (let (trial-plastic-strain ))
-    ;;     )
-    ;;   )
-    ;; (setf strain-plastic (cl-mpm/constitutive::norton-hoff-plastic-strain (magicl:scale stress (magicl:det deformation-gradient)) visc-factor visc-power dt))
-    ;; (setf strain
-    ;;       (magicl:.- strain strain-plastic))
-    (cl-mpm/constitutive:linear-elastic strain E nu)
-    ;(cl-mpm/constitutive::norton-hoff strain-rate stress E nu visc-factor visc-power dt vorticity)
-    ;; (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
-    ;;   (setf stress-u
-    ;;         (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity)))
-    ;(cl-mpm/constitutive::glen-flow strain-rate stress (/ E (* 3d0 (- 1d0 nu nu))) visc-factor visc-power dt vorticity)
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+            (if (> viscosity 0d0)
+                (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt vorticity)
+                (cl-mpm/constitutive:linear-elastic strain E nu)))
+    ))
+(defmethod constitutive-model ((mp particle-viscoplastic-damage) strain dt)
+  "Function for modelling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((E E)
+               (nu nu)
+               (visc-factor visc-factor)
+               (visc-power visc-power)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (strain-plastic strain-plastic)
+               (deformation-gradient deformation-gradient)
+               (vorticity vorticity)
+                                        ;(stress stress)
+               (stress-u undamaged-stress)
+               )
+      mp
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+      (if (> viscosity 0d0)
+          (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt vorticity)
+          (cl-mpm/constitutive:linear-elastic strain E nu)))
     ))
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
@@ -406,8 +415,7 @@
                (stress-u undamaged-stress))
       mp
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
-      (setf stress-u
-            (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity)))
+            (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity))
     ;; (cl-mpm/constitutive::glen-flow strain-rate stress
     ;;                                 (/ E (* 3d0 (- 1d0 nu nu)))
     ;;                                 (* (expt 2 (- temperature))

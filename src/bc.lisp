@@ -267,17 +267,18 @@
 (defun make-outside-bc-roller (mesh-count order)
   "Construct fixed bcs over the outside of a mesh"
   (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
-    (loop for o from 0 to order
-          append
-          (append
-           (loop for x from 0 to xsize 
-                 append 
-                 (list (make-bc-fixed (list x order)     '(nil 0d0))
-                       (make-bc-fixed (list x (- ysize order)) '(nil 0d0))))
-           (loop for y from 0 to ysize 
-                 append 
-                 (list (make-bc-fixed (list order     y) '(0d0 nil))
-                       (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))
+    (remove nil
+            (loop for o from 0 to order
+                  append
+                  (append
+                   (loop for x from 0 to xsize 
+                         append 
+                         (list (make-bc-fixed (list x order)     '(nil 0d0))
+                               (make-bc-fixed (list x (- ysize order)) '(nil 0d0))))
+                   (loop for y from 0 to ysize 
+                         append 
+                         (list (make-bc-fixed (list order     y) '(0d0 nil))
+                               (make-bc-fixed (list (- xsize order) y) '(0d0 nil)))))))))
 
 (defun make-outside-bc-var (mesh left right top bottom)
   "Construct fixed bcs over the outside of a mesh"
@@ -285,17 +286,18 @@
                    (order cl-mpm/mesh::mesh-boundary-order))
       mesh
     (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
-      (loop for o from 0 to order
-            append
-            (append
-             (loop for x from 0 to xsize 
-                   append 
-                   (list (when bottom (funcall bottom (list x order)))
-                         (when top (funcall top (list x (- ysize order))))))
-             (loop for y from 0 to ysize 
-                   append 
-                   (list (when left (funcall left (list order y)))
-                         (when right (funcall right (list (- xsize order) y))))))))))
+      (remove nil
+              (loop for o from 0 to order
+                    append
+                    (append
+                     (loop for x from 0 to xsize 
+                           append 
+                           (list (when bottom (funcall bottom (list x order)))
+                                 (when top (funcall top (list x (- ysize order))))))
+                     (loop for y from 0 to ysize 
+                           append 
+                           (list (when left (funcall left (list order y)))
+                                 (when right (funcall right (list (- xsize order) y)))))))))))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

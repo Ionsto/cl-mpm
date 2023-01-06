@@ -34,12 +34,14 @@
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
          ;(h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale))
          )
-    (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
+    h-initial
+    ;(* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)
+    ))
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -214,12 +216,12 @@
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-viscoelastic-damage
+               'cl-mpm/particle::particle-viscoplastic-damage
                  :E 1d7
                  :nu 0.325d0
-                 :viscosity 1d-5
-                 ;; :visc-factor 1d-10
-                 ;; :visc-power 3d0
+                 ;:viscosity 1d-5
+                 :visc-factor 1d-23
+                 :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
                  ;; :thermal-conductivity 1d0
@@ -228,7 +230,7 @@
                  :gravity -9.8d0
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-2)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-8)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
@@ -239,8 +241,9 @@
               nil
               nil
               nil
-             (lambda (i) (cl-mpm/bc:make-bc-friction i
-             (magicl:from-list '(0d0 1d0) '(2 1)) 0.4d0))
+             (lambda (i)
+               (when (< (* h (nth 0 i)) 400d0)
+                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.8d0)))
               ))
             ;; (append
             ;;  (cl-mpm/bc::make-domain-bcs
@@ -277,7 +280,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(800 200) '(500 100) '(0 0) (/ 1 10) 2))
+  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(0 0) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;(damage-sdf *sim* (ellipse-sdf (list 250 100) 15 50))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -365,13 +368,13 @@
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                            (cl-mpm::update-sim *sim*)
-                            ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                            ;;                                  (cl-mpm:sim-mps *sim*)
-                            ;;                                  (cl-mpm:sim-dt *sim*)
-                            ;;                                  25d0
-                            ;;                                  )
+                            (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                                             (cl-mpm:sim-mps *sim*)
+                                                             (cl-mpm:sim-dt *sim*)
+                                                             25d0
+                                                             )
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
@@ -386,4 +389,4 @@
     ;; (vgplot:plot *time* *velocity*)
     )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))

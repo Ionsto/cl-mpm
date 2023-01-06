@@ -97,7 +97,7 @@
                     (update-stress mesh mps dt) 
                     ;(split-mps sim)
                     (check-mps mps)
-                    (remove-material-damaged sim)
+                    ;; (remove-material-damaged sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -683,10 +683,20 @@
           (setf strain-rate (magicl:.- strain prev-strain))
           (setf volume (* volume (magicl:det df)))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ df (magicl:transpose df)))
-            (; (setf (tref domain 0 0) (* (tref domain-0 0 0) (tref stretch 0 0)))
+            (let ((stretch
+                    (magicl:@
+                     v
+                     (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
+                     (magicl:transpose v))))
+
+              ;; (setf domain (magicl:.* domain-0 (magicl:from-list
+              ;;                                   (list
+              ;;                                    (tref stretch 0 0)
+              ;;                                    (tref stretch 1 1)) '(2 1))))
+              ;; (setf (tref domain 0 0) (* (tref domain-0 0 0) (tref stretch 0 0)))
               ;; (setf (tref domain 1 0) (* (tref domain-0 1 0) (tref stretch 1 1)))
-              ;; (setf (tref domain 0 0) (* (tref domain 0 0) (tref stretch 0 0)))
-              ;; (setf (tref domain 1 0) (* (tref domain 1 0) (tref stretch 1 1)))
+              (setf (tref domain 0 0) (* (tref domain 0 0) (tref stretch 0 0)))
+              (setf (tref domain 1 0) (* (tref domain 1 0) (tref stretch 1 1)))
               ;(setf domain (magicl:.* domain (magicl:diag stretch)))
               )
           ))))))
