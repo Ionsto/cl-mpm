@@ -95,9 +95,9 @@
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
-                    ;(split-mps sim)
+                    (split-mps sim)
                     (check-mps mps)
-                    ;; (remove-material-damaged sim)
+                    ;(remove-material-damaged sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -687,7 +687,7 @@
                     (magicl:@
                      v
                      (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
-                     (magicl:transpose v))))
+                     (magicl:inv v))))
 
               ;; (setf domain (magicl:.* domain-0 (magicl:from-list
               ;;                                   (list
@@ -756,27 +756,71 @@
     (delete-if (lambda (mp)
                            (with-accessors ((damage cl-mpm/particle:mp-damage))
                                mp
-                             (>= damage 1d0))) mps)))
-(defun split-criteria (mp)
-  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient))
+                             (and (>= damage 1d0)
+                                  (split-criteria mp)))) mps)))
+(defun split-criteria (mp h)
+  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
+                   (lens cl-mpm/particle::mp-domain-size)
+                   )
       mp
     (cond
-      ((< 1.5d0 (tref def 0 0)) t)
-      ((< 1.5d0 (tref def 1 1)) t)
+      ((< (* 3d0 h) (tref lens 0 0)) t)
+      ;((< 2.0d0 (tref def 1 1)) t)
       ;((> 1.5d0 (tref def 0 0)) t)
       (t nil)
-      ))
-  )
+      )))
+(defun copy-particle (original &rest initargs &key &allow-other-keys)
+  (let* ((class (class-of original))
+         (copy (allocate-instance class)))
+    (dolist (slot (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots class)))
+      (when (slot-boundp original slot)
+        (cond
+          ((typep (slot-value original slot) 'magicl:tensor)
+           (setf (slot-value copy slot)
+                 (magicl:scale (slot-value original slot) 1d0)))
+          (t (setf (slot-value copy slot)
+                  (slot-value original slot))))))
+    (apply #'reinitialize-instance copy initargs)))
+(defun split-mp (mp h)
+  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
+                   (lens cl-mpm/particle::mp-domain-size)
+                   (pos cl-mpm/particle:mp-position)
+                   (mass cl-mpm/particle:mp-mass)
+                   (volume cl-mpm/particle:mp-volume))
+      mp
+    (cond
+      ((< (* 3d0 h) (tref lens 0 0))
+       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1) '(2 1))))
+             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0) '(2 1)))))
+         (list
+          (copy-particle mp
+                         :mass (/ mass 2)
+                         :volume (/ volume 2)
+                         :size new-size
+                         :position (magicl:.+ pos pos-offset))
+          (copy-particle mp
+                         :mass (/ mass 2)
+                         :volume (/ volume 2)
+                         :size new-size
+                         :position (magicl:.- pos pos-offset)))))
+      ;((< 2.0d0 (tref def 1 1)) t)
+                                        ;((> 1.5d0 (tref def 0 0)) t)
+      (t nil)
+      )))
 (defun split-mps (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
-  (with-accessors ((mps cl-mpm:sim-mps))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
       sim
-    (let ((mps-to-split (lparallel::remove-if-not #'split-criteria mps)))
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
       ;; (format t "~A~%" mps-to-split)
       ;; (print mps-to-split)
-      (delete-if #'split-criteria mps)
-      ;; (loop for mp in mps-to-split
-      ;;       do ())
+      ;(format t "~A~%" mps-to-split)
+      (delete-if (lambda (mp) (split-criteria mp h)) mps)
+      (loop for mp across mps-to-split
+            do (loop for new-mp in (split-mp mp h)
+                     do (vector-push-extend new-mp mps)))
       )
     ;; (delete-if (lambda (mp)
     ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))

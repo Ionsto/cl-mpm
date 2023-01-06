@@ -53,7 +53,7 @@
    (size-0
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
-    :initarg :size
+    ;:initarg :size
     :initform (magicl:zeros '(2 1)))
    (size
      :accessor mp-domain-size
@@ -74,7 +74,7 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :stress
      :initform (magicl:zeros '(3 1)))
-   (strain 
+   (strain
      :accessor mp-strain
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :strain

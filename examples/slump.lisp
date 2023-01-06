@@ -4,7 +4,7 @@
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (in-package :cl-mpm/examples/slump)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 
 (defun find-max-cfl (sim)
@@ -145,9 +145,9 @@
        'cl-mpm::make-particle
        'cl-mpm/particle::particle-thermoviscoplastic-damage
        :E 1e7
-       :nu 0.325
+       :nu 0.325d0
        :visc-factor 1d2
-       :visc-power 3
+       :visc-power 3d0
        :temperature 0d0
        :heat-capacity 1d0
        :thermal-conductivity 1e0
@@ -218,9 +218,9 @@
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
                  :E 1d7
-                 :nu 0.325d0
+                 :nu 0.3250d0
                  ;:viscosity 1d-5
-                 :visc-factor 1d-23
+                 :visc-factor 1d-25
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
@@ -231,7 +231,7 @@
                  :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 1d-8)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-8)
       (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -242,8 +242,10 @@
               nil
               nil
              (lambda (i)
-               (when (< (* h (nth 0 i)) 400d0)
-                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.8d0)))
+               (if (< (* h (nth 0 i)) 500d0)
+                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.3d0)
+                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.01d0)
+                     ))
               ))
             ;; (append
             ;;  (cl-mpm/bc::make-domain-bcs
@@ -280,7 +282,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(0 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(0 0) (/ 1 25) 1))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;(damage-sdf *sim* (ellipse-sdf (list 250 100) 15 50))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -293,10 +295,10 @@
   (defparameter *load-mps*
     (let* ((mps (cl-mpm:sim-mps *sim*))
            (least-pos
-              (apply #'max (loop for mp across mps
+              (apply #'min (loop for mp across mps
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
-      (loop for id from 0 to (- (length mps) 1) when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
-              collect (aref mps id))))
+      (loop for mp across mps when (<= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (+ least-pos 0.001))
+              collect mp)))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
   )
@@ -369,11 +371,12 @@
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                   (let ((max-cfl 0))
                     (time (dotimes (i 1000)
+                           ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                                                              (cl-mpm:sim-mps *sim*)
                                                              (cl-mpm:sim-dt *sim*)
-                                                             25d0
+                                                             50d0
                                                              )
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
