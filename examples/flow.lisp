@@ -41,7 +41,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (when (> (length (cl-mpm:sim-mps sim)) 0)
     (multiple-value-bind (x y c stress-y lx ly e density)
@@ -108,20 +108,20 @@
         (- distance x-l)))))
 
 (defun create-new-mp (pos h-x h-y mass)
-  (cl-mpm::make-particle 2 
-                         'cl-mpm/particle::particle-viscoplastic-damage
-                         :E 1d7
+  (cl-mpm::make-particle 2
+                         'cl-mpm/particle::particle-elastic-damage
+                         :E 1d9
                          :nu 0.325d0
                          ;; :visc-factor 1e-20
-                         :visc-factor 1d-15
-                         :visc-power 3d0
+                         ;; :visc-factor 1d-30
+                         ;; :visc-power 3d0
                          ;; 'cl-mpm/particle::particle-elastic-damage
                          ;; :E 1e9
                          ;; :nu 0.325
                          ;; :visc-factor 1e-24
                          ;; :visc-power 3
                          :mass mass
-                         :critical-stress 1d6
+                         :critical-stress 1d8
                          :gravity -9.8d0
                          :position pos
                          :volume (* h-x h-y)
@@ -178,9 +178,9 @@
 
                                         ;'cl-mpm/particle::particle-viscoplastic-damage
                  'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d7
+                 :E 1d8
                  :nu 0.325d0
-                 :visc-factor 1d-10
+                 :visc-factor 1d-20
                  :visc-power 3d0
                  ;; :visc-factor 1e-20
                  ;; :visc-factor 1e6
@@ -195,7 +195,7 @@
 
                  ;; :E 1e6 :nu 0.33
                  :mass mass
-                 :critical-stress 1d6
+                 :critical-stress 1d8
                  ;; :fracture-toughness 5d0
                  :gravity -9.8d0
                  )))
@@ -205,7 +205,7 @@
                 do (vector-push-extend mp (cl-mpm:sim-mps sim)))))
       (setf (cl-mpm:sim-damping-factor sim) 1d-5)
       (setf (cl-mpm:sim-mass-filter sim) 1d-8)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -232,10 +232,10 @@
                             (push (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
                                         ;(cl-mpm/bc:make-bc-friction (list x y) (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0)
                                  (cl-mpm:sim-bcs sim))
-                            (when (< (* x h) 200)
-                              (push (cl-mpm/bc:make-bc-friction (list x y)
-                                                                (magicl:from-list '(0d0 1d0) '(2 1)) 0.4d0)
-                                    (cl-mpm::sim-bcs-force sim)))
+                            ;; (when (< (* x h) 200)
+                            ;;   (push (cl-mpm/bc:make-bc-friction (list x y)
+                            ;;                                     (magicl:from-list '(0d0 1d0) '(2 1)) 0.4d0)
+                            ;;         (cl-mpm::sim-bcs-force sim)))
                             )))
         (when t
           (loop for x from 1 to 1
@@ -261,12 +261,13 @@
         )
       (let ((ocean-x 200)
             (ocean-y 200))
-        (setf (cl-mpm::sim-bcs-force sim)
-              (loop for x from (floor ocean-x h) to (floor (first size) h)
-                    append (loop for y from 0 to (floor ocean-y h)
-                                 collect (cl-mpm/bc::make-bc-buoyancy
-                                          (list x y)
-                                          (magicl:from-list (list 1d2 (* 9.8d0 (* 1d0 1000))) '(2 1)))))))
+        ;; (setf (cl-mpm::sim-bcs-force sim)
+        ;;       (loop for x from (floor ocean-x h) to (floor (first size) h)
+        ;;             append (loop for y from 0 to (floor ocean-y h)
+        ;;                          collect (cl-mpm/bc::make-bc-buoyancy
+        ;;                                   (list x y)
+        ;;                                   (magicl:from-list (list 1d3 (* 9.8d0 (* 1d0 1000))) '(2 1))))))
+        )
       sim)))
 
 ;Setup
@@ -333,13 +334,13 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 10000)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                                                              (cl-mpm:sim-mps *sim*)
                                                              (cl-mpm:sim-dt *sim*)
-                                                             50d0
+                                                             25d0
                                                              )
                             (with-accessors ((mps cl-mpm:sim-mps))
                                   *sim*

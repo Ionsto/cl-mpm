@@ -159,7 +159,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-8)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -187,7 +187,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 500) '(500 100) '(0 300) (/ 1 10) 2))
+  (defparameter *sim* (setup-test-column '(700 500) '(500 100) '(0 300) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))

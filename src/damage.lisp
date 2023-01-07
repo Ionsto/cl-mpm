@@ -7,12 +7,12 @@
     )
   )
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 0.0d0 critical-stress))
-      ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-2) (max 1d-5 (expt (- 1d0 damage) 3)))
-      (* (/ (max 0d0 stress) critical-stress) 1d-2)
+      (/ (* (/ (max 0d0 stress) critical-stress) 1d-2) (max 1d-5 (expt (- 1d0 damage) 3)))
+      ;; (* (/ (max 0d0 stress) critical-stress) 1d-2)
       0d0)
   )
 
@@ -57,7 +57,7 @@
                                    ))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
-                                                       (magicl:inv v))))
+                                                       (magicl:transpose v))))
               )
             ))))
 (defun update-damage (mp dt)

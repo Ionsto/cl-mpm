@@ -95,9 +95,9 @@
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
+                    (remove-material-damaged sim)
                     (split-mps sim)
                     (check-mps mps)
-                    ;; (remove-material-damaged sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -687,7 +687,8 @@
                     (magicl:@
                      v
                      (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
-                     (magicl:inv v))))
+                     (magicl:transpose v))))
+
 
               ;; (setf domain (magicl:.* domain-0 (magicl:from-list
               ;;                                   (list
@@ -745,30 +746,38 @@
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   (dotimes (i (array-total-size nodes))
     (let ((node (row-major-aref nodes i)))
-      (when (and (> (cl-mpm/mesh:node-mass node) 0d0) 
+      (when (and (> (cl-mpm/mesh:node-mass node) 0d0)
                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
         (cl-mpm/mesh:reset-node node))))))
 
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
-  (with-accessors ((mps cl-mpm:sim-mps))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
       sim
-    (delete-if (lambda (mp)
-                           (with-accessors ((damage cl-mpm/particle:mp-damage))
-                               mp
-                             (and (>= damage 1d0)
-                                  ))) mps)))
+    (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+      (delete-if (lambda (mp)
+                   (with-accessors ((damage cl-mpm/particle:mp-damage))
+                       mp
+                     (and (>= damage 1d0)
+                          (split-criteria mp h)
+                          ))) mps))))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
+                   (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (cond
-      ((< (* 1.5d0 h) (tref lens 0 0)) t)
-      ;((< 2.0d0 (tref def 1 1)) t)
-      ;((> 1.5d0 (tref def 0 0)) t)
-      (t nil)
-      )))
+    (let ((h-factor (* 1.5d0 h)))
+      (cond
+        ((< h-factor (tref lens 0 0)) t)
+        ((< h-factor (tref lens 1 0)) t)
+        ((< (* 1.5d0 (tref lens-0 0 0)) (tref lens 0 0)) t)
+        ((< (* 1.5d0 (tref lens-0 1 0)) (tref lens 1 0)) t)
+                                        ;((< 2.0d0 (tref def 1 1)) t)
+                                        ;((> 1.5d0 (tref def 0 0)) t)
+        (t nil)
+        ))))
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
   (let* ((class (class-of original))
          (copy (allocate-instance class)))
@@ -788,10 +797,25 @@
                    (mass cl-mpm/particle:mp-mass)
                    (volume cl-mpm/particle:mp-volume))
       mp
+    (let ((h-factor (* 1.0d0 h)))
     (cond
-      ((< (* 1.5d0 h) (tref lens 0 0))
+      ((< h-factor (tref lens 0 0))
        (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0) '(2 1)))))
+         (list
+          (copy-particle mp
+                         :mass (/ mass 2)
+                         :volume (/ volume 2)
+                         :size new-size
+                         :position (magicl:.+ pos pos-offset))
+          (copy-particle mp
+                         :mass (/ mass 2)
+                         :volume (/ volume 2)
+                         :size new-size
+                         :position (magicl:.- pos pos-offset)))))
+      ((< h-factor (tref lens 1 0))
+       (let ((new-size (magicl:.* lens (magicl:from-list '(1 0.5d0) '(2 1))))
+             (pos-offset (magicl:.* lens (magicl:from-list '(0 0.25d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
@@ -806,7 +830,7 @@
       ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
       (t nil)
-      )))
+      ))))
 (defun split-mps (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -814,7 +838,8 @@
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
-      ;; (format t "~A~%" mps-to-split)
+      ;; (format t "~A ~%"h)
+      ;(format t "~A~%" mps-to-split)
       ;; (print mps-to-split)
       ;(format t "~A~%" mps-to-split)
       (delete-if (lambda (mp) (split-criteria mp h)) mps)

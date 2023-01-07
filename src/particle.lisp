@@ -53,7 +53,7 @@
    (size-0
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
-    ;:initarg :size
+    :initarg :size
     :initform (magicl:zeros '(2 1)))
    (size
      :accessor mp-domain-size
@@ -268,12 +268,15 @@
         (setf position (magicl:zeros (list nD 1)))
         (setf position (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) position) (list nD 1))))
     (let ((stress-size 3))
-      (apply #'make-instance constructor
-                     :nD nD
-                     :volume (coerce volume 'double-float)
-                     :mass (coerce mass 'double-float)
-                     :position position
-                     args))))
+      (let ((mp (apply #'make-instance constructor
+                      :nD nD
+                      :volume (coerce volume 'double-float)
+                      :mass (coerce mass 'double-float)
+                      :position position
+                      args)))
+        (progn
+          (setf (mp-domain-size-0 mp) (magicl:scale (mp-domain-size-0 mp) 1d0))
+          mp)))))
 ;; (defun make-particle (nD &rest args &key (constructor 'particle) (pos nil) (volume 1) (mass 1))
 ;;   (progn
 ;;     (if (eq pos nil)
