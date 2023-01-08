@@ -110,7 +110,7 @@
 (defun create-new-mp (pos h-x h-y mass)
   (cl-mpm::make-particle 2
                          'cl-mpm/particle::particle-elastic-damage
-                         :E 1d9
+                         :E 1d8
                          :nu 0.325d0
                          ;; :visc-factor 1e-20
                          ;; :visc-factor 1d-30
@@ -157,55 +157,13 @@
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0))
-      (when nil
-        (let ((block-position
-                (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
-                                  (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
-                        block-offset)))
-          (setf (cl-mpm:sim-mps sim)
-                (cl-mpm/setup::make-block-mps
-                 block-position
-                 block-size
-                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                 'cl-mpm::make-particle
-                 ;; 'cl-mpm/particle::particle-viscoelastic-fracture
-
-                 ;; 'cl-mpm/particle::particle-elastic
-                 ;; :E 9.5d9
-                 ;; :nu 0.499
-
-                 ;; :E 1e6 :nu 1d8
-
-                                        ;'cl-mpm/particle::particle-viscoplastic-damage
-                 'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d8
-                 :nu 0.325d0
-                 :visc-factor 1d-20
-                 :visc-power 3d0
-                 ;; :visc-factor 1e-20
-                 ;; :visc-factor 1e6
-                 ;; :visc-power 3
-
-                 ;; Fluid
-                 ;; 'cl-mpm/particle::particle-fluid
-                 ;; :stiffness 1e5
-                 ;; :adiabatic-index 6
-                 ;; :rest-density 900d0
-                 ;; :viscosity 1.02e-3
-
-                 ;; :E 1e6 :nu 0.33
-                 :mass mass
-                 :critical-stress 1d8
-                 ;; :fracture-toughness 5d0
-                 :gravity -9.8d0
-                 )))
         (let ((prev-mps (cl-mpm:sim-mps sim)))
           (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
           (loop for mp across prev-mps
                 do (vector-push-extend mp (cl-mpm:sim-mps sim)))))
       (setf (cl-mpm:sim-damping-factor sim) 1d-5)
       (setf (cl-mpm:sim-mass-filter sim) 1d-8)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -268,7 +226,7 @@
         ;;                                   (list x y)
         ;;                                   (magicl:from-list (list 1d3 (* 9.8d0 (* 1d0 1000))) '(2 1))))))
         )
-      sim)))
+      sim))
 
 ;Setup
 (defun setup ()
@@ -334,7 +292,7 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 10000)
+                    (time (dotimes (i 1000)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)

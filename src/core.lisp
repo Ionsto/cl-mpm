@@ -109,7 +109,7 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  ;(iterate-over-neighbours-shape-bspline mesh mp func)
+  ;; (iterate-over-neighbours-shape-bspline mesh mp func)
   ;(iterate-over-neighbours-shape-linear mesh mp func)
   (iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
@@ -394,6 +394,26 @@
                           (+ node-temp weighted-temp))
                     (setf node-dtemp
                           (+ node-dtemp weighted-dtemp))))))))
+
+(require 'sb-simd)
+(declaim
+ (inline simd-accumulate)
+ (ftype (function ((simple-array double-float) (simple-array double-float)) (simple-array double-float)) simd-accumulate))
+(defun simd-accumulate (a b)
+  (declare (type sb-simd:f64vec a b))
+  (setf (sb-simd-avx:f64.2-aref a 0)
+        (sb-simd-avx:f64.2+
+         (sb-simd-avx:f64.2-aref a 0)
+         (sb-simd-avx:f64.2-aref b 0)
+         ))
+  a
+  )
+(declaim
+ (inline simd-add)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) simd-add)))
+(defun simd-add (a b)
+  (simd-accumulate (magicl::storage a) (magicl::storage b)))
+
 (declaim
 (inline p2g-mp-node)
  (ftype (function (cl-mpm/particle:particle
@@ -435,7 +455,10 @@
                           (magicl:.+ node-vel weighted-vel))
                     (setf node-force
                           (magicl:.+ node-force force))
-                    ))
+                    ;; (simd-add node-vel weighted-vel)
+                    ;; (simd-add node-force force)
+                    )
+              )
               ;(special-p2g mp node svp dsvp)
               )))
   (values))
@@ -496,9 +519,20 @@
   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
     (with-accessors ((vel mp-velocity)
                      (mass mp-mass)
-                     (strain-rate cl-mpm/particle:mp-strain-rate)) mp
+                     (strain-rate cl-mpm/particle:mp-strain-rate)
+                     (vorticity cl-mpm/particle:mp-vorticity)
+                     ) mp
+      ;; (declare (type magicl:matrix/double-float strain-rate))
       (progn 
         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
+        ;; (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)) strain-rate)
+        ;; (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node)) vorticity)
+        (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
+        (setf vorticity (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node))))
+        ;; (let* ((curl (cl-mpm/shape-function::assemble-vorticity-2d grads)))
+        ;;   (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
+        ;;   (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
+        ;;   )
         ;; (special-g2p mesh mp node svp dsvp grads)
         ))))
 
@@ -511,16 +545,21 @@
  (inline g2p-mp)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 g2p-mp))
+
 (defun g2p-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   "Map one MP onto the grid"
   (with-accessors ((vel mp-velocity)
                    (temp cl-mpm/particle::mp-temperature)
-                   (strain-rate mp-strain-rate))
+                   (strain-rate mp-strain-rate)
+                   (vorticity cl-mpm/particle:mp-vorticity)
+                   )
     mp
     (progn
-      (setf vel (magicl:scale vel 0d0))
+      (magicl:scale! vel 0d0)
+      (magicl:scale! strain-rate 0d0)
+      (magicl:scale! vorticity 0d0)
       ;; (reset-mps-g2p mp)
       )
     ;; (iterate-over-neighbours mesh mp)
@@ -614,23 +653,17 @@
                    (vorticity cl-mpm/particle:mp-vorticity)
                    ) mp
         (progn
-          (setf strain-rate (magicl:scale strain-rate 0d0))
-          (setf vorticity (magicl:scale vorticity 0d0))
-            (iterate-over-neighbours mesh mp 
-                (lambda (mesh mp node svp dsvp grads)
-                  ;;(setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
-                  (let* ((curl (cl-mpm/shape-function::assemble-vorticity-2d grads)))
-                      (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
-                      (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
-                    )
-                  ;; (let* ((dv-voigt (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)))
-                  ;;       (dv (voight-to-matrix dv-voigt))
-                  ;;       )
-                  ;;   (setf strain-rate (.+ strain-rate (matrix-to-voight (.+ dv (magicl:transpose dv)))))
-                  ;;   (setf vorticity (.+ vorticity (matrix-to-voight (.- dv (magicl:transpose dv))))))
-                  ))
-            (setf strain-rate (magicl:scale strain-rate dt))
-            (setf vorticity (magicl:scale vorticity dt)))))
+          ;; (setf strain-rate (magicl:scale strain-rate 0d0))
+          ;; (setf vorticity (magicl:scale vorticity 0d0))
+          ;;   (iterate-over-neighbours mesh mp 
+          ;;       (lambda (mesh mp node svp dsvp grads)
+          ;;         (let* ((curl (cl-mpm/shape-function::assemble-vorticity-2d grads)))
+          ;;             (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
+          ;;             (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
+          ;;           )
+          ;;         ))
+            (magicl:scale! strain-rate dt)
+            (magicl:scale! vorticity dt))))
 
 
 (defun rotation-matrix (degrees)
@@ -663,18 +696,25 @@
                    ) mp
     (progn
       (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain)))
-            (prev-strain (magicl:copy-tensor strain)))
+            (prev-strain (magicl:scale strain 1d0)))
         (progn
           (setf def (magicl:@ df def))
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
-            (let ((trial-lgs (magicl:@ df
-                                       (magicl:@
+            (let (
+                  ;; (trial-lgs (magicl:@ df
+                  ;;                      (magicl:@
+                  ;;                       v
+                  ;;                       (magicl:from-diag (mapcar (lambda (x) (exp (* x 2d0))) l) :type 'double-float)
+                  ;;                       (magicl:transpose v))
+                  ;;                      (magicl:transpose df)))
+                  (trial-lgs (magicl:@ df
                                         v
                                         (magicl:from-diag (mapcar (lambda (x) (exp (* x 2d0))) l) :type 'double-float)
-                                        (magicl:transpose v))
-                                       (magicl:transpose df))))
+                                        (magicl:transpose v)
+                                       (magicl:transpose df)))
+                  )
               (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
-                (setf strain (magicl:scale
+                (setf strain (magicl:scale!
                               (matrix-to-voight
                                (magicl:@ vf
                                          (magicl:from-diag (mapcar (lambda (x) (log x)) lf) :type 'double-float)

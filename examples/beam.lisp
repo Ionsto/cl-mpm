@@ -129,7 +129,7 @@
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic-damage
-               :E 1d8
+               :E 1d7
                :nu 0.325d0
 
                ;; :E 1e6 :nu 1d8
@@ -149,7 +149,7 @@
 
                ;; :E 1e6 :nu 0.33
                :mass mass
-               :critical-stress 1d5
+               :critical-stress 1d6
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
@@ -158,8 +158,8 @@
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-8)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -174,7 +174,7 @@
                                             ))
 
       (let ((step-x 200)
-            (step-y 300)
+            (step-y 400)
             )
 
         (loop for x from 0 to (round step-x h)
@@ -187,7 +187,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 500) '(500 100) '(0 300) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 50) 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -260,7 +260,7 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
@@ -317,7 +317,7 @@
                       ;; cl-mpm/eigenerosion::remove-material-damaged
                       ;; cl-mpm/eigenerosion::find-neighbours
                       )
-  (loop repeat 10
+  (loop repeat 100
         do (progn
              (cl-mpm::update-sim *sim*)
              (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)

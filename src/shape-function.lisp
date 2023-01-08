@@ -314,21 +314,40 @@
   (let ((dx (nth 0 dsvp)))
     (magicl:from-list (list dx) '(1 1) :type 'double-float)))
 
+(declaim
+ (inline assemble-dsvp-2d)
+ (ftype (function (list) magicl:matrix/double-float) assemble-dsvp-2d))
 (defun assemble-dsvp-2d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
   (let ((dx (nth 0 dsvp))
         (dy (nth 1 dsvp)))
-    (magicl:from-list (list dx 0d0
-                            0d0 dy
-                            dy dx) '(3 2) :type 'double-float)))
+    (magicl:from-array (make-array 6 :initial-contents (list dx 0d0
+                                                             0d0 dy
+                                                             dy dx)) '(3 2) :type 'double-float)))
 
+;; (time
+;;  (let ((a (magicl:zeros '(1000 1)))
+;;        (b (magicl:zeros '(1000 1))))
+;;        (dotimes (i 1000000)
+;;          (setf a (magicl:.+ a b))
+;;          )))
+;; (time
+;;  (let ((a (magicl:zeros '(1000 1)))
+;;        (b (magicl:zeros '(1000 1))))
+;;    (dotimes (i 1000000)
+;;      (magicl:.+ a b a)
+;;      )))
+
+(declaim
+ (inline assemble-vorticity-2d)
+ (ftype (function (list) magicl:matrix/double-float) assemble-vorticity-2d))
 (defun assemble-vorticity-2d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
   (let ((dx (nth 0 dsvp))
         (dy (nth 1 dsvp)))
-    (magicl:from-list (list 0d0 0d0
-                            0d0 0d0 
-                            dy (- dx)) '(3 2) :type 'double-float)))
+    (magicl:from-array (make-array 6 :initial-contents (list 0d0 0d0
+                                                             0d0 0d0
+                                                             dy (- dx))) '(3 2) :type 'double-float)))
 
 (defun assemble-vorticity-3d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
