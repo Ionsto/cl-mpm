@@ -368,7 +368,7 @@
                 (cl-mpm/constitutive:linear-elastic strain E nu)))
     ))
 (defmethod constitutive-model ((mp particle-viscoplastic-damage) strain dt)
-  "Function for modelling stress intergrated viscoplastic norton-hoff material"
+  "Function for modeling stress intergrated viscoplastic norton-hoff material"
   (with-slots ((E E)
                (nu nu)
                (visc-factor visc-factor)
@@ -383,7 +383,7 @@
       mp
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
       (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt vorticity)
+          (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt)
           (cl-mpm/constitutive:linear-elastic strain E nu)))
     ))
 

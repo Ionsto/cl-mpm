@@ -86,6 +86,7 @@
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("magicl"
+               sb-simd
                "cl-mpm/utils"
                "alexandria"
                "array-operations"

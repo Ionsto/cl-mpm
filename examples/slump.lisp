@@ -195,7 +195,9 @@
        :index 1
        )
       ))))
-(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0))
+
+(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0)
+                          &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline)) 
@@ -217,10 +219,10 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d7
+                 :E 1d8
                  :nu 0.3250d0
                  ;:viscosity 1d-5
-                 :visc-factor 1d-25
+                 :visc-factor 1d-30
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
@@ -231,22 +233,23 @@
                  :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 1d-8)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-8)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
-      (setf (cl-mpm::sim-bcs-force sim)
-             (cl-mpm/bc::make-outside-bc-var
-              (cl-mpm:sim-mesh sim)
-              nil
-              nil
-              nil
-             (lambda (i)
-               (if (< (* h (nth 0 i)) 500d0)
-                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.3d0)
-                     (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.01d0)
-                     ))
-              ))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;        (cl-mpm/bc::make-outside-bc-var
+      ;;         (cl-mpm:sim-mesh sim)
+      ;;         nil
+      ;;         nil
+      ;;         nil
+      ;;        (lambda (i)
+      ;;          (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.0d0)
+      ;;          ;; (if (< (* h (nth 0 i)) 500d0)
+      ;;          ;;       (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.3d0)
+      ;;          ;;       (cl-mpm/bc:make-bc-friction i (magicl:from-list '(0d0 1d0) '(2 1)) 0.01d0))
+      ;;          )
+      ;;         ))
             ;; (append
             ;;  (cl-mpm/bc::make-domain-bcs
             ;;   (cl-mpm:sim-mesh sim)
@@ -282,7 +285,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(0 0) (/ 1 25) 1))
+  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(0 0) (/ 1 50) 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;(damage-sdf *sim* (ellipse-sdf (list 250 100) 15 50))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -363,7 +366,7 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                 (progn
@@ -393,3 +396,60 @@
     )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+
+(declaim
+ (inline simd-accumulate)
+ (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))
+(defun simd-accumulate (a b)
+  (declare (type sb-simd:f64vec a b))
+  (setf (sb-simd-avx:f64.2-aref a 0)
+        (sb-simd-avx:f64.2+
+         (sb-simd-avx:f64.2-aref a 0)
+         (sb-simd-avx:f64.2-aref b 0)
+         ))
+  (values))
+
+(declaim
+ (inline simd-add)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
+(defun simd-add (a b)
+  (simd-accumulate (magicl::storage a) (magicl::storage b))
+  (values))
+
+;; (defstruct particle-struct
+;;   (position (make-array 2 :element-type 'double-float) :type (vector double-float 2)))
+;; (defstruct particle-struct
+;;   (position (make-array 2 :element-type 'double-float) :type (vector double-float 2)))
+(defstruct particle-struct
+  (position (make-array 2 :element-type 'double-float) :type (vector double-float 2)))
+
+(defun test ()
+  (let ((a (make-particle-struct))
+        (b (make-particle-struct))
+        )
+    (time
+     (dotimes (i 10000000)
+       (simd-accumulate (particle-struct-position a)
+                        (particle-struct-position b)
+                 )))
+       ;; (magicl:.+ (particle-struct-position a)
+       ;;            (particle-struct-position b)
+       ;;            (particle-struct-position a)
+       ;;            )))
+       ;; (simd-accumulate (particle-struct-position a)
+       ;;                  (particle-struct-position b))))
+    )
+  (let ((a (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle)) 
+        (b (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle)) 
+        )
+    (time
+     (dotimes (i 10000000)
+       (simd-add (cl-mpm/particle:mp-position a)
+                 (cl-mpm/particle:mp-position b)
+                 )))
+       ;; (magicl:.+ (cl-mpm/particle:mp-position a)
+       ;;           (cl-mpm/particle:mp-position b)
+       ;;           (cl-mpm/particle:mp-position a)
+       ;;           )))
+    )
+  )

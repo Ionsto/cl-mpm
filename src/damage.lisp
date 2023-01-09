@@ -11,8 +11,8 @@
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 0.5d0 critical-stress))
-      (/ (* (/ (max 0d0 stress) critical-stress) 1d-2) (max 1d-5 (expt (- 1d0 damage) 3)))
-      ;; (* (/ (max 0d0 stress) critical-stress) 1d-2)
+      ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
+      (* (/ (max 0d0 stress) critical-stress) 1d-2)
       0d0)
   )
 
@@ -34,6 +34,8 @@
               (when (> s1 0d0)
                 (incf damage-increment (* (damage-rate-profile critical-stress s1 damage) dt))))
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
+            ;; (when (>= damage 1d0)
+              ;; (setf damage-increment 0d0))
             (setf (cl-mpm/particle::mp-local-damage-increment mp)
                   damage-increment))))))
 (declaim
@@ -43,7 +45,7 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (damage-inc cl-mpm/particle::mp-local-damage-increment)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
                      ) mp
         (progn
           (incf damage damage-inc)
@@ -144,39 +146,68 @@
                          (cl-mpm/particle:mp-position mp-b)))
         )
     (values (the double-float (magicl::sum (magicl:.* dist dist))))))
+
+(declaim
+ (inline simd-accumulate)
+ (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
+(defun simd-accumulate (a b)
+  (declare (type sb-simd:f64vec a b))
+  ;; (setf (sb-simd-avx:f64.2-aref res 0)
+  ;;       (sb-simd-avx:f64.2+
+  ;;        (sb-simd-avx:f64.2-aref a 0)
+  ;;        (sb-simd-avx:f64.2-aref b 0)
+  ;;        ))
+  ;; a
+  (let ((diff
+          (sb-simd-avx:f64.2-
+           (sb-simd-avx:f64.2-aref a 0)
+           (sb-simd-avx:f64.2-aref b 0)
+           )))
+    ;; (declare (type sb-simd:f64vec diff))
+    (values (sb-simd-avx::f64.2-horizontal+
+             (sb-simd-avx:f64.2* diff diff))))
+  )
+(declaim
+ (inline diff-squared-fast)
+ (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared-fast))
+(defun diff-squared-fast (mp-a mp-b)
+  (let ((pos-a (magicl::storage (cl-mpm/particle:mp-position mp-a)))
+        (pos-b (magicl::storage (cl-mpm/particle:mp-position mp-b)))
+        )
+    (values (the double-float (simd-accumulate pos-a pos-b)))))
+
 (declaim
  (inline weight-func)
  (ftype (function (double-float
                    double-float
-                   ) (double-float))
+                   ) (values double-float))
         weight-func
         ))
 (defun weight-func (dist-squared length)
-  (exp (- (* (/ 4 (* length length)) dist-squared))))
+  (values (the double-float (exp (- (* (/ 4d0 (* length length)) dist-squared))))))
 (declaim
  (inline weight-func-mps)
  (ftype (function (cl-mpm/particle:particle
                    cl-mpm/particle:particle
                    double-float
-                   ) (double-float))
+                   ) double-float)
         weight-func-mps
         ))
 (defun weight-func-mps (mp-a mp-b length)
-  (weight-func (diff-squared mp-a mp-b) length))
+  (weight-func (diff-squared-fast mp-a mp-b) length))
 
 (declaim
  (inline calculate-delocalised-damage)
  (ftype (function (cl-mpm/mesh::mesh
                    cl-mpm/particle:particle-damage
                    double-float
-                   ) (double-float))
+                   ) double-float)
         calculate-delocalised-damage
         ))
 (defun calculate-delocalised-damage (mesh mp length)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
         (node-reach (+ 0 (ceiling length (cl-mpm/mesh:mesh-resolution mesh)))))
-    (let ((damage (cl-mpm/particle:mp-damage mp))
-          (damage-inc 0d0)
+    (let ((damage-inc 0d0)
           (mass-total 0d0))
       (loop for dx from (- node-reach) to node-reach
             do (loop for dy from (- node-reach) to node-reach
@@ -190,13 +221,14 @@
                                                         (m cl-mpm/particle:mp-mass)
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
-                                         (let ((weight (weight-func-mps mp mp-other length)))
+                                         (let (
+                                               (weight (weight-func-mps mp mp-other length))
+                                               )
                                            (incf mass-total weight)
                                            (incf damage-inc
                                                  (* (cl-mpm/particle::mp-local-damage-increment mp-other)
                                                     weight)
-                                                 )))
-                                    ))))))
+                                                 )))))))))
       (setf damage-inc (/ damage-inc mass-total)))))
 (defun delocalise-damage (mesh mps dt len)
   ;; Move local damage into own temporary
@@ -210,4 +242,5 @@
     (let ((mp (aref mps i)))
       (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment))
           mp
-        (setf damage-inc (calculate-delocalised-damage mesh mp len))))))
+        (setf damage-inc (calculate-delocalised-damage mesh mp len))
+        ))))

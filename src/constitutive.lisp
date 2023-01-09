@@ -64,7 +64,7 @@
 (defun maxwell-exp (strain-increment stress elasticity nu viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 2)
-         (stress-matrix (voight-to-matrix strain-increment))
+         (stress-matrix (voight-to-matrix stress))
          (pressure (/ (magicl:trace stress-matrix) 3d0))
          (pressure-matrix (magicl:eye 2 :value pressure))
          ;; (viscosity-matrix (magicl:eye 3 :value (/ elasticity viscosity)))

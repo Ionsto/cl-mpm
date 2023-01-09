@@ -1,8 +1,10 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+(setf *block-compile-default* t)
+
 (in-package :cl-mpm/examples/beam)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -129,7 +131,7 @@
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic-damage
-               :E 1d7
+               :E 1d8
                :nu 0.325d0
 
                ;; :E 1e6 :nu 1d8
@@ -159,7 +161,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -178,7 +180,7 @@
             )
 
         (loop for x from 0 to (round step-x h)
-              do (loop for y from 0 to (round step-y h)
+              do (loop for y from (- (round step-y h) 1) to (round step-y h)
                        do (push
                            (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
                                 (cl-mpm:sim-bcs sim))))
@@ -187,7 +189,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 50) 4))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -260,7 +262,7 @@
                   ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                   ;; (break)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 100)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
                             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
@@ -268,9 +270,6 @@
                                                           (cl-mpm:sim-dt *sim*)
                                                           25d0
                                                           )
-                           ;(remove-material-damaged *sim*)
-                           ;; (setf max-cfl (max max-cfl (find-max-cfl *sim*)))
-                           ;; (cl-mpm/eigenerosion:update-fracture *sim*)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                            ))
                     ;; (format t "Max cfl: ~f~%" max-cfl)
@@ -327,3 +326,110 @@
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
+
+
+(require 'sb-simd)
+(declaim
+ (inline simd-accumulate)
+ (ftype (function ((simple-array double-float)
+                   (simple-array double-float)
+                   (simple-array double-float)
+                   )
+                  (values)) simd-accumulate))
+;; (defun simd-mult (a b)
+;;   (declare (type sb-simd:f64vec a b))
+;;   (setf (sb-simd-avx:f64.2-aref a 0)
+;;         (sb-simd-avx:f64.2+
+;;          (sb-simd-avx:f64.2-aref a 0)
+;;          (sb-simd-avx:f64.2-aref b 0)
+;;          ))
+;;   a
+;;   )
+(declaim
+ (inline mult-simd)
+ (ftype (function (magicl:matrix/double-float
+                   magicl:matrix/double-float
+                   magicl:matrix/double-float)
+                  (values)) mult-simd))
+(defun mult-simd (a b res)
+  (declare (type magicl:matrix/double-float a b res))
+  (let ((a-s (magicl::storage a))
+        (b-s (magicl::storage b))
+        (res-s (magicl::storage res))
+        )
+    (declare (type sb-simd:f64vec a-s b-s res-s))
+    ;; (declare (type (simple-array double-float) a-s b-s res-s))
+    (loop for i from 0 to 2
+          do
+             (setf (aref res-s i)
+                   (sb-simd-avx:f64.2-horizontal+
+                    (sb-simd-avx:f64.2*
+                     (sb-simd-avx:f64.2-aref b-s 0)
+                     (sb-simd-avx:f64.2-aref a-s (* 2 i)))
+                    ))
+             ;; (loop for j from 0 to 1
+             ;;       do (incf (aref res-s i) (* (aref a-s (+ (* 2 i) j))
+             ;;                                  (aref b-s j)
+             ;;                                  )))
+          )))
+;; (declaim
+;;  (inline mult)
+;;  (ftype (function (magicl:matrix/double-float
+;;                    magicl:matrix/double-float
+;;                    magicl:matrix/double-float)
+;;                   (values)) mult))
+;; (defun mult (a b res)
+;;   (declare (type magicl:matrix/double-float a b res))
+;;   (let ((a-s (magicl::storage a))
+;;         (b-s (magicl::storage b))
+;;         (res-s (magicl::storage res))
+;;         )
+;;     (declare (type (simple-array double-float) a-s b-s res-s))
+;;     (loop for i from 0 to 2
+;;           do (loop for j from 0 to 1
+;;                    do (incf (aref res-s i) (* (aref a-s (+ i (* 3 j)))
+;; ;;                                               (aref b-s j)))))))
+(let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle :mass 1d0 :volume 1d0 :gravity 0d0 :body-force (magicl:zeros '(2 1))))
+      (node (cl-mpm/mesh::make-node '(0 0) '(0 0)))
+      (dsvp (cl-mpm/shape-function:assemble-dsvp-2d '(0d0 2d0)))
+      (a (magicl:zeros '(3 2)))
+      (b (magicl:zeros '(2 1)))
+      (res (magicl:zeros '(2 1)))
+      )
+  (time
+   (dotimes (i 1000000)
+     (setf (cl-mpm/particle:mp-stress mp) (magicl:from-list '(1d0 1d0 1d0) '(3 1)))
+     ;(cl-mpm::p2g-mp-node mp node 1d0 dsvp)
+     ;; (cl-mpm::p2g-mp-node mp node 1d0 dsvp)
+     ;; (cl-mpm::det-int-force mp dsvp res)
+     (cl-mpm::mult-force dsvp (cl-mpm/particle:mp-stress mp) 1d0 res)
+     ;; (cl-mpm::det-int-force mp dsvp res)
+     )
+   ))
+;;  (let ((a (magicl:from-list '(1 1) '(2 1) :type 'double-float))
+;;        (b (magicl:from-list '(1 0 0 -1 0.5 0.5) '(3 2) :type 'double-float))
+;;        (res (magicl:zeros '(3 1) :type 'double-float)))
+;;    (format t "Magicl ~%")
+;;    (format t "~A ~%" (magicl:@ b a))
+;;    (format t "lisp ~%")
+;;    (mult b a res)
+;;    (format t "~A ~%" res)
+;;    (magicl:scale! res 0d0)
+;;    (format t "lisp-simd ~%")
+;;    (mult-simd (magicl:transpose b) a res)
+;;    (format t "~A ~%" res)
+;;    (let ((iter 10000000))
+;;      (format t "Magicl ~%")
+;;      (time
+;;       (dotimes (i iter)
+;;         (magicl:@ b a)))
+;;      (format t "lisp ~%")
+;;      (time
+;;       (dotimes (i iter)
+;;         (mult b a res)))
+;;      ;; (format t "lisp-simd ~%")
+;;      ;; (time
+;;      ;;  (dotimes (i iter)
+;;      ;;    (mult-simd (magicl:transpose b) a res)))
+;;      )
+;;    )

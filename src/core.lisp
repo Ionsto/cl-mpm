@@ -95,8 +95,8 @@
                     (g2p mesh mps)
                     (update-particle mps dt)
                     (update-stress mesh mps dt) 
-                    (remove-material-damaged sim)
-                    (split-mps sim)
+                    ;; (remove-material-damaged sim)
+                    ;; (split-mps sim)
                     (check-mps mps)
                     )))
 
@@ -398,7 +398,7 @@
 (require 'sb-simd)
 (declaim
  (inline simd-accumulate)
- (ftype (function ((simple-array double-float) (simple-array double-float)) (simple-array double-float)) simd-accumulate))
+ (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))
 (defun simd-accumulate (a b)
   (declare (type sb-simd:f64vec a b))
   (setf (sb-simd-avx:f64.2-aref a 0)
@@ -406,13 +406,27 @@
          (sb-simd-avx:f64.2-aref a 0)
          (sb-simd-avx:f64.2-aref b 0)
          ))
-  a
-  )
+  (values))
+(declaim
+ (inline simd-fmacc)
+ (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
+(defun simd-fmacc (a b scale)
+  (declare (type sb-simd:f64vec a b)
+           (type double-float scale))
+  (setf (sb-simd-avx:f64.2-aref a 0)
+        (sb-simd-avx:f64.2+
+         (sb-simd-avx:f64.2-aref a 0)
+         (sb-simd-avx:f64.2*
+          (sb-simd-avx:f64.2-aref b 0)
+          (sb-simd-avx:f64.2 scale))
+         ))
+  (values))
 (declaim
  (inline simd-add)
- (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) simd-add)))
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
 (defun simd-add (a b)
-  (simd-accumulate (magicl::storage a) (magicl::storage b)))
+  (simd-accumulate (magicl::storage a) (magicl::storage b))
+  (values))
 
 (declaim
 (inline p2g-mp-node)
@@ -437,25 +451,50 @@
                      (mp-mass cl-mpm/particle:mp-mass)
                      (mp-volume cl-mpm/particle:mp-volume)
                      ;; (strain-rate cl-mpm/particle:mp-strain-rate)
-                     ) mp 
+                     ) mp
+      (declare (type double-float mp-mass node-mass node-volume mp-volume)
+               (type sb-thread:mutex node-lock)
+               )
             ;; (declare (double-float mp-mass
             ;;                        node-mass))
             (progn
-              (let* ((weighted-mass (* mp-mass svp))
-                     (weighted-volume (* mp-volume svp))
-                     (weighted-vel (magicl:scale mp-vel weighted-mass))
-                     (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
+              (let* (
+                     ;; (weighted-mass (* mp-mass svp))
+                     ;; (weighted-volume (* mp-volume svp))
+                     (weighted-vel (magicl:scale mp-vel (* mp-mass svp)))
+                     ;; (force (magicl:from-list '(1d0 1d0) '(2 1)))
+                     ;; (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
+                     ;; (force (det-int-force mp node dsvp))
                        )
                   (sb-thread:with-mutex (node-lock)
-                    (setf node-mass
-                          (+ node-mass weighted-mass))
-                    (setf node-volume
-                          (+ node-volume weighted-volume))
-                    (setf node-vel
-                          (magicl:.+ node-vel weighted-vel))
-                    (setf node-force
-                          (magicl:.+ node-force force))
-                    ;; (simd-add node-vel weighted-vel)
+                    ;; (setf node-mass
+                    ;;       (+ node-mass weighted-mass))
+                    ;; (setf node-volume
+                    ;;       (+ node-volume weighted-volume))
+                    ;; (setf node-vel
+                    ;;       (magicl:.+ node-vel weighted-vel))
+                    ;; (setf node-force
+                    ;;       (magicl:.+ node-force force))
+                    (incf node-mass
+                          (* mp-mass svp))
+                    (incf node-volume
+                          (* mp-volume svp))
+                    ;; (incf node-mass
+                    ;;       weighted-mass)
+                    ;; (incf node-volume
+                    ;;       weighted-volume)
+                    ;; (setf node-vel
+                    ;;       (magicl:.+ node-vel weighted-vel))
+                    ;; (setf node-force
+                    ;;       (magicl:.+ node-force force))
+                    ;(simd-add node-force (det-ext-force mp node svp))
+                    ;; (simd-fmacc node-vel mp-vel (* mp-mass svp))
+                    (simd-add node-vel weighted-vel)
+                    (det-ext-force mp node svp node-force)
+                    (det-int-force mp dsvp node-force)
+                    ;; (simd-add node-force (det-int-force mp node dsvp))
+                    ;; (simd-add node-force force)
+                    ;; (simd-fmacc node-vel mp-vel (* mp-mass svp))
                     ;; (simd-add node-force force)
                     )
               )
@@ -486,6 +525,7 @@
 ;;         ))
 ;;   (values))
 
+(declaim (notinline p2g))
 (defun p2g (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
@@ -505,6 +545,24 @@
         ))))
 
 (declaim
+ (inline mult)
+ (ftype (function (magicl:matrix/double-float
+                   magicl:matrix/double-float
+                   magicl:matrix/double-float) (values)
+                  ) mult))
+(defun mult (a b res)
+  (declare (type magicl:matrix/double-float a b res))
+  (let ((a-s (magicl::storage a))
+        (b-s (magicl::storage b))
+        (res-s (magicl::storage res))
+        )
+    (declare (type (simple-array double-float) a-s b-s res-s))
+    (loop for i from 0 to 2
+          do (loop for j from 0 to 1
+                   do (incf (aref res-s i) (* (aref a-s (+ j (* 2 i)))
+                                              (aref b-s j)))))))
+
+(declaim
  (inline g2p-mp-node)
  (ftype (function (cl-mpm/particle:particle
                            cl-mpm/mesh::node double-float
@@ -513,7 +571,7 @@
                            ) (values))
                 g2p-mp-node
                           ))
-(defun g2p-mp-node (mp node svp dsvp grads) 
+(defun g2p-mp-node (mp node svp dsvp grads)
   ;(declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
@@ -523,12 +581,17 @@
                      (vorticity cl-mpm/particle:mp-vorticity)
                      ) mp
       ;; (declare (type magicl:matrix/double-float strain-rate))
-      (progn 
-        (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
+      (progn
+        ;; (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
+        (simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
         ;; (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)) strain-rate)
         ;; (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node)) vorticity)
-        (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
-        (setf vorticity (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node))))
+        (mult dsvp node-vel strain-rate)
+        (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
+
+        ;; (setf strain-rate (.+ strain-rate (magicl:@ dsvp node-vel)))
+        ;; (setf vorticity (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel)))
+
         ;; (let* ((curl (cl-mpm/shape-function::assemble-vorticity-2d grads)))
         ;;   (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
         ;;   (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
@@ -570,6 +633,7 @@
        (g2p-mp-node mp node svp dsvp grads)))
     ))
 
+;; (declaim (notinline g2p))
 (defun g2p (mesh mps)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
@@ -808,12 +872,13 @@
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((h-factor (* 1.5d0 h)))
+    (let ((l-factor 1.25d0)
+          (h-factor (* 1.5d0 h)))
       (cond
-        ((< h-factor (tref lens 0 0)) t)
-        ((< h-factor (tref lens 1 0)) t)
-        ((< (* 1.5d0 (tref lens-0 0 0)) (tref lens 0 0)) t)
-        ((< (* 1.5d0 (tref lens-0 1 0)) (tref lens 1 0)) t)
+        ;; ((< h-factor (tref lens 0 0)) t)
+        ;; ((< h-factor (tref lens 1 0)) t)
+        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
+        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
         (t nil)
@@ -833,15 +898,18 @@
 (defun split-mp (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
+                   (lens-0 cl-mpm/particle::mp-domain-size-0)
                    (pos cl-mpm/particle:mp-position)
                    (mass cl-mpm/particle:mp-mass)
                    (volume cl-mpm/particle:mp-volume))
       mp
-    (let ((h-factor (* 1.0d0 h)))
+    (let ((l-factor 1.25d0)
+          (h-factor (* 1.0d0 h)))
     (cond
-      ((< h-factor (tref lens 0 0))
-       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1) '(2 1))))
-             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0) '(2 1)))))
+      ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0))
+       ;; (< h-factor (tref lens 0 0))
+       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
+             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
@@ -853,7 +921,7 @@
                          :volume (/ volume 2)
                          :size new-size
                          :position (magicl:.- pos pos-offset)))))
-      ((< h-factor (tref lens 1 0))
+      ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0))
        (let ((new-size (magicl:.* lens (magicl:from-list '(1 0.5d0) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0 0.25d0) '(2 1)))))
          (list
