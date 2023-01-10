@@ -173,21 +173,67 @@
   ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
   )
 
-
-(defun position-to-index (mesh pos &optional (round-operator 'round))
+(declaim
+ (inline position-to-index-array)
+ (ftype (function (cl-mpm/mesh::mesh
+                   magicl:matrix/double-float &optional function)
+                  (simple-array double-float)) position-to-index-array))
+(defun position-to-index-array (mesh pos &optional (round-operator #'round))
   "Turn a vector position into a list of indexes with rounding"
-  (mapcar (lambda (x) (+ (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))
-                         (mesh-boundary-order mesh))) '(0 1)))
+  (let ((h (mesh-resolution mesh))
+        (p-a (magicl::storage pos)))
+    (aops:each (lambda (x) (/ (the double-float x) h)) p-a))
+  ;; (let ((res (make-array 2
+  ;;                        :initial-contents (the (simple-array double-float) (magicl::storage pos))
+  ;;                        :element-type 'double-float))
+  ;;       (h (mesh-resolution mesh)))
+  ;;   (declare (type double-float h))
+  ;;   ;; (declare (type (simple-array double-float 2) res))
+  ;;   (loop for i from 0 to 1
+  ;;         do (setf (aref res i) (/ (the double-float (aref res i))
+  ;;                                  h)))
+  ;;   res)
+  ;; (mapcar (lambda (x) (+ (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))
+  ;;                        (mesh-boundary-order mesh))) '(0 1))
+  )
 
+(declaim
+ (inline position-to-index)
+ (ftype (function (cl-mpm/mesh::mesh
+                   magicl:matrix/double-float &optional function)
+                  list) position-to-index))
+(defun position-to-index (mesh pos &optional (round-operator #'round))
+  (declare (type function round-operator)
+           (type magicl:matrix/double-float pos))
+  "Turn a vector position into a list of indexes with rounding"
+  (mapcar (lambda (x) (funcall round-operator (/
+                                                  (the double-float (magicl:tref pos x 0))
+                                                  (the double-float (mesh-resolution mesh))))
+                         ) '(0 1)))
+
+(defun index-to-position-array (mesh index)
+  "Turn a vector position into a list of indexes with rounding"
+  (let ((h (mesh-resolution mesh)))
+    (declare (double-float h))
+    (aops:each (lambda (x) (* (the double-float x) h)) index)))
+(declaim (ftype (function (mesh list) list) index-to-position))
 (defun index-to-position (mesh index)
   "Turn a vector position into a list of indexes with rounding"
-  (mapcar (lambda (i) (* (- i (mesh-boundary-order mesh)) (mesh-resolution mesh))) index))
+  (let ((h (mesh-resolution mesh)))
+    (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
 
+(declaim (inline get-node)
+         (ftype (function (mesh list) node) get-node))
 (defun get-node (mesh pos)
   "Check bounds and get node"
-  (if (in-bounds mesh pos)
-      (apply #'aref (cons (mesh-nodes mesh) pos))
-    (error (format nil "Access grid out of bounds at: ~a" pos))))
+  (policy-cond:policy-if (> safety speed)
+                         (if (in-bounds mesh pos)
+                             (apply #'aref (mesh-nodes mesh) pos)
+                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                         (apply #'aref (mesh-nodes mesh) pos)))
+  ;; (if (in-bounds mesh pos)
+  ;;     (apply #'aref (mesh-nodes mesh) pos)
+  ;;   (error (format nil "Access grid out of bounds at: ~a" pos))))
 
 (defgeneric node-g2p (mp node svp dsvp grads)
   (:documentation "G2P behaviour for specific nodes"))

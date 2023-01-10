@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/beam)
@@ -131,7 +131,7 @@
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic-damage
-               :E 1d8
+               :E 1d7
                :nu 0.325d0
 
                ;; :E 1e6 :nu 1d8
@@ -159,8 +159,8 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-3)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-12)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
@@ -175,21 +175,21 @@
                                             ;;                                         0.25d0))
                                             ))
 
-      (let ((step-x 200)
-            (step-y 400)
-            )
+      ;; (let ((step-x 200)
+      ;;       (step-y 400)
+      ;;       )
 
-        (loop for x from 0 to (round step-x h)
-              do (loop for y from (- (round step-y h) 1) to (round step-y h)
-                       do (push
-                           (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
-                                (cl-mpm:sim-bcs sim))))
-        )
+      ;;   (loop for x from 0 to (round step-x h)
+      ;;         do (loop for y from (- (round step-y h) 1) to (round step-y h)
+      ;;                  do (push
+      ;;                      (cl-mpm/bc:make-bc-fixed (list x y) '(nil 0))
+      ;;                           (cl-mpm:sim-bcs sim))))
+      ;;   )
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -265,11 +265,11 @@
                     (time (dotimes (i 100)
                            ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
-                            (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                                                          (cl-mpm:sim-mps *sim*)
-                                                          (cl-mpm:sim-dt *sim*)
-                                                          25d0
-                                                          )
+                            ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                            ;;                               (cl-mpm:sim-mps *sim*)
+                            ;;                               (cl-mpm:sim-dt *sim*)
+                            ;;                               25d0
+                            ;;                               )
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                            ))
                     ;; (format t "Max cfl: ~f~%" max-cfl)

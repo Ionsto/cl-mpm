@@ -39,7 +39,10 @@
   ;; (the double-float (/ (signum x) h)
        ))
 
+(declaim (inline shape-gimp)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp))
 (defun shape-gimp (x l h)
+  (declare (type double-float x l h))
   (cond
     ((and (< (- (+ h l)) x) (<= x (- l h)))
      (/ (expt (+ x h l) 2) (* 4 h l)))
@@ -53,7 +56,10 @@
      (/ (expt (- (+ h l) x) 2) (* 4 h l)))
     (t
      0d0)))
+(declaim (inline shape-gimp-dsvp)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp-dsvp))
 (defun shape-gimp-dsvp (x l h)
+  (declare (type double-float x l h))
   (cond
     ((and (< (- (+ h l)) x) (<= x (- l h)))
      (/ (+ x h l) (* 2 h l))
@@ -319,11 +325,14 @@
  (ftype (function (list) magicl:matrix/double-float) assemble-dsvp-2d))
 (defun assemble-dsvp-2d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp))
-        (dy (nth 1 dsvp)))
-    ;; (magicl:from-list (list dx 0d0
-    ;;                         0d0 dy
-    ;;                         dy dx) '(3 2) :type 'double-float)
+  (let* ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp))
+        ;; (stack-arr (make-array 6 :element-type 'double-float
+        ;;                          :initial-contents (list dx 0d0
+        ;;                                                 0d0 dy
+        ;;                                                 dy dx)))
+         )
+    ;; (magicl::from-storage stack-arr '(3 2))
     (magicl:from-array (make-array 6 :initial-contents (list dx 0d0
                                                              0d0 dy
                                                              dy dx)) '(3 2) :type 'double-float)

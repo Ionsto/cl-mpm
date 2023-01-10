@@ -55,11 +55,12 @@
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
          (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
          )
+    (declare (type double-float relaxation-const))
     (magicl:.+ stress
                ;; (matrix-to-voight (magicl:eye 2 :value (* (/ elasticity (* 2 (+ 1 poisson-ratio) (- 1 poisson-ratio poisson-ratio))) (magicl:trace (voight-to-matrix strain-increment))) :type 'double-float))
                (magicl:.-
                 (magicl:@ (linear-elastic-matrix elasticity poisson-ratio) strain-increment)
-                (magicl:scale (matrix-to-voight dev-stress) relaxation-const))
+                (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
                )))
 (defun maxwell-exp (strain-increment stress elasticity nu viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
@@ -77,8 +78,8 @@
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
     (magicl:.+ (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
-               (magicl:.+ (magicl:scale (matrix-to-voight dev-stress) exp-rho)
-                          (magicl:scale (matrix-to-voight stress-inc-dev) lam)
+               (magicl:.+ (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
+                          (magicl:scale! (matrix-to-voight stress-inc-dev) lam)
                           ))
     ;; (magicl:.- (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
     ;;                                     ;(magicl:scale stress (/ (* dt elasticity) viscosity))
@@ -150,13 +151,15 @@
                                                  (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
         (magicl:scale dev-strain 0d0))))
 
+(declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity))
 (defun glen-viscosity (stress visc-factor visc-power)
   "Get the viscosity for a given stress state"
-  (let* ((stress-trace (/ (magicl:trace (voight-to-matrix stress)) 2d0))
-         (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) (magicl:eye 2 :value stress-trace))))
+  (let* ((stress-trace (/ (the double-float (magicl:trace (voight-to-matrix stress))) 2d0))
+         (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) (magicl:eye 2 :value (the double-float stress-trace)))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
          (effective-stress (magicl::sum (magicl:.* dev-stress dev-stress second-invar)))
          )
+    (declare (type double-float effective-stress))
     (if (> effective-stress 0d0)
-        (/ 1d0 (* visc-factor (expt effective-stress (* 0.5 (- visc-power 1)))))
+        (/ 1d0 (* 2d0 visc-factor (expt effective-stress (* 0.5d0 (- visc-power 1)))))
         0d0)))

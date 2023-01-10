@@ -12,13 +12,13 @@
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 0.5d0 critical-stress))
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
-      (* (/ (max 0d0 stress) critical-stress) 1d-2)
+      (* (/ (max 0d0 stress) critical-stress) 1d1)
       0d0)
   )
 
 (defun damage-profile (damage)
   "Constitive law describing the scalar stress decrease as a function of damage"
-  (- 1 damage)
+  (expt (- 1 damage) 2)
   ;(max (expt (- 1 damage) 2) 1d-6)
   )
 (defun calculate-damage-increment (mp dt)
@@ -102,7 +102,7 @@
               (loop for i from 0 to 1
                     do (let ((sii (nth i l)))
                          (progn
-                           (when (> sii 0)
+                           (when (> sii 0d0)
                              (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
@@ -218,18 +218,19 @@
                               (loop for mp-other across (cl-mpm/mesh::node-local-list node)
                                     do
                                        (with-accessors ((l-d cl-mpm/particle::mp-local-damage)
-                                                        (m cl-mpm/particle:mp-mass)
+                                                        (m cl-mpm/particle:mp-volume)
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (let (
                                                (weight (weight-func-mps mp mp-other length))
                                                )
-                                           (incf mass-total weight)
+                                           (incf mass-total (* weight m))
                                            (incf damage-inc
                                                  (* (cl-mpm/particle::mp-local-damage-increment mp-other)
-                                                    weight)
+                                                    weight m)
                                                  )))))))))
-      (setf damage-inc (/ damage-inc mass-total)))))
+      (setf damage-inc (/ damage-inc
+                          mass-total)))))
 (defun delocalise-damage (mesh mps dt len)
   ;; Move local damage into own temporary
   ;; (lparallel:pdotimes (i (length mps)) 

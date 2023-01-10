@@ -90,6 +90,11 @@
      :accessor mp-strain-rate
      :initarg :strain-rate
      :initform (magicl:zeros '(3 1)))
+   (velocity-rate
+    :accessor mp-velocity-rate
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :accessor mp-velocity-rate
+    :initform (magicl:zeros '(3 1)))
    (vorticity
     :accessor mp-vorticity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -105,11 +110,19 @@
      :initform 0d0;-9.8d0
      :initarg :gravity
      )
+   (gravity-axis
+    :type magicl:matrix/double-float
+    :accessor mp-gravity-axis
+    :initform (magicl:from-list '(0d0 -1d0) '(2 1)))
    (body-force
      :accessor mp-body-force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :body-force
      :initform (magicl:zeros '(2 1)))
+   (displacement
+    :accessor mp-displacement
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 1)))
    )
   (:documentation "A single material point"))
 
@@ -313,15 +326,31 @@
   (with-slots ((stress stress)
                (stress-u undamaged-stress))
       mp
-    (setf stress (magicl:scale stress-u 1d0))
+    ; (setf stress (magicl:scale stress-u 1d0))
     ))
 
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
     (with-slots ((E E)
-                 (nu nu))
+                 (nu nu)
+                 (stress stress)
+                 (strain-rate strain-rate)
+                 (velocity-rate velocity-rate)
+                 (vorticity vorticity)
+                 (def deformation-gradient)
+                 )
                 mp
-        (cl-mpm/constitutive:linear-elastic strain E nu)))
+      ;; Kirchoff stress rate?
+      ;; (magicl:.+ stress
+      (magicl:.+
+       stress
+       (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+       ;; (magicl:.+
+       ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+       ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
+       )
+        ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+      ))
 
 (defmethod constitutive-model ((mp particle-fluid) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -364,7 +393,7 @@
       mp
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
             (if (> viscosity 0d0)
-                (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt vorticity)
+                (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity)
                 (cl-mpm/constitutive:linear-elastic strain E nu)))
     ))
 (defmethod constitutive-model ((mp particle-viscoplastic-damage) strain dt)
@@ -378,14 +407,19 @@
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
                                         ;(stress stress)
-               (stress-u undamaged-stress)
+               (stress stress)
                )
       mp
-    (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+    ;;Rate equation
+    ;; (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu))
+    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    ;; (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu))
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress visc-factor visc-power)))
       (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp strain-rate stress-u E nu viscosity dt)
-          (cl-mpm/constitutive:linear-elastic strain E nu)))
-    ))
+          (cl-mpm/constitutive::maxwell strain-rate stress E nu viscosity dt)
+          (cl-mpm/constitutive:linear-elastic strain E nu))
+      )))
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
   "Function for modelling stress intergrated viscoelastic maxwell material"
@@ -468,6 +502,11 @@
     (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
                 (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress))))))
 
+(defun objectify-stress-kirchoff-truesdale (stress velocity-rate)
+   (matrix-to-voight
+    (magicl::.- (magicl:@ (voight-to-matrix velocity-rate) (voight-to-matrix stress))
+                (magicl:@ (voight-to-matrix stress) (voight-to-matrix velocity-rate))
+                )))
 
 (defun objectify-stress-logspin (mp)
   (with-accessors ((stress cl-mpm/particle:mp-stress)
