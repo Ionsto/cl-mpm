@@ -417,8 +417,8 @@
     ;; (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu))
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress visc-factor visc-power)))
       (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell strain-rate stress E nu viscosity dt)
-          (cl-mpm/constitutive:linear-elastic strain E nu))
+          (cl-mpm/constitutive::maxwell-exp strain-rate stress E nu viscosity dt)
+          (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu)))
       )))
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)

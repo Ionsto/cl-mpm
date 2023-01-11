@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/slump)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -222,10 +222,10 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d6
+                 :E 1d7
                  :nu 0.3250d0
                  ;:viscosity 1d-5
-                 :visc-factor 2.4d-24
+                 :visc-factor 2.4d-20
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
@@ -236,11 +236,11 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-5)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-13)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-8)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       ;; (setf (cl-mpm::sim-bcs-force sim)
@@ -293,7 +293,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 50) 4))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
@@ -342,7 +342,7 @@
                        :size (magicl:from-list size '(2 1)) 
                        :E 1e7
                        :nu 0.325
-                       :visc-factor 1d-05
+                       :visc-factor 1d-10
                        :visc-power 3
                        :temperature 0d0
                        :heat-capacity 1d0
@@ -410,6 +410,12 @@
     (vgplot:figure)
     (vgplot:title "Terminus over time")
     (vgplot:plot *time* *x-pos*)
+
+  (with-open-file (stream (merge-pathnames "terminus_position.csv") :direction :output :if-exists :supersede)
+    (format stream "Time (s), Terminus position~%")
+    (loop for tim in (reverse *time*)
+          for x in (reverse *x-pos*)
+          do (format stream "~f, ~f ~%" tim x)))
     )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
