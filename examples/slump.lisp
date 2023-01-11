@@ -293,7 +293,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
@@ -384,13 +384,13 @@
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
 
-                  (setf *time*     (cons *t* *time*))
+                  (push *t* *time*)
                   (push 
                    (loop for mp across (cl-mpm:sim-mps *sim*)
                          maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 1)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                            (cl-mpm::update-sim *sim*)
@@ -412,11 +412,11 @@
     (vgplot:plot *time* *x-pos*)
 
   (with-open-file (stream (merge-pathnames "terminus_position.csv") :direction :output :if-exists :supersede)
-    (format stream "Time (s), Terminus position~%")
+    (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-    )
+  )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 
@@ -457,16 +457,30 @@
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
+(declaim (inline det)
+         (ftype (function (magicl:matrix/double-float) (values double-float)) det)
+         )
+(defun det (x)
+  (let ((x-a (magicl::storage x)))
+    (declare (type (simple-array double-float) x-a))
+    (values (- (* (aref x-a 0) (aref x-a 3))
+              (* (aref x-a 1) (aref x-a 2))))))
 (defun simple-time ()
   (let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle
                                            :size (magicl:from-list '(1d0 1d0) '(2 1)))))
     (format t "Old")
   (time
-   (dotimes (i 1000)
+   (dotimes (i 100)
      ;; (cl-mpm::iterate-over-neighbours-shape-gimp (cl-mpm:sim-mesh *sim*) mp
      ;;                                             (lambda (m mp node w grad) (* w w)))
      ;; (cl-mpm::calculate-strain-rate (cl-mpm:sim-mesh *sim*) mp 1d0)
-     (cl-mpm::update-sim *sim*)
+     ;(cl-mpm::update-sim *sim*)
+     (with-accessors ((mesh cl-mpm:sim-mesh)
+                      (mps cl-mpm:sim-mps)
+                      (dt cl-mpm:sim-dt))
+         *sim*
+       (cl-mpm::update-stress mesh mps dt)
+         )
      ))
     (format t "new")
     ))

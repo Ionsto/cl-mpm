@@ -452,94 +452,9 @@
   (values))
 
 (declaim
- (inline p2g-mp-node)
- (ftype (function (cl-mpm/particle:particle
-                           cl-mpm/mesh::node
-                           double-float
-                           list) (values))
-                p2g-mp-node
-                          ))
-(defun p2g-mp-node (mp node svp grads)
-        (declare
-         (cl-mpm/particle:particle mp)
-         (cl-mpm/mesh::node node)
-         (double-float svp)
-         )
-  (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                   (node-mass  cl-mpm/mesh:node-mass)
-                   (node-volume  cl-mpm/mesh::node-volume)
-                   (node-force cl-mpm/mesh:node-force)
-                   (node-lock  cl-mpm/mesh:node-lock)) node
-    (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
-                     (mp-mass cl-mpm/particle:mp-mass)
-                     (mp-volume cl-mpm/particle:mp-volume)
-                     ;; (strain-rate cl-mpm/particle:mp-strain-rate)
-                     ) mp
-      (declare (type double-float mp-mass node-mass node-volume mp-volume)
-               (type sb-thread:mutex node-lock)
-               )
-            ;; (declare (double-float mp-mass
-            ;;                        node-mass))
-            (progn
-              (let* (
-                     ;; (weighted-mass (* mp-mass svp))
-                     ;; (weighted-volume (* mp-volume svp))
-                     (weighted-vel (magicl:scale mp-vel (* mp-mass svp)))
-                     ;; (force (magicl:from-list '(1d0 1d0) '(2 1)))
-                     ;; (force (magicl:.- (det-ext-force mp node svp) (det-int-force mp node dsvp)))
-                     ;; (force (det-int-force mp node dsvp))
-                       )
-                  (sb-thread:with-mutex (node-lock)
-                    ;; (setf node-mass
-                    ;;       (+ node-mass weighted-mass))
-                    ;; (setf node-volume
-                    ;;       (+ node-volume weighted-volume))
-                    ;; (setf node-vel
-                    ;;       (magicl:.+ node-vel weighted-vel))
-                    ;; (setf node-force
-                    ;;       (magicl:.+ node-force force))
-                    (incf node-mass
-                          (* mp-mass svp))
-                    (incf node-volume
-                          (* mp-volume svp))
-                    ;; (incf node-mass
-                    ;;       weighted-mass)
-                    ;; (incf node-volume
-                    ;;       weighted-volume)
-                    ;; (setf node-vel
-                    ;;       (magicl:.+ node-vel weighted-vel))
-                    ;; (setf node-force
-                    ;;       (magicl:.+ node-force force))
-                    ;(simd-add node-force (det-ext-force mp node svp))
-                    ;; (simd-fmacc node-vel mp-vel (* mp-mass svp))
-                    (simd-add node-vel weighted-vel)
-                    (det-ext-force mp node svp node-force)
-                    (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
-                    ;; (simd-add node-force (det-int-force mp node dsvp))
-                    ;; (simd-add node-force force)
-                    ;; (simd-fmacc node-vel mp-vel (* mp-mass svp))
-                    ;; (simd-add node-force force)
-                    )
-              )
-              ;(special-p2g mp node svp dsvp)
-              )))
-  (values))
-(declaim
  (inline p2g-mp)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 p2g-mp))
-#|
-(defun p2g-mp (mesh mp)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp))
-  (iterate-over-neighbours
-   mesh mp
-      (lambda (mesh mp node svp grads)
-        (p2g-mp-node mp node svp grads)
-        ))
-  (values))
-
-|#
 (defun p2g-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -549,30 +464,31 @@
                    ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
     (declare (type double-float mp-mass mp-volume))
-  (iterate-over-neighbours
-   mesh mp
-      (lambda (mesh mp node svp grads)
-        (declare
-         (cl-mpm/particle:particle mp)
-         (cl-mpm/mesh::node node)
-         (double-float svp)
-         )
-        (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                         (node-mass  cl-mpm/mesh:node-mass)
-                         (node-volume  cl-mpm/mesh::node-volume)
-                         (node-force cl-mpm/mesh:node-force)
-                         (node-lock  cl-mpm/mesh:node-lock)) node
-          (declare (type double-float node-mass node-volume mp-volume)
-                   (type sb-thread:mutex node-lock))
-          (sb-thread:with-mutex (node-lock)
-                    (incf node-mass
-                          (* mp-mass svp))
-                    (incf node-volume
-                          (* mp-volume svp))
-                    (simd-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
-                    (det-ext-force mp node svp node-force)
-                    (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
-                    )
+    (iterate-over-neighbours
+     mesh mp
+     (lambda (mesh mp node svp grads)
+       (declare
+        (cl-mpm/particle:particle mp)
+        (cl-mpm/mesh::node node)
+        (double-float svp)
+        )
+       (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                        (node-mass  cl-mpm/mesh:node-mass)
+                        (node-volume  cl-mpm/mesh::node-volume)
+                        (node-force cl-mpm/mesh:node-force)
+                        (node-lock  cl-mpm/mesh:node-lock)) node
+         (declare (type double-float node-mass node-volume mp-volume)
+                  (type sb-thread:mutex node-lock))
+         (sb-thread:with-mutex (node-lock)
+           (incf node-mass
+                 (* mp-mass svp))
+           (incf node-volume
+                 (* mp-volume svp))
+           (simd-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
+           (det-ext-force mp node svp node-force)
+           (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
+           )
+         ;; (special-p2g mp node svp dsvp)
           )
         ;(p2g-mp-node mp node svp grads)
         )))
@@ -826,8 +742,17 @@
                    (progn
                      (setf def (magicl:@ df def))
                      (setf strain (magicl:.+ strain dstrain))
-                     (setf volume (* volume (magicl:det df)))
+                     (setf volume (* volume (det df)))
                      ))))
+
+(declaim (inline det)
+         (ftype (function (magicl:matrix/double-float) (values double-float)) det)
+         )
+(defun det (x)
+  (let ((x-a (magicl::storage x)))
+    (declare (type (simple-array double-float) x-a))
+    (values (- (* (aref x-a 0) (aref x-a 3))
+               (* (aref x-a 1) (aref x-a 2))))))
 
 (defun update-strain-kirchoff (mp dstrain)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -868,7 +793,7 @@
                               0.5d0)))))
           (setf velocity-rate (magicl:scale strain-rate 1d0))
           (setf strain-rate (magicl:.- strain prev-strain))
-          (setf volume (* volume (magicl:det df)))
+          (setf volume (* volume (det df)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ df (magicl:transpose df)))
@@ -899,14 +824,14 @@
             ;;(setf strain (magicl:scale (magicl:.+ strain dstrain) (expt (- 1 damage) 2)))
             (progn
               ;; (update-strain-linear mp dstrain)
-              (magicl:scale! stress (magicl:det def))
+              (magicl:scale! stress (det def))
               (update-strain-kirchoff mp dstrain)
               (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
               ;(cl-mpm/particle:constitutive-model mp strain dt)
               (when (<= volume 0d0)
                 (error "Negative volume"))
               ;(cl-mpm/particle:post-stress-step mesh mp dt)
-              (magicl:scale! stress (/ 1.0 (magicl:det def)))
+              (magicl:scale! stress (/ 1.0 (det def)))
               ))))))
 
 (defun update-stress (mesh mps dt)
