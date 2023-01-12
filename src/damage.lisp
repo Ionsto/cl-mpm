@@ -46,7 +46,7 @@
                    (r 0.43d0)
                    )
               (when (> s_1 0d0)
-                (incf damage-increment (* (damage-rate-profile critical-stress s1 damage) dt))
+                (incf damage-increment (* (damage-rate-profile critical-stress s_1 damage) dt))
                 )
               ;; (when (> hayhurst 0d0)
               ;;   (incf damage-increment (* B (expt hayhurst r))))
