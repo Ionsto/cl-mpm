@@ -12,8 +12,8 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/fastmath)
 
-
-#+ :sb-simd
+(push :sb-simd *features*)
+#+:sb-simd
 (progn
   (require 'sb-simd)
   (declaim
@@ -83,15 +83,15 @@
                    magicl:matrix/double-float
                    double-float) (values)) fast-fmacc))
 (defun fast-fmacc (a b d)
-  #+ :sb-simd (simd-fmacc (magicl::storage a)
+  #+:sb-simd (simd-fmacc (magicl::storage a)
                           (magicl::storage b)
                           d)
-  #- :sb-simd (magicl:.+ a (magicl:scale b d) a))
+  #-:sb-simd (magicl:.+ a (magicl:scale b d) a))
 
 (declaim
    (inline fast-add)
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) fast-add))
 (defun fast-add (a b)
-  #+ :sb-simd (simd-add a b)
-  #- :sb-simd (magicl:.+ a b a)
+  #+:sb-simd (simd-add a b)
+  #-:sb-simd (magicl:.+ a b a)
   )
