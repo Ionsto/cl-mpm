@@ -23,7 +23,13 @@
     (loop for mp in load-mps
           do
              (progn
-               (setf (cl-mpm/particle:mp-velocity mp) vel)))))
+               (loop for v in vel
+                     for i from 0
+                     do
+                     (when v
+                       (setf (magicl:tref (cl-mpm/particle:mp-velocity mp) i 0) v)
+                       )
+                     )))))
 (defun increase-load (sim load-mps amount)
   (loop for mp in load-mps
         do (with-accessors ((pos cl-mpm/particle:mp-position)
@@ -115,6 +121,18 @@
                   (when (>= 0 (funcall sdf pos))
                     (setf damage 1d0))))))
 
+(defun rectangle-sdf (position size)
+  (lambda (pos)
+      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+             (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
+                                  (magicl:from-list size '(2 1) :type 'double-float))))
+
+        (+ (sqrt (magicl::sum
+                  (magicl:map! (lambda (x) (* x x))
+                               (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
+           (min (max (magicl:tref dist-vec 0 0)
+                     (magicl:tref dist-vec 1 0)
+                     ) 0d0)))))
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))
     (lambda (pos)
@@ -222,10 +240,11 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d7
+                 :E 1d8
                  :nu 0.3250d0
+                 ;; :nu 0.45d0
                  ;:viscosity 1d-5
-                 :visc-factor 2.4d-20
+                 :visc-factor 1d6
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
@@ -239,7 +258,7 @@
       (setf (cl-mpm:sim-damping-factor sim) 1d-8)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -293,10 +312,11 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 50) 2))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
+  ;; (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -337,9 +357,9 @@
                       (cl-mpm::make-particle
                        2
                        'cl-mpm/particle::particle-thermoviscoplastic-damage
-                       :position (magicl:from-list position '(2 1)) 
+                       :position (magicl:from-list position '(2 1))
                        :volume (reduce #'* size)
-                       :size (magicl:from-list size '(2 1)) 
+                       :size (magicl:from-list size '(2 1))
                        :E 1e7
                        :nu 0.325
                        :visc-factor 1d-10
@@ -390,14 +410,15 @@
                          maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1)
+                    (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
+                            ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
                             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                             ;;                                  (cl-mpm:sim-mps *sim*)
                             ;;                                  (cl-mpm:sim-dt *sim*)
-                            ;;                                  25d0)
+                            ;;                                  50d0)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
@@ -450,38 +471,36 @@
   (loop repeat 100
         do (progn
              (cl-mpm::update-sim *sim*)
-             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                                              (cl-mpm:sim-mps *sim*)
-                                              (cl-mpm:sim-dt *sim*)
-                                              25d0)
+             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+             ;;                                  (cl-mpm:sim-mps *sim*)
+             ;;                                  (cl-mpm:sim-dt *sim*)
+             ;;                                  25d0)
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
-(declaim (inline det)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) det)
-         )
-(defun det (x)
-  (let ((x-a (magicl::storage x)))
-    (declare (type (simple-array double-float) x-a))
-    (values (- (* (aref x-a 0) (aref x-a 3))
-              (* (aref x-a 1) (aref x-a 2))))))
 (defun simple-time ()
+  (setf lparallel:*kernel* (lparallel:make-kernel 16 :name "custom-kernel"))
   (let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle
                                            :size (magicl:from-list '(1d0 1d0) '(2 1)))))
     (format t "Old")
-  (time
-   (dotimes (i 100)
-     ;; (cl-mpm::iterate-over-neighbours-shape-gimp (cl-mpm:sim-mesh *sim*) mp
-     ;;                                             (lambda (m mp node w grad) (* w w)))
-     ;; (cl-mpm::calculate-strain-rate (cl-mpm:sim-mesh *sim*) mp 1d0)
-     ;(cl-mpm::update-sim *sim*)
-     (with-accessors ((mesh cl-mpm:sim-mesh)
-                      (mps cl-mpm:sim-mps)
-                      (dt cl-mpm:sim-dt))
-         *sim*
-       (cl-mpm::update-stress mesh mps dt)
-         )
-     ))
+      (time
+       (lparallel:pdotimes (i 100000)
+         (let ((m (magicl:zeros '(2 2))))
+         (magicl:eig m)))
+      )
+  ;; (time
+  ;;  (lparallel:pdotimes (i 100)
+  ;;    ;; (cl-mpm::iterate-over-neighbours-shape-gimp (cl-mpm:sim-mesh *sim*) mp
+  ;;    ;;                                             (lambda (m mp node w grad) (* w w)))
+  ;;    ;; (cl-mpm::calculate-strain-rate (cl-mpm:sim-mesh *sim*) mp 1d0)
+  ;;    ;(cl-mpm::update-sim *sim*)
+  ;;    (with-accessors ((mesh cl-mpm:sim-mesh)
+  ;;                     (mps cl-mpm:sim-mps)
+  ;;                     (dt cl-mpm:sim-dt))
+  ;;        *sim*
+  ;;      (cl-mpm::update-stress mesh mps dt)
+  ;;        )
+  ;;    ))
     (format t "new")
     ))
 ;; (let ((mesh (cl-mpm:sim-mesh *sim*))

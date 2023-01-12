@@ -111,7 +111,7 @@
                     (apply-bcs mesh bcs dt)
                     (g2p mesh mps)
                     (update-particle mps dt)
-                    (update-stress mesh mps dt) 
+                    (update-stress mesh mps dt)
                     (when remove-damage
                       (remove-material-damaged sim))
                     (when split
@@ -833,11 +833,14 @@
               ;(cl-mpm/particle:post-stress-step mesh mp dt)
               (magicl:scale! stress (/ 1.0 (det def)))
               ))))))
-
+(declaim (ftype (function (cl-mpm/mesh::mesh
+                           (array cl-mpm/particle:particle)
+                           double-float) (values)) update-stress))
 (defun update-stress (mesh mps dt)
-  (declare (array mps) (cl-mpm/mesh::mesh mesh))
+  (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
-     (update-stress-mp mesh (aref mps i) dt)))
+     (update-stress-mp mesh (aref mps i) dt))
+  (values))
 
 (defun reset-grid (mesh)
   (declare (cl-mpm/mesh::mesh mesh))
@@ -882,7 +885,7 @@
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.5d0)
+    (let ((l-factor 1.25d0)
           (h-factor (* 1.5d0 h)))
       (cond
         ;; ((< h-factor (tref lens 0 0)) t)

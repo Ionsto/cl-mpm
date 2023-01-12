@@ -18,7 +18,7 @@
 
 (defun damage-profile (damage)
   "Constitive law describing the scalar stress decrease as a function of damage"
-  (expt (- 1 damage) 2)
+  (expt (- 1 damage) 1)
   ;(max (expt (- 1 damage) 2) 1d-6)
   )
 (defun calculate-damage-increment (mp dt)
@@ -29,10 +29,28 @@
                      ) mp
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
-            (let ((s1 (loop for i from 0 to 1
-                            maximize (nth i l))))
-              (when (> s1 0d0)
-                (incf damage-increment (* (damage-rate-profile critical-stress s1 damage) dt))))
+            (let* ((l (sort l #'>))
+                   (s_1 (nth 0 l))
+                   (s_v (sqrt (apply #'+ (mapcar (lambda (a b)
+                                             (expt (- a b) 2))
+                                           l
+                                           (list (nth 1 l)
+                                                 (nth 0 l))))))
+                   (s_kk (magicl:trace (voight-to-matrix stress)))
+                   (alpha 0.21d0)
+                   (beta 0.63d0)
+                   (hayhurst (+ (* alpha s_1)
+                                (* beta s_v)
+                                (* (- 1d0 alpha beta) s_kk)))
+                   (B 5.23d-7)
+                   (r 0.43d0)
+                   )
+              ;; (when (> s1 0d0)
+              ;;   (incf damage-increment (* (damage-rate-profile critical-stress s1 damage) dt))
+              ;;   )
+              (when (> hayhurst 0d0)
+                (incf damage-increment (* B (expt hayhurst r))))
+              )
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
             ;; (when (>= damage 1d0)
               ;; (setf damage-increment 0d0))
@@ -46,11 +64,13 @@
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (def cl-mpm/particle::mp-deformation-gradient)
                      ) mp
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
-          (setf undamaged-stress (magicl:scale stress 1d0))
+          ;(setf undamaged-stress (magicl:scale stress 1d0))
+          (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 
           (when (> damage 0.0d0)
             (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
@@ -74,7 +94,7 @@
                      (critical-stress cl-mpm/particle:mp-critical-stress)
                      ) mp
         (progn
-          (setf undamaged-stress stress)
+          (setf undamaged-stress (magicl:scale stress 1d0))
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix undamaged-stress))
             ;; (loop for i from 0 to 1
             ;;       do (let ((sii (nth i l)))
