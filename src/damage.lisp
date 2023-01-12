@@ -158,43 +158,39 @@
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
           (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
 
-(declaim
- (inline diff-squared)
- (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
-(defun diff-squared (mp-a mp-b)
-  (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
-                         (cl-mpm/particle:mp-position mp-b)))
-        )
-    (values (the double-float (magicl::sum (magicl:.* dist dist))))))
+#- :sb-simd (progn
+  (declaim
+   (inline diff-squared)
+   (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
+  (defun diff-squared (mp-a mp-b)
+    (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
+                           (cl-mpm/particle:mp-position mp-b)))
+          )
+      (values (the double-float (magicl::sum (magicl:.* dist dist)))))))
 
-(declaim
- (inline simd-accumulate)
- (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
-(defun simd-accumulate (a b)
-  (declare (type sb-simd:f64vec a b))
-  ;; (setf (sb-simd-avx:f64.2-aref res 0)
-  ;;       (sb-simd-avx:f64.2+
-  ;;        (sb-simd-avx:f64.2-aref a 0)
-  ;;        (sb-simd-avx:f64.2-aref b 0)
-  ;;        ))
-  ;; a
-  (let ((diff
-          (sb-simd-avx:f64.2-
-           (sb-simd-avx:f64.2-aref a 0)
-           (sb-simd-avx:f64.2-aref b 0)
-           )))
-    ;; (declare (type sb-simd:f64vec diff))
-    (values (sb-simd-avx::f64.2-horizontal+
-             (sb-simd-avx:f64.2* diff diff))))
-  )
-(declaim
- (inline diff-squared-fast)
- (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared-fast))
-(defun diff-squared-fast (mp-a mp-b)
-  (let ((pos-a (magicl::storage (cl-mpm/particle:mp-position mp-a)))
-        (pos-b (magicl::storage (cl-mpm/particle:mp-position mp-b)))
-        )
-    (values (the double-float (simd-accumulate pos-a pos-b)))))
+#+ :sb-simd
+(progn
+  (declaim
+   (inline simd-accumulate)
+   (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
+  (defun simd-accumulate (a b)
+    (declare (type sb-simd:f64vec a b))
+    (let ((diff
+            (sb-simd-avx:f64.2-
+             (sb-simd-avx:f64.2-aref a 0)
+             (sb-simd-avx:f64.2-aref b 0)
+             )))
+      (values (sb-simd-avx::f64.2-horizontal+
+               (sb-simd-avx:f64.2* diff diff))))
+    )
+  (declaim
+   (inline diff-squared)
+   (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
+  (defun diff-squared (mp-a mp-b)
+    (let ((pos-a (magicl::storage (cl-mpm/particle:mp-position mp-a)))
+          (pos-b (magicl::storage (cl-mpm/particle:mp-position mp-b)))
+          )
+      (values (the double-float (simd-accumulate pos-a pos-b))))))
 
 (declaim
  (inline weight-func)
@@ -214,7 +210,7 @@
         weight-func-mps
         ))
 (defun weight-func-mps (mp-a mp-b length)
-  (weight-func (diff-squared-fast mp-a mp-b) length))
+  (weight-func (diff-squared mp-a mp-b) length))
 
 (declaim
  (inline calculate-delocalised-damage)

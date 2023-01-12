@@ -12,6 +12,12 @@
   :serial t
   :components ((:file "src/utils")))
 
+(defsystem "cl-mpm/fastmath"
+  :depends-on ("magicl")
+  :description "MPM fast maths operations definitions"
+  :serial t
+  :components ((:file "src/fastmath")))
+
 (defsystem "cl-mpm/mesh"
   :depends-on ("magicl"
                "cl-mpm/shape-function")
@@ -86,7 +92,7 @@
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("magicl"
-               :sb-simd
+               "cl-mpm/fastmath"
                "cl-mpm/utils"
                "alexandria"
                "array-operations"

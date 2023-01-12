@@ -3,6 +3,7 @@
         :cl-mpm/particle
         :cl-mpm/mesh
         :cl-mpm/utils
+        :cl-mpm/fastmath
 ;        :cl-mpm/shape-function
         )
   (:import-from
@@ -418,38 +419,6 @@
                     (setf node-dtemp
                           (+ node-dtemp weighted-dtemp))))))))
 
-(require 'sb-simd)
-(declaim
- (inline simd-accumulate)
- (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))
-(defun simd-accumulate (a b)
-  (declare (type sb-simd:f64vec a b))
-  (setf (sb-simd-avx:f64.2-aref a 0)
-        (sb-simd-avx:f64.2+
-         (sb-simd-avx:f64.2-aref a 0)
-         (sb-simd-avx:f64.2-aref b 0)
-         ))
-  (values))
-(declaim
- (inline simd-fmacc)
- (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
-(defun simd-fmacc (a b scale)
-  (declare (type sb-simd:f64vec a b)
-           (type double-float scale))
-  (setf (sb-simd-avx:f64.2-aref a 0)
-        (sb-simd-avx:f64.2+
-         (sb-simd-avx:f64.2-aref a 0)
-         (sb-simd-avx:f64.2*
-          (sb-simd-avx:f64.2-aref b 0)
-          (sb-simd-avx:f64.2 scale))
-         ))
-  (values))
-(declaim
- (inline simd-add)
- (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
-(defun simd-add (a b)
-  (simd-accumulate (magicl::storage a) (magicl::storage b))
-  (values))
 
 (declaim
  (inline p2g-mp)
@@ -484,7 +453,7 @@
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
-           (simd-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
+           (fast-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
            (det-ext-force mp node svp node-force)
            (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
            )
@@ -524,23 +493,6 @@
         (setf temp (+ temp (* node-temp svp)))
         ))))
 
-(declaim
- (inline mult)
- (ftype (function (magicl:matrix/double-float
-                   magicl:matrix/double-float
-                   magicl:matrix/double-float) (values)
-                  ) mult))
-(defun mult (a b res)
-  (declare (type magicl:matrix/double-float a b res))
-  (let ((a-s (magicl::storage a))
-        (b-s (magicl::storage b))
-        (res-s (magicl::storage res))
-        )
-    (declare (type (simple-array double-float) a-s b-s res-s))
-    (loop for i from 0 to 2
-          do (loop for j from 0 to 1
-                   do (incf (aref res-s i) (* (aref a-s (+ j (* 2 i)))
-                                              (aref b-s j)))))))
 
 (declaim
  (inline g2p-mp-node)
@@ -561,8 +513,8 @@
                      ) mp
       ;; (declare (type magicl:matrix/double-float strain-rate))
       (progn
-        ;; (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))
-        (simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
+        ;(simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
+        (fast-fmacc vel node-vel svp)
         ;; (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)) strain-rate)
         ;; (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node)) vorticity)
         ;; (mult dsvp node-vel strain-rate)
@@ -611,7 +563,8 @@
      mesh mp
      (lambda (mesh mp node svp grads)
        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
-         (simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
+         ;(simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
+         (fast-fmacc vel node-vel svp)
          )
        ;; (g2p-mp-node mp node svp grads)
        ))
@@ -744,15 +697,6 @@
                      (setf strain (magicl:.+ strain dstrain))
                      (setf volume (* volume (det df)))
                      ))))
-
-(declaim (inline det)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) det)
-         )
-(defun det (x)
-  (let ((x-a (magicl::storage x)))
-    (declare (type (simple-array double-float) x-a))
-    (values (- (* (aref x-a 0) (aref x-a 3))
-               (* (aref x-a 1) (aref x-a 2))))))
 
 (defun update-strain-kirchoff (mp dstrain)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
