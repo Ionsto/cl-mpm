@@ -406,7 +406,7 @@
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
                                         ;(stress stress)
-               (stress stress)
+               (stress undamaged-stress)
                (stress-damaged stress)
                )
       mp
@@ -432,7 +432,7 @@
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (vorticity vorticity)
                (def deformation-gradient)
-               (stress stress)
+               (stress undamaged-stress)
                ;; (stress stress)
                )
       mp
