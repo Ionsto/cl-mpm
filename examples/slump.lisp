@@ -244,7 +244,7 @@
                  :nu 0.3250d0
                  ;; :nu 0.45d0
                  ;:viscosity 1d-5
-                 :visc-factor 1d6
+                 :visc-factor 5d6
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
@@ -316,7 +316,7 @@
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
-  ;; (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
+  (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -410,15 +410,15 @@
                          maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
-                            ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                            ;;                                  (cl-mpm:sim-mps *sim*)
-                            ;;                                  (cl-mpm:sim-dt *sim*)
-                            ;;                                  50d0)
+                            (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                                             (cl-mpm:sim-mps *sim*)
+                                                             (cl-mpm:sim-dt *sim*)
+                                                             50d0)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
