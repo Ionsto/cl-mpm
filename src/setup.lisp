@@ -31,9 +31,10 @@
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
 
-(defun make-block-mps-list (offset size mps constructor &rest args)
+(defun make-block-mps-list (offset size mps density constructor &rest args)
   (let*  ((nD 2)
           (spacing (mapcar #'/ size mps))
+          (volume (* (first spacing) (second spacing)))
           (data (loop for x from 0 to (- (first mps) 1)
                       append
                       (loop
@@ -44,7 +45,8 @@
                                                      (list
                                                       :position (list (+ (first offset) (* (first spacing) x))
                                                                  (+ (second offset) (* (second spacing) y)))
-                                                      :volume (* (first spacing) (second spacing))
+                                                      :mass (* density volume)
+                                                      :volume volume
                                                       :size (magicl:from-list spacing (list nD 1) :type 'double-float))))
                           )))))
     data))

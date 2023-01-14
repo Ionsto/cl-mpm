@@ -22,6 +22,9 @@
                       '(3 3) :type 'double-float)
     (/ E (* (+ 1 nu) (- 1 nu nu)))))
 
+(defun linear-elastic-mat (strain elastic-matrix)
+  "Isotropic linear-elastic constitutive model"
+  (magicl:@ elastic-matrix strain))
 (defun linear-elastic (strain E nu)
   "Isotropic linear-elastic constitutive model"
    (magicl:@ (linear-elastic-matrix E nu) strain))

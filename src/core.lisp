@@ -474,7 +474,7 @@
 ;;         ))
 ;;   (values))
 
-;; (declaim (notinline p2g))
+(declaim (notinline p2g))
 (defun p2g (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
@@ -493,42 +493,6 @@
         (setf temp (+ temp (* node-temp svp)))
         ))))
 
-
-(declaim
- (inline g2p-mp-node)
- (ftype (function (cl-mpm/particle:particle
-                           cl-mpm/mesh::node double-float
-                           list
-                           ) (values))
-                g2p-mp-node
-                          ))
-(defun g2p-mp-node (mp node svp grads)
-  ;(declare (ignore mesh))
-  "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
-    (with-accessors ((vel mp-velocity)
-                     (mass mp-mass)
-                     (strain-rate cl-mpm/particle:mp-strain-rate)
-                     (vorticity cl-mpm/particle:mp-vorticity)
-                     ) mp
-      ;; (declare (type magicl:matrix/double-float strain-rate))
-      (progn
-        ;(simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
-        (fast-fmacc vel node-vel svp)
-        ;; (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node)) strain-rate)
-        ;; (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) (cl-mpm/mesh:node-velocity node)) vorticity)
-        ;; (mult dsvp node-vel strain-rate)
-        ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
-
-        ;; (setf strain-rate (.+ strain-rate (magicl:@ dsvp node-vel)))
-        ;; (setf vorticity (.+ vorticity (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel)))
-
-        ;; (let* ((curl (cl-mpm/shape-function::assemble-vorticity-2d grads)))
-        ;;   (setf strain-rate (.+ strain-rate (magicl:@ dsvp (cl-mpm/mesh:node-velocity node))))
-        ;;   (setf vorticity (.+ vorticity (magicl:@ curl (cl-mpm/mesh:node-velocity node))))
-        ;;   )
-        ;; (special-g2p mesh mp node svp dsvp grads)
-        ))))
 
 (defgeneric reset-mps-g2p (mp)
   (:method (mp)))
@@ -563,14 +527,13 @@
      mesh mp
      (lambda (mesh mp node svp grads)
        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
-         ;(simd-fmacc (magicl::storage vel) (magicl::storage node-vel) svp)
          (fast-fmacc vel node-vel svp)
          )
        ;; (g2p-mp-node mp node svp grads)
        ))
     ))
 
-;; (declaim (notinline g2p))
+(declaim (notinline g2p))
 (defun g2p (mesh mps)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
@@ -698,6 +661,10 @@
                      (setf volume (* volume (det df)))
                      ))))
 
+(declaim (inline update-strain-kirchoff))
+(declaim (ftype (function (cl-mpm/particle:particle
+                          magicl:matrix/double-float) (values))
+               update-strain-kirchoff))
 (defun update-strain-kirchoff (mp dstrain)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (strain cl-mpm/particle:mp-strain)
@@ -735,6 +702,7 @@
                                                            :type 'double-float)
                                          (magicl:transpose vf)))
                               0.5d0)))))
+
           (setf velocity-rate (magicl:scale strain-rate 1d0))
           (setf strain-rate (magicl:.- strain prev-strain))
           (setf volume (* volume (det df)))
@@ -747,9 +715,12 @@
                      (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
                      (magicl:transpose v))))
               (declare (type magicl:matrix/double-float stretch))
-              (setf (tref domain 0 0) (* (tref domain 0 0) (tref stretch 0 0)))
-              (setf (tref domain 1 0) (* (tref domain 1 0) (tref stretch 1 1)))
-              )))))))
+              (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                                         (the double-float (tref stretch 0 0))))
+              (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                                         (the double-float (tref stretch 1 1))))
+              ))))))
+  (values))
 
 (defun update-stress-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))

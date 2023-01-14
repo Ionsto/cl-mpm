@@ -134,8 +134,23 @@
    (nu
      :accessor mp-nu
      :initarg :nu)
+   (elastic-matrix
+    :accessor mp-elastic-matrix
+    :type magicl:matrix/double-float)
    )
   (:documentation "A linear-elastic material point"))
+(defun update-elastic-matrix (particle)
+  (with-accessors ((de mp-elastic-matrix)
+                   (E mp-E)
+                   (nu mp-nu))
+      particle
+      (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
+(defmethod (setf mp-E) :after (value particle)
+  (update-elastic-matrix particle))
+(defmethod (setf mp-nu) :after (value particle)
+  (update-elastic-matrix particle))
+(defmethod initialize-instance :after ((p particle) &key)
+  (update-elastic-matrix p))
 
 (defclass particle-fluid (particle)
   ((rest-density
@@ -333,6 +348,7 @@
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((E E)
                (nu nu)
+               (de elastic-matrix)
                (stress stress)
                (strain-rate strain-rate)
                (velocity-rate velocity-rate)
@@ -348,8 +364,9 @@
     ;; (magicl:.+
     ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
-    (cl-mpm/constitutive:linear-elastic strain E nu))
-      )
+    (cl-mpm/constitutive::linear-elastic-mat strain de)
+    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    ))
 
 (defmethod constitutive-model ((mp particle-fluid) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"

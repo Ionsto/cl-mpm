@@ -115,7 +115,8 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 100 h-x h-y) (expt mp-scale 2)))
+         (density 100)
+         ;(mass (/ (* 100 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
@@ -127,11 +128,12 @@
                block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic-damage
-               :E 1d7
+               :E 1d8
                :nu 0.325d0
 
                ;; :E 1e6 :nu 1d8
@@ -150,7 +152,6 @@
                ;; :viscosity 1.02e-3
 
                ;; :E 1e6 :nu 0.33
-               :mass mass
                :critical-stress 1d6
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
@@ -159,9 +160,9 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-3)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-12)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-10)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -189,7 +190,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 50) 2))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 10) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -206,6 +207,13 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
       (loop for id from 0 to (- (length mps) 1) when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
               collect (aref mps id))))
+  (defparameter *deflection-mps*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (least-pos
+             (apply #'max (loop for mp across mps
+                                collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
+      (loop for id from 0 to (- (length mps) 1) when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
+            collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
   )
@@ -228,6 +236,7 @@
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
+  (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (sleep 1)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
          (ms-x (first ms))
@@ -243,52 +252,86 @@
       (vgplot:format-plot t "set xtics ~f" h)
       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                               *sim*)
-    (time (loop for steps from 0 to 100
-                while *run-sim*
-                do
-                (progn
-                  (format t "Step ~d ~%" steps)
+      (incf *sim-step*)
+      (time (loop for steps from 0 to 100
+                            while *run-sim*
+                            do
+                               (progn
+                                 (format t "Step ~d ~%" steps)
                   ;;; Adaptive timestepping
-                  ;; (let* ((target-dt 1e-1)
-                  ;;        (courent (find-max-cfl *sim*))
-                  ;;        (c-value 0.001d0)
-                  ;;        (cfl-dt (if (> courent 0d0) (/ c-value (/ courent (cl-mpm:sim-dt *sim*))) nil))
-                  ;;        (new-dt (/ c-value (if (> courent 0d0)
-                  ;;                               (/ courent (cl-mpm:sim-dt *sim*))
-                  ;;                               (/ c-value 1e-6))))
-                  ;;        (sub-steps (max (min (floor (/ target-dt new-dt)) 100) 1)))
-                  ;;   (format t "C: ~f - steps: ~D - %dt: ~f~%" courent sub-steps new-dt)
-                  ;;   (format t "Cfl derived dt:~f~%" cfl-dt)
-                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
-                  ;; (break)
-                  (let ((max-cfl 0))
-                    (time (dotimes (i 100)
-                           ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
-                           (cl-mpm::update-sim *sim*)
-                            ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                            ;;                               (cl-mpm:sim-mps *sim*)
-                            ;;                               (cl-mpm:sim-dt *sim*)
-                            ;;                               25d0
-                            ;;                               )
-                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                           ))
-                    ;; (format t "Max cfl: ~f~%" max-cfl)
-                    )
-                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                          *sim*)
-                  (incf *sim-step*)
-                  (plot *sim*)
-                  ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
-                  (swank.live:update-swank)
-                  (sleep .01)
+                                 ;; (let* ((target-dt 1e-1)
+                                 ;;        (courent (find-max-cfl *sim*))
+                                 ;;        (c-value 0.001d0)
+                                 ;;        (cfl-dt (if (> courent 0d0) (/ c-value (/ courent (cl-mpm:sim-dt *sim*))) nil))
+                                 ;;        (new-dt (/ c-value (if (> courent 0d0)
+                                 ;;                               (/ courent (cl-mpm:sim-dt *sim*))
+                                 ;;                               (/ c-value 1e-6))))
+                                 ;;        (sub-steps (max (min (floor (/ target-dt new-dt)) 100) 1)))
+                                 ;;   (format t "C: ~f - steps: ~D - %dt: ~f~%" courent sub-steps new-dt)
+                                 ;;   (format t "Cfl derived dt:~f~%" cfl-dt)
+                                 ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
+                                 ;; (break)
+                                 (let ((max-cfl 0))
+                                   (time (dotimes (i 1000)
+                                           ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
+                                           (cl-mpm::update-sim *sim*)
+                                           ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                           ;;                               (cl-mpm:sim-mps *sim*)
+                                           ;;                               (cl-mpm:sim-dt *sim*)
+                                           ;;                               25d0
+                                           ;;                               )
+                                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                                           ))
+                                   ;; (format t "Max cfl: ~f~%" max-cfl)
+                                   )
+                                 (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                                         *sim*)
+                                 (incf *sim-step*)
+                                 (plot *sim*)
+                                 ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                                 (swank.live:update-swank)
+                                 (sleep .01)
 
-                  )))
+                                 )))
+      (plot-deflection (cl-mpm/particle::mp-e (first *deflection-mps*))
+                       100 100 500)
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     ))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(defmacro time-form (form it)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (dotimes (i ,it)
+         ,form)
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         dt))))
+
+(defun plot-deflection (E h density l)
+  (let* (
+        (x (loop for mp in *deflection-mps*
+                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+        (ymin (magicl:tref (cl-mpm/particle:mp-position (first *deflection-mps*)) 1 0))
+        (y (loop for mp in *deflection-mps*
+                 collect (- (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) ymin)))
+        (f (/ (* -12 density 9.8) (* 24 E (* h h))))
+        (d-udl (mapcar (lambda (k) (* f (expt k 2) (+ (expt k 2) (* 6 l l) (* -4 l k)))) x))
+        )
+    (vgplot:figure)
+    (vgplot:plot x y "Experimental"
+                 x d-udl "Analyticl"
+                 )
+    )
+  )
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 
 (defun profile ()
   (sb-profile:unprofile)
@@ -302,6 +345,8 @@
                       cl-mpm::g2p
                       cl-mpm::update-particle
                       cl-mpm::update-stress
+                      cl-mpm::calculate-strain-rate
+                      cl-mpm::update-strain-kirchoff
                       cl-mpm::iterate-over-neighbours-shape
                       cl-mpm::iterate-over-neighbours-shape-linear
                       cl-mpm::p2g-mp
@@ -319,12 +364,10 @@
   (loop repeat 100
         do (progn
              (cl-mpm::update-sim *sim*)
-             (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                                              (cl-mpm:sim-mps *sim*)
-                                              (cl-mpm:sim-dt *sim*)
-                                              25d0)
+             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+             ;;                                  (cl-mpm:sim-mps *sim*)
+             ;;                                  (cl-mpm:sim-dt *sim*)
+             ;;                                  25d0)
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
-
-
