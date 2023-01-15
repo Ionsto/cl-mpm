@@ -429,8 +429,8 @@
                )
       mp
     (let (
-          (viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1d0 dt)) visc-factor visc-power))
-          ;; (viscosity (cl-mpm/constitutive::glen-viscosity stress (expt visc-factor (/ -1d0 visc-power)) visc-power))
+          ;(viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1d0 dt)) visc-factor visc-power))
+          (viscosity (cl-mpm/constitutive::glen-viscosity stress (expt visc-factor (- visc-power)) visc-power))
           )
       (if (> viscosity 0d0)
           (cl-mpm/constitutive::maxwell strain-rate stress E nu viscosity dt)
