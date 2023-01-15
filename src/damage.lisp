@@ -14,6 +14,7 @@
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
       (* (/ (max 0d0 stress) critical-stress) 1d1)
       0d0)
+  0d0
   )
 
 (defun damage-profile (damage)
@@ -69,7 +70,7 @@
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
-          ;(setf undamaged-stress (magicl:scale stress 1d0))
+          ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 
           (when (> damage 0.0d0)

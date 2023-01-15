@@ -14,10 +14,10 @@
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
-  (magicl:scale  
-    (magicl:from-list (list 
-                        (- 1d0 nu) nu 0d0 
-                        nu (- 1d0 nu) 0d0 
+  (magicl:scale!
+    (magicl:from-list (list
+                        (- 1d0 nu) nu 0d0
+                        nu (- 1d0 nu) 0d0
                         0d0 0d0 (- 1d0 (* 2 nu)))
                       '(3 3) :type 'double-float)
     (/ E (* (+ 1 nu) (- 1 nu nu)))))
@@ -49,9 +49,9 @@
   (magicl:.+ stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
 
-(defun maxwell (strain-increment stress elasticity poisson-ratio viscosity dt vorticity)
+(defun maxwell (strain-increment stress elasticity poisson-ratio viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((order 3)
+  (let* ((order 2)
          (stress-matrix (voight-to-matrix stress))
          (pressure (/ (magicl:trace stress-matrix) 2d0))
          (pressure-matrix (magicl:eye 2 :value pressure))

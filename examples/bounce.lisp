@@ -43,7 +43,7 @@
                  (with-accessors ((pos cl-mpm/particle::mp-position)) mp
                    (setf (magicl:tref pos 1 0) (+ 0.5d0 (magicl:tref pos 1 0))))))
       (setf (cl-mpm:sim-damping-factor sim) 0d0)
-      (setf (cl-mpm:sim-mass-filter sim) 0.01d0)
+      (setf (cl-mpm:sim-mass-filter sim) 0d0)
       (setf (cl-mpm/particle:mp-mass (aref (cl-mpm:sim-mps sim) (- (length (cl-mpm:sim-mps sim)) 1))) 50)
       (setf (cl-mpm:sim-dt sim) 1e-3)
       ;(setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))

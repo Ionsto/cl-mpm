@@ -44,9 +44,9 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))
-      (mult-force dsvp stress volume f-out))
+      ;; (mult-force dsvp stress volume f-out))
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
-      ;(magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
+      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
     f-out))
 
 (declaim

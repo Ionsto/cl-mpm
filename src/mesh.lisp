@@ -10,6 +10,7 @@
     #:mesh-nd
     #:node-velocity
     #:node-acceleration
+    #:node-active
     #:node-mass
     #:node-force
     #:node-lock
@@ -27,7 +28,12 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass node ()
-  ((mass
+  ((active
+    :accessor node-active
+    :type boolean
+    :initform nil
+    )
+   (mass
      :accessor node-mass
      :type double-float
      :initform 0d0
@@ -260,13 +266,15 @@
 (defmethod reset-node ((node node))
   (with-slots ( (mass mass)
                 (vel velocity)
+               (acc acceleration)
                (volume volume)
                 (force force))
                 node
     (setf mass 0d0)
     (setf volume 0d0)
-    (setf vel (magicl:scale vel 0))
-    (setf force (magicl:scale force 0))))
+    (magicl:scale! vel 0d0)
+    (magicl:scale! acc 0d0)
+    (magicl:scale! force 0d0)))
 
 (defmethod reset-node ((node node-thermal))
   (with-accessors ((temperature node-temperature)

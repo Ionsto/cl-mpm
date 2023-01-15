@@ -104,7 +104,9 @@
     bc
     (loop for d from 0 to (length value)
             do (when (nth d value)
-                 (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))))))
+                 (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
+                 (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
+                 ))))
 
 
 (defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)
@@ -241,13 +243,13 @@
 (defun make-outside-bc (mesh-count)
   "Construct fixed bcs over the outside of a mesh"
   (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
-    (append 
-      (loop for x from 0 to xsize 
-            append 
+    (append
+      (loop for x from 0 to xsize
+            append
             (list (make-bc-fixed (list x 0)     '(0d0 0d0))
                   (make-bc-fixed (list x ysize) '(0d0 0d0))))
-       (loop for y from 0 to ysize 
-            append 
+       (loop for y from 0 to ysize
+            append
             (list (make-bc-fixed (list 0     y) '(0d0 0d0))
                   (make-bc-fixed (list xsize y) '(0d0 0d0)))))))
 
@@ -290,12 +292,12 @@
               (loop for o from 0 to order
                     append
                     (append
-                     (loop for x from 0 to xsize 
-                           append 
+                     (loop for x from 0 to xsize
+                           append
                            (list (when bottom (funcall bottom (list x order)))
                                  (when top (funcall top (list x (- ysize order))))))
-                     (loop for y from 0 to ysize 
-                           append 
+                     (loop for y from 0 to ysize
+                           append
                            (list (when left (funcall left (list order y)))
                                  (when right (funcall right (list (- xsize order) y)))))))))))
 (defun make-sub-domain-bcs (mesh start end make-bc)

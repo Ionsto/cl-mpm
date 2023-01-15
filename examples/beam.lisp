@@ -6,7 +6,7 @@
 (setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/beam)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 2) (safety 2) (speed 2)))
 
 
 (defun find-max-cfl (sim)
@@ -36,13 +36,13 @@
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
          ;(h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale))
          )
-    (* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)))
+    h-initial))
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (apply #'max l)
-    ;(magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
+    ;; (apply #'max l)
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -152,7 +152,7 @@
                ;; :viscosity 1.02e-3
 
                ;; :E 1e6 :nu 0.33
-               :critical-stress 1d6
+               :critical-stress 1d10
                ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
@@ -160,9 +160,9 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-10)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-10)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -190,7 +190,8 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(0 400) (/ 1 10) 2))
+  (declare (optimize (speed 0)))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -226,17 +227,43 @@
                  (with-accessors ((damage cl-mpm/particle:mp-damage))
                      mp
                    (>= damage 1d0))) mps)))
+(defun mag-sq (a)
+  (magicl::sum (magicl:.* a a)))
 
+(defun calculate-energy-gravity (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum (* 9.8 (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0) (cl-mpm/particle:mp-mass mp))))
+
+(defun calculate-energy-kinetic (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum (* 0.5 (cl-mpm/particle:mp-mass mp) (mag-sq (cl-mpm/particle:mp-velocity mp)))))
+
+(defun calculate-energy-strain (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum
+        (with-accessors ((volume cl-mpm/particle:mp-volume)
+                         (stress cl-mpm/particle:mp-stress)
+                         (strain cl-mpm/particle:mp-strain)
+                         (def cl-mpm/particle::mp-deformation-gradient)
+                         )
+            mp
+          (* 0.5 volume (magicl::sum (magicl:.* strain (magicl:scale stress (magicl:det def)))))
+          ;; (* 0.5 volume (magicl::sum (magicl:.* strain (magicl:scale stress 1d0))))
+          )))
 
 (defparameter *run-sim* nil)
 
 (defun run ()
+  (declare (optimize (speed 1) (debug 2)))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
   (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (defparameter *energy-gpe* '())
+  (defparameter *energy-ke* '())
+  (defparameter *energy-se* '())
   (sleep 1)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
          (ms-x (first ms))
@@ -272,18 +299,26 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (dotimes (i 1000)
-                                           ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
-                                           (cl-mpm::update-sim *sim*)
-                                           ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                                           ;;                               (cl-mpm:sim-mps *sim*)
-                                           ;;                               (cl-mpm:sim-dt *sim*)
-                                           ;;                               25d0
-                                           ;;                               )
-                                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                                   (time (loop for i from 0 to 100
+                                               while *run-sim*
+                                               do
+                                                  (progn
+
+                                                    ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
+                                                    (cl-mpm::update-sim *sim*)
+                                                    ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                                                    ;;                               (cl-mpm:sim-mps *sim*)
+                                                    ;;                               (cl-mpm:sim-dt *sim*)
+                                                    ;;                               25d0
+                                                    ;;                               )
+                                                    (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                                            ))
                                    ;; (format t "Max cfl: ~f~%" max-cfl)
                                    )
+                                 (push *t* *time*)
+                                 (push (calculate-energy-strain *sim*) *energy-se*)
+                                 (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                                 (push (calculate-energy-gravity *sim*) *energy-gpe*)
                                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                          *sim*)
                                  (incf *sim-step*)
@@ -295,10 +330,26 @@
                                  )))
       (plot-deflection (cl-mpm/particle::mp-e (first *deflection-mps*))
                        100 100 500)
+      (with-open-file (stream (merge-pathnames "output/energy.csv") :direction :output :if-exists :supersede)
+        (format stream "Time (s),SE,KE,GPE~%")
+        (loop for tim in (reverse *time*)
+              for se in (reverse *energy-se*)
+              for ke in (reverse *energy-ke*)
+              for gpe in (reverse *energy-gpe*)
+              do (format stream "~f, ~f, ~f, ~f ~%" tim se ke gpe)))
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
+      (plot-energy)
     ))
+(defun plot-energy ()
+  (vgplot:figure)
+  (vgplot:title "Velocity over time")
+  (vgplot:plot *time* *energy-gpe* "GPE"
+               *time* *energy-ke* "KE"
+               *time* *energy-SE* "SE"
+               *time* (mapcar #'+ *energy-gpe* *energy-ke* *energy-se*) "total energy"
+               ))
 
 (defmacro time-form (form it)
   `(progn

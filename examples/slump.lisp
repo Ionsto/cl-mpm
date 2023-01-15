@@ -226,7 +226,8 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
+         (density 900)
+         ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
@@ -238,29 +239,29 @@
                block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
                  :E 1d8
                  :nu 0.3250d0
                  ;; :nu 0.45d0
                  ;:viscosity 1d-5
-                 :visc-factor 5d6
+                 :visc-factor 1d6
                  :visc-power 3d0
                  ;; :temperature 0d0
                  ;; :heat-capacity 1d0
                  ;; :thermal-conductivity 1d0
                  :critical-stress 1d7
-                 :mass mass
+                 ;; :mass mass
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-8)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-5)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
-             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm:sim-dt sim) 1d-2) ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;        (cl-mpm/bc::make-outside-bc-var
@@ -312,11 +313,11 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(0 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(000 0) (/ 1 20) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
-  (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
+  ;; (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -410,15 +411,15 @@
                          maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
-                            (pescribe-velocity *sim* *load-mps* '(1d0 nil))
+                            ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
-                            (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-                                                             (cl-mpm:sim-mps *sim*)
-                                                             (cl-mpm:sim-dt *sim*)
-                                                             50d0)
+                            ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+                            ;;                                  (cl-mpm:sim-mps *sim*)
+                            ;;                                  (cl-mpm:sim-dt *sim*)
+                            ;;                                  50d0)
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
@@ -484,7 +485,7 @@
                                            :size (magicl:from-list '(1d0 1d0) '(2 1)))))
     (format t "Old")
       (time
-       (lparallel:pdotimes (i 100000)
+       (lparallel:pdotimes (i 1000)
          (let ((m (magicl:zeros '(2 2))))
          (magicl:eig m)))
       )

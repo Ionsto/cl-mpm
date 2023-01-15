@@ -13,7 +13,7 @@
 (in-package :cl-mpm/fastmath)
 
 (push :sb-simd *features*)
-#+:sb-simd
+;; #+:sb-simd
 (progn
   (require 'sb-simd)
   (declaim
