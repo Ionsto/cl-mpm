@@ -241,18 +241,13 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-viscoplastic-damage
-                 :E 1d8
+               ;'cl-mpm/particle::particle-viscoplastic-damage
+               'cl-mpm/particle::particle-viscoplastic
+                 :E 1d9
                  :nu 0.3250d0
-                 ;; :nu 0.45d0
-                 ;:viscosity 1d-5
-                 :visc-factor 1d6
+                 :visc-factor 11d6
                  :visc-power 3d0
-                 ;; :temperature 0d0
-                 ;; :heat-capacity 1d0
-                 ;; :thermal-conductivity 1d0
-                 :critical-stress 1d7
-                 ;; :mass mass
+                 ;:critical-stress 1d7
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
@@ -313,7 +308,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(000 0) (/ 1 20) 2))
+  (defparameter *sim* (setup-test-column '(2000 200) '(500 100) '(000 0) (/ 1 25) 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
@@ -323,6 +318,8 @@
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
+  (defparameter *x* 0d0)
+  (defparameter *x-pos* '())
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *run-sim* t)
@@ -387,7 +384,6 @@
     (vgplot:close-all-plots)
     (vgplot:figure)
   (sleep 1)
-  (defparameter *x-pos* '())
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
          (ms-x (first ms))
          (ms-y (second ms))
@@ -398,7 +394,13 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-    (time (loop for steps from 0 to 100
+  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
+    (format stream "Time (s),Terminus position~%")
+    (loop for tim in (reverse *time*)
+          for x in (reverse *x-pos*)
+          do (format stream "~f, ~f ~%" tim x)))
+
+  (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
@@ -406,9 +408,11 @@
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
 
                   (push *t* *time*)
-                  (push 
-                   (loop for mp across (cl-mpm:sim-mps *sim*)
-                         maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
+                  (setf *x*
+                        (loop for mp across (cl-mpm:sim-mps *sim*)
+                              maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
+                  (push
+                   *x*
                    *x-pos*)
                   (let ((max-cfl 0))
                     (time (dotimes (i 100)
@@ -425,6 +429,9 @@
                   (plot *sim*)
                   (swank.live:update-swank)
                   (sleep .01)
+                  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
+                          (format stream "~f, ~f ~%" *t* *x*)
+                    )
 
                   )))
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
@@ -433,7 +440,7 @@
     (vgplot:title "Terminus over time")
     (vgplot:plot *time* *x-pos*)
 
-  (with-open-file (stream (merge-pathnames "terminus_position.csv") :direction :output :if-exists :supersede)
+  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
@@ -484,34 +491,36 @@
   (let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle
                                            :size (magicl:from-list '(1d0 1d0) '(2 1)))))
     (format t "Old")
-      (time
-       (lparallel:pdotimes (i 1000)
-         (let ((m (magicl:zeros '(2 2))))
-         (magicl:eig m)))
-      )
-  ;; (time
-  ;;  (lparallel:pdotimes (i 100)
-  ;;    ;; (cl-mpm::iterate-over-neighbours-shape-gimp (cl-mpm:sim-mesh *sim*) mp
-  ;;    ;;                                             (lambda (m mp node w grad) (* w w)))
-  ;;    ;; (cl-mpm::calculate-strain-rate (cl-mpm:sim-mesh *sim*) mp 1d0)
-  ;;    ;(cl-mpm::update-sim *sim*)
-  ;;    (with-accessors ((mesh cl-mpm:sim-mesh)
-  ;;                     (mps cl-mpm:sim-mps)
-  ;;                     (dt cl-mpm:sim-dt))
-  ;;        *sim*
-  ;;      (cl-mpm::update-stress mesh mps dt)
-  ;;        )
-  ;;    ))
+      ;; (time
+      ;;  (let ((m (magicl:zeros '(2 2))))
+      ;;  (lparallel:pdotimes (i 100000)
+      ;;    (magicl::eighth m)))
+      ;; )
+  (time
+   (lparallel:pdotimes (i 100)
+     (with-accessors ((mesh cl-mpm:sim-mesh)
+                      (mps cl-mpm:sim-mps)
+                      (dt cl-mpm:sim-dt))
+         *sim*
+       (cl-mpm::update-stress mesh mps dt)
+         )
+     ))
     (format t "new")
     ))
-;; (let ((mesh (cl-mpm:sim-mesh *sim*))
-;;       (pos (magicl:zeros '(2 1))))
-;;   (format t "Old~%")
-;;   (time
-;;    (dotimes (i 10000000)
-;;      (cl-mpm/mesh::position-to-index mesh pos)))
-;;   (format t "new~%")
-;;   (time
-;;    (dotimes (i 10000000)
-;;      (cl-mpm/mesh::position-to-index-array mesh pos)))
-;;   )
+;(let ((stress (magicl:zeros '(3 1)))
+;      (strain (magicl:zeros '(3 1)))
+;      (de (cl-mpm/constitutive::linear-elastic-matrix 1d0 0d0))
+;      )
+;  (format t "mat")
+;  (time
+;   (dotimes (i 100000)
+;       (cl-mpm/constitutive::maxwell-exp strain stress 1d0 0d0 1d0 1d0)))
+;  (format t "voight")
+;  (time
+;   (dotimes (i 100000)
+;     (cl-mpm/constitutive::maxwell-exp-v strain stress 1d0 0d0 1d0 1d0)))
+;  (format t "simd")
+;  (time
+;   (dotimes (i 100000)
+;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
+;  )

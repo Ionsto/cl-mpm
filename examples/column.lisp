@@ -69,26 +69,27 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ (* 1 h-x h-y) (expt mp-scale 2)))
+         (density 100)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
          (block-size (list h-x (second block-size))))
     (progn
-      (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 1d0)) ))
+      (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
                                   (* h-y (+ (/ 1d0 (* 2d0 mp-scale)) )))))
         (print block-position)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
                block-size
-               (list 1 (* e-scale mp-scale (second block-size)))
+               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               ;(list 1 (* e-scale mp-scale (second block-size)))
+               density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic-fracture
-               :E 1d3 :nu 0.0d0
-               :mass mass)))
+               'cl-mpm/particle::particle-elastic
+               :E 1d6 :nu 0.0d0)))
 
       (loop for mp across (cl-mpm::sim-mps sim)
-            do (setf (cl-mpm/particle::mp-gravity mp) -9.8d0))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+            do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
+      (setf (cl-mpm:sim-damping-factor sim) 1d-3)
       (setf (cl-mpm:sim-mass-filter sim) 0d0)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -105,7 +106,7 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1 3) '(1 2) 4 2))
+  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 10) 4))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -151,19 +152,20 @@
                 do
                 (progn
                   (format t "Step ~d ~%" steps)
-                  (dotimes (i 10)
-                    ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) :type 'double-float))
-                    ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 -0.5d0) '(2 1)))
-                    ;; (break)
-                    ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
-                    ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
-                    (cl-mpm::update-sim *sim*)
-                    ;; (cl-mpm/eigenerosion:update-fracture *sim*)
-                    (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                    ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
-                    ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
-                    ;; (setf *time*     (cons *t* *time*))
-                    )
+                  (time
+                   (dotimes (i 100)
+                         ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) :type 'double-float))
+                         ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 -0.5d0) '(2 1)))
+                         ;; (break)
+                         ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                         ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
+                         (cl-mpm::update-sim *sim*)
+                         ;; (cl-mpm/eigenerosion:update-fracture *sim*)
+                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                         ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
+                         ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
+                         ;; (setf *time*     (cons *t* *time*))
+                         ))
                   (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
                   (incf *sim-step*)

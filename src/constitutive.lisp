@@ -10,7 +10,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -49,7 +49,7 @@
   (magicl:.+ stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
 
-(defun maxwell (strain-increment stress elasticity poisson-ratio viscosity dt)
+(defun maxwell (strain-increment stress elasticity poisson-ratio de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((order 2)
          (stress-matrix (voight-to-matrix stress))
@@ -62,16 +62,28 @@
     (magicl:.+ stress
                ;; (matrix-to-voight (magicl:eye 2 :value (* (/ elasticity (* 2 (+ 1 poisson-ratio) (- 1 poisson-ratio poisson-ratio))) (magicl:trace (voight-to-matrix strain-increment))) :type 'double-float))
                (magicl:.-
-                (magicl:@ (linear-elastic-matrix elasticity poisson-ratio) strain-increment)
+                (magicl:@ de strain-increment)
                 (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
                )))
+(declaim (inline voight-eye)
+         (ftype (function (double-float) magicl:matrix/double-float) voight-eye))
+(defun voight-eye (val)
+  ;(let ((arr (make-array 3 :element-type 'double-float :initial-contents (list val val 0d0))))
+  ;  (magicl:from-array arr '(3 1) :layout :column-major))
+  (magicl:from-array (make-array 3 :element-type 'double-float :initial-contents (list val val 0d0))
+                     '(3 1) :layout :column-major)
+  )
+(declaim (inline voight-trace)
+         (ftype (function (magicl:matrix/double-float) double-float) voight-trace))
+(defun voight-trace (m)
+  (+ (the double-float (magicl:tref m 0 0)) (the double-float (magicl:tref m 1 0))))
 (defun maxwell-exp (strain-increment stress elasticity nu viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((order 2)
+  (let* (
          (stress-matrix (voight-to-matrix stress))
          (pressure (/ (magicl:trace stress-matrix) 2d0))
          (pressure-matrix (magicl:eye 2 :value pressure))
-         ;; (viscosity-matrix (magicl:eye 3 :value (/ elasticity viscosity)))
+
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
          (rho (/ (* 2 (- 1 nu) viscosity) elasticity))
          (exp-rho (exp (- (/ dt rho))))
@@ -83,17 +95,58 @@
     (magicl:.+
      (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
                (magicl:.+ (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
-                          (magicl:scale! (matrix-to-voight stress-inc-dev) lam)
-                          )
-               )
-    ;; (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
-    ;; (magicl:.- (magicl:@ (linear-elastic-matrix elasticity 0.33d0) strain-increment)
-    ;;                                     ;(magicl:scale stress (/ (* dt elasticity) viscosity))
-    ;;            ;; (magicl:scale (magicl:@ viscosity-matrix (matrix-to-voight dev-stress)) dt)
-    ;;            ;; (magicl:scale stress (/ (* dt elasticity) viscosity))
-    ;;            (magicl:zeros '(3 1))
-    ;;            ))
+                          (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
+
+(defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
+  "A stress increment form of a viscoelastic maxwell material"
+  (let* (
+         (pressure (/ (voight-trace stress) 2d0))
+         (pressure-matrix (voight-eye pressure))
+         (dev-stress (magicl:.- stress pressure-matrix))
+         (rho (/ (* 2d0 (- 1d0 nu) viscosity) elasticity))
+         (exp-rho (exp (- (/ dt rho))))
+         (lam (* (- 1 exp-rho) (/ rho dt)))
+         (stress-inc (magicl:@ (linear-elastic-matrix elasticity nu) strain-increment))
+         (stress-inc-pressure (voight-eye (/ (voight-trace stress-inc) 2d0)))
+         (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure))
+         )
+    (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
+    ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
+     (magicl:.+
+      (magicl:.+ pressure-matrix stress-inc-pressure result-stress)
+      (magicl:.+ (magicl:scale! dev-stress exp-rho)
+                 (magicl:scale! stress-inc-dev lam) result-stress))
   ))
+
+(defun maxwell-exp-v-simd (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
+  "A stress increment form of a viscoelastic maxwell material"
+  (let* (
+         (pressure (/ (voight-trace stress) 2d0))
+         (pressure-matrix (voight-eye pressure))
+         (dev-stress (magicl:.- stress pressure-matrix))
+         (rho (/ (* 2d0 (- 1d0 nu) viscosity) elasticity))
+         (exp-rho (exp (- (/ dt rho))))
+         (lam (* (- 1 exp-rho) (/ rho dt)))
+         (stress-inc (magicl:@ de strain-increment))
+         (stress-inc-pressure (voight-eye (/ (voight-trace stress-inc) 2d0)))
+         (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure))
+         (result-stress (unless result-stress
+                          (magicl:from-array (make-array 3 :element-type 'double-float :initial-element 0d0) '(3 1) :layout :column-major))))
+    (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
+    (declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
+    (cl-mpm/fastmath:fast-add result-stress pressure-matrix)
+    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmath:fast-fmacc result-stress dev-stress exp-rho)
+    (cl-mpm/fastmath:fast-fmacc result-stress stress-inc-dev lam)
+    result-stress
+    ;; (magicl:.+
+    ;;  (magicl:.+ pressure-matrix stress-inc-pressure result-stress)
+    ;;  (magicl:.+ (magicl:scale! dev-stress exp-rho)
+    ;;             (magicl:scale! stress-inc-dev lam) result-stress))
+  ))
+
 (defun norton-hoff (strain-increment stress youngs-modulus poisson-ratio visc-factor visc-power dt vorticity)
   "A stress of a viscoplastic norton-off material"
   (let* ((order 3)
@@ -106,8 +159,7 @@
                                                         (expt (magicl::sum (magicl:.* dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
-                                                              (* 0.5 (- visc-power 1))))))
-         )
+                                                              (* 0.5 (- visc-power 1)))))))
     (magicl:.+ stress
                (magicl:.-
                 ;;I think this is correct but not sure
@@ -178,7 +230,7 @@
          (strain-trace (/ (the double-float (magicl:trace strain-matrix)) 2d0))
          (dev-strain (matrix-to-voight (magicl:.- strain-matrix (magicl:eye 2 :value (the double-float strain-trace)))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
-         (effective-strain (+ 1d-14 (magicl::sum (magicl:.* dev-strain dev-strain second-invar))))
+         (effective-strain (+ 1d-14 (magicl::sum (magicl:.* strain strain second-invar))))
          )
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)

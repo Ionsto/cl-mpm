@@ -137,10 +137,12 @@
 (defun calculate-damage (mesh mps dt len)
     (create-delocalisation-list mesh mps len)
     (lparallel:pdotimes (i (length mps))
-      (calculate-damage-increment (aref mps i) dt))
+      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+        (calculate-damage-increment (aref mps i) dt)))
     (delocalise-damage mesh mps dt len)
     (lparallel:pdotimes (i (length mps))
-      (apply-damage (aref mps i) dt)))
+      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+        (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
         mesh
@@ -149,11 +151,12 @@
           (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
     (lparallel:pdotimes (i (length mps))
       (let ((mp (aref mps i)))
+        (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
             (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
               (when (cl-mpm/mesh:in-bounds mesh node-id)
                 (let ((node (cl-mpm/mesh:get-node mesh node-id)))
                 (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-                  (vector-push-extend mp (cl-mpm/mesh::node-local-list node))))))))
+                  (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))))
     (lparallel:pdotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
@@ -249,16 +252,11 @@
       (setf damage-inc (/ damage-inc
                           mass-total)))))
 (defun delocalise-damage (mesh mps dt len)
-  ;; Move local damage into own temporary
-  ;; (lparallel:pdotimes (i (length mps)) 
-  ;;   (let ((mp (aref mps i)))
-  ;;     (with-accessors ((damage cl-mpm/particle::mp-damage)
-  ;;                      (local-damage cl-mpm/particle::mp-local-damage))
-  ;;         mp
-  ;;       (setf local-damage damage))))
+  ;; Calculate the delocalised damage for each damage particle
   (lparallel:pdotimes (i (length mps)) 
     (let ((mp (aref mps i)))
-      (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment))
-          mp
-        (setf damage-inc (calculate-delocalised-damage mesh mp len))
-        ))))
+      (when (typep mp 'cl-mpm/particle:particle-damage)
+        (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment))
+            mp
+          (setf damage-inc (calculate-delocalised-damage mesh mp len))
+          )))))
