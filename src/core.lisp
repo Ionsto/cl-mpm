@@ -228,12 +228,40 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
+  (if (cl-mpm/particle::mp-cached-nodes mp)
+     (iterate-over-neighbours-cached mesh mp func)
+     (create-node-cache mesh mp)
+     )
   ;; (iterate-over-neighbours-shape-bspline mesh mp func)
   ;;(iterate-over-neighbours-shape-linear mesh mp func)
-  (iterate-over-neighbours-shape-gimp mesh mp func)
+  ;; (iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
   (values)
   )
+
+(defun create-node-cache (mesh mp)
+  (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
+      mp
+      (iterate-over-neighbours-shape-gimp
+       mesh mp
+       (lambda (mesh mp node svp grads)
+         (push
+          (cl-mpm/particle::make-node-cache
+           :node node
+           :weight svp
+           :grads grads)
+          nodes
+          )))))
+
+(defun iterate-over-neighbours-cached (mesh mp func)
+  (declare (function func))
+  "If a node iteration cache has been generated we loop over the data list"
+  (loop for nc in (cl-mpm/particle::mp-cached-nodes mp)
+        do
+         (funcall func mesh mp
+                  (cl-mpm/particle::node-cache-node nc)
+                  (cl-mpm/particle::node-cache-weight nc)
+                  (cl-mpm/particle::node-cache-grads nc))))
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -256,9 +284,7 @@
                               (grads (apply (cl-mpm/shape-function::dsvp shape-func) dist))) 
                          (funcall func mesh mp node weight (cl-mpm/shape-function::assemble-dsvp nd grads) grads))))))))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/shape-function::shape-function-bspline shape-func)
+(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func) (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/shape-function::shape-function-bspline shape-func)
            (cl-mpm/particle:particle mp))
   (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
          (h (cl-mpm/mesh:mesh-resolution mesh))
@@ -799,10 +825,12 @@
   (with-accessors ((vel cl-mpm/particle:mp-velocity)
                    (pos cl-mpm/particle:mp-position)
                    (disp cl-mpm/particle::mp-displacement)
+                   (nc cl-mpm/particle::mp-cached-nodes)
                    ) mp
       (progn
         (setf pos (magicl:.+ pos (magicl:scale vel dt)))
         (setf disp (magicl:.+ disp (magicl:scale vel dt)))
+        (setf nc '())
         ;; (.+ disp (magicl:scale vel dt) disp)
         )))
 

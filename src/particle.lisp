@@ -30,6 +30,11 @@
 (in-package :cl-mpm/particle)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(defstruct node-cache
+  node
+  weight
+  grads)
+
 (defclass particle ()
   ((mass
      :accessor mp-mass
@@ -128,6 +133,10 @@
     :accessor mp-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(2 1)))
+   (cached-nodes
+    :accessor mp-cached-nodes
+    :initform '()
+    )
    )
   (:documentation "A single material point"))
 
