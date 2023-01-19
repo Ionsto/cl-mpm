@@ -812,10 +812,13 @@
 ;;      (update-particle-mp (aref mps i) dt)))
 
 ;Could include this in p2g but idk
+(declaim (inline calculate-strain-rate)
+         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
+                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    ) mp
         (progn
           (magicl:scale! strain-rate 0d0)
@@ -826,10 +829,12 @@
                                    (node-mass cl-mpm/mesh:node-mass)
                                    )
                       node
+                    (declare (double-float node-mass))
                     (when (> node-mass 0d0)
                       (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
                       (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)))
                   ))
+            (setf velocity-rate (magicl:scale velocity-rate 1d0))
             (magicl:scale! strain-rate dt)
             (magicl:scale! vorticity dt)
             )))
@@ -914,7 +919,7 @@
                                (matrix-to-voight
                                 (magicl:@ vf
                                           (magicl:from-diag (mapcar (lambda (x)
-                                                                      (log x)) lf)
+                                                                      (log (the double-float x))) lf)
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
                               0.5d0)))))
@@ -930,7 +935,7 @@
             (let ((stretch
                     (magicl:@
                      v
-                     (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
+                     (magicl:from-diag (mapcar (lambda (x) (sqrt (the double-float x))) l) :type 'double-float)
                      (magicl:transpose v))))
               (declare (type magicl:matrix/double-float stretch))
               ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
