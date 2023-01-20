@@ -422,7 +422,7 @@
           )
       ;; stress
       (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp strain-rate stress E nu de viscosity dt)
+          (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
           ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
           ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
           (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
