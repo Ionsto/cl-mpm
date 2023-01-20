@@ -212,13 +212,13 @@
                 t t t t))
         (knots ;'(0 0 0 1 2 3 4)
                ;; '(0 0 0 0 0.5d0 1.5d0 2.5d0 3.5d0) 
-               ;(-3.5d0 -2.5d0 -1.5d0 -0.5d0 0.5d0 1.5d0 2.5d0 3.5d0)
+               '(-3.5d0 -2.5d0 -1.5d0 -0.5d0 0.5d0 1.5d0 2.5d0 3.5d0)
                )
         )
     (print (cl-mpm/shape-function::make-bspline-knots nodes 1d0))
     (print (cl-mpm/shape-function::make-bspline-knots '(t t t t t t t t t) 1d0))
-    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::bspline knots x 1 2)) x) ""
-                 x (mapcar (lambda (x) (cl-mpm/shape-function::bspline-dsvp knots x 2 2)) x) "")
+    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::bspline knots x 2 2)) x) ""
+                 x (mapcar (lambda (x) (cl-mpm/shape-function::bspline-dsvp knots x 3 2)) x) "")
     ;; (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline nodes x 0 1d0)) x) ""
     ;;              x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline-dsvp nodes x 1 1d0)) x)) ""
     ))

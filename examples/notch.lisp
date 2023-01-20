@@ -436,7 +436,7 @@
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
-                            (remove-sdf *sim* (ellipse-sdf (list 200 195) *notch-position* 5))
+                            (remove-sdf *sim* (ellipse-sdf (list 200 197) *notch-position* 5))
                             (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                             ;;                                  (cl-mpm:sim-mps *sim*)
