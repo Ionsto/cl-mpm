@@ -188,9 +188,11 @@
                      (make-half-knots (nreverse (subseq nodes 0 (+ 1 mid-node-id))) (- h))
                      ))))
 (defun nodal-bspline (nodes eta node h)
-    (bspline (make-bspline-knots nodes h) eta (+ node 2) 2))
+  (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
 (defun nodal-bspline-dsvp (nodes eta node h)
-  (bspline-dsvp (make-bspline-knots nodes h) eta (+ node 2) 2))
+  (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
 
 (defmacro create-svp (arg form)
   `(lambda (,arg) ,form))
@@ -199,7 +201,45 @@
   (let ((dx (symbolic-derivation:derive arg form)))
     `(lambda (,arg) ,dx)))
 
-
+(defun test-bspline ()
+  (let ((x (loop for x from -3 upto 3 by 0.01 collect x))
+        (nodal-mask
+          '(nil nil nil t
+            t
+            t t t t)
+          )
+        )
+    (vgplot:figure)
+    (vgplot:plot
+       x
+       (mapcar
+        (lambda (i)
+          (nodal-bspline-dsvp nodal-mask i 0 1d0)) x) "node 0"
+          x
+          (mapcar
+           (lambda (i)
+             (nodal-bspline-dsvp nodal-mask i 1 1d0)) x) "node 1"
+             x
+             (mapcar
+              (lambda (i)
+                (nodal-bspline-dsvp nodal-mask i -1 1d0)) x) "node -1"
+       ;; x
+       ;; (mapcar
+       ;;  (lambda (i)
+       ;;    (nodal-bspline nodal-mask i -1 1d0)) x) "node -1"
+       ;; x
+       ;; (mapcar
+       ;;  (lambda (i)
+       ;;    (nodal-bspline nodal-mask i 1 1d0)) x) "node 1"
+       ;; x
+       ;; (mapcar
+       ;;  (lambda (i)
+       ;;    (nodal-bspline nodal-mask i -2 1d0)) x) "node -2"
+       ;; x
+       ;; (mapcar
+       ;;  (lambda (i)
+       ;;    (nodal-bspline nodal-mask i 2 1d0)) x) "node 2"
+    )))
 
 (defun svp-1d (svp dsvp)
   svp)

@@ -75,6 +75,22 @@
     :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))
 
+(defclass cell ()
+  ((index
+    :accessor cell-index
+    :initarg :index)
+   (position
+    :accessor cell-position
+    :initarg :position
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(1 1) :type 'double-float))
+   (deformation-gradient
+       :accessor cell-deformation-gradient
+       :initarg :position
+       :type MAGICL:MATRIX/DOUBLE-FLOAT
+       :initform (magicl:zeros '(2 2) :type 'double-float)))
+   )
+
 (defclass node-fracture (node)
   ((strain-energy-density
      :accessor node-strain-energy-density

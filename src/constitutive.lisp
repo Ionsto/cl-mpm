@@ -123,10 +123,9 @@
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
      (magicl:.+
-      (magicl:.+ pressure-matrix stress-inc-pressure result-stress)
+      (magicl:.+ pressure-matrix stress-inc-pressure)
       (magicl:.+ (magicl:scale! dev-stress exp-rho)
-                 (magicl:scale! stress-inc-dev lam) result-stress))
-  ))
+                 (magicl:scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
                            magicl:matrix/double-float
@@ -138,7 +137,7 @@
                            &optional
                            result-stress
                            )) maxwell-exp-v-simd))
-(defun maxwell-exp-v-simd (strain-increment stress elasticity nu de viscosity dt &optional result-stress)
+(defun maxwell-exp-v-simd (strain-increment stress elasticity nu de viscosity dt &optional (result-stress nil))
   "A stress increment form of a viscoelastic maxwell material"
   (let* (
          (pressure (/ (voight-trace stress) 2d0))
@@ -247,7 +246,7 @@
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) (values double-float)) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
-  (let* ((effective-strain (+ 1d-14 (cl-mpm/fastmath::voigt-tensor-reduce-simd strain))))
+  (let* ((effective-strain (+ 1d-30 (cl-mpm/fastmath::voigt-tensor-reduce-simd strain))))
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))

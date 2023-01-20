@@ -193,16 +193,19 @@
                     (reset-grid mesh)
                     ;; Map momentum to grid
                     (p2g mesh mps)
+                    ;;Reset nodes below our mass-filter
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
-                    ;;Reset nodes below our mass-filter
                     (apply-bcs mesh bcs-force dt)
+                    ;;Turn momentum into velocity
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
+                    ;;Update our nodes after force mapping
                     (update-node-forces mesh (sim-damping-factor sim) dt)
                     (apply-bcs mesh bcs dt)
+                    ;;Grid to particle mapping
                     (g2p mesh mps dt)
-                    ;;2nd round of momentum mapping?
+                    ;;2nd round of momentum mapping
                     (reset-grid mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
@@ -228,10 +231,10 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-   (if (cl-mpm/particle::mp-cached-nodes mp)
-      (iterate-over-neighbours-cached mesh mp func)
+   (unless (cl-mpm/particle::mp-cached-nodes mp)
       (create-node-cache mesh mp)
       )
+  (iterate-over-neighbours-cached mesh mp func)
   ;; (iterate-over-neighbours-shape-bspline mesh mp func)
   ;;(iterate-over-neighbours-shape-linear mesh mp func)
   ;(iterate-over-neighbours-shape-gimp mesh mp func)
@@ -416,6 +419,16 @@
                                 )))))
         ))))
 
+(defun make-knot-list (mesh pos)
+  (list
+    (loop for dy from -1 to 1
+          collect
+          (loop for dx from -4 to 4
+                collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos (list dx dy)))))
+    (loop for dx from -1 to 1
+          collect
+          (loop for dy from -4 to 4
+                collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos (list dx dy)))))))
 (declaim (inline iterate-over-neighbours-shape-bspline))
 (defun iterate-over-neighbours-shape-bspline (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -431,29 +444,32 @@
                              (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 2 -2)))
                              (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list -2 2)))
                              ))))
-      (if nil ;border
+      (if border
           (let (
-                (knots-x
-                  (loop for dy from -1 to 1
-                        collect
-                        (loop for dx from -4 to 4
-                              collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
-                (knots-y
-                  (loop for dx from -1 to 1
-                        collect
-                        (loop for dy from -4 to 4
-                              collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
+                ;; (knots-x
+                ;;   (loop for dy from -1 to 1
+                ;;         collect
+                ;;         (loop for dx from -4 to 4
+                ;;                          collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
+                ;; (knots-y
+                ;;   (loop for dx from -1 to 1
+                ;;         collect
+                ;;         (loop for dy from -4 to 4
+                ;;               collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx dy))))))
                 )
             (loop for dx from -1 to 1
                   do (loop for dy from -1 to 1
                            do (let* ((id (mapcar #'+ pos-index (list dx dy))))
                                 (when (cl-mpm/mesh:in-bounds mesh id)
                                   ;; Ill defined bspline
-                                  (when (and (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 0 dy)))
-                                             (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx 0)))
-                                             )
-                                    (let* ((knot-list (list (nth (+ dy 1) knots-x)
-                                                            (nth (+ dx 1) knots-y)))
+                                  (when t
+                                      ;; (and (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 0 dy)))
+                                      ;;        (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list dx 0)))
+                                      ;;        )
+                                    (let* (
+                                           ;; (knot-list (list (nth (+ dy 1) knots-x)
+                                           ;;                  (nth (+ dx 1) knots-y)))
+                                           (knot-list (make-knot-list mesh id))
                                            (local-id-list (list (+ dx 0) (+ dy 0)))
                                            (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh pos-index)))
                                            (node (cl-mpm/mesh:get-node mesh id))
@@ -752,8 +768,8 @@
                       (magicl:.- force
                                  (magicl:scale vel (* mass damping)))
                      (/ 1.0 mass)))
-          ;(setf vel (magicl:.+ (magicl:scale! vel (- 1d0 damping)) (magicl:scale acc dt)))
-          (setf vel (magicl:.+ vel (magicl:scale acc dt)))
+          ;; (setf vel (magicl:.+ (magicl:scale! vel (- 1d0 damping)) (magicl:scale acc dt)))
+          ;; (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           ))))
 
 (defun iterate-over-nodes (mesh func)
