@@ -160,7 +160,7 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
@@ -191,7 +191,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 4)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 2)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (defparameter *velocity* '())
@@ -421,3 +421,7 @@
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
+
+(defun time-sim ()
+  (time-form
+   (cl-mpm::update-sim *sim*) 1000))

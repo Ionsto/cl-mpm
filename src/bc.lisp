@@ -105,7 +105,7 @@
     (loop for d from 0 to (length value)
             do (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
-                 (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
+                 ;; (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
                  ))))
 
 
@@ -194,9 +194,9 @@
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
       bc
-    (setf (cl-mpm/mesh:node-force node) (magicl:.+ (cl-mpm/mesh:node-force node)
-                                                 (magicl:scale (bc-force bc) (cl-mpm/mesh::node-volume node))
-                                                 ))))
+    (setf (cl-mpm/mesh:node-force node)
+          (magicl:.+ (cl-mpm/mesh:node-force node)
+                     (magicl:scale (bc-force bc) (cl-mpm/mesh::node-volume node))))))
 (defclass bc-volume (bc)
   ((index
      :accessor bc-index

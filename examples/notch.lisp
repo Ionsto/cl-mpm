@@ -1,10 +1,10 @@
-(defpackage :cl-mpm/examples/slump
+(defpackage :cl-mpm/examples/notch
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;(setf *block-compile-default* t)
-(in-package :cl-mpm/examples/slump)
+(in-package :cl-mpm/examples/notch)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 
@@ -247,22 +247,23 @@
                density
                'cl-mpm::make-particle
                ;'cl-mpm/particle::particle-viscoplastic-damage
-               'cl-mpm/particle::particle-viscoplastic
-                ;; 'cl-mpm/particle::particle-elastic
-                 :E 1d9
+               ;; 'cl-mpm/particle::particle-viscoplastic
+                'cl-mpm/particle::particle-elastic-damage
+                 :E 1d8
                  :nu 0.3250d0
-                 :visc-factor 1d6
-                 :visc-power 3d0
-                 ;:critical-stress 1d7
+                 ;; :visc-factor 1d6
+                 ;; :visc-power 3d0
+                 :critical-stress 1d7
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-2) ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
+      (setf (cl-mpm:sim-dt sim) 1d-3)
+      ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;        (cl-mpm/bc::make-outside-bc-var
@@ -290,7 +291,7 @@
             (append
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
@@ -310,11 +311,20 @@
              ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
              )
             )
+      (let ((ocean-x 0)
+            (ocean-y 200))
+        (setf (cl-mpm::sim-bcs-force sim)
+              (loop for x from (floor ocean-x h) to (floor (first size) h)
+                    append (loop for y from 0 to (floor ocean-y h)
+                                 collect (cl-mpm/bc::make-bc-buoyancy
+                                          (list x y)
+                                          (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))
+        )
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(000 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(300 300) '(200 100) '(0 120) (/ 1 10) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
@@ -405,7 +415,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-
+  (defparameter *notch-position* 0.1d0)
   (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
@@ -426,6 +436,8 @@
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
+                            (remove-sdf *sim* (ellipse-sdf (list 200 195) *notch-position* 5))
+                            (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                             ;;                                  (cl-mpm:sim-mps *sim*)
                             ;;                                  (cl-mpm:sim-dt *sim*)

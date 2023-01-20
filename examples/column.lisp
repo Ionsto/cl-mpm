@@ -89,7 +89,7 @@
 
       (loop for mp across (cl-mpm::sim-mps sim)
             do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 1d-3)
+      (setf (cl-mpm:sim-damping-factor sim) 1d0)
       (setf (cl-mpm:sim-mass-filter sim) 0d0)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -203,3 +203,22 @@
 (defun update-strain (f strain)
   (let ((df (magicl:.+ (magicl:eye 2) (cl-mpm::voight-to-matrix strain))))
     (magicl:@ df f)))
+
+(defun test-bspline ()
+  (vgplot:figure)
+  (let ((x (loop for x from -3 upto 3 by 0.01 collect x))
+        (nodes '(nil nil nil nil
+                t
+                t t t t))
+        (knots ;'(0 0 0 1 2 3 4)
+               ;; '(0 0 0 0 0.5d0 1.5d0 2.5d0 3.5d0) 
+               ;(-3.5d0 -2.5d0 -1.5d0 -0.5d0 0.5d0 1.5d0 2.5d0 3.5d0)
+               )
+        )
+    (print (cl-mpm/shape-function::make-bspline-knots nodes 1d0))
+    (print (cl-mpm/shape-function::make-bspline-knots '(t t t t t t t t t) 1d0))
+    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::bspline knots x 1 2)) x) ""
+                 x (mapcar (lambda (x) (cl-mpm/shape-function::bspline-dsvp knots x 2 2)) x) "")
+    ;; (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline nodes x 0 1d0)) x) ""
+    ;;              x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline-dsvp nodes x 1 1d0)) x)) ""
+    ))

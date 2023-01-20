@@ -73,7 +73,7 @@
   (:documentation "Explicit simulation with update stress last update"))
 
 (defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim))
-  (make-instance 'mpm-sim-usl
+  (make-instance 'mpm-sim-usf
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
@@ -155,7 +155,7 @@
                       (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
-                    (apply-bcs mesh bcs-force dt)
+                    ;; (apply-bcs mesh bcs-force dt)
                     (update-stress mesh mps dt)
                     ;(cl-mpm/damage::calculate-damage mesh
                     ;                                 mps
@@ -168,10 +168,9 @@
                     (apply-bcs mesh bcs dt)
                     ;;Also updates mps inline
                     (g2p mesh mps dt)
-                    ;; (update-particle mps dt)
-                    ;;Update stress last
+
                     (when remove-damage
-                      (remove-material-damaged sim))
+                    (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
                     (check-mps mps)
@@ -196,12 +195,13 @@
                     ;;Reset nodes below our mass-filter
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
-                    (apply-bcs mesh bcs-force dt)
                     ;;Turn momentum into velocity
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
+                    (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
                     (update-node-forces mesh (sim-damping-factor sim) dt)
+
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
                     (g2p mesh mps dt)
@@ -214,6 +214,10 @@
                     (apply-bcs mesh bcs dt)
                     ;;Update stress last
                     (update-stress mesh mps dt)
+                    (cl-mpm/damage::calculate-damage mesh
+                                                     mps
+                                                     dt
+                                                     25d0)
 
                     (when remove-damage
                       (remove-material-damaged sim))
@@ -712,12 +716,12 @@
         (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
         (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
         ;;FLIP
-        (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
+        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-2))
         ;;PIC
-        ;; (loop for i from 0 to 1
-        ;;      do (setf (magicl:tref vel i 0) (aref mapped-vel i)))
+        (loop for i from 0 to 1
+             do (setf (magicl:tref vel i 0) (aref mapped-vel i)))
         ;;(setf (magicl::storage vel) mapped-vel)
         ;; (update-domain mesh mp dt)
         )
@@ -769,7 +773,7 @@
                                  (magicl:scale vel (* mass damping)))
                      (/ 1.0 mass)))
           ;; (setf vel (magicl:.+ (magicl:scale! vel (- 1d0 damping)) (magicl:scale acc dt)))
-          ;; (setf vel (magicl:.+ vel (magicl:scale acc dt)))
+          (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           ))))
 
 (defun iterate-over-nodes (mesh func)

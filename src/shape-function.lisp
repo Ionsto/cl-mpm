@@ -137,7 +137,9 @@
            0)
        )))
 (defun bspline-dsvp (knots eta index poly)
-  (let ((dsvp-knots (cdr (butlast knots)))
+  (let ((dsvp-knots knots
+                   ; (cdr (butlast knots))
+                    )
         (index (- index 1)))
     (-
      (let ((kpi (nth (+ poly index) knots))
@@ -152,6 +154,16 @@
            (* (/ poly (- kpi ki))
               (bspline dsvp-knots eta (+ 1 index) (- poly 1)))
            0))
+     )))
+(defun bspline-dsvp (knots eta index poly)
+  (let ((dsvp-knots (cdr (butlast knots)))
+        (index-t (- index 1)))
+     (let ((kpi (nth (+ poly index 1) knots))
+           (ki (nth (+ 1 index) knots)))
+       (if (/= kpi ki)
+           (* (/ poly (- kpi ki))
+              (bspline dsvp-knots eta (+ 0 index) (- poly 1)))
+           0)
      )))
 (defun make-half-knots (nodes inc)
   (loop for n in nodes
@@ -192,6 +204,10 @@
   (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
 (defun nodal-bspline-dsvp (nodes eta node h)
   (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  (unless (nth 3 nodes)
+    (incf node 1))
+  (unless (nth 5 nodes)
+    (incf node -1))
   (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
 
 (defmacro create-svp (arg form)
