@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/notch
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/notch)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -311,20 +311,27 @@
              ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
              )
             )
-      (let ((ocean-x 0)
-            (ocean-y 200))
-        (setf (cl-mpm::sim-bcs-force sim)
-              (loop for x from (floor ocean-x h) to (floor (first size) h)
-                    append (loop for y from 0 to (floor ocean-y h)
-                                 collect (cl-mpm/bc::make-bc-buoyancy
-                                          (list x y)
-                                          (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))
-        )
+      (setf (cl-mpm::sim-bcs-force sim)
+            (list (cl-mpm/bc::make-bc-closure '(0 0)
+                                              (lambda ()
+                                                (cl-mpm/buoyancy::apply-bouyancy (cl-mpm:sim-mesh sim)
+                                                                                 (cl-mpm:sim-mps sim))
+                                                ))))
+
+      ;; (LETuUu ((ocean-x 0)
+      ;;       (ocean-y 200))
+      ;;   (setf (cl-mpm::sim-bcs-force sim)
+      ;;         (loop for x from (floor ocean-x h) to (floor (first size) h)
+      ;;               append (loop for y from 0 to (floor ocean-y h)
+      ;;                            collect (cl-mpm/bc::make-bc-buoyancy
+      ;;                                     (list x y)
+      ;;                                     (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))
+      ;;   )
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(300 300) '(200 100) '(0 120) (/ 1 10) 2))
+  (defparameter *sim* (setup-test-column '(300 300) '(200 100) '(0 120) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
@@ -416,7 +423,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (time (loop for steps from 0 to 100
+  (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                 (progn
@@ -431,7 +438,7 @@
                    *x*
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 1)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))

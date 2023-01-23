@@ -161,6 +161,7 @@
                     ;                                 mps
                     ;                                 dt
                     ;                                 50d0)
+                    (apply-bcs mesh bcs-force dt)
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (update-node-forces mesh (sim-damping-factor sim) dt)
@@ -688,8 +689,9 @@
                    (vorticity cl-mpm/particle:mp-vorticity)
                    )
     mp
-    (let ((mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
-          (mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float)))
+    (let* ((mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
+          (mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
+          (mapped-vel-mat (magicl::from-storage mapped-vel '(2 1))))
       (progn
         ;; (magicl:scale! vel 0d0)
         ;; (reset-mps-g2p mp)
@@ -705,16 +707,28 @@
          (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                           (node-acc cl-mpm/mesh:node-acceleration)
                           ) node
-           (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
-           (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp)
+           #+:sb-simd
+           (progn
+             (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
+             (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp))
+           #-:sb-simd
+           (cl-mpm/fastmath::fast-fmacc
+            mapped-vel-mat node-vel  svp)
+           ;; (cl-mpm/fastmath::fast-fmacc
+           ;;  (magicl::from-storage mapped-acc '(2 1))
+           ;;  node-acc svp)
+           ;)
+
            ;; (fast-fmacc vel node-vel svp)
            )
          ;; (g2p-mp-node mp node svp grads)
          ))
       ;;Update particle
       (progn
-        (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
-        (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
+        (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
+        (cl-mpm/fastmath:fast-fmacc disp mapped-vel-mat dt)
+        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
+        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
         ;;FLIP
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;Direct velocity damping

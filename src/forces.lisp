@@ -68,6 +68,7 @@
            ;; (g-s (magicl::storage (magicl:scale gravity-axis gravity)))
            )
       (declare (type (simple-array double-float *) f-s b-s))
+      ;;Manually unrolled
       (incf (aref f-s 0)
             (* (aref b-s 0) mass svp))
       (incf (aref f-s 1)

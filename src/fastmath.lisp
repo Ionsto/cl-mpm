@@ -12,8 +12,8 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/fastmath)
 
-(push :sb-simd *features*)
-;; #+:sb-simd
+;(push :sb-simd *features*)
+#+:sb-simd
 (progn
   (require 'sb-simd)
   (declaim

@@ -162,7 +162,8 @@
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
           (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
 
-#- :sb-simd (progn
+#- :sb-simd
+(progn
   (declaim
    (inline diff-squared)
    (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))

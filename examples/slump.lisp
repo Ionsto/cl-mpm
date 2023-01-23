@@ -249,16 +249,16 @@
                ;'cl-mpm/particle::particle-viscoplastic-damage
                'cl-mpm/particle::particle-viscoplastic
                 ;; 'cl-mpm/particle::particle-elastic
-                 :E 1d9
-                 :nu 0.3250d0
-                 :visc-factor 1d6
+                 :E 1d8
+                 :nu 0.4900d0
+                 :visc-factor 0.1d6
                  :visc-power 3d0
                  ;:critical-stress 1d7
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -314,7 +314,7 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(000 0) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(1000 200) '(500 100) '(000 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
@@ -421,7 +421,7 @@
                    *x*
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1000)
+                    (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))

@@ -25,7 +25,7 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass node ()
   ((active
@@ -79,14 +79,26 @@
   ((index
     :accessor cell-index
     :initarg :index)
-   (position
-    :accessor cell-position
-    :initarg :position
+   (nodes
+    :accessor cell-nodes
+    :initarg :nodes
+    :type list
+    :initform '())
+   (mp-count
+    :accessor cell-mp-count
+    :initform 0)
+   (volume
+    :accessor cell-volume
+    :initarg :volume
+    :initform 0d0
+    :type double-float)
+   (centroid
+    :accessor cell-centroid
+    :initarg :centroid
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(1 1) :type 'double-float))
    (deformation-gradient
        :accessor cell-deformation-gradient
-       :initarg :position
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (magicl:zeros '(2 2) :type 'double-float)))
    )
@@ -126,6 +138,9 @@
     (nodes
       :accessor mesh-nodes
       :initarg :nodes)
+    (cells
+      :accessor mesh-cells
+      :initarg :cells)
     (shape-func
       :accessor mesh-shape-func
       :initarg :shape-func)
@@ -157,6 +172,37 @@
                           collect (make-node (list x y)
                                              (magicl:from-list (index-to-position mesh (list x y)) '(2 1)))))))
 
+(defun cell-calculate-centroid (nodes)
+  (let ((centroid (magicl:zeros '(2 1))))
+    (loop for node in nodes
+          do
+             (magicl:.+ centroid (node-position node) centroid))
+    (magicl:scale centroid 1/4)))
+(defun make-cell (mesh index)
+  ;;Get local nodes
+  (let ((h (mesh-resolution mesh)))
+    (let* ((nodes (loop for x from 0 to 1
+                        append
+                        (loop for y from 0 to 1
+                              collect
+                              (get-node mesh (mapcar #'+
+                                                     index
+                                                     (list x y))))))
+           (centroid (cell-calculate-centroid nodes)))
+      (make-instance 'cell
+                     :index index
+                     :nodes nodes
+                     :centroid centroid
+                     :volume (* h h)
+                     ))))
+(defun make-cells (mesh size)
+  "Make a 2d mesh of specific size"
+  (make-array (mapcar #'- size '(1 1)) :initial-contents 
+      (loop for x from 0 to (- (nth 0 size) 2)
+            collect (loop for y from 0 to (- (nth 1 size) 2)
+                          collect (make-cell
+                                   mesh
+                                   (list x y))))))
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
@@ -175,6 +221,7 @@
                               :boundary-order boundary-order
                               )))
       (setf (mesh-nodes mesh) (make-nodes mesh meshcount))
+      (setf (mesh-cells mesh) (make-cells mesh meshcount))
       mesh)))
 
 (defun query-boundary-shapes (mesh index)
@@ -253,9 +300,16 @@
                              (apply #'aref (mesh-nodes mesh) pos)
                              (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref (mesh-nodes mesh) pos)))
-  ;; (if (in-bounds mesh pos)
-  ;;     (apply #'aref (mesh-nodes mesh) pos)
-  ;;   (error (format nil "Access grid out of bounds at: ~a" pos))))
+
+(declaim (inline get-cell)
+         (ftype (function (mesh list) cell) get-cell))
+(defun get-cell (mesh pos)
+  "Check bounds and get cell"
+  (policy-cond:policy-if (> safety speed)
+                         (if (in-bounds mesh pos)
+                             (apply #'aref (mesh-cells mesh) pos)
+                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                         (apply #'aref (mesh-nodes mesh) pos)))
 
 (defgeneric node-g2p (mp node svp dsvp grads)
   (:documentation "G2P behaviour for specific nodes"))
@@ -300,4 +354,27 @@
     (setf dtemp 0d0))
   (call-next-method))
 
+
+(defun cell-iterate-over-neighbours (mesh cell func)
+  (declare (function func))
+  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+    (with-accessors ((nodes cell-nodes)
+                     (centroid cell-centroid))
+        cell
+      (loop for node in nodes
+            do
+               (with-accessors ((n-pos node-position))
+                   node
+                 (let* ((dist-vec (magicl:.- centroid n-pos))
+                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
+                        (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                        (weight (reduce #'* weights))
+                        (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                                       dist (nreverse weights)))
+                        )
+                   (funcall func mesh
+                            cell
+                            node
+                            weight
+                            grads)))))))
 

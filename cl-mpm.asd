@@ -14,7 +14,7 @@
 
 (defsystem "cl-mpm/fastmath"
   :depends-on ("magicl"
-               :sb-simd)
+               )
   :description "MPM fast maths operations definitions"
   :serial t
   :components ((:file "src/fastmath")))
@@ -115,6 +115,13 @@
                (:file "src/forces")
                (:file "src/core")
                ))
+(defsystem "cl-mpm/buoyancy"
+  :depends-on ("cl-mpm")
+  :description ""
+  :components (
+               (:file "src/buoyancy")
+               ))
+
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
 (defsystem "cl-mpm/example"
@@ -170,6 +177,17 @@
                "magicl")
   :serial t
   :components ((:file "examples/slump")))
+(defsystem "cl-mpm/examples/notch"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/notch")))
 (defsystem "cl-mpm/examples/flow"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"

@@ -77,6 +77,12 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT))
   (:documentation "A BC applied like a body force"))
 
+(defclass bc-closure (bc)
+  ((func
+    :accessor bc-func
+    :initarg :func))
+  (:documentation "A bc with a function closure"))
+
 (defun make-bc-surface (index normal)
   (make-instance 'bc-surface
                  :index index 
@@ -327,3 +333,15 @@
                   0 to ysize
                   collect
                        (funcall make-bc (list x y)))))))
+
+(defun make-bc-closure (index func)
+  (make-instance 'bc-closure
+                 :index index 
+                 :func func))
+
+(defmethod apply-bc ((bc bc-closure) node mesh dt)
+  "Fixed velocity BC over some dimensions"
+  (with-slots ((func func))
+    bc
+    (declare (function func))
+    (funcall func)))
