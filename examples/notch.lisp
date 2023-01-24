@@ -249,20 +249,20 @@
                ;'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
                 'cl-mpm/particle::particle-elastic-damage
-                 :E 1d8
+                 :E 1d7
                  :nu 0.3250d0
                  ;; :visc-factor 1d6
                  ;; :visc-power 3d0
-                 :critical-stress 1d7
+                 :critical-stress 1d10
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-damping-factor sim) 1d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-0)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
       ;; (setf (cl-mpm::sim-bcs-force sim)
@@ -291,7 +291,7 @@
             (append
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
@@ -331,9 +331,9 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(300 300) '(200 100) '(0 120) (/ 1 50) 2))
+  (defparameter *sim* (setup-test-column '(400 400) '(300 100) '(000 100) (/ 1 50) 4))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
-  ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
+  (remove-sdf *sim* (rectangle-sdf (list 300 200) '(100 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
   ;; (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -423,7 +423,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (time (loop for steps from 0 to 10
+  (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                 (progn
@@ -438,13 +438,13 @@
                    *x*
                    *x-pos*)
                   (let ((max-cfl 0))
-                    (time (dotimes (i 1)
+                    (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
-                            (remove-sdf *sim* (ellipse-sdf (list 200 197) *notch-position* 5))
-                            (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
+                            ;; (remove-sdf *sim* (ellipse-sdf (list 200 225) *notch-position* 50))
+                            ;; (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                             ;;                                  (cl-mpm:sim-mps *sim*)
                             ;;                                  (cl-mpm:sim-dt *sim*)

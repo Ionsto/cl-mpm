@@ -89,8 +89,8 @@
 
       (loop for mp across (cl-mpm::sim-mps sim)
             do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 1d0)
-      (setf (cl-mpm:sim-mass-filter sim) 0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim) '())
@@ -106,7 +106,7 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 10) 4))
+  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 4))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)

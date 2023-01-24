@@ -34,8 +34,8 @@
 (defun shape-linear-dsvp (x h)
   (declare (type double-float x h))
   (the double-float (/ (if (> x 0d0)
-                           -1d0
-                           1d0) h)
+                               -1d0
+                               1d0) h)
   ;; (the double-float (/ (signum x) h)
        ))
 

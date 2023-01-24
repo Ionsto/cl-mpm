@@ -161,9 +161,9 @@
                     ;                                 mps
                     ;                                 dt
                     ;                                 50d0)
-                    (apply-bcs mesh bcs-force dt)
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
+                    (apply-bcs mesh bcs-force dt)
                     (update-node-forces mesh (sim-damping-factor sim) dt)
                     ;Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
@@ -202,23 +202,25 @@
                     (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
                     (update-node-forces mesh (sim-damping-factor sim) dt)
-
+                    ;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
                     (g2p mesh mps dt)
-                    ;;2nd round of momentum mapping
+
+                    ;; ;;2nd round of momentum mapping
                     (reset-grid mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                      (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
+
                     ;;Update stress last
                     (update-stress mesh mps dt)
-                    (cl-mpm/damage::calculate-damage mesh
-                                                     mps
-                                                     dt
-                                                     25d0)
+                    ;; (cl-mpm/damage::calculate-damage mesh
+                    ;;                                  mps
+                    ;;                                  dt
+                    ;;                                  25d0)
 
                     (when remove-damage
                       (remove-material-damaged sim))
@@ -236,13 +238,13 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-   (unless (cl-mpm/particle::mp-cached-nodes mp)
-      (create-node-cache mesh mp)
-      )
+  (unless (cl-mpm/particle::mp-cached-nodes mp)
+    (create-node-cache mesh mp))
   (iterate-over-neighbours-cached mesh mp func)
-  ;; (iterate-over-neighbours-shape-bspline mesh mp func)
-  ;;(iterate-over-neighbours-shape-linear mesh mp func)
-  ;(iterate-over-neighbours-shape-gimp mesh mp func)
+
+  ;; (iterate-over-neighbours-shape-gimp mesh mp func)
+  ;; (iterate-over-neighbours-shape-linear mesh mp func)
+  ;; (iterate-over-neighbours-shape-linear mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
   (values)
   )
@@ -250,7 +252,7 @@
 (defun create-node-cache (mesh mp)
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-      (iterate-over-neighbours-shape-gimp
+      (iterate-over-neighbours-shape-linear
        mesh mp
        (lambda (mesh mp node svp grads)
          (push
@@ -298,13 +300,12 @@
          (h (cl-mpm/mesh:mesh-resolution mesh))
          (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
          (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'round))
+         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'round))
          (border (not (and (cl-mpm/mesh:in-bounds (mapcar #'+ pos-index (list 1 1)))
                           (cl-mpm/mesh:in-bounds (mapcar #'- pos-index (list 1 1)))
                           ))))
-    (if border
+    (if nil ;border
         ;; Do something janky if we are in a border element
-        ()
         (loop for dx from -1 to 1
               do (loop for dy from -1 to 1
                        do
@@ -449,7 +450,7 @@
                              (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 2 -2)))
                              (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list -2 2)))
                              ))))
-      (if border
+      (if nil;border
           (let (
                 ;; (knots-x
                 ;;   (loop for dy from -1 to 1
@@ -589,6 +590,7 @@
         (double-float svp)
         )
        (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                        (node-active  cl-mpm/mesh::node-active)
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-volume  cl-mpm/mesh::node-volume)
                         (node-force cl-mpm/mesh:node-force)
@@ -596,6 +598,7 @@
          (declare (type double-float node-mass node-volume mp-volume)
                   (type sb-thread:mutex node-lock))
          (sb-thread:with-mutex (node-lock)
+           (setf node-active t)
            (incf node-mass
                  (* mp-mass svp))
            (incf node-volume
@@ -632,12 +635,13 @@
         (double-float svp)
         )
        (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                        (node-active  cl-mpm/mesh:node-active)
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-force cl-mpm/mesh:node-force)
                         (node-lock  cl-mpm/mesh:node-lock)) node
          (declare (type double-float node-mass)
                   (type sb-thread:mutex node-lock))
-         (when (> node-mass 0d0)
+         (when node-active
            (sb-thread:with-mutex (node-lock)
              (det-ext-force mp node svp node-force)
              (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)))
@@ -684,16 +688,18 @@
                    (vel mp-velocity)
                    (pos mp-position)
                    (disp cl-mpm/particle::mp-displacement)
+                   (acc cl-mpm/particle::mp-acceleration)
                    (temp cl-mpm/particle::mp-temperature)
                    (strain-rate mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
+                   (nc cl-mpm/particle::mp-cached-nodes)
                    )
     mp
     (let* ((mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
           (mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
           (mapped-vel-mat (magicl::from-storage mapped-vel '(2 1))))
       (progn
-        ;; (magicl:scale! vel 0d0)
+        ;; (magicl:scale vel 0d0)
         ;; (reset-mps-g2p mp)
         )
       ;; Map variables
@@ -706,37 +712,39 @@
           (type double-float svp))
          (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                           (node-acc cl-mpm/mesh:node-acceleration)
+                          (node-active cl-mpm/mesh:node-active)
                           ) node
-           #+:sb-simd
-           (progn
-             (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
-             (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp))
-           #-:sb-simd
-           (cl-mpm/fastmath::fast-fmacc
-            mapped-vel-mat node-vel  svp)
-           ;; (cl-mpm/fastmath::fast-fmacc
-           ;;  (magicl::from-storage mapped-acc '(2 1))
-           ;;  node-acc svp)
-           ;)
-
-           ;; (fast-fmacc vel node-vel svp)
+           (when node-active
+             #+:sb-simd
+             (progn
+               (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
+               (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp))
+             #-:sb-simd
+             (cl-mpm/fastmath::fast-fmacc
+              mapped-vel-mat node-vel  svp)
+             ;; (cl-mpm/fastmath::fast-fmacc
+             ;;  (magicl::from-storage mapped-acc '(2 1))
+             ;;  node-acc svp)
+                                        ;)
+             )
            )
          ;; (g2p-mp-node mp node svp grads)
          ))
       ;;Update particle
       (progn
+        (setf nc '())
         (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
         (cl-mpm/fastmath:fast-fmacc disp mapped-vel-mat dt)
+        (aops:copy-into (magicl::storage acc) mapped-acc)
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
         ;;FLIP
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;Direct velocity damping
-        ;; (magicl:scale! vel (- 1d0 1d-2))
+        ;; (magicl:scale! vel (- 1d0 1d-5))
         ;;PIC
-        (loop for i from 0 to 1
-             do (setf (magicl:tref vel i 0) (aref mapped-vel i)))
-        ;;(setf (magicl::storage vel) mapped-vel)
+        (aops:copy-into (magicl::storage vel) mapped-vel)
+
         ;; (update-domain mesh mp dt)
         )
         ;; (setf pos (magicl:.+ pos (magicl:scale vel dt)))
@@ -764,7 +772,7 @@
 
 (defun calculate-kinematics (node)
   "Calculate velocity from momentum on a single nod"
-  (when (> (the double-float (cl-mpm/mesh:node-mass node)) 0d0)
+  (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity))
         node
@@ -773,7 +781,7 @@
           (magicl:scale! vel (/ 1.0d0 mass))))))
 
 (defun calculate-forces (node damping dt)
-  (when (> (the double-float (cl-mpm/mesh:node-mass node)) 0d0)
+  (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
                         (force node-force)
@@ -787,6 +795,7 @@
                                  (magicl:scale vel (* mass damping)))
                      (/ 1.0 mass)))
           ;; (setf vel (magicl:.+ (magicl:scale! vel (- 1d0 damping)) (magicl:scale acc dt)))
+          ;;Disable for FLIP
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           ))))
 
@@ -799,7 +808,7 @@
         (funcall func node)))))
 
 (defun update-node (mesh dt node damping)
-    (when (> (cl-mpm/mesh:node-mass node) 0d0)
+    (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
                         (force node-force)
@@ -885,14 +894,15 @@
         (progn
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
+;          (setf (cl-mpm/particle::mp-cached-nodes mp) '())
             (iterate-over-neighbours mesh mp
                 (lambda (mesh mp node svp grads)
                   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                   (node-mass cl-mpm/mesh:node-mass)
+                                   (node-active cl-mpm/mesh:node-active)
                                    )
                       node
-                    (declare (double-float node-mass))
-                    (when (> node-mass 0d0)
+                    (declare (double-float))
+                    (when node-active
                       (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
                       (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)))
                   ))
@@ -1004,6 +1014,7 @@
               ;;                            (the double-float (tref stretch 0 0))))
               ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
               ;;                            (the double-float (tref stretch 1 1))))
+
               (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
                                          (the double-float (tref stretch 0 0))))
               (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
@@ -1067,10 +1078,15 @@
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
-              ;Turn cauchy stress to kirchoff
-              (magicl:scale! stress (det def))
-              ;Update our strains
+              ;; ;;Linear strain update
               ;; (update-strain-linear mp dstrain)
+              ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+              ;; (when (<= volume 0d0)
+              ;;   (error "Negative volume"))
+
+              ;Turn cauchy stress to kirchoff
+              (magicl:scale! stress (magicl:det def))
+              ;Update our strains
               (update-strain-kirchoff mp dstrain)
               ;;Update our kirchoff stress with constitutive model
               (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
@@ -1078,7 +1094,7 @@
               (when (<= volume 0d0)
                 (error "Negative volume"))
               ;;Turn kirchoff stress to cauchy
-              (magicl:scale! stress (/ 1.0 (det def)))
+              (magicl:scale! stress (/ 1.0d0 (magicl:det def)))
               ))))))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            (array cl-mpm/particle:particle)
@@ -1102,7 +1118,7 @@
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   (dotimes (i (array-total-size nodes))
     (let ((node (row-major-aref nodes i)))
-      (when (and (> (cl-mpm/mesh:node-mass node) 0d0)
+      (when (and (cl-mpm/mesh:node-active node)
                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
         (setf (cl-mpm/mesh::node-active node) nil)
         (cl-mpm/mesh:reset-node node)

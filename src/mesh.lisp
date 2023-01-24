@@ -25,7 +25,7 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass node ()
   ((active
@@ -152,7 +152,7 @@
     :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
 
-(defun make-node (index pos)
+(defun make-node (index pos h)
   "Default initialise a 2d node at pos"
   (make-instance 'node
                  :force (magicl:zeros (list 2 1) :type 'double-float)
@@ -164,45 +164,47 @@
                  :position pos
                  ))
 
-(defun make-nodes (mesh size)
+(defun make-nodes (mesh size h)
   "Make a 2d mesh of specific size"
   (make-array size :initial-contents 
       (loop for x from 0 to (- (nth 0 size) 1)
             collect (loop for y from 0 to (- (nth 1 size) 1)
                           collect (make-node (list x y)
-                                             (magicl:from-list (index-to-position mesh (list x y)) '(2 1)))))))
+                                             (magicl:from-list (index-to-position mesh (list x y)) '(2 1))
+                                             h
+                                             )))))
 
 (defun cell-calculate-centroid (nodes)
   (let ((centroid (magicl:zeros '(2 1))))
     (loop for node in nodes
           do
              (magicl:.+ centroid (node-position node) centroid))
-    (magicl:scale centroid 1/4)))
-(defun make-cell (mesh index)
+    (magicl:scale centroid (/ 1d0 (length nodes)))))
+(defun make-cell (mesh index h)
   ;;Get local nodes
-  (let ((h (mesh-resolution mesh)))
-    (let* ((nodes (loop for x from 0 to 1
-                        append
-                        (loop for y from 0 to 1
-                              collect
-                              (get-node mesh (mapcar #'+
-                                                     index
-                                                     (list x y))))))
-           (centroid (cell-calculate-centroid nodes)))
-      (make-instance 'cell
-                     :index index
-                     :nodes nodes
-                     :centroid centroid
-                     :volume (* h h)
-                     ))))
-(defun make-cells (mesh size)
+  (let* ((nodes (loop for x from 0 to 1
+                      append
+                      (loop for y from 0 to 1
+                            collect
+                            (get-node mesh (mapcar #'+
+                                                   index
+                                                   (list x y))))))
+         (centroid (cell-calculate-centroid nodes)))
+    (make-instance 'cell
+                   :index index
+                   :nodes nodes
+                   :centroid centroid
+                   :volume (* h h)
+                   )))
+(defun make-cells (mesh size h)
   "Make a 2d mesh of specific size"
   (make-array (mapcar #'- size '(1 1)) :initial-contents 
       (loop for x from 0 to (- (nth 0 size) 2)
             collect (loop for y from 0 to (- (nth 1 size) 2)
                           collect (make-cell
                                    mesh
-                                   (list x y))))))
+                                   (list x y)
+                                   h)))))
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
@@ -220,8 +222,8 @@
                               :shape-func shape-function
                               :boundary-order boundary-order
                               )))
-      (setf (mesh-nodes mesh) (make-nodes mesh meshcount))
-      (setf (mesh-cells mesh) (make-cells mesh meshcount))
+      (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
+      (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
       mesh)))
 
 (defun query-boundary-shapes (mesh index)
@@ -338,8 +340,10 @@
                 (vel velocity)
                (acc acceleration)
                (volume volume)
+               (active active)
                 (force force))
                 node
+    (setf active nil)
     (setf mass 0d0)
     (setf volume 0d0)
     (magicl:scale! vel 0d0)
@@ -378,3 +382,14 @@
                             weight
                             grads)))))))
 
+
+;;;Priting
+
+
+(defmethod print-object ((obj node) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-accessors ((index node-index))
+        obj
+      (format stream "index: ~a" (list (magicl:tref index 0 0)
+                                       (magicl:tref index 1 0)
+                                       )))))

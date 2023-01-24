@@ -191,7 +191,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 2)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 10) 2)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (defparameter *velocity* '())
@@ -216,7 +216,21 @@
             collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
-  )
+  (defparameter *load-mps*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (x-max (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+           (y-average (/ (loop for mp across mps sum (magicl:tref (cl-mpm/particle:mp-position mp) 0 0))
+                     (array-total-size mps)))
+           (end-mps (remove-if-not
+                     (lambda (mp)
+                       (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- x-max 1d-3))) mps))
+           (sorted-end-mps (sort end-mps
+                                 (lambda (mp-a mp-b)
+                                   (< (abs (- y-average (magicl:tref (cl-mpm/particle:mp-position mp-a) 1 0)))
+                                      (abs (- y-average (magicl:tref (cl-mpm/particle:mp-position mp-b) 1 0)))
+                                      )))))
+      (subseq sorted-end-mps 0 2)
+      )))
 
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"

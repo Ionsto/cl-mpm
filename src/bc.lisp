@@ -300,12 +300,12 @@
                     (append
                      (loop for x from 0 to xsize
                            append
-                           (list (when bottom (funcall bottom (list x order)))
-                                 (when top (funcall top (list x (- ysize order))))))
+                           (list (when bottom (funcall bottom (list x o)))
+                                 (when top (funcall top (list x (- ysize o))))))
                      (loop for y from 0 to ysize
                            append
-                           (list (when left (funcall left (list order y)))
-                                 (when right (funcall right (list (- xsize order) y)))))))))))
+                           (list (when left (funcall left (list o y)))
+                                 (when right (funcall right (list (- xsize o) y)))))))))))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

@@ -74,6 +74,10 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :velocity
      :initform (magicl:zeros '(2 1)))
+   (acceleration
+    :accessor mp-acceleration
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 1)))
    (stress
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
