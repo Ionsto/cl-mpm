@@ -864,11 +864,12 @@
                     (nD     mesh-nD)
                     (mc     mesh-count)) mesh
     ;each bc is a list (pos value)
-    (dolist (bc bcs)
-      (when bc
-        (let ((index (cl-mpm/bc:bc-index bc)))
-          (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
-            (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh dt)))))))
+    (lparallel:pdotimes (i (length bcs))
+      (let ((bc (nth i bcs)))
+        (when bc
+          (let ((index (cl-mpm/bc:bc-index bc)))
+            (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
+              (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh dt))))))))
 
 
 ;; (defun update-particle (mps dt)
@@ -1151,7 +1152,7 @@
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;(split-criteria mp h)
                                 ))) mps)))
       ;; (delete-if (lambda (mp)
       ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))

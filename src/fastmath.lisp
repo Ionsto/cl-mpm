@@ -12,7 +12,7 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/fastmath)
 
-;(push :sb-simd *features*)
+(push :sb-simd *features*)
 (eval-when
     (:compile-toplevel)
   (push :sb-simd *features*)
