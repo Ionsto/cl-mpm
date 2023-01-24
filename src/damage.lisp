@@ -14,7 +14,7 @@
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
       (* (/ (max 0d0 stress) critical-stress) 1d1)
       0d0)
-  0d0
+  ;; 0d0
   )
 
 (defun damage-profile (damage)

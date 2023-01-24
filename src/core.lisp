@@ -53,6 +53,12 @@
     :initarg :splitting
     :initform nil
     )
+   (enable-damage
+    :type boolean
+    :accessor sim-enable-damage
+    :initarg :enable-damage
+    :initform nil
+    )
    (allow-mp-damage-removal
     :type boolean
     :accessor sim-allow-mp-damage-removal
@@ -104,6 +110,7 @@
                (dt dt)
                (mass-filter mass-filter)
                (split allow-mp-split)
+               (enable-damage enable-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -123,10 +130,11 @@
                     ;;G2p + Particle update
                     (g2p mesh mps dt)
                     (update-stress mesh mps dt)
-                    ;(cl-mpm/damage::calculate-damage mesh
-                    ;                                 mps
-                    ;                                 dt
-                    ;                                 50d0)
+                    (when enable-damage
+                      (cl-mpm/damage::calculate-damage mesh
+                                                       mps
+                                                       dt
+                                                       50d0))
                     ;; (update-particle mps dt)
                     ;;Update stress last
                     (when remove-damage
@@ -144,6 +152,7 @@
                (dt dt)
                (mass-filter mass-filter)
                (split allow-mp-split)
+               (enable-damage enable-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -157,10 +166,11 @@
                     (apply-bcs mesh bcs dt)
                     ;; (apply-bcs mesh bcs-force dt)
                     (update-stress mesh mps dt)
-                    ;(cl-mpm/damage::calculate-damage mesh
-                    ;                                 mps
-                    ;                                 dt
-                    ;                                 50d0)
+                    (when enable-damage
+                      (cl-mpm/damage::calculate-damage mesh
+                                                       mps
+                                                       dt
+                                                       50d0))
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
@@ -185,6 +195,7 @@
                (dt dt)
                (mass-filter mass-filter)
                (split allow-mp-split)
+               (enable-damage enable-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -217,6 +228,11 @@
 
                     ;;Update stress last
                     (update-stress mesh mps dt)
+                    (when enable-damage
+                      (cl-mpm/damage::calculate-damage mesh
+                                                       mps
+                                                       dt
+                                                       50d0))
                     ;; (cl-mpm/damage::calculate-damage mesh
                     ;;                                  mps
                     ;;                                  dt

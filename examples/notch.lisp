@@ -49,8 +49,9 @@
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
-    (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :point))
+    ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
+    ))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -152,79 +153,6 @@
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
 
-(defun make-mps-bread (density-cheese
-                       density-bread
-                       cheese-size
-                       bread-size
-                       e-scale
-                       mp-scale
-                       h)
-  (let* ((mass-bread (* density-bread (expt (/ h mp-scale) 2)))
-         (mass (* density-cheese (expt (/ h mp-scale) 2)))
-         (cheese-pos (list 0 (second bread-size)))
-         (bread-1-pos (list 0 0))
-         (bread-2-pos (list 0 (+ (second bread-size)
-                                 (second cheese-size))))
-         )
-    (cl-mpm/setup::make-mps-from-list
-     (append
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos cheese-pos (list h h) mp-scale)
-       cheese-size
-       (mapcar (lambda (e) (* e e-scale mp-scale)) cheese-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoviscoplastic-damage
-       :E 1e7
-       :nu 0.325d0
-       :visc-factor 1d2
-       :visc-power 3d0
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 0
-       )
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos bread-1-pos
-                                     (list h h)
-                                     mp-scale)
-       bread-size
-       (mapcar (lambda (e) (* e e-scale mp-scale))
-               bread-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoelastic-damage
-       :E 1e7
-       :nu 0.325
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass-bread
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 1
-       )
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos bread-2-pos
-                                     (list h h)
-                                     mp-scale)
-       bread-size
-       (mapcar (lambda (e) (* e e-scale mp-scale))
-               bread-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoelastic-damage
-       :E 1e7
-       :nu 0.325
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass-bread
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 1
-       )
-      ))))
 
 (defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0)
                           &rest mp-args)
@@ -253,19 +181,19 @@
                ;'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
                 'cl-mpm/particle::particle-elastic-damage
-                 :E 1d9
+                 :E 1d8
                  :nu 0.3250d0
                  ;; :visc-factor 1d6
                  ;; :visc-power 3d0
-                 :critical-stress 1d10
+                 :critical-stress 7d5
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -344,9 +272,9 @@
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(600 400) '(500 100) '(000 100) (/ 1 25) 2))
+  (defparameter *sim* (setup-test-column '(600 400) '(500 100) '(000 125) (/ 1 25) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
-  (remove-sdf *sim* (rectangle-sdf (list 500 200) '(100 50)))
+  ;; (remove-sdf *sim* (rectangle-sdf (list 500 200) '(100 50)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
   ;; (remove-sdf *sim* (rectangle-sdf '(250 100) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -368,56 +296,6 @@
               collect mp)))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
-  )
-
-;; (defun sample-point-gimp (sim point get-value size)
-;;   (let ((sample-mp (cl-mpm/particle:make-particle 2
-;;                                                   :pos point
-;;                                                   :size size)))
-;;         (funcall get-value (cl-mpm:sim-mesh sim) sample-mp)))
-;; (defun sample-point-volume (sim point size)
-;;     (sample-point-gimp sim point size
-;;         (scalar-average cl-mpm/mesh::node-volume)))
-;; (defun get-mp-)
-(defun add-snow-layer (sim);;; Printing methods
-
-(defmethod print-object ((obj node) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-accessors ((index node-index))
-        obj
-      (format stream "index: ~a" (list (magicl:tref index 0 0)
-                                       (magicl:tref index 1 0)
-                                       )))))
-
-  (let ((snow-height 5))
-    (with-accessors ((mps cl-mpm:sim-mps))
-        sim
-      (loop for mp across mps
-            collect (sample-point-volume
-                     (.+ (cl-mpm/particle:mp-position)))))))
-(defun add-particles (sim position size density)
-  (vector-push-extend
-                      (cl-mpm::make-particle
-                       2
-                       'cl-mpm/particle::particle-thermoviscoplastic-damage
-                       :position (magicl:from-list position '(2 1))
-                       :volume (reduce #'* size)
-                       :size (magicl:from-list size '(2 1))
-                       :E 1e7
-                       :nu 0.325
-                       :visc-factor 1d-10
-                       :visc-power 3
-                       :temperature 0d0
-                       :heat-capacity 1d0
-                       :thermal-conductivity 1e0
-                       :mass (* (reduce #'* size) density)
-                       :critical-stress 1d20
-                       :gravity -9.8d0
-                       :index 0
-                       )
-
-                      (cl-mpm:sim-mps sim)
-                      )
   )
 
 (defparameter *run-sim* nil)
@@ -467,8 +345,8 @@
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                            (cl-mpm::update-sim *sim*)
-                            ;; (remove-sdf *sim* (ellipse-sdf (list 200 225) *notch-position* 50))
-                            ;; (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
+                            (remove-sdf *sim* (rectangle-sdf (list 500 225) (list *notch-position* 50)))
+                            (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 1d0))
                             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
                             ;;                                  (cl-mpm:sim-mps *sim*)
                             ;;                                  (cl-mpm:sim-dt *sim*)
