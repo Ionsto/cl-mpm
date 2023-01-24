@@ -15,7 +15,7 @@
 (in-package :cl-mpm/buoyancy)
 
 ;(defgeneric virtual-stress ())
-(let ((datum-true 200)
+(let ((datum-true (- 200))
       (rho-true (/ 1000.0d0 2d0))
       )
   (defun buoyancy-virtual-stress (z)
@@ -75,69 +75,78 @@
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 (defun apply-force-mps (mesh mps)
-  (loop for mp across mps
-        do
-  (with-accessors ((volume cl-mpm/particle:mp-volume))
-      mp
-    (cl-mpm::iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads)
-       (with-accessors ((node-force cl-mpm/mesh:node-force)
-                        (node-lock  cl-mpm/mesh:node-lock)
-                        (node-active  cl-mpm/mesh:node-active))
-           node
-         (when node-active
-           (sb-thread:with-mutex (node-lock)
-             ;;External force
-             (cl-mpm/fastmath:fast-add
-              node-force
-              (magicl:scale!
-               (magicl:@
-                (magicl:transpose!
-                 (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                (calculate-virtual-stress-mp mp))
-               volume))
+  (lparallel:pdotimes (i (length mps))
+    (let ((mp (aref mps i)))
+      (with-accessors ((volume cl-mpm/particle:mp-volume))
+          mp
+        (cl-mpm::iterate-over-neighbours ;-shape-linear
+         mesh mp
+         (lambda (mesh mp node svp grads)
+           (with-accessors ((node-force cl-mpm/mesh:node-force)
+                            (node-lock  cl-mpm/mesh:node-lock)
+                            (node-active  cl-mpm/mesh:node-active))
+               node
+             (when node-active
+               (sb-thread:with-mutex (node-lock)
+                 ;;External force
+                 (cl-mpm/fastmath:fast-add
+                  node-force
+                  (magicl:scale!
+                   (magicl:@
+                    (magicl:transpose!
+                     (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                    (calculate-virtual-stress-mp mp))
+                   volume))
                                         ;Internal force
-             (cl-mpm/fastmath:fast-add
-              node-force
-              (magicl:scale!
-               (calculate-virtual-divergance-mp mp)
-               (* svp volume)))))))))))
+                 (cl-mpm/fastmath:fast-add
+                  node-force
+                  (magicl:scale!
+                   (calculate-virtual-divergance-mp mp)
+                   (* svp volume))))))))))))
 (defun apply-force-cells (mesh)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
     (lparallel:pdotimes (i (array-total-size cells))
              (let ((cell (row-major-aref cells i)))
-               (cl-mpm/mesh::cell-iterate-over-neighbours
-                mesh cell
-                (lambda (mesh cell node svp grads)
-                  (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                   (node-lock  cl-mpm/mesh:node-lock)
-                                   (node-active cl-mpm/mesh:node-active)
-                                   (node-volume cl-mpm/mesh::node-volume)
-                                   )
-                      node
-                    (with-accessors ((volume cl-mpm/mesh::cell-volume))
-                        cell
-                      (when node-active
-                        (when t;(< node-volume (* 0.9d0 n-vol))
-                          (sb-thread:with-mutex (node-lock)
+               (let ((nodal-volume 0d0))
+                 (cl-mpm/mesh::cell-iterate-over-neighbours
+                  mesh cell
+                  (lambda (mesh cell node svp grads)
+                    (with-accessors ((node-volume cl-mpm/mesh::node-volume))
+                        node
+                      (incf nodal-volume node-volume))))
+                 ;;Clip out nodes with poor conditied nodes
+                 (when (> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-3)
+                   (cl-mpm/mesh::cell-iterate-over-neighbours
+                    mesh cell
+                    (lambda (mesh cell node svp grads)
+                      (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                       (node-lock  cl-mpm/mesh:node-lock)
+                                       (node-active cl-mpm/mesh:node-active)
+                                       (node-volume cl-mpm/mesh::node-volume)
+                                       )
+                          node
+                        (with-accessors ((volume cl-mpm/mesh::cell-volume))
+                            cell
+                          (when node-active
+                            (when t;(< node-volume (* 0.9d0 n-vol))
+                              (sb-thread:with-mutex (node-lock)
                                         ;Internal force
-                            (cl-mpm/fastmath:fast-add
-                             node-force
-                             (magicl:scale!
-                              (magicl:@
-                               (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                               (calculate-virtual-stress-cell cell))
-                              (* -1d0 volume)))
+                                (cl-mpm/fastmath:fast-add
+                                 node-force
+                                 (magicl:scale!
+                                  (magicl:@
+                                   (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                                   (calculate-virtual-stress-cell cell))
+                                  (* -1d0 volume)))
                                         ;External force
-                            (cl-mpm/fastmath:fast-add
-                             node-force
-                             (magicl:scale!
-                              (calculate-virtual-divergance-cell cell)
-                              (* -1d0 svp volume)))
-                            )))))
-                  ))))))
+                                (cl-mpm/fastmath:fast-add
+                                 node-force
+                                 (magicl:scale!
+                                  (calculate-virtual-divergance-cell cell)
+                                  (* -1d0 svp volume)))
+                                )))))
+                      ))))))))
 
 ;(defun locate-mps-cells (mesh mps)
 ;  (loop for mp across mps

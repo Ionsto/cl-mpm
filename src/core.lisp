@@ -252,7 +252,7 @@
 (defun create-node-cache (mesh mp)
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-      (iterate-over-neighbours-shape-linear
+      (iterate-over-neighbours-shape-gimp
        mesh mp
        (lambda (mesh mp node svp grads)
          (push

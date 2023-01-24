@@ -13,9 +13,15 @@
 (in-package :cl-mpm/fastmath)
 
 ;(push :sb-simd *features*)
+(eval-when
+    (:compile-toplevel)
+  (push :sb-simd *features*)
+  #+:sb-simd (require 'sb-simd)
+  )
+
 #+:sb-simd
 (progn
-  (require 'sb-simd)
+  ;(require 'sb-simd)
   (declaim
    (inline simd-accumulate)
    (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))

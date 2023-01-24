@@ -383,8 +383,7 @@
                             grads)))))))
 
 
-;;;Priting
-
+;;; Printing methods
 
 (defmethod print-object ((obj node) stream)
   (print-unreadable-object (obj stream :type t)

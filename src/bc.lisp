@@ -17,7 +17,7 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/bc)
 (defclass bc ()
-  ( (index 
+  ( (index
       :accessor bc-index
       :initarg :index))
   (:documentation "A boundary condition that applies some operation at an index"))
@@ -345,3 +345,11 @@
     bc
     (declare (function func))
     (funcall func)))
+
+;;; Printing methods
+
+(defmethod print-object ((obj bc) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-accessors ((index bc-index))
+        obj
+      (format stream "index: ~a" index))))
