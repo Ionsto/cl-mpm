@@ -111,7 +111,7 @@
     (loop for d from 0 to (length value)
             do (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
-                 ;; (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
+                 (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
                  ))))
 
 

@@ -135,32 +135,13 @@
                'cl-mpm/particle::particle-elastic
                :E 1d8
                :nu 0.325d0
-
-               ;; :E 1e6 :nu 1d8
-
-               ;; 'cl-mpm/particle::particle-viscoplastic
-               ;; :E 1e7
-               ;; :nu 0.325
-               ;; :visc-factor 1e6
-               ;; :visc-power 3
-
-               ;; Fluid
-               ;; 'cl-mpm/particle::particle-fluid
-               ;; :stiffness 1e5
-               ;; :adiabatic-index 6
-               ;; :rest-density 900d0
-               ;; :viscosity 1.02e-3
-
-               ;; :E 1e6 :nu 0.33
-               ;:critical-stress 1d10
-               ;; :fracture-toughness 5d0
                :gravity -9.8d0
                )))
       (let ((prev-mps (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
@@ -191,7 +172,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 10) 2)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
+  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 4)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (defparameter *velocity* '())
@@ -312,7 +293,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 100
+                                   (time (loop for i from 0 to 35
                                                while *run-sim*
                                                do
                                                   (progn
@@ -343,6 +324,7 @@
                                  )))
       (plot-deflection (cl-mpm/particle::mp-e (first *deflection-mps*))
                        100 100 500)
+      (save-deflection "deflection_truesdallrate.csv")
       (with-open-file (stream (merge-pathnames "output/energy.csv") :direction :output :if-exists :supersede)
         (format stream "Time (s),SE,KE,GPE~%")
         (loop for tim in (reverse *time*)
@@ -395,6 +377,19 @@
                  )
     )
   )
+(defun save-deflection (file)
+  (let* (
+         (x (loop for mp in *deflection-mps*
+                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+         (ymin (magicl:tref (cl-mpm/particle:mp-position (first *deflection-mps*)) 1 0))
+         (y (loop for mp in *deflection-mps*
+                  collect (- (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) ymin)))
+         )
+    (with-open-file (stream (merge-pathnames file) :direction :output :if-exists :supersede)
+      (format stream "x,y~%")
+      (loop for xi in x
+            for yi in y
+            do (format stream "~f, ~f ~%" xi yi)))))
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 
 (defun profile ()

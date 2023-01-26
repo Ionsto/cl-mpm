@@ -80,7 +80,7 @@
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp y 0.5 1)) x) "r"
+;;    (mapcar (lambda (y) (shape-gimp y 0.5d0 1d0)) x) "r"
 ;;    ;x
 ;;    ;(mapcar (lambda (y) (nodal-bspline-dsvp '(t t t t t t t t) y 0 1)) x) "b"
 ;;    ))

@@ -284,7 +284,7 @@
   ()
   (:documentation "A visco-elastic material point with damage"))
 
-(defclass particle-viscoplastic-damage (particle-viscoplastic particle-fracture)
+(defclass particle-viscoplastic-damage (particle-viscoplastic particle-damage)
   ()
   (:documentation "A mp with damage mechanics"))
 (defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
@@ -375,7 +375,21 @@
     ;; (magicl:.+
     ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
-    (cl-mpm/constitutive::linear-elastic-mat strain de)
+    ;;Jaumann rate equation
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-jaumann
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   vorticity))
+    ;;Truesdale rate
+    (magicl:.+
+     stress
+     (objectify-stress-kirchoff-truesdale
+      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      stress
+      velocity-rate))
+    ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ))
 
@@ -441,6 +455,7 @@
                (visc-factor visc-factor)
                (visc-power visc-power)
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (strain-plastic strain-plastic)
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
@@ -451,12 +466,18 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let (
-          (viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1d0 dt)) visc-factor visc-power))
-          ;; (viscosity (cl-mpm/constitutive::glen-viscosity stress (expt visc-factor (- visc-power)) visc-power))
+          (viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
+                                        ;(viscosity (cl-mpm/constitutive::glen-viscosity stress (expt visc-factor (- visc-power)) visc-power))
           )
+      ;; stress
       (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
-          (magicl:.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu))))))
+          (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
+          ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
+          ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+          (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
+      )
+    )
+  )
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
   "Function for modelling stress intergrated viscoelastic maxwell material"
@@ -532,18 +553,21 @@
 (defun objectify-stress (mp)
   (cl-mpm/particle:mp-stress mp))
 
-(defun objectify-stress-jaumann (stress vorticity)
-  (magicl:.-
-   stress
+(defun objectify-stress-jaumann (stress-inc stress vorticity)
+  (magicl:.+
+   stress-inc
    (matrix-to-voight
     (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
-                (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress))))))
+                (magicl:@ (assemble-vorticity-matrix vorticity) (voight-to-matrix stress)))))
+             )
 
-(defun objectify-stress-kirchoff-truesdale (stress velocity-rate)
+(defun objectify-stress-kirchoff-truesdale (stress-inc stress velocity-rate)
+  (magicl:.+
+   stress-inc
    (matrix-to-voight
     (magicl::.- (magicl:@ (voight-to-matrix velocity-rate) (voight-to-matrix stress))
                 (magicl:@ (voight-to-matrix stress) (voight-to-matrix velocity-rate))
-                )))
+                ))))
 
 (defun objectify-stress-logspin (mp)
   (with-accessors ((stress cl-mpm/particle:mp-stress)

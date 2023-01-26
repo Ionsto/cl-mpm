@@ -755,11 +755,11 @@
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
         ;;FLIP
-        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
+        (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;Direct velocity damping
-        ;; (magicl:scale! vel (- 1d0 1d-5))
+        ;; (magicl:scale! vel (- 1d0 1d-3))
         ;;PIC
-        (aops:copy-into (magicl::storage vel) mapped-vel)
+        ;; (aops:copy-into (magicl::storage vel) mapped-vel)
 
         ;; (update-domain mesh mp dt)
         )
@@ -810,7 +810,6 @@
                       (magicl:.- force
                                  (magicl:scale vel (* mass damping)))
                      (/ 1.0 mass)))
-          ;; (setf vel (magicl:.+ (magicl:scale! vel (- 1d0 damping)) (magicl:scale acc dt)))
           ;;Disable for FLIP
           (setf vel (magicl:.+ vel (magicl:scale acc dt)))
           ))))

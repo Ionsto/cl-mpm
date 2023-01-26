@@ -15,7 +15,7 @@
 (in-package :cl-mpm/buoyancy)
 
 ;(defgeneric virtual-stress ())
-(let ((datum-true (- 200))
+(let ((datum-true 200)
       (rho-true (/ 1000.0d0 2d0))
       )
   (defun buoyancy-virtual-stress (z)
@@ -25,7 +25,7 @@
            (h (- datum z))
            (f (* -1d0 rho g h))
            )
-      (if (>= h 0d0)
+      (if (> h 0d0)
           (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
           ;; (magicl:zeros '(3 1))
           (magicl:zeros '(3 1))
@@ -37,7 +37,7 @@
            (h (- datum z))
            (f (* rho g))
            )
-      (if (>= h 0d0)
+      (if (> h 0d0)
           (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
           ;; (magicl:zeros '(2 1))
           (magicl:zeros '(2 1))
@@ -116,7 +116,7 @@
                         node
                       (incf nodal-volume node-volume))))
                  ;;Clip out nodes with poor conditied nodes
-                 (when (> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-3)
+                 (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-3)
                    (cl-mpm/mesh::cell-iterate-over-neighbours
                     mesh cell
                     (lambda (mesh cell node svp grads)
@@ -129,7 +129,7 @@
                         (with-accessors ((volume cl-mpm/mesh::cell-volume))
                             cell
                           (when node-active
-                            (when t;(< node-volume (* 0.9d0 n-vol))
+                            (when t;(< node-volume (* 0.99d0 n-vol))
                               (sb-thread:with-mutex (node-lock)
                                         ;Internal force
                                 (cl-mpm/fastmath:fast-add
@@ -160,7 +160,10 @@
 
   )
 
-(defun apply-bouyancy (mesh mps)
+(defun apply-bouyancy (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      sim
   (apply-force-mps mesh mps)
-  (apply-force-cells mesh))
+  (apply-force-cells mesh)))
 

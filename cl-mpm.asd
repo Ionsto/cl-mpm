@@ -14,6 +14,7 @@
 
 (defsystem "cl-mpm/fastmath"
   :depends-on ("magicl"
+               :sb-simd
                )
   :description "MPM fast maths operations definitions"
   :serial t
