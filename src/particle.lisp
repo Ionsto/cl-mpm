@@ -383,13 +383,13 @@
     ;;   stress
     ;;   vorticity))
     ;;Truesdale rate
-    (magicl:.+
-     stress
-     (objectify-stress-kirchoff-truesdale
-      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-      stress
-      velocity-rate))
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-kirchoff-truesdale
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   velocity-rate))
+    (cl-mpm/constitutive::linear-elastic-mat strain de)
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ))
 
