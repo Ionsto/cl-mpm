@@ -287,16 +287,15 @@
             ;;                                                0d0))))
             ;; )
       (setf (cl-mpm:sim-bcs sim)
-            (append
-             (cl-mpm/bc::make-outside-bc-var
-              (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+            (cl-mpm/bc::make-outside-bc-var
+             (cl-mpm:sim-mesh sim)
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
-              )
+             )
              ;; (cl-mpm/bc::make-domain-bcs
              ;;  (cl-mpm:sim-mesh sim)
              ;;  (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
@@ -308,7 +307,6 @@
              ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
              ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
              ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
-             )
             )
       sim)))
 

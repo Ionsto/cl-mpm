@@ -37,11 +37,11 @@
    (bcs
      :accessor sim-bcs
      :initarg :bcs
-     :initform '())
+     :initform (make-array 0))
    (bcs-force
     :accessor sim-bcs-force
     :initarg :bcs-force
-    :initform '())
+    :initform (make-array 0))
    (damping-factor
      :type double-float
      :accessor sim-damping-factor
@@ -1119,6 +1119,7 @@
 (defun update-stress-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                      (volume cl-mpm/particle:mp-volume)
                      (strain cl-mpm/particle:mp-strain)
                      (def    cl-mpm/particle:mp-deformation-gradient)
@@ -1130,23 +1131,24 @@
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
-              ;; ;;Linear strain update
+              ;;Linear strain update
               ;; (update-strain-linear mp dstrain)
               ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
               ;; (when (<= volume 0d0)
               ;;   (error "Negative volume"))
 
               ;Turn cauchy stress to kirchoff
-              (magicl:scale! stress (magicl:det def))
+              (setf stress stress-kirchoff)
               ;Update our strains
               (update-strain-kirchoff mp dstrain)
               ;;Update our kirchoff stress with constitutive model
-              (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+              (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
               ;;Check volume constraint!
               (when (<= volume 0d0)
                 (error "Negative volume"))
               ;;Turn kirchoff stress to cauchy
-              (magicl:scale! stress (/ 1.0d0 (magicl:det def)))
+              (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
+              ;; (magicl:scale! stress (/ 1.0d0 (magicl:det def)))
               ))))))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            (array cl-mpm/particle:particle)
