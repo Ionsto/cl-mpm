@@ -358,6 +358,47 @@
     (setf dtemp 0d0))
   (call-next-method))
 
+(defun gauss-points (n h)
+  (cond
+    ((= n 1)
+     (list (magicl:zeros '(2 1))))
+    ((= n 2)
+     (loop for x from -1 to 1 by 2
+           append
+           (loop for y from -1 to 1 by 2
+                 collect
+                 (magicl:scale! (magicl:from-list (list x y) '(2 1) :type 'double-float)
+                                (/ h (sqrt 3))))))
+    )
+  )
+
+(defun cell-quadrature-iterate-over-neighbours (mesh cell gp func)
+  (declare (function func))
+  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+    (with-accessors ((nodes cell-nodes)
+                     (centroid cell-centroid))
+        cell
+      (dolist (point (gauss-points gp h))
+        (let ((quad (magicl:.+ centroid point))
+              (volume-ratio (/ 1 (expt gp 2))))
+          (loop for node in nodes
+                do
+                   (with-accessors ((n-pos node-position))
+                       node
+                     (let* ((dist-vec (magicl:.- quad n-pos))
+                            (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
+                            (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                            (weight (reduce #'* weights))
+                            (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                                           dist (nreverse weights)))
+                            )
+                       (funcall func mesh
+                                cell
+                                quad
+                                volume-ratio
+                                node
+                                weight
+                                grads)))))))))
 
 (defun cell-iterate-over-neighbours (mesh cell func)
   (declare (function func))
@@ -380,7 +421,8 @@
                             cell
                             node
                             weight
-                            grads)))))))
+                            grads))))))
+  )
 
 
 ;;; Printing methods

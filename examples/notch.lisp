@@ -51,7 +51,8 @@
     (apply #'max l)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :stress))
+  (declare (optimize (speed 2) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -181,7 +182,7 @@
                ;; 'cl-mpm/particle::particle-viscoplastic
                ;; 'cl-mpm/particle::particle-viscoplastic
                 'cl-mpm/particle::particle-elastic;-damage
-                 :E 1d9
+                 :E 1d8
                  :nu 0.3250d0
                  ;; :visc-factor 11d6
                  ;; :visc-power 3d0
@@ -190,7 +191,7 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -225,49 +226,50 @@
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
               (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
-             ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
+              (lambda (i) nil)
+              (lambda (i) nil)
+              (lambda (i) nil)
+              ;; (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+              ;; (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+              ;; (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
               )
-             ;; (cl-mpm/bc::make-domain-bcs
-             ;;  (cl-mpm:sim-mesh sim)
-             ;;  (lambda (i) (cl-mpm/bc::make-bc-ambient-temp i
-             ;;                                               0d0
-             ;;                                               0d0)))
-             ;; (cl-mpm/bc::make-outside-bc-var
-             ;;  (cl-mpm:sim-mesh sim)
-             ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
-             ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
-             ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i nil))
-             ;;  (lambda (i) (cl-mpm/bc:make-bc-fixed-temp i 0d0)))
              )
             )
-      (setf (cl-mpm::sim-bcs-force sim)
-            (list (cl-mpm/bc::make-bc-closure '(0 0)
-                                              (lambda ()
-                                                (cl-mpm/buoyancy::apply-bouyancy sim)))))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (list (cl-mpm/bc::make-bc-closure '(0 0)
+      ;;                                         (lambda ()
+      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim)))))
 
-      ;; (let ((ocean-x 0)
-      ;;       (ocean-y 200))
-      ;;   (setf (cl-mpm::sim-bcs-force sim)
-      ;;         (loop for x from (floor ocean-x h) to (floor (first size) h)
-      ;;               append (loop for y from 0 to (floor ocean-y h)
-      ;;                            collect (cl-mpm/bc::make-bc-buoyancy
-      ;;                                     (list x y)
-      ;;                                     (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1)))))))
+      (let ((ocean-x 0)
+            (ocean-y 300))
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (loop for x from (floor ocean-x h) to (floor (first size) h)
+                     append (loop for y from 0 to (floor ocean-y h)
+                                  collect (cl-mpm/bc::make-bc-buoyancy
+                                           (list x y)
+                                           (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
       sim)))
 
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1100 400) '(1000 100) '(000 120) (/ 1 10) 2))
-  ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 25)))
+  (let* ((shelf-length 1000)
+         (shelf-height 200)
+         (shelf-bottom 130)
+         (notch-length 100)
+         (notch-depth 30)
+         )
+    (defparameter *sim* (setup-test-column '(1100 400)
+                                           (list shelf-length shelf-height)
+                                           (list 0 shelf-bottom) (/ 1 25) 2))
+    (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    )
 
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 120) (/ 1 25) 2))
   ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
 
-  (print (cl-mpm:sim-dt *sim*))
+  (format t "Simulation dt ~a~%" (cl-mpm:sim-dt *sim*))
+  (format t "Simulation MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -275,7 +277,6 @@
   (defparameter *x-pos* '())
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
-  (defparameter *run-sim* t)
   (defparameter *load-mps*
     (let* ((mps (cl-mpm:sim-mps *sim*))
            (least-pos
@@ -421,6 +422,63 @@
      ))
     (format t "new")
     ))
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (dotimes (i ,it)
+         ,form)
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         dt))))
+(defun time-parts ()
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               )
+                *sim*
+                (;time-form 1000
+                 time
+                           (dotimes (i 100)
+                             (cl-mpm::reset-grid mesh)
+                             (cl-mpm::p2g mesh mps)
+                             (when (> mass-filter 0d0)
+                               (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter *sim*)))
+                             (cl-mpm::update-node-kinematics mesh dt)
+                             (cl-mpm::apply-bcs mesh bcs dt)
+                             (cl-mpm::update-stress mesh mps dt)
+                             ;;   (when enable-damage
+                             ;;     (cl-mpm/damage::calculate-damage mesh
+                             ;;                                      mps
+                             ;;                                      dt
+                             ;;                                      50d0))
+                             ;;   ;Map forces onto nodes
+                               (cl-mpm::p2g-force mesh mps)
+                               (cl-mpm::apply-bcs mesh bcs-force dt)
+                               (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor *sim*) dt)
+                             ;;   ;Reapply velocity BCs
+                               (cl-mpm::apply-bcs mesh bcs dt)
+                             ;;   ;;Also updates mps inline
+                               (cl-mpm::g2p mesh mps dt)
+
+                             ;;   (when remove-damage
+                             ;;     (cl-mpm::remove-material-damaged *sim*))
+                             ;;   (when split
+                             ;;     (cl-mpm::split-mps *sim*))
+                             (cl-mpm::check-mps mps)
+                             )
+                    )))
 ;(let ((stress (magicl:zeros '(3 1)))
 ;      (strain (magicl:zeros '(3 1)))
 ;      (de (cl-mpm/constitutive::linear-elastic-matrix 1d0 0d0))

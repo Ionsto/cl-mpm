@@ -16,7 +16,7 @@
 
 ;(defgeneric virtual-stress ())
 (let ((datum-true 200)
-      (rho-true (/ 1000.0d0 2d0))
+      (rho-true (/ 900.0d0 2d0))
       )
   (defun buoyancy-virtual-stress (z)
     (let* ((rho rho-true)

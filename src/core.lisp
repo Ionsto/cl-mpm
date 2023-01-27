@@ -120,8 +120,7 @@
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
-                    (apply-bcs mesh bcs-force dt)
-                    ;;Update nodes
+                    (apply-bcs mesh bcs-force dt) ;;Update nodes
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
                     (update-node-forces mesh (sim-damping-factor sim) dt)
@@ -181,7 +180,7 @@
                     (g2p mesh mps dt)
 
                     (when remove-damage
-                    (remove-material-damaged sim))
+                      (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
                     (check-mps mps)
@@ -254,18 +253,19 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (unless (cl-mpm/particle::mp-cached-nodes mp)
-    (create-node-cache mesh mp))
-  (iterate-over-neighbours-cached mesh mp func)
+  (if (cl-mpm/particle::mp-cached-nodes mp)
+      (iterate-over-neighbours-cached mesh mp func)
+      (create-node-cache mesh mp func))
 
-  ;; (iterate-over-neighbours-shape-gimp mesh mp func)
+  ;(iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
   (values)
   )
 
-(defun create-node-cache (mesh mp)
+(defun create-node-cache (mesh mp func)
+  (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
       (iterate-over-neighbours-shape-gimp
@@ -276,8 +276,9 @@
            :node node
            :weight svp
            :grads grads)
-          nodes
-          )))))
+          nodes)
+         (funcall func mesh mp node svp grads)
+         ))))
 
 (defun iterate-over-neighbours-cached (mesh mp func)
   (declare (function func))
@@ -619,7 +620,8 @@
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
-           (fast-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
+           ;; (fast-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
+           (fast-fmacc node-vel mp-vel (* mp-mass svp))
            ;; (det-ext-force mp node svp node-force)
            ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
            )
@@ -635,6 +637,9 @@
   (lparallel:pdotimes (i (length mps))
     (p2g-mp mesh (aref mps i))))
 
+(declaim (inline p2g-force-mp)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
+         )
 (defun p2g-force-mp (mesh mp)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -660,7 +665,8 @@
          (when node-active
            (sb-thread:with-mutex (node-lock)
              (det-ext-force mp node svp node-force)
-             (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)))
+             (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
+             ))
           )
         )))
   (values))
@@ -796,6 +802,8 @@
         (progn
           (magicl:scale! vel (/ 1.0d0 mass))))))
 
+(declaim (inline calculate-forces)
+         (ftype (function (cl-mpm/mesh::node double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt)
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
@@ -805,22 +813,32 @@
         node
         (declare (double-float mass dt damping))
         (progn
-          (setf acc (magicl:scale
-                     ;; force
-                      (magicl:.- force
-                                 (magicl:scale vel (* mass damping)))
-                     (/ 1.0 mass)))
-          ;;Disable for FLIP
-          (setf vel (magicl:.+ vel (magicl:scale acc dt)))
-          ))))
+          ;; (setf acc (magicl:scale!
+          ;;            ;; force
+          ;;             (magicl:.- force
+          ;;                        (magicl:scale vel (* mass damping)))
+          ;;            (/ 1.0 mass)))
+          ;; (setf vel (magicl:.+ vel (magicl:scale acc dt)))
 
+          (magicl:scale acc 0d0)
+          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 mass))
+          (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
+          ;;Disable for FLIP
+          (cl-mpm/fastmath:fast-fmacc vel acc dt)
+          )))
+  (values))
+
+(declaim (inline iterate-over-nodes)
+         (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes)
+         )
 (defun iterate-over-nodes (mesh func)
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
     (lparallel:pdotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
-        (funcall func node)))))
+        (funcall func node))))
+  (values))
 
 (defun update-node (mesh dt node damping)
     (when (cl-mpm/mesh:node-active node)
@@ -857,7 +875,7 @@
                       (lambda (node)
                         (calculate-forces node damping dt))))
 
-(defun apply-bcs (mesh bcs dt)
+(defun apply-bcs-old (mesh bcs dt)
   (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ( (nodes  mesh-nodes)
                     (nD     mesh-nD)
@@ -869,6 +887,24 @@
           (let ((index (cl-mpm/bc:bc-index bc)))
             (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
               (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh dt))))))))
+
+(defun apply-bcs (mesh bcs dt)
+  (declare (cl-mpm/mesh::mesh mesh))
+  (with-accessors ( (nodes  mesh-nodes)
+                   (nD     mesh-nD)
+                   (mc     mesh-count)) mesh
+                                        ;each bc is a list (pos value)
+    (lparallel:pdotimes (i (array-total-size bcs))
+      (let ((bc (aref bcs i)))
+        (with-accessors ((node cl-mpm/bc::bc-node)
+                         (index cl-mpm/bc::bc-index))
+            bc
+          (if node
+              (cl-mpm/bc:apply-bc bc node mesh dt)
+              (progn
+                (setf node (cl-mpm/mesh:get-node mesh index))
+                (cl-mpm/bc:apply-bc bc node mesh dt)
+                )))))))
 
 
 ;; (defun update-particle (mps dt)
@@ -1124,10 +1160,10 @@
 (defun reset-grid (mesh)
   (declare (cl-mpm/mesh::mesh mesh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-  (dotimes (i (array-total-size nodes))
-    (let ((node (row-major-aref nodes i)))
-    (when (> (cl-mpm/mesh:node-mass node) 0)
-      (cl-mpm/mesh:reset-node node))))))
+    (lparallel:pdotimes (i (array-total-size nodes))
+      (let ((node (row-major-aref nodes i)))
+        (when (cl-mpm/mesh:node-active node)
+          (cl-mpm/mesh:reset-node node))))))
 
 (defun filter-grid (mesh mass-thresh)
   (declare (cl-mpm/mesh::mesh mesh) (double-float mass-thresh))
