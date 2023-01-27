@@ -10,9 +10,9 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (critical-stress stress damage)
   "Function that controls how damage evolves with principal stresses"
-  (if (> stress (* 0.5d0 critical-stress))
+  (if (> stress (* 1d-2 critical-stress))
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
-      (* (/ (max 0d0 stress) critical-stress) 1d1)
+      (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1)
       0d0)
   ;; 0d0
   )

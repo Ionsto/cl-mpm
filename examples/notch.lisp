@@ -5,7 +5,7 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/notch)
-(declaim (optimize (debug 2) (safety 2) (speed 2)))
+(declaim (optimize (debug 3) (safety 2) (speed 2)))
 
 
 (defun find-max-cfl (sim)
@@ -47,11 +47,12 @@
     ;(* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)
     ))
 (defun max-stress (mp)
+  (declare (optimize (speed 2) (debug 3)))
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (apply #'max l)
+    (/ (apply #'max l) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 2) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -181,12 +182,12 @@
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-viscoplastic
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-elastic;-damage
-                 :E 1d8
+                'cl-mpm/particle::particle-elastic-damage
+                 :E 1d9
                  :nu 0.3250d0
                  ;; :visc-factor 11d6
                  ;; :visc-power 3d0
-                 ;; :critical-stress 5d5
+                 :critical-stress 1d6
                  :gravity -9.8d0
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
@@ -194,8 +195,8 @@
       (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -257,7 +258,7 @@
          (shelf-height 200)
          (shelf-bottom 130)
          (notch-length 100)
-         (notch-depth 30)
+         (notch-depth 40)
          )
     (defparameter *sim* (setup-test-column '(1100 400)
                                            (list shelf-length shelf-height)
@@ -335,7 +336,7 @@
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
                             (cl-mpm::update-sim *sim*)
-                            ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) (list *notch-position* 25)))
+                            ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 30)))
                             ;; (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
