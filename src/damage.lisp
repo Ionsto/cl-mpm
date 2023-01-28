@@ -12,7 +12,9 @@
   "Function that controls how damage evolves with principal stresses"
   (if (> stress (* 1d-2 critical-stress))
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
-      (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1)
+      ;(* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 1) (expt (- 1d0 damage) 3))))
+      (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-2 (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 3))))
+      ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
   ;; 0d0
   )
