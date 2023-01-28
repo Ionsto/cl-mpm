@@ -15,10 +15,8 @@
 (in-package :cl-mpm/buoyancy)
 
 ;(defgeneric virtual-stress ())
-(let ((datum-true 200)
-      (rho-true (/ 900.0d0 2d0))
-      )
-  (defun buoyancy-virtual-stress (z)
+(let ((rho-true (/ 1000.0d0 2d0)))
+  (defun buoyancy-virtual-stress (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
            (datum datum-true)
@@ -30,7 +28,7 @@
           ;; (magicl:zeros '(3 1))
           (magicl:zeros '(3 1))
           )))
-  (defun buoyancy-virtual-div (z)
+  (defun buoyancy-virtual-div (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
            (datum datum-true)
@@ -43,27 +41,27 @@
           (magicl:zeros '(2 1))
           ))))
 
-(defun calculate-virtual-stress-mp (mp)
+(defun calculate-virtual-stress-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
       mp
-    (buoyancy-virtual-stress (tref pos 1 0)))
+    (buoyancy-virtual-stress (tref pos 1 0) datum))
   )
 
-(defun calculate-virtual-stress-cell (cell)
+(defun calculate-virtual-stress-cell (cell datum)
   (with-accessors ((pos cl-mpm/mesh::cell-centroid))
       cell
-    (buoyancy-virtual-stress (tref pos 1 0))))
+    (buoyancy-virtual-stress (tref pos 1 0) datum)))
 
-(defun calculate-virtual-divergance-mp (mp)
+(defun calculate-virtual-divergance-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
       mp
-    (buoyancy-virtual-div (tref pos 1 0)))
+    (buoyancy-virtual-div (tref pos 1 0) datum))
   )
 
-(defun calculate-virtual-divergance-cell (cell)
+(defun calculate-virtual-divergance-cell (cell datum)
   (with-accessors ((pos cl-mpm/mesh::cell-centroid))
       cell
-    (buoyancy-virtual-div (tref pos 1 0))))
+    (buoyancy-virtual-div (tref pos 1 0) datum)))
 
 (defun mps-in-cell (mesh mps)
   (loop for mp across mps
@@ -74,7 +72,7 @@
                       #'floor))
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
-(defun apply-force-mps (mesh mps)
+(defun apply-force-mps (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (with-accessors ((volume cl-mpm/particle:mp-volume))
@@ -95,15 +93,15 @@
                    (magicl:@
                     (magicl:transpose!
                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                    (calculate-virtual-stress-mp mp))
+                    (calculate-virtual-stress-mp mp datum))
                    volume))
                                         ;Internal force
                  (cl-mpm/fastmath:fast-add
                   node-force
                   (magicl:scale!
-                   (calculate-virtual-divergance-mp mp)
+                   (calculate-virtual-divergance-mp mp datum)
                    (* svp volume))))))))))))
-(defun apply-force-cells (mesh)
+(defun apply-force-cells (mesh datum)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
     (lparallel:pdotimes (i (array-total-size cells))
@@ -116,7 +114,7 @@
                         node
                       (incf nodal-volume node-volume))))
                  ;;Clip out nodes with poor conditied nodes
-                 (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-3)
+                 (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                    (cl-mpm/mesh::cell-iterate-over-neighbours
                     mesh cell
                     (lambda (mesh cell node svp grads)
@@ -129,7 +127,7 @@
                         (with-accessors ((volume cl-mpm/mesh::cell-volume))
                             cell
                           (when node-active
-                            (when t;(< node-volume (* 0.99d0 n-vol))
+                            (when ;(< node-volume (* 0.99d0 n-vol))
                               (sb-thread:with-mutex (node-lock)
                                         ;Internal force
                                 (cl-mpm/fastmath:fast-add
@@ -137,13 +135,13 @@
                                  (magicl:scale!
                                   (magicl:@
                                    (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                   (calculate-virtual-stress-cell cell))
+                                   (calculate-virtual-stress-cell cell datum))
                                   (* -1d0 volume)))
                                         ;External force
                                 (cl-mpm/fastmath:fast-add
                                  node-force
                                  (magicl:scale!
-                                  (calculate-virtual-divergance-cell cell)
+                                  (calculate-virtual-divergance-cell cell datum)
                                   (* -1d0 svp volume)))
                                 )))))
                       ))))))))
@@ -160,10 +158,13 @@
 
   )
 
-(defun apply-bouyancy (sim)
+(defun apply-bouyancy (sim datum-true)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
-  (apply-force-mps mesh mps)
-  (apply-force-cells mesh)))
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      (let ((datum (- datum-true (* 0.5d0 h))))
+        (apply-force-mps mesh mps datum)
+        (apply-force-cells mesh datum)))))
 

@@ -52,7 +52,7 @@
     (/ (apply #'max l) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :stress))
   (declare (optimize (speed 2) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -180,8 +180,8 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               ;; 'cl-mpm/particle::particle-viscoplastic
-               ;; 'cl-mpm/particle::particle-viscoplastic
+               ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               ;; 'cl-mpm/particle::particle-viscoelastic
                 'cl-mpm/particle::particle-elastic-damage
                  :E 1d9
                  :nu 0.3250d0
@@ -195,8 +195,8 @@
       (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -236,37 +236,38 @@
               )
              )
             )
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (list (cl-mpm/bc::make-bc-closure '(0 0)
-      ;;                                         (lambda ()
-      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim)))))
+      (setf (cl-mpm::sim-bcs-force sim)
+            (cl-mpm/bc:make-bcs-from-list
+            (list (cl-mpm/bc::make-bc-closure '(0 0)
+                                              (lambda ()
+                                                (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
 
-      (let ((ocean-x 0)
-            (ocean-y 300))
-        (setf (cl-mpm::sim-bcs-force sim)
-              (cl-mpm/bc:make-bcs-from-list
-               (loop for x from (floor ocean-x h) to (floor (first size) h)
-                     append (loop for y from 0 to (floor ocean-y h)
-                                  collect (cl-mpm/bc::make-bc-buoyancy
-                                           (list x y)
-                                           (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
+      ;; (let ((ocean-x 0)
+      ;;       (ocean-y 300))
+      ;;   (setf (cl-mpm::sim-bcs-force sim)
+      ;;         (cl-mpm/bc:make-bcs-from-list
+      ;;          (loop for x from (floor ocean-x h) to (floor (first size) h)
+      ;;                append (loop for y from 0 to (floor ocean-y h)
+      ;;                             collect (cl-mpm/bc::make-bc-buoyancy
+      ;;                                      (list x y)
+      ;;                                      (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
       sim)))
 
 ;Setup
 (defun setup ()
-  (let* ((shelf-length 1000)
+  (let* ((shelf-length 2000)
          (shelf-height 200)
-         (shelf-bottom 130)
+         (shelf-bottom 120)
          (notch-length 100)
-         (notch-depth 40)
+         (notch-depth 20)
          )
-    (defparameter *sim* (setup-test-column '(1100 400)
+    (defparameter *sim* (setup-test-column (list (+ shelf-length 100) 400)
                                            (list shelf-length shelf-height)
                                            (list 0 shelf-bottom) (/ 1 25) 2))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
-  ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 120) (/ 1 25) 2))
+  ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
   ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
 
   (format t "Simulation dt ~a~%" (cl-mpm:sim-dt *sim*))
