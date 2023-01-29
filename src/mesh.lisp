@@ -70,6 +70,12 @@
   (local-list
    :accessor node-local-list
    :initform (make-array 0 :fill-pointer 0 :adjustable t))
+  (jacobian-inc
+   :accessor node-jacobian-inc
+   :initform 0d0)
+   (jacobian
+    :accessor node-jacobian
+    :initform 0d0)
   (lock 
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -198,7 +204,7 @@
                    )))
 (defun make-cells (mesh size h)
   "Make a 2d mesh of specific size"
-  (make-array (mapcar #'- size '(1 1)) :initial-contents 
+  (make-array (mapcar #'- size '(1 1)) :initial-contents
       (loop for x from 0 to (- (nth 0 size) 2)
             collect (loop for y from 0 to (- (nth 1 size) 2)
                           collect (make-cell
@@ -339,6 +345,8 @@
   (with-slots ( (mass mass)
                 (vel velocity)
                (acc acceleration)
+               (j-inc jacobian-inc)
+               (j jacobian)
                (volume volume)
                (active active)
                 (force force))
@@ -346,6 +354,8 @@
     (setf active nil)
     (setf mass 0d0)
     (setf volume 0d0)
+    (setf j 0d0)
+    (setf j-inc 0d0)
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)
     (magicl:scale! force 0d0)))

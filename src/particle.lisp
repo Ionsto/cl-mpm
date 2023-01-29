@@ -441,8 +441,6 @@
       ;; stress
       (if (> viscosity 0d0)
           (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
-          ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
-          ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
           (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
       )
     ))
@@ -511,11 +509,6 @@
       mp
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
             (cl-mpm/constitutive::maxwell strain-rate stress-u E nu viscosity dt vorticity))
-    ;; (cl-mpm/constitutive::glen-flow strain-rate stress
-    ;;                                 (/ E (* 3d0 (- 1d0 nu nu)))
-    ;;                                 (* (expt 2 (- temperature))
-    ;;                                    visc-factor)
-    ;;                                 visc-power dt vorticity)
     ))
 
 (defmethod constitutive-model ((mp particle-thermofluid-damage) strain dt)
