@@ -1030,8 +1030,10 @@
         (progn
           (setf def (magicl:@ df def))
           ;;Eng strain to log strain
-          ;;(voight-to-matrix (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
+          ;;(voight-to-matrix )
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
+          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix
+          ;;                                         (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1)))))
             (let ((trial-lgs (magicl:@ df
                                         v
                                         (magicl:from-diag (mapcar (lambda (x)
@@ -1048,7 +1050,9 @@
                                                                       (log (the double-float x))) lf)
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
-                              0.5d0)))))
+                              0.5d0))
+                ;; (setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
+                )))
         ;;Post multiply to turn to eng strain
         ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
 
@@ -1130,7 +1134,7 @@
                         ) mp
       (progn
         ;;For normal
-        (calculate-strain-rate mesh mp dt)
+        ;; (calculate-strain-rate mesh mp dt)
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
@@ -1234,10 +1238,10 @@
   ;;   )
   ;;
   ;;Calculate jp calculate weighted value
-  ;; (lparallel:pdotimes (i (length mps))
-  ;;   (let ((mp (aref mps i)))
-  ;;     (calculate-strain-rate mesh mp dt)
-  ;;     (map-jacobian mesh mp dt)))
+  (lparallel:pdotimes (i (length mps))
+    (let ((mp (aref mps i)))
+      (calculate-strain-rate mesh mp dt)
+      (map-jacobian mesh mp dt)))
 
   ;;Update stress
   (lparallel:pdotimes (i (length mps))

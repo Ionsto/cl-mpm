@@ -1,6 +1,9 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 (ql:quickload "vgplot")
 
@@ -29,7 +32,7 @@
   ;; (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
   ;;   (apply #'max l))
   )
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -71,7 +74,8 @@
          (h-y (/ h 1d0))
          (density 100)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
-         (block-size (list h-x (second block-size))))
+        (block-size (list (* (first size) h-x) (second block-size)))
+         )
     (progn
       (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
                                   (* h-y (+ (/ 1d0 (* 2d0 mp-scale)) )))))
@@ -89,8 +93,8 @@
 
       (loop for mp across (cl-mpm::sim-mps sim)
             do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-5)
+      (setf (cl-mpm:sim-damping-factor sim) 1d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim) '())
@@ -120,6 +124,14 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
       (loop for id from 0 to (- (length mps) 1)
             when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
+              collect (aref mps id))))
+  (defparameter *slice-mps*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (least-pos
+             (apply #'max (loop for mp across mps
+                                collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
+      (loop for id from 0 to (- (length mps) 1)
+            when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
               collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* -100)
   ;; (increase-load *sim* *load-mps-top* -100)
@@ -178,8 +190,20 @@
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     )
+(defun plot-sigma-yy ()
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+           (mp-list
+             (loop for mp across mps
+                   when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- x-slice-pos 0.001))
+                   collect mp))
+           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))))
+      (vgplot:figure)
+      (vgplot:plot y syy ";;with points pt 7"))))
 
-;; (defparameter *h* 1d0)
+  ;; (defparameter *h*) 1d0
 ;; (defparameter *x* (loop for i from -1.5d0 to 1.5d0 by 0.1d0 collect i))
 ;; (defparameter *sf* (cl-mpm/shape-fuction:make-shape))
 ;; (vgplot:plot *x* (mapcar (lambda (x) (cl-mpm/shape-function::shape-bspline x *h*)) *x*))

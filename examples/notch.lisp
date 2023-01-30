@@ -118,7 +118,7 @@
 
 (defun remove-sdf (sim sdf)
       (setf (cl-mpm:sim-mps sim)
-            (remove-if (lambda (mp)
+            (lparallel:premove-if (lambda (mp)
                          (with-accessors ((pos cl-mpm/particle:mp-position)) mp
                            (>= 0 (funcall sdf pos))
                            ))
@@ -180,23 +180,23 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-viscoelastic
-                'cl-mpm/particle::particle-elastic-damage
-                 :E 1d9
-                 :nu 0.3250d0
-                 ;; :visc-factor 11d6
-                 ;; :visc-power 3d0
-                 :critical-stress 1d6
-                 :gravity -9.8d0
-                 ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
-                 :index 0
+               ;; 'cl-mpm/particle::particle-elastic-damage
+               :E 1d8
+               :nu 0.3250d0
+               :visc-factor 11d6
+               :visc-power 3d0
+               :critical-stress 1d6
+               :gravity -9.8d0
+               ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
+               :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.3d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
@@ -236,21 +236,21 @@
               )
              )
             )
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc:make-bcs-from-list
-            (list (cl-mpm/bc::make-bc-closure '(0 0)
-                                              (lambda ()
-                                                (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;       (list (cl-mpm/bc::make-bc-closure '(0 0)
+      ;;                                         (lambda ()
+      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
 
-      ;; (let ((ocean-x 0)
-      ;;       (ocean-y 300))
-      ;;   (setf (cl-mpm::sim-bcs-force sim)
-      ;;         (cl-mpm/bc:make-bcs-from-list
-      ;;          (loop for x from (floor ocean-x h) to (floor (first size) h)
-      ;;                append (loop for y from 0 to (floor ocean-y h)
-      ;;                             collect (cl-mpm/bc::make-bc-buoyancy
-      ;;                                      (list x y)
-      ;;                                      (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
+      (let ((ocean-x 0)
+            (ocean-y 300))
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (loop for x from (floor ocean-x h) to (floor (first size) h)
+                     append (loop for y from 0 to (floor ocean-y h)
+                                  collect (cl-mpm/bc::make-bc-buoyancy
+                                           (list x y)
+                                           (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
       sim)))
 
 ;Setup
@@ -263,7 +263,7 @@
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 100) 400)
                                            (list shelf-length shelf-height)
-                                           (list 0 shelf-bottom) (/ 1 25) 2))
+                                           (list 0 shelf-bottom) (/ 1 50) 4))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
@@ -323,6 +323,7 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
 
                   (push *t* *time*)
                   (setf *x*
@@ -351,6 +352,7 @@
                   )))
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
+  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
     (vgplot:figure)
     (vgplot:title "Terminus over time")
     (vgplot:plot *time* *x-pos*)
