@@ -180,13 +180,13 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-viscoplastic-damage
+               ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-viscoelastic
-               ;; 'cl-mpm/particle::particle-elastic-damage
+               'cl-mpm/particle::particle-elastic-damage
                :E 1d8
                :nu 0.3250d0
-               :visc-factor 11d6
-               :visc-power 3d0
+               ;; :visc-factor 11d6
+               ;; :visc-power 3d0
                :critical-stress 1d6
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -255,7 +255,7 @@
 
 ;Setup
 (defun setup ()
-  (let* ((shelf-length 2000)
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length 100)
@@ -263,7 +263,7 @@
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 100) 400)
                                            (list shelf-length shelf-height)
-                                           (list 0 shelf-bottom) (/ 1 50) 4))
+                                           (list 0 shelf-bottom) (/ 1 25) 2))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
@@ -467,6 +467,7 @@
                              ;;                                      mps
                              ;;                                      dt
                              ;;                                      50d0))
+
                              ;;   ;Map forces onto nodes
                                (cl-mpm::p2g-force mesh mps)
                                (cl-mpm::apply-bcs mesh bcs-force dt)

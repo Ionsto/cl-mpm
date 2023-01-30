@@ -163,7 +163,6 @@
                       (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
-                    ;; (apply-bcs mesh bcs-force dt)
                     (update-stress mesh mps dt)
                     (when enable-damage
                       (cl-mpm/damage::calculate-damage mesh
@@ -1025,7 +1024,8 @@
                    dstrain
                    ))
     (progn
-      (let ((df (calculate-df mesh mp))
+      (let (;(df (calculate-df mesh mp))
+            (df (.+ (magicl:eye 2) (voight-to-matrix dstrain)))
             (prev-strain strain))
         (progn
           (setf def (magicl:@ df def))
@@ -1134,7 +1134,7 @@
                         ) mp
       (progn
         ;;For normal
-        ;; (calculate-strain-rate mesh mp dt)
+        (calculate-strain-rate mesh mp dt)
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
@@ -1202,6 +1202,9 @@
                                      ))
                                  )))))
 
+(declaim (inline calculate-df)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) magicl:matrix/double-float)
+                calculate-df))
 (defun calculate-df (mesh mp)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (def cl-mpm/particle:mp-deformation-gradient))
@@ -1238,10 +1241,10 @@
   ;;   )
   ;;
   ;;Calculate jp calculate weighted value
-  (lparallel:pdotimes (i (length mps))
-    (let ((mp (aref mps i)))
-      (calculate-strain-rate mesh mp dt)
-      (map-jacobian mesh mp dt)))
+  ;; (lparallel:pdotimes (i (length mps))
+  ;;   (let ((mp (aref mps i)))
+  ;;     (calculate-strain-rate mesh mp dt)
+  ;;     (map-jacobian mesh mp dt)))
 
   ;;Update stress
   (lparallel:pdotimes (i (length mps))
