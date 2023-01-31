@@ -127,7 +127,7 @@
                         (with-accessors ((volume cl-mpm/mesh::cell-volume))
                             cell
                           (when node-active
-                            (when ;(< node-volume (* 0.99d0 n-vol))
+                            (when t;(< node-volume (* 0.99d0 n-vol))
                               (sb-thread:with-mutex (node-lock)
                                         ;Internal force
                                 (cl-mpm/fastmath:fast-add
