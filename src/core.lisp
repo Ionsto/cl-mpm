@@ -1321,7 +1321,7 @@
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;(split-criteria mp h)
                                 ))) mps)))
       ;; (delete-if (lambda (mp)
       ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
