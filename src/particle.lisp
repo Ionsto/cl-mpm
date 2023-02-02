@@ -232,6 +232,17 @@
     :type DOUBLE-FLOAT
     :initarg :critical-stress
     :initform 0d0)
+   (damage-rate
+    :accessor mp-damage-rate
+    :type DOUBLE-FLOAT
+    :initarg :damage-rate
+    :initform 0d0)
+   (local-length
+    :accessor mp-local-length
+    :type DOUBLE-FLOAT
+    :initarg :local-length
+    :initform 1d0)
+
    )
   (:documentation "A material point with a damage tensor"))
 (defclass particle-thermal (particle)

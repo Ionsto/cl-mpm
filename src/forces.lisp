@@ -72,8 +72,8 @@
       (incf (aref f-s 0)
             (* (aref b-s 0) mass svp))
       (incf (aref f-s 1)
-            (+ (* (+ gravity (aref b-s 1)) mass svp)
-               ))
+            (* (+ gravity (aref b-s 1)) mass svp)
+            )
           ;; (magicl:scale!
           ;;   ;; (magicl:.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
           ;;   ;;                               '(2 1) :type 'double-float :layout :column-major)

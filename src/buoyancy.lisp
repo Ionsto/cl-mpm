@@ -145,6 +145,30 @@
                                   (* -1d0 svp volume)))
                                 )))))
                       ))))))))
+(defun direct-mp-enforcment (mesh mps datum)
+  (lparallel:pdotimes (i (length mps))
+    (let ((mp (aref mps i)))
+      (with-accessors ((volume cl-mpm/particle:mp-volume)
+                       (g cl-mpm/particle:mp-gravity)
+                       (pos cl-mpm/particle:mp-position))
+          mp
+        (cl-mpm::iterate-over-neighbours ;-shape-linear
+         mesh mp
+         (lambda (mesh mp node svp grads)
+           (with-accessors ((node-force cl-mpm/mesh:node-force)
+                            (node-lock  cl-mpm/mesh:node-lock)
+                            (node-active  cl-mpm/mesh:node-active))
+               node
+             (when node-active
+               (sb-thread:with-mutex (node-lock)
+                 ;;External force
+                 (let* ((rho 1000)
+                        (h (- datum (magicl:tref pos 1 0)))
+                        (f (* rho g volume))
+                        )
+                   (when (> h 0d0)
+                     (incf (magicl:tref node-force 1 0) (* -1 volume g rho svp))))
+                 )))))))))
 
 ;(defun locate-mps-cells (mesh mps)
 ;  (loop for mp across mps
@@ -155,7 +179,6 @@
 ;               (incf (cl-mpm/mesh::cell-mp-count cell))))))
 
 (defun find-active-nodes (mesh mps)
-
   )
 
 (defun apply-bouyancy (sim datum-true)
@@ -164,7 +187,9 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (let ((datum (- datum-true (* 0.5d0 h))))
-        (apply-force-mps mesh mps datum)
-        (apply-force-cells mesh datum)))))
+      (let ((datum (- datum-true (* 0 0.5d0 h))))
+        ;; (apply-force-mps mesh mps datum)
+        ;; (apply-force-cells mesh datum)
+        (direct-mp-enforcment mesh mps datum-true)
+        ))))
 
