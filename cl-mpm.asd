@@ -189,6 +189,17 @@
                "magicl")
   :serial t
   :components ((:file "examples/notch")))
+(defsystem "cl-mpm/examples/float"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/float")))
 (defsystem "cl-mpm/examples/flow"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"

@@ -206,7 +206,8 @@
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
       bc
-    (cl-mpm/fastmath:fast-fmacc (cl-mpm/mesh:node-force node) (bc-force bc) (cl-mpm/mesh::node-volume node))
+    (when (cl-mpm/mesh:node-active node)
+      (cl-mpm/fastmath:fast-fmacc (cl-mpm/mesh:node-force node) (bc-force bc) (cl-mpm/mesh::node-volume node)))
     ;; (setf (cl-mpm/mesh:node-force node)
     ;;       (magicl:.+ (cl-mpm/mesh:node-force node)
     ;;                  (magicl:scale (bc-force bc) (cl-mpm/mesh::node-volume node))))

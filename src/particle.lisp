@@ -227,6 +227,11 @@
     :accessor mp-undamaged-stress
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(3 1)))
+   (initiation-stress
+    :accessor mp-initiation-stress
+    :type DOUBLE-FLOAT
+    :initarg :initiation-stress
+    :initform 0d0)
    (critical-stress
     :accessor mp-critical-stress
     :type DOUBLE-FLOAT
@@ -237,6 +242,11 @@
     :type DOUBLE-FLOAT
     :initarg :damage-rate
     :initform 0d0)
+   (critical-damage
+    :accessor mp-critical-damage
+    :type DOUBLE-FLOAT
+    :initarg :critical-damage
+    :initform 1d0)
    (local-length
     :accessor mp-local-length
     :type DOUBLE-FLOAT

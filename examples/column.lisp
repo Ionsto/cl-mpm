@@ -202,6 +202,21 @@
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))))
       (vgplot:figure)
       (vgplot:plot y syy ";;with points pt 7"))))
+(defun save-sigma-yy ()
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+           (mp-list
+             (loop for mp across mps
+                   when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- x-slice-pos 0.001))
+                     collect mp))
+           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))))
+      (with-open-file (stream (merge-pathnames "output/consolidation.csv") :direction :output :if-exists :supersede)
+        (format stream "coord_y,sigma_yy~%")
+        (loop for ymp in y
+              for syymp in syy
+              do (format stream "~f, ~f ~%" ymp syymp))))))
 
   ;; (defparameter *h*) 1d0
 ;; (defparameter *x* (loop for i from -1.5d0 to 1.5d0 by 0.1d0 collect i))

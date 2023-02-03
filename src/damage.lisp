@@ -8,28 +8,32 @@
   )
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(defun damage-rate-profile (critical-stress stress damage rate)
+(defun damage-rate-profile (critical-stress stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
-  (if (> stress (* 1d-2 critical-stress))
+  (if (> stress init-stress)
       ;; (/ (* (/ (max 0d0 stress) critical-stress) 1d-1) (max 1d-5 (expt (- 1d0 damage) 3)))
       ;(* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 1) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 3))))
-      (* (expt (/ (max 0d0 stress) critical-stress) 2d0) rate)
+      ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
+      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0)  rate)
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
   ;; 0d0
   )
 
-(defun damage-profile (damage)
+(defun damage-profile (damage damage-crit)
   "Constitive law describing the scalar stress decrease as a function of damage"
-  (expt (- 1 damage) 1)
-  ;(max (expt (- 1 damage) 2) 1d-6)
-  )
+  (if (< damage damage-crit)
+    (expt (- 1 damage) 1)
+    0d0))
+
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      ) mp
         (progn
@@ -51,12 +55,17 @@
                    (r 0.43d0)
                    )
               (when (> s_1 0d0)
-                (incf damage-increment (* (damage-rate-profile critical-stress s_1 damage damage-rate) dt))
+                (incf damage-increment (* (damage-rate-profile critical-stress
+                                                               ;;I think we calculate damage evolution on this?
+                                                               (* s_1 (damage-profile damage critical-damage))
+                                                               damage damage-rate init-stress) dt))
                 )
               ;; (when (> hayhurst 0d0)
               ;;   (incf damage-increment (* B (expt hayhurst r))))
               )
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
+            ;; (when (> damage critical-damage)
+            ;;   (setf damage-increment (- 1d0 damage)))
             ;; (when (>= damage 1d0)
               ;; (setf damage-increment 0d0))
             (setf (cl-mpm/particle::mp-local-damage-increment mp)
@@ -69,11 +78,14 @@
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ) mp
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
+          ;; (when (> damage critical-damage)
+          ;;   (setf damage 1d0))
           ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 
@@ -83,7 +95,7 @@
                     do (let ((sii (nth i l)))
                            (when (> sii 0d0)
                              (setf (nth i l)
-                                   (* (nth i l) (damage-profile damage))
+                                   (* (nth i l) (damage-profile damage critical-damage))
                                    ))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
@@ -98,6 +110,7 @@
                      (damage-inc cl-mpm/particle:mp-damage)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
                      ) mp
         (progn
           (setf undamaged-stress (magicl:scale stress 1d0))
@@ -113,8 +126,10 @@
             (setf damage-increment (min damage-increment (- 1d0 damage)))
             (setf damage-inc damage-increment)
             (incf damage damage-increment)
-
             (setf damage (min 1d0 (max 0d0 damage)))
+            ;;Jumping damage when hit a specific crack density
+            (when (> damage critical-damage)
+              (setf damage 1d0))
 
             ;; (loop for sii in l
             ;;       do (when (> sii 0)
@@ -267,5 +282,5 @@
                          (local-length cl-mpm/particle::mp-local-length)
                          )
             mp
-          (setf damage-inc (calculate-delocalised-damage mesh mp len))
+          (setf damage-inc (calculate-delocalised-damage mesh mp local-length))
           )))))

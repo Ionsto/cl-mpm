@@ -183,7 +183,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (mass (/ 1 (* e-scale mp-scale)))
+         (density 100)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position (list (* h-x (- (+ (/ 1 (* 2 mp-scale)) e-scale) 0))
@@ -193,11 +193,11 @@
                block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic-fracture
                :E 1d5 :nu 0.0d0
-               :mass mass
-               :critical-stress 1d5
+               :critical-stress 1d4
                :fracture-toughness 5d0)))
       ;; (remove-hole sim '(1d0 5.5d0) 0.5)
       ;; (remove-sdf sim (ellipse-sdf '(1d0 5.5d0) 1.0 0.25))
@@ -207,6 +207,8 @@
       ;; (setf (cl-mpm:sim-mass-filter sim) 1d-6)
       (setf (cl-mpm:sim-damping-factor sim) 1d-3)
       (setf (cl-mpm:sim-mass-filter sim) 1d-5)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
