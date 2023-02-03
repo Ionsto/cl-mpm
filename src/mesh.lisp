@@ -25,7 +25,7 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass node ()
   ((active
@@ -76,6 +76,12 @@
    (jacobian
     :accessor node-jacobian
     :initform 0d0)
+   (boundary-node
+    :accessor node-boundary-node
+    :type boolean
+    :initform nil
+    )
+
   (lock 
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -88,6 +94,10 @@
    (nodes
     :accessor cell-nodes
     :initarg :nodes
+    :type list
+    :initform '())
+   (neighbours
+    :accessor cell-neighbours
     :type list
     :initform '())
    (mp-count
@@ -204,13 +214,28 @@
                    )))
 (defun make-cells (mesh size h)
   "Make a 2d mesh of specific size"
-  (make-array (mapcar #'- size '(1 1)) :initial-contents
-      (loop for x from 0 to (- (nth 0 size) 2)
-            collect (loop for y from 0 to (- (nth 1 size) 2)
-                          collect (make-cell
-                                   mesh
-                                   (list x y)
-                                   h)))))
+  (let ((cells (make-array (mapcar #'- size '(1 1)) :initial-contents
+                          (loop for x from 0 to (- (nth 0 size) 2)
+                                collect (loop for y from 0 to (- (nth 1 size) 2)
+                                              collect (make-cell
+                                                       mesh
+                                                       (list x y)
+                                                       h))))))
+    (array-operations/utilities:nested-loop (i j) (array-dimensions cells)
+      (let* ((cell (aref cells i j)))
+        (with-accessors ((neighbours cell-neighbours))
+            cell
+          (setf neighbours (list))
+          (loop for dx from -1 to 1
+                do
+                   (loop for dy from -1 to 1
+                         do
+                            (unless (and (= dx 0) (= dy 0))
+                              (let ((di (mapcar #'+ (list i j) (list dx dy))))
+                                (when (in-bounds-cell mesh di)
+                                  (push (apply #'aref cells di) neighbours)))))))))
+    cells))
+
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
@@ -231,6 +256,12 @@
       (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
       (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
       mesh)))
+
+(defun in-bounds-cell (mesh index)
+  (destructuring-bind (x y) index
+    (and
+     (and (>= x 0) (< x (- (nth 0 (mesh-count mesh)) 1)))
+     (and (>= y 0) (< y (- (nth 1 (mesh-count mesh)) 1))))))
 
 (defun query-boundary-shapes (mesh index)
   (not (member index (mesh-boundary-shapes mesh) :test #'equal)))
@@ -349,9 +380,11 @@
                (j jacobian)
                (volume volume)
                (active active)
+               (boundary boundary-node)
                 (force force))
                 node
     (setf active nil)
+    (setf boundary nil)
     (setf mass 0d0)
     (setf volume 0d0)
     (setf j 0d0)
@@ -427,11 +460,12 @@
                         (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                        dist (nreverse weights)))
                         )
-                   (funcall func mesh
-                            cell
-                            node
-                            weight
-                            grads))))))
+                   (when (< 0d0 weight)
+                     (funcall func mesh
+                              cell
+                              node
+                              weight
+                              grads)))))))
   )
 
 

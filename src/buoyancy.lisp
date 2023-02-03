@@ -15,19 +15,22 @@
 (in-package :cl-mpm/buoyancy)
 
 ;(defgeneric virtual-stress ())
-(let ((rho-true (/ 1000.0d0 2d0)))
+(let ((rho-true (/ 1000.0d0 1d0)))
   (defun buoyancy-virtual-stress (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
            (datum datum-true)
            (h (- datum z))
            (f (* -1d0 rho g h))
+           (p -1d7)
            )
-      (if (> h 0d0)
-          (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
-          ;; (magicl:zeros '(3 1))
-          (magicl:zeros '(3 1))
-          )))
+      ;; (if (> h 0d0)
+      ;;     (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
+      ;;     ;; (magicl:zeros '(3 1))
+      ;;     (magicl:zeros '(3 1))
+      ;;     )
+      (magicl:from-list (list p p  0d0) '(3 1) :type 'double-float)
+      ))
   (defun buoyancy-virtual-div (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
@@ -35,11 +38,14 @@
            (h (- datum z))
            (f (* rho g))
            )
-      (if (> h 0d0)
-          (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
-          ;; (magicl:zeros '(2 1))
-          (magicl:zeros '(2 1))
-          ))))
+      ;; (if (> h 0d0)
+      ;;     (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
+      ;;     ;; (magicl:zeros '(2 1))
+      ;;     (magicl:zeros '(2 1))
+      ;;     )
+      (magicl:zeros '(2 1))
+
+      )))
 
 (defun calculate-virtual-stress-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
@@ -72,6 +78,7 @@
                       #'floor))
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
+
 (defun apply-force-mps (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
@@ -82,9 +89,10 @@
          (lambda (mesh mp node svp grads)
            (with-accessors ((node-force cl-mpm/mesh:node-force)
                             (node-lock  cl-mpm/mesh:node-lock)
+                            (node-boundary cl-mpm/mesh::node-boundary-node)
                             (node-active  cl-mpm/mesh:node-active))
                node
-             (when node-active
+             (when (and node-active node-boundary)
                (sb-thread:with-mutex (node-lock)
                  ;;External force
                  (cl-mpm/fastmath:fast-add
@@ -101,6 +109,7 @@
                   (magicl:scale!
                    (calculate-virtual-divergance-mp mp datum)
                    (* svp volume))))))))))))
+
 (defun apply-force-cells (mesh datum)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
@@ -121,12 +130,13 @@
                       (with-accessors ((node-force cl-mpm/mesh:node-force)
                                        (node-lock  cl-mpm/mesh:node-lock)
                                        (node-active cl-mpm/mesh:node-active)
+                                       (node-boundary cl-mpm/mesh::node-boundary-node)
                                        (node-volume cl-mpm/mesh::node-volume)
                                        )
                           node
                         (with-accessors ((volume cl-mpm/mesh::cell-volume))
                             cell
-                          (when node-active
+                          (when (and node-active node-boundary)
                             (when t;(< node-volume (* 0.99d0 n-vol))
                               (sb-thread:with-mutex (node-lock)
                                         ;Internal force
@@ -170,13 +180,34 @@
                      (incf (magicl:tref node-force 1 0) (* -1 volume g rho svp))))
                  )))))))))
 
-;(defun locate-mps-cells (mesh mps)
-;  (loop for mp across mps
-;        do (with-accessors ((pos cl-mpm/particle:mp-position))
-;               mp
-;             (let* ((id (cl-mpm/mesh:position-to-index mesh pos #'floor))
-;                    (cell (cl-mpm/mesh::get-cell mesh id)))
-;               (incf (cl-mpm/mesh::cell-mp-count cell))))))
+(defun check-neighbour-cell (cell)
+  (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                   (nodes cl-mpm/mesh::cell-nodes))
+      cell
+    (when (> mp-count 0)
+      (loop for n in nodes
+            do
+               (setf (cl-mpm/mesh::node-boundary-node n) t)))))
+(defun locate-mps-cells (mesh mps)
+  (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+    (lparallel:pdotimes (i (array-total-size cells))
+      (let ((cell (row-major-aref cells i)))
+        (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
+    (loop for mp across mps
+          do (with-accessors ((pos cl-mpm/particle:mp-position))
+                 mp
+               (let* ((id (cl-mpm/mesh:position-to-index mesh pos #'floor))
+                      (cell (cl-mpm/mesh::get-cell mesh id)))
+                 (incf (cl-mpm/mesh::cell-mp-count cell)))))
+    (lparallel:pdotimes (i (array-total-size cells))
+      (let ((cell (row-major-aref cells i)))
+        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                         (neighbours cl-mpm/mesh::cell-neighbours))
+            cell
+            (when (= mp-count 0)
+              (loop for neighbour in neighbours
+                    do
+                       (check-neighbour-cell neighbour))))))))
 
 (defun find-active-nodes (mesh mps)
   )
@@ -188,8 +219,9 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
-        ;; (apply-force-mps mesh mps datum)
-        ;; (apply-force-cells mesh datum)
-        (direct-mp-enforcment mesh mps datum-true)
+        (locate-mps-cells mesh mps)
+        (apply-force-mps mesh mps datum)
+        (apply-force-cells mesh datum)
+        ;; (direct-mp-enforcment mesh mps datum-true)
         ))))
 

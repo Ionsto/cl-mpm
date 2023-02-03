@@ -267,7 +267,7 @@
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-      (iterate-over-neighbours-shape-gimp
+      (iterate-over-neighbours-shape-linear
        mesh mp
        (lambda (mesh mp node svp grads)
          (push
@@ -404,7 +404,8 @@
                                    (weight (reduce #'* weights))
                                    (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                                   dist (nreverse weights))))
-                              (funcall func mesh mp node weight grads)))))))))
+                              (when (< 0d0 weight)
+                                (funcall func mesh mp node weight grads))))))))))
 
 (declaim (inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))

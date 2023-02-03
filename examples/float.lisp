@@ -1,11 +1,29 @@
 (defpackage :cl-mpm/examples/float
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+(setf *block-compile-default* nil)
 (in-package :cl-mpm/examples/float)
 (declaim (optimize (debug 3) (safety 2) (speed 2)))
+
+(defun ellipse-sdf (position x-l y-l)
+  (let ((aspect (/ x-l y-l)))
+    (lambda (pos)
+      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+             (dist-vec (magicl:.* (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
+                                                                             :type 'double-float)))
+             (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
+                                                    dist-vec) 0 0))))
+        (- distance x-l)))))
+
+(defun remove-sdf (sim sdf)
+  (setf (cl-mpm:sim-mps sim)
+        (lparallel:premove-if (lambda (mp)
+                                (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                                  (<= 0 (funcall sdf pos))
+                                  ))
+                              (cl-mpm:sim-mps sim))))
 
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
@@ -117,11 +135,11 @@
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
                ;; :critical-stress 1d6
-               :gravity -9.8d0
+               :gravity 0d0;-9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -152,13 +170,17 @@
          (shelf-bottom 120)
          (notch-length 100)
          (notch-depth 20)
+         (mesh-size 10)
          )
+    (defparameter *csv-name* (merge-pathnames (format nil "output/surface_position_~D.csv" mesh-size)))
     (defparameter *sim* (setup-test-column '(400 500)
                                            '(100 100)
-                                           '(100 200) (/ 1 20) 2))
+                                           '(000 000) (/ 1d0 mesh-size) 4))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
+  ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
+  (remove-sdf *sim* (ellipse-sdf (list 0 0) 100 100))
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
   ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
 
@@ -203,8 +225,8 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
-  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
-    (format stream "Time (s),Terminus position~%")
+  (with-open-file (stream *csv-name* :direction :output :if-exists :supersede)
+    (format stream "Time (s),Surface position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
@@ -215,12 +237,12 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+                  ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
 
                   (push *t* *time*)
                   (setf *x*
                         (loop for mp across (cl-mpm:sim-mps *sim*)
-                              maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
+                              maximize (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
                   (push
                    *x*
                    *x-pos*)
@@ -237,23 +259,22 @@
                   (plot *sim*)
                   (swank.live:update-swank)
                   (sleep .01)
-                  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
-                          (format stream "~f, ~f ~%" *t* *x*)
-                    )
+                  (with-open-file (stream  *csv-name* :direction :output :if-exists :append)
+                          (format stream "~f, ~f ~%" *t* *x*))
 
                   )))
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
-  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
-    (vgplot:figure)
-    (vgplot:title "Terminus over time")
-    (vgplot:plot *time* *x-pos*)
+  ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+  (vgplot:figure)
+  (vgplot:title "Top surface height")
+  (vgplot:plot *time* (mapcar (lambda (x) (- x 300)) *x-pos*))
 
-  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
-    (format stream "Time (s),Terminus position~%")
-    (loop for tim in (reverse *time*)
-          for x in (reverse *x-pos*)
-          do (format stream "~f, ~f ~%" tim x)))
+  ;; (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
+  ;;   (format stream "Time (s),Terminus position~%")
+  ;;   (loop for tim in (reverse *time*)
+  ;;         for x in (reverse *x-pos*)
+  ;;         do (format stream "~f, ~f ~%" tim x)))
   )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
