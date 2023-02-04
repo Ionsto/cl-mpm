@@ -1,10 +1,10 @@
-(defpackage :cl-mpm/examples/slump
+(defpackage :cl-mpm/examples/pullout
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
-(in-package :cl-mpm/examples/slump)
+(in-package :cl-mpm/examples/pullout)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 

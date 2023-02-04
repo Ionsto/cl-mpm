@@ -66,8 +66,8 @@
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
             ;; (when (> damage critical-damage)
             ;;   (setf damage-increment (- 1d0 damage)))
-            ;; (when (>= damage 1d0)
-              ;; (setf damage-increment 0d0))
+            (when (>= damage 1d0)
+              (setf damage-increment 0d0))
             (setf (cl-mpm/particle::mp-local-damage-increment mp)
                   damage-increment))))))
 (declaim
@@ -84,8 +84,8 @@
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
-          ;; (when (> damage critical-damage)
-          ;;   (setf damage 1d0))
+          (when (> damage critical-damage)
+            (setf damage 1d0))
           ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 
