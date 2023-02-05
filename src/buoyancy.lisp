@@ -158,6 +158,11 @@
                                                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
                                                     (calculate-virtual-stress-cell cell datum))
                                                    (* -1d0 volume))))
+                                (setf node-force (magicl:.+
+                                                  node-force
+                                                  (magicl:scale!
+                                                   (calculate-virtual-divergance-cell cell datum)
+                                                   (* -1d0 svp volume))))
                                 ;; (cl-mpm/fastmath:fast-add
                                 ;;  node-force
                                 ;;  (magicl:scale!
@@ -167,11 +172,11 @@
                                 ;;    (calculate-virtual-stress-cell cell datum))
                                 ;;   (* -1d0 volume)))
                                         ;External force
-                                (cl-mpm/fastmath:fast-add
-                                 node-force
-                                 (magicl:scale!
-                                  (calculate-virtual-divergance-cell cell datum)
-                                  (* -1d0 svp volume)))
+                                ;; (cl-mpm/fastmath:fast-add
+                                ;;  node-force
+                                ;;  (magicl:scale!
+                                ;;   (calculate-virtual-divergance-cell cell datum)
+                                ;;   (* -1d0 svp volume)))
                                 )))))
                       ))))))))
 (defun direct-mp-enforcment (mesh mps datum)
@@ -250,9 +255,9 @@
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
         ;; (locate-mps-cells mesh mps)
-        (find-active-nodes mesh mps)
-        (apply-force-mps mesh mps datum)
-        (apply-force-cells mesh datum)
-        ;; (direct-mp-enforcment mesh mps datum-true)
+        ;; (find-active-nodes mesh mps)
+        ;; (apply-force-mps mesh mps datum)
+        ;; (apply-force-cells mesh datum)
+        (direct-mp-enforcment mesh mps datum-true)
         ))))
 
