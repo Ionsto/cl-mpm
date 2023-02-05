@@ -64,8 +64,11 @@
               ;;   (incf damage-increment (* B (expt hayhurst r))))
               )
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
+
+            ;;Does transitioning from damage to fracture cause damage?
             ;; (when (> damage critical-damage)
             ;;   (setf damage-increment (- 1d0 damage)))
+
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
             (setf (cl-mpm/particle::mp-local-damage-increment mp)

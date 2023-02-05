@@ -210,8 +210,9 @@
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
                :critical-stress 1d7
-               :damage-rate 1d0
-               :critical-damage 1.0d0
+               :initiation-stress 0.01d7
+               :damage-rate 1d1
+               :critical-damage 0.3d0
                :local-length 20d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -220,8 +221,8 @@
       (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append

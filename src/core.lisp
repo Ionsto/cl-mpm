@@ -1320,7 +1320,7 @@
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;(split-criteria mp h)
                                 ))) mps)))
       ;; (delete-if (lambda (mp)
       ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
@@ -1335,7 +1335,7 @@
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.20d0)
+    (let ((l-factor 1.10d0)
           (h-factor (* 1.5d0 h)))
       (cond
         ;; ((< h-factor (tref lens 0 0)) t)
