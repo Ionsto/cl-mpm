@@ -193,6 +193,7 @@
           )
       (values (the double-float (magicl::sum (magicl:.* dist dist)))))))
 
+;;This is a simd dot product
 #+ :sb-simd
 (progn
   (declaim

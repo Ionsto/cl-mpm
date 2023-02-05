@@ -10,7 +10,7 @@
     :magicl tref .+ .-)
   (:export
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;    #:make-shape-function
 (in-package :cl-mpm/buoyancy)
 
@@ -22,14 +22,16 @@
            (datum datum-true)
            (h (- datum z))
            (f (* -1d0 rho g h))
-           (p -1d7)
+           (p -1d0)
            )
-      ;; (if (> h 0d0)
-      ;;     (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
-      ;;     ;; (magicl:zeros '(3 1))
-      ;;     (magicl:zeros '(3 1))
-      ;;     )
-      (magicl:from-list (list p p  0d0) '(3 1) :type 'double-float)
+      (if (> h 0d0)
+          (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
+          ;; (magicl:zeros '(3 1))
+          (magicl:zeros '(3 1))
+          )
+      ;; (magicl:from-list (list p p 0d0)
+      ;;                   '(3 1)
+      ;;                   :type 'double-float)
       ))
   (defun buoyancy-virtual-div (z datum-true)
     (let* ((rho rho-true)
@@ -38,12 +40,12 @@
            (h (- datum z))
            (f (* rho g))
            )
-      ;; (if (> h 0d0)
-      ;;     (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
-      ;;     ;; (magicl:zeros '(2 1))
-      ;;     (magicl:zeros '(2 1))
-      ;;     )
-      (magicl:zeros '(2 1))
+      (if (> h 0d0)
+          (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
+          ;; (magicl:zeros '(2 1))
+          (magicl:zeros '(2 1))
+          )
+      ;; (magicl:zeros '(2 1))
 
       )))
 
@@ -94,10 +96,18 @@
                node
              (when (and node-active node-boundary)
                (sb-thread:with-mutex (node-lock)
+                 ;; (setf node-force (magicl:.+
+                 ;;                   node-force
+                 ;;                   (magicl:scale!
+                 ;;                    (magicl:@
+                 ;;                     (magicl:transpose
+                 ;;                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                 ;;                     (calculate-virtual-stress-mp mp datum))
+                 ;;                    (* volume))))
                  ;;External force
                  (cl-mpm/fastmath:fast-add
                   node-force
-                  (magicl:scale!
+                  (magicl:scale
                    (magicl:@
                     (magicl:transpose!
                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
@@ -140,13 +150,22 @@
                             (when t;(< node-volume (* 0.99d0 n-vol))
                               (sb-thread:with-mutex (node-lock)
                                         ;Internal force
-                                (cl-mpm/fastmath:fast-add
-                                 node-force
-                                 (magicl:scale!
-                                  (magicl:@
-                                   (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                   (calculate-virtual-stress-cell cell datum))
-                                  (* -1d0 volume)))
+                                (setf node-force (magicl:.+
+                                                  node-force
+                                                  (magicl:scale!
+                                                   (magicl:@
+                                                    (magicl:transpose
+                                                     (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                                                    (calculate-virtual-stress-cell cell datum))
+                                                   (* -1d0 volume))))
+                                ;; (cl-mpm/fastmath:fast-add
+                                ;;  node-force
+                                ;;  (magicl:scale!
+                                ;;   (magicl:@
+                                ;;    (magicl:transpose!
+                                ;;     (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                                ;;    (calculate-virtual-stress-cell cell datum))
+                                ;;   (* -1d0 volume)))
                                         ;External force
                                 (cl-mpm/fastmath:fast-add
                                  node-force
@@ -210,7 +229,18 @@
                        (check-neighbour-cell neighbour))))))))
 
 (defun find-active-nodes (mesh mps)
-  )
+  (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+         (vtotal (expt h 2)))
+    (cl-mpm::iterate-over-nodes mesh
+                                (lambda (node)
+                                  (with-accessors ((node-volume cl-mpm/mesh::node-volume)
+                                                   (active cl-mpm/mesh::node-active)
+                                                   (boundary cl-mpm/mesh::node-boundary-node))
+                                      node
+                                      (when active
+                                        (when (< (/ node-volume vtotal) 0.9)
+                                          (setf boundary t))
+                                        ))))))
 
 (defun apply-bouyancy (sim datum-true)
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -219,7 +249,8 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
-        (locate-mps-cells mesh mps)
+        ;; (locate-mps-cells mesh mps)
+        (find-active-nodes mesh mps)
         (apply-force-mps mesh mps datum)
         (apply-force-cells mesh datum)
         ;; (direct-mp-enforcment mesh mps datum-true)

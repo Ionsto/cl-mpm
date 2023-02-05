@@ -255,9 +255,7 @@
   (if (cl-mpm/particle::mp-cached-nodes mp)
       (iterate-over-neighbours-cached mesh mp func)
       (create-node-cache mesh mp func))
-
-  ;(iterate-over-neighbours-shape-gimp mesh mp func)
-  ;; (iterate-over-neighbours-shape-linear mesh mp func)
+  ;; (iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
   (values)
@@ -267,7 +265,7 @@
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-      (iterate-over-neighbours-shape-linear
+      (iterate-over-neighbours-shape-gimp
        mesh mp
        (lambda (mesh mp node svp grads)
          (push
@@ -1179,23 +1177,23 @@
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
-              ;; ;;Linear strain update
-              ;; (update-strain-linear mesh mp dstrain)
-              ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
-              ;; (when (<= volume 0d0)
-              ;;   (error "Negative volume"))
-
-              ;Turn cauchy stress to kirchoff
-              (setf stress stress-kirchoff)
-              ;Update our strains
-              (update-strain-kirchoff mesh mp dstrain)
-              ;;Update our kirchoff stress with constitutive model
-              (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-              ;;Check volume constraint!
+              ;;Linear strain update
+              (update-strain-linear mesh mp dstrain)
+              (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
               (when (<= volume 0d0)
                 (error "Negative volume"))
-              ;;Turn kirchoff stress to cauchy
-              (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
+
+              ;Turn cauchy stress to kirchoff
+              ;; (setf stress stress-kirchoff)
+              ;; ;Update our strains
+              ;; (update-strain-kirchoff mesh mp dstrain)
+              ;; ;;Update our kirchoff stress with constitutive model
+              ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+              ;; ;;Check volume constraint!
+              ;; (when (<= volume 0d0)
+              ;;   (error "Negative volume"))
+              ;; ;;Turn kirchoff stress to cauchy
+              ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
               ))))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)

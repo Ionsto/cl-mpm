@@ -3,6 +3,10 @@
   (:export
     #:make-column
     #:make-block-mps
+    #:remove-sdf
+    #:ellipse-sdf
+    #:circle-sdf
+    #:rectangle-sdf
   ))
 
 (in-package :cl-mpm/setup)
@@ -76,3 +80,34 @@
   (mapcar #'+ (list (* res (+ (/ 1 (* 2 mps))))
                     (* res (+ (/ 1 (* 2 mps)))))
                       position))
+
+(defun remove-sdf (sim sdf)
+  (setf (cl-mpm:sim-mps sim)
+        (lparallel:premove-if (lambda (mp)
+                                (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                                  (>= 0 (funcall sdf pos))
+                                  ))
+                              (cl-mpm:sim-mps sim))))
+(defun rectangle-sdf (position size)
+  (lambda (pos)
+      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+             (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
+                                  (magicl:from-list size '(2 1) :type 'double-float))))
+
+        (+ (sqrt (magicl::sum
+                  (magicl:map! (lambda (x) (* x x))
+                               (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
+           (min (max (magicl:tref dist-vec 0 0)
+                     (magicl:tref dist-vec 1 0)
+                     ) 0d0)))))
+(defun ellipse-sdf (position x-l y-l)
+  (let ((aspect (/ x-l y-l)))
+    (lambda (pos)
+      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+             (dist-vec (magicl:.* (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
+                                                                             :type 'double-float)))
+             (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
+                                                    dist-vec) 0 0))))
+        (- distance x-l)))))
+(defun circle-sdf (position radius)
+  (ellipse-sdf position radius radius))

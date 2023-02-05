@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/float
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* nil)
 (in-package :cl-mpm/examples/float)
 (declaim (optimize (debug 3) (safety 2) (speed 2)))
@@ -17,11 +17,19 @@
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
 
+(defun increase-load (sim load-mps amount)
+  (loop for mp in load-mps
+        do (with-accessors ((pos cl-mpm/particle:mp-position)
+                            (force cl-mpm/particle:mp-body-force)) mp
+                                        ;(incf (magicl:tref force 0 0) amount)
+             (magicl:.+ force amount force)
+             )))
+
 (defun remove-sdf (sim sdf)
   (setf (cl-mpm:sim-mps sim)
         (lparallel:premove-if (lambda (mp)
                                 (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-                                  (<= 0 (funcall sdf pos))
+                                  (>= 0 (funcall sdf pos))
                                   ))
                               (cl-mpm:sim-mps sim))))
 
@@ -131,21 +139,32 @@
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic
                :E 1d8
-               :nu 0.3250d0
+               ;:nu 0.3250d0
+               :nu 0d0
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
                ;; :critical-stress 1d6
-               :gravity 0d0;-9.8d0
+               :gravity -9.8d0
+               ;; :body-force (magicl:from-list '(0d0 100d0) '(2 1))
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
 
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc::make-outside-bc-var
+             (cl-mpm:sim-mesh sim)
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             )
+            )
       (setf (cl-mpm::sim-bcs-force sim)
             (cl-mpm/bc:make-bcs-from-list
             (list (cl-mpm/bc::make-bc-closure '(0 0)
@@ -173,14 +192,20 @@
          (mesh-size 10)
          )
     (defparameter *csv-name* (merge-pathnames (format nil "output/surface_position_~D.csv" mesh-size)))
-    (defparameter *sim* (setup-test-column '(400 500)
+    (defparameter *sim* (setup-test-column '(400 600)
                                            '(100 100)
-                                           '(000 000) (/ 1d0 mesh-size) 4))
+                                           '(100 200) (/ 1d0 mesh-size) 2))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
-  (remove-sdf *sim* (ellipse-sdf (list 0 0) 100 100))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 100 100))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 000 000) 200 200))
+  ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(500 200)))
+  ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(200 500)))
+
+  ;; (remove-sdf *sim* (lambda (p) (+ (funcall (ellipse-sdf (list 200 200) 100 100) p))))
+  
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
   ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
 
@@ -200,7 +225,7 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
       (loop for mp across mps when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- least-pos 0.001))
               collect mp)))
-  ;; (increase-load *sim* *load-mps* 1)
+  ;; (increase-load *sim* *load-mps* (magicl:from-list '(-1d0 0d0) '(2 1)))
   ;; (increase-load *sim* *load-mps* 100)
   )
 
@@ -414,3 +439,15 @@
 ;   (dotimes (i 100000)
 ;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
 ;  )
+
+;; (cl-mpm/mesh::cell-iterate-over-neighbours *mesh* *cell*
+;;                                            (lambda (m c n w g)
+;;                                              (print n)
+;;                                              (let ((n-pos (cl-mpm/mesh::node-position n))
+;;                                                    (cent (cl-mpm/mesh::cell-centroid c)))
+
+;;                                                ;; (print n)
+;;                                                (print (magicl:.- cent n-pos))
+;;                                                )
+;;                                              )
+;;                                            )

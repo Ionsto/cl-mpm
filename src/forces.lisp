@@ -17,16 +17,6 @@
         (b-s (magicl::storage b))
         (res-s (magicl::storage res))
         )
-    ;; (declare (type sb-simd:f64vec a-s b-s res-s)
-    ;;          (type double-float scale))
-    ;; (loop for j from 0 to 2
-    ;;       do (setf (sb-simd-avx:f64.2-aref res-s 0)
-    ;;                (sb-simd-avx:f64.2+
-    ;;                 (sb-simd-avx:f64.2-aref res-s 0)
-    ;;                 (sb-simd-avx:f64.2*
-    ;;                  (sb-simd-avx:f64.2-aref a-s (* 2 j))
-    ;;                  (sb-simd-avx:f64.2 (* (aref b-s j) scale))))
-    ;;                 ))
     (declare (type (simple-array double-float) a-s b-s res-s))
     (loop for i from 0 to 1
           do (loop for j from 0 to 2
@@ -57,6 +47,7 @@
   "Calculate external force contribution from mp at node"
   (with-accessors ((mass cl-mpm/particle:mp-mass)
                    (gravity cl-mpm/particle:mp-gravity)
+                   (volume cl-mpm/particle:mp-volume)
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
                    ) mp
@@ -69,11 +60,13 @@
            )
       (declare (type (simple-array double-float *) f-s b-s))
       ;;Manually unrolled
+
       (incf (aref f-s 0)
-            (* (aref b-s 0) mass svp))
+            (* (aref b-s 0) volume svp))
       (incf (aref f-s 1)
-            (* (+ gravity (aref b-s 1)) mass svp)
+            (* (+ (* mass gravity) (* volume (aref b-s 1))) svp)
             )
+
           ;; (magicl:scale!
           ;;   ;; (magicl:.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
           ;;   ;;                               '(2 1) :type 'double-float :layout :column-major)

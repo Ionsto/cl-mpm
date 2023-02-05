@@ -205,7 +205,12 @@
                             (get-node mesh (mapcar #'+
                                                    index
                                                    (list x y))))))
-         (centroid (cell-calculate-centroid nodes)))
+         (centroid (cell-calculate-centroid nodes))
+         (centroid (magicl:.+ (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
+                              (magicl:scale! (magicl:from-list (list h h) '(2 1) :type 'double-float) 0.5d0)))
+         )
+
+
     (make-instance 'cell
                    :index index
                    :nodes nodes
@@ -348,7 +353,7 @@
                          (if (in-bounds mesh pos)
                              (apply #'aref (mesh-cells mesh) pos)
                              (error (format nil "Access grid out of bounds at: ~a" pos)))
-                         (apply #'aref (mesh-nodes mesh) pos)))
+                         (apply #'aref (mesh-cells mesh) pos)))
 
 (defgeneric node-g2p (mp node svp dsvp grads)
   (:documentation "G2P behaviour for specific nodes"))
