@@ -15,7 +15,9 @@
       ;(* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 1) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
-      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0)  rate)
+      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0)
+         ;; (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 2)))
+         rate)
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
   ;; 0d0
@@ -31,6 +33,7 @@
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (damage cl-mpm/particle:mp-damage)
+                     (strain-rate cl-mpm/particle:mp-strain-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -55,10 +58,14 @@
                    (r 0.43d0)
                    )
               (when (> s_1 0d0)
-                (incf damage-increment (* (damage-rate-profile critical-stress
-                                                               ;;I think we calculate damage evolution on this?
-                                                               (* s_1 (damage-profile damage critical-damage))
-                                                               damage damage-rate init-stress) dt))
+                (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain-rate))
+                  (let ((strain-rate (reduce #'+ (mapcar #'* l l))))
+                    (incf damage-increment (* (expt strain-rate 1)
+                                              (damage-rate-profile critical-stress
+                                                                   ;;I think we calculate damage evolution on this?
+                                                                   ;; (* s_1 (damage-profile damage critical-damage))
+                                                                   s_1
+                                                                   damage damage-rate init-stress) dt))))
                 )
               ;; (when (> hayhurst 0d0)
               ;;   (incf damage-increment (* B (expt hayhurst r))))
@@ -66,8 +73,10 @@
             (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
 
             ;;Does transitioning from damage to fracture cause damage?
+            (when (> damage critical-damage)
+              (setf damage-increment (- 1d0 damage)))
             ;; (when (> damage critical-damage)
-            ;;   (setf damage-increment (- 1d0 damage)))
+            ;;   (setf damage 1d0))
 
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
@@ -87,8 +96,8 @@
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0))
+          ;; (when (> damage critical-damage)
+          ;;   (setf damage 1d0))
           ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 

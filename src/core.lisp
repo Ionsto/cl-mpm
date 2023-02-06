@@ -1183,7 +1183,7 @@
               ;; (when (<= volume 0d0)
               ;;   (error "Negative volume"))
 
-              Turn cauchy stress to kirchoff
+              ;; Turn cauchy stress to kirchoff
               (setf stress stress-kirchoff)
               ;Update our strains
               (update-strain-kirchoff mesh mp dstrain)
@@ -1320,7 +1320,7 @@
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                ;(split-criteria mp h)
+                                (split-criteria mp h)
                                 ))) mps)))
       ;; (delete-if (lambda (mp)
       ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
