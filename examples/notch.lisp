@@ -211,9 +211,9 @@
                ;; :visc-power 3d0
                :critical-stress 1d7
                :initiation-stress 0.01d7
-               :damage-rate 1d1
-               :critical-damage 0.3d0
-               :local-length 20d0
+               :damage-rate 1d10
+               :critical-damage 1.0d0
+               :local-length 10d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
