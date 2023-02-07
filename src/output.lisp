@@ -146,8 +146,13 @@
         (save-parameter "stress_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
         (save-parameter "stress_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
 
-        (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
-                                        (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
+        (save-parameter "strain_rate"
+                        (multiple-value-bind (l v)
+                            (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
+                          (reduce #'+ (mapcar #'* l l))))
+
+        ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
+        ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
 
         (save-parameter "stress_s1"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
@@ -157,6 +162,10 @@
         (save-parameter "damage"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle:mp-damage mp)
+                            0d0))
+        (save-parameter "damage_inc"
+                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                            (cl-mpm/particle::mp-damage-increment mp)
                             0d0))
         )
       )))

@@ -229,14 +229,19 @@
                                                  (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
         (magicl:scale dev-strain 0d0))))
 
+(defun deviatoric (voigt)
+  (let* ((mat (voight-to-matrix voigt))
+         (trace (/ (magicl:trace mat) 2)))
+    (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))
+    ))
+
+
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity))
 (defun glen-viscosity (stress visc-factor visc-power)
   "Get the viscosity for a given stress state"
-  (let* ((stress-matrix (voight-to-matrix stress))
-         (stress-trace (/ (the double-float (magicl:trace stress-matrix)) 2d0))
-         (dev-stress (matrix-to-voight (magicl:.- stress-matrix (magicl:eye 2 :value (the double-float stress-trace)))))
+  (let* ((dev-stress (deviatoric stress))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
-         (effective-stress (+ 1d-14 (magicl::sum (magicl:.* dev-stress dev-stress second-invar))))
+         (effective-stress (+ 1d-30 (magicl::sum (magicl:.* dev-stress dev-stress second-invar))))
          )
     (declare (type double-float effective-stress))
     (if (> effective-stress 0d0)
@@ -246,7 +251,7 @@
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) (values double-float)) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
-  (let* ((effective-strain (+ 1d-30 (cl-mpm/fastmath::voigt-tensor-reduce-simd strain))))
+  (let* ((effective-strain (+ 1d-30 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))

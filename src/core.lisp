@@ -997,7 +997,7 @@
                       (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
                       (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)))
                   ))
-            (setf velocity-rate (magicl:scale velocity-rate 1d0))
+            (setf velocity-rate (magicl:scale strain-rate 1d0))
             (magicl:scale! strain-rate dt)
             (magicl:scale! vorticity dt)
             )))

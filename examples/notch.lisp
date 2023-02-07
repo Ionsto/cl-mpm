@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;(setf *block-compile-default* t)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/notch)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -209,16 +209,16 @@
                :nu 0.3250d0
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
-               :critical-stress 1d7
-               :initiation-stress 0.01d7
-               :damage-rate 1d10
-               :critical-damage 1.0d0
-               :local-length 10d0
+               :critical-stress 1d8
+               :initiation-stress 0.1d6
+               :damage-rate 1d5
+               :critical-damage 0.2d0
+               :local-length 50d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -277,6 +277,8 @@
                                            (list shelf-length shelf-height)
                                            (list 0 shelf-bottom) (/ 1 mesh-size) 2))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    ;; (remove-sdf *sim* (rectangle-sdf (list 700 120) (list 20 20)))
+    ;; (damage-sdf *sim* (rectangle-sdf (list 700 120) (list 20 30)))
     )
 
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
@@ -346,7 +348,7 @@
                    *x-pos*)
                   (let ((max-cfl 0))
                     ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))

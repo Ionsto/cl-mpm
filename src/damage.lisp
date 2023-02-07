@@ -15,8 +15,8 @@
       ;(* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 1) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
-      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0)
-         ;; (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 2)))
+      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
+         ;; (/ 1 (max (/ 1 10000) (expt (- 1d0 damage) 1)))
          rate)
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
@@ -26,14 +26,14 @@
 (defun damage-profile (damage damage-crit)
   "Constitive law describing the scalar stress decrease as a function of damage"
   (if (< damage damage-crit)
-    (expt (- 1 damage) 1)
+    (expt (- 1 damage) 2)
     0d0))
 
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (strain-rate cl-mpm/particle:mp-strain-rate)
+                     (strain-rate cl-mpm/particle::mp-velocity-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -60,7 +60,7 @@
               (when (> s_1 0d0)
                 (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain-rate))
                   (let ((strain-rate (reduce #'+ (mapcar #'* l l))))
-                    (incf damage-increment (* (expt strain-rate 1)
+                    (incf damage-increment (* ;(* 1d5 (expt strain-rate 1d0))
                                               (damage-rate-profile critical-stress
                                                                    ;;I think we calculate damage evolution on this?
                                                                    ;; (* s_1 (damage-profile damage critical-damage))
@@ -70,11 +70,9 @@
               ;; (when (> hayhurst 0d0)
               ;;   (incf damage-increment (* B (expt hayhurst r))))
               )
-            (setf damage-increment (max 0d0 (min damage-increment (- 1d0 damage))))
+            ;(setf damage-increment (max 0d0 (min damage-increment (- critical-damage damage))))
 
             ;;Does transitioning from damage to fracture cause damage?
-            (when (> damage critical-damage)
-              (setf damage-increment (- 1d0 damage)))
             ;; (when (> damage critical-damage)
             ;;   (setf damage 1d0))
 
@@ -96,8 +94,8 @@
         (progn
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
-          ;; (when (> damage critical-damage)
-          ;;   (setf damage 1d0))
+          (when (> damage critical-damage)
+            (setf damage 1d0))
           ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (setf undamaged-stress (magicl:scale stress (magicl:det def)))
 
@@ -278,13 +276,15 @@
                                          (let (
                                                (weight (weight-func-mps mp mp-other length))
                                                )
-                                           (incf mass-total (* weight m))
+                                           (incf mass-total (* weight m
+                                                               ))
                                            (incf damage-inc
                                                  (* (cl-mpm/particle::mp-local-damage-increment mp-other)
                                                     weight m)
                                                  )))))))))
-      (setf damage-inc (/ damage-inc
-                          mass-total)))))
+      (setf damage-inc (* (/ damage-inc
+                            mass-total)
+                          )))))
 
 (defun delocalise-damage (mesh mps dt len)
   ;; Calculate the delocalised damage for each damage particle

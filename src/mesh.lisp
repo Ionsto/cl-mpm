@@ -25,7 +25,7 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass node ()
   ((active
