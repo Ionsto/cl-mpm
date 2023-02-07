@@ -43,6 +43,11 @@
     :type double-float
     :initform 0d0
     )
+   (volume-true
+    :accessor node-volume-true
+    :type double-float
+    :initform 0d0
+    )
    (index
     :accessor node-index
     :initarg :index)
@@ -174,9 +179,8 @@
                  :force (magicl:zeros (list 2 1) :type 'double-float)
                  :velocity (magicl:zeros (list 2 1) :type 'double-float)
                  :acceleration (magicl:zeros (list 2 1) :type 'double-float)
-                 :index (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float))
-                                                  index)
-                                          (list 2 1) :type 'double-float)
+                 :index (mapcar (lambda (x) (coerce x 'double-float))
+                                 index)
                  :position pos
                  ))
 
@@ -205,17 +209,18 @@
                             (get-node mesh (mapcar #'+
                                                    index
                                                    (list x y))))))
+         (volume (expt h 2))
          (centroid (cell-calculate-centroid nodes))
          (centroid (magicl:.+ (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
                               (magicl:scale! (magicl:from-list (list h h) '(2 1) :type 'double-float) 0.5d0)))
          )
-
-
+    (loop for n in nodes
+          do (incf (node-volume-true n) (/ volume (length nodes))))
     (make-instance 'cell
                    :index index
                    :nodes nodes
                    :centroid centroid
-                   :volume (* h h)
+                   :volume volume
                    )))
 (defun make-cells (mesh size h)
   "Make a 2d mesh of specific size"
@@ -480,6 +485,4 @@
   (print-unreadable-object (obj stream :type t)
     (with-accessors ((index node-index))
         obj
-      (format stream "index: ~a" (list (magicl:tref index 0 0)
-                                       (magicl:tref index 1 0)
-                                       )))))
+      (format stream "index: ~a" index))))

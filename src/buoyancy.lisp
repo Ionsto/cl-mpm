@@ -226,12 +226,20 @@
     (lparallel:pdotimes (i (array-total-size cells))
       (let ((cell (row-major-aref cells i)))
         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                         (neighbours cl-mpm/mesh::cell-neighbours))
+                         (neighbours cl-mpm/mesh::cell-neighbours)
+                         (index cl-mpm/mesh::cell-index)
+                         (nodes cl-mpm/mesh::cell-nodes)
+                         )
             cell
-            (when (= mp-count 0)
+          (when (= mp-count 0)
+              ;; (loop for n in nodes
+              ;;       do
+              ;;          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+              ;;            (setf (cl-mpm/mesh::node-boundary-node n) t)))
               (loop for neighbour in neighbours
                     do
-                       (check-neighbour-cell neighbour))))))))
+                       (check-neighbour-cell neighbour))
+              ))))))
 
 (defun find-active-nodes (mesh mps)
   (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -239,11 +247,12 @@
     (cl-mpm::iterate-over-nodes mesh
                                 (lambda (node)
                                   (with-accessors ((node-volume cl-mpm/mesh::node-volume)
+                                                   (vtotal cl-mpm/mesh::node-volume-true)
                                                    (active cl-mpm/mesh::node-active)
                                                    (boundary cl-mpm/mesh::node-boundary-node))
                                       node
                                       (when active
-                                        (when (< (/ node-volume vtotal) 0.9)
+                                        (when (and (> (/ node-volume vtotal) 1e-3) (< (/ node-volume vtotal) 0.90))
                                           (setf boundary t))
                                         ))))))
 
@@ -255,9 +264,9 @@
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
         ;; (locate-mps-cells mesh mps)
-        ;; (find-active-nodes mesh mps)
-        ;; (apply-force-mps mesh mps datum)
-        ;; (apply-force-cells mesh datum)
-        (direct-mp-enforcment mesh mps datum-true)
+        (find-active-nodes mesh mps)
+        (apply-force-mps mesh mps datum)
+        (apply-force-cells mesh datum)
+        ;; (direct-mp-enforcment mesh mps datum-true)
         ))))
 
