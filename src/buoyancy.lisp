@@ -264,9 +264,9 @@
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
         ;; (locate-mps-cells mesh mps)
-        (find-active-nodes mesh mps)
-        (apply-force-mps mesh mps datum)
-        (apply-force-cells mesh datum)
-        ;; (direct-mp-enforcment mesh mps datum-true)
+        ;; (find-active-nodes mesh mps)
+        ;; (apply-force-mps mesh mps datum)
+        ;; (apply-force-cells mesh datum)
+        (direct-mp-enforcment mesh mps datum-true)
         ))))
 

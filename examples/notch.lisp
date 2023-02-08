@@ -75,20 +75,20 @@
            (mesh (cl-mpm:sim-mesh *sim*))
            (nodes (cl-mpm/mesh:mesh-nodes mesh))
            )
-      (dotimes (i (array-total-size nodes))
-        (let ((n (row-major-aref nodes i)))
-          (with-accessors ((index cl-mpm/mesh:node-index)
-                           (boundary cl-mpm/mesh::node-boundary-node))
-              n
-            (when boundary
-              ;; (print index)
-              (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
-                ;; (push (nth 0 index) node-x)
-                ;; (push (nth 1 index) node-y)
-                (push x node-x)
-                (push y node-y)
-                (push 1 node-c)
-                )))))
+      ;; (dotimes (i (array-total-size nodes))
+      ;;   (let ((n (row-major-aref nodes i)))
+      ;;     (with-accessors ((index cl-mpm/mesh:node-index)
+      ;;                      (boundary cl-mpm/mesh::node-boundary-node))
+      ;;         n
+      ;;       (when boundary
+      ;;         ;; (print index)
+      ;;         (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
+      ;;           ;; (push (nth 0 index) node-x)
+      ;;           ;; (push (nth 1 index) node-y)
+      ;;           (push x node-x)
+      ;;           (push y node-y)
+      ;;           (push 1 node-c)
+      ;;           )))))
      (cond
         ((eq plot :point)
          ;; (vgplot:format-plot t "set cbrange [0:1]")
@@ -97,12 +97,12 @@
         ((eq plot :damage)
          (vgplot:format-plot t "set cbrange [0:1]")
          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-         ;; (vgplot:plot x y c ";;with points pt 7 lc palette")
-         (if node-x
-             (vgplot:plot
-              x y c ";;with points pt 7 lc palette"
-              node-x node-y ";;with points pt 7")
-             (vgplot:plot x y c ";;with points pt 7 lc palette"))
+         (vgplot:plot x y c ";;with points pt 7 lc palette")
+         ;; (if node-x
+         ;;     (vgplot:plot
+         ;;      x y c ";;with points pt 7 lc palette"
+         ;;      node-x node-y ";;with points pt 7")
+         ;;     (vgplot:plot x y c ";;with points pt 7 lc palette"))
          )
         ((eq plot :velocity)
          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min vx) (+ 0.01 (apply #'max vx)))
@@ -224,7 +224,7 @@
               (cl-mpm/setup::make-block-mps
                block-position
                block-size
-               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+ (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-viscoplastic-damage
@@ -236,14 +236,14 @@
                ;; :visc-power 3d0
                :critical-stress 1d8
                :initiation-stress 0.1d6
-               :damage-rate 1d0
+               :damage-rate 1d5
                :critical-damage 0.2d0
                :local-length 50d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.02d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)

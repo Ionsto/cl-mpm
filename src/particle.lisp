@@ -477,6 +477,7 @@
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (strain-plastic strain-plastic)
                (damage damage)
+               (critical-damage critical-damage)
                (deformation-gradient deformation-gradient)
                (vorticity vorticity)
                                         ;(stress stress)
@@ -490,7 +491,7 @@
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1 dt)) visc-factor visc-power))
           ;; (viscosity (cl-mpm/constitutive::glen-viscosity stress-damaged (expt visc-factor (- visc-power)) visc-power))
           ;;If we want enhancment
-          (viscosity (* viscosity (max 1e-5 (- 1 damage))))
+          (viscosity (* viscosity (max 1e-5 (/ (- critical-damage damage) critical-damage))))
           )
       ;; stress
       (if (> viscosity 0d0)
