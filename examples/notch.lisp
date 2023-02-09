@@ -230,13 +230,13 @@
                ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-viscoelastic
                'cl-mpm/particle::particle-elastic-damage
-               :E 1d8
+               :E 1d9
                :nu 0.3250d0
-               ;; :visc-factor 0.1d6
+               ;; :visc-factor 11d6
                ;; :visc-power 3d0
                :critical-stress 1d8
                :initiation-stress 0.1d6
-               :damage-rate 1d5
+               :damage-rate 1d2
                :critical-damage 0.2d0
                :local-length 50d0
                :gravity -9.8d0

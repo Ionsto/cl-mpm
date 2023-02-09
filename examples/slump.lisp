@@ -260,10 +260,10 @@
                :visc-factor 11d6
                :visc-power 3d0
                :critical-stress 1d9
-               :initiation-stress 1d6
-               :damage-rate 1d7
+               :initiation-stress 0.1d6
+               :damage-rate 1d5
                :critical-damage 0.2d0
-               :local-length 50d0
+               :local-length 75d0
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -297,7 +297,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (defparameter *sim* (setup-test-column '(2000 800) '(1500 400) '(000 0) (/ 1 20) 2))
+  (defparameter *sim* (setup-test-column '(2000 800) '(1500 400) '(000 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
