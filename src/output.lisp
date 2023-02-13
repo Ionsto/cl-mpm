@@ -151,8 +151,19 @@
                             (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
                           (reduce #'+ (mapcar #'* l l))))
 
-        ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
-        ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
+        (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
+                                        (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
+        (labels ((dot (a b) (magicl::sum (magicl:.* a b)))
+                 (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
+                 (radial-stress (mp)
+                   (with-accessors ((stress cl-mpm/particle:mp-stress)
+                                    (pos cl-mpm/particle:mp-position))
+                       mp
+                     (let ((normal (norm (magicl:.- pos (magicl:from-list '(250d0 250d0) '(2 1))))))
+                       (dot normal
+                            (magicl:@ (cl-mpm/utils:voight-to-matrix stress)
+                                      normal))))))
+          (save-parameter "s_rr" (radial-stress mp)))
 
         (save-parameter "stress_s1"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))

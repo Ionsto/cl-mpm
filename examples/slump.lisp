@@ -155,79 +155,6 @@
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
 
-(defun make-mps-bread (density-cheese
-                       density-bread
-                       cheese-size
-                       bread-size
-                       e-scale
-                       mp-scale
-                       h)
-  (let* ((mass-bread (* density-bread (expt (/ h mp-scale) 2)))
-         (mass (* density-cheese (expt (/ h mp-scale) 2)))
-         (cheese-pos (list 0 (second bread-size)))
-         (bread-1-pos (list 0 0))
-         (bread-2-pos (list 0 (+ (second bread-size)
-                                 (second cheese-size))))
-         )
-    (cl-mpm/setup::make-mps-from-list
-     (append
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos cheese-pos (list h h) mp-scale)
-       cheese-size
-       (mapcar (lambda (e) (* e e-scale mp-scale)) cheese-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoviscoplastic-damage
-       :E 1e7
-       :nu 0.325d0
-       :visc-factor 1d2
-       :visc-power 3d0
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 0
-       )
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos bread-1-pos
-                                     (list h h)
-                                     mp-scale)
-       bread-size
-       (mapcar (lambda (e) (* e e-scale mp-scale))
-               bread-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoelastic-damage
-       :E 1e7
-       :nu 0.325
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass-bread
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 1
-       )
-      (cl-mpm/setup::make-block-mps-list
-       (cl-mpm/setup::node-to-mp-pos bread-2-pos
-                                     (list h h)
-                                     mp-scale)
-       bread-size
-       (mapcar (lambda (e) (* e e-scale mp-scale))
-               bread-size)
-       'cl-mpm::make-particle
-       'cl-mpm/particle::particle-thermoelastic-damage
-       :E 1e7
-       :nu 0.325
-       :temperature 0d0
-       :heat-capacity 1d0
-       :thermal-conductivity 1e0
-       :mass mass-bread
-       :critical-stress 1d20
-       :gravity -9.8d0
-       :index 1
-       )
-      ))))
 
 (defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0)
                           &rest mp-args)
@@ -263,13 +190,13 @@
                :initiation-stress 0.1d6
                :damage-rate 1d5
                :critical-damage 0.2d0
-               :local-length 75d0
+               :local-length 50d0
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -297,7 +224,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (defparameter *sim* (setup-test-column '(2000 800) '(1500 400) '(000 0) (/ 1 50) 2))
+  (defparameter *sim* (setup-test-column '(3000 800) '(1500 400) '(000 0) (/ 1 50) 2))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
@@ -363,7 +290,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 10d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)

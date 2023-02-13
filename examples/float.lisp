@@ -44,10 +44,10 @@
 (defun max-stress (mp)
   (declare (optimize (speed 2) (debug 3)))
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (/ (apply #'max l) 1d6)
-    ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
+    ;; (/ (apply #'max l) 1d6)
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :point))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -88,6 +88,11 @@
         ((eq plot :point)
          ;; (vgplot:format-plot t "set cbrange [0:1]")
          (vgplot:plot x y ";;with points pt 7")
+         (if node-x
+             (vgplot:plot
+              x y ";;with points pt 7"
+              node-x node-y ";;with points pt 7")
+             (vgplot:plot x y ";;with points pt 7"))
          )
         ((eq plot :damage)
          (vgplot:format-plot t "set cbrange [0:1]")
@@ -149,7 +154,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (density 500)
+         (density 900)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
@@ -167,16 +172,17 @@
                'cl-mpm/particle::particle-elastic
                :E 1d8
                ;:nu 0.3250d0
-               :nu 0d0
+               :nu 0.2d0
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
                ;; :critical-stress 1d6
                :gravity -9.8d0
+               ;; :gravity 0d0
                ;; :body-force (magicl:from-list '(0d0 100d0) '(2 1))
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.3d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -211,27 +217,32 @@
 
 ;Setup
 (defun setup ()
-  (let* ((shelf-length 2000)
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length 100)
          (notch-depth 20)
-         (mesh-size 10)
+         (mesh-size 20)
          )
     (defparameter *csv-name* (merge-pathnames (format nil "output/surface_position_~D.csv" mesh-size)))
-    (defparameter *sim* (setup-test-column '(400 600)
-                                           '(100 100)
+    (defparameter *sim* (setup-test-column '(600 600)
+                                           '(400 100)
                                            '(100 200) (/ 1d0 mesh-size) 2))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50)))
     )
 
-  ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
+  ;;Hole in plate
+  ;; (defparameter *sim* (setup-test-column '(500 500) '(500 500) '(000 0) (/ 1 10) 2))
+  ;; (remove-sdf *sim* (lambda (p) (+ (funcall (ellipse-sdf (list 250 250) 100 100) p))))
+
+  ;; (defparameter *sim* (setup-test-column '(500 500) '(200 200) '(0 0) (/ 1 20) 2))
+
   ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 100 100))
   ;; (remove-sdf *sim* (ellipse-sdf (list 000 000) 200 200))
   ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(500 200)))
   ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(200 500)))
 
-  ;; (remove-sdf *sim* (lambda (p) (+ (funcall (ellipse-sdf (list 200 200) 100 100) p))))
   
   ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
   ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
