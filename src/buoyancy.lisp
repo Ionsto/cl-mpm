@@ -242,18 +242,18 @@
               ;;       do
               ;;          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
               ;;            (setf (cl-mpm/mesh::node-boundary-node n) t)))
-            (let ((patch 2))
-              (loop for dx from (- patch) to patch
+            ;; (let ((patch 1))
+            ;;   (loop for dx from (- patch) to patch
+            ;;         do
+            ;;            (loop for dy from (- patch) to patch
+            ;;                  do
+            ;;                     (unless (and (= dx 0) (= dy 0))
+            ;;                       (let ((di (mapcar #'+ index (list dx dy))))
+            ;;                         (when (cl-mpm/mesh::in-bounds-cell mesh di)
+            ;;                           (check-neighbour-cell (apply #'aref cells di))))))))
+              (loop for neighbour in neighbours
                     do
-                       (loop for dy from (- patch) to patch
-                             do
-                                (unless (and (= dx 0) (= dy 0))
-                                  (let ((di (mapcar #'+ index (list dx dy))))
-                                    (when (cl-mpm/mesh::in-bounds-cell mesh di)
-                                      (check-neighbour-cell (apply #'aref cells di))))))))
-              ;; (loop for neighbour in neighbours
-              ;;       do
-              ;;          (check-neighbour-cell neighbour))
+                       (check-neighbour-cell neighbour))
               ))))))
 
 (defun find-active-nodes (mesh mps)
@@ -280,10 +280,10 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
-        ;; (locate-mps-cells mesh mps)
+        (locate-mps-cells mesh mps)
         ;; (find-active-nodes mesh mps)
-        ;; (apply-force-mps mesh mps datum)
-        ;; (apply-force-cells mesh datum)
-        (direct-mp-enforcment mesh mps datum-true)
+        (apply-force-mps mesh mps datum)
+        (apply-force-cells mesh datum)
+        ;; (direct-mp-enforcment mesh mps datum-true)
         ))))
 
