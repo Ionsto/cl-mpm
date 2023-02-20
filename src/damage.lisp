@@ -43,7 +43,7 @@
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
             (let* ((l (sort l #'>))
-                   (s_1 (+ (nth 0 l) pressure))
+                   (s_1 (- (nth 0 l) pressure))
                    (s_v (sqrt (apply #'+ (mapcar (lambda (a b)
                                              (expt (- a b) 2))
                                            l

@@ -150,9 +150,9 @@
                         (multiple-value-bind (l v)
                             (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
                           (reduce #'+ (mapcar #'* l l))))
-
-        (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
-                                        (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
+        (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
+        ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
+        ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
         (labels ((dot (a b) (magicl::sum (magicl:.* a b)))
                  (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
                  (radial-stress (mp)
@@ -170,7 +170,7 @@
                           (loop for sii in l maximize sii)))
         (save-parameter "EPS"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-                          (+ (cl-mpm/particle::mp-pressure mp) (loop for sii in l maximize sii))))
+                          (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
         (save-parameter "damage"
