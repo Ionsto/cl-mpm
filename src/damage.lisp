@@ -38,11 +38,12 @@
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (pressure cl-mpm/particle::mp-pressure)
                      ) mp
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
             (let* ((l (sort l #'>))
-                   (s_1 (nth 0 l))
+                   (s_1 (+ (nth 0 l) pressure))
                    (s_v (sqrt (apply #'+ (mapcar (lambda (a b)
                                              (expt (- a b) 2))
                                            l
@@ -81,7 +82,7 @@
             (setf (cl-mpm/particle::mp-local-damage-increment mp)
                   damage-increment))))))
 (declaim
- (inline apply-damage)
+ (notinline apply-damage)
  (ftype (function (cl-mpm/particle:particle double-float) double-float) apply-damage))
 (defun apply-damage (mp dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -92,6 +93,7 @@
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ) mp
         (progn
+
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)

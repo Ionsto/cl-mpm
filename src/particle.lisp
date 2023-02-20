@@ -124,6 +124,11 @@
      :initform 0d0;-9.8d0
      :initarg :gravity
      )
+   (pressure
+    :type double-float
+    :accessor mp-pressure
+    :initform 0d0
+    )
    (gravity-axis
     :type magicl:matrix/double-float
     :accessor mp-gravity-axis

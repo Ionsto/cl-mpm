@@ -258,7 +258,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -309,13 +309,13 @@
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)
-         (notch-length 200)
+         (notch-length 100)
          (notch-depth 40);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
-                                           (list 0 shelf-bottom) (/ 1 mesh-size) 2))
+                                           (list 0 shelf-bottom) (/ 1 mesh-size) 4))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (rectangle-sdf (list 700 120) (list 20 20)))
     ;; (damage-sdf *sim* (rectangle-sdf (list 700 120) (list 20 30)))
@@ -377,7 +377,7 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+                  ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
 
                   (push *t* *time*)
                   (setf *x*
@@ -408,7 +408,7 @@
                   )))
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
-  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+  ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
     (vgplot:figure)
     (vgplot:title "Terminus over time")
     (vgplot:plot *time* *x-pos*)

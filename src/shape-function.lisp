@@ -76,22 +76,13 @@
     (t
      0d0)))
 
-;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x)))
-;;   (vgplot:figure)
-;;   (vgplot:plot
-;;    x
-;;    (mapcar (lambda (y) (shape-gimp y 0.5d0 1d0)) x) "r"
-;;    ;x
-;;    ;(mapcar (lambda (y) (nodal-bspline-dsvp '(t t t t t t t t) y 0 1)) x) "b"
-;;    ))
-
 
 
 
 (declaim (inline shape-bspline)
          (ftype (function (double-float double-float) double-float) shape-bspline))
 (defun shape-bspline (x h)
-  (if (< (abs x) (/ h 2)) 
+  (if (< (abs x) (/ h 2))
           (- (/ 3 4) (expt (/ (abs x) h) 2))
           (* (/ 1 8) (expt (- 3 (/ (* 2 (abs x)) h)) 2))))
 (declaim (inline shape-bspline-dsvp)
@@ -155,16 +146,16 @@
               (bspline dsvp-knots eta (+ 1 index) (- poly 1)))
            0))
      )))
-(defun bspline-dsvp (knots eta index poly)
-  (let ((dsvp-knots (cdr (butlast knots)))
-        (index-t (- index 1)))
-     (let ((kpi (nth (+ poly index 1) knots))
-           (ki (nth (+ 1 index) knots)))
-       (if (/= kpi ki)
-           (* (/ poly (- kpi ki))
-              (bspline dsvp-knots eta (+ 0 index) (- poly 1)))
-           0)
-     )))
+;; (defun bspline-dsvp (knots eta index poly)
+;;   (let ((dsvp-knots (cdr (butlast knots)))
+;;         (index-t (- index 1)))
+;;      (let ((kpi (nth (+ poly index 1) knots))
+;;            (ki (nth (+ 1 index) knots)))
+;;        (if (/= kpi ki)
+;;            (* (/ poly (- kpi ki))
+;;               (bspline dsvp-knots eta (+ 0 index) (- poly 1)))
+;;            0)
+;;      )))
 (defun make-half-knots (nodes inc)
   (loop for n in nodes
         for ni in (cdr nodes)
@@ -200,15 +191,48 @@
                      (make-half-knots (nreverse (subseq nodes 0 (+ 1 mid-node-id))) (- h))
                      ))))
 (defun nodal-bspline (nodes eta node h)
+  ;; (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  ;; (unless (nth 3 nodes)
+  ;;   (incf node 0))
+  ;; (unless (nth 5 nodes)
+  ;;   (incf node 0))
+  ;; (cond
+  ;;   ((reduce #'eq (mapcar #'eq '(nil nil nil t
+  ;;                                     t
+  ;;                                     nil nil nil nil) nodes))
+  ;;     ;; (print "Left linear")
+  ;;     (shape-linear eta h)
+  ;;     )
+  ;;   ((reduce #'eq (mapcar #'eq '(nil nil nil nil
+  ;;                                t
+  ;;                                t nil nil nil) nodes))
+  ;;    ;; (print "Right linear")
+  ;;    (shape-linear eta h)
+  ;;    )
+  ;;   (t
+  ;;    (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  ;;    (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2)
+  ;;    ))
   (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
-  (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
+  (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2)
+  )
 (defun nodal-bspline-dsvp (nodes eta node h)
-  (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
-  (unless (nth 3 nodes)
-    (incf node 1))
-  (unless (nth 5 nodes)
-    (incf node -1))
+  ;; (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  ;; (unless (nth 3 nodes)
+  ;;   (incf node -1))
+  ;; (unless (nth 5 nodes)
+  ;;   (incf node 1))
   (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
+
+;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x)))
+;;   (vgplot:figure)
+;;   (vgplot:plot
+;;    x
+;;    (mapcar (lambda (y) (nodal-bspline '(nil nil nil t
+;;                                         t
+;;                                         t nil nil nil) y 1 1d0)) x) "b"
+;;    ))
+
 
 (defmacro create-svp (arg form)
   `(lambda (,arg) ,form))

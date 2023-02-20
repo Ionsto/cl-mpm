@@ -16,6 +16,15 @@
 
 ;(defgeneric virtual-stress ())
 (let ((rho-true (/ 1000.0d0 1d0)))
+  (defun pressure-at-depth (z datum-true)
+    (let* ((rho rho-true)
+           (g 9.8)
+           (datum datum-true)
+           (h (- datum z))
+           (f (* -1d0 rho g h))
+           )
+      f
+      ))
   (defun buoyancy-virtual-stress (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
@@ -84,6 +93,10 @@
 (defun apply-force-mps (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
+      (with-accessors ((pos cl-mpm/particle:mp-position)
+                       (pressure cl-mpm/particle::mp-pressure))
+          mp
+      (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
       (with-accessors ((volume cl-mpm/particle:mp-volume))
           mp
         (cl-mpm::iterate-over-neighbours ;-shape-linear
