@@ -24,7 +24,9 @@
            (f (* -1d0 rho g h))
            )
       (when (> h 0d0)
-        f)))
+        f)
+      0d0
+      ))
   (defun buoyancy-virtual-stress (z datum-true)
     (let* ((rho rho-true)
            (g 9.8)
