@@ -23,9 +23,9 @@
            (h (- datum z))
            (f (* -1d0 rho g h))
            )
-      (when (> h 0d0)
-        f)
-      0d0
+      (if (> h 0d0)
+          f
+          0d0)
       ))
   (defun buoyancy-virtual-stress (z datum-true)
     (let* ((rho rho-true)
@@ -95,10 +95,6 @@
 (defun apply-force-mps (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
-      (with-accessors ((pos cl-mpm/particle:mp-position)
-                       (pressure cl-mpm/particle::mp-pressure))
-          mp
-      (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
       (with-accessors ((volume cl-mpm/particle:mp-volume))
           mp
         (cl-mpm::iterate-over-neighbours ;-shape-linear
@@ -110,6 +106,10 @@
                             (node-active  cl-mpm/mesh:node-active))
                node
              (when (and node-active node-boundary)
+               (with-accessors ((pos cl-mpm/particle:mp-position)
+                                (pressure cl-mpm/particle::mp-pressure))
+                   mp
+                 (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
                (sb-thread:with-mutex (node-lock)
                  (setf node-force (magicl:.+
                                    node-force
@@ -229,10 +229,13 @@
   (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                    (nodes cl-mpm/mesh::cell-nodes))
       cell
-    (when (> mp-count 0)
-      (loop for n in nodes
-            do
-               (setf (cl-mpm/mesh::node-boundary-node n) t)))))
+    (if (> mp-count 0)
+        (progn
+          (loop for n in nodes
+                do
+                   (setf (cl-mpm/mesh::node-boundary-node n) t))
+          t)
+        nil)))
 (defun locate-mps-cells (mesh mps)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     (lparallel:pdotimes (i (array-total-size cells))
@@ -268,7 +271,12 @@
             ;;                           (check-neighbour-cell (apply #'aref cells di))))))))
               (loop for neighbour in neighbours
                     do
-                       (check-neighbour-cell neighbour))
+                       (when (check-neighbour-cell neighbour)
+                         (loop for n in nodes
+                               do
+                                  (when (cl-mpm/mesh:node-active n)
+                                    (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                      (setf (cl-mpm/mesh::node-boundary-node n) t))))))
               ))))))
 
 (defun find-active-nodes (mesh mps)

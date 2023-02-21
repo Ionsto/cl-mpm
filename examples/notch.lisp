@@ -237,28 +237,29 @@
                'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
-               ;; ;; :visc-factor 11d6
-               ;; ;; :visc-power 3d0
+               ;; :visc-factor 11d6
+               ;; :visc-power 3d0
                ;; :critical-stress 1d7
                ;; :initiation-stress 0.5d6
                ;; :damage-rate 1d2
                ;; :critical-damage 0.2d0
                ;; :local-length 50d0
                ;; :gravity -9.8d0
-               :E 1d8
+               :E 1d7
                :nu 0.3250d0
                ;; :visc-factor 11d6
                ;; :visc-power 3d0
-               :critical-stress 1d7
-               :initiation-stress 0.1d6
-               :damage-rate 1d2
+               :critical-stress 1d8
+               :initiation-stress 0.5d6
+               :damage-rate 1d3
+               ;; :damage-rate 0d0
                :critical-damage 0.2d0
                :local-length 50d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -310,12 +311,12 @@
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length 100)
-         (notch-depth 40);0
-         (mesh-size 50)
+         (notch-depth 30);0
+         (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
-                                           (list 0 shelf-bottom) (/ 1 mesh-size) 4))
+                                           (list 0 shelf-bottom) (/ 1 mesh-size) 2))
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (rectangle-sdf (list 700 120) (list 20 20)))
     ;; (damage-sdf *sim* (rectangle-sdf (list 700 120) (list 20 30)))
