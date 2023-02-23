@@ -52,7 +52,7 @@
     (/ (apply #'max l) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :point))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -245,26 +245,26 @@
                ;; :critical-damage 0.2d0
                ;; :local-length 50d0
                ;; :gravity -9.8d0
-               :E 1d7
+               :E 10d6
                :nu 0.3250d0
                ;; :visc-factor 11d6
                ;; :visc-power 3d0
                :critical-stress 1d8
-               :initiation-stress 0.5d6
-               :damage-rate 1d3
+               :initiation-stress 0.2d6
+               :damage-rate 1d8
                ;; :damage-rate 0d0
                :critical-damage 0.2d0
-               :local-length 50d0
+               :local-length 20d0
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.050d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-1)
       (setf (cl-mpm:sim-bcs sim)
             (append
              (cl-mpm/bc::make-outside-bc-var
@@ -312,12 +312,17 @@
          (shelf-bottom 120)
          (notch-length 100)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 10)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
                                            (list 0 shelf-bottom) (/ 1 mesh-size) 2))
+    ;;Bench calving
     (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    ;; (let* ((water-line 300)
+    ;;        (notch-length 50)
+    ;;        (notch-depth 10))
+    ;;   (remove-sdf *sim* (rectangle-sdf (list shelf-length (- water-line notch-depth)) (list notch-length notch-depth))))
     ;; (remove-sdf *sim* (rectangle-sdf (list 700 120) (list 20 20)))
     ;; (damage-sdf *sim* (rectangle-sdf (list 700 120) (list 20 30)))
     )
@@ -410,9 +415,9 @@
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
   ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
-    (vgplot:figure)
-    (vgplot:title "Terminus over time")
-    (vgplot:plot *time* *x-pos*)
+    ;; (vgplot:figure)
+    ;; (vgplot:title "Terminus over time")
+    ;; (vgplot:plot *time* *x-pos*)
 
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")

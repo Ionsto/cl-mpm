@@ -61,7 +61,7 @@
               (when (> s_1 0d0)
                 (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain-rate))
                   (let ((strain-rate (reduce #'+ (mapcar #'* l l))))
-                    (incf damage-increment (* ;(* 1d5 (expt strain-rate 1d0))
+                    (incf damage-increment (* ;(expt (max 1d0 (* 1d4 strain-rate)) 1d0)
                                               (damage-rate-profile critical-stress
                                                                    ;;I think we calculate damage evolution on this?
                                                                    ;; (* s_1 (damage-profile damage critical-damage))

@@ -182,12 +182,12 @@
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-elastic-damage
-               :E 1d8
+               :E 1d9
                :nu 0.3250d0
-               :visc-factor 11d6
+               :visc-factor 111d6
                :visc-power 3d0
                :critical-stress 1d8
-               :initiation-stress 0.5d6
+               :initiation-stress 1d6
                :damage-rate 1d5
                :critical-damage 0.2d0
                :local-length 20d0
@@ -224,7 +224,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20))
+  (let ((mesh-size 10))
     (defparameter *sim* (setup-test-column '(3000 800) '(1500 400) '(000 0) (/ 1 mesh-size) 2)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
@@ -344,10 +344,10 @@
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
 ;  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
-  (vgplot:figure)
-  (vgplot:title "Terminus over time")
-  (vgplot:plot *time* *x-pos*)
-  (plot-cfl)
+  ;; (vgplot:figure)
+  ;; (vgplot:title "Terminus over time")
+  ;; (vgplot:plot *time* *x-pos*)
+  ;; (plot-cfl)
 
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")

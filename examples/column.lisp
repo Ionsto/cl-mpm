@@ -1,9 +1,10 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 (ql:quickload "vgplot")
 
@@ -93,9 +94,9 @@
 
       (loop for mp across (cl-mpm::sim-mps sim)
             do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
       ;; (setf (cl-mpm:sim-bcs sim) '())
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -110,7 +111,8 @@
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;Setup
 (defun setup ()
-  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 4))
+  ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
+  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 16 50) 2))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -139,7 +141,25 @@
 
 
 (defparameter *run-sim* nil)
-
+(defun run-conv ()
+  (loop for i from 2 to 10
+        do
+           (let ((elements (expt 2 i))
+                 (final-time 15))
+             (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
+             (setf (cl-mpm:sim-dt *sim*) (* 1d-2 (/ 16 elements)))
+             (format t "Running sim size ~a ~%" elements)
+             (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
+             (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
+             (time
+              (loop for steps from 0 to (round (/ final-time (cl-mpm:sim-dt *sim*)))
+                    do
+                       (cl-mpm::update-sim *sim*)))
+             (plot *sim*)
+             (sleep .01)
+             (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
+             (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)))
+  )
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (asdf:system-relative-pathname "cl-mpm" "output/mesh.vtk")
                           *sim*)

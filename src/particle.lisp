@@ -496,7 +496,7 @@
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1 dt)) visc-factor visc-power))
           ;; (viscosity (cl-mpm/constitutive::glen-viscosity stress-damaged (expt visc-factor (- visc-power)) visc-power))
           ;;If we want enhancment
-          (viscosity (* viscosity (max 1e-1 (/ (- critical-damage damage) critical-damage))))
+          (viscosity (* viscosity (max 1e-2 (/ (- critical-damage damage) critical-damage))))
           )
       ;; stress
       (if (> viscosity 0d0)
