@@ -251,7 +251,7 @@
                ;; :visc-power 3d0
                :critical-stress 1d8
                :initiation-stress 0.2d6
-               :damage-rate 1d8
+               :damage-rate 1d7
                ;; :damage-rate 0d0
                :critical-damage 0.2d0
                :local-length 20d0
@@ -259,7 +259,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.050d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.010d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -279,40 +279,40 @@
               )
              )
             )
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc:make-bcs-from-list
-            (list
-             (cl-mpm/bc::make-bc-closure '(0 0)
-                                              (lambda ()
-                                                (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
-      ;; (let ((ocean-x 0)
-      ;;       (ocean-y 300))
-      ;;   (setf (cl-mpm::sim-bcs-force sim)
-      ;;         (cl-mpm/bc:make-bcs-from-list
-      ;;          (append
-      ;;           (list (cl-mpm/bc::make-bc-closure '(0 0)
-      ;;                                            (lambda ()
-      ;;                                              (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))
-      ;;           (loop for x from (floor ocean-x h) to (floor (first size) h)
-      ;;                 append (loop for y from 0 to (floor ocean-y h)
-      ;;                              collect (cl-mpm/bc::make-bc-buoyancy
-      ;;                                       (list x y)
-      ;;                                       (magicl:from-list (list
-      ;;                                                          1d-4
-      ;;                                                          0d0
-      ;;                                   ;(* 9.8d0 (* 1.0d0 1000)))
-      ;;                                                          )
-      ;;                                                         '(2 1)))))))))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;       (list
+      ;;        (cl-mpm/bc::make-bc-closure '(0 0)
+      ;;                                         (lambda ()
+      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0)))
+      ;;        )))
+      (let ((ocean-x 0)
+            (ocean-y 300))
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (append
+                (list (cl-mpm/bc::make-bc-closure '(0 0)
+                                                 (lambda ()
+                                                   (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))
+                (loop for x from (floor ocean-x h) to (floor (first size) h)
+                      append (loop for y from 0 to (floor ocean-y h)
+                                   collect (cl-mpm/bc::make-bc-buoyancy
+                                            (list x y)
+                                            (magicl:from-list (list
+                                                               1d1
+                                                               0d0
+                                                               )
+                                                              '(2 1)))))))))
       sim)))
 
 ;Setup
-(defun setup ()
+(defun setup (&optional (notch-length 100))
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)
-         (notch-length 100)
+         (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 10)
+         (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
@@ -352,10 +352,80 @@
 
 (defparameter *run-sim* nil)
 
+(defun sim-mass (sim)
+  (reduce
+   #'+
+   (lparallel:pmapcar
+    (lambda (mp) (with-accessors ((mass cl-mpm/particle:mp-mass)) mp
+                   mass))
+    (cl-mpm:sim-mps sim))))
+
+(defun test-notch-length ()
+  (defparameter *run-sim* t)
+  (defparameter *start-mass* (sim-mass *sim*))
+  (defparameter *notch-length* '())
+  (defparameter *mass-loss* '())
+  (vgplot:close-all-plots)
+  (vgplot:figure)
+  ;; (vgplot:plot '(10 10))
+  (sleep 1)
+  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+         (ms-x (first ms))
+         (ms-y (second ms))
+         )
+    (vgplot:axis (list 0 ms-x
+                       0 ms-y))
+    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h))
+  (with-open-file (stream (merge-pathnames "output/notch_mass.csv") :direction :output :if-exists :supersede)
+    (format stream "Notch Length,Mass Loss~%"))
+  (defparameter *notch-position* 0.1d0)
+  (loop for notch-length in '(10 20 30 40 50 100)
+        do (progn
+             (format t "Notch length ~A~%" notch-length)
+             (setup notch-length)
+             (defparameter *run-sim* t)
+             (time (loop for steps from 0 to 40
+                         while *run-sim*
+                         do
+                            (progn
+                              (format t "Step ~d ~%" steps)
+                              (time (dotimes (i 100)
+                                      (cl-mpm::update-sim *sim*)
+                                      (remove-sdf *sim* (rectangle-sdf (list 1500 0) (list 300 1000)))
+                                      (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                              (incf *sim-step*)
+                              (plot *sim*)
+                              (swank.live:update-swank)
+                              (sleep .01)
+                              )))
+             ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                     ;; *sim*)
+             ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+             ;; (vgplot:figure)
+             ;; (vgplot:title "Terminus over time")
+             ;; (vgplot:plot *time* *x-pos*)
+
+             (defparameter *end-mass* (sim-mass *sim*)))
+           (let ((mass-loss (- *end-mass* *start-mass*)))
+             (format t "Mass lost ~a~%" mass-loss)
+             (push notch-length *notch-length*)
+             (push mass-loss *mass-loss*)
+             (with-open-file (stream (merge-pathnames "output/notch_mass.csv") :direction :output :if-exists :append)
+               (format stream "~f, ~f ~%" notch-length mass-loss)))
+        )
+
+  (vgplot:figure)
+  (vgplot:title "Mass loss vs notch length")
+  (vgplot:plot *notch-length* *mass-loss*)
+  )
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
   (defparameter *run-sim* t)
+  (defparameter *start-mass* (sim-mass *sim*))
   (vgplot:close-all-plots)
   ;; (sleep 1)
   (vgplot:figure)
@@ -377,7 +447,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (time (loop for steps from 0 to 100
+  (time (loop for steps from 0 to 40
                 while *run-sim*
                 do
                 (progn
@@ -386,9 +456,10 @@
                   ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
 
                   (push *t* *time*)
-                  (setf *x*
-                        (loop for mp across (cl-mpm:sim-mps *sim*)
-                              maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
+                  ;; (setf *x*
+                  ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
+                  ;;             maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
+                  (setf *x* (sim-mass *sim*))
                   (push
                    *x*
                    *x-pos*)
@@ -402,6 +473,7 @@
                             ;; (melt-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)) (* (cl-mpm:sim-dt *sim*) 10))
                             ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 30)))
                             (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
+                            (remove-sdf *sim* (rectangle-sdf (list 1500 0) (list 50 1000)))
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
@@ -419,6 +491,8 @@
     ;; (vgplot:title "Terminus over time")
     ;; (vgplot:plot *time* *x-pos*)
 
+  (defparameter *end-mass* (sim-mass *sim*))
+  (format t "Mass lost ~a~%" (- *end-mass* *start-mass*))
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
