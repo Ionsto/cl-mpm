@@ -133,7 +133,7 @@
                ;; 'cl-mpm/particle::particle-viscoelastic-fracture
 
                'cl-mpm/particle::particle-elastic
-               :E 1d8
+               :E 1d7
                :nu 0.325d0
                :gravity -9.8d0
                )))
@@ -143,7 +143,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -172,7 +172,8 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 50) 4)) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
+  (let ((mesh-size 20))
+    (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 mesh-size) 2))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (defparameter *velocity* '())
@@ -293,7 +294,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 35
+                                   (time (loop for i from 0 to 1000
                                                while *run-sim*
                                                do
                                                   (progn
@@ -310,9 +311,9 @@
                                    ;; (format t "Max cfl: ~f~%" max-cfl)
                                    )
                                  (push *t* *time*)
-                                 (push (calculate-energy-strain *sim*) *energy-se*)
-                                 (push (calculate-energy-kinetic *sim*) *energy-ke*)
-                                 (push (calculate-energy-gravity *sim*) *energy-gpe*)
+                                 ;; (push (calculate-energy-strain *sim*) *energy-se*)
+                                 ;; (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                                 ;; (push (calculate-energy-gravity *sim*) *energy-gpe*)
                                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                          *sim*)
                                  (incf *sim-step*)
@@ -322,6 +323,7 @@
                                  (sleep .01)
 
                                  )))
+      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/final.csv" *sim-step*)) *sim*)
       (plot-deflection (cl-mpm/particle::mp-e (first *deflection-mps*))
                        100 100 500)
       (save-deflection "deflection_truesdallrate.csv")
