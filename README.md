@@ -2,10 +2,10 @@
  B-Spline MPM implementation in common lisp, only SBCL conforming.
  
 # Features
- - B-Spline Mapping
+ - GIMP Mapping
  - Arbitrary boundary conditions
  - Extensible design using CLOS
- - Local continuum damage model
+ - Non-local continuum damage model
  - Eigen errosion post-process step
  
 Output
