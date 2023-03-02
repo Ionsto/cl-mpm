@@ -143,7 +143,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -172,7 +172,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 20))
+  (let ((mesh-size 50))
     (defparameter *sim* (setup-test-column '(700 600) '(500 100) '(000 400) (/ 1 mesh-size) 2))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -294,7 +294,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 1000
+                                   (time (loop for i from 0 to 100
                                                while *run-sim*
                                                do
                                                   (progn
@@ -323,7 +323,7 @@
                                  (sleep .01)
 
                                  )))
-      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/final.csv" *sim-step*)) *sim*)
+      (cl-mpm/output:save-csv (merge-pathnames (format nil "output/final.csv" *sim-step*)) *sim*)
       (plot-deflection (cl-mpm/particle::mp-e (first *deflection-mps*))
                        100 100 500)
       (save-deflection "deflection_truesdallrate.csv")

@@ -1070,9 +1070,9 @@
           (setf def (magicl:@ df def))
           ;;Eng strain to log strain
           ;;(voight-to-matrix )
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
-          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix
-          ;;                                         (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1)))))
+          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
+          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix
+                                                  (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1)))))
             (let ((trial-lgs (magicl:@ df
                                         v
                                         (magicl:from-diag (mapcar (lambda (x)
@@ -1090,7 +1090,7 @@
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
                               0.5d0))
-                ;; (setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
+                (setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
                 )))
         ;;Post multiply to turn to eng strain
         ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
