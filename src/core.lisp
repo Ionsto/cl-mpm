@@ -1073,6 +1073,7 @@
           ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix
                                                   (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1)))))
+            ;0.5
             (let ((trial-lgs (magicl:@ df
                                         v
                                         (magicl:from-diag (mapcar (lambda (x)

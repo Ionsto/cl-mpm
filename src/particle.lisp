@@ -381,7 +381,107 @@
     ;; (setf stress (magicl:scale stress-u 1d0))
     ))
 
+
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (strain-rate strain-rate)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               )
+      mp
+    ;; Kirchoff stress rate?
+    ;; (magicl:.+ stress
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    ;; (magicl:.+
+    ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
+    ;;Jaumann rate equation
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-jaumann
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   vorticity))
+    ;; Truesdale rate
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-kirchoff-truesdale
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   strain-rate))
+    (cl-mpm/constitutive::linear-elastic-mat strain de)
+    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    ))
+
+(defclass particle-elastic-inc (particle-elastic)
+  ()
+  (:documentation "A linear-elastic material point"))
+(defmethod constitutive-model ((mp particle-elastic-inc) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (strain-rate strain-rate)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               )
+      mp
+    ;; Non-objective stress intergration
+    (magicl:.+
+     stress
+     (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    ))
+(defclass particle-elastic-jaumann (particle-elastic)
+  ()
+  (:documentation "A linear-elastic material point"))
+(defmethod constitutive-model ((mp particle-elastic-jaumann) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (strain-rate strain-rate)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               )
+      mp
+    ;; Kirchoff stress rate?
+    ;; (magicl:.+ stress
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    ;; (magicl:.+
+    ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
+    ;;Jaumann rate equation
+    (magicl:.+
+     stress
+     (objectify-stress-jaumann
+      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      stress
+      vorticity))
+    ;; Truesdale rate
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-kirchoff-truesdale
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   strain-rate))
+    ))
+(defclass particle-elastic-truesdale (particle-elastic)
+  ()
+  (:documentation "A linear-elastic material point"))
+(defmethod constitutive-model ((mp particle-elastic-truesdale) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((E E)
                (nu nu)
@@ -415,8 +515,30 @@
       (cl-mpm/constitutive:linear-elastic strain-rate E nu)
       stress
       strain-rate))
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
-    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
+    ))
+(defclass particle-elastic-logspin (particle-elastic)
+  ()
+  (:documentation "A linear-elastic material point"))
+(defmethod constitutive-model ((mp particle-elastic-logspin) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (strain-rate strain-rate)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               )
+      mp
+    (magicl:.+
+     stress
+     (objectify-stress-logspin
+      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      stress
+      def
+      vorticity
+      strain-rate))
     ))
 
 (defmethod constitutive-model ((mp particle-fluid) strain dt)
@@ -593,36 +715,79 @@
                 (magicl:@ (voight-to-matrix velocity-rate) (voight-to-matrix stress))
                 ))))
 
-(defun objectify-stress-logspin (mp)
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (def cl-mpm/particle:mp-deformation-gradient)
-                   (vorticity cl-mpm/particle:mp-vorticity)
-                   (strain-rate cl-mpm/particle::mp-strain-rate)
-                   )
-      mp
+(declaim (inline objectify-stress-logspin))
+(defun objectify-stress-logspin (stress-inc stress def vorticity strain-rate)
     (let ((b (magicl:@ def (magicl:transpose def)))
           (omega (assemble-vorticity-matrix vorticity))
           (D (voight-to-matrix strain-rate)))
         (multiple-value-bind (l v) (magicl:eig b)
-          (loop for i from 0 to 2
-                do (loop for j from 0 to 2
+          (loop for i from 0 to 1
+                do (loop for j from 0 to 1
                          do
                             (when (not (= i j))
                               (let ((l_i (nth i l))
                                     (l_j (nth j l))
+                                    (v_i (magicl:column v i))
+                                    (v_j (magicl:column v j))
                                     )
-                                (when (< (abs (- l_i l_j)) 1d-6)
+                                (when (and
+                                       nil
+                                       (> (abs (- l_i l_j)) 1d-6)
+                                       (> l_i 0)
+                                       (> l_j 0)
+                                       )
                                   ;; When we have unique eigenvalues
                                   (setf omega (magicl:.+ omega
-                                                         (magicl:scale 
-                                                          (magicl:@ (magicl:column v i)
+                                                         (magicl:scale
+                                                          (magicl:@
+                                                                    (magicl:@
+                                                                     v_i
+                                                                     (magicl:transpose v_i))
                                                                     D
-                                                                    (magicl:column v j)
-                                                                    )
+                                                                    (magicl:@
+                                                                     v_j
+                                                                     (magicl:transpose v_j)))
                                                           (+
                                                            (/ (+ l_i l_j) (- l_i l_j))
                                                            (/ 2 (- (log l_i) (log l_j))))
-                                                          )
-                                                         ))
-                                  )))))))))
+                                                          )))
+                                  ))))))
+      ;; (print omega)
+      ;; (break)
+      (magicl:.+
+       stress-inc
+       (matrix-to-voight
+        (magicl::.- (magicl:@ (voight-to-matrix stress) omega)
+                    (magicl:@ omega (voight-to-matrix stress)))))
+      ))
+;; (defun objectify-stress-logspin (mp)
+;;   (with-accessors ((stress cl-mpm/particle:mp-stress)
+;;                    (def cl-mpm/particle:mp-deformation-gradient)
+;;                    (vorticity cl-mpm/particle:mp-vorticity)
+;;                    (strain-rate cl-mpm/particle::mp-strain-rate)
+;;                    )
+;;       mp
+;;     (let ((b (magicl:@ def (magicl:transpose def)))
+;;           (omega (assemble-vorticity-matrix vorticity))
+;;           (D (voight-to-matrix strain-rate)))
+;;         (multiple-value-bind (l v) (magicl:eig b)
+;;           (loop for i from 0 to 2
+;;                 do (loop for j from 0 to 2
+;;                          do
+;;                             (when (not (= i j))
+;;                               (let ((l_i (nth i l))
+;;                                     (l_j (nth j l))
+;;                                     )
+;;                                 (when (< (abs (- l_i l_j)) 1d-6)
+;;                                   ;; When we have unique eigenvalues
+;;                                   (setf omega (magicl:.+ omega
+;;                                                          (magicl:scale
+;;                                                           (magicl:@ (magicl:column v i)
+;;                                                                     D
+;;                                                                     (magicl:column v j)
+;;                                                                     )
+;;                                                           (+
+;;                                                            (/ (+ l_i l_j) (- l_i l_j))
+;;                                                            (/ 2 (- (log l_i) (log l_j))))
+;;                                                           ))))))))))))
 
