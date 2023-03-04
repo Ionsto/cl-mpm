@@ -605,7 +605,7 @@
                (strain-plastic strain-plastic)
                (damage damage)
                (critical-damage critical-damage)
-               (deformation-gradient deformation-gradient)
+               (def deformation-gradient)
                (vorticity vorticity)
                                         ;(stress stress)
                (stress undamaged-stress)
@@ -621,11 +621,22 @@
           (viscosity (* viscosity (max 1e-2 (/ (- critical-damage damage) critical-damage))))
           )
       ;; stress
-      (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
-          ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
-          ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-          (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
+
+      (magicl:.+
+       stress
+       (objectify-stress-logspin
+        (if (> viscosity 0d0)
+            (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+            (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+        stress
+        def
+        vorticity
+        strain-rate))
+      ;; (if (> viscosity 0d0)
+      ;;     (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
+      ;;     ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
+      ;;     ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+      ;;     (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
       )
     )
   )

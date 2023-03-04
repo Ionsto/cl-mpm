@@ -180,17 +180,20 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-viscoplastic-damage
-               ;; 'cl-mpm/particle::particle-elastic-damage
+               'cl-mpm/particle::particle-elastic
                :E 1d9
                :nu 0.3250d0
-               :visc-factor 111d6
-               :visc-power 3d0
-               :critical-stress 1d8
-               :initiation-stress 1d6
-               :damage-rate 1d5
-               :critical-damage 0.2d0
-               :local-length 20d0
+               ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               ;; ;; 'cl-mpm/particle::particle-elastic-damage
+               ;; :E 1d9
+               ;; :nu 0.3250d0
+               ;; :visc-factor 111d6
+               ;; :visc-power 3d0
+               ;; :critical-stress 1d8
+               ;; :initiation-stress 1d6
+               ;; :damage-rate 1d5
+               ;; :critical-damage 0.2d0
+               ;; :local-length 20d0
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -224,8 +227,8 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 10))
-    (defparameter *sim* (setup-test-column '(3000 800) '(1500 400) '(000 0) (/ 1 mesh-size) 2)))
+  (let ((mesh-size 20))
+    (defparameter *sim* (setup-test-column '(1000 300) '(500 100) '(000 0) (/ 1 mesh-size) 2)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))

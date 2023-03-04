@@ -20,9 +20,9 @@
     (magicl:from-list (list
                         (- 1d0 nu) nu 0d0
                         nu (- 1d0 nu) 0d0
-                        0d0 0d0 (- 1d0 (* 2 nu)))
+                        0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))))
                       '(3 3) :type 'double-float)
-    (/ E (* (+ 1 nu) (- 1 nu nu)))))
+    (/ E (* (+ 1 nu) (- 1 (* 2 nu))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
