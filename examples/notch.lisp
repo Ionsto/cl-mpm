@@ -252,9 +252,9 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 10d6
+               :E 1d7
                :nu 0.3250d0
-               :critical-stress 1d8
+               :critical-stress 1d9
                :initiation-stress 0.2d6
                :damage-rate 1d8
                :critical-damage 0.4d0
@@ -264,7 +264,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.050d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.100d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -304,7 +304,7 @@
                                    collect (cl-mpm/bc::make-bc-buoyancy
                                             (list x y)
                                             (magicl:from-list (list
-                                                               1d2
+                                                               0d2
                                                                0d0
                                                                )
                                                               '(2 1)))))))))
@@ -312,12 +312,12 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 1000)
+  (let* ((shelf-length 2000)
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
@@ -450,7 +450,7 @@
   (defparameter *notch-position* 0.1d0)
   (ensure-directories-exist "./output_notch/")
   (defparameter *run-sim* t)
-  (loop for notch-length in '(10 20 30 40 50 100)
+  (loop for notch-length in '(10 20 30 40 50 80 100 200)
         do (progn
              (format t "Notch length ~A~%" notch-length)
              (setup notch-length)
@@ -469,8 +469,7 @@
                               (swank.live:update-swank)
                               (sleep .01)
                               )))
-             ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                     ;; *sim*)
+             (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_notch/sim_~a.vtk" notch-length)) *sim*)
              (cl-mpm/output:save-csv (merge-pathnames (format nil "output_notch/final_~a.csv" notch-length)) *sim*)
              ;; (vgplot:figure)
              ;; (vgplot:title "Terminus over time")
@@ -537,7 +536,7 @@
                             ;; (melt-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)) (* (cl-mpm:sim-dt *sim*) 10))
                             ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 30)))
                             (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
-                            (remove-sdf *sim* (rectangle-sdf (list 1500 0) (list 300 1000)))
+                            ;; (remove-sdf *sim* (rectangle-sdf (list 1500 0) (list 300 1000)))
                            (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                   (incf *sim-step*)
                   (plot *sim*)
