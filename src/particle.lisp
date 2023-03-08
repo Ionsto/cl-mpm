@@ -403,12 +403,12 @@
     ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
     ;;Jaumann rate equation
-    ;; (magicl:.+
-    ;;  stress
-    ;;  (objectify-stress-jaumann
-    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;   stress
-    ;;   vorticity))
+    (magicl:.+
+     stress
+     (objectify-stress-jaumann
+      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      stress
+      vorticity))
     ;; Truesdale rate
     ;; (magicl:.+
     ;;  stress
@@ -416,7 +416,7 @@
     ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;   stress
     ;;   strain-rate))
-    (cl-mpm/constitutive::linear-elastic-mat strain de)
+    ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ))
 

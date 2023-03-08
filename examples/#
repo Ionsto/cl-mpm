@@ -1,9 +1,9 @@
 (defpackage :cl-mpm/examples/notch
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+(setf *block-compile-default* nil)
 (in-package :cl-mpm/examples/notch)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -261,7 +261,7 @@
                :critical-damage 0.4d0
                :local-length 20d0
 
-               :gravity -9.8d0
+               :gravity 0d0 ;-9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
@@ -275,7 +275,7 @@
             (append
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
               ;; (lambda (i) nil)
               ;; (lambda (i) nil)
               ;; (lambda (i) nil)
@@ -292,45 +292,33 @@
       ;;                                         (lambda ()
       ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0)))
       ;;        )))
-      (let ((water-line 300))
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)
-                                  (stress cl-mpm/particle::mp-stress-kirchoff)
-                                  (stress-cauchy cl-mpm/particle::mp-stress)
-                                  )
-                     mp
-                   (setf stress
-                         (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1.2d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
-                         stress-cauchy stress)))
-        (let ((ocean-x 1000)
-              (ocean-y 300))
-          (setf (cl-mpm::sim-bcs-force sim)
-                (cl-mpm/bc:make-bcs-from-list
-                 (append
-                  (list (cl-mpm/bc::make-bc-closure '(0 0)
-                                                    (lambda ()
-                                                      (cl-mpm/buoyancy::apply-bouyancy sim water-line))))
-                  (loop for x from (floor ocean-x h) to (floor (first size) h)
-                        append (loop for y from (floor 0 h) to (floor ocean-y h)
-                                     collect (cl-mpm/bc::make-bc-buoyancy
-                                              (list x y)
-                                              (magicl:from-list (list
-                                                                 0d2
-                                                                 0d0
-                                                                 )
-                                                                '(2 1))))))))))
+      (let ((ocean-x 1000)
+            (ocean-y 300))
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (append
+                (list (cl-mpm/bc::make-bc-closure '(0 0)
+                                                 (lambda ()
+                                                   (cl-mpm/buoyancy::apply-bouyancy sim 600d0))))
+                (loop for x from (floor ocean-x h) to (floor (first size) h)
+                      append (loop for y from (floor 0 h) to (floor ocean-y h)
+                                   collect (cl-mpm/bc::make-bc-buoyancy
+                                            (list x y)
+                                            (magicl:from-list (list
+                                                               0d2
+                                                               0d0
+                                                               )
+                                                              '(2 1)))))))))
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 100))
+(defun setup (&optional (notch-length 000))
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)

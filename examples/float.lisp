@@ -90,7 +90,8 @@
          (vgplot:plot x y ";;with points pt 7")
          (if node-x
              (vgplot:plot
-              x y ";;with points pt 7"
+              ;;x y ";;with points pt 7"
+              x y lx ly ";;with ellipses"
               node-x node-y ";;with points pt 7")
              (vgplot:plot x y ";;with points pt 7"))
          )
@@ -154,7 +155,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (density 900)
+         (density 500)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
@@ -182,7 +183,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -226,7 +227,7 @@
          )
     (defparameter *csv-name* (merge-pathnames (format nil "output/surface_position_~D.csv" mesh-size)))
     (defparameter *sim* (setup-test-column '(600 600)
-                                           '(400 100)
+                                           '(100 100)
                                            '(100 200) (/ 1d0 mesh-size) 2))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50)))
