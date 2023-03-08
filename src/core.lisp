@@ -252,7 +252,7 @@
 (defun iterate-over-neighbours (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (if (cl-mpm/particle::mp-cached-nodes mp)
+  (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
       (iterate-over-neighbours-cached mesh mp func)
       (create-node-cache mesh mp func))
   ;; (iterate-over-neighbours-shape-gimp mesh mp func)
@@ -268,7 +268,7 @@
       (iterate-over-neighbours-shape-gimp
        mesh mp
        (lambda (mesh mp node svp grads)
-         (push
+         (vector-push-extend
           (cl-mpm/particle::make-node-cache
            :node node
            :weight svp
@@ -277,10 +277,11 @@
          (funcall func mesh mp node svp grads)
          ))))
 
+(declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
   (declare (function func))
   "If a node iteration cache has been generated we loop over the data list"
-  (loop for nc in (cl-mpm/particle::mp-cached-nodes mp)
+  (loop for nc across (cl-mpm/particle::mp-cached-nodes mp)
         do
          (funcall func mesh mp
                   (cl-mpm/particle::node-cache-node nc)
@@ -785,7 +786,7 @@
          ))
       ;;Update particle
       (progn
-        (setf nc '())
+        (setf (fill-pointer nc) 0)
         (cl-mpm/fastmath::fast-fmacc-array (magicl::storage pos) mapped-vel dt)
         (cl-mpm/fastmath::fast-fmacc-array (magicl::storage disp) mapped-vel dt)
         ;; (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
@@ -958,7 +959,7 @@
       (progn
         (setf pos (magicl:.+ pos (magicl:scale vel dt)))
         (setf disp (magicl:.+ disp (magicl:scale vel dt)))
-        (setf nc '())
+        (setf (fill-pointer nc) 0)
         ;; (.+ disp (magicl:scale vel dt) disp)
         )))
 

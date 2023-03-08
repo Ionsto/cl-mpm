@@ -144,7 +144,7 @@
     :initform (magicl:zeros '(2 1)))
    (cached-nodes
     :accessor mp-cached-nodes
-    :initform '()
+    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache)
     )
    )
   (:documentation "A single material point"))
