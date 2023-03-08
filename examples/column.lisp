@@ -73,7 +73,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (density 100)
+         (density 80)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
         (block-size (list (* (first size) h-x) (second block-size)))
          )
@@ -90,10 +90,13 @@
                density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic
-               :E 1d6 :nu 0.0d0)))
+               :E 1d6
+               :nu 0.0d0
+               :gravity -10.0d0
+               )))
 
-      (loop for mp across (cl-mpm::sim-mps sim)
-            do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
+      ;; (loop for mp across (cl-mpm::sim-mps sim)
+      ;;       do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
       (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
