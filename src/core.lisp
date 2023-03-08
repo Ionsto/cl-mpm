@@ -758,7 +758,8 @@
     mp
     (let* ((mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
           (mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
-          (mapped-vel-mat (magicl::from-storage mapped-vel '(2 1))))
+          ;; (mapped-vel-mat (magicl::from-storage mapped-vel '(2 1)))
+           )
       (progn
         ;; (magicl:scale vel 0d0)
         ;; (reset-mps-g2p mp)
@@ -776,17 +777,8 @@
                           (node-active cl-mpm/mesh:node-active)
                           ) node
            (when node-active
-             #+:sb-simd
-             (progn
                (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
-               (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp))
-             #-:sb-simd
-             (cl-mpm/fastmath::fast-fmacc
-              mapped-vel-mat node-vel  svp)
-             ;; (cl-mpm/fastmath::fast-fmacc
-             ;;  (magicl::from-storage mapped-acc '(2 1))
-             ;;  node-acc svp)
-                                        ;)
+               (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp)
              )
            )
          ;; (g2p-mp-node mp node svp grads)
@@ -794,8 +786,10 @@
       ;;Update particle
       (progn
         (setf nc '())
-        (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
-        (cl-mpm/fastmath:fast-fmacc disp mapped-vel-mat dt)
+        (cl-mpm/fastmath::fast-fmacc-array (magicl::storage pos) mapped-vel dt)
+        (cl-mpm/fastmath::fast-fmacc-array (magicl::storage disp) mapped-vel dt)
+        ;; (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
+        ;; (cl-mpm/fastmath:fast-fmacc disp mapped-vel-mat dt)
         (aops:copy-into (magicl::storage acc) mapped-acc)
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
         ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)

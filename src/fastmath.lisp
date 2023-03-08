@@ -82,6 +82,16 @@
     (values (- (* (aref x-a 0) (aref x-a 3))
                (* (aref x-a 1) (aref x-a 2))))))
 
+(declaim
+ (inline fast-fmacc-array)
+ (ftype (function ((simple-array double-float)
+                   (simple-array double-float)
+                   double-float) (values)) fast-fmacc))
+(defun fast-fmacc-array (a b d)
+  #+:sb-simd (simd-fmacc a
+                         b
+                         d)
+  #-:sb-simd (setf a (aops:reduce #'+ a (aops:each (lambda (x) (* x d)) b))))
 
 (declaim
  (inline fast-fmacc)
