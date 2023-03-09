@@ -36,7 +36,7 @@
            (p -1d3)
            )
       (if (> h 0d0)
-          (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
+          (magicl:from-list (list 0 f 0d0) '(3 1) :type 'double-float)
           ;; (magicl:zeros '(3 1))
           (magicl:zeros '(3 1))
           )

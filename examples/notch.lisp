@@ -253,7 +253,7 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d8
+               :E 1d7
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
@@ -293,17 +293,21 @@
       ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0)))
       ;;        )))
       (let ((water-line 300))
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)
-                                  (stress cl-mpm/particle::mp-stress-kirchoff)
-                                  (stress-cauchy cl-mpm/particle::mp-stress)
-                                  )
-                     mp
-                   (setf stress
-                         (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1.2d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
-                         stress-cauchy stress)))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (with-accessors ((pos cl-mpm/particle:mp-position)
+        ;;                           (stress cl-mpm/particle::mp-stress-kirchoff)
+        ;;                           (stress-cauchy cl-mpm/particle::mp-stress)
+        ;;                           )
+        ;;              mp
+        ;;            (setf stress
+        ;;                  ;; (cl-mpm/utils:matrix-to-voight
+        ;;                  ;;  (magicl:eye 2 :value ((* 4d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line )))))
+        ;;                  (magicl:from-list (list
+        ;;                                     (* 4d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))
+        ;;                                     0d0
+        ;;                                     0d0) '(3 1))
+        ;;                  stress-cauchy stress)))
         (let ((ocean-x 1000)
               (ocean-y 300))
           (setf (cl-mpm::sim-bcs-force sim)
@@ -330,7 +334,7 @@
          (shelf-bottom 120)
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)

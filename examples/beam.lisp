@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/beam)
@@ -141,7 +141,7 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       (setf (cl-mpm:sim-bcs sim)
@@ -172,7 +172,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 50)
-        (mps-per-cell 4))
+        (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -356,7 +356,9 @@
   (sleep 1)
   (setup)
   (loop for name in '("true" "inc" "logspin" "jaumann" "truesdale")
+        ;'("logspin")
         for model in
+        ;'(cl-mpm/particle::particle-elastic-logspin)
         '(cl-mpm/particle::particle-elastic
           cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
@@ -391,7 +393,7 @@
                               (progn
                                 (format t "Step ~d ~%" steps)
                                 (let ((max-cfl 0))
-                                  (time (loop for i from 0 to 1000
+                                  (time (loop for i from 0 to 100
                                               while *run-sim*
                                               do
                                                  (progn
