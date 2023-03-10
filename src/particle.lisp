@@ -716,7 +716,7 @@
   (cl-mpm/particle:mp-stress mp))
 
 (defun objectify-stress-jaumann (stress-inc stress vorticity)
-  (magicl:.-
+  (magicl:.+
    stress-inc
    (matrix-to-voight
     (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
@@ -781,7 +781,7 @@
       ;; (print omega)
       ;; (break)
       ;; (break)
-      (magicl:.-
+      (magicl:.+
        stress-inc
        (matrix-to-voight
         (magicl::.- (magicl:@ (voight-to-matrix stress) omega)

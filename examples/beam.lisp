@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/beam)
@@ -141,9 +141,9 @@
         (setf (cl-mpm:sim-mps sim) (make-array 1000 :fill-pointer 0 :adjustable t))
         (loop for mp across prev-mps
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
@@ -294,7 +294,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 1000
+                                   (time (loop for i from 0 to 100
                                                while *run-sim*
                                                do
                                                   (progn
@@ -355,20 +355,27 @@
   (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (sleep 1)
   (setup)
-  (loop for name in '("true" "inc" "logspin" "jaumann" "truesdale")
+  (loop for name in '(
+                      "true"
+                      "inc"
+                      "logspin"
+                      "jaumann"
+                      ;; "truesdale"
+                      )
         ;'("logspin")
         for model in
         ;'(cl-mpm/particle::particle-elastic-logspin)
-        '(cl-mpm/particle::particle-elastic
+        '(
+          cl-mpm/particle::particle-elastic
           cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
           cl-mpm/particle::particle-elastic-jaumann
-          cl-mpm/particle::particle-elastic-truesdale
+          ;; cl-mpm/particle::particle-elastic-truesdale
           )
         do
            (progn
              (let ((mesh-size 50)
-                   (mps-per-cell 4))
+                   (mps-per-cell 2))
                (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell
                                                        model)))
              (defparameter *t* 0)
