@@ -224,3 +224,14 @@
                "magicl")
   :serial t
   :components ((:file "examples/beam")))
+
+(defsystem "cl-mpm/examples/shear"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/shear")))

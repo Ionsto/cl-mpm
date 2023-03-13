@@ -250,6 +250,8 @@
 (inline iterate-over-neighbours)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours))
 (defun iterate-over-neighbours (mesh mp func)
+  "For a given mesh and mp, iterate over all the neighbours with
+weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
@@ -321,7 +323,7 @@
                           ))))
     (if nil ;border
         ;; Do something janky if we are in a border element
-        (loop for dx from -1 to 1
+        (loop for dx from -/1 to 1
               do (loop for dy from -1 to 1
                        do
                           (let* (

@@ -355,11 +355,11 @@
 
 (defun make-bc-closure (index func)
   (make-instance 'bc-closure
-                 :index index 
+                 :index index
                  :func func))
 
 (defmethod apply-bc ((bc bc-closure) node mesh dt)
-  "Fixed velocity BC over some dimensions"
+  "Arbitrary closure BC"
   (with-slots ((func func))
     bc
     (declare (function func))

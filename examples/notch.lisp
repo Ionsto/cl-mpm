@@ -302,7 +302,7 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1.2d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 0d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
                          stress-cauchy stress)))
         (let ((ocean-x 1000)
               (ocean-y 300))

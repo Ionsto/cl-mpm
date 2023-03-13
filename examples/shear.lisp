@@ -1,0 +1,367 @@
+(defpackage :cl-mpm/examples/shear
+  (:use :cl))
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* nil)
+
+(in-package :cl-mpm/examples/shear)
+(declaim (optimize (debug 2) (safety 2) (speed 2)))
+
+
+
+(defun pescribe-velocity (sim load-mps vel)
+  (let ((mps (cl-mpm:sim-mps sim)))
+    (loop for mp in load-mps
+          do
+             (progn
+               (setf (cl-mpm/particle:mp-velocity mp) vel)))))
+
+(defun length-from-def (sim mp dim)
+  (let* ((mp-scale 2)
+         (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
+         )
+    h-initial))
+(defun max-stress (mp)
+  (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+    ;; (apply #'max l)
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
+    ))
+(defun plot (sim &optional (plot :deformed))
+  (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
+  (multiple-value-bind (x y c stress-y lx ly e density)
+    (loop for mp across (cl-mpm:sim-mps sim)
+          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
+          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+          collect (length-from-def sim mp 0) into lx
+          collect (length-from-def sim mp 1) into ly
+          collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
+          collect (if (slot-exists-p mp 'cl-mpm/particle::strain-energy-density) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
+          collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
+          ;; collect (cl-mpm/particle:mp-volume mp) into density
+          collect (max-stress mp) into stress-y
+          finally (return (values x y c stress-y lx ly e density)))
+    (cond
+      ((eq plot :damage)
+       (vgplot:format-plot t "set cbrange [0:1]")
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
+       (vgplot:plot x y c ";;with points pt 7 lc palette")
+       )
+      ((eq plot :energy)
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
+       (vgplot:plot x y e ";;with points pt 7 lc palette")
+       )
+      (
+       (eq plot :stress)
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+       (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
+      ((eq plot :deformed)
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+       (vgplot:plot x y lx ly ";;with ellipses"))
+      ((eq plot :density)
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
+       (vgplot:plot x y e ";;with points pt 7 lc palette")
+       ))
+    )
+  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+         (ms-x (first ms))
+         (ms-y (second ms))
+         )
+    (vgplot:axis (list 0 ms-x
+                       0 ms-y))
+    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h))
+  (vgplot:replot))
+
+(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic))
+  (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
+                                        (mapcar (lambda (s) (* s e-scale)) size)
+                                        #'cl-mpm/shape-function:make-shape-function-linear)) 
+         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+         ;(e-scale 1)
+         (h-x (/ h 1d0))
+         (h-y (/ h 1d0))
+         (density 100)
+         ;(mass (/ (* 100 h-x h-y) (expt mp-scale 2)))
+         (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
+    (progn
+      (let ((block-position
+              (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
+                                (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
+                      block-offset)))
+        (setf (cl-mpm:sim-mps sim)
+              (cl-mpm/setup::make-block-mps
+               block-position
+               block-size
+               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               density
+               'cl-mpm::make-particle
+               particle-type
+               :E 1d4
+               :nu 0.3d0
+               :gravity -0.0d0
+               )))
+      (setf (cl-mpm:sim-damping-factor sim) 0.0001d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                           ))
+      (with-accessors ((mps cl-mpm:sim-mps))
+          sim
+        (macrolet ((loopovermps (type dim)
+                     `(loop for mp across mps
+                            ,type
+                             (funcall #'magicl:tref
+                                      (cl-mpm/particle:mp-position mp)
+                                      ,dim 0))))
+          (let* ((xmin (loopovermps minimize 0))
+                 (xmax (loopovermps maximize 0))
+                 (ymin (loopovermps minimize 1))
+                 (ymax (loopovermps maximize 1))
+                 )
+            (defparameter *load-mps*
+              (loop for mp across mps
+                    when
+                    (with-accessors ((pos cl-mpm/particle:mp-position))
+                        mp
+                      (or
+                       (= (magicl:tref pos 0 0) xmin)
+                       (= (magicl:tref pos 0 0) xmax)
+                       (= (magicl:tref pos 1 0) ymin)
+                       (= (magicl:tref pos 1 0) ymax)))
+                    collect mp
+                    )))
+          ))
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (append
+              (map 'list #'identity (cl-mpm:sim-bcs sim))
+              (list
+               (cl-mpm/bc::make-bc-closure
+                '(0 0)
+                (lambda ()
+                  (apply-simple-shear
+                   sim
+                   *load-mps*
+                   0.1d0)
+                  )
+                ))))
+                          )
+      sim)))
+
+;Setup
+(defun setup ()
+  (declare (optimize (speed 0)))
+  (let ((mesh-size 10)
+        (mps-per-cell 2))
+    (defparameter *sim* (setup-test-column '(300 300) '(100 100) '(100 000) (/ 1 mesh-size) mps-per-cell)))
+  (defparameter *velocity* '())
+  (defparameter *time* '())
+  (defparameter *t* 0)
+  (defparameter *sim-step* 0)
+  (defparameter *run-sim* nil)
+  (defparameter *run-sim* t)
+  )
+
+(defun mag-sq (a)
+  (magicl::sum (magicl:.* a a)))
+
+(defun calculate-energy-gravity (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum (* 9.8 (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0) (cl-mpm/particle:mp-mass mp))))
+
+(defun calculate-energy-kinetic (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum (* 0.5 (cl-mpm/particle:mp-mass mp) (mag-sq (cl-mpm/particle:mp-velocity mp)))))
+
+(defun calculate-energy-strain (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        sum
+        (with-accessors ((volume cl-mpm/particle:mp-volume)
+                         (stress cl-mpm/particle:mp-stress)
+                         (strain cl-mpm/particle:mp-strain)
+                         (def cl-mpm/particle::mp-deformation-gradient)
+                         )
+            mp
+          (* 0.5 volume (magicl::sum (magicl:.* strain (magicl:scale stress (magicl:det def)))))
+          ;; (* 0.5 volume (magicl::sum (magicl:.* strain (magicl:scale stress 1d0))))
+          )))
+
+(defun apply-simple-shear (sim load-mps shear-rate)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (loop for mp in load-mps
+          do
+             (cl-mpm::iterate-over-neighbours
+              mesh
+              mp
+              (lambda (mesh mp node svp grad)
+                (with-accessors (
+                                 (vel cl-mpm/particle:mp-velocity)
+                                 )
+                    mp
+                  (with-accessors ((pos cl-mpm/mesh::node-position)
+                                   ;; (vel cl-mpm/mesh::node-velocity)
+                                   )
+                      node
+                    (setf (magicl:tref vel 0 0)
+                          (* shear-rate
+                             (magicl:tref pos 1 0))
+                          (magicl:tref vel 1 0)
+                          0d0
+                          )))))
+             ;; (progn
+             ;;   (setf (cl-mpm/particle:mp-velocity mp) vel))
+          )))
+
+(defparameter *run-sim* nil)
+
+(defun run ()
+  (declare (optimize (speed 1) (debug 2)))
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+                          *sim*)
+  (defparameter *run-sim* t)
+    (vgplot:close-all-plots)
+    (vgplot:figure)
+  (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (defparameter *energy-gpe* '())
+  (defparameter *energy-ke* '())
+  (defparameter *energy-se* '())
+  (sleep 1)
+  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+         (ms-x (first ms))
+         (ms-y (second ms))
+         )
+    (vgplot:axis (list 0 ms-x
+                       0 ms-y))
+    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      ;; (vgplot:format-plot t "set ytics ~f" h)
+      (vgplot:format-plot t "set xtics ~f" h)
+      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                              *sim*)
+      (incf *sim-step*)
+      (time (loop for steps from 0 to 100
+                  while *run-sim*
+                  do
+                     (progn
+                       (format t "Step ~d ~%" steps)
+                       (let ((max-cfl 0))
+                         (time (loop for i from 0 to 100
+                                     while *run-sim*
+                                     do
+                                        (progn
+
+                                          ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0.5d0 0d0) '(2 1)))
+                                          ;; (apply-simple-shear
+                                          ;;  *sim*
+                                          ;;  *load-mps*
+                                          ;;  0.5d0)
+                                          (cl-mpm::update-sim *sim*)
+                                          (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
+                                     ))
+                         )
+                       (push *t* *time*)
+                       (push (calculate-energy-strain *sim*) *energy-se*)
+                       (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                       (push (calculate-energy-gravity *sim*) *energy-gpe*)
+                       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                               *sim*)
+                       (incf *sim-step*)
+                       (plot *sim*)
+                       ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                       (swank.live:update-swank)
+                       (sleep .01)
+
+                       )))
+      (cl-mpm/output:save-csv (merge-pathnames (format nil "output/final.csv" *sim-step*)) *sim*)
+      (with-open-file (stream (merge-pathnames "output/energy.csv") :direction :output :if-exists :supersede)
+        (format stream "Time (s),SE,KE,GPE~%")
+        (loop for tim in (reverse *time*)
+              for se in (reverse *energy-se*)
+              for ke in (reverse *energy-ke*)
+              for gpe in (reverse *energy-gpe*)
+              do (format stream "~f, ~f, ~f, ~f ~%" tim se ke gpe)))
+      ;; (vgplot:figure)
+      ;; (vgplot:title "Velocity over time")
+      ;; (vgplot:plot *time* *velocity*)
+      (plot-energy)
+      ))
+(defun plot-energy ()
+  (vgplot:figure)
+  (vgplot:title "Velocity over time")
+  (vgplot:plot *time* *energy-gpe* "GPE"
+               *time* *energy-ke* "KE"
+               *time* *energy-SE* "SE"
+               *time* (mapcar #'+ *energy-gpe* *energy-ke* *energy-se*) "total energy"
+               ))
+(defun test-objective-rates ()
+  (declare (optimize (speed 1) (debug 2)))
+  (defparameter *run-sim* t)
+    (vgplot:close-all-plots)
+    (vgplot:figure)
+  (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (sleep 1)
+  (setup)
+  (loop for name in '("true" "inc" "logspin" "jaumann" "truesdale")
+        for model in
+        '(cl-mpm/particle::particle-elastic
+          cl-mpm/particle::particle-elastic-inc
+          cl-mpm/particle::particle-elastic-logspin
+          cl-mpm/particle::particle-elastic-jaumann
+          cl-mpm/particle::particle-elastic-truesdale
+          )
+        do
+           (progn
+             (let ((mesh-size 50)
+                   (mps-per-cell 4))
+               (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell
+                                                       model)))
+             (defparameter *t* 0)
+             (defparameter *sim-step* 0)
+             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_~a/mesh.vtk" name))
+                                          *sim*)
+             (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+                    (ms-x (first ms))
+                    (ms-y (second ms))
+                    )
+               (vgplot:axis (list 0 ms-x
+                                  0 ms-y))
+               (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+             (format t "Running model ~a ~%" name)
+             (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+               (vgplot:format-plot t "set xtics ~f" h)
+               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+               (incf *sim-step*)
+               (time (loop for steps from 0 to 100
+                           while *run-sim*
+                           do
+                              (progn
+                                (format t "Step ~d ~%" steps)
+                                (let ((max-cfl 0))
+                                  (time (loop for i from 0 to 1000
+                                              while *run-sim*
+                                              do
+                                                 (progn
+                                                   (cl-mpm::update-sim *sim*)
+                                                   (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
+                                              ))
+                                  )
+                                (push *t* *time*)
+                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+                                (incf *sim-step*)
+                                (plot *sim*)
+                                (swank.live:update-swank)
+                                (sleep .01)
+
+                                )))
+               (cl-mpm/output:save-csv (merge-pathnames (format nil "output_~a/final.csv" name *sim-step*)) *sim*)
+               ))))
