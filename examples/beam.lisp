@@ -171,8 +171,8 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 50)
-        (mps-per-cell 2))
+  (let ((mesh-size 20)
+        (mps-per-cell 4))
     (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -311,9 +311,9 @@
                                    ;; (format t "Max cfl: ~f~%" max-cfl)
                                    )
                                  (push *t* *time*)
-                                 ;; (push (calculate-energy-strain *sim*) *energy-se*)
-                                 ;; (push (calculate-energy-kinetic *sim*) *energy-ke*)
-                                 ;; (push (calculate-energy-gravity *sim*) *energy-gpe*)
+                                 (push (calculate-energy-strain *sim*) *energy-se*)
+                                 (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                                 (push (calculate-energy-gravity *sim*) *energy-gpe*)
                                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                          *sim*)
                                  (incf *sim-step*)
@@ -359,7 +359,7 @@
                       "true"
                       "inc"
                       "logspin"
-                      "jaumann"
+                      ;; "jaumann"
                       ;; "truesdale"
                       )
         ;'("logspin")
@@ -369,7 +369,7 @@
           cl-mpm/particle::particle-elastic
           cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
-          cl-mpm/particle::particle-elastic-jaumann
+          ;; cl-mpm/particle::particle-elastic-jaumann
           ;; cl-mpm/particle::particle-elastic-truesdale
           )
         do
@@ -380,7 +380,7 @@
                                                        model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
-             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_~a/mesh.vtk" name))
+             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_rate_~a/mesh.vtk" name))
                                           *sim*)
              (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
                     (ms-x (first ms))
@@ -390,9 +390,12 @@
                                   0 ms-y))
                (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
              (format t "Running model ~a ~%" name)
-             (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+             (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                   (test-time 0.5)
+                   (dt (cl-mpm:sim-dt *sim*))
+                   )
                (vgplot:format-plot t "set xtics ~f" h)
-               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_rate_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
                (incf *sim-step*)
                (time (loop for steps from 0 to 100
                            while *run-sim*
@@ -400,7 +403,7 @@
                               (progn
                                 (format t "Step ~d ~%" steps)
                                 (let ((max-cfl 0))
-                                  (time (loop for i from 0 to 100
+                                  (time (loop for i from 0 to (/ test-time dt)
                                               while *run-sim*
                                               do
                                                  (progn
@@ -409,14 +412,14 @@
                                               ))
                                   )
                                 (push *t* *time*)
-                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_rate_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
                                 (incf *sim-step*)
                                 (plot *sim*)
                                 (swank.live:update-swank)
                                 (sleep .01)
 
                                 )))
-               (cl-mpm/output:save-csv (merge-pathnames (format nil "output_~a/final.csv" name *sim-step*)) *sim*)
+               (cl-mpm/output:save-csv (merge-pathnames (format nil "output_rate_~a/final.csv" name *sim-step*)) *sim*)
                ))))
 
 (defmacro time-form (form it)
@@ -428,7 +431,6 @@
          ,form)
        (let* ((end (get-internal-real-time))
               (units internal-time-units-per-second)
-              (dt (/ (- end start) (* iterations units)))
               )
          (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
          (format t "Throughput: ~f~%" (/ 1 dt))
@@ -477,7 +479,6 @@
                       cl-mpm::g2p
                       cl-mpm::update-particle
                       cl-mpm::update-stress
-                      cl-mpm::calculate-strain-rate
                       cl-mpm::update-strain-kirchoff
                       cl-mpm::iterate-over-neighbours-shape
                       cl-mpm::iterate-over-neighbours-shape-linear
@@ -507,3 +508,13 @@
 (defun time-sim ()
   (time-form
    (cl-mpm::update-sim *sim*) 1000))
+
+(defun test-interate ()
+  (let ((its 1000000))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mps cl-mpm:sim-mps)) *sim*
+      (time (loop repeat its do (cl-mpm::iterate-over-neighbours-shape-gimp mesh (aref mps 0)
+                                                                      (lambda (mesh mp node weight grads)
+                                                                        ;(* (first dist) (second dist))
+                                                                        )
+                                                                      ))))))
