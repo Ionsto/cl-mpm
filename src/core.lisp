@@ -160,28 +160,28 @@
                     (reset-grid mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
-                      (filter-grid mesh (sim-mass-filter sim)))
+                     (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
                     (when enable-damage
-                      (cl-mpm/damage::calculate-damage mesh
-                                                       mps
-                                                       dt
-                                                       50d0))
+                     (cl-mpm/damage::calculate-damage mesh
+                                                      mps
+                                                      dt
+                                                      50d0))
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
                     (update-node-forces mesh (sim-damping-factor sim) dt)
                     ;Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
-                    ;;Also updates mps inline
+                    ;Also updates mps inline
                     (g2p mesh mps dt)
 
                     (when remove-damage
-                      (remove-material-damaged sim))
+                     (remove-material-damaged sim))
                     (when split
-                      (split-mps sim))
+                     (split-mps sim))
                     (check-mps mps)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
@@ -424,22 +424,24 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec))
              (domain (loop for x across (magicl::storage d0) collect (* 0.5d0 (the double-float x))))
              )
+        (declare (type double-float h)
+                 (type list pos pos-index domain))
         (loop for dx from -1 to 1
               do (loop for dy from -1 to 1
                        do (let* ((id (mapcar #'+ pos-index (list dx dy))))
                             (when (cl-mpm/mesh:in-bounds mesh id)
                               (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                                     (node (cl-mpm/mesh:get-node mesh id))
                                      (weights (mapcar (lambda (x l)
                                                         (cl-mpm/shape-function::shape-gimp x l h))
                                                       dist domain))
                                      (weight (reduce #'* weights))
-                                     (grads (mapcar (lambda (d l w)
-                                                      (* (cl-mpm/shape-function::shape-gimp-dsvp d l h) w))
-                                                    dist domain (nreverse weights)))
                                      )
                                 (when (< 0d0 weight)
-                                  (funcall func mesh mp node weight grads)
+                                  (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                         (grads (mapcar (lambda (d l w)
+                                                          (* (cl-mpm/shape-function::shape-gimp-dsvp d l h) w))
+                                                        dist domain (nreverse weights))))
+                                    (funcall func mesh mp node weight grads))
                                 )
                                 )))))
         ))))
@@ -662,10 +664,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
-           ;; (fast-add node-vel (magicl:scale mp-vel (* mp-mass svp)))
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
-           ;; (det-ext-force mp node svp node-force)
-           ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
            )
          ;; (special-p2g mp node svp dsvp)
           )
@@ -791,18 +790,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (setf (fill-pointer nc) 0)
         (cl-mpm/fastmath::fast-fmacc-array (magicl::storage pos) mapped-vel dt)
         (cl-mpm/fastmath::fast-fmacc-array (magicl::storage disp) mapped-vel dt)
-        ;; (cl-mpm/fastmath:fast-fmacc pos mapped-vel-mat dt)
-        ;; (cl-mpm/fastmath:fast-fmacc disp mapped-vel-mat dt)
         (aops:copy-into (magicl::storage acc) mapped-acc)
-        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage pos)  mapped-vel dt)
-        ;; (cl-mpm/fastmath::simd-fmacc (magicl::storage disp) mapped-vel dt)
         ;;FLIP
         (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
         ;;PIC
         ;; (aops:copy-into (magicl::storage vel) mapped-vel)
-
         ;; (update-domain mesh mp dt)
         )
         ;; (setf pos (magicl:.+ pos (magicl:scale vel dt)))
@@ -849,17 +843,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass dt damping))
         (progn
-          ;; (setf acc (magicl:scale!
-          ;;            ;; force
-          ;;             (magicl:.- force
-          ;;                        (magicl:scale vel (* mass damping)))
-          ;;            (/ 1.0 mass)))
-          ;; (setf vel (magicl:.+ vel (magicl:scale acc dt)))
-
           (magicl:scale acc 0d0)
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 mass))
           (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
-          ;;Disable for FLIP
+          ;;Disable for FLIP - not true?
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))
@@ -1094,7 +1081,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
 
           ;(setf velocity-rate (magicl:scale strain-rate 1d0))
-          ;(setf strain-rate (magicl:.- strain prev-strain))
+          ;; (setf strain-rate (magicl:.- strain prev-strain))
+          ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
           (setf volume (* volume (det df)))
           (when (<= volume 0d0)
             (error "Negative volume"))

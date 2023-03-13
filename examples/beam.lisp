@@ -143,7 +143,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
@@ -171,7 +171,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 50)
+  (let ((mesh-size 20)
         (mps-per-cell 4))
     (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
@@ -294,7 +294,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 1000
+                                   (time (loop for i from 0 to 100
                                                while *run-sim*
                                                do
                                                   (progn
@@ -311,9 +311,9 @@
                                    ;; (format t "Max cfl: ~f~%" max-cfl)
                                    )
                                  (push *t* *time*)
-                                 ;; (push (calculate-energy-strain *sim*) *energy-se*)
-                                 ;; (push (calculate-energy-kinetic *sim*) *energy-ke*)
-                                 ;; (push (calculate-energy-gravity *sim*) *energy-gpe*)
+                                 (push (calculate-energy-strain *sim*) *energy-se*)
+                                 (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                                 (push (calculate-energy-gravity *sim*) *energy-gpe*)
                                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                          *sim*)
                                  (incf *sim-step*)
@@ -355,23 +355,32 @@
   (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (sleep 1)
   (setup)
-  (loop for name in '("true" "inc" "logspin" "jaumann" "truesdale")
+  (loop for name in '(
+                      "true"
+                      "inc"
+                      "logspin"
+                      ;; "jaumann"
+                      ;; "truesdale"
+                      )
+        ;'("logspin")
         for model in
-        '(cl-mpm/particle::particle-elastic
+        ;'(cl-mpm/particle::particle-elastic-logspin)
+        '(
+          cl-mpm/particle::particle-elastic
           cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
-          cl-mpm/particle::particle-elastic-jaumann
-          cl-mpm/particle::particle-elastic-truesdale
+          ;; cl-mpm/particle::particle-elastic-jaumann
+          ;; cl-mpm/particle::particle-elastic-truesdale
           )
         do
            (progn
              (let ((mesh-size 50)
-                   (mps-per-cell 4))
+                   (mps-per-cell 2))
                (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell
                                                        model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
-             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_~a/mesh.vtk" name))
+             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_rate_~a/mesh.vtk" name))
                                           *sim*)
              (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
                     (ms-x (first ms))
@@ -381,9 +390,12 @@
                                   0 ms-y))
                (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
              (format t "Running model ~a ~%" name)
-             (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+             (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                   (test-time 0.5)
+                   (dt (cl-mpm:sim-dt *sim*))
+                   )
                (vgplot:format-plot t "set xtics ~f" h)
-               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_rate_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
                (incf *sim-step*)
                (time (loop for steps from 0 to 100
                            while *run-sim*
@@ -391,7 +403,7 @@
                               (progn
                                 (format t "Step ~d ~%" steps)
                                 (let ((max-cfl 0))
-                                  (time (loop for i from 0 to 1000
+                                  (time (loop for i from 0 to (/ test-time dt)
                                               while *run-sim*
                                               do
                                                  (progn
@@ -400,14 +412,14 @@
                                               ))
                                   )
                                 (push *t* *time*)
-                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
+                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_rate_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
                                 (incf *sim-step*)
                                 (plot *sim*)
                                 (swank.live:update-swank)
                                 (sleep .01)
 
                                 )))
-               (cl-mpm/output:save-csv (merge-pathnames (format nil "output_~a/final.csv" name *sim-step*)) *sim*)
+               (cl-mpm/output:save-csv (merge-pathnames (format nil "output_rate_~a/final.csv" name *sim-step*)) *sim*)
                ))))
 
 (defmacro time-form (form it)
@@ -419,7 +431,6 @@
          ,form)
        (let* ((end (get-internal-real-time))
               (units internal-time-units-per-second)
-              (dt (/ (- end start) (* iterations units)))
               )
          (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
          (format t "Throughput: ~f~%" (/ 1 dt))
@@ -468,7 +479,6 @@
                       cl-mpm::g2p
                       cl-mpm::update-particle
                       cl-mpm::update-stress
-                      cl-mpm::calculate-strain-rate
                       cl-mpm::update-strain-kirchoff
                       cl-mpm::iterate-over-neighbours-shape
                       cl-mpm::iterate-over-neighbours-shape-linear
@@ -498,3 +508,13 @@
 (defun time-sim ()
   (time-form
    (cl-mpm::update-sim *sim*) 1000))
+
+(defun test-interate ()
+  (let ((its 1000000))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mps cl-mpm:sim-mps)) *sim*
+      (time (loop repeat its do (cl-mpm::iterate-over-neighbours-shape-gimp mesh (aref mps 0)
+                                                                      (lambda (mesh mp node weight grads)
+                                                                        ;(* (first dist) (second dist))
+                                                                        )
+                                                                      ))))))

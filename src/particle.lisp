@@ -403,12 +403,12 @@
     ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
     ;;Jaumann rate equation
-    (magicl:.+
-     stress
-     (objectify-stress-jaumann
-      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-      stress
-      vorticity))
+    ;; (magicl:.+
+    ;;  stress
+    ;;  (objectify-stress-jaumann
+    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+    ;;   stress
+    ;;   vorticity))
     ;; Truesdale rate
     ;; (magicl:.+
     ;;  stress
@@ -416,7 +416,7 @@
     ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
     ;;   stress
     ;;   strain-rate))
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
+    (cl-mpm/constitutive::linear-elastic-mat strain de)
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ))
 
@@ -467,7 +467,7 @@
     (magicl:.+
      stress
      (objectify-stress-jaumann
-      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
       stress
       vorticity))
     ;; Truesdale rate
@@ -512,7 +512,7 @@
     (magicl:.+
      stress
      (objectify-stress-kirchoff-truesdale
-      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
+      (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
       stress
       strain-rate))
     ))
@@ -531,14 +531,18 @@
                (def deformation-gradient)
                )
       mp
-    (magicl:.+
-     stress
-     (objectify-stress-logspin
-      (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-      stress
-      def
-      vorticity
-      strain-rate))
+    (let (
+          ;; (strain-rate (magicl:scale strain-rate (/ 1d0 dt)))
+          ;; (vorticity (magicl:scale vorticity (/ 1d0 dt)))
+          )
+      (magicl:.+
+       stress
+       (objectify-stress-logspin
+        (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
+        stress
+        def
+        vorticity
+        strain-rate)))
     ))
 
 (defmethod constitutive-model ((mp particle-fluid) strain dt)
@@ -711,7 +715,7 @@
   (cl-mpm/particle:mp-stress mp))
 
 (defun objectify-stress-jaumann (stress-inc stress vorticity)
-  (magicl:.+
+  (magicl:.-
    stress-inc
    (matrix-to-voight
     (magicl::.- (magicl:@ (voight-to-matrix stress) (assemble-vorticity-matrix vorticity))
@@ -719,14 +723,14 @@
              )
 
 (defun objectify-stress-kirchoff-truesdale (stress-inc stress velocity-rate)
-  (magicl:.+
+  (magicl:.-
    stress-inc
    (matrix-to-voight
     (magicl::.- (magicl:@ (voight-to-matrix stress) (voight-to-matrix velocity-rate))
                 (magicl:@ (voight-to-matrix velocity-rate) (voight-to-matrix stress))
                 ))))
 
-(declaim (inline objectify-stress-logspin))
+(declaim (notinline objectify-stress-logspin))
 (defun objectify-stress-logspin (stress-inc stress def vorticity strain-rate)
     (let ((b (magicl:@ def (magicl:transpose def)))
           (omega (assemble-vorticity-matrix vorticity))
@@ -735,37 +739,49 @@
           (loop for i from 0 to 1
                 do (loop for j from 0 to 1
                          do
+                            ;;For all the pairs of eigenvalues
                             (when (not (= i j))
                               (let ((l_i (nth i l))
                                     (l_j (nth j l))
                                     (v_i (magicl:column v i))
                                     (v_j (magicl:column v j))
                                     )
+                                ;; (when (< l_i 0d0)
+                                ;;   (magicl:scale! v_i -1d0)
+                                ;;   (setf l_i (abs l_i))
+                                ;;   )
+                                ;; (when (< l_j 0d0)
+                                ;;   (magicl:scale! v_j -1d0)
+                                ;;   (setf l_j (abs l_j))
+                                ;;   )
+                                ;;When the eigenvalues are distinct
                                 (when (and
-                                       nil
                                        (> (abs (- l_i l_j)) 1d-6)
-                                       (> l_i 0)
-                                       (> l_j 0)
+                                       ;;When they are nonzero
+                                       ;; (> l_i 0d0)
+                                       ;; (> l_j 0d0)
                                        )
-                                  ;; When we have unique eigenvalues
-                                  (setf omega (magicl:.+ omega
-                                                         (magicl:scale
-                                                          (magicl:@
-                                                                    (magicl:@
-                                                                     v_i
-                                                                     (magicl:transpose v_i))
-                                                                    D
-                                                                    (magicl:@
-                                                                     v_j
-                                                                     (magicl:transpose v_j)))
-                                                          (+
-                                                           (/ (+ l_i l_j) (- l_i l_j))
-                                                           (/ 2 (- (log l_i) (log l_j))))
-                                                          )))
+                                  ;; When we have pairs of unique nonzero eigenvalues
+                                  (setf omega (magicl:.+
+                                               omega
+                                               (magicl:scale
+                                                (magicl:@
+                                                 (magicl:@
+                                                  v_i
+                                                  (magicl:transpose v_i))
+                                                 D
+                                                 (magicl:@
+                                                  v_j
+                                                  (magicl:transpose v_j)))
+                                                (+
+                                                 (/ (+ 1 (/ l_i l_j)) (- 1 (/ l_i l_j)))
+                                                 (/ 2d0 (log (/ l_i l_j))))
+                                                )))
                                   ))))))
       ;; (print omega)
       ;; (break)
-      (magicl:.+
+      ;; (break)
+      (magicl:.-
        stress-inc
        (matrix-to-voight
         (magicl::.- (magicl:@ (voight-to-matrix stress) omega)

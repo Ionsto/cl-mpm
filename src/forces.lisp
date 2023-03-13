@@ -36,7 +36,7 @@
       (declare (type double-float volume))
       ;; (mult-force dsvp stress volume f-out))
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
-      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose! dsvp) stress) volume) f-out))
+      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
     f-out))
 
 (declaim

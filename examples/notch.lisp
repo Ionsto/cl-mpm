@@ -253,7 +253,7 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d8
+               :E 1d7
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
@@ -330,7 +330,7 @@
          (shelf-bottom 120)
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
