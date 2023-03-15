@@ -265,7 +265,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.900d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.100d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -302,7 +302,7 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 0d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
                          stress-cauchy stress)))
         (let ((ocean-x 1000)
               (ocean-y 300))
@@ -324,7 +324,7 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 100))
+(defun setup (&optional (notch-length 000))
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120)

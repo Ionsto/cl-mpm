@@ -61,12 +61,12 @@
          (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
          )
     (declare (type double-float relaxation-const))
-    (magicl:.+ stress
-               ;; (matrix-to-voight (magicl:eye 2 :value (* (/ elasticity (* 2 (+ 1 poisson-ratio) (- 1 poisson-ratio poisson-ratio))) (magicl:trace (voight-to-matrix strain-increment))) :type 'double-float))
-               (magicl:.-
-                (magicl:@ de strain-increment)
-                (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
-               )))
+    ;; (magicl:.+ stress)
+    ;; (matrix-to-voight (magicl:eye 2 :value (* (/ elasticity (* 2 (+ 1 poisson-ratio) (- 1 poisson-ratio poisson-ratio))) (magicl:trace (voight-to-matrix strain-increment))) :type 'double-float))
+    (magicl:.-
+     (magicl:@ de strain-increment)
+     (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
+    ))
 (declaim (inline voight-eye)
          (ftype (function (double-float) magicl:matrix/double-float) voight-eye))
 (defun voight-eye (val)

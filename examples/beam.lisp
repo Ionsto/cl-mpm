@@ -143,7 +143,7 @@
               do (vector-push-extend mp (cl-mpm:sim-mps sim))))
       (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
@@ -171,7 +171,7 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 20)
+  (let ((mesh-size 50)
         (mps-per-cell 4))
     (defparameter *sim* (setup-test-column '(700 600) '(400 100) '(000 400) (/ 1 mesh-size) mps-per-cell))) ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;;(remove-sdf *sim* (ellipse-sdf (list 400 100) 10 40))
@@ -294,7 +294,7 @@
                                  ;;   (setf (cl-mpm:sim-dt *sim*) new-dt))
                                  ;; (break)
                                  (let ((max-cfl 0))
-                                   (time (loop for i from 0 to 100
+                                   (time (loop for i from 0 to 1000
                                                while *run-sim*
                                                do
                                                   (progn
@@ -380,7 +380,7 @@
                                                        model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
-             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_rate_~a/mesh.vtk" name))
+             (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil "output_rate_~a/mesh.vtk" name))
                                           *sim*)
              (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
                     (ms-x (first ms))

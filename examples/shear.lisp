@@ -99,7 +99,7 @@
                density
                'cl-mpm::make-particle
                particle-type
-               :E 1d4
+               :E 1d6
                :nu 0.3d0
                :gravity -0.0d0
                )))
@@ -109,9 +109,9 @@
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
                                            ))
       (with-accessors ((mps cl-mpm:sim-mps))
           sim
@@ -150,10 +150,9 @@
                   (apply-simple-shear
                    sim
                    *load-mps*
-                   0.1d0)
+                   0.01d0)
                   )
-                ))))
-                          )
+                )))))
       sim)))
 
 ;Setup
@@ -205,11 +204,11 @@
               mp
               (lambda (mesh mp node svp grad)
                 (with-accessors (
-                                 (vel cl-mpm/particle:mp-velocity)
+                                 ;; (vel cl-mpm/particle:mp-velocity)
                                  )
                     mp
                   (with-accessors ((pos cl-mpm/mesh::node-position)
-                                   ;; (vel cl-mpm/mesh::node-velocity)
+                                   (vel cl-mpm/mesh::node-velocity)
                                    )
                       node
                     (setf (magicl:tref vel 0 0)
@@ -297,7 +296,7 @@
       ))
 (defun plot-energy ()
   (vgplot:figure)
-  (vgplot:title "Velocity over time")
+  (vgplot:title "Energy over time")
   (vgplot:plot *time* *energy-gpe* "GPE"
                *time* *energy-ke* "KE"
                *time* *energy-SE* "SE"
@@ -347,7 +346,7 @@
                               (progn
                                 (format t "Step ~d ~%" steps)
                                 (let ((max-cfl 0))
-                                  (time (loop for i from 0 to 1000
+                                  (time (loop for i from 0 to 100
                                               while *run-sim*
                                               do
                                                  (progn
@@ -365,3 +364,5 @@
                                 )))
                (cl-mpm/output:save-csv (merge-pathnames (format nil "output_~a/final.csv" name *sim-step*)) *sim*)
                ))))
+
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))

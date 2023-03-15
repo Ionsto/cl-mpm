@@ -171,24 +171,24 @@
                density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic
-               :E 1d8
+               :E 1d6
                ;:nu 0.3250d0
-               :nu 0.2d0
+               :nu 0.0d0
                ;; :visc-factor 0.1d6
                ;; :visc-power 3d0
                ;; :critical-stress 1d6
-               :gravity -9.8d0
+               :gravity -0.0d0
                ;; :gravity 0d0
                ;; :body-force (magicl:from-list '(0d0 100d0) '(2 1))
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-1)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -222,13 +222,17 @@
          (shelf-height 200)
          (shelf-bottom 120)
          (notch-length 100)
-         (notch-depth 20)
-         (mesh-size 20)
+         (notch-depth 10)
+         (mesh-size 10)
          )
     (defparameter *csv-name* (merge-pathnames (format nil "output/surface_position_~D.csv" mesh-size)))
-    (defparameter *sim* (setup-test-column '(600 600)
-                                           '(100 100)
-                                           '(100 200) (/ 1d0 mesh-size) 2))
+    ;; (defparameter *sim* (setup-test-column '(600 600)
+    ;;                                        '(100 100)
+    ;;                                        '(100 200) (/ 1d0 mesh-size) 2))
+
+    (defparameter *sim* (setup-test-column (list mesh-size 200)
+                                           (list mesh-size 100)
+                                           '(000 000) (/ 1d0 mesh-size) 2))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50)))
     )
@@ -255,6 +259,8 @@
   (defparameter *t* 0)
   (defparameter *x* 0d0)
   (defparameter *x-pos* '())
+  (defparameter *s-min* '())
+  (defparameter *s-max* '())
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *load-mps*
@@ -310,6 +316,14 @@
                   (push
                    *x*
                    *x-pos*)
+                  (push
+                   (loop for mp across (cl-mpm:sim-mps *sim*)
+                         maximize (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
+                   *s-max*)
+                  (push
+                   (loop for mp across (cl-mpm:sim-mps *sim*)
+                         minimize (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
+                   *s-min*)
                   (let ((max-cfl 0))
                     (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
@@ -330,9 +344,9 @@
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
   ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
-  (vgplot:figure)
-  (vgplot:title "Top surface height")
-  (vgplot:plot *time* (mapcar (lambda (x) (- x 300)) *x-pos*))
+
+  (plot-surface)
+  (plot-stress)
 
   ;; (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
   ;;   (format stream "Time (s),Terminus position~%")
@@ -340,6 +354,19 @@
   ;;         for x in (reverse *x-pos*)
   ;;         do (format stream "~f, ~f ~%" tim x)))
   )
+(defun plot-surface ()
+  (vgplot:figure)
+  (vgplot:title "Top surface height")
+  (format t "~a~%" (- (first *x-pos*) (first (last *x-pos*))))
+  (let ((init-pos (first (last *x-pos*))))
+    (vgplot:plot *time* (mapcar (lambda (x) (- x init-pos)) *x-pos*))))
+(defun plot-stress ()
+  (vgplot:figure)
+  (format t "S_max ~a~%" (first *s-max*))
+  (format t "S_min ~a~%" (first *s-min*))
+  (vgplot:title "S_{yy} min-max evolution")
+  (vgplot:plot *time* *s-min* ""
+               *time* *s-max* ""))
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 

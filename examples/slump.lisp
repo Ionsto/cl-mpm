@@ -180,15 +180,16 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic
+               ;; 'cl-mpm/particle::particle-elastic
+               'cl-mpm/particle::particle-viscoplastic
                :E 1d9
                :nu 0.3250d0
                ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
-               ;; :visc-factor 111d6
-               ;; :visc-power 3d0
+               :visc-factor 1d6
+               :visc-power 3d0
                ;; :critical-stress 1d8
                ;; :initiation-stress 1d6
                ;; :damage-rate 1d5
@@ -203,7 +204,7 @@
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;       (cl-mpm/bc:make-bcs-from-list

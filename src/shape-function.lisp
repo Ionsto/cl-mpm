@@ -373,6 +373,20 @@
                                                              dy dx))
                        '(3 2) :type 'double-float)))
 
+(declaim
+ (inline assemble-dstretch-2d)
+ (ftype (function (list) magicl:matrix/double-float) assemble-dstretch-2d))
+(defun assemble-dstretch-2d (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let* ((dx (nth 0 dsvp))
+         (dy (nth 1 dsvp)))
+    (magicl:from-array (make-array 8 :initial-contents (list dx 0d0
+                                                             0d0 dy
+                                                             dy 0d0
+                                                             0d0 dx
+                                                             ))
+                       '(4 2) :type 'double-float)))
+
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))

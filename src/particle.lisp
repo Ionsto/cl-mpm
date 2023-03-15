@@ -98,6 +98,10 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :strain-plastic
      :initform (magicl:zeros '(3 1)))
+   (stretch-tensor
+    :accessor mp-stretch-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 2)))
    (strain-rate
      :accessor mp-strain-rate
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -580,7 +584,7 @@
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (velocity-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (strain-plastic strain-plastic)
-               (deformation-gradient deformation-gradient)
+               (def deformation-gradient)
                (vorticity vorticity)
                (stress stress)
                )
@@ -591,9 +595,23 @@
           ;(viscosity (cl-mpm/constitutive::glen-viscosity stress (expt visc-factor (- visc-power)) visc-power))
           )
       ;; stress
-      (if (> viscosity 0d0)
-          (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
-          (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
+      (magicl:.+
+       stress
+       (objectify-stress-logspin
+        (if (> viscosity 0d0)
+            ;; (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
+            (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+            (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+        stress
+        def
+        vorticity
+        strain-rate))
+      ;; (magicl:.+
+      ;;  stress
+      ;;   (if (> viscosity 0d0)
+      ;;       ;; (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
+      ;;       (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+      ;;       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)))
       )
     ))
 
