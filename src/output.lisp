@@ -142,9 +142,13 @@
         (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
         (save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
         (save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
-        (save-parameter "stress_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
-        (save-parameter "stress_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (save-parameter "stress_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+        (save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
+        (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
+        (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+
+        (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
+        (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
+        (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
 
         (save-parameter "strain_rate"
                         (multiple-value-bind (l v)

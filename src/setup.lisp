@@ -19,7 +19,7 @@
   (let* ((nD 2)
          (size (mapcar (lambda (x) (* x res)) element-count))
          (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res))))
-    (progn 
+    (progn
           (setf (cl-mpm:sim-mps sim) #())
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
@@ -30,7 +30,7 @@
          (mp-spacing (/ height element-count))
          (sim (cl-mpm:make-mpm-sim (list mp-spacing height) mp-spacing 1e-3
                                                   (funcall shape-maker nD mp-spacing))))
-    (progn 
+    (progn
           (setf (cl-mpm:sim-mps sim) #())
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))

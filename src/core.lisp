@@ -443,8 +443,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           (* (cl-mpm/shape-function::shape-gimp-dsvp d l h) w))
                                                         dist domain (nreverse weights))))
                                     (funcall func mesh mp node weight grads))
-                                )
-                                )))))
+                                ))))))
         ))))
 
 
@@ -923,9 +922,29 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                        (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
                     )
                   )))
+            (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
+            (setf vorticity (magicl:.* vorticity (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
+
             (setf velocity-rate (magicl:scale strain-rate 1d0))
-            (magicl:scale! strain-rate dt)
+            ;; (magicl:scale! stretch-tensor dt)
+            ;; (setf strain-rate (magicl:scale!
+            ;;                           (matrix-to-voight
+            ;;                            (magicl:.+
+            ;;                             stretch-tensor
+            ;;                             (magicl:transpose stretch-tensor)
+            ;;                             ))
+            ;;                           0.5d0
+            ;;                           ))
+            ;; (setf vorticity (magicl:scale!
+            ;;                           (matrix-to-voight
+            ;;                            (magicl:.-
+            ;;                             stretch-tensor
+            ;;                             (magicl:transpose stretch-tensor)
+            ;;                             ))
+            ;;                           0.5d0
+            ;;                           ))
             (magicl:scale! stretch-tensor dt)
+            (magicl:scale! strain-rate dt)
             (magicl:scale! vorticity dt)
             )))
 
@@ -939,6 +958,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                       )))
 (defun update-strain-linear (mesh mp dstrain)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
@@ -949,7 +969,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (progn
                      (setf def (magicl:@ df def))
                      (setf strain (magicl:.+ strain dstrain))
-                     (setf volume (* volume (det df)))
+                     ;(setf volume (* volume (det df)))
+                     (setf volume (* volume-0 (magicl:det def)))
 
                      (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
                        (let ((stretch
@@ -959,14 +980,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                                          (the double-float x)))) l) :type 'double-float)
                                 (magicl:transpose v))))
                          (declare (type magicl:matrix/double-float stretch))
-                         ;(setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                         ;                           (the double-float (tref stretch 0 0))))
-                         ;(setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                         ;                           (the double-float (tref stretch 1 1))))
+                         ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                         ;;                            (the double-float (tref stretch 0 0))))
+                         ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                         ;;                            (the double-float (tref stretch 1 1))))
                          (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                                                    (the double-float (tref def 0 0))))
+                                                    (the double-float (tref stretch 0 0))))
                          (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                                                    (the double-float (tref def 1 1))))
+                                                    (the double-float (tref stretch 1 1))))
                          ))
                      ))))
 
@@ -977,6 +998,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                update-strain-kirchoff))
 (defun update-strain-kirchoff (mesh mp dstrain)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
@@ -1010,12 +1032,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           :type 'double-float)
                                         (magicl:transpose v)
                                        (magicl:transpose df))))
+              ;; (when (> (abs
+              ;;           (- (magicl:tref trial-lgs 0 1)
+              ;;              (magicl:tref trial-lgs 1 0)))
+              ;;          0.1d0
+              ;;          )
+              ;;   (error "Unsymetric b matrix"))
               (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
                 (setf strain (magicl:scale!
                                (matrix-to-voight
                                 (magicl:@ vf
                                           (magicl:from-diag (mapcar (lambda (x)
-                                                                      (log (the double-float x))) lf)
+                                                                      (the double-float
+                                                                           (log (the double-float x)))) lf)
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
                               0.5d0))
@@ -1027,7 +1056,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;(setf velocity-rate (magicl:scale strain-rate 1d0))
           ;; (setf strain-rate (magicl:.- strain prev-strain))
           ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
-          (setf volume (* volume (det df)))
+          ;; (setf volume (* volume (det df)))
+          (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
@@ -1102,7 +1132,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
-              ;;Linear strain update
+              ;; ;;Linear strain update
               ;; (update-strain-linear mesh mp dstrain)
               ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
               ;; (when (<= volume 0d0)
@@ -1171,9 +1201,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 calculate-df))
 (defun calculate-df (mesh mp)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain)))
+    (let* ((df (.+ (magicl:eye 2) stretch-tensor))
            (j-inc (det df))
            (j-n (det def))
            (j-n1 0d0))

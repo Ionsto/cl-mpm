@@ -55,6 +55,11 @@
      :type double-float
      :initarg :volume
      :initform 1d0)
+   (volume-0
+    :accessor mp-volume-0
+    :type double-float
+    :initarg :volume
+    :initform 1d0)
    (size-0
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
