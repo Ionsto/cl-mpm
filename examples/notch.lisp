@@ -253,7 +253,7 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d7
+               :E 1d8
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
@@ -302,7 +302,7 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 0d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
                          stress-cauchy stress)))
         (let ((ocean-x 1000)
               (ocean-y 300))
@@ -327,10 +327,10 @@
 (defun setup (&optional (notch-length 000))
   (let* ((shelf-length 1000)
          (shelf-height 200)
-         (shelf-bottom 120)
+         (shelf-bottom 100);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
+         (mesh-size 10)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)

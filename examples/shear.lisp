@@ -110,6 +110,7 @@
                )))
       (setf (cl-mpm:sim-damping-factor sim) 0.010d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-mass-filter sim) 0d0)
       (setf (cl-mpm:sim-dt sim) 1d-3)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -168,7 +169,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 1)
-        (mps-per-cell 2))
+        (mps-per-cell 4))
     (defparameter *sim* (setup-test-column '(48 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -268,7 +269,7 @@
       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                               *sim*)
       (incf *sim-step*)
-      (time (loop for steps from 0 to 100
+      (time (loop for steps from 0 to 40
                   while *run-sim*
                   do
                      (progn
@@ -332,9 +333,9 @@
 (defun plot-stress ()
   (vgplot:figure)
   (vgplot:title "Stress")
-  (vgplot:plot *time* (mapcar (lambda (x) (* x 1d-6)) *s-xx*) "s-xx"
-               *time* (mapcar (lambda (x) (* x 1d-6)) *s-yy*) "s-yy"
-               *time* (mapcar (lambda (x) (* x 1d-6)) *s-xy*) "s-xy"
+  (vgplot:plot (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-xx*) "s-xx"
+               (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-yy*) "s-yy"
+               (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-xy*) "s-xy"
                ))
 (defun plot-energy ()
   (vgplot:figure)

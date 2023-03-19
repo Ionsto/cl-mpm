@@ -183,12 +183,12 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.4d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.6d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
 
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -230,12 +230,14 @@
     ;;                                        '(100 100)
     ;;                                        '(100 200) (/ 1d0 mesh-size) 2))
 
-    (defparameter *sim* (setup-test-column (list mesh-size 200)
-                                           (list mesh-size 100)
-                                           '(000 000) (/ 1d0 mesh-size) 2))
+    (defparameter *sim* (setup-test-column
+                         ;; (list mesh-size 200)
+                         ;; (list mesh-size 100)
+                         (list 200 200)
+                         (list 100 100)
+                                           '(000 000) (/ 1d0 mesh-size) 2)))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
-    ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50)))
-    )
+    ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50))
 
   ;;Hole in plate
   ;; (defparameter *sim* (setup-test-column '(500 500) '(500 500) '(000 0) (/ 1 10) 2))
@@ -261,6 +263,7 @@
   (defparameter *x-pos* '())
   (defparameter *s-min* '())
   (defparameter *s-max* '())
+  (defparameter *s-average* '())
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *load-mps*
@@ -324,6 +327,14 @@
                    (loop for mp across (cl-mpm:sim-mps *sim*)
                          minimize (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
                    *s-min*)
+                  (with-accessors ((mps cl-mpm:sim-mps))
+                      *sim*
+                    (push
+                     (/
+                      (loop for mp across mps
+                            sum (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
+                      (length mps))
+                     *s-average*))
                   (let ((max-cfl 0))
                     (time (dotimes (i 100)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
@@ -364,9 +375,56 @@
   (vgplot:figure)
   (format t "S_max ~a~%" (first *s-max*))
   (format t "S_min ~a~%" (first *s-min*))
+  (format t "S_average ~a~%" (first *s-average*))
   (vgplot:title "S_{yy} min-max evolution")
-  (vgplot:plot *time* *s-min* ""
-               *time* *s-max* ""))
+  (vgplot:plot *time* *s-min* "s-min"
+               *time* *s-max* "s-max"
+               *time* *s-average* "s-average"
+               ))
+
+(defun run-conv ()
+  (defparameter *elements* (list))
+  (defparameter *conv-stress* (list))
+    (loop for i from 2 to 6
+          while *run-sim*
+          do
+             (let ((elements (expt 2 i))
+                   (final-time 100))
+               (let* ((size 100)
+                      (mesh-size (/ size elements)))
+                 (defparameter *sim* (setup-test-column (list mesh-size (+ size mesh-size))
+                                                        (list mesh-size size)
+                                                        '(000 000) (/ 1d0 mesh-size) 2)))
+               ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
+               (setf (cl-mpm:sim-dt *sim*) (* 1d-2 (/ 16 elements)))
+               (format t "Running sim size ~a ~%" elements)
+               (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
+               (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
+               (time
+                (loop for steps from 0 to (round (/ final-time (cl-mpm:sim-dt *sim*)))
+                      do
+                         (cl-mpm::update-sim *sim*)))
+               (plot *sim*)
+               (with-accessors ((mps cl-mpm:sim-mps))
+                   *sim*
+                 (push
+                  (/
+                   (loop for mp across mps
+                         sum (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
+                   (length mps))
+                  *conv-stress*))
+               (push elements *elements*)
+
+               (sleep .01)
+               (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
+               (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)))
+  (plot-conv)
+  )
+(defun plot-conv ()
+  (vgplot:figure)
+  (vgplot:title "Convergance stress")
+  (vgplot:loglog *elements* (mapcar (lambda (x) (abs (- x -1d3))) *conv-stress*))
+  )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 
