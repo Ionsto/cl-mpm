@@ -15,9 +15,9 @@
       ;(* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 1) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d-1 (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 3))))
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
-      (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
-         ;; (/ 1 (max (/ 1 10000) (expt (- 1d0 damage) 1)))
-         rate)
+      ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
+      ;;    rate)
+      (* (/ (max 0d0 (- stress init-stress))) rate)
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
   ;; 0d0

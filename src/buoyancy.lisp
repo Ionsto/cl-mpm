@@ -27,8 +27,8 @@
           f
           0d0)
       ))
-  (defun buoyancy-virtual-stress (z datum-true)
-    (let* ((rho rho-true)
+  (defun buoyancy-virtual-stress (z datum-true rho)
+    (let* (;(rho rho-true)
            (g 9.8)
            (datum datum-true)
            (h (- datum z))
@@ -36,7 +36,7 @@
            (p -1d5)
            )
       (if (> h 0d0)
-          (magicl:from-list (list 0d0 f 0d0) '(3 1) :type 'double-float)
+          (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
           ;; (magicl:zeros '(3 1))
           (magicl:zeros '(3 1))
           )
@@ -44,12 +44,12 @@
       ;;                   '(3 1)
       ;;                   :type 'double-float)
       ))
-  (defun buoyancy-virtual-div (z datum-true)
-    (let* ((rho rho-true)
+  (defun buoyancy-virtual-div (z datum-true rho)
+    (let* (;(rho rho-true)
            (g 9.8)
            (datum datum-true)
            (h (- datum z))
-           (f (* rho g))
+           (f (* 1d0 rho g))
            )
       (if (> h 0d0)
           (magicl:from-list (list 0 f) '(2 1) :type 'double-float)
@@ -79,13 +79,13 @@
 (defun calculate-val-mp (mp func)
   (with-accessors ((pos cl-mpm/particle:mp-position))
       mp
-    (funcall func (tref pos 0 0) (tref pos 1 0))))
+    (funcall func pos)))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
 (defun calculate-val-cell (cell func)
   (with-accessors ((pos cl-mpm/mesh::cell-centroid))
       cell
-    (funcall func (tref pos 0 0) (tref pos 1 0))))
+    (funcall func pos)))
 
 (defun calculate-virtual-stress-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
@@ -402,3 +402,23 @@
                             (pressure-virtual-div))
                           )
                          )))
+
+(defun make-bc-buoyancy (sim datum rho)
+  (make-instance 'cl-mpm/bc::bc-closure
+                 :index '(0 0)
+                 :func (lambda ()
+                         (apply-non-conforming-nuemann
+                          sim
+                          (lambda (pos)
+                            (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+                          (lambda (pos)
+                            (buoyancy-virtual-div (tref pos 1 0) datum rho))
+                          ;; (with-accessors ((mps cl-mpm:sim-mps))
+                          ;;     sim
+                          ;;   (loop for mp across mps
+                          ;;         do
+                          ;;           (with-accessors ((pos cl-mpm/particle:mp-position)
+                          ;;                            (pressure cl-mpm/particle::mp-pressure))
+                          ;;               mp
+                          ;;             (setf pressure (pressure-at-depth (tref pos 1 0) datum)))))
+                          ))))

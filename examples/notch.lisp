@@ -52,7 +52,7 @@
     (/ (apply #'max l) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
     ))
-(defun plot (sim &optional (plot :point))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -257,7 +257,7 @@
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
-               :damage-rate 1d8
+               :damage-rate 1d1
                :critical-damage 0.4d0
                :local-length 20d0
 
@@ -265,11 +265,11 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.100d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.500d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append
@@ -302,16 +302,29 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 0d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
                          stress-cauchy stress)))
         (let ((ocean-x 1000)
               (ocean-y 300))
           (setf (cl-mpm::sim-bcs-force sim)
                 (cl-mpm/bc:make-bcs-from-list
                  (append
-                  (list (cl-mpm/bc::make-bc-closure '(0 0)
-                                                    (lambda ()
-                                                      (cl-mpm/buoyancy::apply-bouyancy sim water-line))))
+                  (list
+                   (cl-mpm/buoyancy::make-bc-buoyancy
+                    sim
+                    300
+                    1000d0
+                    )
+                   ;; (cl-mpm/buoyancy::make-bc-pressure
+                   ;;  sim
+                   ;;  0d0
+                   ;;  1d2
+                   ;;  )
+                   ;; (cl-mpm/bc::make-bc-closure '(0 0)
+                   ;;                                  (lambda ()
+                   ;;                                    (cl-mpm/buoyancy::apply-bouyancy sim water-line)))
+                   )
+
                   (loop for x from (floor ocean-x h) to (floor (first size) h)
                         append (loop for y from (floor 0 h) to (floor ocean-y h)
                                      collect (cl-mpm/bc::make-bc-buoyancy
@@ -327,10 +340,10 @@
 (defun setup (&optional (notch-length 000))
   (let* ((shelf-length 1000)
          (shelf-height 200)
-         (shelf-bottom 100);;120
+         (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 10)
+         (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
