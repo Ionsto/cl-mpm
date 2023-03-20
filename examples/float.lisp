@@ -199,11 +199,18 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              )
             )
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;       (list (cl-mpm/bc::make-bc-closure '(0 0)
+      ;;                                         (lambda ()
+      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
       (setf (cl-mpm::sim-bcs-force sim)
             (cl-mpm/bc:make-bcs-from-list
-            (list (cl-mpm/bc::make-bc-closure '(0 0)
-                                              (lambda ()
-                                                (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
+             (list (cl-mpm/buoyancy::make-bc-pressure
+                    sim
+                    -1d5
+                    0d0
+                    ))))
 
       ;; (let ((ocean-x 0)
       ;;       (ocean-y 300))

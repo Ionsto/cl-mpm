@@ -57,13 +57,11 @@
           )
       ;; (magicl:zeros '(2 1))
       )))
-(defun pressure-virtual-stress ()
-  (let* ((p -1d5)
-         )
-    (magicl:from-list (list 0d0 p 0d0)
-                      '(3 1)
-                      :type 'double-float)
-    ))
+(defun pressure-virtual-stress (pressure-x pressure-y)
+  (magicl:from-list (list pressure-x pressure-y 0d0)
+                    '(3 1)
+                    :type 'double-float)
+  )
 (defun pressure-virtual-div ()
   (magicl:zeros '(2 1)))
 
@@ -76,6 +74,18 @@
 ;;     ))
 ;; (defun pressure-virtual-div ()
 ;;   (magicl:zeros '(2 1)))
+
+(declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
+(defun calculate-val-mp (mp func)
+  (with-accessors ((pos cl-mpm/particle:mp-position))
+      mp
+    (funcall func (tref pos 0 0) (tref pos 1 0))))
+
+(declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
+(defun calculate-val-cell (cell func)
+  (with-accessors ((pos cl-mpm/mesh::cell-centroid))
+      cell
+    (funcall func (tref pos 0 0) (tref pos 1 0))))
 
 (defun calculate-virtual-stress-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
@@ -115,7 +125,8 @@
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 
-(defun apply-force-mps (mesh mps datum)
+(defun apply-force-mps (mesh mps func-stress func-div)
+  (declare (function func-stress func-div))
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (with-accessors ((volume cl-mpm/particle:mp-volume))
@@ -129,10 +140,10 @@
                             (node-active  cl-mpm/mesh:node-active))
                node
              (when (and node-active node-boundary)
-               (with-accessors ((pos cl-mpm/particle:mp-position)
-                                (pressure cl-mpm/particle::mp-pressure))
-                   mp
-                 (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
+               ;; (with-accessors ((pos cl-mpm/particle:mp-position)
+               ;;                  (pressure cl-mpm/particle::mp-pressure))
+               ;;     mp
+               ;;   (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
                (sb-thread:with-mutex (node-lock)
                  (setf node-force (magicl:.+
                                    node-force
@@ -140,31 +151,18 @@
                                     (magicl:@
                                      (magicl:transpose
                                       (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                     (calculate-virtual-stress-mp mp datum))
+                                     (funcall func-stress mp)
+                                     )
                                     (* volume))))
                  (setf node-force (magicl:.+
                                    node-force
                                    (magicl:scale!
-                                    (calculate-virtual-divergance-mp mp datum)
+                                    (funcall func-div mp)
                                     (* svp volume))))
-                 ;;External force
-                 ;; (cl-mpm/fastmath:fast-add
-                 ;;  node-force
-                 ;;  (magicl:scale
-                 ;;   (magicl:@
-                 ;;    (magicl:transpose!
-                 ;;     (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                 ;;    (calculate-virtual-stress-mp mp datum))
-                 ;;   volume))
-                                        ;Internal force
-                 ;; (cl-mpm/fastmath:fast-add
-                 ;;  node-force
-                 ;;  (magicl:scale!
-                 ;;   (calculate-virtual-divergance-mp mp datum)
-                 ;;   (* svp volume)))
                  )))))))))
 
-(defun apply-force-cells (mesh datum)
+(defun apply-force-cells (mesh func-stress func-div)
+  (declare (function func-stress func-div))
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
     (lparallel:pdotimes (i (array-total-size cells))
@@ -200,27 +198,13 @@
                                                    (magicl:@
                                                     (magicl:transpose
                                                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                                    (calculate-virtual-stress-cell cell datum))
+                                                    (funcall func-stress cell))
                                                    (* -1d0 volume))))
                                 (setf node-force (magicl:.+
                                                   node-force
                                                   (magicl:scale!
-                                                   (calculate-virtual-divergance-cell cell datum)
+                                                   (funcall func-div cell)
                                                    (* -1d0 svp volume))))
-                                ;; (cl-mpm/fastmath:fast-add
-                                ;;  node-force
-                                ;;  (magicl:scale!
-                                ;;   (magicl:@
-                                ;;    (magicl:transpose!
-                                ;;     (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                ;;    (calculate-virtual-stress-cell cell datum))
-                                ;;   (* -1d0 volume)))
-                                        ;External force
-                                ;; (cl-mpm/fastmath:fast-add
-                                ;;  node-force
-                                ;;  (magicl:scale!
-                                ;;   (calculate-virtual-divergance-cell cell datum)
-                                ;;   (* -1d0 svp volume)))
                                 )))))
                       ))))))))
 (defun direct-mp-enforcment (mesh mps datum)
@@ -390,14 +374,31 @@
         )))
   )
 
-;; (defun apply-nonconforming (stress force)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                    (mps cl-mpm::sim-mps))
-;;       sim
-;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-;;         mesh
-;;       (let ((datum (- datum-true (* 0 0.5d0 h))))
-;;         (locate-mps-cells mesh mps)
-;;         (apply-force-mps mesh mps datum )
-;;         (apply-force-cells mesh datum )
-;;         ))))
+(defun apply-non-conforming-nuemann (sim func-stress func-div)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      sim
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      (locate-mps-cells mesh mps)
+      (apply-force-mps mesh mps
+                       (lambda (mp) (calculate-val-mp mp func-stress))
+                       (lambda (mp) (calculate-val-mp mp func-div)))
+      (apply-force-cells mesh
+                         (lambda (cell) (calculate-val-cell cell func-stress))
+                         (lambda (cell) (calculate-val-cell cell func-div))
+                         )
+      )))
+
+(defun make-bc-pressure (sim pressure-x pressure-y)
+  (make-instance 'cl-mpm/bc::bc-closure
+                 :index '(0 0)
+                 :func (lambda ()
+                         (apply-non-conforming-nuemann
+                          sim
+                          (lambda (pos)
+                            (pressure-virtual-stress pressure-x pressure-y))
+                          (lambda (pos)
+                            (pressure-virtual-div))
+                          )
+                         )))
