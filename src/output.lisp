@@ -135,6 +135,7 @@
         (format fs "POINT_DATA ~d~%" (length mps))
 
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
+        (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
