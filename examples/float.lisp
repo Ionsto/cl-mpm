@@ -208,8 +208,8 @@
             (cl-mpm/bc:make-bcs-from-list
              (list (cl-mpm/buoyancy::make-bc-pressure
                     sim
-                    -1d5
                     0d0
+                    -1d5
                     ))))
 
       ;; (let ((ocean-x 0)
@@ -238,11 +238,9 @@
     ;;                                        '(100 200) (/ 1d0 mesh-size) 2))
 
     (defparameter *sim* (setup-test-column
-                         ;; (list mesh-size 200)
-                         ;; (list mesh-size 100)
-                         (list 200 200)
-                         (list 100 100)
-                                           '(000 000) (/ 1d0 mesh-size) 2)))
+                         (list mesh-size 200)
+                         (list mesh-size 100)
+                         '(000 000) (/ 1d0 mesh-size) 2)))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50))
 

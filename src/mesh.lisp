@@ -421,7 +421,7 @@
            (loop for y from -1 to 1 by 2
                  collect
                  (magicl:scale! (magicl:from-list (list x y) '(2 1) :type 'double-float)
-                                (/ h (sqrt 3))))))
+                                (/ h (* 2 (sqrt 3)))))))
     )
   )
 
@@ -429,7 +429,8 @@
   (declare (function func))
   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
     (with-accessors ((nodes cell-nodes)
-                     (centroid cell-centroid))
+                     (centroid cell-centroid)
+                     (volume cell-volume))
         cell
       (dolist (point (gauss-points gp h))
         (let ((quad (magicl:.+ centroid point))
@@ -445,10 +446,12 @@
                             (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                            dist (nreverse weights)))
                             )
-                       (funcall func mesh
+                       (funcall func
+                                mesh
                                 cell
                                 quad
-                                volume-ratio
+                                volume
+                                ;(* volume volume-ratio)
                                 node
                                 weight
                                 grads)))))))))
@@ -457,7 +460,8 @@
   (declare (function func))
   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
     (with-accessors ((nodes cell-nodes)
-                     (centroid cell-centroid))
+                     (centroid cell-centroid)
+                     (volume cell-volume))
         cell
       (loop for node in nodes
             do
@@ -471,8 +475,11 @@
                                        dist (nreverse weights)))
                         )
                    (when (< 0d0 weight)
-                     (funcall func mesh
+                     (funcall func
+                              mesh
                               cell
+                              centroid
+                              volume
                               node
                               weight
                               grads)))))))

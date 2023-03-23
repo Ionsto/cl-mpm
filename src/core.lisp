@@ -1013,8 +1013,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    dstrain
                    ))
     (progn
-      (let (;(df (calculate-df mesh mp))
-            (df (.+ (magicl:eye 2) stretch-tensor))
+      (let ((df (calculate-df mesh mp))
+            ;(df (.+ (magicl:eye 2) stretch-tensor))
             (prev-strain strain))
         (progn
           (setf def (magicl:@ df def))
@@ -1032,12 +1032,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           :type 'double-float)
                                         (magicl:transpose v)
                                        (magicl:transpose df))))
-              ;; (when (> (abs
-              ;;           (- (magicl:tref trial-lgs 0 1)
-              ;;              (magicl:tref trial-lgs 1 0)))
-              ;;          0.1d0
-              ;;          )
-              ;;   (error "Unsymetric b matrix"))
+              (when (> (abs
+                        (- (magicl:tref trial-lgs 0 1)
+                           (magicl:tref trial-lgs 1 0)))
+                       0.1d0
+                       )
+                (error "Unsymetric b matrix"))
               (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
                 (setf strain (magicl:scale!
                                (matrix-to-voight
@@ -1128,7 +1128,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         ) mp
       (progn
         ;;For normal
-        (calculate-strain-rate mesh mp dt)
+        ;(calculate-strain-rate mesh mp dt)
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
@@ -1209,8 +1209,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (j-n (det def))
            (j-n1 0d0))
       (progn
+        ;;Volumetric locking
         ;;If we want to do f bar
-        (when nil
+        (when nil 
           (iterate-over-neighbours mesh mp
                                    (lambda (mesh mp node svp grads)
                                      (with-accessors ((node-active cl-mpm/mesh:node-active)

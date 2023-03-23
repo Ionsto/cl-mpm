@@ -429,6 +429,29 @@
     ;; (cl-mpm/constitutive:linear-elastic strain E nu)
     ))
 
+(defmethod constitutive-model ((mp particle-elastic-damage) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (stress-undamaged undamaged-stress)
+               (strain-rate strain-rate)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               )
+      mp
+    ;; Non-objective stress intergration
+    (setf stress
+          (magicl:.+
+           stress
+           (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+          stress-undamaged (magicl:scale stress 1d0))
+    stress
+
+    ;; (setf stress (magicl:scale stress-undamaged 1d0))
+    ))
 (defclass particle-elastic-inc (particle-elastic)
   ()
   (:documentation "A linear-elastic material point"))

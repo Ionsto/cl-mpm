@@ -55,8 +55,8 @@
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
-    (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
-(defun plot (sim &optional (plot :damage))
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -180,16 +180,18 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               ;; 'cl-mpm/particle::particle-elastic
-               'cl-mpm/particle::particle-viscoplastic
-               :E 1d9
+               'cl-mpm/particle::particle-elastic
+               ;; 'cl-mpm/particle::particle-viscoplastic
+               :E 1d8
                :nu 0.3250d0
                ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
-               :visc-factor 1d6
-               :visc-power 3d0
+
+               ;; :visc-factor 1d6
+               ;; :visc-power 3d0
+
                ;; :critical-stress 1d8
                ;; :initiation-stress 1d6
                ;; :damage-rate 1d5
@@ -200,7 +202,7 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -228,8 +230,9 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20))
-    (defparameter *sim* (setup-test-column '(1000 300) '(500 100) '(000 0) (/ 1 mesh-size) 2)))
+  (let ((mesh-size 50)
+        (mps-per-cell 2))
+    (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
@@ -251,6 +254,18 @@
                                  collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
       (loop for mp across mps when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- least-pos 0.001))
               collect mp)))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let ((x-min (loop for mp across mps
+                       minimize (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 0 0))))
+      (defparameter *far-field-mps*
+        (loop for mp across mps
+              when (= x-min (magicl:tref
+                         (cl-mpm/particle:mp-position mp)
+                         0 0))
+                collect mp))))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
   )
@@ -347,6 +362,7 @@
 
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+  (plot-s-xx *far-field-mps* 125d0)
 ;  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
   ;; (vgplot:figure)
   ;; (vgplot:title "Terminus over time")
@@ -359,6 +375,28 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   )
+(defun plot-s-xx (mps H)
+  (let* (
+         (rho-ice 900)
+         (E (cl-mpm/particle::mp-e (first mps)))
+         (nu (cl-mpm/particle::mp-nu (first mps)))
+         (g (cl-mpm/particle::mp-gravity (first mps)))
+         (s-xx (loop for mp in mps
+                    collect
+                    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
+         (y (loop for mp in mps
+                    collect
+                    (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
+         (s-an (mapcar
+                (lambda (y)
+                  (* (/ nu (- 1 nu)) rho-ice g -1d0 (- y (/ H 2d0))))
+                y)))
+    (vgplot:figure)
+    (vgplot:title "S_{xx} over height")
+    (vgplot:xlabel "Height (m)")
+    (vgplot:ylabel "Longitudinal stress (MPa)")
+    (vgplot:plot y (mapcar (lambda (x) (* 1d-6 x)) s-xx) "s_{xx} mpm"
+                 y (mapcar (lambda (x) (* 1d-6 x)) s-an) "s_{xx} analytic")))
 (defun plot-cfl ()
   (vgplot:figure)
   (vgplot:title "CFL over time")

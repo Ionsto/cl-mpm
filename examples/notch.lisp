@@ -50,9 +50,10 @@
   (declare (optimize (speed 2) (debug 3)))
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (/ (apply #'max l) 1d6)
-    ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)
+    ;; (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
+    ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :stress))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -78,26 +79,38 @@
       (dotimes (i (array-total-size nodes))
         (let ((n (row-major-aref nodes i)))
           (with-accessors ((index cl-mpm/mesh:node-index)
-                           (boundary cl-mpm/mesh::node-boundary-node))
+                           (boundary cl-mpm/mesh::node-boundary-node)
+                           (active cl-mpm/mesh::node-active)
+                           )
+
               n
-            (when boundary
+            (if boundary
               ;; (print index)
               (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
                 ;; (push (nth 0 index) node-x)
                 ;; (push (nth 1 index) node-y)
                 (push x node-x)
                 (push y node-y)
-                (push 1 node-c)
-                )))))
+                (push 2 node-c)
+                )
+              (when active
+                (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
+                  (push x node-x)
+                  (push y node-y)
+                  (push 0 node-c)
+                  )
+                )
+              ))))
      (cond
         ((eq plot :point)
          ;; (vgplot:format-plot t "set cbrange [0:1]")
          ;; (vgplot:plot x y ";;with points pt 7")
+         (vgplot:format-plot t "set cbrange [0:2]")
          (if node-x
              (vgplot:plot
               ;; x y ";;with points pt 7"
               x y lx ly ";;with ellipses"
-              node-x node-y ";;with points pt 7")
+              node-x node-y node-c ";;with points pt 7 lc palette")
              (vgplot:plot x y ";;with points pt 7"))
          )
         ((eq plot :damage)
@@ -253,20 +266,21 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d8
+               :E 1d7
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
-               :damage-rate 1d1
+               :damage-rate 1d4
                :critical-damage 0.4d0
-               :local-length 20d0
+               :local-length 25d0
+               :damage 0.1d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.500d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-damping-factor sim) 0.300d0)
+      (setf (cl-mpm:sim-mass-filter sim) 0d0);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-enable-damage sim) t)
@@ -337,8 +351,8 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 000))
-  (let* ((shelf-length 1000)
+(defun setup (&optional (notch-length 100))
+  (let* ((shelf-length 500)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
