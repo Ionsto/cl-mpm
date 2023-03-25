@@ -43,6 +43,7 @@
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
             (let* ((l (sort l #'>))
+                   ;;Effective principal stress
                    (s_1 (- (nth 0 l) pressure))
                    (s_v (sqrt (apply #'+ (mapcar (lambda (a b)
                                              (expt (- a b) 2))
@@ -102,35 +103,39 @@
           ;; (setf undamaged-stress (magicl:scale stress 1d0))
           ;; (setf undamaged-stress (magicl:scale stress (magicl:det def)))
           (when (> damage 0.0d0)
-            (setf stress
-                  (magicl:.- (magicl:scale stress (- 1 damage))
-                             (magicl:from-list (list (* damage pressure)
-                                                     (* damage pressure)
-                                                     0d0) '(3 1))
-                             ))
-            ;; (multiple-value-bind (l v) (magicl:eig
-            ;;                             ;;(voight-to-matrix stress)
-            ;;                             (voight-to-matrix
-            ;;                              (magicl:.- (magicl:scale stress (- 1 damage))
-            ;;                                         (magicl:from-list (list (* damage pressure)
-            ;;                                                                 (* damage pressure)
-            ;;                                                                 0d0) '(3 1))
-            ;;                                         )))
-            ;;   (loop for i from 0 to 1
-            ;;         do (let* ((sii (nth i l))
-            ;;                  ;(esii (- sii pressure))
+            ;; (setf stress
+            ;;       ;; (magicl:scale stress (- 1 damage))
+            ;;       (magicl:.- (magicl:scale stress (- 1 damage))
+            ;;                  (magicl:from-list (list (* damage pressure)
+            ;;                                          (* damage pressure)
+            ;;                                          0d0) '(3 1))
             ;;                  )
-            ;;                (when (> sii 0d0)
-            ;;                  (setf (nth i l)
-            ;;                        (+
-            ;;                         (* (nth i l) (damage-profile damage critical-damage))
-            ;;                         ;; (* pressure damage)
-            ;;                         )
-            ;;                        ))))
-            ;;   (setf stress (matrix-to-voight (magicl:@ v
-            ;;                                            (magicl:from-diag l :type 'double-float)
-            ;;                                            (magicl:transpose v))))
-            ;;   )
+            ;;       )
+            (multiple-value-bind (l v) (magicl:eig
+                                        (voight-to-matrix stress)
+                                        ;; (voight-to-matrix
+                                        ;;  (magicl:.- (magicl:scale stress (- 1 damage))
+                                        ;;             (magicl:from-list (list (* damage pressure)
+                                        ;;                                     (* damage pressure)
+                                        ;;                                     0d0) '(3 1))
+                                        ;;             ))
+                                        )
+              (loop for i from 0 to 1
+                    do (let* ((sii (nth i l))
+                             (esii (- sii pressure))
+                             )
+                           (when (> esii 0d0)
+                             (setf (nth i l)
+                                   (+
+                                    (* esii (damage-profile damage critical-damage))
+                                    (* damage pressure)
+                                    ;; (* pressure damage)
+                                    )
+                                   ))))
+              (setf stress (matrix-to-voight (magicl:@ v
+                                                       (magicl:from-diag l :type 'double-float)
+                                                       (magicl:transpose v))))
+              )
             )))
   (values)
   )

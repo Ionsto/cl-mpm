@@ -721,10 +721,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (aops:copy-into (magicl::storage acc) mapped-acc)
         ;;FLIP
         (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
-        ;;Direct velocity damping
-        ;; (magicl:scale! vel (- 1d0 1d-3))
         ;;PIC
         ;; (aops:copy-into (magicl::storage vel) mapped-vel)
+        ;;Direct velocity damping
+        ;; (magicl:scale! vel (- 1d0 1d-3))
         ;; (update-domain mesh mp dt)
         )
         ;; (setf pos (magicl:.+ pos (magicl:scale vel dt)))
@@ -1128,7 +1128,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         ) mp
       (progn
         ;;For normal
-        ;(calculate-strain-rate mesh mp dt)
+        (calculate-strain-rate mesh mp dt)
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn

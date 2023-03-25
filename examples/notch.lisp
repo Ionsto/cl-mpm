@@ -49,8 +49,8 @@
 (defun max-stress (mp)
   (declare (optimize (speed 2) (debug 3)))
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (/ (apply #'max l) 1d6)
-    ;; (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
+    ;; (/ (apply #'max l) 1d6)
+    (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
 (defun plot (sim &optional (plot :stress))
@@ -270,21 +270,21 @@
                :nu 0.3250d0
                :critical-stress 1d9
                :initiation-stress 0.2d6
-               :damage-rate 1d4
+               :damage-rate 1d3
                :critical-damage 0.4d0
-               :local-length 25d0
-               :damage 0.1d0
+               :local-length 50d0
+               :damage 0.0d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 0.300d0)
-      (setf (cl-mpm:sim-mass-filter sim) 0d0);1d-15
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-1)
       (setf (cl-mpm:sim-bcs sim)
             (append
              (cl-mpm/bc::make-outside-bc-var
@@ -351,13 +351,13 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 500)
+(defun setup (&optional (notch-length 200))
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
