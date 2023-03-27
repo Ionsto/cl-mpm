@@ -426,7 +426,7 @@
                                       (cl-mpm::iterate-over-neighbours
                                        mesh mp
                                        (lambda (mesh mp node svp grads)
-                                         (when (cl-mpm/mesh::node-boundary-node node)
+                                         (when t;(cl-mpm/mesh::node-boundary-node node)
                                            (with-accessors ((pos cl-mpm/particle:mp-position)
                                                             (pressure cl-mpm/particle::mp-pressure))
                                                mp

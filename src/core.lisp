@@ -774,7 +774,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale acc 0d0)
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 mass))
           (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
-          ;;Disable for FLIP - not true?
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))
@@ -1277,14 +1276,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;; (split-criteria mp h)
                                 ))) mps)))
-      ;; (delete-if (lambda (mp)
-      ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
-      ;;                  mp
-      ;;                (and (>= damage 1d0)
-      ;;                     (split-criteria mp h)
-      ;;                     ))) mps))
     ))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
@@ -1292,7 +1285,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.10d0)
+    (let ((l-factor 1.20d0)
           (h-factor (* 1.5d0 h)))
       (cond
         ;; ((< h-factor (tref lens 0 0)) t)

@@ -194,7 +194,7 @@
                     (with-accessors ((pos cl-mpm/particle:mp-position))
                         mp
                       (or
-                       ;; t
+                       t
                        (= (magicl:tref pos 0 0) xmin)
                        (= (magicl:tref pos 0 0) xmax)
                        (= (magicl:tref pos 1 0) ymin)
@@ -394,10 +394,16 @@
 (defun plot-stress ()
   (vgplot:figure)
   (vgplot:title "Stress")
-  (vgplot:plot (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-xx*) "s-xx"
-               (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-yy*) "s-yy"
-               (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) *s-xy*) "s-xy"
-               ))
+  (let* ((E 1d4)
+         (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
+         (sxy-an (shear-stress-analytic E 0.3 shear)))
+    (print (length shear))
+    (print (length sxy-an))
+    (vgplot:plot shear (mapcar (lambda (x) (/ x E)) *s-xx*) "s-xx"
+                 shear (mapcar (lambda (x) (/ x E)) *s-yy*) "s-yy"
+                 shear (mapcar (lambda (x) (/ x E)) *s-xy*) "s-xy"
+                 shear (mapcar (lambda (x) (/ x E)) sxy-an) "s-xy-analytic"
+                 )))
 (defun plot-energy ()
   (vgplot:figure)
   (vgplot:title "Energy over time")
@@ -427,11 +433,12 @@
           )
         do
            (progn
-             (let ((mesh-size 2)
-                   (mps-per-cell 4))
+             (let ((mesh-size 1)
+                   (mps-per-cell 2))
                (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
+             (defparameter *time* '())
 
              ;; (cl-mpm/output:save-vtk-mesh (merge-pathnames (format nil"output_~a/mesh.vtk" name))
              ;;                              *sim*)
@@ -454,7 +461,7 @@
                               (progn
                                 (format t "Step ~d ~%" steps)
                                 (let ((max-cfl 0))
-                                  (time (loop for i from 0 to 999
+                                  (time (loop for i from 0 to 99
                                               while *run-sim*
                                               do
                                                  (progn
@@ -503,19 +510,25 @@
                (b (mat-log (magicl:@ F (magicl:transpose F))))
                (s  (cl-mpm/constitutive:linear-elastic (cl-mpm/utils:matrix-to-voight b) E nu))
                )
-          )
-        )
-  )
+          ;; b
+          (magicl:tref s 2 0)
+          )))
 (defun plot-stress-table ()
   (vgplot:figure)
   ;; (vgplot:title "Stress")
   (vgplot:xlabel "Shear ratio")
   (vgplot:ylabel "Normalised shear stress")
+  (let* ((E 1d4)
+         (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
+         (sxy-an (shear-stress-analytic E 0.3 shear)))
+    ;; (print shear)
+    (print sxy-an)
   (vgplot:plot
-   (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
-   (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
-   (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
-   (mapcar (lambda (x) (* x *shear-rate*)) *time*) (mapcar (lambda (x) (* x 1d-6)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
-               ))
+   shear (mapcar (lambda (x) (/ x E)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
+   shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
+   shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
+   shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
+   shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
+               )))
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))

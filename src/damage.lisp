@@ -17,16 +17,17 @@
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
       ;;    rate)
-      (* (/ (max 0d0 (- stress init-stress))) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate
+         ;; (/ 1d0 (- 1d0 (min damage 0.4d0)))
+         )
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
       0d0)
-  ;; 0d0
   )
 
 (defun damage-profile (damage damage-crit)
   "Constitive law describing the scalar stress decrease as a function of damage"
   (if (< damage damage-crit)
-    (expt (- 1d0 damage) 2d0)
+    (expt (- 1d0 damage) 1d0)
     0d0))
 
 (defun calculate-damage-increment (mp dt)
@@ -42,9 +43,14 @@
                      ) mp
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+            ;; (let ((s_1 (apply #'max l)))
+            ;;   (when (> s_1 0d0)
+            ;;     (setf damage-increment (* (damage-rate-profile 0d0 s_1 damage 1d-8 init-stress) dt))))
             (let* ((l (sort l #'>))
                    ;;Effective principal stress
+                   ;; (s_1 (- (nth 0 l) pressure))
                    (s_1 (- (nth 0 l) pressure))
+                   ;; (s_1 (apply #' max l))
                    (s_v (sqrt (apply #'+ (mapcar (lambda (a b)
                                              (expt (- a b) 2))
                                            l
@@ -104,7 +110,7 @@
           ;; (setf undamaged-stress (magicl:scale stress (magicl:det def)))
           (when (> damage 0.0d0)
             ;; (setf stress
-            ;;       ;; (magicl:scale stress (- 1 damage))
+            ;;       (magicl:scale stress (- 1 damage)))
             ;;       (magicl:.- (magicl:scale stress (- 1 damage))
             ;;                  (magicl:from-list (list (* damage pressure)
             ;;                                          (* damage pressure)
@@ -112,31 +118,27 @@
             ;;                  )
             ;;       )
             (multiple-value-bind (l v) (magicl:eig
-                                        (voight-to-matrix stress)
-                                        ;; (voight-to-matrix
-                                        ;;  (magicl:.- (magicl:scale stress (- 1 damage))
-                                        ;;             (magicl:from-list (list (* damage pressure)
-                                        ;;                                     (* damage pressure)
-                                        ;;                                     0d0) '(3 1))
-                                        ;;             ))
-                                        )
+                                        (voight-to-matrix stress))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
-                             (esii (- sii pressure))
-                             )
-                           (when (> esii 0d0)
-                             (setf (nth i l)
-                                   (+
-                                    (* esii (damage-profile damage critical-damage))
-                                    (* damage pressure)
-                                    ;; (* pressure damage)
-                                    )
-                                   ))))
+                              (esii (- sii (* pressure damage)))
+                              )
+                         (when (> esii 0d0)
+                           ;; (> sii 0d0)
+                           (setf (nth i l)
+                                 (+
+                                  ;; (* sii (damage-profile damage critical-damage))
+                                  ;; (* esii (damage-profile damage critical-damage))
+                                  (* esii (- 1d0 damage))
+                                  ;; pressure
+                                  ;; 0d0
+                                  (* damage pressure)
+                                  )
+                                 ))))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
                                                        (magicl:transpose v))))
-              )
-            )))
+              ))))
   (values)
   )
 (defun update-damage (mp dt)
@@ -150,7 +152,7 @@
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      ) mp
         (progn
-          (setf undamaged-stress (magicl:scale stress 1d0))
+          ;; (setf undamaged-stress (magicl:scale stress 1d0))
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix undamaged-stress))
             ;; (loop for i from 0 to 1
             ;;       do (let ((sii (nth i l)))
@@ -315,10 +317,11 @@
 
 (defun delocalise-damage (mesh mps dt len)
   ;; Calculate the delocalised damage for each damage particle
-  (lparallel:pdotimes (i (length mps)) 
+  (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (when (typep mp 'cl-mpm/particle:particle-damage)
         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
+                         (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                          (local-length cl-mpm/particle::mp-local-length)
                          )
             mp

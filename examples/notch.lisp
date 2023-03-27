@@ -53,7 +53,7 @@
     (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -249,6 +249,7 @@
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-viscoplastic
                ;; 'cl-mpm/particle::particle-viscoelastic
+               ;; 'cl-mpm/particle::particle-elastic-damage
                'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
@@ -266,25 +267,26 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d7
+               :E 1d9
                :nu 0.3250d0
-               :critical-stress 1d9
+
+
                :initiation-stress 0.2d6
-               :damage-rate 1d3
+               :damage-rate 1d-10
                :critical-damage 0.4d0
                :local-length 50d0
-               :damage 0.0d0
+               :damage 0.1d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.300d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append
              (cl-mpm/bc::make-outside-bc-var
@@ -311,13 +313,16 @@
               do
                  (with-accessors ((pos cl-mpm/particle:mp-position)
                                   (stress cl-mpm/particle::mp-stress-kirchoff)
+                                  (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                                   (stress-cauchy cl-mpm/particle::mp-stress)
                                   )
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
                           (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
-                         stress-cauchy stress)))
+                         stress-cauchy (magicl:scale stress 1d0)
+                         undamaged-stress (magicl:scale stress 1d0)
+                         )))
         (let ((ocean-x 1000)
               (ocean-y 300))
           (setf (cl-mpm::sim-bcs-force sim)
@@ -351,13 +356,13 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 200))
+(defun setup (&optional (notch-length 50))
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
+         (mesh-size 25)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)

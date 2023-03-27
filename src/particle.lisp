@@ -443,15 +443,13 @@
                )
       mp
     ;; Non-objective stress intergration
-    (setf stress
+    (setf stress-undamaged
+           ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
           (magicl:.+
-           stress
-           (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-          stress-undamaged (magicl:scale stress 1d0))
-    stress
+           stress-undamaged
+           (cl-mpm/constitutive::linear-elastic-mat strain-rate de)))
+    (setf stress (magicl:scale stress-undamaged 1d0))))
 
-    ;; (setf stress (magicl:scale stress-undamaged 1d0))
-    ))
 (defclass particle-elastic-inc (particle-elastic)
   ()
   (:documentation "A linear-elastic material point"))
@@ -657,39 +655,28 @@
                (critical-damage critical-damage)
                (def deformation-gradient)
                (vorticity vorticity)
-                                        ;(stress stress)
-               (stress undamaged-stress)
-               (stress-damaged stress)
+               (stress stress)
+               (stress-u undamaged-stress)
+               ;; (stress undamaged-stress)
+               ;; (stress-damaged stress)
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (
-          ;; (viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-          (viscosity (cl-mpm/constitutive::glen-viscosity-strain (magicl:scale strain-rate (/ 1 dt)) visc-factor visc-power))
-          ;; (viscosity (cl-mpm/constitutive::glen-viscosity stress-damaged (expt visc-factor (- visc-power)) visc-power))
-          ;;If we want enhancment
-          (viscosity (* viscosity (max 1e-2 (/ (- critical-damage damage) critical-damage))))
-          )
-      ;; stress
-
-      (magicl:.+
-       stress
-       (objectify-stress-logspin
-        (if (> viscosity 0d0)
-            (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-            (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-        stress
-        def
-        vorticity
-        strain-rate))
-      ;; (if (> viscosity 0d0)
-      ;;     (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
-      ;;     ;; (cl-mpm/constitutive::maxwell-exp-v-simd strain-rate stress E nu de viscosity dt)
-      ;;     ;; (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-      ;;     (magicl:.+ stress (cl-mpm/constitutive::linear-elastic-mat strain-rate de) stress))
-      )
-    )
-  )
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power)))
+      (setf stress
+            (magicl:.+
+             stress
+             (objectify-stress-logspin
+              (if (> viscosity 0d0)
+                  (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+                  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+              stress
+              def
+              vorticity
+              strain-rate)))
+      (setf stress-u (magicl:scale stress 1d0))
+      stress
+      )))
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
   "Function for modelling stress intergrated viscoelastic maxwell material"
