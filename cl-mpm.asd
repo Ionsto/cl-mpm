@@ -235,3 +235,16 @@
                "magicl")
   :serial t
   :components ((:file "examples/shear")))
+
+(defsystem "cl-mpm/examples/pullout"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/pullout")))
