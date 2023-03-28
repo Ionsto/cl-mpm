@@ -136,7 +136,7 @@
         do (with-accessors ((pos cl-mpm/particle:mp-position)
                             (force cl-mpm/particle:mp-body-force)) mp
              (incf (magicl:tref force 0 0) amount))))
-(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic))
+(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic-logspin))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-linear))
@@ -225,7 +225,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 2.0)
-        (mps-per-cell 6))
+        (mps-per-cell 2))
     (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -330,7 +330,7 @@
                               *sim*)
       (incf *sim-step*)
       (format t "Substeps for ~a~%" sub-steps)
-      (time (loop for steps from 0 to 50
+      (time (loop for steps from 0 to 80
                   while *run-sim*
                   do
                      (progn
@@ -433,7 +433,7 @@
           )
         do
            (progn
-             (let ((mesh-size 1)
+             (let ((mesh-size 2)
                    (mps-per-cell 2))
                (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
              (defparameter *t* 0)
@@ -522,7 +522,7 @@
          (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
          (sxy-an (shear-stress-analytic E 0.3 shear)))
     ;; (print shear)
-    (print sxy-an)
+    ;; (print sxy-an)
   (vgplot:plot
    shear (mapcar (lambda (x) (/ x E)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
    shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)

@@ -735,7 +735,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun g2p (mesh mps dt)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
-  (lparallel:pdotimes (i (length mps)) 
+  (lparallel:pdotimes (i (length mps))
     (g2p-mp mesh (aref mps i) dt)))
 
 (defgeneric special-update-node (mesh dt node damping)
@@ -995,13 +995,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                            cl-mpm/particle:particle
                           magicl:matrix/double-float) (values))
                update-strain-kirchoff))
-(defun update-strain-kirchoff (mesh mp dstrain)
+(defun update-strain-kirchoff (mesh mp dstrain dt)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
@@ -1051,7 +1052,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 )))
           ;;Post multiply to turn to eng strain
           ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
-
+          ;; (setf strain-rate-tensor ())
+          (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
           ;(setf velocity-rate (magicl:scale strain-rate 1d0))
           ;; (setf strain-rate (magicl:.- strain prev-strain))
           ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
@@ -1140,7 +1142,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
               ;; Turn cauchy stress to kirchoff
               (setf stress stress-kirchoff)
               ;Update our strains
-              (update-strain-kirchoff mesh mp dstrain)
+              (update-strain-kirchoff mesh mp dstrain dt)
               ;;Update our kirchoff stress with constitutive model
               (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
               ;;Check volume constraint!

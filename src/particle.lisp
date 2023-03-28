@@ -107,6 +107,10 @@
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(2 2)))
+   (strain-rate-tensor
+    :accessor mp-strain-rate-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 2)))
    (strain-rate
      :accessor mp-strain-rate
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -556,6 +560,7 @@
                (de elastic-matrix)
                (stress stress)
                (strain-rate strain-rate)
+               (D stretch-tensor)
                (velocity-rate velocity-rate)
                (vorticity vorticity)
                (def deformation-gradient)
@@ -572,7 +577,7 @@
         stress
         def
         vorticity
-        strain-rate)))
+        D)))
     ))
 
 (defmethod constitutive-model ((mp particle-fluid) strain dt)
@@ -612,6 +617,7 @@
                (strain-plastic strain-plastic)
                (def deformation-gradient)
                (vorticity vorticity)
+               (D stretch-tensor)
                (stress stress)
                )
       mp
@@ -631,7 +637,7 @@
         stress
         def
         vorticity
-        strain-rate))
+        D))
       ;; (magicl:.+
       ;;  stress
       ;;   (if (> viscosity 0d0)
@@ -654,6 +660,7 @@
                (damage damage)
                (critical-damage critical-damage)
                (def deformation-gradient)
+               (D stretch-tensor)
                (vorticity vorticity)
                (stress stress)
                (stress-u undamaged-stress)
@@ -673,7 +680,7 @@
               stress
               def
               vorticity
-              strain-rate)))
+              D)))
       (setf stress-u (magicl:scale stress 1d0))
       stress
       )))
@@ -764,10 +771,11 @@
                 ))))
 
 (declaim (notinline objectify-stress-logspin))
-(defun objectify-stress-logspin (stress-inc stress def vorticity strain-rate)
+(defun objectify-stress-logspin (stress-inc stress def vorticity D)
     (let ((b (magicl:@ def (magicl:transpose def)))
           (omega (assemble-vorticity-matrix vorticity))
-          (D (voight-to-matrix strain-rate)))
+          (D (magicl:scale (magicl:.+ D (magicl:transpose D)) 0.5d0))
+          )
         (multiple-value-bind (l v) (magicl:eig b)
           (loop for i from 0 to 1
                 do (loop for j from 0 to 1
