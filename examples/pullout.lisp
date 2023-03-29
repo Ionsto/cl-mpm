@@ -5,6 +5,8 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/pullout)
+(pushnew :cl-mpm-pic *features*)
+;(asdf:compile-system :cl-mpm :force T)
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
@@ -191,18 +193,19 @@
                ;; :visc-power 3d0
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-9
-               :critical-damage 0.4d0
-               :local-length 20d0
+               ;; :damage-rate 1d-9
+               :damage-rate 1d-7
+               :critical-damage 1.0d0
+               :local-length 50d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.001d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm::sim-bcs-force sim)
@@ -222,34 +225,45 @@
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
              )
             )
-      (defparameter *shear-rate* 0.1d0)
-      (setf (cl-mpm:sim-bcs sim)
+      (defparameter *shear-rate* 0.01d0)
+      ;; (setf (cl-mpm:sim-bcs sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (append
+      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
+      ;;         (list
+      ;;          (cl-mpm/bc::make-bc-closure
+      ;;           '(0 0)
+      ;;           (lambda ()
+      ;;             (apply-pullout
+      ;;              sim
+      ;;              *terminus-mps*
+      ;;              *shear-rate*)
+      ;;             )
+      ;;           )))))
+
+      (setf (cl-mpm::sim-bcs-force sim)
             (cl-mpm/bc:make-bcs-from-list
-             (append
-              (map 'list #'identity (cl-mpm:sim-bcs sim))
-              (list
-               (cl-mpm/bc::make-bc-closure
-                '(0 0)
-                (lambda ()
-                  (apply-pullout
-                   sim
-                   *terminus-mps*
-                   *shear-rate*)
-                  )
-                )))))
+             (list (cl-mpm/buoyancy::make-bc-pressure
+                    sim
+                    3d5
+                    0d0
+                    ))))
 
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 10)
+  ;
+  (let ((mesh-size 20)
         (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
-  ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
-  ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
-  (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
+    ;;Setup notched pullout
+    ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
+    ;;Setup 1d pullout
+    (defparameter *sim* (setup-test-column (list 1000 mesh-size)
+                                           (list 500 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -283,6 +297,16 @@
               when (= x-min (magicl:tref
                          (cl-mpm/particle:mp-position mp)
                          0 0))
+                collect mp)))
+    (let ((y-min (loop for mp across mps
+                       minimize (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 1 0))))
+      (defparameter *bottom-mps*
+        (loop for mp across mps
+              when (= y-min (magicl:tref
+                             (cl-mpm/particle:mp-position mp)
+                             1 0))
                 collect mp)))
     (let ((x-max (loop for mp across mps
                        maximize (magicl:tref
@@ -381,7 +405,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 400
                 while *run-sim*
                 do
                    (progn
@@ -411,6 +435,14 @@
                       (loop for mp across (cl-mpm:sim-mps *sim*)
                             maximize (cl-mpm/particle::mp-damage mp))
                       *max-damage*)
+                     ;; (let ((test-mp (aref (cl-mpm:sim-mps *sim*) 0)))
+                     ;;   (push
+                     ;;   (magicl:tref (cl-mpm/particle::mp-stress test-mp) 0 0)
+                     ;;    *max-stress*)
+                     ;;   (push
+                     ;;          (cl-mpm/particle::mp-damage test-mp)
+                     ;;    *max-damage*)
+                     ;;   )
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
@@ -447,10 +479,11 @@
 (defun plot-stress-damage-time ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
-    (let ((s-y 0.2d6))
+    (let ((s-y 0.2d6)
+          (s-x (first *max-x*)))
       (vgplot:figure)
       (vgplot:plot
-       ;; *time* *max-x* "Far field extension"
+       *time* (mapcar (lambda (x) (/ x s-x)) *max-x*) "Far field extension"
        *time* (mapcar (lambda (x) (/ x s-y)) *max-stress*) "max stress"
        *time* *max-damage* "max damage"
        ))

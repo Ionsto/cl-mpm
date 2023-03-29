@@ -17,7 +17,7 @@
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
       ;;    rate)
-      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate
+      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate
          ;; (/ 1d0 (- 1d0 (min damage 0.4d0)))
          )
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
@@ -128,8 +128,8 @@
                            (setf (nth i l)
                                  (+
                                   ;; (* sii (damage-profile damage critical-damage))
-                                  ;; (* esii (damage-profile damage critical-damage))
-                                  (* esii (- 1d0 damage))
+                                  (* esii (damage-profile damage critical-damage))
+                                  ;; (* esii (- 1d0 damage))
                                   ;; pressure
                                   ;; 0d0
                                   (* damage pressure)

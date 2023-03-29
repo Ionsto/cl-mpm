@@ -24,6 +24,12 @@
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  #+cl-mpm-pic (print "Compiled with PIC")
+  #-cl-mpm-pic (print "Compiled with FLIP")
+)
+
+
 (defclass mpm-sim ()
   ((dt
      :accessor sim-dt
@@ -720,9 +726,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::fast-fmacc-array (magicl::storage disp) mapped-vel dt)
         (aops:copy-into (magicl::storage acc) mapped-acc)
         ;;FLIP
-        (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
+        #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;PIC
-        ;; (aops:copy-into (magicl::storage vel) mapped-vel)
+        #+cl-mpm-pic (aops:copy-into (magicl::storage vel) mapped-vel)
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
         ;; (update-domain mesh mp dt)

@@ -194,7 +194,7 @@
                     (with-accessors ((pos cl-mpm/particle:mp-position))
                         mp
                       (or
-                       t
+                       ;; t
                        (= (magicl:tref pos 0 0) xmin)
                        (= (magicl:tref pos 0 0) xmax)
                        (= (magicl:tref pos 1 0) ymin)
@@ -202,6 +202,8 @@
                        ))
                     collect mp
                     )))
+          (loop for mp in *load-mps*
+                do (setf (cl-mpm/particle::mp-index mp) 1))
           ))
       ;; (increase-load sim *load-mps* 1d5)
       (defparameter *shear-rate* 0.1d0)
@@ -225,7 +227,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 2.0)
-        (mps-per-cell 2))
+        (mps-per-cell 6))
     (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -434,7 +436,7 @@
         do
            (progn
              (let ((mesh-size 2)
-                   (mps-per-cell 2))
+                   (mps-per-cell 6));2
                (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
@@ -529,6 +531,38 @@
    shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
    shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
    shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
-               )))
+               ))
+  )
+(defun save-stress-table ()
+  (with-open-file (stream (merge-pathnames "output/shear.csv") :direction :output :if-exists :supersede)
+    (format stream "shear,analytic")
+    (loop for n in (reverse *table-names*)
+          do (format stream ",~a" n))
+    (format stream "~%")
+    ;; (format stream "Shear,Analytic,True,Incremental,LogSpin,Jaumann~%")
+    (let* ((E 1d4)
+           (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
+           (sxy-an (shear-stress-analytic E 0.3 shear)))
+      ;; (print shear)
+      ;; (print sxy-an)
+      ;; (vgplot:plot
+      ;;  shear (mapcar (lambda (x) (/ x E)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
+      ;;  shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
+      ;;  shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
+      ;;  shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
+      ;;  shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
+      ;;  )
+      (loop for i from (- (length shear) 1) downto 0
+            do
+               (format stream "~f" (nth i shear))
+               (format stream ",~f" (/ (nth i sxy-an) E))
+               (loop for table in (reverse *stress-xy-table*)
+                     do (format stream ",~f" (/ (nth i table) E))
+                     )
+               (format stream "~%"))
+      ;; (loop for shear in (reverse shear)
+      ;;       do (format stream "~f, ~f, ~f, ~f ~%" shear)))
+    ))
+  )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))

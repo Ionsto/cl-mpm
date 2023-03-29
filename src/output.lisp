@@ -173,9 +173,9 @@
         (save-parameter "s_1"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (loop for sii in l maximize sii)))
-        (save-parameter "su_1"
-                        (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
-                          (loop for sii in l maximize sii)))
+        ;; (save-parameter "su_1"
+        ;;                 (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
+        ;;                   (loop for sii in l maximize sii)))
         (save-parameter "EPS"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))

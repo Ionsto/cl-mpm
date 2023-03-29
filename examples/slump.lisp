@@ -56,7 +56,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -180,39 +180,39 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
+               'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic-damage
+                ;; 'cl-mpm/particle::particle-viscoplastic-damage
                :E 1d8
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 11d6
-               :visc-power 3d0
+               ;; :visc-factor 11d6
+               ;; :visc-power 3d0
 
-               :initiation-stress 0.2d6
-               :damage-rate 1d-7
-               :critical-damage 0.4d0
-               :local-length 50d0
-               :gravity 0d0;-9.8d0
+               ;; :initiation-stress 0.2d6
+               ;; :damage-rate 1d-7
+               ;; :critical-damage 0.4d0
+               ;; :local-length 50d0
+
+               :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.001d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
       ;;        (list
-      ;;         (cl-mpm/bc::make-bc-closure '(0 0)
-      ;;                                     (lambda ()
-      ;;                                       (cl-mpm/buoyancy::apply-bouyancy sim 200d0))))))
+      ;;         (cl-mpm/buoyancy::make-bc-buoyancy sim (* (second block-size) 0.5d0) 1000d0))))
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -235,7 +235,7 @@
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
-  (remove-sdf *sim* (rectangle-sdf '(250 125) '(25 25)))
+  ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -275,8 +275,8 @@
                              (cl-mpm/particle:mp-position mp)
                              0 0))
                 collect mp)))
-    (increase-load *sim* *terminus-mps*
-                   (magicl:from-list (list (* 1d3) 0d0) '(2 1)))
+    ;; (increase-load *sim* *terminus-mps*
+    ;;                (magicl:from-list (list (* 1d3) 0d0) '(2 1)))
     )
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
@@ -345,8 +345,8 @@
                       *x-pos*)
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
-                               (increase-load *sim* *terminus-mps*
-                                              (magicl:from-list (list (* (cl-mpm:sim-dt *sim*) 1d2) 0d0) '(2 1)))
+                               ;; (increase-load *sim* *terminus-mps*
+                               ;;                (magicl:from-list (list (* (cl-mpm:sim-dt *sim*) 1d2) 0d0) '(2 1)))
                                ;; (pescribe-velocity *sim* *terminus-mps* '(1d0 nil))
                                (cl-mpm::update-sim *sim*)
                                (setf cfl (max cfl (find-max-cfl *sim*)))
