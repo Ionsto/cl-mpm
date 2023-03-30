@@ -202,7 +202,7 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.2d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.7d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -443,6 +443,8 @@
                      ;;          (cl-mpm/particle::mp-damage test-mp)
                      ;;    *max-damage*)
                      ;;   )
+                     (when (= (first *max-damage*) 1d0)
+                       (setf *run-sim* nil))
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
@@ -598,3 +600,56 @@
 ;   (dotimes (i 100000)
 ;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
 ;  )
+
+(defun dot (x)
+  (magicl::sum (magicl:.* x x)))
+(defun mp-sdf (mp x)
+  (with-accessors ((pos cl-mpm/particle:mp-position)
+                   (size cl-mpm/particle::mp-domain-size))
+      mp
+    (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
+      (- (dot (magicl:.- pos x)) r))))
+
+(defun draw-state (file)
+  (declare (optimize (safety 3) (debug 3)))
+  (let* ((resolution 10)
+         (width 100)
+         (height 20)
+         (png (make-instance 'zpng:png
+                              :color-type :truecolor
+                              :width width
+                              :height height))
+         (image (zpng:data-array png))
+         (max 255))
+    (lparallel:pdotimes (y height)
+      (dotimes (x width)
+        ;; (print (type-of image))
+        (setf (aref image y x 0) 255
+              )
+        (let ((d 1e10)
+              (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
+          (loop for mp across (cl-mpm:sim-mps *sim*)
+                do
+                   (setf d (min d (mp-sdf mp ipos)))
+                )
+          (when (< d 0d0)
+            (setf (aref image y x 0) 255
+                  (aref image y x 1) 0
+                  (aref image y x 2) 0)
+            ))
+        ;; (let ((c (complex (- (/ x 100.0) 1.5) (- (/ y 100.0) 1.0)))
+        ;;       (z (complex 0.0 0.0))
+        ;;       (iteration 0))
+        ;;   (loop
+        ;;     (setf z (+ (* z z) c))
+        ;;     (incf iteration)
+        ;;     (cond ((< 4 (abs z))
+        ;;            (setf (aref image y x 1) iteration)
+        ;;            (return))
+        ;;           ((= iteration max)
+        ;;            (setf (aref image y x 1) 255)
+        ;;            (return)))))
+        )
+      (zpng:write-png png file)
+      )
+    ))

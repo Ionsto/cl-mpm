@@ -126,12 +126,15 @@
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 
 (defun apply-force-mps (mesh mps func-stress func-div)
+  "Update force on nodes, with virtual stress field from mps"
   (declare (function func-stress func-div))
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
+
       (with-accessors ((volume cl-mpm/particle:mp-volume))
           mp
-        (cl-mpm::iterate-over-neighbours ;-shape-linear
+        ;;Iterate over neighbour nodes
+        (cl-mpm::iterate-over-neighbours
          mesh mp
          (lambda (mesh mp node svp grads)
            (with-accessors ((node-force cl-mpm/mesh:node-force)
@@ -140,11 +143,10 @@
                             (node-active  cl-mpm/mesh:node-active))
                node
              (when (and node-active node-boundary)
-               ;; (with-accessors ((pos cl-mpm/particle:mp-position)
-               ;;                  (pressure cl-mpm/particle::mp-pressure))
-               ;;     mp
-               ;;   (setf pressure (pressure-at-depth (tref pos 1 0) datum)))
+               ;;Lock node for multithreading
                (sb-thread:with-mutex (node-lock)
+
+                 ;;Add the gradient of stress
                  (setf node-force (magicl:.+
                                    node-force
                                    (magicl:scale!
@@ -154,6 +156,7 @@
                                      (funcall func-stress mp)
                                      )
                                     (* volume))))
+                 ;;Add the divergance
                  (setf node-force (magicl:.+
                                    node-force
                                    (magicl:scale!
@@ -162,20 +165,17 @@
                  )))))))))
 
 (defun apply-force-cells (mesh func-stress func-div)
+  "Update force on nodes, with virtual stress field from cells"
   (declare (function func-stress func-div))
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
+
     (lparallel:pdotimes (i (array-total-size cells))
              (let ((cell (row-major-aref cells i)))
                (let ((nodal-volume 0d0))
-                 ;; (cl-mpm/mesh::cell-iterate-over-neighbours
-                 ;;  mesh cell
-                 ;;  (lambda (mesh cell node svp grads)
-                 ;;    (with-accessors ((node-volume cl-mpm/mesh::node-volume))
-                 ;;        node
-                 ;;      (incf nodal-volume node-volume))))
-                 ;;Clip out nodes with poor conditied nodes
+                 ;;Possibly clip ill posed cells
                  (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
+                   ;;Iterate over a cells nodes
                    (cl-mpm/mesh::cell-iterate-over-neighbours
                     mesh cell
                     (lambda (mesh cell pos volume node svp grads)
@@ -186,28 +186,25 @@
                                        (node-volume cl-mpm/mesh::node-volume)
                                        )
                           node
-                        (with-accessors (;(volume cl-mpm/mesh::cell-volume)
-                                         ;(pos cl-mpm/mesh::cell-centroid)
-                                         )
-                            cell
-                          (when (and node-active node-boundary)
-                            (when t;(< node-volume (* 0.99d0 n-vol))
-                              (sb-thread:with-mutex (node-lock)
-                                        ;Internal force
-                                (setf node-force (magicl:.+
-                                                  node-force
-                                                  (magicl:scale!
-                                                   (magicl:@
-                                                    (magicl:transpose
-                                                     (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                                    (funcall func-stress pos))
-                                                   (* -1d0 volume))))
-                                (setf node-force (magicl:.+
-                                                  node-force
-                                                  (magicl:scale!
-                                                   (funcall func-div pos)
-                                                   (* -1d0 svp volume))))
-                                )))))
+                        (when (and node-active node-boundary)
+                          ;;Lock node
+                          (sb-thread:with-mutex (node-lock)
+                            ;;Subtract gradient of stress from node force
+                            (setf node-force (magicl:.+
+                                              node-force
+                                              (magicl:scale!
+                                               (magicl:@
+                                                (magicl:transpose
+                                                 (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                                                (funcall func-stress pos))
+                                               (* -1d0 volume))))
+                            ;;Subtract stress divergance from node force
+                            (setf node-force (magicl:.+
+                                              node-force
+                                              (magicl:scale!
+                                               (funcall func-div pos)
+                                               (* -1d0 svp volume))))
+                            )))
                       ))))))))
 (defun direct-mp-enforcment (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
@@ -216,7 +213,7 @@
                        (g cl-mpm/particle:mp-gravity)
                        (pos cl-mpm/particle:mp-position))
           mp
-        (cl-mpm::iterate-over-neighbours ;-shape-linear
+        (cl-mpm::iterate-over-neighbours
          mesh mp
          (lambda (mesh mp node svp grads)
            (with-accessors ((node-force cl-mpm/mesh:node-force)
@@ -235,6 +232,7 @@
                  )))))))))
 
 (defun check-neighbour-cell (cell)
+  "Check if neighbour cell has nodes in"
   (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                    (nodes cl-mpm/mesh::cell-nodes))
       cell
@@ -245,6 +243,7 @@
                    (setf (cl-mpm/mesh::node-boundary-node n) t))
           t)
         nil)))
+
 ;;For the MPM case
 (defun populate-cell-mp-count (mesh mps)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
@@ -297,18 +296,12 @@
                          (> (cl-mpm/mesh:node-mass n) 0d0)
                          ) nodes)
             (setf mp-count 1))
-          ;; (loop for neighbour in neighbours
-          ;;       do
-          ;;          (when (check-neighbour-cell neighbour)
-          ;;            (loop for n in nodes
-          ;;                  do
-          ;;                     (when (cl-mpm/mesh:node-active n)
-          ;;                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-          ;;                         (setf (cl-mpm/mesh::node-boundary-node n) t))))))
           )))))
 
 (defun locate-mps-cells (mesh mps)
+  "Mark boundary nodes based on neighbour MP inclusion"
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+    ;;The aproach described by the paper
     ;; (populate-cell-mp-count mesh mps)
     ;; (populate-cell-mp-count-gimp mesh mps)
     (populate-cell-mp-count-volume mesh mps)
@@ -321,19 +314,6 @@
                          )
             cell
           (when (= mp-count 0)
-              ;; (loop for n in nodes
-              ;;       do
-              ;;          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-              ;;            (setf (cl-mpm/mesh::node-boundary-node n) t)))
-            ;; (let ((patch 1))
-            ;;   (loop for dx from (- patch) to patch
-            ;;         do
-            ;;            (loop for dy from (- patch) to patch
-            ;;                  do
-            ;;                     (unless (and (= dx 0) (= dy 0))
-            ;;                       (let ((di (mapcar #'+ index (list dx dy))))
-            ;;                         (when (cl-mpm/mesh::in-bounds-cell mesh di)
-            ;;                           (check-neighbour-cell (apply #'aref cells di))))))))
               (loop for neighbour in neighbours
                     do
                        (when (check-neighbour-cell neighbour)
@@ -356,9 +336,6 @@
                                       node
                                       (when active
                                         (setf boundary t)
-                                        ;; (when (and ;(> (/ node-volume vtotal) 1e-3)
-                                        ;;            (< (/ node-volume vtotal) 0.99))
-                                        ;;   (setf boundary t))
                                         ))))))
 
 (defun apply-bouyancy (sim datum-true)
@@ -369,7 +346,6 @@
         mesh
       (let ((datum (- datum-true (* 0 0.5d0 h))))
         (locate-mps-cells mesh mps)
-        ;; (find-active-nodes mesh mps)
         (apply-force-mps mesh mps datum)
         (apply-force-cells mesh datum)
         ;; (direct-mp-enforcment mesh mps datum-true)

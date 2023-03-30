@@ -7,15 +7,6 @@
 (in-package :cl-mpm/examples/float)
 (declaim (optimize (debug 3) (safety 2) (speed 2)))
 
-(defun ellipse-sdf (position x-l y-l)
-  (let ((aspect (/ x-l y-l)))
-    (lambda (pos)
-      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
-             (dist-vec (magicl:.* (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
-                                                                             :type 'double-float)))
-             (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
-                                                    dist-vec) 0 0))))
-        (- distance x-l)))))
 
 (defun increase-load (sim load-mps amount)
   (loop for mp in load-mps
@@ -25,21 +16,11 @@
              (magicl:.+ force amount force)
              )))
 
-(defun remove-sdf (sim sdf)
-  (setf (cl-mpm:sim-mps sim)
-        (lparallel:premove-if (lambda (mp)
-                                (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-                                  (>= 0 (funcall sdf pos))
-                                  ))
-                              (cl-mpm:sim-mps sim))))
-
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
          (h-initial (magicl:tref (cl-mpm/particle::mp-domain-size mp) dim 0))
-         ;(h-initial  (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) mp-scale))
          )
     h-initial
-    ;(* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)
     ))
 (defun max-stress (mp)
   (declare (optimize (speed 2) (debug 3)))
@@ -199,11 +180,6 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              )
             )
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;       (list (cl-mpm/bc::make-bc-closure '(0 0)
-      ;;                                         (lambda ()
-      ;;                                           (cl-mpm/buoyancy::apply-bouyancy sim 300d0))))))
       (setf (cl-mpm::sim-bcs-force sim)
             (cl-mpm/bc:make-bcs-from-list
              (list (cl-mpm/buoyancy::make-bc-pressure
@@ -211,16 +187,6 @@
                     0d0
                     -1d5
                     ))))
-
-      ;; (let ((ocean-x 0)
-      ;;       (ocean-y 300))
-      ;;   (setf (cl-mpm::sim-bcs-force sim)
-      ;;         (cl-mpm/bc:make-bcs-from-list
-      ;;          (loop for x from (floor ocean-x h) to (floor (first size) h)
-      ;;                append (loop for y from 0 to (floor ocean-y h)
-      ;;                             collect (cl-mpm/bc::make-bc-buoyancy
-      ;;                                      (list x y)
-      ;;                                      (magicl:from-list (list 0d0 (* 9.8d0 (* 1.0d0 1000))) '(2 1))))))))
       sim)))
 
 ;Setup
@@ -243,21 +209,6 @@
                          '(000 000) (/ 1d0 mesh-size) 2)))
     ;; (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf '(500 300) '(100 50))
-
-  ;;Hole in plate
-  ;; (defparameter *sim* (setup-test-column '(500 500) '(500 500) '(000 0) (/ 1 10) 2))
-  ;; (remove-sdf *sim* (lambda (p) (+ (funcall (ellipse-sdf (list 250 250) 100 100) p))))
-
-  ;; (defparameter *sim* (setup-test-column '(500 500) '(200 200) '(0 0) (/ 1 20) 2))
-
-  ;; (remove-sdf *sim* (ellipse-sdf (list 0 0) 100 100))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 000 000) 200 200))
-  ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(500 200)))
-  ;; (remove-sdf *sim* (cl-mpm/setup:rectangle-sdf (list 000 000) '(200 500)))
-
-  
-  ;; (defparameter *sim* (setup-test-column '(500 400) '(300 100) '(000 250) (/ 1 25) 4))
-  ;; (remove-sdf *sim* (rectangle-sdf (list 1000 225) '(100 50)))
 
   (format t "Simulation dt ~a~%" (cl-mpm:sim-dt *sim*))
   (format t "Simulation MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
