@@ -117,7 +117,8 @@
                (:file "src/core")
                ))
 (defsystem "cl-mpm/buoyancy"
-  :depends-on ("cl-mpm")
+  :depends-on ("cl-mpm"
+               "cl-mpm/bc")
   :description ""
   :components (
                (:file "src/buoyancy")

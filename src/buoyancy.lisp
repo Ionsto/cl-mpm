@@ -370,18 +370,55 @@
                          )
       )))
 
+(defclass bc-non-conforming-neumann (bc)
+  ()
+  (:documentation "A nonconforming neumann bc"))
+
+(defclass bc-pressure (cl-mpm/bc::bc)
+  ((sim
+    :accessor bc-pressure-sim
+    :initarg :sim)
+   (pressures
+    :accessor bc-pressure-pressures
+    :initarg :pressures))
+  (:documentation "A nonconforming pressure bc"))
+
+
+(defmethod cl-mpm/bc::apply-bc ((bc bc-pressure) node mesh dt)
+  "Arbitrary closure BC"
+  (with-accessors ((pressures bc-pressure-pressures)
+                   (sim bc-pressure-sim))
+      bc
+    (apply-non-conforming-nuemann
+     sim
+     (lambda (pos)
+       (pressure-virtual-stress (first pressures) (second pressures)))
+     (lambda (pos)
+       (pressure-virtual-div))
+     )))
+
+(defclass bc-nc-buoyancy (bc)
+  ()
+  (:documentation "A nonconforming buoyancy bc"))
+
 (defun make-bc-pressure (sim pressure-x pressure-y)
-  (make-instance 'cl-mpm/bc::bc-closure
+  (make-instance 'bc-pressure
                  :index '(0 0)
-                 :func (lambda ()
-                         (apply-non-conforming-nuemann
-                          sim
-                          (lambda (pos)
-                            (pressure-virtual-stress pressure-x pressure-y))
-                          (lambda (pos)
-                            (pressure-virtual-div))
-                          )
-                         )))
+                 :sim sim
+                 :pressures (list pressure-x pressure-y)
+                 )
+  ;; (make-instance 'cl-mpm/bc::bc-closure
+  ;;                :index '(0 0)
+  ;;                :func (lambda ()
+  ;;                        (apply-non-conforming-nuemann
+  ;;                         sim
+  ;;                         (lambda (pos)
+  ;;                           (pressure-virtual-stress pressure-x pressure-y))
+  ;;                         (lambda (pos)
+  ;;                           (pressure-virtual-div))
+  ;;                         )
+  ;;                        ))
+  )
 
 (defun make-bc-buoyancy (sim datum rho)
   (make-instance 'cl-mpm/bc::bc-closure

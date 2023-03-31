@@ -194,9 +194,9 @@
 
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
-               :damage-rate 1d-7
+               :damage-rate 1d-8
                :critical-damage 1.0d0
-               :local-length 50d0
+               :local-length 200d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -225,29 +225,30 @@
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
              )
             )
-      (defparameter *shear-rate* 0.01d0)
-      ;; (setf (cl-mpm:sim-bcs sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (append
-      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
-      ;;         (list
-      ;;          (cl-mpm/bc::make-bc-closure
-      ;;           '(0 0)
-      ;;           (lambda ()
-      ;;             (apply-pullout
-      ;;              sim
-      ;;              *terminus-mps*
-      ;;              *shear-rate*)
-      ;;             )
-      ;;           )))))
-
+      (defparameter *shear-rate* 0.1d0)
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (append
+              (map 'list #'identity (cl-mpm:sim-bcs sim))
+              (list
+               (cl-mpm/bc::make-bc-closure
+                '(0 0)
+                (lambda ()
+                  (apply-pullout
+                   sim
+                   *terminus-mps*
+                   *shear-rate*)
+                  )
+                )))))
+      ;; (defparameter *load-bc*
+      ;;   (cl-mpm/buoyancy::make-bc-pressure
+      ;;    sim
+      ;;    0d0;3d5
+      ;;    0d0
+      ;;    ))
       (setf (cl-mpm::sim-bcs-force sim)
             (cl-mpm/bc:make-bcs-from-list
-             (list (cl-mpm/buoyancy::make-bc-pressure
-                    sim
-                    3d5
-                    0d0
-                    ))))
+             (list *load-bc*)))
 
       sim)))
 
@@ -405,7 +406,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 400
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -443,11 +444,13 @@
                      ;;          (cl-mpm/particle::mp-damage test-mp)
                      ;;    *max-damage*)
                      ;;   )
-                     (when (= (first *max-damage*) 1d0)
-                       (setf *run-sim* nil))
+                     ;; (when (= (first *max-damage*) 1d0)
+                     ;;   (setf *run-sim* nil))
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
+                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                               ;;       (* (cl-mpm:sim-dt *sim*) 1d5))
                                ;; (increase-load *sim* *terminus-mps*
                                ;;                (magicl:from-list (list (* (cl-mpm:sim-dt *sim*) 5d2) 0d0) '(2 1)))
                                ;; (pescribe-velocity *sim* *terminus-mps* '(1d0 nil))
@@ -601,42 +604,42 @@
 ;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
 ;  )
 
-(defun dot (x)
-  (sqrt (magicl::sum (magicl:.* x x))))
-(defun mp-sdf (mp x)
-  (with-accessors ((pos cl-mpm/particle:mp-position)
-                   (size cl-mpm/particle::mp-domain-size))
-      mp
-    (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
-      (- (dot (magicl:.- pos x)) r))))
+;; (defun dot (x)
+;;   (sqrt (magicl::sum (magicl:.* x x))))
+;; (defun mp-sdf (mp x)
+;;   (with-accessors ((pos cl-mpm/particle:mp-position)
+;;                    (size cl-mpm/particle::mp-domain-size))
+;;       mp
+;;     (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
+;;       (- (dot (magicl:.- pos x)) r))))
 
-(defun draw-state (file)
-  (declare (optimize (safety 3) (debug 3)))
-  (let* ((resolution 10)
-         (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
-         (width (round (first size) resolution))
-         (height (round (second size) resolution))
-         (png (make-instance 'zpng:png
-                              :color-type :truecolor
-                              :width width
-                              :height height))
-         (image (zpng:data-array png))
-         (max 255))
-    (lparallel:pdotimes (y height)
-      (dotimes (x width)
-        ;; (print (type-of image))
-        (setf (aref image y x 0) 255
-              )
-        (let ((d 1e10)
-              (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
-          (loop for mp across (cl-mpm:sim-mps *sim*)
-                do
-                   (setf d (min d (mp-sdf mp ipos)))
-                )
-          (when (< d 0d0)
-            (setf (aref image y x 0) 255
-                  (aref image y x 1) 0
-                  (aref image y x 2) 0)
-            )))
-      (zpng:write-png png file)
-      )))
+;; (defun draw-state (file)
+;;   (declare (optimize (safety 3) (debug 3)))
+;;   (let* ((resolution 10)
+;;          (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+;;          (width (round (first size) resolution))
+;;          (height (round (second size) resolution))
+;;          (png (make-instance 'zpng:png
+;;                               :color-type :truecolor
+;;                               :width width
+;;                               :height height))
+;;          (image (zpng:data-array png))
+;;          (max 255))
+;;     (lparallel:pdotimes (y height)
+;;       (dotimes (x width)
+;;         ;; (print (type-of image))
+;;         (setf (aref image y x 0) 255
+;;               )
+;;         (let ((d 1e10)
+;;               (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
+;;           (loop for mp across (cl-mpm:sim-mps *sim*)
+;;                 do
+;;                    (setf d (min d (mp-sdf mp ipos)))
+;;                 )
+;;           (when (< d 0d0)
+;;             (setf (aref image y x 0) 255
+;;                   (aref image y x 1) 0
+;;                   (aref image y x 2) 0)
+;;             )))
+;;       (zpng:write-png png file)
+;;       )))
