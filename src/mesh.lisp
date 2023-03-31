@@ -87,7 +87,10 @@
     :initform nil
     )
 
-  (lock 
+   (sdf
+    :accessor node-sdf
+    :initform 0d0)
+  (lock
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))

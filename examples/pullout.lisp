@@ -602,7 +602,7 @@
 ;  )
 
 (defun dot (x)
-  (magicl::sum (magicl:.* x x)))
+  (sqrt (magicl::sum (magicl:.* x x))))
 (defun mp-sdf (mp x)
   (with-accessors ((pos cl-mpm/particle:mp-position)
                    (size cl-mpm/particle::mp-domain-size))
@@ -613,8 +613,9 @@
 (defun draw-state (file)
   (declare (optimize (safety 3) (debug 3)))
   (let* ((resolution 10)
-         (width 100)
-         (height 20)
+         (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+         (width (round (first size) resolution))
+         (height (round (second size) resolution))
          (png (make-instance 'zpng:png
                               :color-type :truecolor
                               :width width
@@ -636,20 +637,6 @@
             (setf (aref image y x 0) 255
                   (aref image y x 1) 0
                   (aref image y x 2) 0)
-            ))
-        ;; (let ((c (complex (- (/ x 100.0) 1.5) (- (/ y 100.0) 1.0)))
-        ;;       (z (complex 0.0 0.0))
-        ;;       (iteration 0))
-        ;;   (loop
-        ;;     (setf z (+ (* z z) c))
-        ;;     (incf iteration)
-        ;;     (cond ((< 4 (abs z))
-        ;;            (setf (aref image y x 1) iteration)
-        ;;            (return))
-        ;;           ((= iteration max)
-        ;;            (setf (aref image y x 1) 255)
-        ;;            (return)))))
-        )
+            )))
       (zpng:write-png png file)
-      )
-    ))
+      )))

@@ -362,7 +362,7 @@
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 25)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
@@ -745,3 +745,61 @@
 ;   (dotimes (i 100000)
 ;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
 ;  )
+
+(defun dot (x)
+  (sqrt (magicl::sum (magicl:.* x x))))
+(defun mp-sdf (mp x)
+  (with-accessors ((pos cl-mpm/particle:mp-position)
+                   (size cl-mpm/particle::mp-domain-size))
+      mp
+    (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
+      (- (dot (magicl:.- pos x)) r))))
+
+(defun map-sdf-to-nodes ()
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   )
+      *sim*
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (n)
+       (with-accessors ((sdf cl-mpm/mesh::node-sdf)
+                        (pos cl-mpm/mesh::node-position))
+           n
+         (loop for mp across mps
+               do
+                  (let ((d (mp-sdf mp pos)))
+                    (when (< d sdf)
+                      (setf sdf d)))))
+       ))))
+
+(defun draw-state (file)
+  (declare (optimize (safety 3) (debug 3)))
+  (let* ((resolution 1)
+         (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+         (width (round (first size) resolution))
+         (height (round (second size) resolution))
+         (png (make-instance 'zpng:png
+                              :color-type :truecolor
+                              :width width
+                              :height height))
+         (image (zpng:data-array png))
+         (max 255))
+    (lparallel:pdotimes (y height)
+      (dotimes (x width)
+        (setf
+         (aref image y x 0) 255
+         (aref image y x 1) 255
+         (aref image y x 2) 255)
+        (let ((d 1e10)
+              (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
+          (loop for mp across (cl-mpm:sim-mps *sim*)
+                do
+                   (setf d (min d (mp-sdf mp ipos))))
+          (when (< d 0d0)
+            (setf (aref image y x 0) 255
+                  (aref image y x 1) 0
+                  (aref image y x 2) 0)
+            )))
+      (zpng:write-png png file)
+      )))
