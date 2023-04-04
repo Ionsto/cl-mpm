@@ -229,10 +229,15 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
-   (local-damage
-    :accessor mp-local-damage
+   (y-bar
+    :accessor mp-y-bar
     :type DOUBLE-FLOAT
     :initform 0d0)
+   (y
+    :accessor mp-y
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+
    (local-damage-increment
     :accessor mp-local-damage-increment
     :type DOUBLE-FLOAT
@@ -241,6 +246,7 @@
     :accessor mp-damage-increment
     :type DOUBLE-FLOAT
     :initform 0d0)
+
    (undamaged-stress
     :accessor mp-undamaged-stress
     :type MAGICL:MATRIX/DOUBLE-FLOAT
