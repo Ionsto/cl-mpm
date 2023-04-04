@@ -183,7 +183,7 @@
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic-damage
+                'cl-mpm/particle::particle-viscoplastic
                :E 1d8
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
@@ -193,22 +193,22 @@
                :visc-factor 1d6
                :visc-power 3d0
 
-               :initiation-stress 0.2d6
-               :damage-rate 1d-7
-               :critical-damage 0.4d0
-               :local-length 50d0
+               ;; :initiation-stress 0.2d6
+               ;; :damage-rate 1d-7
+               ;; :critical-damage 0.4d0
+               ;; :local-length 50d0
 
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm:sim-dt sim) 1d-1)
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
       ;;        (list
@@ -229,13 +229,13 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 10)
+  (let ((mesh-size 50)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
-  (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
+  ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
@@ -322,7 +322,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 10d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
@@ -387,6 +387,13 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   )
+(defun plot-disp ()
+  (let* ()
+    (vgplot:figure)
+    (vgplot:title "S_{xx} over height")
+    (vgplot:xlabel "Time (s)")
+    (vgplot:ylabel "Displacment (m)")
+    (vgplot:plot *time* *x-pos*)))
 (defun plot-s-xx (mps H)
   (let* (
          (rho-ice 900)

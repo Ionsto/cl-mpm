@@ -7,7 +7,11 @@
 ;        :cl-mpm/shape-function
         )
   (:import-from
-    :magicl tref .+ .-)
+    :magicl tref .+ .-
+    )
+  (:import-from
+   :cl-mpm/forces det-int-force det-ext-force
+   )
   (:export
     #:mpm-sim
     #:make-mpm-sim
@@ -298,101 +302,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                   (cl-mpm/particle::node-cache-grads nc))))
 
 (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/shape-function::shape-function-linear shape-func)
-           (cl-mpm/particle:particle mp))
-  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-         (h (cl-mpm/mesh:mesh-resolution mesh))
-         ;(order (slot-value shape-func 'order))
-         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
-         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec 'floor)))
-    (loop for dx from 0 to 1
-          do (loop for dy from 0 to 1
-                   do
-                   (let* ((id (mapcar #'+ pos-index (list dx dy))))
-                     (when (cl-mpm/mesh:in-bounds mesh id)
-                       (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                              (node (cl-mpm/mesh:get-node mesh id))
-                              (weight (apply (cl-mpm/shape-function::svp shape-func) dist))
-                              (grads (apply (cl-mpm/shape-function::dsvp shape-func) dist))) 
-                         (funcall func mesh mp node weight (cl-mpm/shape-function::assemble-dsvp nd grads) grads))))))))
+  (iterate-over-neighbours-shape-linear mesh mp func))
 
-(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func) (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/shape-function::shape-function-bspline shape-func)
-           (cl-mpm/particle:particle mp))
-  (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
-         (h (cl-mpm/mesh:mesh-resolution mesh))
-         (pos-vec (cl-mpm/particle:mp-position mp));Material point position 
-         (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-         (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'round))
-         (border (not (and (cl-mpm/mesh:in-bounds (mapcar #'+ pos-index (list 1 1)))
-                          (cl-mpm/mesh:in-bounds (mapcar #'- pos-index (list 1 1)))
-                          ))))
-    (if nil ;border
-        ;; Do something janky if we are in a border element
-        (loop for dx from -/1 to 1
-              do (loop for dy from -1 to 1
-                       do
-                          (let* (
-                                 (id (mapcar #'+ pos-index (list dx dy)))
-                                 (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-                                 (weight (apply (cl-mpm/shape-function:svp shape-func) dist))
-                                 (grads (apply (cl-mpm/shape-function:dsvp shape-func) dist))
-                                 )
-                            (when (cl-mpm/mesh:in-bounds mesh id)
-                              (funcall func mesh mp (cl-mpm/mesh:get-node mesh id) weight
-                                       (cl-mpm/shape-function:assemble-dsvp nd grads)))))))))
-;; (declaim (inline dispatch)
-;;          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-neighbours-shape-linear))
-(defmacro iterate-over-neighbours-general (mesh mp order body)
-  `(progn
-    (let* ((h (cl-mpm/mesh:mesh-resolution ,mesh))
-           (pos-vec (cl-mpm/particle:mp-position ,mp))
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-           (pos-index (magicl:scale pos-vec (/ 1 h)))
-           )
-      (loop for dx from (- ,order) to ,order
-            do (loop for dy from (- ,order) to ,order
-                     do (let* ((id (list (+ (round (/ (tref pos-index 0 0) h)) dx)
-                                         (+ (round (/ (tref pos-index 1 0) h)) dy))))
-                          (when (cl-mpm/mesh:in-bounds ,mesh id)
-                            (funcall ,body
-                                     ,mesh
-                                     ,mp
-                                     id
-                                     (mapcar (lambda (p i) (- p (* i h))) pos id)))))))))
-(defmacro iterate-over-neighbours-general-pure (mesh mp order args body)
-  (let ((h (gensym))
-        (pos-vec (gensym))
-        (pos (gensym))
-        (pos-index (gensym))
-        (id (gensym))
-        (dx (gensym))
-        (dy (gensym))
-        (dist (gensym)))
-    `(progn
-       (let* ((,h (cl-mpm/mesh:mesh-resolution ,mesh))
-              (,pos-vec (cl-mpm/particle:mp-position ,mp))
-              (,pos (list (tref ,pos-vec 0 0) (tref ,pos-vec 1 0)))
-              (,pos-index (magicl:scale ,pos-vec (/ 1 ,h)))
-              )
-         (loop for ,dx from (- ,order) to ,order
-               do (loop for ,dy from (- ,order) to ,order
-                        do (let* ((,id (list (+ (round (tref ,pos-index 0 0)) ,dx)
-                                             (+ (round (tref ,pos-index 1 0)) ,dy))))
-                             (when (cl-mpm/mesh:in-bounds ,mesh ,id)
-                               (let ((,dist (mapcar (lambda (p i) (- p (* i ,h))) ,pos ,id)))
-                                 (symbol-macrolet ((,(first args) ,mesh)
-                                                   (,(second args) ,mp)
-                                                   (,(third args) ,id)
-                                                   (,(fourth args) ,dist))
-                                   ,body))))))))))
-(defmacro ion-linear (number body)
-  (let ((test (expt number 2)))
-    `(+ ,test ,body))
-  ;; `(with-gensyms (exp-number-name)
-  ;;    (let (exp-number-name ,)))
-  )
+(defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-bspline) mp func)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/shape-function::shape-function-bspline shape-func))
+  (iterate-over-neighbours-shape-bspline mesh mp func))
+
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear (mesh mp func)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -535,6 +451,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defgeneric special-p2g (mp node svp dsvp)
   (:documentation "P2G behaviour for specific features")
   (:method (mp node svp dsvp)))
+
 (defmethod special-p2g ((mp cl-mpm/particle::particle-thermal) node svp dsvp)
   (with-accessors ((node-mass  cl-mpm/mesh:node-mass)
                    (node-temp  cl-mpm/mesh:node-temperature)
@@ -546,7 +463,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
                      (mp-thermal-conductivity cl-mpm/particle::mp-thermal-conductivity)
                      (mp-volume cl-mpm/particle:mp-volume)
-                     ) mp 
+                     ) mp
             (progn
               (let* ((weighted-temp (* mp-temp mp-mass svp))
                      (weighted-dtemp (* (/ mp-volume
@@ -729,6 +646,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
         ;;PIC
         #+cl-mpm-pic (aops:copy-into (magicl::storage vel) mapped-vel)
+
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
         ;; (update-domain mesh mp dt)
@@ -999,7 +917,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
-                          magicl:matrix/double-float) (values))
+                          magicl:matrix/double-float
+                           double-float) (values))
                update-strain-kirchoff))
 (defun update-strain-kirchoff (mesh mp dstrain dt)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -1386,4 +1305,5 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (ql:quickload :cl-mpm/examples/fracture)
 (in-package :cl-mpm/examples/fracture))
 ||#
+
 

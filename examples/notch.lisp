@@ -53,7 +53,7 @@
     (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :stress))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -267,21 +267,21 @@
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
-               :E 1d9
+               :E 1d8
                :nu 0.3250d0
 
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-10
+               :damage-rate 0d-10
                :critical-damage 0.4d0
                :local-length 50d0
-               :damage 0.1d0
+               :damage 0.0d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.8d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -362,7 +362,7 @@
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
+         (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
@@ -436,7 +436,8 @@
         do (progn
              (format t "Notch length ~A~%" notch-length)
              (setup notch-length)
-             (defparameter *run-sim* t)
+             ;; (setup 100)
+             ;; (defparameter *run-sim* t)
              (time (loop for steps from 0 to 40
                          while *run-sim*
                          do
@@ -746,60 +747,60 @@
 ;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
 ;  )
 
-(defun dot (x)
-  (sqrt (magicl::sum (magicl:.* x x))))
-(defun mp-sdf (mp x)
-  (with-accessors ((pos cl-mpm/particle:mp-position)
-                   (size cl-mpm/particle::mp-domain-size))
-      mp
-    (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
-      (- (dot (magicl:.- pos x)) r))))
+;; (defun dot (x)
+;;   (sqrt (magicl::sum (magicl:.* x x))))
+;; (defun mp-sdf (mp x)
+;;   (with-accessors ((pos cl-mpm/particle:mp-position)
+;;                    (size cl-mpm/particle::mp-domain-size))
+;;       mp
+;;     (let ((r (max (magicl:tref size 0 0) (magicl:tref size 1 0))))
+;;       (- (dot (magicl:.- pos x)) r))))
 
-(defun map-sdf-to-nodes ()
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps)
-                   )
-      *sim*
-    (cl-mpm::iterate-over-nodes
-     mesh
-     (lambda (n)
-       (with-accessors ((sdf cl-mpm/mesh::node-sdf)
-                        (pos cl-mpm/mesh::node-position))
-           n
-         (loop for mp across mps
-               do
-                  (let ((d (mp-sdf mp pos)))
-                    (when (< d sdf)
-                      (setf sdf d)))))
-       ))))
+;; (defun map-sdf-to-nodes ()
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps)
+;;                    )
+;;       *sim*
+;;     (cl-mpm::iterate-over-nodes
+;;      mesh
+;;      (lambda (n)
+;;        (with-accessors ((sdf cl-mpm/mesh::node-sdf)
+;;                         (pos cl-mpm/mesh::node-position))
+;;            n
+;;          (loop for mp across mps
+;;                do
+;;                   (let ((d (mp-sdf mp pos)))
+;;                     (when (< d sdf)
+;;                       (setf sdf d)))))
+;;        ))))
 
-(defun draw-state (file)
-  (declare (optimize (safety 3) (debug 3)))
-  (let* ((resolution 1)
-         (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
-         (width (round (first size) resolution))
-         (height (round (second size) resolution))
-         (png (make-instance 'zpng:png
-                              :color-type :truecolor
-                              :width width
-                              :height height))
-         (image (zpng:data-array png))
-         (max 255))
-    (lparallel:pdotimes (y height)
-      (dotimes (x width)
-        (setf
-         (aref image y x 0) 255
-         (aref image y x 1) 255
-         (aref image y x 2) 255)
-        (let ((d 1e10)
-              (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
-          (loop for mp across (cl-mpm:sim-mps *sim*)
-                do
-                   (setf d (min d (mp-sdf mp ipos))))
-          (when (< d 0d0)
-            (setf (aref image y x 0) 255
-                  (aref image y x 1) 0
-                  (aref image y x 2) 0)
-            )))
-      (zpng:write-png png file)
-      )))
+;; (defun draw-state (file)
+;;   (declare (optimize (safety 3) (debug 3)))
+;;   (let* ((resolution 1)
+;;          (size (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+;;          (width (round (first size) resolution))
+;;          (height (round (second size) resolution))
+;;          (png (make-instance 'zpng:png
+;;                               :color-type :truecolor
+;;                               :width width
+;;                               :height height))
+;;          (image (zpng:data-array png))
+;;          (max 255))
+;;     (lparallel:pdotimes (y height)
+;;       (dotimes (x width)
+;;         (setf
+;;          (aref image y x 0) 255
+;;          (aref image y x 1) 255
+;;          (aref image y x 2) 255)
+;;         (let ((d 1e10)
+;;               (ipos (magicl:scale (magicl:from-list (list x y) '(2 1) :type 'double-float) resolution)))
+;;           (loop for mp across (cl-mpm:sim-mps *sim*)
+;;                 do
+;;                    (setf d (min d (mp-sdf mp ipos))))
+;;           (when (< d 0d0)
+;;             (setf (aref image y x 0) 255
+;;                   (aref image y x 1) 0
+;;                   (aref image y x 2) 0)
+;;             )))
+;;       (zpng:write-png png file)
+;;       )))

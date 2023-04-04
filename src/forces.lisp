@@ -1,6 +1,10 @@
-(defpackage :cl-mpm
-  (:use :cl))
-(in-package :cl-mpm)
+(defpackage :cl-mpm/forces
+  (:use :cl)
+  (:export
+   #:det-int-force
+   #:det-ext-force
+   ))
+(in-package :cl-mpm/forces)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (declaim

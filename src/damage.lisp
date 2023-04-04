@@ -17,7 +17,7 @@
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 1d0) (/ 1 (max (/ 1 100) (expt (- 1d0 damage) 1.5))) rate)
       ;; (* (expt (/ (max 0d0 (- stress init-stress)) (- critical-stress init-stress)) 3d0)
       ;;    rate)
-      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate
+      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate
          ;; (/ 1d0 (- 1d0 (min damage 0.4d0)))
          )
       ;; (* (expt (/ (max 0d0 stress) critical-stress) 2d0) 1d1)
@@ -141,54 +141,54 @@
               ))))
   (values)
   )
-(defun update-damage (mp dt)
-  (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                     (damage cl-mpm/particle:mp-damage)
-                     (damage-inc cl-mpm/particle:mp-damage)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (critical-stress cl-mpm/particle:mp-critical-stress)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     ) mp
-        (progn
-          ;; (setf undamaged-stress (magicl:scale stress 1d0))
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix undamaged-stress))
-            ;; (loop for i from 0 to 1
-            ;;       do (let ((sii (nth i l)))
-            ;;            (progn
-            ;;              (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
-            (let ((s1 (loop for i from 0 to 1
-                            maximize (nth i l))))
-              (when (> s1 0d0)
-                (incf damage-increment (* (damage-rate-profile critical-stress s1 damage damage-rate) dt))))
-            (setf damage-increment (min damage-increment (- 1d0 damage)))
-            (setf damage-inc damage-increment)
-            (incf damage damage-increment)
-            (setf damage (min 1d0 (max 0d0 damage)))
-            ;;Jumping damage when hit a specific crack density
-            (when (> damage critical-damage)
-              (setf damage 1d0))
+;; (defun update-damage (mp dt)
+;;   (let ((damage-increment 0d0))
+;;     (with-accessors ((stress cl-mpm/particle:mp-stress)
+;;                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+;;                      (damage cl-mpm/particle:mp-damage)
+;;                      (damage-inc cl-mpm/particle:mp-damage)
+;;                      (damage-rate cl-mpm/particle::mp-damage-rate)
+;;                      (critical-stress cl-mpm/particle:mp-critical-stress)
+;;                      (critical-damage cl-mpm/particle::mp-critical-damage)
+;;                      ) mp
+;;         (progn
+;;           ;; (setf undamaged-stress (magicl:scale stress 1d0))
+;;           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix undamaged-stress))
+;;             ;; (loop for i from 0 to 1
+;;             ;;       do (let ((sii (nth i l)))
+;;             ;;            (progn
+;;             ;;              (incf damage-increment (* (damage-rate-profile critical-stress sii damage) dt)))))
+;;             (let ((s1 (loop for i from 0 to 1
+;;                             maximize (nth i l))))
+;;               (when (> s1 0d0)
+;;                 (incf damage-increment (* (damage-rate-profile critical-stress s1 damage damage-rate) dt))))
+;;             (setf damage-increment (min damage-increment (- 1d0 damage)))
+;;             (setf damage-inc damage-increment)
+;;             (incf damage damage-increment)
+;;             (setf damage (min 1d0 (max 0d0 damage)))
+;;             ;;Jumping damage when hit a specific crack density
+;;             (when (> damage critical-damage)
+;;               (setf damage 1d0))
 
-            ;; (loop for sii in l
-            ;;       do (when (> sii 0)
-            ;;            (setf sii (* sii (damage-profile damage)))))
+;;             ;; (loop for sii in l
+;;             ;;       do (when (> sii 0)
+;;             ;;            (setf sii (* sii (damage-profile damage)))))
 
-            ;; (setf stress (matrix-to-voight (magicl:@ v
-            ;;                                          (magicl:from-list (list (first l) 0 0 (second l)) '(2 2) :type 'double-float)
-            ;;                                          (magicl:inv v))))
-            (when (> damage 0d0)
-              ;(setf stress (magicl:scale stress (- 1d0 damage)))
-              (loop for i from 0 to 1
-                    do (let ((sii (nth i l)))
-                         (progn
-                           (when (> sii 0d0)
-                             (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
-              (setf stress (matrix-to-voight (magicl:@ v
-                                                       (magicl:from-diag l :type 'double-float)
-                                                       (magicl:inv v))))
-              )
-            )))))
+;;             ;; (setf stress (matrix-to-voight (magicl:@ v
+;;             ;;                                          (magicl:from-list (list (first l) 0 0 (second l)) '(2 2) :type 'double-float)
+;;             ;;                                          (magicl:inv v))))
+;;             (when (> damage 0d0)
+;;               ;(setf stress (magicl:scale stress (- 1d0 damage)))
+;;               (loop for i from 0 to 1
+;;                     do (let ((sii (nth i l)))
+;;                          (progn
+;;                            (when (> sii 0d0)
+;;                              (setf (nth i l) (* (nth i l) (damage-profile damage)))))))
+;;               (setf stress (matrix-to-voight (magicl:@ v
+;;                                                        (magicl:from-diag l :type 'double-float)
+;;                                                        (magicl:inv v))))
+;;               )
+;;             )))))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
   ;(update-damage mp dt)
   )
@@ -287,7 +287,7 @@
         ))
 (defun calculate-delocalised-damage (mesh mp length)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (+ 0 (ceiling length (cl-mpm/mesh:mesh-resolution mesh)))))
+        (node-reach (+ 0 (ceiling (* length 2d0) (cl-mpm/mesh:mesh-resolution mesh)))))
     (let ((damage-inc 0d0)
           (mass-total 0d0))
       (loop for dx from (- node-reach) to node-reach
@@ -302,18 +302,15 @@
                                                         (m cl-mpm/particle:mp-volume)
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
-                                         (let (
-                                               (weight (weight-func-mps mp mp-other length))
-                                               )
-                                           (incf mass-total (* weight m
-                                                               ))
+                                         (let ((weight (weight-func-mps mp mp-other length)))
+                                           (incf mass-total (* weight m))
                                            (incf damage-inc
                                                  (* (cl-mpm/particle::mp-local-damage-increment mp-other)
                                                     weight m)
                                                  )))))))))
-      (setf damage-inc (* (/ damage-inc
-                            mass-total)
-                          )))))
+      (setf damage-inc (/ damage-inc mass-total))
+      ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
+      )))
 
 (defun delocalise-damage (mesh mps dt len)
   ;; Calculate the delocalised damage for each damage particle

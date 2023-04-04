@@ -27,6 +27,16 @@
   :serial t
   :components ((:file "src/mesh")))
 
+(defsystem "cl-mpm/forces"
+  :depends-on ("magicl"
+               "cl-mpm/utils"
+               "cl-mpm/particle"
+               "cl-mpm/mesh"
+               )
+  :description "MPM forces"
+  :serial t
+  :components ((:file "src/forces")))
+
 (defsystem "cl-mpm/bc"
   :depends-on ("magicl"
                "cl-mpm/mesh"
@@ -136,6 +146,7 @@
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
                "cl-mpm/particle"
+               "cl-mpm/forces"
                "cl-mpm/output"
                "cl-mpm/eigenerosion"
                "vgplot"

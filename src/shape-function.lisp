@@ -20,8 +20,8 @@
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
-(defun shape-linear (x h)
-  (- 1d0 (abs (/ x h))))
+;; (defun shape-linear (x h)
+;;   (- 1d0 (abs (/ x h))))
 
 (declaim (inline shape-linear)
          (ftype (function (double-float double-float) double-float) shape-linear))
