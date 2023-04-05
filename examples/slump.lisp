@@ -56,7 +56,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -166,6 +166,7 @@
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
          (density 900)
+         (E 1d8)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
@@ -183,32 +184,35 @@
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic
-               :E 1d8
+                'cl-mpm/particle::particle-viscoplastic-damage
+               :E E
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 1d6
+               :visc-factor 11d6
                :visc-power 3d0
 
                ;; :initiation-stress 0.2d6
                ;; :damage-rate 1d-7
                ;; :critical-damage 0.4d0
                ;; :local-length 50d0
+               :e-0 (/ 0.2d6 E)
+               :e-f (/ 2.0d6 E)
+               :local-length 20d0
 
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
+      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
       ;;        (list
@@ -229,11 +233,11 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 50)
+  (let ((mesh-size 10)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
-  ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
+  (remove-sdf *sim* (rectangle-sdf (list 800 125) '(25 25)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
   ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -322,7 +326,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)

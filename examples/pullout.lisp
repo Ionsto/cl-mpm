@@ -1,9 +1,9 @@
 (defpackage :cl-mpm/examples/pullout
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/pullout)
 ;; (pushnew :cl-mpm-pic *features*)
 (delete :cl-mpm-pic *features*)
@@ -167,6 +167,7 @@
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
          (density 900)
+         (E 1d8)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
@@ -182,29 +183,20 @@
                density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic-damage
-               ;; 'cl-mpm/particle::particle-viscoplastic
-                ;; 'cl-mpm/particle::particle-viscoplastic-damage
-               :E 1d8
+
+               :E E
                :nu 0.3250d0
-               ;; ;; 'cl-mpm/particle::particle-elastic-damage
-               ;; :E 1d9
-               ;; :nu 0.3250d0
 
-               ;; :visc-factor 11d6
-               ;; :visc-power 3d0
+               :e-0 (/ 1d5 E)
+               :e-f (/ 10d5 E)
 
-               :initiation-stress 0.2d6
-               ;; :damage-rate 1d-9
-               ;; :damage-rate 1d-8
-               :damage-rate 0d-15
-               :critical-damage 1.0d0
-               :local-length 20d0
+               :local-length 1000d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -228,30 +220,30 @@
              )
             )
       (defparameter *pressure-inc-rate* 1d4)
-      ;; (defparameter *shear-rate* 0.1d0)
-      ;; (setf (cl-mpm:sim-bcs sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (append
-      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
-      ;;         (list
-      ;;          (cl-mpm/bc::make-bc-closure
-      ;;           '(0 0)
-      ;;           (lambda ()
-      ;;             (apply-pullout
-      ;;              sim
-      ;;              *terminus-mps*
-      ;;              *shear-rate*)
-      ;;             )
-      ;;           )))))
+      (defparameter *shear-rate* 0.10d0)
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (append
+              (map 'list #'identity (cl-mpm:sim-bcs sim))
+              (list
+               (cl-mpm/bc::make-bc-closure
+                '(0 0)
+                (lambda ()
+                  (apply-pullout
+                   sim
+                   *terminus-mps*
+                   *shear-rate*)
+                  )
+                )))))
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
          0d0
          0d0
          ))
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (list *load-bc*)))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (list *load-bc*)))
 
       sim)))
 
@@ -410,7 +402,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
@@ -431,7 +423,7 @@
                         *x-pos*)
 
                        (push
-                        (loop for mp across mps
+                        (loop for mp in *terminus-mps*
                               maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
                         *max-x*)
                        (push

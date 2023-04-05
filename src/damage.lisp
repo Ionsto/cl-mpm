@@ -25,37 +25,31 @@
    (magicl:@ (magicl:transpose strain) de strain)
    0 0))
 
+(defun calculate-e-mazar (strain)
+  (magicl:tref
+   (magicl:@ (magicl:transpose strain) de strain)
+   0 0))
+(defun calculate-e-rankine (stress E)
+  (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+    (/ (apply #'max l) E)))
+
+(defun damage-profile-linear (k e-0 e-f)
+  (* (/ e-f (- e-f e-0)) (- 1d0 (/ e-0 (max k e-0)))))
+
+(defun damage-profile-exp (k e-0 e-f)
+  (- 1d0 (* (/ e-0 k) (exp (- (/ (- k e-0) (- e-f e-0)))))))
+
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
+    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (strain-rate cl-mpm/particle::mp-velocity-rate)
-                     (critical-stress cl-mpm/particle:mp-critical-stress)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (pressure cl-mpm/particle::mp-pressure)
+                     (E-modulus cl-mpm/particle::mp-E)
+                     (def cl-mpm/particle:mp-deformation-gradient)
+                     (e cl-mpm/particle::mp-effective-strain)
                      ) mp
         (progn
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
-            (let* ((l (sort l #'>))
-                   (s_1 (- (nth 0 l) pressure))
-                   )
-              (when (> s_1 0d0)
-                (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain-rate))
-                  (let ((strain-rate (reduce #'+ (mapcar #'* l l))))
-                    (incf damage-increment (* (damage-rate-profile
-                                               critical-stress
-                                               s_1
-                                               damage
-                                               damage-rate
-                                               init-stress) dt))))
-                )
-              )
-            (when (>= damage 1d0)
-              (setf damage-increment 0d0))
-            (setf (cl-mpm/particle::mp-local-damage-increment mp)
-                  damage-increment))))))
+          (setf e (calculate-e-rankine (magicl:scale stress (/ 1 (magicl:det def))) E-modulus))
+          ))))
 (declaim
  (inline apply-damage)
  (ftype (function (cl-mpm/particle:particle double-float) (values)) apply-damage))
@@ -63,48 +57,42 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (damage-inc cl-mpm/particle::mp-damage-increment)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (e-bar cl-mpm/particle::mp-e-bar)
+                     (k cl-mpm/particle::mp-k)
+                     (e-0 cl-mpm/particle::mp-e-0)
+                     (e-f cl-mpm/particle::mp-e-f)
                      (pressure cl-mpm/particle::mp-pressure)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ) mp
         (progn
+          (let ((d-0 damage))
+            ;;Update our internal strain parameter
+            (when (> e-bar k)
+              (setf k e-bar)
+              (let ((k-linear (- (exp k) 1)))
+                (setf damage (damage-profile-exp k e-0 e-f))))
+            ;;Apply critical damage parameter
+            (when (> damage critical-damage)
+              (setf damage 1d0))
+            ;; Clamp damage
+            (setf damage (max 0d0 (min 1d0 damage)))
+            (setf damage-inc (- damage d-0)))
 
-          (incf damage damage-inc)
-          (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0))
+          ;;Only do stress decomposition when damage is nonzero
           (when (> damage 0.0d0)
-            ;; (setf stress
-            ;;       (magicl:scale stress (- 1 damage)))
-            ;;       (magicl:.- (magicl:scale stress (- 1 damage))
-            ;;                  (magicl:from-list (list (* damage pressure)
-            ;;                                          (* damage pressure)
-            ;;                                          0d0) '(3 1))
-            ;;                  )
-            ;;       )
+            ;;Apply damage onto stress
             (multiple-value-bind (l v) (magicl:eig
                                         (voight-to-matrix stress))
               (loop for i from 0 to 1
-                    do (let* ((sii (nth i l))
-                              (esii (- sii (* pressure damage)))
-                              )
-                         (when (> esii 0d0)
-                           ;; (> sii 0d0)
-                           (setf (nth i l)
-                                 (+
-                                  ;; (* sii (damage-profile damage critical-damage))
-                                  (* esii (damage-profile damage critical-damage))
-                                  ;; (* esii (- 1d0 damage))
-                                  ;; pressure
-                                  ;; 0d0
-                                  (* damage pressure)
-                                  )
-                                 ))))
-              (setf stress (matrix-to-voight (magicl:@ v
-                                                       (magicl:from-diag l :type 'double-float)
-                                                       (magicl:transpose v))))
-              ))))
+                    do (let* ((sii (nth i l)))
+                         (when (> sii 0d0)
+                           (setf (nth i l) (* sii (- 1d0 damage))))))
+              (setf stress (matrix-to-voight (magicl:@
+                                              v
+                                              (magicl:from-diag l :type 'double-float)
+                                              (magicl:transpose v))))))))
   (values)
   )
 
@@ -121,6 +109,7 @@
     (lparallel:pdotimes (i (length mps))
       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
         (apply-damage (aref mps i) dt))))
+
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
         mesh
@@ -224,22 +213,18 @@
                                          (let ((weight (* v (weight-func-mps mp mp-other length))))
                                            (incf mass-total weight)
                                            (incf damage-inc
-                                                 (* (cl-mpm/particle::mp-local-damage-increment mp-other)
+                                                 (* (cl-mpm/particle::mp-effective-strain mp-other)
                                                     weight)
                                                  )))))))))
-      (setf damage-inc (/ damage-inc mass-total))
-      ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
-      )))
+      (setf damage-inc (/ damage-inc mass-total)))))
 
 (defun delocalise-damage (mesh mps dt len)
-  ;; Calculate the delocalised damage for each damage particle
+  "Calculate the delocalised effective strain of each MP"
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (when (typep mp 'cl-mpm/particle:particle-damage)
-        (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
-                         (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
+        (with-accessors ((e-bar cl-mpm/particle::mp-e-bar)
                          (local-length cl-mpm/particle::mp-local-length)
                          )
             mp
-          (setf damage-inc (calculate-delocalised-damage mesh mp local-length))
-          )))))
+          (setf e-bar (calculate-delocalised-damage mesh mp local-length)))))))

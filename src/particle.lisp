@@ -229,21 +229,35 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
-   (y-bar
-    :accessor mp-y-bar
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-   (y
-    :accessor mp-y
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-
-   (local-damage-increment
-    :accessor mp-local-damage-increment
-    :type DOUBLE-FLOAT
-    :initform 0d0)
    (damage-increment
     :accessor mp-damage-increment
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (critical-damage
+    :accessor mp-critical-damage
+    :type DOUBLE-FLOAT
+    :initarg :critical-damage
+    :initform 1d0)
+   (effective-strain
+    :accessor mp-effective-strain
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (e-bar
+    :accessor mp-e-bar
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (e-0
+    :accessor mp-e-0
+    :type DOUBLE-FLOAT
+    :initarg :e-0
+    :initform 0d0)
+   (e-f
+    :accessor mp-e-f
+    :type DOUBLE-FLOAT
+    :initarg :e-f
+    :initform 0d0)
+   (k
+    :accessor mp-k
     :type DOUBLE-FLOAT
     :initform 0d0)
 
@@ -251,34 +265,13 @@
     :accessor mp-undamaged-stress
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(3 1)))
-   (initiation-stress
-    :accessor mp-initiation-stress
-    :type DOUBLE-FLOAT
-    :initarg :initiation-stress
-    :initform 0d0)
-   (critical-stress
-    :accessor mp-critical-stress
-    :type DOUBLE-FLOAT
-    :initarg :critical-stress
-    :initform 0d0)
-   (damage-rate
-    :accessor mp-damage-rate
-    :type DOUBLE-FLOAT
-    :initarg :damage-rate
-    :initform 0d0)
-   (critical-damage
-    :accessor mp-critical-damage
-    :type DOUBLE-FLOAT
-    :initarg :critical-damage
-    :initform 1d0)
    (local-length
     :accessor mp-local-length
     :type DOUBLE-FLOAT
     :initarg :local-length
     :initform 1d0)
-
    )
-  (:documentation "A material point with a damage tensor"))
+  (:documentation "A material point with isotropic damage"))
 (defclass particle-thermal (particle)
   (
    (temperature
