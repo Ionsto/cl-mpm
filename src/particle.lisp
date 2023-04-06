@@ -265,6 +265,10 @@
     :type DOUBLE-FLOAT
     :initarg :critical-damage
     :initform 1d0)
+   (damage-ybar
+    :accessor mp-damage-ybar
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (local-length
     :accessor mp-local-length
     :type DOUBLE-FLOAT

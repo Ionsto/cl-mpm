@@ -196,20 +196,20 @@
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 0d-15
+               :damage-rate 1d-10
                :critical-damage 1.0d0
-               :local-length 20d0
+               :local-length 1000d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-1)
       ;; (setf (cl-mpm::sim-bcs-force sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
       ;;        (list
@@ -228,7 +228,7 @@
              )
             )
       (defparameter *pressure-inc-rate* 1d4)
-      ;; (defparameter *shear-rate* 0.1d0)
+      (defparameter *shear-rate* 0.1d0)
       ;; (setf (cl-mpm:sim-bcs sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
       ;;        (append
@@ -246,7 +246,7 @@
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         0d0
+         3d5
          0d0
          ))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -258,9 +258,8 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  ;
   (let ((mesh-size 50)
-        (mps-per-cell 4))
+        (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
@@ -405,12 +404,14 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
+  ;; (dotimes (i 1000)
+  ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 10d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
@@ -450,8 +451,8 @@
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
-                               (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                                     (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                               ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
                                (cl-mpm::update-sim *sim*)
                                (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
