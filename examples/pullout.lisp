@@ -196,9 +196,9 @@
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-10
+               :damage-rate 1d-9
                :critical-damage 1.0d0
-               :local-length 1000d0
+               :local-length 50d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -246,7 +246,7 @@
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         3d5
+         0d5
          0d0
          ))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -259,14 +259,14 @@
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 50)
-        (mps-per-cell 2))
+        (mps-per-cell 4))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
     ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 1000 mesh-size)
                                            (list 500 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    ;; (damage-sdf *sim* (rectangle-sdf '(250 0) (list 20 mesh-size)) 0.1d0)
+    (damage-sdf *sim* (rectangle-sdf '(250 0) (list mesh-size mesh-size)) 0.1d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -411,7 +411,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -436,9 +436,10 @@
                               maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
                         *max-x*)
                        (push
-                        (/ (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
-                           (length mps))
+                        (/ (loop for mp in *far-field-mps*
+                                 sum
+                                 (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+                           (length *far-field-mps*))
                         *max-stress*)
                        (push
                         (/ (loop for mp across mps
@@ -451,8 +452,8 @@
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
-                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                               ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                               (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                     (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
                                (cl-mpm::update-sim *sim*)
                                (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))

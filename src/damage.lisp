@@ -77,7 +77,8 @@
                     do (let* ((sii (nth i l))
                               (esii (- sii (* pressure damage)))
                               )
-                         (when (> esii 0d0)
+                         (when (> sii 0d0)
+                           (setf (nth i l) (* sii (- 1 damage)))
                            ;; (setf (nth i l)
                            ;;       (+
                            ;;        (* esii (damage-profile damage critical-damage))
