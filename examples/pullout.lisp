@@ -198,7 +198,7 @@
                ;; :damage-rate 1d-8
                :damage-rate 1d-9
                :critical-damage 1.0d0
-               :local-length 1000d0
+               :local-length 50d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -246,7 +246,7 @@
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         4d5
+         0d5
          0d0
          ))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -259,7 +259,7 @@
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 50)
-        (mps-per-cell 2))
+        (mps-per-cell 4))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
@@ -413,7 +413,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -438,9 +438,10 @@
                               maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
                         *max-x*)
                        (push
-                        (/ (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
-                           (length mps))
+                        (/ (loop for mp in *far-field-mps*
+                                 sum
+                                 (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+                           (length *far-field-mps*))
                         *max-stress*)
                        (push
                         (/ (loop for mp across mps
