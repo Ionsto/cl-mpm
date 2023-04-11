@@ -23,7 +23,7 @@
 
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors ((stress cl-mpm/particle::mp-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (strain-rate cl-mpm/particle::mp-velocity-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
@@ -36,12 +36,14 @@
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
             (let* ((l (sort l #'>))
-                   (s_1 (- (nth 0 l) pressure)))
+                   (s_1 (- (nth 0 l) (* 1 pressure))))
+              ;; (setf damage-increment 0)
               (setf damage-increment s_1)
-              ;; (when (> s_1 0d0)
-              ;;   (setf damage-increment s_1)
-              ;;   )
-              )
+              (when (> s_1 0)
+                (when (< damage 1)
+                  (setf damage-increment (/ s_1 (- 1 damage))))))
+            (when (= damage 1)
+              (setf damage-increment 0d0))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             )))))
 
@@ -75,15 +77,16 @@
                                         (voight-to-matrix stress))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
-                              (esii (- sii (* pressure damage)))
+                              (esii (- sii
+                                       (* pressure 1)))
                               )
                          (when (> esii 0d0)
-                           ;; (setf (nth i l)
-                           ;;       (+
-                           ;;        (* esii (damage-profile damage critical-damage))
-                           ;;        (* damage pressure)
-                           ;;        )
-                           ;;       )
+                           (setf (nth i l)
+                                 (+
+                                  (* esii (- 1d0 damage))
+                                  (* 1 pressure)
+                                  )
+                                 )
                            )))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)

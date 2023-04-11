@@ -272,7 +272,7 @@
 
 
                :initiation-stress 0.2d6
-               :damage-rate 0d-10
+               :damage-rate 1d-6
                :critical-damage 0.4d0
                :local-length 50d0
                :damage 0.0d0
@@ -281,10 +281,10 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.8d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
@@ -356,7 +356,7 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 50))
+(defun setup (&optional (notch-length 100))
   (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120

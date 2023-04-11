@@ -196,7 +196,7 @@
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-10
+               :damage-rate 1d-9
                :critical-damage 1.0d0
                :local-length 1000d0
                :gravity 0d0;-9.8d0
@@ -204,7 +204,7 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -227,7 +227,7 @@
              ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
              )
             )
-      (defparameter *pressure-inc-rate* 1d4)
+      (defparameter *pressure-inc-rate* 0d4)
       (defparameter *shear-rate* 0.1d0)
       ;; (setf (cl-mpm:sim-bcs sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
@@ -246,7 +246,7 @@
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         3d5
+         4d5
          0d0
          ))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -266,7 +266,9 @@
     ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 1000 mesh-size)
                                            (list 500 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    ;; (damage-sdf *sim* (rectangle-sdf '(250 0) (list 20 mesh-size)) 0.1d0)
+    ;; (damage-sdf *sim* (rectangle-sdf '(250 0) (list
+    ;;                                            (* 1 mesh-size)
+    ;;                                            mesh-size)) 0.1d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -445,14 +447,15 @@
                                  sum (cl-mpm/particle::mp-damage mp))
                            (length mps))
                         *max-damage*)
-                       (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
-                         (when (>= m-d 1d0)
-                           (setf *run-sim* nil))))
+                       ;; (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
+                       ;;   (when (>= m-d 1d0)
+                       ;;     (setf *run-sim* nil)))
+                       )
 
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
-                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                               ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                               (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                     (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
                                (cl-mpm::update-sim *sim*)
                                (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
@@ -467,6 +470,12 @@
                            ;; (setf substeps substeps-e)
                            )
                          )
+                     (with-accessors ((mps cl-mpm:sim-mps))
+                         *sim*
+                         (let ((m-d (loop for mp across mps maximize
+                                                            (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))))
+                           (when (>= m-d 100)
+                             (setf *run-sim* nil))))
                      ;; (setf (cl-mpm:sim-damping-factor *sim*) (max 0.1d0 (/ (cl-mpm:sim-damping-factor *sim*) 1.1d0)))
                      ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                      (incf *sim-step*)
@@ -480,6 +489,19 @@
                      ))))
   (plot-stress-damage-time)
   )
+(defun plot-damage ()
+    (let ((x (loop for mp in *bottom-mps*
+                   collect (magicl:tref
+                            (cl-mpm/particle:mp-position mp)
+                            0 0)))
+          (d (loop for mp in *bottom-mps*
+                   collect (cl-mpm/particle:mp-damage mp)))
+          )
+      (vgplot:figure)
+      (vgplot:plot
+       x d "damage"
+       )
+    ))
 (defun plot-stress-damage-time ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
