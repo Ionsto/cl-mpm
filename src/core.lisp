@@ -1203,7 +1203,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;; (split-criteria mp h)
                                 ))) mps)))
     ))
 (defun split-criteria (mp h)

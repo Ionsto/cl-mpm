@@ -199,7 +199,7 @@
 (defun save-csv (filename sim)
   (with-accessors ((mps cl-mpm:sim-mps)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
-      (format fs "coord_x,coord_y,stress_xx,stress_yy,tau_xy,velocity_x,velocity_y,stress_1,damage~%")
+      (format fs "coord_x,coord_y,stress_xx,stress_yy,tau_xy,velocity_x,velocity_y,stress_1,eps,damage~%")
       (loop for mp across mps
             do (format fs "~E, ~E, ~F, ~F, ~F, ~F, ~F, ~F, ~F ~%"
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
@@ -212,6 +212,9 @@
                        (coerce (multiple-value-bind (l v)
                                    (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                                  (loop for sii in l maximize sii)) 'single-float)
+                       (coerce
+                        (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                          (- (apply #'max l) (cl-mpm/particle::mp-pressure mp))) 'single-float)
                        (coerce (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle:mp-damage mp)
                             0d0) 'single-float)
