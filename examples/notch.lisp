@@ -271,21 +271,21 @@
                :nu 0.3250d0
 
 
-               :initiation-stress 0.2d6
-               :damage-rate 1d-6
-               :critical-damage 0.4d0
-               :local-length 50d0
-               :damage 0.0d0
+               ;; :initiation-stress 0.2d6
+               ;; :damage-rate 1d-6
+               ;; :critical-damage 0.4d0
+               ;; :local-length 50d0
+               ;; :damage 0.0d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append
@@ -357,11 +357,11 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 1000)
+  (let* ((shelf-length 2000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
-         (notch-depth 30);0
+         (notch-depth 00);0
          (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
@@ -562,7 +562,7 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                  ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
+                  ;; (cl-mpm/output:save-csv (merge-pathnames (forma
 
                   (push *t* *time*)
                   ;; (setf *x*

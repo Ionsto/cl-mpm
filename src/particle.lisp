@@ -635,7 +635,6 @@
        stress
        (objectify-stress-logspin
         (if (> viscosity 0d0)
-            ;; (cl-mpm/constitutive::maxwell-exp-v strain-rate stress E nu de viscosity dt)
             (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
             (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
         stress
