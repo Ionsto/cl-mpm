@@ -11,7 +11,7 @@
 (defun damage-rate-profile (stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate)
       0d0)
   )
 
@@ -31,19 +31,31 @@
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (pressure cl-mpm/particle::mp-pressure)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
                      ;(damage-driving-factor cl-mpm/particle::mp-damage-driving-factor)
                      ) mp
         (progn
           (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
             (let* ((l (sort l #'>))
-                   (s_1 (- (nth 0 l) (* 1 pressure))))
+                   (s_1 (- (nth 0 l) (* 1 pressure)))
+                   (s_2 (- (nth 1 l) pressure))
+                   (s_1 (max 0 s_1))
+                   (s_2 (max 0 s_2))
+                   (vm (sqrt (+ (* s_1 s_1) (* s_2 s_2) (* s_1 s_2 -1))))
+                   )
               ;; (setf damage-increment 0)
               (setf damage-increment s_1)
-              (when (> s_1 0)
+              ;; (when (> s_1 0)
+              ;;   (when (< damage 1)
+              ;;     (setf damage-increment (/ s_1 (- 1 damage)))))
+              (when (> vm 0)
                 (when (< damage 1)
-                  (setf damage-increment (/ s_1 (- 1 damage))))))
+                  (setf damage-increment vm)))
+              )
             (when (= damage 1)
               (setf damage-increment 0d0))
+
+            (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             )))))
 
@@ -55,7 +67,6 @@
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -64,8 +75,8 @@
                      ) mp
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
-          (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
+          ;; (setf ybar damage-inc)
+          ;; (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0))
           (incf damage damage-inc)
@@ -85,8 +96,8 @@
                                  (+
                                   (* esii (- 1d0 damage))
                                   (* 1 pressure)
-                                  )
-                                 )))
+                                  ))
+                           ))
               (setf stress (matrix-to-voight (magicl:@ v
                                                        (magicl:from-diag l :type 'double-float)
                                                        (magicl:transpose v))))
@@ -202,16 +213,17 @@
                             (let ((node (cl-mpm/mesh:get-node mesh idx)))
                               (loop for mp-other across (cl-mpm/mesh::node-local-list node)
                                     do
-                                       (with-accessors ((l-d cl-mpm/particle::mp-local-damage)
+                                       (with-accessors ((d cl-mpm/particle::mp-damage)
                                                         (m cl-mpm/particle:mp-volume)
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
-                                         (let ((weight (weight-func-mps mp mp-other length)))
-                                           (incf mass-total (* weight m))
-                                           (incf damage-inc
-                                                 (* (cl-mpm/particle::mp-local-damage-increment mp-other)
-                                                    weight m)
-                                                 )))))))))
+                                         (when (< d 1)
+                                           (let ((weight (weight-func-mps mp mp-other length)))
+                                             (incf mass-total (* weight m))
+                                             (incf damage-inc
+                                                   (* (cl-mpm/particle::mp-local-damage-increment mp-other)
+                                                      weight m)
+                                                   ))))))))))
       (setf damage-inc (/ damage-inc mass-total))
       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
       )))

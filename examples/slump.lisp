@@ -183,36 +183,32 @@
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic
+                'cl-mpm/particle::particle-viscoplastic-damage
                :E 1d8
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 1d6
+               :visc-factor 11d6
                :visc-power 3d0
 
-               ;; :initiation-stress 0.2d6
-               ;; :damage-rate 1d-7
-               ;; :critical-damage 0.4d0
-               ;; :local-length 50d0
+               :initiation-stress 0.2d6
+               :damage-rate 1d-7
+               :critical-damage 0.4d0
+               :local-length 50d0
 
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (list
-      ;;         (cl-mpm/buoyancy::make-bc-buoyancy sim (* (second block-size) 0.5d0) 1000d0))))
+      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -220,8 +216,6 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
-             ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
              )
             )
       sim)))
@@ -229,7 +223,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 50)
+  (let ((mesh-size 20)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
@@ -322,7 +316,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
@@ -368,13 +362,13 @@
                      (plot *sim*)
                      (swank.live:update-swank)
                      (sleep .01)
-                     (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
-                       (format stream "~f, ~f ~%" *t* *x*)
-                       )
 
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
   (plot-s-xx *far-field-mps* 125d0)
+  ;; (with-open-file (stream (merge-pathnames "output/far-field-stress.csv") :direction :output :if-exists :append)
+  ;;   (format stream "~f, ~f ~%" *t* *x*)
+  ;;   )
 ;  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
   ;; (vgplot:figure)
   ;; (vgplot:title "Terminus over time")
@@ -386,6 +380,30 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
+
+  (with-open-file (stream (merge-pathnames "output/far-field.csv") :direction :output :if-exists :supersede)
+    (format stream "y,s_xx,s_an~%")
+    (let* ((mps *far-field-mps*)
+           (H 125)
+           (rho-ice 900)
+           (E (cl-mpm/particle::mp-e (first mps)))
+           (nu (cl-mpm/particle::mp-nu (first mps)))
+           (g (cl-mpm/particle::mp-gravity (first mps)))
+           (s-xx (loop for mp in mps
+                       collect
+                       (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
+           (y (loop for mp in mps
+                    collect
+                    (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
+           (s-an (mapcar
+                  (lambda (y)
+                    (* (/ nu (- 1 nu)) rho-ice g -1d0 (- y (/ H 2d0))))
+                  y)))
+      (loop for yi in y
+            for si in s-xx
+            for sai in s-an
+            do
+               (format stream "~f, ~f, ~f ~%" yi si sai))))
   )
 (defun plot-disp ()
   (let* ()

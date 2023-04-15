@@ -196,7 +196,7 @@
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-9
+               :damage-rate 1d-7
                :critical-damage 1.0d0
                :local-length 50d0
                :gravity 0d0;-9.8d0
@@ -204,18 +204,12 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1.5d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-1)
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (list
-      ;;         (cl-mpm/bc::make-bc-closure '(0 0)
-      ;;                                     (lambda ()
-      ;;                                       (cl-mpm/buoyancy::apply-bouyancy sim 200d0))))))
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -223,11 +217,8 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i
-             ;; (magicl:from-list '(0d0 1d0) '(2 1)) 0.25d0))
              )
             )
-      (defparameter *pressure-inc-rate* 0d4)
       (defparameter *shear-rate* 0.1d0)
       ;; (setf (cl-mpm:sim-bcs sim)
       ;;       (cl-mpm/bc:make-bcs-from-list
@@ -243,6 +234,7 @@
       ;;              *shear-rate*)
       ;;             )
       ;;           )))))
+      (defparameter *pressure-inc-rate* 1d3)
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
@@ -258,17 +250,17 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 50)
-        (mps-per-cell 4))
+  (let ((mesh-size 10)
+        (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
     ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 1000 mesh-size)
                                            (list 500 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    ;; (damage-sdf *sim* (rectangle-sdf '(250 0) (list
-    ;;                                            (* 1 mesh-size)
-    ;;                                            mesh-size)) 0.1d0)
+    (damage-sdf *sim* (rectangle-sdf '(250 0) (list
+                                               50
+                                               mesh-size)) 0.10d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -490,6 +482,22 @@
                      ))))
   (plot-stress-damage-time)
   )
+(defun plot-velocity ()
+  (let ((x (loop for mp in *bottom-mps*
+                 collect (magicl:tref
+                          (cl-mpm/particle:mp-position mp)
+                          0 0)))
+        (v (loop for mp in *bottom-mps*
+                 collect (magicl:tref
+                          (cl-mpm/particle:mp-velocity mp)
+                          0 0)))
+
+        )
+    (vgplot:figure)
+    (vgplot:axis '(t t 0 t))
+    (vgplot:plot
+     x v "velocity"
+     )))
 (defun plot-damage ()
     (let ((x (loop for mp in *bottom-mps*
                    collect (magicl:tref
@@ -499,10 +507,10 @@
                    collect (cl-mpm/particle:mp-damage mp)))
           )
       (vgplot:figure)
+      (vgplot:axis '(t t 0 1))
       (vgplot:plot
        x d "damage"
-       )
-    ))
+       )))
 (defun plot-stress-damage-time ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*

@@ -227,7 +227,7 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline)) 
+                                        #'cl-mpm/shape-function:make-shape-function-bspline))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -271,11 +271,11 @@
                :nu 0.3250d0
 
 
-               ;; :initiation-stress 0.2d6
-               ;; :damage-rate 1d-6
-               ;; :critical-damage 0.4d0
-               ;; :local-length 50d0
-               ;; :damage 0.0d0
+               :initiation-stress 0.2d6
+               :damage-rate 1d-6
+               :critical-damage 0.4d0
+               :local-length 50d0
+               :damage 0.0d0
 
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -284,8 +284,8 @@
       (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append
@@ -357,11 +357,11 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 2000)
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
-         (notch-depth 00);0
+         (notch-depth 30);0
          (mesh-size 20)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
