@@ -201,7 +201,7 @@
     (with-open-file (fs filename :direction :output :if-exists :supersede)
       (format fs "coord_x,coord_y,stress_xx,stress_yy,tau_xy,velocity_x,velocity_y,stress_1,eps,damage~%")
       (loop for mp across mps
-            do (format fs "~E, ~E, ~F, ~F, ~F, ~F, ~F, ~F, ~F ~F ~%"
+            do (format fs "~E, ~E, ~F, ~F, ~F, ~F, ~F, ~F, ~F, ~F ~%"
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0) 'single-float)
