@@ -57,7 +57,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -161,7 +161,7 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline)) 
+                                        #'cl-mpm/shape-function:make-shape-function-bspline))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -196,20 +196,20 @@
                :initiation-stress 0.2d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-7
-               :critical-damage 1.0d0
-               :local-length 50d0
+               :damage-rate 1d-9
+               :critical-damage 0.5d0
+               :local-length 10d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-3)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -234,7 +234,9 @@
       ;;              *shear-rate*)
       ;;             )
       ;;           )))))
-      (defparameter *pressure-inc-rate* 1d3)
+      (defparameter *pressure-inc-rate* 0d3)
+      (defparameter *fatigue-load* 3d5)
+      (defparameter *fatigue-period* 8d0)
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
@@ -250,17 +252,17 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 10)
+  (let ((mesh-size 0.5)
         (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
     ;;Setup 1d pullout
-    (defparameter *sim* (setup-test-column (list 1000 mesh-size)
-                                           (list 500 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (damage-sdf *sim* (rectangle-sdf '(250 0) (list
-                                               50
-                                               mesh-size)) 0.10d0)
+    (defparameter *sim* (setup-test-column (list 10 mesh-size)
+                                           (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    ;; (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
+    ;;                                            1
+    ;;                                            mesh-size)) 0.10d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -401,7 +403,7 @@
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
@@ -445,30 +447,36 @@
                        ;;     (setf *run-sim* nil)))
                        )
 
-                     (let ((cfl 0))
                        (time (dotimes (i substeps)
-                               (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                                     (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                               ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                               (setf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                     (* *fatigue-load* (sin (/ (* *t* 2 3.14) *fatigue-period*))))
                                (cl-mpm::update-sim *sim*)
-                               (setf cfl (max cfl (find-max-cfl *sim*)))
+                               ;; (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
                        ;; (setf cfl (find-max-cfl *sim*))
-                       (format t "CFL: ~f~%" cfl)
-                       (push cfl *cfl-max*)
-                         (multiple-value-bind (dt-e substeps-e) (calculate-dt cfl 1d-3 target-time)
-                           (format t "CFL dt estimate: ~f~%" dt-e)
-                           (format t "CFL step count estimate: ~D~%" substeps-e)
-                           (push cfl *cfl-max*)
-                           ;; (setf (cl-mpm:sim-dt *sim*) dt-e)
-                           ;; (setf substeps substeps-e)
-                           )
-                         )
+                       ;; (format t "CFL: ~f~%" cfl)
+                       ;; (push cfl *cfl-max*)
+                       ;;   (multiple-value-bind (dt-e substeps-e) (calculate-dt cfl 1d-3 target-time)
+                       ;;     (format t "CFL dt estimate: ~f~%" dt-e)
+                       ;;     (format t "CFL step count estimate: ~D~%" substeps-e)
+                       ;;     (push cfl *cfl-max*)
+                       ;;     ;; (setf (cl-mpm:sim-dt *sim*) dt-e)
+                       ;;     ;; (setf substeps substeps-e)
+                       ;;     )
+                       ;;   )
                      (with-accessors ((mps cl-mpm:sim-mps))
                          *sim*
                          (let ((m-d (loop for mp across mps maximize
                                                             (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))))
                            (when (>= m-d 100)
-                             (setf *run-sim* nil))))
+                             (setf *run-sim* nil)))
+                       (let ((d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
+                         (when (>= d 1d0)
+                           (setf *run-sim* nil)))
+
+                       )
                      ;; (setf (cl-mpm:sim-damping-factor *sim*) (max 0.1d0 (/ (cl-mpm:sim-damping-factor *sim*) 1.1d0)))
                      ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                      (incf *sim-step*)
@@ -557,7 +565,7 @@
   (vgplot:title "CFL over time")
   (vgplot:plot *time* *cfl-max*))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 
 (defun profile ()
   (sb-profile:unprofile)

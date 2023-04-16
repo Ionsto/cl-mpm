@@ -11,7 +11,7 @@
 (defun damage-rate-profile (stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate)
       0d0)
   )
 
@@ -45,12 +45,13 @@
                    )
               ;; (setf damage-increment 0)
               (setf damage-increment s_1)
-              ;; (when (> s_1 0)
-              ;;   (when (< damage 1)
-              ;;     (setf damage-increment (/ s_1 (- 1 damage)))))
-              (when (> vm 0)
+              (when (> s_1 0)
                 (when (< damage 1)
-                  (setf damage-increment vm)))
+                  ;; (setf damage-increment s_1))
+                  (setf damage-increment (/ s_1 (- 1 damage)))))
+              ;; (when (> vm 0)
+              ;;   (when (< damage 1)
+              ;;     (setf damage-increment vm)))
               )
             (when (= damage 1)
               (setf damage-increment 0d0))
@@ -228,6 +229,15 @@
       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
       )))
 
+(declaim
+ (ftype
+  (function (cl-mpm/mesh::mesh
+             (array cl-mpm/particle::particle)
+             double-float
+             double-float
+             )
+            (values))
+  delocalise-damage))
 (defun delocalise-damage (mesh mps dt len)
   ;; Calculate the delocalised damage for each damage particle
   (lparallel:pdotimes (i (length mps))
@@ -239,4 +249,5 @@
                          )
             mp
           (setf damage-inc (calculate-delocalised-damage mesh mp local-length))
-          )))))
+          ))))
+  (values))
