@@ -57,7 +57,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -181,23 +181,23 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic-damage
+               ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                ;; 'cl-mpm/particle::particle-viscoplastic-damage
-               :E 1d8
+                'cl-mpm/particle::particle-viscoplastic-damage
+               :E 1d9
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               ;; :visc-factor 11d6
-               ;; :visc-power 3d0
+               :visc-factor 11d6
+               :visc-power 3d0
 
-               :initiation-stress 0.2d6
+               :initiation-stress 0.33d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-9
-               :critical-damage 0.5d0
+               :damage-rate 1d-11
+               :critical-damage 0.544d0
                :local-length 10d0
                :gravity 0d0;-9.8d0
 
@@ -205,7 +205,7 @@
                  :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-18)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
@@ -235,12 +235,12 @@
       ;;             )
       ;;           )))))
       (defparameter *pressure-inc-rate* 0d3)
-      (defparameter *fatigue-load* 3d5)
+      (defparameter *fatigue-load* 0d5)
       (defparameter *fatigue-period* 8d0)
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         0d5
+         0.93d6
          0d0
          ))
       (setf (cl-mpm::sim-bcs-force sim)
@@ -252,7 +252,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 0.5)
+  (let ((mesh-size 1)
         (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
@@ -403,11 +403,11 @@
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 0.010d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 200
                 while *run-sim*
                 do
                    (progn
@@ -447,14 +447,22 @@
                        ;;     (setf *run-sim* nil)))
                        )
 
-                       (time (dotimes (i substeps)
-                               ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                               ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
-                               (setf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                                     (* *fatigue-load* (sin (/ (* *t* 2 3.14) *fatigue-period*))))
-                               (cl-mpm::update-sim *sim*)
-                               ;; (setf cfl (max cfl (find-max-cfl *sim*)))
-                               (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                       (time (loop for i from 1 to substeps
+                                   while *run-sim*
+                                   do
+                                      (progn
+                                        (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                              (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                                        ;; (setf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                        ;;       (* *fatigue-load* (sin (/ (* *t* 2 3.14) *fatigue-period*))))
+                                        (cl-mpm::update-sim *sim*)
+                                        (with-accessors ((mps cl-mpm:sim-mps))
+                                            *sim*
+                                          (loop for mp across mps
+                                                when (>= (cl-mpm/particle::mp-damage mp) 1d0)
+                                                  do (setf *run-sim* nil)))
+                                        ;; (setf cfl (max cfl (find-max-cfl *sim*)))
+                                        (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                        ;; (setf cfl (find-max-cfl *sim*))
                        ;; (format t "CFL: ~f~%" cfl)
                        ;; (push cfl *cfl-max*)
@@ -488,7 +496,8 @@
                        )
 
                      ))))
-  (plot-stress-damage-time)
+  ;; (plot-stress-damage-time)
+  (plot-creep-damage)
   )
 (defun plot-velocity ()
   (let ((x (loop for mp in *bottom-mps*
@@ -519,17 +528,44 @@
       (vgplot:plot
        x d "damage"
        )))
+(defun plot-creep-damage ()
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let* ((s-y 0.2d6)
+          (s-x (first *max-x*))
+          (len 500d0)
+          (max-time (reduce #'max *time*))
+          (df (lisp-stat:read-csv
+	             (uiop:read-file-string #P"creep.csv")))
+          (max-time-data (reduce #'max (lisp-stat:column df 'time)))
+          )
+      (vgplot:figure)
+      (vgplot:xlabel "Normalised time to failure")
+      (vgplot:ylabel "Damage")
+      (vgplot:plot
+       (mapcar (lambda (x) (/ x max-time)) *time*) *max-damage* "MPM"
+       (aops:each (lambda (x) (/ x max-time-data)) (lisp-stat:column df 'time)) (lisp-stat:column df 'damage) "data - 0.93"
+       )
+      )
+    ))
 (defun plot-stress-damage-time ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
     (let ((s-y 0.2d6)
           (s-x (first *max-x*))
-          (len 500d0))
+          (len 500d0)
+          (df (lisp-stat:read-csv
+	             (uiop:read-file-string #P"creep.csv"))))
       (vgplot:figure)
       (vgplot:plot
        *time* (mapcar (lambda (x) (/ x s-x)) *max-x*) "Far field extension"
        *time* (mapcar (lambda (x) (/ x s-y)) *max-stress*) "max stress"
        *time* *max-damage* "max damage"
+       )
+      (vgplot:figure)
+      (vgplot:plot
+       *time* *max-damage* "max damage"
+       ;; (aops:each (lambda (x) (* x (/ 150 111))) (lisp-stat:column df 'time) ) (lisp-stat:column df 'damage) "0.93"
        )
       (vgplot:figure)
       (vgplot:plot

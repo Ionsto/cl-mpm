@@ -11,7 +11,7 @@
 (defun damage-rate-profile (stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 1.8d0) rate)
       0d0)
   )
 
