@@ -183,20 +183,20 @@
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic-damage
-               :E 1d9
+                'cl-mpm/particle::particle-elastic-damage
+               :E 1d8
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 11d6
-               :visc-power 3d0
+               ;; :visc-factor 111d6
+               ;; :visc-power 3d0
 
                :initiation-stress 0.33d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-11
+               :damage-rate 1d-13
                :critical-damage 0.544d0
                :local-length 10d0
                :gravity 0d0;-9.8d0
@@ -204,12 +204,12 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-18)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -252,7 +252,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 1)
+  (let ((mesh-size 5)
         (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
@@ -403,7 +403,7 @@
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 0.010d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
