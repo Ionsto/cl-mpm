@@ -272,7 +272,7 @@
 
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-6
+               :damage-rate 1d-10
                :critical-damage 0.4d0
                :local-length 50d0
                :damage 0.0d0
@@ -562,6 +562,7 @@
                 (progn
                   (format t "Step ~d ~%" steps)
                   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
                   ;; (cl-mpm/output:save-csv (merge-pathnames (forma
 
                   (push *t* *time*)

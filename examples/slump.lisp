@@ -56,7 +56,7 @@
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -194,8 +194,8 @@
                :visc-power 3d0
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-7
-               :critical-damage 0.4d0
+               :damage-rate 1d-12
+               :critical-damage 0.5d0
                :local-length 50d0
 
                :gravity -9.8d0
@@ -223,9 +223,9 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20)
+  (let ((mesh-size 50)
         (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
+    (defparameter *sim* (setup-test-column '(1500 500) '(1000 400) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
