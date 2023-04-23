@@ -5,9 +5,9 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/pullout)
-(pushnew :cl-mpm-pic *features*)
-;(delete :cl-mpm-pic *features*)
-;;(asdf:compile-system :cl-mpm :force T)
+;; (pushnew :cl-mpm-pic *features*)
+(delete :cl-mpm-pic *features*)
+;; (asdf:compile-system :cl-mpm :force T)
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
@@ -198,7 +198,7 @@
                ;; :damage-rate 1d-8
                :damage-rate 1d-13
                :critical-damage 0.544d0
-               :local-length 0.5d0
+               :local-length 10d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
@@ -209,7 +209,7 @@
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -219,42 +219,40 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              )
             )
-      (defparameter *shear-rate* .1d0)
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (append
-              (map 'list #'identity (cl-mpm:sim-bcs sim))
-              (list
-               (cl-mpm/bc::make-bc-closure
-                '(0 0)
-                (lambda ()
-                  (apply-pullout
-                   sim
-                   *terminus-mps*
-                   *shear-rate*)
-                  )
-                )))))
-      (defparameter *pressure-inc-rate* 0d4)
+      (defparameter *shear-rate* 0.1d0)
+      ;; (setf (cl-mpm:sim-bcs sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (append
+      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
+      ;;         (list
+      ;;          (cl-mpm/bc::make-bc-closure
+      ;;           '(0 0)
+      ;;           (lambda ()
+      ;;             (apply-pullout
+      ;;              sim
+      ;;              *terminus-mps*
+      ;;              *shear-rate*)
+      ;;             )
+      ;;           )))))
+      (defparameter *pressure-inc-rate* 0d3)
       (defparameter *fatigue-load* 0d5)
       (defparameter *fatigue-period* 8d0)
       (defparameter *load-bc*
         (cl-mpm/buoyancy::make-bc-pressure
          sim
-         ;; 0.93d6
-         0.00d6
-         0d0
+         0.93d6
          0d0
          ))
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (list *load-bc*)))
+      (setf (cl-mpm::sim-bcs-force sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (list *load-bc*)))
 
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 0.5)
+  (let ((mesh-size 5)
         (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
@@ -262,9 +260,9 @@
     ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 10 mesh-size)
                                            (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
-                                               0.5
-                                               mesh-size)) 0.10d0)
+    ;; (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
+    ;;                                            1
+    ;;                                            mesh-size)) 0.10d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -277,7 +275,6 @@
   (defparameter *max-stress* '())
   (defparameter *max-damage* '())
   (defparameter *max-x* '())
-  (defparameter *energy-dissipation* '())
 
   (defparameter *cfl-max* '())
   (defparameter *sim-step* 0)
@@ -406,7 +403,7 @@
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 0.1d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
@@ -445,14 +442,6 @@
                                  sum (cl-mpm/particle::mp-damage mp))
                            (length mps))
                         *max-damage*)
-                       (push
-                        (loop for mp across mps
-                                  sum
-                                  (with-accessors ((inc cl-mpm/particle::mp-damage-increment)
-                                                   (vol cl-mpm/particle::mp-volume)) mp
-                                    (* inc vol)
-                                ))
-                        *energy-dissipation*)
                        ;; (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
                        ;;   (when (>= m-d 1d0)
                        ;;     (setf *run-sim* nil)))
@@ -507,92 +496,9 @@
                        )
 
                      ))))
-  (vgplot:figure)
-  (vgplot:plot *time* *energy-dissipation* "Energy dissipation")
   ;; (plot-stress-damage-time)
   (plot-creep-damage)
   )
-(defun run-conv ()
-  (defparameter *elements* '())
-  (defparameter *ttf* '())
-  (defparameter *energy* '())
-
-  (defparameter *terminus-mps* '())
-  (loop for i from 3 to 6
-        do
-           (let ((elements (expt 2 i))
-                 (final-time 10)
-                 (energy 0d0)
-                 (failure-time 0d0)
-                 (time (list))
-                 (s-x (list))
-                 (damage-x (list))
-                 )
-             (let ((mesh-size (/ 5d0 elements))
-                   (mps-per-cell 2))
-               (defparameter *sim* (setup-test-column (list 10 mesh-size)
-                                                      (list 5 mesh-size) '(0 0) (/ 1 mesh-size) mps-per-cell))
-               (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
-                                                          0.5
-                                                          mesh-size)) 0.10d0)
-               (with-accessors ((mps cl-mpm:sim-mps))
-                   *sim*
-                 (let ((x-max (loop for mp across mps
-                                    maximize (magicl:tref
-                                              (cl-mpm/particle:mp-position mp)
-                                              0 0))))
-                   (defparameter *terminus-mps*
-                     (loop for mp across mps
-                           when (= x-max (magicl:tref
-                                          (cl-mpm/particle:mp-position mp)
-                                          0 0))
-                             collect mp))))
-               )
-             (defparameter *run-sim* t)
-             ;(defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
-             (setf (cl-mpm:sim-dt *sim*) (* 1d-3 (/ 16 elements)))
-             (format t "Running sim size ~a ~%" elements)
-             (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
-             (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
-             (time
-              (loop for steps from 0 to (round (/ final-time (cl-mpm:sim-dt *sim*)))
-                    when *run-sim*
-                    do
-                       (progn
-                         (cl-mpm::update-sim *sim*)
-                         (with-accessors ((mps cl-mpm:sim-mps ))
-                             *sim*
-                           (incf
-                            energy
-                            (loop for mp across mps
-                                       sum
-                                       (with-accessors ((inc cl-mpm/particle::mp-damage-increment)
-                                                        (vol cl-mpm/particle::mp-volume)) mp
-                                         (* inc vol)
-                                         )))
-                           (loop for mp across mps
-                                 when (>= (cl-mpm/particle::mp-damage mp) 1d0)
-                                   do (setf *run-sim* nil)))
-                         (incf failure-time (cl-mpm:sim-dt *sim*))
-                         )))
-             (plot *sim*)
-             (sleep .01)
-             (push failure-time
-                   *ttf*)
-             (push energy
-                   *energy*)
-             (push elements
-                   *elements*)
-             (format t "Failure at ~a with energy dissipation ~a ~%" failure-time energy)
-             (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
-             (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)
-             )
-           (vgplot:figure)
-           (vgplot:plot *elements* *ttf* "Time to failure")
-           (vgplot:figure)
-           (vgplot:plot *elements* *energy* "Energy to failure")
-        ))
-
 (defun plot-velocity ()
   (let ((x (loop for mp in *bottom-mps*
                  collect (magicl:tref
