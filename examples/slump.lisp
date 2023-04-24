@@ -223,8 +223,8 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 50)
-        (mps-per-cell 4))
+  (let ((mesh-size 20)
+        (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
@@ -316,7 +316,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)

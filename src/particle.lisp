@@ -617,7 +617,7 @@
                (visc-factor visc-factor)
                (visc-power visc-power)
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
-               (velocity-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (strain-plastic strain-plastic)
                (def deformation-gradient)
                (vorticity vorticity)
