@@ -6,8 +6,8 @@
 (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/pullout)
 (pushnew :cl-mpm-pic *features*)
-;(delete :cl-mpm-pic *features*)
-;;(asdf:compile-system :cl-mpm :force T)
+;; (delete :cl-mpm-pic *features*)
+;; (asdf:compile-system :cl-mpm :force T)
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
@@ -518,7 +518,7 @@
   (defparameter *energy* '())
 
   (defparameter *terminus-mps* '())
-  (loop for i from 3 to 6
+  (loop for i from 2 to 8
         do
            (let ((elements (expt 2 i))
                  (final-time 10)

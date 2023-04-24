@@ -183,20 +183,20 @@
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic-damage
-               :E 1d8
+                'cl-mpm/particle::particle-viscoplastic;-damage
+               :E 1d9
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 11d6
+               :visc-factor 0.1d6
                :visc-power 3d0
 
-               :initiation-stress 0.2d6
-               :damage-rate 1d-12
-               :critical-damage 0.5d0
-               :local-length 50d0
+               ;:initiation-stress 0.2d6
+               ;:damage-rate 1d-12
+               ;:critical-damage 0.5d0
+               ;:local-length 50d0
 
                :gravity -9.8d0
 
@@ -207,7 +207,7 @@
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -224,8 +224,8 @@
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 50)
-        (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(1500 500) '(1000 400) '(000 0) (/ 1 mesh-size) mps-per-cell)))
+        (mps-per-cell 4))
+    (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (damage-sdf *sim* (ellipse-sdf (list 250 100) 15 10))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
@@ -316,7 +316,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 10d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
@@ -326,7 +326,7 @@
                    (progn
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     ;(cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
