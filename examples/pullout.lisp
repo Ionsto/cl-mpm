@@ -7,7 +7,7 @@
 (in-package :cl-mpm/examples/pullout)
 (pushnew :cl-mpm-pic *features*)
 ;; (delete :cl-mpm-pic *features*)
-;; (asdf:compile-system :cl-mpm :force T)
+; (asdf:compile-system :cl-mpm :force T)
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
@@ -197,7 +197,8 @@
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
                :damage-rate 1d-13
-               :critical-damage 0.544d0
+               ;:critical-damage 0.544d0
+               :critical-damage 1d0
                :local-length 0.5d0
                :gravity 0d0;-9.8d0
 
@@ -209,7 +210,8 @@
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-3)
+      (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm:sim-dt sim) 0.1d-3)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -254,7 +256,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 0.5)
+  (let ((mesh-size 0.05)
         (mps-per-cell 2))
     ;;Setup notched pullout
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))

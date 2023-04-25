@@ -110,15 +110,18 @@
   ;(update-damage mp dt)
   )
 
-(defun calculate-damage (mesh mps dt len)
-    (create-delocalisation-list mesh mps len)
-    (lparallel:pdotimes (i (length mps))
-      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
-        (calculate-damage-increment (aref mps i) dt)))
+(defun calculate-damage (mesh mps dt len non-local-damage)
+  (when non-local-damage
+    (create-delocalisation-list mesh mps len))
+  (lparallel:pdotimes (i (length mps))
+                      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+                        (calculate-damage-increment (aref mps i) dt)))
+  (if non-local-damage
     (delocalise-damage mesh mps dt len)
-    (lparallel:pdotimes (i (length mps))
-      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
-        (apply-damage (aref mps i) dt))))
+    (localise-damage mesh mps dt))
+  (lparallel:pdotimes (i (length mps))
+                      (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+                        (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
         mesh
@@ -251,4 +254,25 @@
             mp
           (setf damage-inc (calculate-delocalised-damage mesh mp local-length))
           ))))
+  (values))
+
+(declaim
+ (ftype
+  (function (cl-mpm/mesh::mesh
+             (array cl-mpm/particle::particle)
+             double-float
+             )
+            (values))
+  localise-damage))
+(defun localise-damage (mesh mps dt)
+  "Apply local damage model"
+  (lparallel:pdotimes (i (length mps))
+                      (let ((mp (aref mps i)))
+                        (when (typep mp 'cl-mpm/particle:particle-damage)
+                          (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
+                                           (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
+                                           (local-length cl-mpm/particle::mp-local-length)
+                                           )
+                              mp
+                            (setf damage-inc damage-inc-local)))))
   (values))

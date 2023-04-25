@@ -190,7 +190,7 @@
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 0.1d6
+               :visc-factor 1d6
                :visc-power 3d0
 
                ;:initiation-stress 0.2d6

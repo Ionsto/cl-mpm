@@ -69,6 +69,11 @@
     :initarg :enable-damage
     :initform nil
     )
+   (nonlocal-damage
+    :type boolean
+    :accessor sim-nonlocal-damage
+    :initform nil
+    )
    (allow-mp-damage-removal
     :type boolean
     :accessor sim-allow-mp-damage-removal
@@ -121,6 +126,7 @@
                (mass-filter mass-filter)
                (split allow-mp-split)
                (enable-damage enable-damage)
+               (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -143,7 +149,9 @@
                       (cl-mpm/damage::calculate-damage mesh
                                                        mps
                                                        dt
-                                                       50d0))
+                                                       50d0
+                                                       nonlocal-damage
+                                                       ))
                     ;; (update-particle mps dt)
                     ;;Update stress last
                     (when remove-damage
@@ -162,6 +170,7 @@
                (mass-filter mass-filter)
                (split allow-mp-split)
                (enable-damage enable-damage)
+               (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -178,7 +187,9 @@
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
                                                       dt
-                                                      50d0))
+                                                      50d0
+                                                      nonlocal-damage
+                                                      ))
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
@@ -204,6 +215,7 @@
                (mass-filter mass-filter)
                (split allow-mp-split)
                (enable-damage enable-damage)
+               (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                )
                 sim
@@ -240,7 +252,9 @@
                       (cl-mpm/damage::calculate-damage mesh
                                                        mps
                                                        dt
-                                                       50d0))
+                                                       50d0
+                                                       nonlocal-damage
+                                                       ))
                     ;; (cl-mpm/damage::calculate-damage mesh
                     ;;                                  mps
                     ;;                                  dt

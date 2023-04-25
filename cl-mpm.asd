@@ -256,6 +256,7 @@
                "cl-mpm/buoyancy"
                "cl-mpm/eigenerosion"
                "vgplot"
+               "lisp-stat"
                "swank.live"
                "magicl")
   :serial t
