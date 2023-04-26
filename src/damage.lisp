@@ -54,6 +54,7 @@
               ;;   (when (< damage 1)
               ;;     (setf damage-increment vm)))
               )
+            (setf ybar damage-increment)
             (when (= damage 1)
               (setf damage-increment 0d0))
 
