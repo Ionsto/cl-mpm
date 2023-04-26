@@ -673,7 +673,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           (viscosity (* viscosity (max 1d-3 (- 1 damage))))
+           (viscosity (* viscosity (max 1d-1 (- 1 damage))))
            )
       (setf stress-u
             (magicl:.+

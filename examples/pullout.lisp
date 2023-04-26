@@ -7,7 +7,7 @@
 (in-package :cl-mpm/examples/pullout)
 (pushnew :cl-mpm-pic *features*)
 ;; (delete :cl-mpm-pic *features*)
-; (asdf:compile-system :cl-mpm :force T)
+;; (asdf:compile-system :cl-mpm :force T)
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))

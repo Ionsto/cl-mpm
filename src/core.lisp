@@ -72,7 +72,7 @@
    (nonlocal-damage
     :type boolean
     :accessor sim-nonlocal-damage
-    :initform nil
+    :initform t
     )
    (allow-mp-damage-removal
     :type boolean

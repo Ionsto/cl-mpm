@@ -7,6 +7,9 @@
 (in-package :cl-mpm/examples/slump)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+;; (delete :cl-mpm-pic *features*)
+;; (asdf:compile-system :cl-mpm :force T)
+;; (asdf:compile-system :cl-mpm)
 
 
 (defun max-v-sum (mp)
@@ -183,31 +186,31 @@
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic;-damage
-               :E 1d9
+                'cl-mpm/particle::particle-viscoplastic-damage
+               :E 1d8
                :nu 0.3250d0
                ;; ;; 'cl-mpm/particle::particle-elastic-damage
                ;; :E 1d9
                ;; :nu 0.3250d0
 
-               :visc-factor 1d6
+               :visc-factor 111d6
                :visc-power 3d0
 
-               ;:initiation-stress 0.2d6
-               ;:damage-rate 1d-12
-               ;:critical-damage 0.5d0
-               ;:local-length 50d0
+               :initiation-stress 0.2d6
+               :damage-rate 1d-13
+               :critical-damage 0.5d0
+               :local-length 10d0
 
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -223,7 +226,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20)
+  (let ((mesh-size 10)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
