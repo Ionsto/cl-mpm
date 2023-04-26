@@ -86,25 +86,26 @@
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
             (setf damage 1d0))
-          (when (> damage 0.0d0)
-            (multiple-value-bind (l v) (magicl:eig
-                                        (voight-to-matrix stress))
-              (loop for i from 0 to 1
-                    do (let* ((sii (nth i l))
-                              (esii (- sii
-                                       (* pressure 1)))
-                              )
-                         (when (> esii 0d0)
-                           (setf (nth i l)
-                                 (+
-                                  (* esii (- 1d0 damage))
-                                  (* 1 pressure)
-                                  ))
-                           ))
-              (setf stress (matrix-to-voight (magicl:@ v
-                                                       (magicl:from-diag l :type 'double-float)
-                                                       (magicl:transpose v))))
-              ))))
+          ;; (when (> damage 0.0d0)
+          ;;   (multiple-value-bind (l v) (magicl:eig
+          ;;                               (voight-to-matrix stress))
+          ;;     (loop for i from 0 to 1
+          ;;           do (let* ((sii (nth i l))
+          ;;                     (esii (- sii
+          ;;                              (* pressure 1)))
+          ;;                     )
+          ;;                (when (> esii 0d0)
+          ;;                  (setf (nth i l)
+          ;;                        (+
+          ;;                         (* esii (- 1d0 damage))
+          ;;                         (* 1 pressure)
+          ;;                         ))
+          ;;                  ))
+          ;;     (setf stress (matrix-to-voight (magicl:@ v
+          ;;                                              (magicl:from-diag l :type 'double-float)
+          ;;                                              (magicl:transpose v))))
+          ;;     )))
+          )
   (values)
   ))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
