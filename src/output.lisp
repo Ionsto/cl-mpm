@@ -176,8 +176,9 @@
         (save-parameter "s_vm"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
-                          (let ((s_1 (max 0 (first l)))
-                                (s_2 (max 0 (second l))))
+                          (let* ((l (sort l #'>))
+                                 (s_1 (max 0 (first l)))
+                                 (s_2 (max 0 (second l))))
 
                             (* (sqrt (/ 3 4)) (- s_1 s_2))
                             )
