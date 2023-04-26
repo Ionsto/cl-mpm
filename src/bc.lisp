@@ -179,10 +179,12 @@
                      (node-force cl-mpm/mesh:node-force)
                      ) node
       (let ((rel-vel (magicl::sum (magicl:.* node-vel normal))))
-        (when (< rel-vel 0)
+        (when t;(< rel-vel 0)
           ;Note this is momentum
           (let* ((tang-p (magicl:.- node-vel (magicl:scale normal rel-vel)))
-                 (friction-force (magicl:scale tang-p (/ mu dt)))
+                 (normal-force (magicl::sum (magicl:.* node-force normal)))
+                 ;(friction-force (magicl:scale tang-p (/ mu dt)))
+                 (friction-force (magicl:scale tang-p (* mu (cl-mpm/mesh:mesh-resolution mesh))))
                  )
             ;(setf node-vel (magicl:.- node-vel friction-impulse))
             (setf node-force (magicl:.- node-force friction-force))
