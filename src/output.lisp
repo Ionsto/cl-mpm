@@ -176,7 +176,11 @@
         (save-parameter "s_vm"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
-                          (sqrt (+ (expt (first l) 2) (expt (second l) 2) (* (first l) (second l) -1)))
+                          (let ((s_1 (max 0 (first l)))
+                                (s_2 (max 0 (second l))))
+
+                            (* (sqrt (/ 3 4)) (- s_1 s_2))
+                            )
                           ))
 
         (save-parameter "EPS"
