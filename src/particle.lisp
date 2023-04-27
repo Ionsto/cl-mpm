@@ -479,6 +479,7 @@
                                                  (magicl:from-diag l :type 'double-float)
                                                  (magicl:transpose v))))
         )))
+    stress
     ))
 
 (defclass particle-elastic-inc (particle-elastic)

@@ -232,7 +232,8 @@
                                                    (* (cl-mpm/particle::mp-local-damage-increment mp-other)
                                                       weight m)
                                                    ))))))))))
-      (setf damage-inc (/ damage-inc mass-total))
+      (when (> mass-total 0d0)
+        (setf damage-inc (/ damage-inc mass-total)))
       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
       )))
 
