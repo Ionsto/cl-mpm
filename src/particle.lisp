@@ -212,6 +212,16 @@
    )
   (:documentation "A visco-elastic material point"))
 
+(defclass particle-glen (particle-elastic)
+  ((visc-factor
+    :accessor mp-visc-factor
+    :initarg :visc-factor)
+   (visc-power
+    :accessor mp-visc-power
+    :initarg :visc-power)
+   )
+  (:documentation "A glen flow law material point"))
+
 (defclass particle-viscoplastic (particle-elastic)
   ((visc-factor
     :accessor mp-visc-factor
@@ -330,6 +340,11 @@
 (defclass particle-viscoplastic-damage (particle-viscoplastic particle-damage)
   ()
   (:documentation "A mp with damage mechanics"))
+
+(defclass particle-glen-damage (particle-glen particle-damage)
+  ()
+  (:documentation "A weakly compressible glen flow mp with damage mechanics"))
+
 (defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
   ()
   (:documentation "A mp with elastic mechanics with variable thermal fields"))
@@ -633,6 +648,23 @@
       mp
     (cl-mpm/constitutive:maxwell strain-rate stress E nu viscosity dt vorticity)))
 
+(defmethod constitutive-model ((mp particle-glen) strain dt)
+  "Function for modeling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (visc-factor visc-factor)
+               (visc-power visc-power)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
+               (stress stress)
+               )
+      mp
+    (declare (double-float E visc-factor visc-power))
+    (let ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power)))
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
+      )
+    ))
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
   (with-slots ((E E)
@@ -665,6 +697,7 @@
         def
         vorticity
         D))
+      ;; (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
       ;; (magicl:.+
       ;;  stress
       ;;   (if (> viscosity 0d0)
@@ -697,7 +730,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+           ;(viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
            )
       (setf stress-u
             (magicl:.+
@@ -712,7 +745,30 @@
               D)))
       (setf stress (magicl:scale stress-u 1d0))
       stress
+      ;; (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
       )))
+
+(defmethod constitutive-model ((mp particle-glen-damage) strain dt)
+  "Function for modeling stress intergrated viscoplastic norton-hoff material"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (visc-factor visc-factor)
+               (visc-power visc-power)
+               (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
+               (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
+               (stress stress)
+               (damage damage)
+               )
+      mp
+    (declare (double-float E visc-factor visc-power))
+    (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
+          (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+          ;; (E (* E damage))
+          )
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
+      )
+    ))
 
 (defmethod constitutive-model ((mp particle-viscoelastic-damage) strain dt)
   "Function for modelling stress intergrated viscoelastic maxwell material"
