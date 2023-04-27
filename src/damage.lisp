@@ -234,6 +234,7 @@
                                                    ))))))))))
       (when (> mass-total 0d0)
         (setf damage-inc (/ damage-inc mass-total)))
+      damage-inc
       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
       )))
 
