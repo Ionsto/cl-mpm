@@ -451,9 +451,15 @@
                         (loop for mp across mps
                                   sum
                                   (with-accessors ((inc cl-mpm/particle::mp-damage-increment)
-                                                   (vol cl-mpm/particle::mp-volume)) mp
-                                    (* inc vol)
-                                ))
+                                                   (stress cl-mpm/particle::mp-undamaged-stress)
+                                                   (strain cl-mpm/particle::mp-strain)
+                                                   ) mp
+                                    (* inc 0.5d0 (magicl:tref
+                                                (magicl:@
+                                                 (magicl:transpose strain)
+                                                 stress
+                                                 ) 0 0)))
+                                )
                         *energy-dissipation*)
                        ;; (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
                        ;;   (when (>= m-d 1d0)
