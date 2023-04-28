@@ -994,7 +994,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Post multiply to turn to eng strain
           ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
           ;; (setf strain-rate-tensor ())
-          (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
+          ;; (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
           ;(setf velocity-rate (magicl:scale strain-rate 1d0))
           ;; (setf strain-rate (magicl:.- strain prev-strain))
           ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
