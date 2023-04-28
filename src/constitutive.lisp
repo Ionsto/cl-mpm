@@ -66,13 +66,14 @@
      (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
     ))
 
-(defun elasto-glen (strain-increment stress E nu de viscosity dt)
+(defun elasto-glen (strain-increment stress E nu de viscosity dt strain)
   "A absolute stress form of a nonlinear glen flow with elastic volume"
   (let* ((order 2)
          (strain-dev (deviatoric strain-increment))
          (bulk-modulus (/ E (* (+ 1 nu) (- 1 nu nu))))
-         (pressure-inc (* bulk-modulus (voight-trace strain-increment)))
-         (pressure (+ pressure-inc (* 0.5 (voight-trace stress))))
+         ;; (pressure-inc (* bulk-modulus (voight-trace strain-increment)))
+         ;; (pressure (+ pressure-inc (* 0.5 (voight-trace stress))))
+         (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
     (declare (type double-float pressure-inc))
     (magicl:.+

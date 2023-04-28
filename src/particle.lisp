@@ -658,11 +658,12 @@
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (stress stress)
+               (strain strain)
                )
       mp
     (declare (double-float E visc-factor visc-power))
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power)))
-      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
       )
     ))
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
@@ -758,6 +759,7 @@
                (strain-rate strain-rate) ;Note strain rate is actually strain increment through dt
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (stress stress)
+               (strain strain)
                (damage damage)
                )
       mp
@@ -766,7 +768,7 @@
           (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
           ;; (E (* E damage))
           )
-      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
       )
     ))
 
