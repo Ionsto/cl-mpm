@@ -31,6 +31,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   #+cl-mpm-pic (print "Compiled with PIC")
   #-cl-mpm-pic (print "Compiled with FLIP")
+  #+cl-mpm-fbar (print "Compiled with FBAR")
+  #-cl-mpm-fbar (print "Compiled without FBAR")
 )
 
 
@@ -1067,8 +1069,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      ;; (damage cl-mpm/particle:mp-damage)
                         ) mp
       (progn
-        ;;For normal
-        (calculate-strain-rate mesh mp dt)
+        ;;For no FBAR we need to update our strains
+        #-cl-mpm-fbar (calculate-strain-rate mesh mp dt)
         (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
             (progn
@@ -1117,10 +1119,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                            double-float) (values)) update-stress))
 (defun map-jacobian (mesh mp dt)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
+                   (stretch-rate cl-mpm/particle::mp-stretch-tensor)
                    (volume cl-mpm/particle:mp-volume)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain)))
+    (let* ((df (.+ (magicl:eye 2) stretch-rate))
            (j-inc (det df))
            (j-n (det def)))
       (iterate-over-neighbours mesh mp
@@ -1151,7 +1154,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (progn
         ;;Volumetric locking
         ;;If we want to do f bar
-        (when nil 
+        (when t
           (iterate-over-neighbours mesh mp
                                    (lambda (mesh mp node svp grads)
                                      (with-accessors ((node-active cl-mpm/mesh:node-active)
@@ -1176,11 +1179,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   ;;     )
   ;;   )
   ;;
-  ;;Calculate jp calculate weighted value
-  ;; (lparallel:pdotimes (i (length mps))
-  ;;   (let ((mp (aref mps i)))
-  ;;     (calculate-strain-rate mesh mp dt)
-  ;;     (map-jacobian mesh mp dt)))
+  ;;If we want to do fbar averaging we must do an average step
+  #+cl-mpm-fbar (progn
+                  (lparallel:pdotimes (i (length mps))
+                    (let ((mp (aref mps i)))
+                      (calculate-strain-rate mesh mp dt)
+                      (map-jacobian mesh mp dt))))
 
   ;;Update stress
   (lparallel:pdotimes (i (length mps))

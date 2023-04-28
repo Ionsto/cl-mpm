@@ -80,6 +80,20 @@
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
     )))
+
+(defun elasto-glen-stretch (strain stretch E nu viscosity dt)
+  "A absolute stress form of a nonlinear glen flow with elastic volume"
+  (let* ((order 2)
+         (strain-dev (deviatoric-mat stretch))
+         (bulk-modulus (/ E (* (+ 1 nu) (- 1 nu nu))))
+         (pressure (* bulk-modulus 0.5 (voight-trace strain)))
+         )
+    (declare (type double-float pressure viscosity dt))
+    (magicl:.+
+     (magicl:from-list (list pressure pressure 0d0) '(3 1))
+     (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
+     )))
+
 (declaim (inline voight-eye)
          (ftype (function (double-float) magicl:matrix/double-float) voight-eye))
 (defun voight-eye (val)
@@ -246,6 +260,9 @@
   (let* ((mat (voight-to-matrix voigt))
          (trace (/ (magicl:trace mat) 2)))
     (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
+(defun deviatoric-mat (mat)
+  (let* ((trace (/ (magicl:trace mat) 2)))
+    (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
 
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity))
@@ -263,7 +280,9 @@
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) (values double-float)) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
-  (let* ((effective-strain (+ 1d-30 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
+  (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
+         (effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
+         )
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
