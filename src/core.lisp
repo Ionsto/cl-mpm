@@ -1151,7 +1151,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (j-inc (det df))
            (j-n (det def))
            (j-n1 0d0))
-      (progn
+      #+cl-mpm-fbar (progn
         ;;Volumetric locking
         ;;If we want to do f bar
         (when t
@@ -1168,7 +1168,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
             (error "Negative volume"))
           (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) 1/2)))
-        df))))
+        )
+      df)))
 
 (defun update-stress (mesh mps dt)
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))

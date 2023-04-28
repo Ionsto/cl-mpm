@@ -668,8 +668,7 @@
            ;; (viscosity 1d6)
            )
       (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
-      )
-    ))
+      )))
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
   (with-slots ((E E)
