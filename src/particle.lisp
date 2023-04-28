@@ -63,7 +63,7 @@
    (size-0
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
-    :initarg :size
+    :initarg :size-0
     :initform (magicl:zeros '(2 1)))
    (size
      :accessor mp-domain-size
@@ -659,6 +659,7 @@
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (stress stress)
                (strain strain)
+               (stretch stretch-tensor)
                )
       mp
     (declare (double-float E visc-factor visc-power))
@@ -666,8 +667,7 @@
            ;(viscosity (* viscosity 0d0))
            ;; (viscosity 1d6)
            )
-      ;(cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
-      (cl-mpm/constitutive::elasto-glen-stretch strain stretch E nu viscosity dt)
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
       )
     ))
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)

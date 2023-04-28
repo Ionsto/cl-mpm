@@ -919,14 +919,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                                          (the double-float x)))) l) :type 'double-float)
                                 (magicl:transpose v))))
                          (declare (type magicl:matrix/double-float stretch))
-                         ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                         ;;                            (the double-float (tref stretch 0 0))))
-                         ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                         ;;                            (the double-float (tref stretch 1 1))))
-                         (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                         (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
                                                     (the double-float (tref stretch 0 0))))
-                         (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                         (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
                                                     (the double-float (tref stretch 1 1))))
+                         ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                         ;;                            (the double-float (tref stretch 0 0))))
+                         ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                         ;;                            (the double-float (tref stretch 1 1))))
                          ))
                      ))))
 
@@ -999,7 +999,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;; (setf strain-rate (magicl:.- strain prev-strain))
           ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
           ;; (setf volume (* volume (det df)))
-          (setf volume (* volume-0 (magicl:det def)))
+          (setf volume (* volume (magicl:det df)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
@@ -1231,12 +1231,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    )
       mp
     (let ((l-factor 1.20d0)
-          (h-factor (* 1.5d0 h)))
+          (h-factor (* 0.8d0 h)))
       (cond
-        ;; ((< h-factor (tref lens 0 0)) t)
-        ;; ((< h-factor (tref lens 1 0)) t)
-        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
-        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
+        ((< h-factor (tref lens 0 0)) t)
+        ((< h-factor (tref lens 1 0)) t)
+        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
+        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
         (t nil)
@@ -1261,37 +1261,44 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mass cl-mpm/particle:mp-mass)
                    (volume cl-mpm/particle:mp-volume))
       mp
-    (let ((l-factor 1.25d0)
-          (h-factor (* 1.0d0 h)))
+    (let ((l-factor 1.20d0)
+          (h-factor (* 0.8d0 h)))
     (cond
-      ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0))
-       ;; (< h-factor (tref lens 0 0))
+      (;(< (* l-factor (tref lens-0 0 0)) (tref lens 0 0))
+       (< h-factor (tref lens 0 0))
        (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
+             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(0.5d0 1d0) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
+                         :size-0 new-size-0
                          :position (magicl:.+ pos pos-offset))
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
+                         :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
-      ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0))
-       (let ((new-size (magicl:.* lens (magicl:from-list '(1 0.5d0) '(2 1))))
-             (pos-offset (magicl:.* lens (magicl:from-list '(0 0.25d0) '(2 1)))))
+      (;(< (* l-factor (tref lens-0 1 0)) (tref lens 1 0))
+       (< h-factor (tref lens 1 0))
+       (let ((new-size (magicl:.* lens (magicl:from-list '(1d0 0.5d0) '(2 1))))
+             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(1d0 0.5d0) '(2 1))))
+             (pos-offset (magicl:.* lens (magicl:from-list '(0d0 0.25d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
+                         :size-0 new-size-0
                          :position (magicl:.+ pos pos-offset))
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
+                         :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
       ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
@@ -1309,6 +1316,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       ;; (print mps-to-split)
       ;(format t "~A~%" mps-to-split)
       (delete-if (lambda (mp) (split-criteria mp h)) mps)
+      ;; (setf mps (remove-if (lambda (mp) (split-criteria mp h)) mps))
       (loop for mp across mps-to-split
             do (loop for new-mp in (split-mp mp h)
                      do (vector-push-extend new-mp mps)))

@@ -51,7 +51,9 @@
                                                                  (+ (second offset) (* (second spacing) y)))
                                                       :mass (* density volume)
                                                       :volume volume
-                                                      :size (magicl:from-list spacing (list nD 1) :type 'double-float))))
+                                                      :size (magicl:from-list spacing (list nD 1) :type 'double-float)
+                                                      :size-0 (magicl:from-list spacing (list nD 1) :type 'double-float)
+                                                      )))
                           )))))
     data))
 (defun make-mps-from-list (mp-list)
