@@ -999,7 +999,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;; (setf strain-rate (magicl:.- strain prev-strain))
           ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
           ;; (setf volume (* volume (det df)))
-          (setf volume (* volume (magicl:det df)))
+          (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
