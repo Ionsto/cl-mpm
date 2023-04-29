@@ -76,6 +76,9 @@
                         (scale 1d0))
                    (when (> sii 0d0)
                      (setf scale (- 1d0 damage)))
+                   (print (magicl:scale!
+                           (magicl:@ stiffness vii (magicl:transpose vii))
+                           scale))
                    (magicl:.+ damaged-stiffness (magicl:scale!
                                                  (magicl:@ stiffness vii (magicl:transpose vii))
                                                  scale)
@@ -94,11 +97,13 @@
          (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
          )
     (declare (type double-float relaxation-const))
-    (magicl:.-
-     ;(magicl:@ (linear-elastic-matrix (* (- 1 damage) elasticity) poisson-ratio) strain-increment)
-     ;; (magicl:@ (tensile-project de stress damage) strain-increment)
-     (matrix-to-voight (tensile-project (voight-to-matrix(magicl:@ de strain-increment)) stress damage))
-     (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
+    ;; (magicl:.-
+    ;;  ;(magicl:@ (linear-elastic-matrix (* (- 1 damage) elasticity) poisson-ratio) strain-increment)
+    ;;  ;; (magicl:@ (tensile-project de stress damage) strain-increment)
+    ;;  (matrix-to-voight (tensile-project (voight-to-matrix(magicl:@ de strain-increment)) stress damage))
+    ;;  (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
+
+    (matrix-to-voight (tensile-project (voight-to-matrix (magicl:@ de strain-increment)) stress damage))
     ))
 
 (defun elasto-glen (strain-increment stress E nu de viscosity dt strain)
