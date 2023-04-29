@@ -73,15 +73,14 @@
         (loop for i from 0 to 1
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))
-                        (scale 1d0))
+                        (scale 1d0)
+                        (A (magicl:@ vii (magicl:transpose vii)))
+                        )
                    (when (> sii 0d0)
-                     (setf scale (- 1d0 damage)))
-                   (print (magicl:scale!
-                           (magicl:@ stiffness vii (magicl:transpose vii))
-                           scale))
-                   (magicl:.+ damaged-stiffness (magicl:scale!
-                                                 (magicl:@ stiffness vii (magicl:transpose vii))
-                                                 scale)
+                     (setf scale (sqrt (- 1d0 damage)))
+                     (magicl:scale! A scale))
+                   (magicl:.+ damaged-stiffness
+                              (magicl:@ A stiffness A)
                               damaged-stiffness)
                      )))
       damaged-stiffness)
@@ -94,16 +93,15 @@
          (pressure (/ (magicl:trace stress-matrix) 2d0))
          (pressure-matrix (magicl:eye 2 :value pressure))
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
-         (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
+         (relaxation-const (/ (* dt elasticity)
+                              (* 2d0 (- 1d0 poisson-ratio) viscosity)))
          )
     (declare (type double-float relaxation-const))
-    ;; (magicl:.-
-    ;;  ;(magicl:@ (linear-elastic-matrix (* (- 1 damage) elasticity) poisson-ratio) strain-increment)
-    ;;  ;; (magicl:@ (tensile-project de stress damage) strain-increment)
-    ;;  (matrix-to-voight (tensile-project (voight-to-matrix(magicl:@ de strain-increment)) stress damage))
-    ;;  (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
+    (magicl:.-
+     (magicl:@ de strain-increment)
+     (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
 
-    (matrix-to-voight (tensile-project (voight-to-matrix (magicl:@ de strain-increment)) stress damage))
+    ;; (matrix-to-voight (tensile-project (voight-to-matrix (magicl:@ de strain-increment)) stress damage))
     ))
 
 (defun elasto-glen (strain-increment stress E nu de viscosity dt strain)

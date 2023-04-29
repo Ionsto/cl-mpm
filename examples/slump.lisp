@@ -236,7 +236,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20)
+  (let ((mesh-size 50)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
