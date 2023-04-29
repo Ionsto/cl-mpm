@@ -734,14 +734,15 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           ;(viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+           ;; (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+           ;; (E-damage (* E (- 1 damage)))
            )
       (setf stress-u
             (magicl:.+
              stress-u
              (objectify-stress-logspin
               (if (> viscosity 0d0)
-                  (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+                  (cl-mpm/constitutive::maxwell-damage strain-rate stress E nu de viscosity dt damage)
                   (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
               stress-u
               def

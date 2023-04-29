@@ -66,6 +66,41 @@
      (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
     ))
 
+(defun tensile-project (stiffness stress damage)
+  (if (> damage 0.0d0)
+    (let ((damaged-stiffness (magicl:zeros '(2 2) :type 'double-float)))
+      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+        (loop for i from 0 to 1
+              do (let* ((sii (nth i l))
+                        (vii (magicl::column v i))
+                        (scale 1d0))
+                   (when (> sii 0d0)
+                     (setf scale (- 1d0 damage)))
+                   (magicl:.+ damaged-stiffness (magicl:scale!
+                                                 (magicl:@ stiffness vii (magicl:transpose vii))
+                                                 scale)
+                              damaged-stiffness)
+                     )))
+      damaged-stiffness)
+    stiffness))
+
+(defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
+  "A stress increment form of a viscoelastic maxwell material"
+  (let* ((order 2)
+         (stress-matrix (voight-to-matrix stress))
+         (pressure (/ (magicl:trace stress-matrix) 2d0))
+         (pressure-matrix (magicl:eye 2 :value pressure))
+         (dev-stress (magicl:.- stress-matrix pressure-matrix))
+         (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
+         )
+    (declare (type double-float relaxation-const))
+    (magicl:.-
+     ;(magicl:@ (linear-elastic-matrix (* (- 1 damage) elasticity) poisson-ratio) strain-increment)
+     ;; (magicl:@ (tensile-project de stress damage) strain-increment)
+     (matrix-to-voight (tensile-project (voight-to-matrix(magicl:@ de strain-increment)) stress damage))
+     (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
+    ))
+
 (defun elasto-glen (strain-increment stress E nu de viscosity dt strain)
   "A absolute stress form of a nonlinear glen flow with elastic volume"
   (let* ((order 2)

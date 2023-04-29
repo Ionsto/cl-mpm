@@ -8,7 +8,8 @@
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 ;; (pushnew :cl-mpm-fbar *features*)
-;; (delete :cl-mpm-fbar *features*)
+;; (remove :cl-mpm-fbar *features*)
+;; (setf *features* (delete :cl-mpm-fbar *features*))
 ;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
@@ -59,8 +60,8 @@
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
-    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-(defun plot (sim &optional (plot :deformed))
+    (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
+(defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -186,29 +187,29 @@
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
-               ;; 'cl-mpm/particle::particle-viscoplastic
-               'cl-mpm/particle::particle-glen;-damage
-               :E 1d9
+               'cl-mpm/particle::particle-viscoplastic-damage
+               ;; 'cl-mpm/particle::particle-glen;-damage
+               :E 1d8
                :nu 0.3250d0
 
-               :visc-factor 1d6
+               :visc-factor 11d6
                :visc-power 3d0
 
-               ;; :initiation-stress 0.2d6
-               ;; :damage-rate 1d-10
-               ;; :critical-damage 0.5d0
-               ;; :local-length 20d0
+               :initiation-stress 0.2d6
+               :damage-rate 1d-10
+               :critical-damage 0.5d0
+               :local-length 20d0
 
                :gravity -9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1d-3)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -237,7 +238,7 @@
   (defparameter *run-sim* nil)
   (let ((mesh-size 20)
         (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(1500 500) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
+    (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
   ;;       (setf (cl-mpm/particle:mp-damage mp) (random 0.1)))

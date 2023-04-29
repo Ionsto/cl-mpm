@@ -59,10 +59,11 @@ plt.gca().set_aspect('equal')
 #plt.scatter(slicedf["coord_x"].array[reorder],slicedf["coord_y"].array[reorder])
 slices = [0,25,50,75,100]
 for i in slices:
-    df = files[i]
-    slicedf = df[outside_ids]
-    x = slicedf["coord_x"].array[reorder]
-    y = slicedf["coord_y"].array[reorder]
-    plt.plot([*list(x),x[0]],[*list(y),y[0]])
-    #plt.plot(slicedf["coord_x"].array[reorder][[-1,0]],slicedf["coord_y"].array[reorder][[-1,0]])
+    if i < len(files):
+        df = files[i]
+        slicedf = df[outside_ids]
+        x = slicedf["coord_x"].array[reorder]
+        y = slicedf["coord_y"].array[reorder]
+        plt.plot([*list(x),x[0]],[*list(y),y[0]])
+        #plt.plot(slicedf["coord_x"].array[reorder][[-1,0]],slicedf["coord_y"].array[reorder][[-1,0]])
 plt.show()
