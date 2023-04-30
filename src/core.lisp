@@ -1232,12 +1232,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    )
       mp
     (let ((l-factor 1.20d0)
-          (h-factor (* 0.8d0 h)))
+          (h-factor (* 0.8d0 h))
+          (s-factor 1.5d0))
       (cond
-        ((< h-factor (tref lens 0 0)) t)
-        ((< h-factor (tref lens 1 0)) t)
-        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
-        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
+        ;; ((< h-factor (tref lens 0 0)) t)
+        ;; ((< h-factor (tref lens 1 0)) t)
+        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
+        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
+        ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
+        ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
         (t nil)
@@ -1323,8 +1326,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      do (vector-push-extend new-mp mps)))
       )
     ;; (delete-if (lambda (mp)
-    ;;              (with-accessors ((damage cl-mpm/particle:mp-damage))
-    ;;                  mp
     ;;                (>= damage 1d0))) mps))
   ))
 #||
