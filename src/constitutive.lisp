@@ -100,7 +100,6 @@
     (magicl:.-
      (magicl:@ de strain-increment)
      (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
-
     ;; (matrix-to-voight (tensile-project (voight-to-matrix (magicl:@ de strain-increment)) stress damage))
     ))
 
@@ -113,20 +112,22 @@
          ;; (pressure (+ pressure-inc (* 0.5 (voight-trace stress))))
          (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
-    (declare (type double-float pressure-inc))
+    (declare (type double-float pressure))
     (magicl:.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
     )))
 
-(defun elasto-glen-stretch (strain stretch E nu viscosity dt)
+(defun elasto-glen-damage (strain-increment stress E nu de viscosity dt strain damage)
   "A absolute stress form of a nonlinear glen flow with elastic volume"
   (let* ((order 2)
-         (strain-dev (deviatoric-mat stretch))
+         (strain-dev (deviatoric strain-increment))
          (bulk-modulus (/ E (* (+ 1 nu) (- 1 nu nu))))
          (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
-    (declare (type double-float pressure viscosity dt))
+    (declare (type double-float pressure))
+    (when (< pressure 0)
+      (setf pressure (* pressure (- 1d0 damage))))
     (magicl:.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))

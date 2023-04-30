@@ -49,12 +49,9 @@
               (when (> s_1 0)
                 (setf damage-increment s_1)
                 (when (> damage-inv 0)
-                  ;; (setf damage-increment s_1))
                   (setf damage-increment (/ s_1 damage-inv))))
-              ;; (when (> vm 0)
-              ;;   (when (< damage 1)
-              ;;     (setf damage-increment vm)))
               )
+
             (setf ybar damage-increment)
             (when (= damage 1d0)
               (setf damage-increment 0d0))

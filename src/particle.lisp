@@ -728,13 +728,14 @@
                (vorticity vorticity)
                (stress stress)
                (stress-u undamaged-stress)
+               (pressure pressure)
                ;; (stress undamaged-stress)
                ;; (stress-damaged stress)
                )
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           ;; (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+           (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
            ;; (E-damage (* E (- 1 damage)))
            )
       (setf stress-u
@@ -749,6 +750,27 @@
               vorticity
               D)))
       (setf stress (magicl:scale stress-u 1d0))
+
+      (when (> damage 0.0d0)
+        (multiple-value-bind (l v) (magicl:eig
+                                    (voight-to-matrix stress))
+          (loop for i from 0 to 1
+                do (let* ((sii (nth i l))
+                          (esii (- sii
+                                   (* pressure 1)))
+                          )
+                     (when (> esii 0d0)
+                       (setf (nth i l)
+                             (+
+                              (* esii (- 1d0 damage))
+                              (* 1 pressure)
+                              ))
+                       ))
+          (setf stress (matrix-to-voight (magicl:@ v
+                                                   (magicl:from-diag l :type 'double-float)
+                                                   (magicl:transpose v))))
+          )))
+
       stress
       ;; (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
       )))
@@ -769,9 +791,10 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-          (viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
-          ;; (E (* E damage))
+          ;(viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
+           (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) visc-power))))
           )
+      ;; (cl-mpm/constitutive::elasto-glen-damage strain-rate stress E nu de viscosity dt strain damage)
       (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
       )
     ))
