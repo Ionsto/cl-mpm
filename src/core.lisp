@@ -506,6 +506,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
                    (mp-mass cl-mpm/particle:mp-mass)
                    (mp-volume cl-mpm/particle:mp-volume)
+                   (mp-pmod cl-mpm/particle::mp-p-modulus)
                    ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
     (declare (type double-float mp-mass mp-volume))
@@ -522,6 +523,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-volume  cl-mpm/mesh::node-volume)
                         (node-force cl-mpm/mesh:node-force)
+                        ;; (node-p-wave cl-mpm/mesh::node-pwave)
                         (node-lock  cl-mpm/mesh:node-lock)) node
          (declare (type double-float node-mass node-volume mp-volume)
                   (type sb-thread:mutex node-lock))
@@ -531,6 +533,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
+           ;; (incf node-p-wave
+           ;;       (* mp-pmod svp))
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
          ;; (special-p2g mp node svp dsvp)
@@ -698,7 +702,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass))
         (progn
-          (magicl:scale! vel (/ 1.0d0 mass))))))
+          (magicl:scale! vel (/ 1.0d0 mass))
+          ))))
 
 (declaim (inline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float) (vaules)) calculate-forces))
@@ -726,6 +731,18 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
     (lparallel:pdotimes (i (array-total-size nodes))
+      (let ((node (row-major-aref nodes i)))
+        (funcall func node))))
+  (values))
+
+(declaim (inline iterate-over-nodes-serial)
+         (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes-serial)
+         )
+(defun iterate-over-nodes-serial (mesh func)
+  (declare (type function func))
+  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+    (declare (type (array cl-mpm/particle:particle) nodes))
+    (dotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
         (funcall func node))))
   (values))
@@ -1222,7 +1239,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          (with-accessors ((damage cl-mpm/particle:mp-damage))
                              mp
                            (and (>= damage 1d0)
-                                (split-criteria mp h)
+                                ;(split-criteria mp h)
                                 ))) mps)))
     ))
 (defun split-criteria (mp h)
@@ -1328,6 +1345,26 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     ;; (delete-if (lambda (mp)
     ;;                (>= damage 1d0))) mps))
   ))
+
+(defun calculate-min-dt (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((inner-factor most-positive-double-float))
+      (iterate-over-nodes-serial
+       mesh
+       (lambda (node)
+         (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                          (pmod cl-mpm/mesh::node-pwave)
+                          (mass cl-mpm/mesh::node-mass)
+                          (vol cl-mpm/mesh::node-volume)
+                          ) node
+           (when node-active
+               (let ((nf (/ mass (* vol pmod))))
+                 (when (< nf inner-factor)
+                   (setf inner-factor nf)))))))
+      (if (< inner-factor most-positive-double-float)
+          (* (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
+          0d0))))
 #||
 (progn
 (ql:quickload :cl-mpm/examples/fracture)

@@ -86,6 +86,11 @@
     :type boolean
     :initform nil
     )
+   (p-wave
+    :accessor node-pwave
+    :type double-float
+    :initform 0d0
+    )
 
    (sdf
     :accessor node-sdf
@@ -391,6 +396,7 @@
                (acc acceleration)
                (j-inc jacobian-inc)
                (j jacobian)
+               (p-wave p-wave)
                (volume volume)
                (active active)
                (boundary boundary-node)
@@ -400,6 +406,7 @@
     (setf boundary nil)
     (setf mass 0d0)
     (setf volume 0d0)
+    ;; (setf p-wave 0d0)
     (setf j 0d0)
     (setf j-inc 0d0)
     (magicl:scale! vel 0d0)

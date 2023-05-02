@@ -159,6 +159,10 @@
     :accessor mp-cached-nodes
     :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache)
     )
+   (p-modulus
+    :accessor mp-p-modulus
+    :initform 1d0
+    )
    )
   (:documentation "A single material point"))
 
@@ -178,9 +182,12 @@
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
-                   (nu mp-nu))
+                   (nu mp-nu)
+                   ;; (p mp-p-modulus)
+                   )
       particle
-      (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
+    ;; (setf p (/ E (* (+ 1 nu) (- 1 nu))))
+    (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 (defmethod (setf mp-nu) :after (value (p particle-elastic))
@@ -735,9 +742,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           ;(viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
-           (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) (- visc-power 1)))))
-           ;; (E-damage (* E (- 1 damage)))
+           ;; (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) (- visc-power 1)))))
            )
       (setf stress-u
             (magicl:.+
