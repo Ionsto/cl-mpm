@@ -467,6 +467,7 @@
                (stress stress)
                (stress-undamaged undamaged-stress)
                (strain-rate strain-rate)
+               (D stretch-tensor)
                (velocity-rate velocity-rate)
                (vorticity vorticity)
                (def deformation-gradient)
@@ -476,45 +477,30 @@
       mp
     ;; Non-objective stress intergration
     (setf stress-undamaged
-           ;; (cl-mpm/constitutive::linear-elastic-mat strain de)
           (magicl:.+
            stress-undamaged
-           (cl-mpm/constitutive::linear-elastic-mat strain-rate de)))
+           (objectify-stress-logspin
+            (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
+            stress-undamaged
+            def
+            vorticity
+            D)))
     (setf stress (magicl:scale stress-undamaged 1d0))
-
     (when (> damage 0.0d0)
-      ;; (let ((dp (* -1 pressure damage)))
-      ;;   (magicl:.+ stress (magicl:from-list (list dp dp 0) '(3 1)))
-      ;;   )
-      ;; (multiple-value-bind (l v) (magicl:eig
-      ;;                             (voight-to-matrix stress))
-      ;;   (loop for i from 0 to 1
-      ;;         do (let* ((sii (nth i l)))
-      ;;              (when (> sii 0d0)
-      ;;                (setf (nth i l)
-      ;;                       (* sii (- 1d0 damage)))
-      ;;                ))
-      ;;   (setf stress (matrix-to-voight (magicl:@ v
-      ;;                                            (magicl:from-diag l :type 'double-float)
-      ;;                                            (magicl:transpose v))))))
       (multiple-value-bind (l v) (magicl:eig
                                   (voight-to-matrix stress))
         (let ((pressure-ke (* pressure 1d0)))
           (loop for i from 0 to 1
                 do (let* ((sii (nth i l))
-                          (esii (- sii pressure-ke))
-                          )
+                          (esii (- sii pressure-ke)))
                      (when (> esii 0d0)
                        (setf (nth i l)
                              (+
                               (* esii (- 1d0 damage))
-                              pressure-ke
-                              ))
-                       ))
+                              pressure-ke))))
                    (setf stress (matrix-to-voight (magicl:@ v
                                                             (magicl:from-diag l :type 'double-float)
-                                                            (magicl:transpose v)))))))
-      )
+                                                            (magicl:transpose v))))))))
     stress
     ))
 
