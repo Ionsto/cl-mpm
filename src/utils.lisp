@@ -4,6 +4,7 @@
    #:matrix-to-voight
    #:voight-to-matrix
    #:voight-to-stretch
+   #:matrix-to-voight-strain
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -41,3 +42,10 @@
     (magicl:from-list (list exx exy 
                             eyx eyy)
                       '(2 2) :type 'double-float)))
+
+(defun matrix-to-voight-strain (matrix)
+  (let* ( (exx (magicl:tref matrix 0 0))
+          (eyy (magicl:tref matrix 1 1))
+          (exy (magicl:tref matrix 1 0)))
+    (magicl:from-list (list exx eyy (* 0.5 exy))
+                      '(3 1) :type 'double-float)))
