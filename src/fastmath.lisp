@@ -131,3 +131,28 @@
   #+:sb-simd (voigt-tensor-reduce-simd a)
   #-:sb-simd (voigt-tensor-reduce-lisp a)
   )
+
+(defun stretch-to-sym (stretch &optional (result nil))
+  (unless result
+    (setf result (magicl:zeros '(3 1) :type 'double-float)))
+
+  (setf (magicl:tref result  0 0)
+        (magicl:tref stretch 0 0))
+
+  (setf (magicl:tref result  1 0)
+        (magicl:tref stretch 1 1))
+
+  (setf (magicl:tref result  2 0)
+        (+ (magicl:tref stretch 0 1)
+           (magicl:tref stretch 1 0))))
+
+(defun stretch-to-skew (stretch &optional (result nil))
+  (unless result
+    (setf result (magicl:zeros '(3 1) :type 'double-float)))
+  (setf (magicl:tref result  0 0)
+        0)
+  (setf (magicl:tref result  1 0)
+        0)
+  (setf (magicl:tref result  2 0)
+        (- (magicl:tref stretch 0 1)
+           (magicl:tref stretch 1 0))))

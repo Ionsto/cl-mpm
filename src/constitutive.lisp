@@ -121,41 +121,34 @@
                                                                           (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))
                                                                           )))
         (loop for i from 0 to 1
-              do (let* ((sii (nth i l))
-                        (vii (magicl::column v i))
-
-                        (vsi (magicl:@ vii (magicl:transpose vii)))
+              do (let* ((si (nth i l))
+                        (vi (magicl::column v i))
+                        (vii (magicl:@ vi (magicl:transpose vi)))
                         (comp-prod
                           (magicl:scale (magicl:@
-                                         (matrix-to-mandel vsi)
-                                         (magicl:transpose (matrix-to-mandel vsi)))
-                                        (H sii)))
-
-                        (v1 (magicl:tref vii 0 0))
-                        (v2 (magicl:tref vii 1 0))
-
-                        (v1111 (* v1 v1 v1 v1))
-                        (v2222 (* v2 v2 v2 v2))
-                        (v1122 (* v1 v1 v2 v2))
-                        (v1112 (* v1 v1 v1 v2))
-                        (v1222 (* v1 v2 v2 v2))
-                        (v1212 (* v1 v2 v1 v2))
-                        (comp
-                          (magicl:scale!
-                           (magicl:from-list (list (* 1 v1111) (* 1 v1122) (* (sqrt 2) v1112)
-                                                   (* 1 v1122) (* 1 v2222) (* (sqrt 2) v1222)
-                                                   (* (sqrt 2) v1112) (* (sqrt 2) v1222) (* 2 v1212)) '(3 3))
-                           (H sii))
-                          )
-                        )
-                   ;; (format t "l: ~A ~%" sii)
-                   ;; (format t "v: ~A ~%" vii)
-                   ;; (format t "~A ~%" comp-prod)
-                   ;; (format t "~A ~%" comp)
+                                         (matrix-to-mandel vii)
+                                         (magicl:transpose (matrix-to-mandel vii)))
+                                        (H si))))
                    (magicl:.+ Q comp-prod Q)
                    )
               )
-      Q))))
+        (let* ((si (nth 0 l))
+               (sj (nth 1 l))
+               (vi (magicl::column v 0))
+               (vj (magicl::column v 1))
+               (vij (magicl:@ vi (magicl:transpose vj)))
+               (vji (magicl:@ vj (magicl:transpose vi)))
+               (pij (magicl:scale!
+                     (magicl:.+ vij vji)
+                     0.5d0))
+               (comp-prod
+                 (magicl:scale! (magicl:@
+                                (matrix-to-mandel pij)
+                                (magicl:transpose (matrix-to-mandel pij)))
+                               (+ (H si) (H sj)))))
+          (magicl:.+ Q comp-prod Q))
+          )
+      Q)))
 
 (defun tensile-project-q (stress)
   (mandel-to-voigt
@@ -163,11 +156,11 @@
     (tensile-projection-q-mandel stress)
     (voigt-to-mandel stress))))
 
-(defun tensile-projection-A (stress damage)
+(defun tensile-projection-A (strain damage)
   "Generate a mandel form tensile projection matrix A* from stress"
-  (let ((Q (tensile-projection-q-cw-mandel stress))
+  (let ((Q (tensile-projection-q-cw-mandel strain))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
-    (magicl:.- I (magicl:scale Q (- 1 (sqrt (- 1 damage)))))))
+    (magicl:.- I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
 
 (defun test-tensile ()
   (loop for stress in (list

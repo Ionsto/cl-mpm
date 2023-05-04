@@ -543,7 +543,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         )))
   (values))
 
-(declaim (inline p2g))
+(declaim (notinline p2g))
 (defun p2g (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
@@ -675,7 +675,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; (setf disp (magicl:.+ disp (magicl:scale vel dt))))
       )))
 
-(declaim (inline g2p))
+(declaim (notinline g2p))
 (defun g2p (mesh mps dt)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
@@ -855,7 +855,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
           (magicl:scale! stretch-tensor 0d0)
-;          (setf (cl-mpm/particle::mp-cached-nodes mp) '())
             (iterate-over-neighbours mesh mp
                 (lambda (mesh mp node svp grads)
                   (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
@@ -869,36 +868,21 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                       (magicl:.+
                        stretch-tensor
                        (voight-to-stretch
-                        (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel)) stretch-tensor)
-                      (magicl:.+
-                       strain-rate
-                       (magicl:@ (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel) strain-rate)
-                      (magicl:.+
-                       vorticity
-                       (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
+                        (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
+                       stretch-tensor)
+                      ;; (magicl:.+
+                      ;;  strain-rate
+                      ;;  (magicl:@ (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel) strain-rate)
+                      ;; (magicl:.+
+                      ;;  vorticity
+                      ;;  (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
                     )
                   )))
-            (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
-            (setf vorticity (magicl:.* vorticity (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
+            (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
+            (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
+            (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
+            ;(setf velocity-rate (magicl:scale strain-rate 1d0))
 
-            (setf velocity-rate (magicl:scale strain-rate 1d0))
-            ;; (magicl:scale! stretch-tensor dt)
-            ;; (setf strain-rate (magicl:scale!
-            ;;                           (matrix-to-voight
-            ;;                            (magicl:.+
-            ;;                             stretch-tensor
-            ;;                             (magicl:transpose stretch-tensor)
-            ;;                             ))
-            ;;                           0.5d0
-            ;;                           ))
-            ;; (setf vorticity (magicl:scale!
-            ;;                           (matrix-to-voight
-            ;;                            (magicl:.-
-            ;;                             stretch-tensor
-            ;;                             (magicl:transpose stretch-tensor)
-            ;;                             ))
-            ;;                           0.5d0
-            ;;                           ))
             (magicl:scale! stretch-tensor dt)
             (magicl:scale! strain-rate dt)
             (magicl:scale! vorticity dt)
