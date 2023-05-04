@@ -182,7 +182,13 @@
                                 1d0 1d0 (sqrt 2)
                                 (sqrt 2) (sqrt 2) 2d0) '(3 3))))
   (defun voigt-4th-to-mandel (tensor)
-    (magicl:.* tensor mandel-constant)))
+    (magicl:.* tensor mandel-constant))
+  (defun mandel-to-voigt-4th (tensor)
+    (magicl:./ tensor mandel-constant))
+  )
+(defun apply-damage-constitutive (de strain damage)
+  (let ((A (tensile-projection-a strain damage)))
+    (mandel-to-voigt-4th (magicl:@ A (voigt-4th-to-mandel de) A))))
 
 (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
   "A stress increment form of a viscoelastic maxwell material"

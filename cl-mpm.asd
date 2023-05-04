@@ -8,7 +8,7 @@
 
 (defsystem "cl-mpm/utils"
   :depends-on ("magicl")
-  :description "MPM utility functiosn definitions"
+  :description "MPM utility functions definitions"
   :serial t
   :components ((:file "src/utils")))
 
@@ -33,7 +33,7 @@
                "cl-mpm/particle"
                "cl-mpm/mesh"
                )
-  :description "MPM forces"
+  :description "MPM forces calculations"
   :serial t
   :components ((:file "src/forces")))
 
@@ -49,14 +49,15 @@
   :depends-on ("cl-mpm"
                "cl-mpm/mesh"
                )
-  :description "MPM test simulations"
+  :description "MPM setup system"
   :serial t
   :components ((:file "src/setup")))
 
 
 (defsystem "cl-mpm/constitutive"
   :depends-on ("magicl"
-               "cl-mpm/utils")
+               "cl-mpm/utils"
+               "cl-mpm/fastmath")
   :description "Various constitutive models"
   :serial t
   :components ((:file "src/constitutive")))
