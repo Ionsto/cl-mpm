@@ -66,57 +66,69 @@
      (magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
     ))
 
-(defun tensile-projection-eig (stress damage)
+(defun tensile-projection-eig (stress)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
       (loop for i from 0 to 1
             do (let* ((sii (nth i l)))
-                 (setf (nth i l) (H sii))))
+                 (setf (nth i l) (* sii (H sii)))))
       (matrix-to-voight (magicl:@ v
                                   (magicl:from-diag l :type 'double-float)
                                   (magicl:transpose v))))))
 
-(defun tensile-projection-Q (stress)
+(defun tensile-projection-Q-mandel (stress)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
       (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
         (loop for i from 0 to 1
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))
+
                         (vsi (magicl:@ vii (magicl:transpose vii)))
-                        ;; (comp (magicl:scale! (magicl::.realpart-lisp (magicl:kron vsi vsi)) (H sii)))
-                        ;; (comp (magicl:scale! (magicl:@ (matrix-to-voight vsi) (magicl:transpose (matrix-to-voight vsi))) (H sii)))
-                        (comp (magicl:scale!
-                               (magicl:@ (matrix-to-voight vsi)
-                                         (magicl:transpose (matrix-to-voight vsi))) (H sii)))
+                        (comp-prod
+                          (magicl:scale (magicl:@
+                                         (matrix-to-mandel vsi)
+                                         (magicl:transpose (matrix-to-mandel vsi)))
+                                        (H sii)))
+
+                        (v1 (magicl:tref vii 0 0))
+                        (v2 (magicl:tref vii 1 0))
+
+                        (v1111 (* v1 v1 v1 v1))
+                        (v2222 (* v2 v2 v2 v2))
+                        (v1122 (* v1 v1 v2 v2))
+                        (v1112 (* v1 v1 v1 v2))
+                        (v1222 (* v1 v2 v2 v2))
+                        (v1212 (* v1 v2 v1 v2))
+                        (comp
+                          (magicl:scale!
+                           (magicl:from-list (list (* 1 v1111) (* 1 v1122) (* (sqrt 2) v1112)
+                                                   (* 1 v1122) (* 1 v2222) (* (sqrt 2) v1222)
+                                                   (* (sqrt 2) v1112) (* (sqrt 2) v1222) (* 2 v1212)) '(3 3))
+                           (H sii))
+                          )
                         )
-
-                   ;; (format t "~A ~%" vsi)
-                   (format t "~A ~%" comp)
-                   (format t "~A ~%" (magicl:scale! (magicl::.realpart-lisp (magicl:kron vsi vsi)) (H sii)))
-                   ;; (format t "~A ~%" vii)
+                   ;; (format t "l: ~A ~%" sii)
+                   ;; (format t "v: ~A ~%" vii)
+                   ;; (format t "~A ~%" comp-prod)
                    ;; (format t "~A ~%" comp)
-                   (incf (magicl:tref Q 0 0) (magicl:tref comp 0 0 0 0))
-                   (incf (magicl:tref Q 0 1) (magicl:tref comp 0 0 1 1))
-                   (incf (magicl:tref Q 0 2) (magicl:tref comp 0 0 0 1))
-
-                   (incf (magicl:tref Q 1 0) (magicl:tref comp 1 1 0 0))
-                   (incf (magicl:tref Q 1 1) (magicl:tref comp 1 1 1 1))
-                   (incf (magicl:tref Q 1 2) (magicl:tref comp 1 1 0 1))
-
-                   (incf (magicl:tref Q 2 0) (magicl:tref comp 0 1 0 0))
-                   (incf (magicl:tref Q 2 1) (magicl:tref comp 0 1 1 1))
-                   (incf (magicl:tref Q 2 2) (magicl:tref comp 0 1 0 1))
-
-                   ;; (incf (magicl:tref Q i i) (H sii))
-                   ;; (incf (magicl:tref Q 2 2) (* 2d0 (H sii)))
+                   (magicl:.+ Q comp Q)
                    )
               )
       Q))))
+
+(defun tensile-project-q (stress)
+  (matrix-to-voight (mandel-to-matrix
+                     (magicl:@
+                      (tensile-projection-q-mandel stress)
+                      (matrix-to-mandel (voight-to-matrix stress))))))
+
 (defun tensile-projection-A (stress damage)
-  (let ((Q (tensile-projection-tensor-q stress))
-        (I (magicl:from-diag '(1d0 1d0 0.5d0))))
-    (magicl:.- I (magicl:scale Q (- 1 damage)))))
+  "Generate a mandel form tensile projection matrix A* from stress"
+  (let ((Q (tensile-projection-q stress))
+        (I (magicl:from-diag '(1d0 1d0 1d0))))
+    (magicl:.- I (magicl:scale Q (- 1 (sqrt (- 1 damage)))))))
+
 (defun test-tensile ()
   (loop for stress in (list
                        (magicl:from-list '(1 0 0) '(3 1) :type 'double-float)
@@ -125,14 +137,16 @@
                        (magicl:from-list '(-1 0 0) '(3 1) :type 'double-float)
                        (magicl:from-list '(0 -1 0) '(3 1) :type 'double-float)
                        (magicl:from-list '(-1 -1 0) '(3 1) :type 'double-float)
+                       (magicl:from-list '(1 -1 0) '(3 1) :type 'double-float)
+                       (magicl:from-list '(-1 1 0) '(3 1) :type 'double-float)
                        (magicl:from-list '(0 0 1) '(3 1) :type 'double-float)
                        (magicl:from-list '(1 0 1) '(3 1) :type 'double-float)
                        (magicl:from-list '(0 1 1) '(3 1) :type 'double-float)
                        (magicl:from-list '(-1 0 1) '(3 1) :type 'double-float)
                        (magicl:from-list '(0 -1 1) '(3 1) :type 'double-float)
                         )
-        do (let* ((stress-eig (tensile-projection-eig stress 0d0))
-                 (stress-project (magicl:@ (tensile-projection-Q stress) stress))
+        do (let* ((stress-eig (tensile-projection-eig stress 1d0))
+                  (stress-project (tensile-project-q stress))
                  )
              (format t "Stress~%")
              (loop for i from 0 to 2
@@ -162,6 +176,13 @@
                      )))
       damaged-stiffness)
     stiffness))
+
+(let ((mandel-constant
+        (magicl:from-list (list 1d0 1d0 (sqrt 2)
+                                1d0 1d0 (sqrt 2)
+                                (sqrt 2) (sqrt 2) 2d0) '(3 3))))
+  (defun voigt-4th-to-mandel (tensor)
+    (magicl:.* tensor mandel-constant)))
 
 (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
   "A stress increment form of a viscoelastic maxwell material"
