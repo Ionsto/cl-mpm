@@ -100,6 +100,46 @@
                         (v1112 (* v1 v1 v1 v2))
                         (v1222 (* v1 v2 v2 v2))
                         (v1212 (* v1 v2 v1 v2))
+
+                        (comp
+                          (magicl:scale!
+                           (magicl:from-list (list (* 1 v1111) (* 1 v1122) (* (sqrt 2) v1112)
+                                                   (* 1 v1122) (* 1 v2222) (* (sqrt 2) v1222)
+                                                   (* (sqrt 2) v1112) (* (sqrt 2) v1222) (* 2 v1212)) '(3 3))
+                           (H sii))
+                          )
+                        )
+                   (magicl:.+ Q comp Q)
+                   )
+              )
+      Q))))
+
+(defun tensile-projection-Q-cw-mandel (strain)
+  (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
+    (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
+      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix (magicl:.* strain
+                                                                          (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))
+                                                                          )))
+        (loop for i from 0 to 1
+              do (let* ((sii (nth i l))
+                        (vii (magicl::column v i))
+
+                        (vsi (magicl:@ vii (magicl:transpose vii)))
+                        (comp-prod
+                          (magicl:scale (magicl:@
+                                         (matrix-to-mandel vsi)
+                                         (magicl:transpose (matrix-to-mandel vsi)))
+                                        (H sii)))
+
+                        (v1 (magicl:tref vii 0 0))
+                        (v2 (magicl:tref vii 1 0))
+
+                        (v1111 (* v1 v1 v1 v1))
+                        (v2222 (* v2 v2 v2 v2))
+                        (v1122 (* v1 v1 v2 v2))
+                        (v1112 (* v1 v1 v1 v2))
+                        (v1222 (* v1 v2 v2 v2))
+                        (v1212 (* v1 v2 v1 v2))
                         (comp
                           (magicl:scale!
                            (magicl:from-list (list (* 1 v1111) (* 1 v1122) (* (sqrt 2) v1112)
@@ -125,7 +165,7 @@
 
 (defun tensile-projection-A (stress damage)
   "Generate a mandel form tensile projection matrix A* from stress"
-  (let ((Q (tensile-projection-q stress))
+  (let ((Q (tensile-projection-q-cw-mandel stress))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
     (magicl:.- I (magicl:scale Q (- 1 (sqrt (- 1 damage)))))))
 
