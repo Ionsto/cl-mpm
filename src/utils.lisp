@@ -12,6 +12,7 @@
    #:mandel-to-matrix
    #:voigt-to-mandel
    #:mandel-to-voigt
+   #:stress-from-list
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -80,7 +81,7 @@
 
 (defun voigt-to-mandel (voigt)
   (let* ( (exx (magicl:tref voigt 0 0))
-          (eyy (magicl:tref voigt 1 1))
+          (eyy (magicl:tref voigt 1 0))
           (exy (* (/ (sqrt 2) 2) (magicl:tref voigt 2 0))))
     (magicl:from-list (list exx eyy exy)
                       '(3 1) :type 'double-float)))
@@ -104,3 +105,6 @@
     (magicl:from-list (list exx exy
                             exy eyy)
                       '(2 2) :type 'double-float)))
+
+(defun stress-from-list (list)
+  (magicl:from-list list '(3 1) :type 'double-float))

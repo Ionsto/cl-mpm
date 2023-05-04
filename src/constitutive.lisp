@@ -112,16 +112,16 @@
                    ;; (format t "v: ~A ~%" vii)
                    ;; (format t "~A ~%" comp-prod)
                    ;; (format t "~A ~%" comp)
-                   (magicl:.+ Q comp Q)
+                   (magicl:.+ Q comp-prod Q)
                    )
               )
       Q))))
 
 (defun tensile-project-q (stress)
-  (matrix-to-voight (mandel-to-matrix
-                     (magicl:@
-                      (tensile-projection-q-mandel stress)
-                      (matrix-to-mandel (voight-to-matrix stress))))))
+  (mandel-to-voigt
+   (magicl:@
+    (tensile-projection-q-mandel stress)
+    (voigt-to-mandel stress))))
 
 (defun tensile-projection-A (stress damage)
   "Generate a mandel form tensile projection matrix A* from stress"
