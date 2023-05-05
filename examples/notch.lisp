@@ -58,9 +58,9 @@
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (magicl:tref (cl-mpm::mp-velocity mp) 0 0) into vx
+          collect (3d-vectors:vx (cl-mpm::mp-position mp)) into x
+          collect (3d-vectors:vy (cl-mpm::mp-position mp)) into y
+          collect (3d-vectors:vx (cl-mpm::mp-velocity mp)) into vx
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
           collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
@@ -201,15 +201,22 @@
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
-             (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
-                                  (magicl:from-list size '(2 1) :type 'double-float))))
+      (let* ((position (apply #'3d-vectors:vec2 position))
+             (diff (3d-vectors:v- pos position))
+             (dist-vec (3d-vectors:v-
+                        (3d-vectors:vapply diff abs)
+                        (apply #'3d-vectors:vec2 size))))
 
-        (+ (sqrt (magicl::sum
-                  (magicl:map! (lambda (x) (* x x))
-                               (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
-           (min (max (magicl:tref dist-vec 0 0)
-                     (magicl:tref dist-vec 1 0)
+        (+ (sqrt
+            (3d-vectors:v. (3d-vectors:vmax dist-vec 0)
+                            (3d-vectors:vmax dist-vec 0)
+                            )
+            ;; (magicl::sum
+            ;;       (magicl:map! (lambda (x) (* x x))
+            ;;                    (magicl:map! (lambda (x) (max 0d0 x)) dist-vec)))
+            )
+           (min (max (3d-vectors:vx dist-vec)
+                     (3d-vectors:vy dist-vec)
                      ) 0d0)))))
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))
@@ -319,7 +326,7 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (3d-vectors:vx pos) water-line ))))
                          stress-cauchy (magicl:scale stress 1d0)
                          undamaged-stress (magicl:scale stress 1d0)
                          )))
@@ -393,8 +400,8 @@
     (let* ((mps (cl-mpm:sim-mps *sim*))
            (least-pos
               (apply #'max (loop for mp across mps
-                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
-      (loop for mp across mps when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- least-pos 0.001))
+                                 collect (3d-vectors:vx (cl-mpm/particle:mp-position mp))))))
+      (loop for mp across mps when (>= (3d-vectors:vx (cl-mpm/particle:mp-position mp)) (- least-pos 0.001))
               collect mp)))
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
@@ -641,33 +648,7 @@
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
-(defun test-magicl (a)
-    (let ((b (magicl::from-storage (make-array '(2)
-                                               :element-type 'double-float
-                                               :initial-contents '(0d0 0d0))
-                                   '(2 1))))
-      (declare (dynamic-extent b)
-               (magicl:matrix/double-float a b))
-      (magicl:.+ a b a)))
 
-(let ((iters 100000)
-      (a (magicl:zeros '(2 1))))
-  (print "Lisp")
-  (time
-   (magicl.backends:with-backends (:lisp)
-     (loop repeat iters
-           do (test-magicl a))))
-  (print "Blas")
-  (time
-   (magicl.backends:with-backends (:blas)
-     (loop repeat iters
-           do (test-magicl a))))
-  ;; (print "simd")
-  ;; (time
-  ;;  (magicl.backends:with-backends (:simd)
-  ;;    (loop repeat iters
-  ;;          do (test-magicl a))))
-  )
 (defun simple-time ()
   (time
    (dotimes (i 100)

@@ -180,32 +180,32 @@
                 (progn
                     (reset-grid mesh)
                     (p2g mesh mps)
-                    (when (> mass-filter 0d0)
-                     (filter-grid mesh (sim-mass-filter sim)))
-                    (update-node-kinematics mesh dt)
-                    (apply-bcs mesh bcs dt)
-                    (update-stress mesh mps dt)
-                    (when enable-damage
-                     (cl-mpm/damage::calculate-damage mesh
-                                                      mps
-                                                      dt
-                                                      50d0
-                                                      nonlocal-damage
-                                                      ))
-                    ;Map forces onto nodes
-                    (p2g-force mesh mps)
-                    (apply-bcs mesh bcs-force dt)
-                    (update-node-forces mesh (sim-damping-factor sim) dt)
-                    ;Reapply velocity BCs
-                    (apply-bcs mesh bcs dt)
+                    ;; (when (> mass-filter 0d0)
+                    ;;  (filter-grid mesh (sim-mass-filter sim)))
+                    ;; (update-node-kinematics mesh dt)
+                    ;; (apply-bcs mesh bcs dt)
+                    ;; (update-stress mesh mps dt)
+                    ;; (when enable-damage
+                    ;;  (cl-mpm/damage::calculate-damage mesh
+                    ;;                                   mps
+                    ;;                                   dt
+                    ;;                                   50d0
+                    ;;                                   nonlocal-damage
+                    ;;                                   ))
+                    ;; ;Map forces onto nodes
+                    ;; (p2g-force mesh mps)
+                    ;; (apply-bcs mesh bcs-force dt)
+                    ;; (update-node-forces mesh (sim-damping-factor sim) dt)
+                    ;; ;Reapply velocity BCs
+                    ;; (apply-bcs mesh bcs dt)
                     ;Also updates mps inline
-                    (g2p mesh mps dt)
+                    ;; (g2p mesh mps dt)
 
-                    (when remove-damage
-                     (remove-material-damaged sim))
-                    (when split
-                     (split-mps sim))
-                    (check-mps mps)
+                    ;; (when remove-damage
+                    ;;  (remove-material-damaged sim))
+                    ;; (when split
+                    ;;  (split-mps sim))
+                    ;; (check-mps mps)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
   (declare (cl-mpm::mpm-sim sim))
@@ -359,27 +359,35 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      (d0 cl-mpm/particle::mp-domain-size))
         mp
       (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-             (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+             (pos pos-vec)
              (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec))
              (domain (loop for x across (magicl::storage d0) collect (* 0.5d0 (the double-float x))))
              )
         (declare (type double-float h)
-                 (type list pos pos-index domain))
+                 (type list domain))
         (loop for dx from -1 to 1
               do (loop for dy from -1 to 1
-                       do (let* ((id (mapcar #'+ pos-index (list dx dy))))
-                            (when (cl-mpm/mesh:in-bounds mesh id)
-                              (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                       do (let* ((id (3d-vectors:v+ pos-index (3d-vectors:vec2 dx dy))))
+                            (when (cl-mpm/mesh:in-bounds mesh (list (3d-vectors:vx id)
+                                                                    (3d-vectors:vy id)))
+                              (let* ((dist (3d-vectors:v- pos (cl-mpm/mesh::index-to-position-vec mesh id)))
                                      (weights (mapcar (lambda (x l)
                                                         (cl-mpm/shape-function::shape-gimp x l h))
-                                                      dist domain))
+                                                      (list (3d-vectors:vx dist)
+                                                            (3d-vectors:vy dist))
+                                                      domain
+                                                      ))
                                      (weight (reduce #'* weights))
                                      )
                                 (when (< 0d0 weight)
-                                  (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                  (let* ((node (cl-mpm/mesh:get-node mesh
+                                                                     (list (floor (3d-vectors:vx id))
+                                                                           (floor (3d-vectors:vy id)))))
                                          (grads (mapcar (lambda (d l w)
                                                           (* (cl-mpm/shape-function::shape-gimp-dsvp d l h) w))
-                                                        dist domain (nreverse weights))))
+                                                        (list (3d-vectors:vx dist)
+                                                              (3d-vectors:vy dist))
+                                                        domain (nreverse weights))))
                                     (funcall func mesh mp node weight grads))
                                 ))))))
         ))))
@@ -497,7 +505,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 
 (declaim
- (inline p2g-mp)
+ (notinline p2g-mp)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 p2g-mp))
 (defun p2g-mp (mesh mp)
@@ -533,11 +541,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
-           ;; (incf node-p-wave
-           ;;       (* mp-pmod svp))
-           (fast-fmacc node-vel mp-vel (* mp-mass svp))
+           (3d-vectors:nv+ node-vel (3d-vectors:v* mp-vel (* mp-mass svp)))
            )
-         ;; (special-p2g mp node svp dsvp)
           )
         ;(p2g-mp-node mp node svp grads)
         )))

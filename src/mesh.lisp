@@ -59,8 +59,8 @@
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float)
+    :type 3d-vectors:vec2
+    :initform (3d-vectors:vec2 0 0)
     )
   (force
     :accessor node-force
@@ -70,8 +70,8 @@
   (velocity
     :accessor node-velocity
     :initarg :velocity
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :type 3d-vectors:vec2
+    :initform (3d-vectors:vec2 0 0))
   (local-list
    :accessor node-local-list
    :initform (make-array 0 :fill-pointer 0 :adjustable t))
@@ -185,8 +185,8 @@
   "Default initialise a 2d node at pos"
   (make-instance 'node
                  :force (magicl:zeros (list 2 1) :type 'double-float)
-                 :velocity (magicl:zeros (list 2 1) :type 'double-float)
-                 :acceleration (magicl:zeros (list 2 1) :type 'double-float)
+                 :velocity (3d-vectors:vec2 0 0)
+                 :acceleration (3d-vectors:vec2 0 0)
                  :index (mapcar (lambda (x) (coerce x 'double-float))
                                  index)
                  :position pos
@@ -326,16 +326,19 @@
 (declaim
  (inline position-to-index)
  (ftype (function (cl-mpm/mesh::mesh
-                   magicl:matrix/double-float &optional function)
-                  list) position-to-index))
+                   3d-vectors:vec2 &optional function)
+                  3d-vectors:vec2) position-to-index))
 (defun position-to-index (mesh pos &optional (round-operator #'round))
   (declare (type function round-operator)
-           (type magicl:matrix/double-float pos))
+           ;; (type magicl:matrix/double-float pos)
+           )
   "Turn a vector position into a list of indexes with rounding"
-  (mapcar (lambda (x) (funcall round-operator (/
-                                                  (the double-float (magicl:tref pos x 0))
-                                                  (the double-float (mesh-resolution mesh))))
-                         ) '(0 1)))
+  (3d-vectors:vapply (3d-vectors:v/ pos (mesh-resolution mesh)) (lambda (x) (funcall round-operator x)))
+  ;; (mapcar (lambda (x) (funcall round-operator (/
+  ;;                                                 (the double-float (magicl:tref pos x 0))
+  ;;                                                 (the double-float (mesh-resolution mesh))))
+  ;;                        ) '(0 1))
+  )
 
 (defun index-to-position-array (mesh index)
   "Turn a vector position into a list of indexes with rounding"
@@ -347,6 +350,13 @@
   "Turn a vector position into a list of indexes with rounding"
   (let ((h (mesh-resolution mesh)))
     (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
+
+(declaim (ftype (function (mesh 3d-vectors:vec2) 3d-vectors:vec2) index-to-position-vec))
+(defun index-to-position-vec (mesh index)
+  "Turn a vector position into a list of indexes with rounding"
+  (3d-vectors:v* index (mesh-resolution mesh)))
+  ;; (let ((h (mesh-resolution mesh)))
+  ;;   (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
 
 (declaim (inline get-node)
          (ftype (function (mesh list) node) get-node))
@@ -409,9 +419,10 @@
     ;; (setf p-wave 0d0)
     (setf j 0d0)
     (setf j-inc 0d0)
-    (magicl:scale! vel 0d0)
-    (magicl:scale! acc 0d0)
-    (magicl:scale! force 0d0)))
+    (3d-vectors:v* vel 0d0)
+    (3d-vectors:v* acc 0d0)
+    (magicl:scale! force 0d0)
+    ))
 
 (defmethod reset-node ((node node-thermal))
   (with-accessors ((temperature node-temperature)

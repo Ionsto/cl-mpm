@@ -126,8 +126,8 @@
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
             do (format fs "~E ~E ~E ~%"
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
+                       (coerce (3d-vectors:vx (cl-mpm/particle:mp-position mp)) 'single-float)
+                       (coerce (3d-vectors:vy (cl-mpm/particle:mp-position mp)) 'single-float)
                        0e0))
       (format fs "~%")
       (let ((id 1))
@@ -137,8 +137,8 @@
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
-        (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
-        (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        (save-parameter "vel_x" (3d-vectors:vx (cl-mpm/particle:mp-velocity mp)))
+        (save-parameter "vel_y" (3d-vectors:vy (cl-mpm/particle:mp-velocity mp)))
         (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
         (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
         (save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
@@ -158,17 +158,17 @@
         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
         ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
-        (labels ((dot (a b) (magicl::sum (magicl:.* a b)))
-                 (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
-                 (radial-stress (mp)
-                   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                    (pos cl-mpm/particle:mp-position))
-                       mp
-                     (let ((normal (norm (magicl:.- pos (magicl:from-list '(250d0 250d0) '(2 1))))))
-                       (dot normal
-                            (magicl:@ (cl-mpm/utils:voight-to-matrix stress)
-                                      normal))))))
-          (save-parameter "s_rr" (radial-stress mp)))
+        ;; (labels ((dot (a b) (magicl::sum (magicl:.* a b)))
+        ;;          (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
+        ;;          (radial-stress (mp)
+        ;;            (with-accessors ((stress cl-mpm/particle:mp-stress)
+        ;;                             (pos cl-mpm/particle:mp-position))
+        ;;                mp
+        ;;              (let ((normal (norm (magicl:.- pos (magicl:from-list '(250d0 250d0) '(2 1))))))
+        ;;                (dot normal
+        ;;                     (magicl:@ (cl-mpm/utils:voight-to-matrix stress)
+        ;;                               normal))))))
+        ;;   (save-parameter "s_rr" (radial-stress mp)))
 
         (save-parameter "s_1"
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
@@ -210,13 +210,13 @@
       (format fs "coord_x,coord_y,stress_xx,stress_yy,tau_xy,velocity_x,velocity_y,stress_1,eps,damage,lx,ly~%")
       (loop for mp across mps
             do (format fs "~E, ~E, ~F, ~F, ~F, ~F, ~F, ~F, ~F, ~F, ~F, ~F ~%"
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
+                       (coerce (3d-vectors:vx (cl-mpm/particle:mp-position mp)) 'single-float)
+                       (coerce (3d-vectors:vy (cl-mpm/particle:mp-position mp)) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0) 'single-float)
+                       (coerce (3d-vectors:vx (cl-mpm/particle:mp-velocity mp)) 'single-float)
+                       (coerce (3d-vectors:vy (cl-mpm/particle:mp-velocity mp)) 'single-float)
                        (coerce (multiple-value-bind (l v)
                                    (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                                  (loop for sii in l maximize sii)) 'single-float)

@@ -72,13 +72,13 @@
      :initform (magicl:ones '(2 1)))
    (position
      :accessor mp-position
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :type 3d-vectors:vec2
      :initarg :position)
    (velocity
      :accessor mp-velocity
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :type 3d-vectors:vec2
      :initarg :velocity
-     :initform (magicl:zeros '(2 1)))
+     :initform (3d-vectors:vec2 0 0))
    (acceleration
     :accessor mp-acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -369,8 +369,8 @@
 (defun make-particle (nD &optional (constructor 'particle) &rest args &key  (position nil) (volume 1) (mass 1) &allow-other-keys)
   (progn
     (if (eq position nil)
-        (setf position (magicl:zeros (list nD 1)))
-        (setf position (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) position) (list nD 1))))
+        (setf position (3d-vectors:vec2 0 0))
+        (setf position (apply #'3d-vectors:vec2 (mapcar (lambda (x) (coerce x 'double-float)) position))))
     (let ((stress-size 3))
       (let ((mp (apply #'make-instance constructor
                       :nD nD

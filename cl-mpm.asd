@@ -22,6 +22,8 @@
 
 (defsystem "cl-mpm/mesh"
   :depends-on ("magicl"
+               "3d-vectors"
+               "3d-matrices"
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
@@ -63,7 +65,10 @@
   :components ((:file "src/constitutive")))
 ;
 (defsystem "cl-mpm/particle"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "3d-vectors"
+               "3d-matrices"
+               )
   :description "MPM particle definitions"
   :serial t
   :components ((:file "src/particle")))
@@ -91,7 +96,10 @@
   :components ((:file "src/output")))
 ;
 (defsystem "cl-mpm/shape-function"
- :depends-on ("magicl")
+ :depends-on ("magicl"
+              "3d-vectors"
+              "3d-matrices"
+              )
  :description "MPM shape function definitions"
  :serial t
  :components ((:file "src/shape-function")))
