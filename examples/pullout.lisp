@@ -196,8 +196,7 @@
                :initiation-stress 0.33d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-13
-               ;:critical-damage 0.544d0
+               :damage-rate 1d-15
                :critical-damage 1d0
                :local-length 0.5d0
                :gravity 0d0;-9.8d0
@@ -205,13 +204,13 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-18)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 0.1d-3)
+      (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -221,21 +220,21 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              )
             )
-      (defparameter *shear-rate* .1d0)
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (append
-              (map 'list #'identity (cl-mpm:sim-bcs sim))
-              (list
-               (cl-mpm/bc::make-bc-closure
-                '(0 0)
-                (lambda ()
-                  (apply-pullout
-                   sim
-                   *terminus-mps*
-                   *shear-rate*)
-                  )
-                )))))
+      ;; (defparameter *shear-rate* .1d0)
+      ;; (setf (cl-mpm:sim-bcs sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (append
+      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
+      ;;         (list
+      ;;          (cl-mpm/bc::make-bc-closure
+      ;;           '(0 0)
+      ;;           (lambda ()
+      ;;             (apply-pullout
+      ;;              sim
+      ;;              *terminus-mps*
+      ;;              *shear-rate*)
+      ;;             )
+      ;;           )))))
       (defparameter *pressure-inc-rate* 0d4)
       (defparameter *fatigue-load* 0d5)
       (defparameter *fatigue-period* 8d0)
@@ -243,30 +242,26 @@
         (cl-mpm/buoyancy::make-bc-pressure
          sim
          ;; 0.93d6
-         0.00d6
+         0.20d6
          0d0
          0d0
          ))
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (list *load-bc*)))
+      (setf (cl-mpm::sim-bcs-force sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (list *load-bc*)))
 
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 0.05)
+  (let ((mesh-size 0.20)
         (mps-per-cell 2))
-    ;;Setup notched pullout
-    ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
-    ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 10 mesh-size)
                                            (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
     (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
                                                0.5
-                                               mesh-size)) 0.10d0)
+                                               mesh-size)) 0.80d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
@@ -412,7 +407,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 200
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -470,8 +465,8 @@
                                    while *run-sim*
                                    do
                                       (progn
-                                        (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                                              (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                                        ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                        ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
                                         ;; (setf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
                                         ;;       (* *fatigue-load* (sin (/ (* *t* 2 3.14) *fatigue-period*))))
                                         (cl-mpm::update-sim *sim*)

@@ -186,17 +186,17 @@
                density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
-               ;; 'cl-mpm/particle::particle-elastic-damage
-               'cl-mpm/particle::particle-viscoplastic-damage
+               'cl-mpm/particle::particle-elastic-damage
+               ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-glen-damage
                :E 1d9
                :nu 0.3250d0
 
-               :visc-factor 11d6
-               :visc-power 3d0
+               ;; :visc-factor 11d6
+               ;; :visc-power 3d0
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-11
+               :damage-rate 1d-10
                :critical-damage 0.5d0
                :local-length 20d0
 
@@ -208,7 +208,7 @@
       (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
@@ -227,14 +227,13 @@
              nil
              ;; nil
              (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d3))
-             )
-            )
+             ))
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 10)
+  (let ((mesh-size 20)
         (mps-per-cell 2))
     (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)

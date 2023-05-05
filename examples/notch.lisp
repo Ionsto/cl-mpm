@@ -53,7 +53,7 @@
     (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -272,8 +272,8 @@
 
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-10
-               :critical-damage 0.4d0
+               :damage-rate 1d-12
+               :critical-damage 0.5d0
                :local-length 50d0
                :damage 0.0d0
 
@@ -281,7 +281,7 @@
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -575,7 +575,7 @@
                    *x-pos*)
                   (let ((max-cfl 0))
                     ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                             ;; (increase-load *sim* *load-mps* (magicl:from-list (list (* (cl-mpm:sim-dt *sim*)
                                                                                        ;; 5d0) 0d0) '(2 1)))
                             ;; (pescribe-velocity *sim* *load-mps* '(1d0 nil))
@@ -619,25 +619,17 @@
                       cl-mpm::reset-grid
                       cl-mpm::p2g
                       cl-mpm::filter-grid
-                      cl-mpm::update-nodes
+                      cl-mpm::update-node-kinematics
                       cl-mpm::apply-bcs
+                      cl-mpm::update-stress
+                      cl-mpm::p2g-force
+                      cl-mpm::update-forces
                       cl-mpm::g2p
                       cl-mpm::update-particle
-                      cl-mpm::update-stress
-                      cl-mpm::iterate-over-neighbours-shape
-                      cl-mpm::iterate-over-neighbours-shape-linear
-                      cl-mpm::p2g-mp
-                      cl-mpm::g2p-mp
-                      cl-mpm::p2g-mp-node
-                      cl-mpm::g2p-mp-node
-                      ;; cl-mpm::update-strain-kirchoff
                       cl-mpm/damage::calculate-damage
                       cl-mpm/damage::apply-damage
                       cl-mpm/damage::delocalise-damage
                       cl-mpm/damage::create-delocalisation-list
-                      ;; cl-mpm/eigenerosion:update-fracture
-                      ;; cl-mpm/eigenerosion::remove-material-damaged
-                      ;; cl-mpm/eigenerosion::find-neighbours
                       )
   (loop repeat 100
         do (progn
@@ -649,29 +641,43 @@
              ;; (cl-mpm/eigenerosion:update-fracture *sim*)
              ))
   (sb-profile:report))
-(defun simple-time ()
-  (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
-  (let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle
-                                           :size (magicl:from-list '(1d0 1d0) '(2 1)))))
-    (format t "Old")
-      ;; (time
-      ;;  (let ((m (magicl:zeros '(2 2))))
-      ;;  (lparallel:pdotimes (i 100000)
-      ;;    (magicl::eighth m)))
-      ;; )
+(defun test-magicl (a)
+    (let ((b (magicl::from-storage (make-array '(2)
+                                               :element-type 'double-float
+                                               :initial-contents '(0d0 0d0))
+                                   '(2 1))))
+      (declare (dynamic-extent b)
+               (magicl:matrix/double-float a b))
+      (magicl:.+ a b a)))
+
+(let ((iters 100000)
+      (a (magicl:zeros '(2 1))))
+  (print "Lisp")
   (time
-   ;; (lparallel:pdotimes (i 1000000)
+   (magicl.backends:with-backends (:lisp)
+     (loop repeat iters
+           do (test-magicl a))))
+  (print "Blas")
+  (time
+   (magicl.backends:with-backends (:blas)
+     (loop repeat iters
+           do (test-magicl a))))
+  ;; (print "simd")
+  ;; (time
+  ;;  (magicl.backends:with-backends (:simd)
+  ;;    (loop repeat iters
+  ;;          do (test-magicl a))))
+  )
+(defun simple-time ()
+  (time
    (dotimes (i 100)
      (with-accessors ((mesh cl-mpm:sim-mesh)
                       (mps cl-mpm:sim-mps)
                       (dt cl-mpm:sim-dt))
          *sim*
-       (cl-mpm::update-sim *sim*)
-       ;; (cl-mpm::update-stress-mp mesh (aref mps 0) dt)
-         )
-     ))
-    (format t "new")
-    ))
+       (cl-mpm::update-sim *sim*))
+     )))
+
 (defmacro time-form (it form)
   `(progn
      (declaim (optimize speed))
