@@ -363,11 +363,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec))
              (domain (loop for x across (magicl::storage d0) collect (* 0.5d0 (the double-float x))))
              )
+        (declare (dynamic-extent domain pos pos-index))
         (declare (type double-float h)
                  (type list pos pos-index domain))
-        (loop for dx from -1 to 1
-              do (loop for dy from -1 to 1
+        (loop for dx from (floor (- (tref pos-vec 0 0) (first domain)) h) to (floor (+ (tref pos-vec 0 0) (first domain)) h)
+         ;loop for dx from -1 to 1
+              do (loop for dy from (floor (- (tref pos-vec 1 0) (second domain)) h) to (floor (+ (tref pos-vec 1 0) (second domain)) h)
+                  ;loop for dy from -1 to 1
                        do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                            (declare (dynamic-extent id))
                             (when (cl-mpm/mesh:in-bounds mesh id)
                               (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                      (weights (mapcar (lambda (x l)
@@ -381,7 +385,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           (* (cl-mpm/shape-function::shape-gimp-dsvp d l h) w))
                                                         dist domain (nreverse weights))))
                                     (funcall func mesh mp node weight grads))
-                                ))))))
+                                )))
+                            )))
         ))))
 
 
