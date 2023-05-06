@@ -256,7 +256,7 @@
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 0.20)
-        (mps-per-cell 2))
+        (mps-per-cell 1))
     (defparameter *sim* (setup-test-column (list 10 mesh-size)
                                            (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
     (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list

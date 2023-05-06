@@ -140,6 +140,7 @@
            (with-accessors ((node-force cl-mpm/mesh:node-force)
                             (node-lock  cl-mpm/mesh:node-lock)
                             (node-boundary cl-mpm/mesh::node-boundary-node)
+                            (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                             (node-active  cl-mpm/mesh:node-active))
                node
              (when (and node-active node-boundary)
@@ -162,7 +163,14 @@
                                    (magicl:scale!
                                     (funcall func-div mp)
                                     (* svp volume))))
+                 (incf node-boundary-scalar
+                       (* volume svp (calculate-val-mp mp #'melt-rate)))
                  )))))))))
+
+(defun melt-rate (pos)
+  (if (< (magicl:tref pos 1 0) 300)
+      (/ 1 (+ 1 (abs (min 0 (- (magicl:tref pos 1 0) 300)))))
+      0d0))
 
 (defun apply-force-cells (mesh func-stress func-div)
   "Update force on nodes, with virtual stress field from cells"
@@ -184,6 +192,7 @@
                                        (node-active cl-mpm/mesh:node-active)
                                        (node-boundary cl-mpm/mesh::node-boundary-node)
                                        (node-volume cl-mpm/mesh::node-volume)
+                                       (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                        )
                           node
                         (when (and node-active node-boundary)
@@ -198,6 +207,8 @@
                                                  (cl-mpm/shape-function::assemble-dsvp-2d grads))
                                                 (funcall func-stress pos))
                                                (* -1d0 volume))))
+                            (incf node-boundary-scalar
+                                  (* -1d0 volume svp (calculate-val-cell cell #'melt-rate)))
                             ;;Subtract stress divergance from node force
                             (setf node-force (magicl:.+
                                               node-force
@@ -298,6 +309,11 @@
             (setf mp-count 1))
           )))))
 
+(defun cell-clipping (pos)
+  (<= (magicl:tref pos 1 0) 300)
+  ;; t
+  )
+
 (defun locate-mps-cells (mesh mps)
   "Mark boundary nodes based on neighbour MP inclusion"
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
@@ -311,9 +327,10 @@
                          (neighbours cl-mpm/mesh::cell-neighbours)
                          (index cl-mpm/mesh::cell-index)
                          (nodes cl-mpm/mesh::cell-nodes)
+                         (pos cl-mpm/mesh::cell-centroid)
                          )
             cell
-          (when (= mp-count 0)
+          (when (and (= mp-count 0) (cell-clipping pos))
               (loop for neighbour in neighbours
                     do
                        (when (check-neighbour-cell neighbour)

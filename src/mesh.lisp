@@ -86,6 +86,9 @@
     :type boolean
     :initform nil
     )
+   (boundary-scalar
+    :accessor node-boundary-scalar
+    :initform 0d0)
    (p-wave
     :accessor node-pwave
     :type double-float
@@ -400,6 +403,7 @@
                (volume volume)
                (active active)
                (boundary boundary-node)
+               (boundary-scalar boundary-scalar)
                 (force force))
                 node
     (setf active nil)
@@ -408,6 +412,7 @@
     (setf volume 0d0)
     ;; (setf p-wave 0d0)
     (setf j 0d0)
+    (setf boundary-scalar 0d0)
     (setf j-inc 0d0)
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)

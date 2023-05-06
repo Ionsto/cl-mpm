@@ -150,6 +150,7 @@
         (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
         (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
+        (save-parameter "temp" (cl-mpm/particle::mp-boundary mp))
 
         (save-parameter "strain_rate"
                         (multiple-value-bind (l v)

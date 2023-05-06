@@ -1,13 +1,14 @@
-(defpackage :cl-mpm/examples/pullout
+(defpackage :cl-mpm/examples/creep
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
-(in-package :cl-mpm/examples/pullout)
+(in-package :cl-mpm/examples/creep)
 ;; (pushnew :cl-mpm-pic *features*)
 (delete :cl-mpm-pic *features*)
 ;; (asdf:compile-system :cl-mpm :force T)
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))

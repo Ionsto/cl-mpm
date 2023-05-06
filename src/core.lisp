@@ -685,13 +685,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (double-float dt))
-  "Map one MP onto the grid"
+  "Map one MP from the grid"
   (with-accessors ((mass mp-mass)
                    (vel mp-velocity)
                    (pos mp-position)
                    (disp cl-mpm/particle::mp-displacement)
                    (acc cl-mpm/particle::mp-acceleration)
-                   (temp cl-mpm/particle::mp-temperature)
+                   (temp cl-mpm/particle::mp-boundary)
                    (strain-rate mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
                    (nc cl-mpm/particle::mp-cached-nodes)
@@ -704,6 +704,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (progn
         ;; (magicl:scale vel 0d0)
         ;; (reset-mps-g2p mp)
+        (setf temp 0d0)
         )
       ;; Map variables
       (iterate-over-neighbours
@@ -715,11 +716,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (type double-float svp))
          (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                           (node-acc cl-mpm/mesh:node-acceleration)
+                          (node-scalar cl-mpm/mesh::node-boundary-scalar)
                           (node-active cl-mpm/mesh:node-active)
                           ) node
            (when node-active
                (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
                (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp)
+               (incf temp (* svp node-scalar))
              )
            )
          ;; (g2p-mp-node mp node svp grads)
