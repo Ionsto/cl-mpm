@@ -11,14 +11,13 @@
 (defun damage-rate-profile (stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 1.0d0) rate)
-      0d0)
-  )
+      (* (expt (max 0d0 (- stress init-stress)) 3.0d0) rate)
+      0d0))
 
 (defun damage-profile (damage damage-crit)
   "Constitive law describing the scalar stress decrease as a function of damage"
   (if (< damage damage-crit)
-    (expt (- 1d0 damage) 0.85d0)
+    (expt (- 1d0 damage) 1d0)
     0d0))
 
 (defun calculate-damage-increment (mp dt)
