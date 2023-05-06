@@ -366,9 +366,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (declare (dynamic-extent domain pos pos-index))
         (declare (type double-float h)
                  (type list pos pos-index domain))
-        (loop for dx from (floor (- (tref pos-vec 0 0) (first domain)) h) to (floor (+ (tref pos-vec 0 0) (first domain)) h)
+        (loop for dx from (floor (- (tref pos-vec 0 0) (first domain)) h) to (ceiling (+ (tref pos-vec 0 0) (first domain)) h)
          ;loop for dx from -1 to 1
-              do (loop for dy from (floor (- (tref pos-vec 1 0) (second domain)) h) to (floor (+ (tref pos-vec 1 0) (second domain)) h)
+              do (loop for dy from (floor (- (tref pos-vec 1 0) (second domain)) h) to (ceiling (+ (tref pos-vec 1 0) (second domain)) h)
                   ;loop for dy from -1 to 1
                        do (let* ((id (mapcar #'+ pos-index (list dx dy))))
                             (declare (dynamic-extent id))
@@ -885,8 +885,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                   )))
             (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
-            (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
-            ;(setf velocity-rate (magicl:scale strain-rate 1d0))
+            ;; (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
+            (setf velocity-rate (magicl:scale strain-rate 1d0))
 
             (magicl:scale! stretch-tensor dt)
             (magicl:scale! strain-rate dt)

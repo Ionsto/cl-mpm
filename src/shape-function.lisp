@@ -224,13 +224,16 @@
   ;;   (incf node 1))
   (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
 
-;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x)))
+;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x))
+;;       (h 1))
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
 ;;    x
-;;    (mapcar (lambda (y) (nodal-bspline '(nil nil nil t
-;;                                         t
-;;                                         t nil nil nil) y 1 1d0)) x) "b"
+;;    (mapcar (lambda (y) (shape-gimp (+ y h) 0.01d0 1d0)) x) "-1"
+;;    x
+;;    (mapcar (lambda (y) (shape-gimp (+ y 0) 0.01d0 1d0)) x) "0"
+;;    x
+;;    (mapcar (lambda (y) (shape-gimp (- y h) 0.01d0 1d0)) x) "1"
 ;;    ))
 
 
