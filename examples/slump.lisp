@@ -186,8 +186,8 @@
                density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
-               'cl-mpm/particle::particle-elastic-damage
-               ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               ;; 'cl-mpm/particle::particle-elastic-damage
+               'cl-mpm/particle::particle-viscoplastic
                ;; 'cl-mpm/particle::particle-glen-damage
                :E 1d9
                :nu 0.3250d0
