@@ -169,8 +169,10 @@
 
 (defun melt-rate (pos)
   (if (< (magicl:tref pos 1 0) 300)
-      (/ 1 (+ 1 (expt
-                 (abs (min 0 (- (magicl:tref pos 1 0) 300))) 2)))
+      ;(exp (* 0.1 (- (magicl:tref pos 1 0) 300)))
+      (+ 1 (exp (* 0.05 (- (magicl:tref pos 1 0) 300))))
+      ;; (/ 1 (+ 1 (expt
+      ;;            (abs (min 0 (- (magicl:tref pos 1 0) 300))) 2)))
       0d0))
 
 (defun apply-force-cells (mesh func-stress func-div)

@@ -33,6 +33,8 @@
   #-cl-mpm-pic (print "Compiled with FLIP")
   #+cl-mpm-fbar (print "Compiled with FBAR")
   #-cl-mpm-fbar (print "Compiled without FBAR")
+  #+cl-mpm-special (print "Compiled with special hooks")
+  #-cl-mpm-special (print "Compiled without special hooks")
 )
 
 
@@ -657,11 +659,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (lparallel:pdotimes (i (length mps)) 
     (p2g-force-mp mesh (aref mps i))))
 
-(defgeneric special-g2p (mesh mp node svp dsvp grads)
+(defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
-  (:method (mesh mp node svp dsvp grads)))
+  (:method (mesh mp node svp grads)))
 
-(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp dsvp grads) 
+(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp grads) 
   (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
@@ -699,10 +701,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     mp
     (let* ((mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
           (mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
-          ;; (mapped-vel-mat (magicl::from-storage mapped-vel '(2 1)))
            )
       (progn
-        ;; (magicl:scale vel 0d0)
         ;; (reset-mps-g2p mp)
         (setf temp 0d0)
         )
@@ -723,6 +723,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
                (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp)
                (incf temp (* svp node-scalar))
+               #+cl-mpm-special (special-g2p mesh mp node svp grads)
              )
            )
          ;; (g2p-mp-node mp node svp grads)
@@ -740,11 +741,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
-        ;; (update-domain mesh mp dt)
-        )
-        ;; (setf pos (magicl:.+ pos (magicl:scale vel dt)))
-        ;; (setf disp (magicl:.+ disp (magicl:scale vel dt))))
-      )))
+        ))))
 
 (declaim (notinline g2p))
 (defun g2p (mesh mps dt)
@@ -936,21 +933,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                            node
                                          (declare (double-float))
                                          (when node-active
-                                           ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
-                                           ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
                                            (magicl:.+
                                             stretch-tensor
                                             (cl-mpm/utils::voight-to-stretch-prealloc
-                                             (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc grads stretch-dsvp) node-vel) v-s)
-                                            stretch-tensor)
-                                           ;; (magicl:.+
-                                           ;;  strain-rate
-                                           ;;  (magicl:@ (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel) strain-rate)
-                                           ;; (magicl:.+
-                                           ;;  vorticity
-                                           ;;  (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
-                                           )
-                                         ))))
+                                             (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                                                        grads stretch-dsvp) node-vel) v-s)
+                                            stretch-tensor))))))
             (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
             ;; (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
@@ -1036,7 +1024,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Eng strain to log strain
           ;;(voight-to-matrix )
           ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
+          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain)
+                                                 ;(voight-to-matrix (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
+                                                 )
             ;0.5
             (let ((trial-lgs (magicl:@ df
                                         v
@@ -1089,44 +1079,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (the double-float (tref stretch 1 1))))
               ))
           ))))
-  (values))
-
-(defun update-domain (mesh mp dt)
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain
-                   ))
-    (progn
-      (let ((dstrain (magicl:zeros '(3 1))))
-        (iterate-over-neighbours mesh mp
-                                 (lambda (mesh mp node svp grads)
-                                   (with-accessors ((node-vel cl-mpm/mesh:node-velocity))
-                                       node
-                                     (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel dstrain)
-                                     )
-                                   ))
-        (magicl:scale! dstrain dt)
-        (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
-            (multiple-value-bind (l v) (magicl:eig (magicl:@ df (magicl:transpose df)))
-              (let ((stretch
-                      (magicl:@
-                       v
-                       (magicl:from-diag (mapcar (lambda (x) (sqrt x)) l) :type 'double-float)
-                       (magicl:transpose v))))
-                (declare (type magicl:matrix/double-float stretch))
-                (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                                           (the double-float (tref stretch 0 0))))
-                (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                                           (the double-float (tref stretch 1 1))))
-                ))))))
   (values))
 
 
