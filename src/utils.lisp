@@ -51,16 +51,35 @@
                             eyx eyy)
                       '(2 2) :type 'double-float)))
 
+(declaim
+ (inline voight-to-stretch-prealloc)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) magicl:matrix/double-float) voight-to-stretch-2d-prealloc))
+(defun voight-to-stretch-prealloc (vec result)
+
+  (let* ((exx (magicl:tref vec 0 0))
+         (eyy (magicl:tref vec 1 0))
+         (exy (magicl:tref vec 2 0))
+         (eyx (magicl:tref vec 3 0))
+         (s (magicl::storage result)))
+    (declare ((simple-array double-float *) s) (double-float exx eyy exy eyx))
+    (setf (aref s 0) exx
+          (aref s 1) exy
+          (aref s 2) eyx
+          (aref s 3) eyy
+          ))
+  result)
+
 (defun matrix-to-voight-strain (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (exy (magicl:tref matrix 1 0)))
     (magicl:from-list (list exx exy exy eyy)
                       '(4 1) :type 'double-float)))
+
 (defun voight-to-matrix-strain (vec)
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
-          (exy (magicl:tref vec 3 0)))
+          (exy (* 0.5d0 (magicl:tref vec 2 0))))
     (magicl:from-list (list exx exy
                             exy eyy)
                       '(2 2) :type 'double-float)))

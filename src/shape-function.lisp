@@ -390,6 +390,34 @@
                                                              ))
                        '(4 2) :type 'double-float)))
 
+(declaim
+ (inline assemble-dstretch-2d-prealloc)
+ (ftype (function (list magicl:matrix/double-float) magicl:matrix/double-float) assemble-dstretch-2d-prealloc))
+(defun assemble-dstretch-2d-prealloc (dsvp result)
+  "Assemble d/di to the strain-displacement matrix"
+  (let* ((dx (nth 0 dsvp))
+         (dy (nth 1 dsvp))
+         (s (magicl::storage result)))
+    (declare ;((simple-array double-float 8) s)
+     ((simple-array double-float *) s)
+     (double-float dx dy))
+    (setf (aref s 0) dx
+          ;(aref s 1) 0d0
+          ;(aref s 2) 0d0
+          (aref s 3) dy
+          (aref s 4) dy
+          ;(aref s 5) 0
+          ;(aref s 6) 0
+          (aref s 7) dx
+          ))
+    ;(magicl:from-array (make-array 8 :initial-contents (list dx 0d0
+    ;                                                         0d0 dy
+    ;                                                         dy 0d0
+    ;                                                         0d0 dx
+    ;                                                         ))
+                       ;; '(4 2) :type 'double-float))
+  result)
+
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))

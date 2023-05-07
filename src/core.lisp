@@ -926,29 +926,31 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
           (magicl:scale! stretch-tensor 0d0)
+          (let ((stretch-dsvp (magicl:zeros '(4 2)))
+                (v-s (magicl:zeros '(2 2))))
             (iterate-over-neighbours mesh mp
-                (lambda (mesh mp node svp grads)
-                  (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                   (node-active cl-mpm/mesh:node-active)
-                                   )
-                      node
-                    (declare (double-float))
-                    (when node-active
-                      ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
-                      ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
-                      (magicl:.+
-                       stretch-tensor
-                       (voight-to-stretch
-                        (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
-                       stretch-tensor)
-                      ;; (magicl:.+
-                      ;;  strain-rate
-                      ;;  (magicl:@ (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel) strain-rate)
-                      ;; (magicl:.+
-                      ;;  vorticity
-                      ;;  (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
-                    )
-                  )))
+                                     (lambda (mesh mp node svp grads)
+                                       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                                                        (node-active cl-mpm/mesh:node-active)
+                                                        )
+                                           node
+                                         (declare (double-float))
+                                         (when node-active
+                                           ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
+                                           ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
+                                           (magicl:.+
+                                            stretch-tensor
+                                            (cl-mpm/utils::voight-to-stretch-prealloc
+                                             (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc grads stretch-dsvp) node-vel) v-s)
+                                            stretch-tensor)
+                                           ;; (magicl:.+
+                                           ;;  strain-rate
+                                           ;;  (magicl:@ (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel) strain-rate)
+                                           ;; (magicl:.+
+                                           ;;  vorticity
+                                           ;;  (magicl:@ (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel) vorticity)
+                                           )
+                                         ))))
             (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
             ;; (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
@@ -1034,8 +1036,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Eng strain to log strain
           ;;(voight-to-matrix )
           ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix
-                                                  (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1)))))
+          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
             ;0.5
             (let ((trial-lgs (magicl:@ df
                                         v
@@ -1061,7 +1062,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
                               0.5d0))
-                (setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
+                ;(setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
+                (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
                 )))
           ;;Post multiply to turn to eng strain
           ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
