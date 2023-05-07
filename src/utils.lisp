@@ -60,12 +60,14 @@
          (eyy (magicl:tref vec 1 0))
          (exy (magicl:tref vec 2 0))
          (eyx (magicl:tref vec 3 0))
-         (s (magicl::storage result)))
+         ;(s (magicl::storage result))
+         (s result)
+         )
     (declare ((simple-array double-float *) s) (double-float exx eyy exy eyx))
-    (setf (aref s 0) exx
-          (aref s 1) exy
-          (aref s 2) eyx
-          (aref s 3) eyy
+    (setf (magicl:tref s 0 0) exx
+          (magicl:tref s 0 1) exy
+          (magicl:tref s 1 0) eyx
+          (magicl:tref s 1 1) eyy
           ))
   result)
 
