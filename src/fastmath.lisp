@@ -116,17 +116,20 @@
 (declaim (inline voigt-tensor-reduce-lisp)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
 (defun voigt-tensor-reduce-lisp (a)
-  (let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(0.5d0 0.5d0 1d0)) '(3 1) :type 'double-float :layout :column-major)))
+  (let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 1/4)) '(3 1) :type 'double-float :layout :column-major)))
     (values (magicl::sum (magicl:.* a a second-invar)))))
+
 (declaim (inline voigt-tensor-reduce-simd)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-simd))
 (defun voigt-tensor-reduce-simd (a)
+  "Calculate the product A_{ij}A_{ij}"
   (let ((arr (magicl::storage a)))
     (declare ((simple-array double-float) arr))
     (values (+
-            (* (aref arr 0) (aref arr 0) 0.5d0)
-            (* (aref arr 1) (aref arr 1) 0.5d0)
-            (* (aref arr 2) (aref arr 2))))))
+            (* (aref arr 0) (aref arr 0))
+            (* (aref arr 1) (aref arr 1))
+            (* (aref arr 2) (aref arr 2) 1/4)))))
+
 (defun voigt-tensor-reduce (a)
   #+:sb-simd (voigt-tensor-reduce-simd a)
   #-:sb-simd (voigt-tensor-reduce-lisp a)

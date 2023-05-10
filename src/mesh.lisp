@@ -55,23 +55,23 @@
     :accessor node-position
     :initarg :position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :initform (magicl:zeros '(2 1) :type 'double-float))
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float)
+    :initform (magicl:zeros '(2 1) :type 'double-float)
     )
   (force
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :initform (magicl:zeros '(2 1) :type 'double-float))
   (velocity
     :accessor node-velocity
     :initarg :velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :initform (magicl:zeros '(2 1) :type 'double-float))
   (local-list
    :accessor node-local-list
    :initform (make-array 0 :fill-pointer 0 :adjustable t))
@@ -187,9 +187,9 @@
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
   (make-instance 'node
-                 :force (magicl:zeros (list 2 1) :type 'double-float)
-                 :velocity (magicl:zeros (list 2 1) :type 'double-float)
-                 :acceleration (magicl:zeros (list 2 1) :type 'double-float)
+                 ;; :force (magicl:zeros (list 2 1) :type 'double-float)
+                 ;; :velocity (magicl:zeros (list 2 1) :type 'double-float)
+                 ;; :acceleration (magicl:zeros (list 2 1) :type 'double-float)
                  :index (mapcar (lambda (x) (coerce x 'double-float))
                                  index)
                  :position pos

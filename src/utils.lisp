@@ -13,6 +13,8 @@
    #:voigt-to-mandel
    #:mandel-to-voigt
    #:stress-from-list
+   #:deviatoric-voigt
+   #:trace-voigt
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -129,3 +131,24 @@
 
 (defun stress-from-list (list)
   (magicl:from-list list '(3 1) :type 'double-float))
+
+(declaim (inline trace-voigt)
+         (ftype (function (magicl:matrix/double-float) double-float) trace-voigt))
+(defun trace-voigt (a)
+  "Calculate the product A_{ij}A_{ij}"
+  (let ((arr (magicl::storage a)))
+    (declare ((simple-array double-float) arr))
+    (+ (aref arr 0)
+               (aref arr 1))))
+
+(declaim (inline deviatoric-voigt)
+         (ftype (function (magicl:matrix/double-float)
+                          (magicl:matrix/double-float)) deviatoric-voigt))
+(defun deviatoric-voigt (a)
+  "Calculate the product A_{ij}A_{ij}"
+  (let* ((tr (/ (trace-trace a) 2d0))
+         (arr (magicl::storage a)))
+    (declare ((simple-array double-float) arr))
+    (stress-from-list (list (- (aref arr 0) tr)
+                            (- (aref arr 1) tr)
+                            (aref arr 2)))))

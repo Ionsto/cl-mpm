@@ -215,15 +215,15 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic
+               ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
-               ;; 'cl-mpm/particle::particle-viscoplastic
-               ;; 'cl-mpm/particle::particle-glen-damage
-               :E 1d9
+               'cl-mpm/particle::particle-viscoplastic
+               ;; 'cl-mpm/particle::particle-glen
+               :E 1d8
                :nu 0.3250d0
 
-               ;; :visc-factor 11d6
-               ;; :visc-power 3d0
+               :visc-factor 1d6
+               :visc-power 3d0
 
                ;; :initiation-stress 0.2d6
                ;; :damage-rate 1d-10
@@ -391,12 +391,12 @@
                        ;; (setf cfl (find-max-cfl *sim*))
                        (format t "CFL: ~f~%" cfl)
                        (push cfl *cfl-max*)
-                         ;; (multiple-value-bind (dt-e substeps-e) (calculate-dt cfl 1d-3 target-time)
+                         ;; (multiple-value-bind (dt-e substeps-e) (calculate-dt cfl 1d-4 target-time)
                          ;;   (format t "CFL dt estimate: ~f~%" dt-e)
                          ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
                          ;;   (push cfl *cfl-max*)
-                         ;;   ;; (setf (cl-mpm:sim-dt *sim*) dt-e)
-                         ;;   ;; (setf substeps substeps-e)
+                         ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
+                         ;;   (setf substeps substeps-e)
                          ;;   )
                        ;; (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
                        ;;        (substeps-e (/ target-time dt-e)))
