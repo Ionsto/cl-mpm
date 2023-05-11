@@ -341,6 +341,11 @@
   ()
   (:documentation "A mp with damage influanced elastic model"))
 
+(defclass particle-creep-damage (particle-elastic-damage)
+  ()
+  (:documentation "A mp with isotropic damage - reduced for use in creep test (higher performance)"))
+
+
 
 (defclass particle-elastic-fracture (particle-elastic particle-fracture)
   ()
@@ -521,6 +526,24 @@
                                                             (magicl:from-diag l :type 'double-float)
                                                             (magicl:transpose v)))))))
       )
+    stress
+    ))
+
+(defmethod constitutive-model ((mp particle-creep-damage) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (stress-undamaged undamaged-stress)
+               (strain-rate strain-rate)
+               (def deformation-gradient)
+               (damage damage)
+               )
+      mp
+    (declare (double-float damage))
+    (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+    (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
     stress
     ))
 

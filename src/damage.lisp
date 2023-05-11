@@ -41,7 +41,8 @@
                    (s_2 (- (nth 1 l) pressure))
                    (s_1 (max 0 s_1))
                    (s_2 (max 0 s_2))
-                   (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
+                   ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
+                   (vm (- s_1 s_2))
                    (s_1 vm)
                    (damage-inv (- 1 damage))
                    )
@@ -118,7 +119,7 @@
   (when non-local-damage
     (when (<= *delocal-counter* 0)
       (create-delocalisation-list mesh mps len)
-      (setf *delocal-counter* 10))
+      (setf *delocal-counter* *delocal-counter-max*))
     (decf *delocal-counter*))
   (lparallel:pdotimes (i (length mps))
                       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
