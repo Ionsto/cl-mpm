@@ -150,7 +150,7 @@
    (gravity-axis
     :type magicl:matrix/double-float
     :accessor mp-gravity-axis
-    :initform (magicl:from-list '(0d0 -1d0) '(2 1))
+    :initform (magicl:from-list '(0d0 1d0) '(2 1))
     :initarg :gravity-axis)
    (body-force
      :accessor mp-body-force
