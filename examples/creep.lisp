@@ -182,12 +182,12 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                'cl-mpm::make-particle
-                'cl-mpm/particle::particle-elastic-damage
+                'cl-mpm/particle::particle-creep-damage
                :E 1d8
-               :nu 0.3250d0
+               :nu 0.0000d0
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-8
+               :damage-rate 1d-19
                :critical-damage 0.56d0
                :local-length 50d0
                :gravity 0d0;-9.8d0
@@ -195,8 +195,8 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                  :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-18)
+      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
@@ -249,8 +249,8 @@
     ;; (defparameter *sim* (setup-test-column '(1000 300) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
     ;;Setup 1d pullout
-    (defparameter *sim* (setup-test-column (list 20 mesh-size)
-                                           (list 10 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    (defparameter *sim* (setup-test-column (list 40 mesh-size)
+                                           (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
     ;;                                            1
     ;;                                            mesh-size)) 0.10d0)
@@ -395,7 +395,7 @@
   ;;   (cl-mpm::update-sim *sim*))
 
   (format t "Damage rate : ~A~%" (cl-mpm/particle::mp-damage-rate (aref (cl-mpm:sim-mps *sim*) 0)))
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)

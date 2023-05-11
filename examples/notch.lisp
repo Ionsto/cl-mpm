@@ -53,7 +53,7 @@
     (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -268,13 +268,14 @@
 
 
                :initiation-stress 0.2d6
-               :damage-rate 1d-20
+               :damage-rate 1d-22
                :critical-damage 0.5d0
                :local-length 50d0
                :damage 0.0d0
 
-               :gravity -9.8d0
-               ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
+               :gravity 9.8d0
+               ;:gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
+               :gravity-axis (magicl:from-list (list 0d0 -1d0) '(2 1))
                :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
@@ -353,18 +354,18 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 500)
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
                                            (list 0 shelf-bottom) (/ 1 mesh-size) 2))
     ;;Bench calving
-    ;(remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
     )
 
   (format t "Simulation dt ~a~%" (cl-mpm:sim-dt *sim*))
@@ -491,7 +492,7 @@
                          do
                             (progn
                               (format t "Step ~d ~%" steps)
-                              (time (dotimes (i 100)
+                              (time (dotimes (i 10)
                                       (cl-mpm::update-sim *sim*)
                                       (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
                               (incf *sim-step*)
@@ -559,7 +560,7 @@
                    *x-pos*)
                   (let ((max-cfl 0))
                     ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
-                    (time (dotimes (i 100)
+                    (time (dotimes (i 1000)
                             (cl-mpm::update-sim *sim*)
                             ;(melt-sdf *sim* (rectangle-sdf (list 0 0) (list 1500 300)) (* (cl-mpm:sim-dt *sim*) 1e0))
                             (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
