@@ -57,7 +57,8 @@
                           )))))
     data))
 (defun make-mps-from-list (mp-list)
-  (make-array (length mp-list) :initial-contents mp-list :adjustable t :fill-pointer (length mp-list)))
+  (make-array (length mp-list)  :adjustable t :fill-pointer (length mp-list) :initial-contents mp-list))
+
 (defun make-block-mps (offset size mps constructor &rest args)
   (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
     (make-mps-from-list data)))

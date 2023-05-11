@@ -247,6 +247,7 @@
                )
       bc
     (when (<= (cl-mpm/mesh::node-volume node) volume-threshold)
+      (print "Created particle")
       ;; Add particle?
       (funcall pcons (list (magicl:tref (cl-mpm/mesh::node-position node) 0 0)
                            (magicl:tref (cl-mpm/mesh::node-position node) 1 0)

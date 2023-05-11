@@ -69,6 +69,7 @@
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -77,7 +78,7 @@
                      ) mp
         (progn
           ;;Damage increment holds the delocalised driving factor
-          ;; (setf ybar damage-inc)
+          (setf ybar damage-inc)
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0))

@@ -55,20 +55,20 @@
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
                    ) mp
-    (declare (type double-float mass gravity)
+    (declare (type double-float mass gravity volume)
              (type magicl:matrix/double-float body-force))
     (let* ((f-out (if f-out f-out (magicl:zeros '(2 1))))
            (f-s (magicl::storage f-out))
            (b-s (magicl::storage body-force))
-           ;; (g-s (magicl::storage (magicl:scale gravity-axis gravity)))
+           (g-s (magicl::storage (magicl:scale gravity-axis gravity)))
            )
-      (declare (type (simple-array double-float *) f-s b-s))
+      (declare (type (simple-array double-float *) f-s b-s g-s))
       ;;Manually unrolled
 
       (incf (aref f-s 0)
-            (* (aref b-s 0) volume svp))
+            (* (+ (* mass gravity (aref g-s 0)) (* volume (aref b-s 0))) svp))
       (incf (aref f-s 1)
-            (* (+ (* mass gravity) (* volume (aref b-s 1))) svp)
+            (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp)
             )
 
           ;; (magicl:scale!

@@ -1243,13 +1243,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mesh cl-mpm:sim-mesh))
       sim
     (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-      (setf mps
-            (lparallel:premove-if (lambda (mp)
-                         (with-accessors ((damage cl-mpm/particle:mp-damage))
-                             mp
-                           (and (>= damage 1d0)
-                                ;(split-criteria mp h)
-                                ))) mps)))
+      ;; (setf mps
+      ;;       (lparallel:premove-if (lambda (mp)
+      ;;                    (with-accessors ((damage cl-mpm/particle:mp-damage))
+      ;;                        mp
+      ;;                      (and (>= damage 1d0)
+      ;;                           ;(split-criteria mp h)
+      ;;                           ))) mps)))
+      (delete-if (lambda (mp)
+                              (with-accessors ((damage cl-mpm/particle:mp-damage))
+                                  mp
+                                (and (>= damage 1d0)
+                                        ;(split-criteria mp h)
+                                     ))) mps))
     ))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
