@@ -60,7 +60,7 @@
     (let* ((f-out (if f-out f-out (magicl:zeros '(2 1))))
            (f-s (magicl::storage f-out))
            (b-s (magicl::storage body-force))
-           (g-s (magicl::storage (magicl:scale gravity-axis gravity)))
+           (g-s (magicl::storage gravity-axis))
            )
       (declare (type (simple-array double-float *) f-s b-s g-s))
       ;;Manually unrolled

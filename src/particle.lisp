@@ -496,19 +496,6 @@
             def
             vorticity
             D)))
-    ;; (setf stress
-    ;;       (magicl:.+
-    ;;        stress;-undamaged
-    ;;        (objectify-stress-logspin
-    ;;         (cl-mpm/constitutive::linear-elastic-mat
-    ;;          strain-rate
-    ;;          ;; (magicl:scale de (- 1 damage))
-    ;;          (cl-mpm/constitutive::apply-damage-constitutive de strain damage)
-    ;;          )
-    ;;         stress
-    ;;         def
-    ;;         vorticity
-    ;;         D)))
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (multiple-value-bind (l v) (magicl:eig
