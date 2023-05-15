@@ -4,12 +4,11 @@
 (defun stress (s0 tau time)
   s0)
 
-(defun damage-rate (alpha sc d s)
-  (let ((beta 3))
-    (* alpha
-       (expt (max 0 (- (/ (max s 0) (- 1 d)) sc)) beta))))
+(defun damage-rate (alpha beta sc d s)
+  (* alpha
+     (expt (max 0 (- (/ (max s 0) (- 1 d)) sc)) beta)))
 
-(defun sim (tfinal dt s0 sc tau alpha)
+(defun sim (tfinal dt s0 sc tau alpha beta)
   (let ((tn 0)
         (dn 0)
         (t-data (list))
@@ -29,20 +28,21 @@
                  (incf
                   dn
                   (* dt
-                     (damage-rate alpha sc
+                     (damage-rate alpha beta sc
                                   dn
                                   (stress s0 tau tn))))
                  ))
     (format t "Time failure ~a at ~f~%" tn s0)
+    (format t "Time failure ~a h at ~f MPa~%" (/ tn (* 60.0 60)) (/ s0 1d6))
     (format t "Cycles to failure ~a at ~f~%" (/ tn tau) s0)
     (values tn t-data d-data s-data)))
 
 (defun last-array (a)
   (aref a (- (length a) 1)))
 
-(defun plot-sim (s0 &optional (alpha 1d-20))
+(defun plot-sim (s0 &optional (alpha 2d-24))
   (multiple-value-bind (tn t-data d-data s-data)
-      (sim (* 200 60 60) 1 s0 0.33e6 8 alpha)
+      (sim (* 800 60 60) 1 s0 0.33e6 8 alpha 3.25d0)
     (vgplot:close-all-plots)
     (vgplot:figure)
     (vgplot:title "Time vs damage")
@@ -54,7 +54,7 @@
        (lisp-stat:column df 'time) (lisp-stat:column df 'damage) "data"))
     (vgplot:figure)
     (vgplot:title "Normalised time vs damage")
-    (vgplot:plot t-data s-data)
+    ;(vgplot:plot t-data s-data)
     (let ((df (lisp-stat:read-csv
 	             (uiop:read-file-string #P"creep.csv"))))
       (vgplot:plot
@@ -91,10 +91,11 @@
 (defun find-alpha-time ()
   (let* (
          (s0 0.93e6)
+         (beta 3.25d0)
          (tau 8.0)
          (n (* 115.22 60 60))
-         (above 1e-25)
-         (below 1e-23)
+         (above 1e-28)
+         (below 1e-20)
          (last-above t)
          (last-n 0)
          (alpha above)
@@ -108,7 +109,7 @@
                      (setf below alpha))
                  (setf alpha (/ (+ below above) 2))
                  (let ((tnf
-                         (sim (* 200 60 60) 1 s0 0.33e6 8 alpha)
+                         (sim (* 200 60 60) 1 s0 0.33e6 8 alpha beta)
                          ;; (sim 10000 0.01 s0 250e3 tau alpha)
                          ))
                    ;; (setf last-n (/ tnf tau))
@@ -144,3 +145,28 @@
     (vgplot:figure)
     (vgplot:semilogx (lisp-stat:column df 'n) (lisp-stat:column df 's) ))
   )
+
+(defun find-beta-time ()
+  (let* ((s0 0.93e6)
+         (n (* 115.22 60 60))
+         (alpha 1d-05)
+         (betas (loop for b from 2.5 to 3.5 by 0.25d0 collect b))
+         (df (lisp-stat:read-csv (uiop:read-file-string #P"creep.csv")))
+         )
+    (loop for b in betas
+            do
+               (progn
+                 (format t "Beta value: ~f~%" b)
+                 (multiple-value-bind (tn t-data d-data s-data)
+                     ;; '(1 1 1 1)
+                     (sim (* 1000 60 60) 10 s0 0.33e6 8
+                          (/ alpha (expt 1000 (* 2 b))) b)
+                   (vgplot:figure)
+                   (vgplot:plot
+                    (mapcar (lambda (x) (/ x (first t-data))) t-data) d-data "mpm"
+                    (aops:each (lambda (x) (/ x (last-array (lisp-stat:column df 'time))))
+                               (lisp-stat:column df 'time)) (lisp-stat:column df 'damage) "data")            (vgplot:title b))
+                 (sleep 1)
+                 ))
+    ;; (plot-sim s0 alpha)
+    alpha))
