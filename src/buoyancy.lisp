@@ -229,7 +229,7 @@
           mp
         (cl-mpm::iterate-over-neighbours
          mesh mp
-         (lambda (mesh mp node svp grads)
+         (lambda (mesh mp node svp grads fsvp fgrads)
            (with-accessors ((node-force cl-mpm/mesh:node-force)
                             (node-lock  cl-mpm/mesh:node-lock)
                             (node-active  cl-mpm/mesh:node-active))
@@ -358,19 +358,19 @@
                                         (setf boundary t)
                                         ))))))
 
-(defun apply-bouyancy (sim datum-true)
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm::sim-mps))
-      sim
-    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        mesh
-      (let ((datum (- datum-true (* 0 0.5d0 h))))
-        (locate-mps-cells mesh mps)
-        (apply-force-mps mesh mps datum)
-        (apply-force-cells mesh datum)
-        ;; (direct-mp-enforcment mesh mps datum-true)
-        )))
-  )
+;; (defun apply-bouyancy (sim datum-true)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm::sim-mps))
+;;       sim
+;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+;;         mesh
+;;       (let ((datum (- datum-true (* 0 0.5d0 h))))
+;;         (locate-mps-cells mesh mps)
+;;         (apply-force-mps mesh mps datum)
+;;         (apply-force-cells mesh datum)
+;;         ;; (direct-mp-enforcment mesh mps datum-true)
+;;         )))
+;;   )
 
 (defun apply-non-conforming-nuemann (sim func-stress func-div)
   (with-accessors ((mesh cl-mpm:sim-mesh)
