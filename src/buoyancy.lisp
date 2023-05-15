@@ -136,7 +136,7 @@
         ;;Iterate over neighbour nodes
         (cl-mpm::iterate-over-neighbours
          mesh mp
-         (lambda (mesh mp node svp grads)
+         (lambda (mesh mp node svp grads fsvp fgrads)
            (with-accessors ((node-force cl-mpm/mesh:node-force)
                             (node-lock  cl-mpm/mesh:node-lock)
                             (node-boundary cl-mpm/mesh::node-boundary-node)
@@ -458,7 +458,7 @@
                                    do
                                       (cl-mpm::iterate-over-neighbours
                                        mesh mp
-                                       (lambda (mesh mp node svp grads)
+                                       (lambda (mesh mp node svp grads fsvp fgrad)
                                          (when t;(cl-mpm/mesh::node-boundary-node node)
                                            (with-accessors ((pos cl-mpm/particle:mp-position)
                                                             (pressure cl-mpm/particle::mp-pressure))

@@ -260,17 +260,17 @@
                'cl-mpm/particle::particle-elastic-damage
                ;'cl-mpm/particle::particle-elastic
 
-               :E 1d9
+               :E 1d8
                :nu 0.3250d0
 
                ;; :visc-factor 111d6
                ;; :visc-power 3d0
 
 
-               :initiation-stress 0.2d6
-               :damage-rate 1d-22
+               :initiation-stress 0.33d6
+               :damage-rate 1d-18
                :critical-damage 0.5d0
-               :local-length 50d0
+               :local-length 100d0
                :damage 0.0d0
 
                :gravity 9.8d0
@@ -354,7 +354,7 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 1000)
+  (let* ((shelf-length 2000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
@@ -541,39 +541,52 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (time (loop for steps from 0 to 100
+  (let* ((target-time 1d0)
+         (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
+    (format t "Substeps ~D~%" substeps)
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
-                (progn
-                  (format t "Step ~d ~%" steps)
-                  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                  (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
-                  ;; (cl-mpm/output:save-csv (merge-pathnames (forma
+                   (progn
+                     (format t "Step ~d ~%" steps)
+                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output:save-csv (merge-pathnames (forma
 
-                  (push *t* *time*)
-                  ;; (setf *x*
-                  ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
-                  ;;             maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
-                  (setf *x* (sim-mass *sim*))
-                  (push
-                   *x*
-                   *x-pos*)
-                  (let ((max-cfl 0))
-                    ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
-                    (time (dotimes (i 1000)
-                            (cl-mpm::update-sim *sim*)
-                            ;(melt-sdf *sim* (rectangle-sdf (list 0 0) (list 1500 300)) (* (cl-mpm:sim-dt *sim*) 1e0))
-                            (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
-                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
-                  (incf *sim-step*)
-                  (plot *sim*)
-                  (swank.live:update-swank)
-                  (sleep .01)
-                  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
-                          (format stream "~f, ~f ~%" *t* *x*)
-                    )
+                     (push *t* *time*)
+                     ;; (setf *x*
+                     ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
+                     ;;             maximize (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
+                     (setf *x* (sim-mass *sim*))
+                     (push
+                      *x*
+                      *x-pos*)
+                     (let ((max-cfl 0))
+                       ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
+                       (time (dotimes (i substeps)
+                               (cl-mpm::update-sim *sim*)
+                                        ;(melt-sdf *sim* (rectangle-sdf (list 0 0) (list 1500 300)) (* (cl-mpm:sim-dt *sim*) 1e0))
+                               (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
+                               (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
 
-                  )))
+                     (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
+                            (substeps-e (/ target-time dt-e))
+                            )
+                       (setf substeps-e (min 1000 substeps-e))
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf (cl-mpm:sim-dt *sim*) dt-e)
+                       (setf substeps substeps-e)
+                       )
+                     (incf *sim-step*)
+                     (plot *sim*)
+                     (swank.live:update-swank)
+                     (sleep .01)
+                     (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
+                       (format stream "~f, ~f ~%" *t* *x*)
+                       )
+
+                     ))))
     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                           *sim*)
   ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/simcsv_~5,'0d.csv" *sim-step*)) *sim*)
@@ -624,13 +637,16 @@
 
 ;; (let ((iters 1000000)
 ;;       (a (magicl:zeros '(2 1))))
-;;   (time
-;;      (loop repeat iters
-;;            do
-;;               (cl-mpm::iterate-over-neighbours-shape-gimp (cl-mpm:sim-mesh *sim*)
-;;                                                           (aref (cl-mpm:sim-mps *sim*) 0)
-;;                                                           (lambda (m mp node w g)
-;;                                                             ()))))
+(defun test-stress ()
+  (with-accessors ((mps cl-mpm::sim-mps)
+                   (mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt))
+      *sim*
+    (time
+     (loop repeat 1000
+           do
+              (cl-mpm::update-stress mesh mps dt)
+           ))))
 ;;   )
 (defmacro time-form (it form)
   `(progn

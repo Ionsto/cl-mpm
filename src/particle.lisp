@@ -33,7 +33,9 @@
 (defstruct node-cache
   node
   weight
-  grads)
+  grads
+  weight-fbar
+  grads-fbar)
 
 (defclass particle ()
   ((mass
@@ -169,6 +171,9 @@
     :accessor mp-p-modulus
     :initform 1d0
     )
+   (j-fbar
+    :accessor mp-j-fbar
+    :initform 1d0)
    )
   (:documentation "A single material point"))
 

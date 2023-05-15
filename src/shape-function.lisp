@@ -76,6 +76,33 @@
     (t
      0d0)))
 
+(declaim (inline shape-gimp-fbar)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp-fbar))
+(defun shape-gimp-fbar (x l h)
+  (declare (type double-float x l h))
+  (cond
+    ((and (< (- (+ h l)) x) (<= x (- l h)))
+     (/ (+ x h l) (* 4d0 l)))
+    ((and (< (- l h) x) (<= x (- h l)))
+     0.5d0)
+    ((and (< (- h l) x) (<= x (+ h l)))
+     (/ (- (+ h l) x) (* 4d0 l)))
+    (t
+     0d0)))
+(declaim (inline shape-gimp-fbar-dsvp)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp-fbar-dsvp))
+(defun shape-gimp-fbar-dsvp (x l h)
+  (declare (type double-float x l h))
+  (cond
+    ((and (< (- (+ h l)) x) (<= x (- l h)))
+     (/ 1d0 (* 4d0 l)))
+    ((and (< (- l h) x) (<= x (- h l)))
+     0d0)
+    ((and (< (- h l) x) (<= x (+ h l)))
+     (- (/ 1d0 (* 4d0 l))))
+    (t
+     0d0)))
+
 
 
 
@@ -229,11 +256,11 @@
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp (+ y h) 0.01d0 1d0)) x) "-1"
+;;    (mapcar (lambda (y) (shape-gimp-fbar (+ y h) 0.1d0 1d0)) x) "-1"
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp (+ y 0) 0.01d0 1d0)) x) "0"
+;;    (mapcar (lambda (y) (shape-gimp-fbar (+ y 0) 0.1d0 1d0)) x) "0"
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp (- y h) 0.01d0 1d0)) x) "1"
+;;    (mapcar (lambda (y) (shape-gimp-fbar (- y h) 0.1d0 1d0)) x) "1"
 ;;    ))
 
 

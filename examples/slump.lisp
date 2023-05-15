@@ -221,6 +221,7 @@
                ;; 'cl-mpm/particle::particle-glen
                :E 1d8
                :nu 0.3250d0
+               ;; :nu 0.4950d0
 
                :visc-factor 11d6
                :visc-power 3d0
@@ -362,6 +363,15 @@
   (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
+
+    (cl-mpm::update-sim *sim*)
+    (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
+           (substeps-e (/ target-time dt-e)))
+      (setf substeps-e (min 1000 substeps-e))
+      (format t "CFL dt estimate: ~f~%" dt-e)
+      (format t "CFL step count estimate: ~D~%" substeps-e)
+      (setf (cl-mpm:sim-dt *sim*) dt-e)
+      (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 100
                 while *run-sim*
