@@ -87,19 +87,19 @@
       cell
     (funcall func pos)))
 
-(defun calculate-virtual-stress-mp (mp datum)
-  (with-accessors ((pos cl-mpm/particle:mp-position))
-      mp
-    (pressure-virtual-stress)
-    ;; (buoyancy-virtual-stress (tref pos 1 0) datum))
-  ))
+;; (defun calculate-virtual-stress-mp (mp datum)
+;;   (with-accessors ((pos cl-mpm/particle:mp-position))
+;;       mp
+;;     (pressure-virtual-stress)
+;;     ;; (buoyancy-virtual-stress (tref pos 1 0) datum))
+;;   ))
 
-(defun calculate-virtual-stress-cell (cell datum)
-  (with-accessors ((pos cl-mpm/mesh::cell-centroid))
-      cell
-    (pressure-virtual-stress)
-    ;; (buoyancy-virtual-stress (tref pos 1 0) datum)
-    ))
+;; (defun calculate-virtual-stress-cell (cell datum)
+;;   (with-accessors ((pos cl-mpm/mesh::cell-centroid))
+;;       cell
+;;     (pressure-virtual-stress)
+;;     ;; (buoyancy-virtual-stress (tref pos 1 0) datum)
+;;     ))
 
 (defun calculate-virtual-divergance-mp (mp datum)
   (with-accessors ((pos cl-mpm/particle:mp-position))
