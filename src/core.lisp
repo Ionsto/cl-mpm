@@ -593,7 +593,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-volume  cl-mpm/mesh::node-volume)
                         (node-force cl-mpm/mesh:node-force)
-                        ;; (node-p-wave cl-mpm/mesh::node-pwave)
+                        (node-p-wave cl-mpm/mesh::node-pwave)
                         (node-lock  cl-mpm/mesh:node-lock)) node
          (declare (type double-float node-mass node-volume mp-volume)
                   (type sb-thread:mutex node-lock))
@@ -603,8 +603,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-mass svp))
            (incf node-volume
                  (* mp-volume svp))
-           ;; (incf node-p-wave
-           ;;       (* mp-pmod svp))
+           (incf node-p-wave
+                 (* mp-pmod svp))
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
          ;; (special-p2g mp node svp dsvp)
@@ -925,6 +925,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale! stretch-tensor 0d0)
           (let ((stretch-dsvp (magicl:zeros '(4 2)))
                 (v-s (magicl:zeros '(2 2))))
+            (declare (magicl:matrix/double-float stretch-dsvp v-s))
             (iterate-over-neighbours mesh mp
                                      (lambda (mesh mp node svp grads)
                                        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
@@ -938,11 +939,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                             (cl-mpm/utils::voight-to-stretch-prealloc
                                              (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
                                                         grads stretch-dsvp) node-vel) v-s)
-                                            stretch-tensor))))))
+                                            stretch-tensor)
+                                           ))))
+            )
             (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
-            ;; (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
-            (setf velocity-rate (magicl:scale strain-rate 1d0))
+            (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
+            ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
 
             (magicl:scale! stretch-tensor dt)
             (magicl:scale! strain-rate dt)
@@ -995,10 +998,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
-                          magicl:matrix/double-float
                            double-float) (values))
                update-strain-kirchoff))
-(defun update-strain-kirchoff (mesh mp dstrain dt)
+(defun update-strain-kirchoff (mesh mp dt)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
@@ -1013,21 +1015,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (declare (type double-float volume)
              (type magicl:matrix/double-float
                    domain
-                   dstrain
                    ))
     (progn
-      (let ((df (calculate-df mesh mp))
-            ;(df (.+ (magicl:eye 2) stretch-tensor))
-            (prev-strain strain))
+      (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
-          ;;Eng strain to log strain
-          ;;(voight-to-matrix )
-          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix strain))
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain)
-                                                 ;(voight-to-matrix (magicl:.* strain (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))))
-                                                 )
-            ;0.5
+          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
             (let ((trial-lgs (magicl:@ df
                                         v
                                         (magicl:from-diag (mapcar (lambda (x)
@@ -1036,12 +1029,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           :type 'double-float)
                                         (magicl:transpose v)
                                        (magicl:transpose df))))
-              (when (> (abs
-                        (- (magicl:tref trial-lgs 0 1)
-                           (magicl:tref trial-lgs 1 0)))
-                       0.1d0
-                       )
-                (error "Unsymetric b matrix"))
+              ;; (when (> (abs
+              ;;           (- (magicl:tref trial-lgs 0 1)
+              ;;              (magicl:tref trial-lgs 1 0)))
+              ;;          0.1d0
+              ;;          )
+              ;;   (error "Unsymetric b matrix"))
               (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
                 (setf strain (magicl:scale!
                                (matrix-to-voight
@@ -1052,20 +1045,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                             :type 'double-float)
                                           (magicl:transpose vf)))
                               0.5d0))
-                ;(setf strain (magicl:.* strain (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
-                (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
-                )))
+                (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0)))))))
+
           ;;Post multiply to turn to eng strain
-          ;; (magicl:from-list '(1d0 1d0 2d0) '(3 1))
-          ;; (setf strain-rate-tensor ())
-          ;; (setf strain-rate (magicl:.* strain-rate (magicl:from-list '(1d0 1d0 2d0) '(3 1))))
-          ;(setf velocity-rate (magicl:scale strain-rate 1d0))
-          ;; (setf strain-rate (magicl:.- strain prev-strain))
-          ;(setf velocity-rate (magicl:scale strain-rate (/ 1d0 dt)))
-          ;; (setf volume (* volume (det df)))
           (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
+
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
             (let ((stretch
                     (magicl:@
@@ -1092,32 +1078,37 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      (strain cl-mpm/particle:mp-strain)
                      (def    cl-mpm/particle:mp-deformation-gradient)
                      (strain-rate cl-mpm/particle:mp-strain-rate)
-                     ;; (damage cl-mpm/particle:mp-damage)
                         ) mp
+      (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
       (progn
-        ;;For no FBAR we need to update our strains
+      ;;   ;;For no FBAR we need to update our strains
         #-cl-mpm-fbar (calculate-strain-rate mesh mp dt)
-        (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
+      ;;   (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
-            (progn
-              ;; ;;Linear strain update
-              ;; (update-strain-linear mesh mp dstrain)
-              ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
-              ;; (when (<= volume 0d0)
-              ;;   (error "Negative volume"))
+      ;;       (progn
+      ;;         ;; ;;Linear strain update
+      ;;         ;; (update-strain-linear mesh mp dstrain)
+      ;;         ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+      ;;         ;; (when (<= volume 0d0)
+      ;;         ;;   (error "Negative volume"))
 
               ;; Turn cauchy stress to kirchoff
               (setf stress stress-kirchoff)
-              ;Update our strains
-              (update-strain-kirchoff mesh mp dstrain dt)
+
+              ;; ;Update our strains
+              (update-strain-kirchoff mesh mp dt)
+
               ;;Update our kirchoff stress with constitutive model
               (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+
               ;;Check volume constraint!
               (when (<= volume 0d0)
                 (error "Negative volume"))
               ;;Turn kirchoff stress to cauchy
               (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
-              ))))))
+              )
+        )
+      ))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
                    (volume cl-mpm/mesh::cell-volume))
@@ -1173,39 +1164,36 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (.+ (magicl:eye 2) stretch-tensor))
-           (j-inc (det df))
-           (j-n (det def))
-           (j-n1 0d0))
+    (let* ((df (magicl:eye 2))
+           )
+      (.+ df stretch-tensor df)
       #+cl-mpm-fbar (progn
-        ;;Volumetric locking
-        ;;If we want to do f bar
-        (when t
-          (iterate-over-neighbours mesh mp
-                                   (lambda (mesh mp node svp grads)
-                                     (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                                      (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                                                      (node-volume cl-mpm/mesh::node-volume)
-                                                      )
-                                         node
-                                       (when node-active
-                                         (incf j-n1 (/ (* svp node-j-inc) node-volume))
-                                         ))))
-          (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
-            (error "Negative volume"))
-          (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) 1/2)))
+                      (let (
+                            (j-inc (det df))
+                            (j-n (det def))
+                            (j-n1 0d0)
+                            )
+                        ;;Volumetric locking
+                        ;;If we want to do f bar
+                        (when t
+                          (iterate-over-neighbours mesh mp
+                                                   (lambda (mesh mp node svp grads)
+                                                     (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                                                      (node-j-inc cl-mpm/mesh::node-jacobian-inc)
+                                                                      (node-volume cl-mpm/mesh::node-volume)
+                                                                      )
+                                                         node
+                                                       (when node-active
+                                                         (incf j-n1 (/ (* svp node-j-inc) node-volume))
+                                                         ))))
+                          (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
+                            (error "Negative volume"))
+                          (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) 1/2))))
         )
       df)))
 
 (defun update-stress (mesh mps dt)
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  ;; (with-accessors ((cells cl-mpm/mesh::mesh-cells))
-  ;;     mesh
-  ;;   (lparallel:pdotimes (i (array-total-size cells))
-  ;;     (calculate-cell-deformation mesh (row-major-aref cells i) dt)
-  ;;     )
-  ;;   )
-  ;;
   ;;If we want to do fbar averaging we must do an average step
   #+cl-mpm-fbar (progn
                   (lparallel:pdotimes (i (length mps))
@@ -1216,6 +1204,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   ;;Update stress
   (lparallel:pdotimes (i (length mps))
      (update-stress-mp mesh (aref mps i) dt))
+  ;; (lparallel:pmap nil (lambda (mp) (update-stress-mp mesh mp dt)) mps)
+  ;; (dotimes (i (length mps))
+  ;;   (update-stress-mp mesh (aref mps i) dt))
   (values))
 
 (defun reset-grid (mesh)

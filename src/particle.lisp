@@ -189,10 +189,10 @@
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
                    (nu mp-nu)
-                   ;; (p mp-p-modulus)
+                   (p mp-p-modulus)
                    )
       particle
-    ;; (setf p (/ E (* (+ 1 nu) (- 1 nu))))
+    (setf p (/ E (* (+ 1 nu) (- 1 nu))))
     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))
@@ -487,15 +487,15 @@
                )
       mp
     ;; Non-objective stress intergration
-    (setf stress-undamaged
-          (magicl:.+
-           stress-undamaged
-           (objectify-stress-logspin
-            (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
-            stress-undamaged
-            def
-            vorticity
-            D)))
+    (magicl:.+
+     stress-undamaged
+     (objectify-stress-logspin
+      (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
+      stress-undamaged
+      def
+      vorticity
+      D)
+     stress-undamaged)
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (multiple-value-bind (l v) (magicl:eig

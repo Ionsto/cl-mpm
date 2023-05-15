@@ -140,16 +140,18 @@
 (defun stretch-to-sym (stretch &optional (result nil))
   (unless result
     (setf result (magicl:zeros '(3 1) :type 'double-float)))
+  (progn
+    (declaim (magicl:matrix/double-float result))
 
-  (setf (magicl:tref result  0 0)
-        (magicl:tref stretch 0 0))
+    (setf (magicl:tref result  0 0)
+          (magicl:tref stretch 0 0))
 
-  (setf (magicl:tref result  1 0)
-        (magicl:tref stretch 1 1))
+    (setf (magicl:tref result  1 0)
+          (magicl:tref stretch 1 1))
 
-  (setf (magicl:tref result  2 0)
-        (+ (the double-float (magicl:tref stretch 0 1))
-           (the double-float (magicl:tref stretch 1 0))))
+    (setf (magicl:tref result  2 0)
+          (+ (the double-float (magicl:tref stretch 0 1))
+             (the double-float (magicl:tref stretch 1 0)))))
   (values))
 
 (defun stretch-to-skew (stretch &optional (result nil))

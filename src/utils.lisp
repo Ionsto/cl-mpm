@@ -55,7 +55,8 @@
 
 (declaim
  (inline voight-to-stretch-prealloc)
- (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) magicl:matrix/double-float) voight-to-stretch-2d-prealloc))
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
+                  magicl:matrix/double-float) voight-to-stretch-prealloc))
 (defun voight-to-stretch-prealloc (vec result)
 
   (let* ((exx (magicl:tref vec 0 0))
@@ -65,7 +66,7 @@
          ;(s (magicl::storage result))
          (s result)
          )
-    (declare ((simple-array double-float *) s) (double-float exx eyy exy eyx))
+    (declare (double-float exx eyy exy eyx))
     (setf (magicl:tref s 0 0) exx
           (magicl:tref s 0 1) exy
           (magicl:tref s 1 0) eyx

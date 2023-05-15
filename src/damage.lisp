@@ -43,7 +43,7 @@
                    (s_2 (max 0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   (s_1 vm)
+                   ;; (s_1 vm)
                    (damage-inv (- 1 damage))
                    )
               ;; (setf damage-increment 0)
