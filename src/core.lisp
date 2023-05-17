@@ -1049,32 +1049,32 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
-          (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
-            (let ((trial-lgs (magicl:@ df
-                                        v
-                                        (magicl:from-diag (mapcar (lambda (x)
-                                                                    (declare (type double-float x))
-                                                                    (the double-float (exp (* x 2d0)))) l)
-                                                          :type 'double-float)
-                                        (magicl:transpose v)
-                                       (magicl:transpose df))))
-              ;; (when (> (abs
-              ;;           (- (magicl:tref trial-lgs 0 1)
-              ;;              (magicl:tref trial-lgs 1 0)))
-              ;;          0.1d0
-              ;;          )
-              ;;   (error "Unsymetric b matrix"))
-              (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
-                (setf strain (magicl:scale!
-                               (matrix-to-voight
-                                (magicl:@ vf
-                                          (magicl:from-diag (mapcar (lambda (x)
-                                                                      (the double-float
-                                                                           (log (the double-float x)))) lf)
-                                                            :type 'double-float)
-                                          (magicl:transpose vf)))
-                              0.5d0))
-                (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0)))))))
+          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
+          ;;   (let ((trial-lgs (magicl:@ df
+          ;;                               v
+          ;;                               (magicl:from-diag (mapcar (lambda (x)
+          ;;                                                           (declare (type double-float x))
+          ;;                                                           (the double-float (exp (* x 2d0)))) l)
+          ;;                                                 :type 'double-float)
+          ;;                               (magicl:transpose v)
+          ;;                              (magicl:transpose df))))
+          ;;     ;; (when (> (abs
+          ;;     ;;           (- (magicl:tref trial-lgs 0 1)
+          ;;     ;;              (magicl:tref trial-lgs 1 0)))
+          ;;     ;;          0.1d0
+          ;;     ;;          )
+          ;;     ;;   (error "Unsymetric b matrix"))
+          ;;     (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
+          ;;       (setf strain (magicl:scale!
+          ;;                      (matrix-to-voight
+          ;;                       (magicl:@ vf
+          ;;                                 (magicl:from-diag (mapcar (lambda (x)
+          ;;                                                             (the double-float
+          ;;                                                                  (log (the double-float x)))) lf)
+          ;;                                                   :type 'double-float)
+          ;;                                 (magicl:transpose vf)))
+          ;;                     0.5d0))
+          ;;       (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0)))))))
 
           ;;Post multiply to turn to eng strain
           (setf volume (* volume-0 (magicl:det def)))

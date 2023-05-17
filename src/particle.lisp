@@ -505,15 +505,20 @@
     (when (> damage 0.0d0)
       (multiple-value-bind (l v) (magicl:eig
                                   (voight-to-matrix stress))
-        (let ((pressure-ke (* pressure 1d0)))
+        (let* ((damage-limit (min damage 1.00d0))
+               (pressure-ke (* pressure 1d0))
+              (pressure-drive (* pressure 0d0))
+              )
           (loop for i from 0 to 1
                 do (let* ((sii (nth i l))
                           (esii (- sii pressure-ke)))
                      (when (> esii 0d0)
                        (setf (nth i l)
                              (+
-                              (* esii (- 1d0 damage))
-                              pressure-ke))))
+                              (+
+                               (* esii (- 1d0 damage-limit))
+                               pressure-ke)
+                              pressure-drive))))
                    (setf stress (matrix-to-voight (magicl:@ v
                                                             (magicl:from-diag l :type 'double-float)
                                                             (magicl:transpose v)))))))

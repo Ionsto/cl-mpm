@@ -11,7 +11,8 @@
 (defun damage-rate-profile (stress damage rate init-stress)
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 3.0d0) rate)
+      ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 1.00d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -22,7 +23,7 @@
 
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors ((stress cl-mpm/particle::mp-stress-kirchoff)
                      (damage cl-mpm/particle:mp-damage)
                      (strain-rate cl-mpm/particle::mp-velocity-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
@@ -50,13 +51,15 @@
               (when (> s_1 0)
                 (setf damage-increment s_1)
                 (when (> damage-inv 0)
-                  ;;(setf damage-increment (/ s_1 damage-inv))
+                  (setf damage-increment (expt (/ s_1 damage-inv) 1))
                   ))
               )
+            (when (>= damage 1)
+              (setf damage-increment 0d0))
 
-            (setf ybar damage-increment)
             (when (= damage 1d0)
               (setf damage-increment 0d0))
+            ;;(setf ybar damage-increment)
 
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
@@ -82,7 +85,8 @@
           (setf ybar damage-inc)
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
-            (setf damage-inc 0d0))
+            (setf damage-inc 0d0)
+            (setf ybar 0d0))
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
