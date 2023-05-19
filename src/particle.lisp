@@ -514,6 +514,8 @@
                (ep (* np damage-ef (magicl:det def))))
           (declare (double-float damage-ef ep np))
           ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+          ;; (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
+          ;;                         (voigt-from-list (list ep ep 0d0))))
           (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
                                   (voigt-from-list (list ep ep 0d0))))
           )))
@@ -1005,6 +1007,8 @@
                                     (v_i (magicl:column v i))
                                     (v_j (magicl:column v j))
                                     )
+                                (declare (double-float l_i l_j)
+                                         (magicl:matrix/double-float v_i v_j))
                                 ;; (when (< l_i 0d0)
                                 ;;   (magicl:scale! v_i -1d0)
                                 ;;   (setf l_i (abs l_i))
@@ -1021,21 +1025,22 @@
                                        ;; (> l_j 0d0)
                                        )
                                   ;; When we have pairs of unique nonzero eigenvalues
-                                  (setf omega (magicl:.+
-                                               omega
-                                               (magicl:scale
-                                                (magicl:@
+                                  (magicl:.+ omega
+                                                (magicl:scale!
                                                  (magicl:@
-                                                  v_i
-                                                  (magicl:transpose v_i))
-                                                 D
-                                                 (magicl:@
-                                                  v_j
-                                                  (magicl:transpose v_j)))
-                                                (+
-                                                 (/ (+ 1 (/ l_i l_j)) (- 1 (/ l_i l_j)))
-                                                 (/ 2d0 (log (/ l_i l_j))))
-                                                )))
+                                                  (magicl:@
+                                                   v_i
+                                                   (magicl:transpose v_i))
+                                                  D
+                                                  (magicl:@
+                                                   v_j
+                                                   (magicl:transpose v_j)))
+                                                 (+
+                                                  (/ (+ 1d0 (/ l_i l_j)) (- 1d0 (/ l_i l_j)))
+                                                  (/ 2d0 (the double-float (log (/ l_i l_j)))))
+                                                 )
+                                                omega
+                                                )
                                   ))))))
       (magicl:.-
        stress-inc
