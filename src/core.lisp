@@ -457,7 +457,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 ;;                             (declare (dynamic-extent id))
 ;;                             (when (cl-mpm/mesh:in-bounds mesh id)
 ;;                               (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
-;;                                      (domain (loop for x across (magicl::storage d0) collect (* 0.5d0 (the double-float x))))
+;;                                      (domain (loop for x across (magicl::matrix/double-float-storage d0) collect (* 0.5d0 (the double-float x))))
 ;;                                      (weights (mapcar (lambda (x l)
 ;;                                                         (cl-mpm/shape-function::shape-gimp x l h))
 ;;                                                       dist domain))
@@ -739,8 +739,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-active cl-mpm/mesh:node-active)
                           ) node
            (when node-active
-               (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::storage node-vel) svp)
-               (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::storage node-acc) svp)
+               (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::matrix/double-float-storage node-vel) svp)
+               (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::matrix/double-float-storage node-acc) svp)
                (incf temp (* svp node-scalar))
                #+cl-mpm-special (special-g2p mesh mp node svp grads)
              )
@@ -750,13 +750,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       ;;Update particle
       (progn
         (setf (fill-pointer nc) 0)
-        (cl-mpm/fastmath::fast-fmacc-array (magicl::storage pos) mapped-vel dt)
-        (cl-mpm/fastmath::fast-fmacc-array (magicl::storage disp) mapped-vel dt)
-        (aops:copy-into (magicl::storage acc) mapped-acc)
+        (cl-mpm/fastmath::fast-fmacc-array (magicl::matrix/double-float-storage pos) mapped-vel dt)
+        (cl-mpm/fastmath::fast-fmacc-array (magicl::matrix/double-float-storage disp) mapped-vel dt)
+        (aops:copy-into (magicl::matrix/double-float-storage acc) mapped-acc)
         ;;FLIP
-        #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::storage vel)  mapped-acc dt)
+        #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
         ;;PIC
-        #+cl-mpm-pic (aops:copy-into (magicl::storage vel) mapped-vel)
+        #+cl-mpm-pic (aops:copy-into (magicl::matrix/double-float-storage vel) mapped-vel)
 
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
@@ -978,7 +978,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             (error "FBAR volume non-positive"))
             (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
-            (aops:copy-into (magicl::storage velocity-rate) (magicl::storage strain-rate))
+            (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (magicl:scale! stretch-tensor dt)
             (magicl:scale! strain-rate dt)
@@ -1119,7 +1119,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       ;;   ;;For no FBAR we need to update our strains
           (progn
             ;;0.2s
-            ;; (calculate-strain-rate mesh mp dt)
+            (calculate-strain-rate mesh mp dt)
       ;;       (progn
       ;;         ;; ;;Linear strain update
       ;;         ;; (update-strain-linear mesh mp dstrain)
@@ -1136,13 +1136,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
             ;;2.018s
             ;;Update our kirchoff stress with constitutive model
-            ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+            (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
             ;;Check volume constraint!
             (when (<= volume 0d0)
               (error "Negative volume"))
             ;;Turn kirchoff stress to cauchy
-            ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
+            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)

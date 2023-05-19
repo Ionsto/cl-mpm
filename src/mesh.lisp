@@ -310,10 +310,10 @@
 (defun position-to-index-array (mesh pos &optional (round-operator #'round))
   "Turn a vector position into a list of indexes with rounding"
   (let ((h (mesh-resolution mesh))
-        (p-a (magicl::storage pos)))
+        (p-a (magicl::matrix/double-float-storage pos)))
     (aops:each (lambda (x) (/ (the double-float x) h)) p-a))
   ;; (let ((res (make-array 2
-  ;;                        :initial-contents (the (simple-array double-float) (magicl::storage pos))
+  ;;                        :initial-contents (the (simple-array double-float) (magicl::matrix/double-float-storage pos))
   ;;                        :element-type 'double-float))
   ;;       (h (mesh-resolution mesh)))
   ;;   (declare (type double-float h))

@@ -119,7 +119,7 @@
          (eyy (magicl:tref vec 1 0))
          (exy (magicl:tref vec 2 0))
          (eyx (magicl:tref vec 3 0))
-         ;(s (magicl::storage result))
+         ;(s (magicl::matrix/double-float-storage result))
          (s result)
          )
     (declare (double-float exx eyy exy eyx))
@@ -193,7 +193,7 @@
          (ftype (function (magicl:matrix/double-float) double-float) trace-voigt))
 (defun trace-voigt (a)
   "Calculate the product A_{ij}A_{ij}"
-  (let ((arr (magicl::storage a)))
+  (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
     (+ (aref arr 0)
                (aref arr 1))))
@@ -204,7 +204,7 @@
 (defun deviatoric-voigt (a)
   "Calculate the product A_{ij}A_{ij}"
   (let* ((tr (/ (trace-voigt a) 2d0))
-         (arr (magicl::storage a)))
+         (arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
     (stress-from-list (list (- (aref arr 0) tr)
                             (- (aref arr 1) tr)

@@ -188,8 +188,8 @@
    (inline diff-squared)
    (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
   (defun diff-squared (mp-a mp-b)
-    (let ((pos-a (magicl::storage (cl-mpm/particle:mp-position mp-a)))
-          (pos-b (magicl::storage (cl-mpm/particle:mp-position mp-b)))
+    (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
+          (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
           )
       (values (the double-float (simd-accumulate pos-a pos-b))))))
 

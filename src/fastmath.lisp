@@ -52,7 +52,7 @@
    (inline simd-add)
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
   (defun simd-add (a b)
-    (simd-accumulate (magicl::storage a) (magicl::storage b))
+    (simd-accumulate (magicl::matrix/double-float-storage a) (magicl::matrix/double-float-storage b))
     (values)))
 
 (declaim
@@ -63,9 +63,9 @@
                   ) mult))
 (defun mult (a b res)
   (declare (type magicl:matrix/double-float a b res))
-  (let ((a-s (magicl::storage a))
-        (b-s (magicl::storage b))
-        (res-s (magicl::storage res))
+  (let ((a-s (magicl::matrix/double-float-storage a))
+        (b-s (magicl::matrix/double-float-storage b))
+        (res-s (magicl::matrix/double-float-storage res))
         )
     (declare (type (simple-array double-float) a-s b-s res-s))
     (loop for i from 0 to 2
@@ -77,7 +77,7 @@
          (ftype (function (magicl:matrix/double-float) (values double-float)) det)
          )
 (defun det (x)
-  (let ((x-a (magicl::storage x)))
+  (let ((x-a (magicl::matrix/double-float-storage x)))
     (declare (type (simple-array double-float) x-a))
     (values (- (* (aref x-a 0) (aref x-a 3))
                (* (aref x-a 1) (aref x-a 2))))))
@@ -99,8 +99,8 @@
                    magicl:matrix/double-float
                    double-float) (values)) fast-fmacc))
 (defun fast-fmacc (a b d)
-  #+:sb-simd (simd-fmacc (magicl::storage a)
-                          (magicl::storage b)
+  #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
+                          (magicl::matrix/double-float-storage b)
                           d)
   #-:sb-simd (magicl:.+ a (magicl:scale b d) a))
 
@@ -123,7 +123,7 @@
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-simd))
 (defun voigt-tensor-reduce-simd (a)
   "Calculate the product A_{ij}A_{ij}"
-  (let ((arr (magicl::storage a)))
+  (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
     (values (+
             (* (aref arr 0) (aref arr 0))
