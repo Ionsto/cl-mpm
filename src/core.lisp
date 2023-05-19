@@ -189,7 +189,7 @@
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                      (filter-grid mesh (sim-mass-filter sim)))
-                    (update-node-kinematics mesh dt (sim-mass-scale sim))
+                    (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
                     (when enable-damage
@@ -202,7 +202,7 @@
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
-                    (update-node-forces mesh (sim-damping-factor sim) dt)
+                    (update-node-forces mesh (sim-damping-factor sim) dt (sim-mass-scale sim))
                     ;Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
                     ;Also updates mps inline
@@ -786,7 +786,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (setf temp (+ (/ temp mass) (* dtemp dt)))
       )))
 
-(defun calculate-kinematics (node mass-scale)
+(defun calculate-kinematics (node)
   "Calculate velocity from momentum on a single nod"
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
@@ -794,12 +794,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass))
         (progn
-          (magicl:scale! vel (/ 1.0d0 (* mass mass-scale)))
+          (magicl:scale! vel (/ 1.0d0 mass))
           ))))
 
 (declaim (inline calculate-forces)
-         (ftype (function (cl-mpm/mesh::node double-float double-float) (vaules)) calculate-forces))
-(defun calculate-forces (node damping dt)
+         (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
+(defun calculate-forces (node damping dt mass-scale)
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
@@ -809,8 +809,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (declare (double-float mass dt damping))
         (progn
           (magicl:scale acc 0d0)
-          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 mass))
-          (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
+          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+          (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))
@@ -865,14 +865,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let ((node (row-major-aref nodes i)))
       (update-node mesh dt node damping)))))
 
-(defun update-node-kinematics (mesh dt mass-scale)
+(defun update-node-kinematics (mesh dt)
   (iterate-over-nodes mesh
                       (lambda (node)
-                        (calculate-kinematics node mass-scale))))
-(defun update-node-forces (mesh damping dt)
+                        (calculate-kinematics node))))
+(defun update-node-forces (mesh damping dt mass-scale)
   (iterate-over-nodes mesh
                       (lambda (node)
-                        (calculate-forces node damping dt))))
+                        (calculate-forces node damping dt mass-scale))))
 
 (defun apply-bcs-old (mesh bcs dt)
   (declare (cl-mpm/mesh::mesh mesh))
