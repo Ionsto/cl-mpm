@@ -12,7 +12,7 @@
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
-      (* (expt (max 0d0 (- stress init-stress)) 1.00d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 2.00d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -23,7 +23,8 @@
 
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-stress-kirchoff)
+    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     ;; (strain cl-mpm/particle::mp-strain)
                      (damage cl-mpm/particle:mp-damage)
                      (strain-rate cl-mpm/particle::mp-velocity-rate)
                      (critical-stress cl-mpm/particle:mp-critical-stress)
@@ -38,22 +39,22 @@
         (progn
           (multiple-value-bind (l v) (magicl:eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (let* ((l (sort l #'>))
-                   (s_1 (- (nth 0 l) pressure))
-                   (s_2 (- (nth 1 l) pressure))
+                   (pressure-effective (* pressure 1d0))
+                   (s_1 (- (nth 0 l) pressure-effective))
+                   (s_2 (- (nth 1 l) pressure-effective))
                    (s_1 (max 0 s_1))
                    (s_2 (max 0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   ;; (s_1 vm)
+                   (s_1 vm)
                    (damage-inv (- 1 damage))
                    )
               ;; (setf damage-increment 0)
               (when (> s_1 0)
                 (setf damage-increment s_1)
-                (when (> damage-inv 0)
-                  (setf damage-increment (expt (/ s_1 damage-inv) 1))
-                  ))
-              )
+                ;; (when (> damage-inv 0)
+                ;;   (setf damage-increment (* s_1 (/ 1 (expt damage-inv 1)))))
+                ))
             (when (>= damage 1)
               (setf damage-increment 0d0))
 
@@ -83,6 +84,9 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
+
+          (when (< damage 1)
+            (setf damage-inc (* damage-inc (/ 1 (expt (- 1 damage) 1)))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)

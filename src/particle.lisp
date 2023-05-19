@@ -501,28 +501,46 @@
       vorticity
       D)
      stress-undamaged)
-    (setf stress (magicl:scale stress-undamaged 1d0))
-    (when (> damage 0.0d0)
-      (multiple-value-bind (l v) (magicl:eig
-                                  (voight-to-matrix stress))
-        (let* ((damage-limit (min damage 1.00d0))
-               (pressure-ke (* pressure 1d0))
-              (pressure-drive (* pressure 0d0))
-              )
-          (loop for i from 0 to 1
-                do (let* ((sii (nth i l))
-                          (esii (- sii pressure-ke)))
-                     (when (> esii 0d0)
-                       (setf (nth i l)
-                             (+
-                              (+
-                               (* esii (- 1d0 damage-limit))
-                               pressure-ke)
-                              pressure-drive))))
-                   (setf stress (matrix-to-voight (magicl:@ v
-                                                            (magicl:from-diag l :type 'double-float)
-                                                            (magicl:transpose v)))))))
-      )
+    (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+    ;; (setf stress (magicl:scale stress-undamaged 1d0))
+    ;; (when t;(> damage 0.0d0)
+    ;;   (let ((strain-matrix (voight-to-matrix strain))
+    ;;         (stress-matrix (voight-to-matrix stress))
+    ;;         ;; (new-stress (magicl:zeros '(2 2)))
+    ;;         )
+    ;;     (multiple-value-bind (le ve) (magicl:eig strain-matrix)
+    ;;       (multiple-value-bind (l v) (magicl:eig stress-matrix)
+    ;;         (loop for i from 0 to 1
+    ;;               do (progn
+    ;;                    (when (> (nth i le) 0d0)
+    ;;                      (setf (nth i l) (* (nth i l) (- 1 damage))))
+    ;;                      ))
+    ;;         (setf stress (matrix-to-voight (magicl:@ v
+    ;;                                                  (magicl:from-diag l :type 'double-float)
+    ;;                                                  (magicl:transpose v))))))
+    ;;       ;; (setf stress new-stress)
+    ;;   ))
+    ;; (when (> damage 0.0d0)
+    ;;   (multiple-value-bind (l v) (magicl:eig
+    ;;                               (magicl:scale! (voight-to-matrix stress) (/ 1 (magicl:det def))))
+    ;;     (let* ((damage-limit (min damage 0.99d0))
+    ;;            (pressure-ke (* pressure 1d0))
+    ;;           (pressure-drive (* pressure 0d0))
+    ;;           )
+    ;;       (loop for i from 0 to 1
+    ;;             do (let* ((sii (nth i l))
+    ;;                       (esii (- sii pressure-ke)))
+    ;;                  (when (> esii 0d0)
+    ;;                    (setf (nth i l)
+    ;;                          (+
+    ;;                           (+
+    ;;                            (* esii (- 1d0 damage-limit))
+    ;;                            pressure-ke)
+    ;;                           pressure-drive))))
+    ;;                (setf stress (matrix-to-voight (magicl:@ v
+    ;;                                                         (magicl:from-diag l :type 'double-float)
+    ;;                                                         (magicl:transpose v)))))))
+    ;;   )
     stress
     ))
 

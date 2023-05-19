@@ -178,8 +178,8 @@
                         (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
                           (let* ((l (sort l #'>))
-                                 (s_1 (max 0 (first l)))
-                                 (s_2 (max 0 (second l))))
+                                 (s_1 (max 0 (- (first l) (cl-mpm/particle::mp-pressure mp))))
+                                 (s_2 (max 0 (- (second l) (cl-mpm/particle::mp-pressure mp)))))
 
                             (* (sqrt (/ 3 4)) (- s_1 s_2))
                             )
