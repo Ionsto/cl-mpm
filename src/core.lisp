@@ -1084,12 +1084,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
-
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
             (let ((stretch
                     (magicl:@
                      v
-                     (magicl:from-diag (mapcar (lambda (x) (sqrt (the double-float x))) l) :type 'double-float)
+                     (matrix-from-list (list (the double-float (sqrt (the double-float (nth 0 l)) ))
+                                             0d0 0d0
+                                             (the double-float (sqrt (the double-float (nth 1 l)) ))))
+                     ;; (magicl:from-diag (mapcar (lambda (x) (sqrt (the double-float x))) l) :type 'double-float)
                      (magicl:transpose v))))
               (declare (type magicl:matrix/double-float stretch))
               (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
@@ -1115,9 +1117,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
       (progn
       ;;   ;;For no FBAR we need to update our strains
-      (calculate-strain-rate mesh mp dt)
-      ;;   (let ((dstrain (cl-mpm/particle:mp-strain-rate mp)))
           (progn
+            ;;0.2s
+            ;; (calculate-strain-rate mesh mp dt)
       ;;       (progn
       ;;         ;; ;;Linear strain update
       ;;         ;; (update-strain-linear mesh mp dstrain)
@@ -1126,22 +1128,22 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       ;;         ;;   (error "Negative volume"))
 
               ;; Turn cauchy stress to kirchoff
-              (setf stress stress-kirchoff)
+            ;; (setf stress stress-kirchoff)
 
-              ;; ;Update our strains
-              (update-strain-kirchoff mesh mp dt)
+            ;;1.442s
+            ;; ;Update our strains
+            (update-strain-kirchoff mesh mp dt)
 
-              ;;Update our kirchoff stress with constitutive model
-              (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+            ;;2.018s
+            ;;Update our kirchoff stress with constitutive model
+            ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
-              ;;Check volume constraint!
-              (when (<= volume 0d0)
-                (error "Negative volume"))
-              ;;Turn kirchoff stress to cauchy
-              (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
-              )
-        )
-      ))
+            ;;Check volume constraint!
+            (when (<= volume 0d0)
+              (error "Negative volume"))
+            ;;Turn kirchoff stress to cauchy
+            ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
+            ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
                    (volume cl-mpm/mesh::cell-volume))
@@ -1198,8 +1200,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (jfbar cl-mpm/particle::mp-j-fbar)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (magicl:eye 2))
-           )
+    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0 1d0))))
       (.+ df stretch-tensor df)
       #+cl-mpm-fbar (progn
                       (magicl:scale! df (expt (/ jfbar (magicl:det df)) (/ 1d0 2d0))))

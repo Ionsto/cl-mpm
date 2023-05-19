@@ -146,7 +146,7 @@
           (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
     (lparallel:pdotimes (i (length mps))
       (let ((mp (aref mps i)))
-        (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+        (when (typep mp 'cl-mpm/particle:particle-damage)
             (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
               (when (cl-mpm/mesh:in-bounds mesh node-id)
                 (let ((node (cl-mpm/mesh:get-node mesh node-id)))

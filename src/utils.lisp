@@ -5,6 +5,7 @@
    #:matrix-zeros
    #:stretch-dsvp-zeros
    #:voigt-from-list
+   #:matrix-from-list
    #:matrix-to-voight
    #:voight-to-matrix
    #:voight-to-stretch
@@ -32,6 +33,16 @@
                           magicl:matrix/double-float) matrix-zeros))
 (defun matrix-zeros ()
   (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float)))
+
+(declaim (inline matrix-copy)
+         (ftype (function (magicl:matrix/double-float)
+                          magicl:matrix/double-float) matrix-copy))
+(defun matrix-copy (mat)
+  ;; (let ((m (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float))))
+  ;;   (magicl::copy-matrix/double-float m mat)
+  ;;   m)
+  ;; (magicl::copy-matrix/double-float mat)
+  )
 
 (declaim (inline stretch-dsvp-zeros)
          (ftype (function ()
