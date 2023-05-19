@@ -1,6 +1,10 @@
 (defpackage :cl-mpm/utils
   (:use :cl)
   (:export
+   #:voigt-zeros
+   #:matrix-zeros
+   #:stretch-dsvp-zeros
+   #:voigt-from-list
    #:matrix-to-voight
    #:voight-to-matrix
    #:voight-to-stretch
@@ -18,20 +22,61 @@
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (inline voigt-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) voigt-zeros))
+(defun voigt-zeros ()
+  (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
+(declaim (inline matrix-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) matrix-zeros))
+(defun matrix-zeros ()
+  (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float)))
+
+(declaim (inline stretch-dsvp-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) stretch-dsvp-zeros))
+(defun stretch-dsvp-zeros ()
+  (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
+
+(declaim (inline voigt-from-list)
+         (ftype (function (list)
+                          magicl:matrix/double-float) voigt-from-list))
+(defun voigt-from-list (elements)
+  (magicl::make-matrix/double-float 3 1 3 :column-major
+                                    (make-array 3 :element-type 'double-float :initial-contents elements)))
+
+(declaim (inline matrix-from-list)
+         (ftype (function (list)
+                          magicl:matrix/double-float) matrix-from-list))
+(defun matrix-from-list (elements)
+  (magicl::make-matrix/double-float 2 2 4 :column-major
+                                    (make-array 4 :element-type 'double-float :initial-contents elements)))
+
+
+(declaim (inline matrix-to-voight)
+         (ftype (function (magicl:matrix/double-float)
+                          magicl:matrix/double-float) matrix-to-voight))
 (defun matrix-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (exy (magicl:tref matrix 1 0)))
-    (magicl:from-list (list exx eyy
-                            exy)
-                      '(3 1) :type 'double-float)))
+    ;; (magicl:from-list (list exx eyy
+    ;;                         exy)
+    ;;                   '(3 1) :type 'double-float))
+    (voigt-from-list (list exx eyy exy))))
+(declaim (inline voight-to-matrix)
+         (ftype (function (magicl:matrix/double-float)
+                          magicl:matrix/double-float) voight-to-matrix))
 (defun voight-to-matrix (vec)
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
           (exy (magicl:tref vec 2 0)))
-    (magicl:from-list (list exx exy
-                            exy eyy)
-                      '(2 2) :type 'double-float)))
+    ;; (magicl:from-list (list exx exy
+    ;;                         exy eyy)
+    ;;                   '(2 2) :type 'double-float)
+    (matrix-from-list (list exx exy exy eyy))
+    ))
 
 (defun stretch-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))

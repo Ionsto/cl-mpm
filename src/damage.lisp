@@ -86,7 +86,7 @@
           (setf ybar damage-inc)
 
           (when (< damage 1)
-            (setf damage-inc (* damage-inc (/ 1 (expt (- 1 damage) 1)))));3
+            (setf damage-inc (* damage-inc (/ 1 (expt (- 1 damage) 2)))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)

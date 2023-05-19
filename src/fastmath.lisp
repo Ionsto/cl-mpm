@@ -115,9 +115,9 @@
 
 (declaim (inline voigt-tensor-reduce-lisp)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
-(defun voigt-tensor-reduce-lisp (a)
-  (let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 1/4)) '(3 1) :type 'double-float :layout :column-major)))
-    (values (magicl::sum (magicl:.* a a second-invar)))))
+(let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 1/4)) '(3 1) :type 'double-float :layout :column-major)))
+  (defun voigt-tensor-reduce-lisp (a)
+     (values (magicl::sum (magicl:.* a a second-invar)))))
 
 (declaim (inline voigt-tensor-reduce-simd)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-simd))
@@ -139,7 +139,7 @@
          (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float) (values)) stretch-to-sym))
 (defun stretch-to-sym (stretch &optional (result nil))
   (unless result
-    (setf result (magicl:zeros '(3 1) :type 'double-float)))
+    (setf result (cl-mpm/utils:voigt-zeros)))
   (progn
     (declaim (magicl:matrix/double-float result))
 
@@ -156,7 +156,7 @@
 
 (defun stretch-to-skew (stretch &optional (result nil))
   (unless result
-    (setf result (magicl:zeros '(3 1) :type 'double-float)))
+    (setf result (cl-mpm/utils:voigt-zeros)))
   (setf (magicl:tref result  0 0)
         0)
   (setf (magicl:tref result  1 0)
