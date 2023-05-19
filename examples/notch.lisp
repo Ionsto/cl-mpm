@@ -27,9 +27,7 @@
                      for i from 0
                      do
                      (when v
-                       (setf (magicl:tref (cl-mpm/particle:mp-velocity mp) i 0) v)
-                       )
-                     )))))
+                       (setf (magicl:tref (cl-mpm/particle:mp-velocity mp) i 0) v)))))))
 (defun increase-load (sim load-mps amount)
   (loop for mp in load-mps
         do (with-accessors ((pos cl-mpm/particle:mp-position)
@@ -268,9 +266,10 @@
 
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-18
-               :critical-damage 0.5d0
-               :local-length 100d0
+               ;; :initiation-stress 1d6
+               :damage-rate 1d-13
+               :critical-damage 0.56d0
+               :local-length 50d0
                :damage 0.0d0
 
                :gravity 9.8d0
@@ -278,7 +277,7 @@
                :gravity-axis (magicl:from-list (list 0d0 -1d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
@@ -316,11 +315,11 @@
                      mp
                    (setf stress
                          (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line ))))
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line 1000))))
                          stress-cauchy (magicl:scale stress 1d0)
                          undamaged-stress (magicl:scale stress 1d0)
                          )))
-        (let ((ocean-x 2000)
+        (let ((ocean-x 1000)
               (ocean-y 300))
           (setf (cl-mpm::sim-bcs-force sim)
                 (cl-mpm/bc:make-bcs-from-list
@@ -354,20 +353,23 @@
 
 ;Setup
 (defun setup (&optional (notch-length 100))
-  (let* ((shelf-length 2000)
+  (let* ((shelf-length 1000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
-         (notch-depth 30);0
+         (notch-depth 50);0
          (mesh-size 50)
+         (offset 000)
          )
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
                                            (list shelf-length shelf-height)
-                                           (list 0 shelf-bottom) (/ 1 mesh-size) 2))
+                                           (list offset shelf-bottom) (/ 1 mesh-size) 2))
     ;;Bench calving
-    (remove-sdf *sim* (rectangle-sdf (list shelf-length (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    (remove-sdf *sim* (rectangle-sdf (list (+ shelf-length offset)
+                                           (+ shelf-height shelf-bottom)) (list notch-length notch-depth)))
+    ;; (damage-sdf *sim* (rectangle-sdf (list (+ shelf-length 100)
+                                           ;; (+ shelf-height shelf-bottom)) (list mesh-size shelf-height)) 0.1)
     )
-
   (format t "Simulation dt ~a~%" (cl-mpm:sim-dt *sim*))
   (format t "Simulation MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *velocity* '())
@@ -543,8 +545,17 @@
   (defparameter *notch-position* 0.1d0)
   (let* ((target-time 1d0)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
+    (cl-mpm::update-sim *sim*)
+    (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
+           (substeps-e (/ target-time dt-e))
+           )
+      (setf substeps-e (min 1000 substeps-e))
+      (format t "CFL dt estimate: ~f~%" dt-e)
+      (format t "CFL step count estimate: ~D~%" substeps-e)
+      (setf (cl-mpm:sim-dt *sim*) dt-e)
+      (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
@@ -569,15 +580,15 @@
                                (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
 
-                     (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
-                            (substeps-e (/ target-time dt-e))
-                            )
-                       (setf substeps-e (min 1000 substeps-e))
-                       (format t "CFL dt estimate: ~f~%" dt-e)
-                       (format t "CFL step count estimate: ~D~%" substeps-e)
-                       (setf (cl-mpm:sim-dt *sim*) dt-e)
-                       (setf substeps substeps-e)
-                       )
+                     ;; (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
+                     ;;        (substeps-e (/ target-time dt-e))
+                     ;;        )
+                     ;;   (setf substeps-e (min 1000 substeps-e))
+                     ;;   (format t "CFL dt estimate: ~f~%" dt-e)
+                     ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
+                     ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
+                     ;;   (setf substeps substeps-e)
+                     ;;   )
                      (incf *sim-step*)
                      (plot *sim*)
                      (swank.live:update-swank)
@@ -637,16 +648,23 @@
 
 ;; (let ((iters 1000000)
 ;;       (a (magicl:zeros '(2 1))))
+(declaim (inline make-stress-vector))
+(defun make-stress-vector ()
+  (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
+
 (defun test-stress ()
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm::sim-mesh)
                    (dt cl-mpm::sim-dt))
       *sim*
-    (time
-     (loop repeat 1000
-           do
-              (cl-mpm::update-stress mesh mps dt)
-           ))))
+    (let ((m (magicl:zeros '(2 2))))
+      (time
+       (loop repeat 100000000
+             do
+                ;; (magicl::storage m)
+                (magicl::matrix/double-float-storage m)
+                                        ;(cl-mpm::update-stress mesh mps dt)
+             )))))
 ;;   )
 (defmacro time-form (it form)
   `(progn

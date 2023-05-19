@@ -61,6 +61,11 @@
      :accessor sim-damping-factor
      :initarg :damping-factor
      :initform 0d0)
+   (mass-scale
+    :type double-float
+    :accessor sim-mass-scale
+    :initarg :mass-scale
+    :initform 1d0)
    (allow-mp-split
     :type boolean
     :accessor sim-allow-mp-split
@@ -184,7 +189,7 @@
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                      (filter-grid mesh (sim-mass-filter sim)))
-                    (update-node-kinematics mesh dt)
+                    (update-node-kinematics mesh dt (sim-mass-scale sim))
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
                     (when enable-damage
@@ -781,7 +786,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (setf temp (+ (/ temp mass) (* dtemp dt)))
       )))
 
-(defun calculate-kinematics (node)
+(defun calculate-kinematics (node mass-scale)
   "Calculate velocity from momentum on a single nod"
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
@@ -789,7 +794,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass))
         (progn
-          (magicl:scale! vel (/ 1.0d0 mass))
+          (magicl:scale! vel (/ 1.0d0 (* mass mass-scale)))
           ))))
 
 (declaim (inline calculate-forces)
@@ -860,10 +865,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let ((node (row-major-aref nodes i)))
       (update-node mesh dt node damping)))))
 
-(defun update-node-kinematics (mesh dt)
+(defun update-node-kinematics (mesh dt mass-scale)
   (iterate-over-nodes mesh
                       (lambda (node)
-                        (calculate-kinematics node))))
+                        (calculate-kinematics node mass-scale))))
 (defun update-node-forces (mesh damping dt)
   (iterate-over-nodes mesh
                       (lambda (node)
@@ -1360,7 +1365,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   ))
 
 (defun calculate-min-dt (sim)
-  (with-accessors ((mesh cl-mpm:sim-mesh))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mass-scale cl-mpm::sim-mass-scale))
       sim
     (let ((inner-factor most-positive-double-float))
       (iterate-over-nodes-serial
@@ -1376,7 +1382,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (when (< nf inner-factor)
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
-          (* (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
+          (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
           0d0))))
 #||
 (progn
