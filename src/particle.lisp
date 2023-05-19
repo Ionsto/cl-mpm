@@ -489,8 +489,10 @@
                (def deformation-gradient)
                (damage damage)
                (pressure pressure)
+               (pos position)
                )
       mp
+    (declare (double-float pressure damage))
     ;; Non-objective stress intergration
     (magicl:.+
      stress-undamaged
@@ -503,7 +505,26 @@
       velocity-rate
       )
      stress-undamaged)
-    (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+    (let ((rho 1000d0)
+          (datum 300d0)
+          (g -9.8d0))
+      (let* ((z (magicl:tref pos 1 0))
+             (np (* rho g (max 0 (- datum z)))))
+        (let* ((damage-ef (min damage 0.95d0))
+               (ep (* np damage-ef (magicl:det def))))
+          (declare (double-float damage-ef ep np))
+          ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+          (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
+                                  (voigt-from-list (list ep ep 0d0))))
+          )))
+    ;(setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+    ;; (let* ((damage-ef (min damage 1.00d0))
+    ;;        (ep (* pressure damage-ef (magicl:det def))))
+    ;;   (declare (double-float damage-ef ep pressure))
+    ;;   ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+    ;;   (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
+    ;;                           (voigt-from-list (list ep ep 0d0))))
+    ;;   )
     ;; (setf stress (magicl:scale stress-undamaged 1d0))
     ;; (when t;(> damage 0.0d0)
     ;;   (let ((strain-matrix (voight-to-matrix strain))
@@ -523,26 +544,29 @@
     ;;       ;; (setf stress new-stress)
     ;;   ))
     ;; (when (> damage 0.0d0)
-    ;;   (multiple-value-bind (l v) (magicl:eig
-    ;;                               (magicl:scale! (voight-to-matrix stress) (/ 1 (magicl:det def))))
-    ;;     (let* ((damage-limit (min damage 0.99d0))
-    ;;            (pressure-ke (* pressure 1d0))
-    ;;           (pressure-drive (* pressure 0d0))
-    ;;           )
-    ;;       (loop for i from 0 to 1
-    ;;             do (let* ((sii (nth i l))
-    ;;                       (esii (- sii pressure-ke)))
-    ;;                  (when (> esii 0d0)
-    ;;                    (setf (nth i l)
-    ;;                          (+
-    ;;                           (+
-    ;;                            (* esii (- 1d0 damage-limit))
-    ;;                            pressure-ke)
-    ;;                           pressure-drive))))
-    ;;                (setf stress (matrix-to-voight (magicl:@ v
-    ;;                                                         (magicl:from-diag l :type 'double-float)
-    ;;                                                         (magicl:transpose v)))))))
-    ;;   )
+    ;;   (let ((j (magicl:det def)))
+    ;;     (multiple-value-bind (l v) (magicl:eig
+    ;;                                 (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+    ;;       (let* ((damage-limit (min damage 0.95d0))
+    ;;              (pressure-ke (* pressure 1))
+    ;;              (pressure-drive (* pressure damage-limit))
+    ;;              )
+    ;;         (declare (double-float damage-limit pressure-ke pressure-drive))
+    ;;         (loop for i from 0 to 1
+    ;;               do (let* ((sii (nth i l))
+    ;;                         (esii (- sii pressure-ke)))
+    ;;                    (declare (double-float sii))
+    ;;                    (when (> esii 0d0)
+    ;;                      (setf (nth i l)
+    ;;                            (+
+    ;;                             (* esii (- 1d0 damage-limit))
+    ;;                             pressure-ke)
+    ;;                            ))
+    ;;                    (setf (nth i l) (+ (nth i l) pressure-drive))))
+    ;;         (setf stress (magicl:scale!
+    ;;                       (matrix-to-voight (magicl:@ v
+    ;;                                                   (magicl:from-diag l :type 'double-float)
+    ;;                                                   (magicl:transpose v))) j))))))
     stress
     ))
 

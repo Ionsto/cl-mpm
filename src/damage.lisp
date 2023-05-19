@@ -122,7 +122,7 @@
   )
 
 (defparameter *delocal-counter* 0)
-(defparameter *delocal-counter-max* 1)
+(defparameter *delocal-counter-max* 2)
 (defun calculate-damage (mesh mps dt len non-local-damage)
   (when non-local-damage
     (when (<= *delocal-counter* 0)
