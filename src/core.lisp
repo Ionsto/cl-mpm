@@ -1128,7 +1128,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       ;;         ;;   (error "Negative volume"))
 
               ;; Turn cauchy stress to kirchoff
-            ;; (setf stress stress-kirchoff)
+            (setf stress stress-kirchoff)
 
             ;;1.442s
             ;; ;Update our strains
