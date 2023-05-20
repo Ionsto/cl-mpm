@@ -9,6 +9,7 @@
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (defun damage-rate-profile (stress damage rate init-stress)
+  (declare (double-float stress damage rate init-stress))
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
@@ -36,26 +37,37 @@
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ;(damage-driving-factor cl-mpm/particle::mp-damage-driving-factor)
                      ) mp
+      (declare (double-float pressure damage))
         (progn
           (progn;multiple-value-bind (l v) (magicl:eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (let* (;(l (sort l #'>))
                    ;; (s_1 (nth 0 l))
                    ;; (s_2 (nth 1 l))
-                   (cauchy-stress (magicl:scale! (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
-                   (av (/ (+ (magicl:tref cauchy-stress 0 0) (magicl:tref cauchy-stress 1 1)) 2))
-                   (diff (sqrt (+ (expt (/ (- (magicl:tref cauchy-stress 0 0) (magicl:tref cauchy-stress 1 1)) 2) 2)
-                                  (magicl:tref cauchy-stress 1 0))))
+                   ;(cauchy-stress (magicl:scale! (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
+                   ;; (cauchy-stress (magicl:scale! (voight-to-matrix stress) ))
+                   (j (/ 1d0 (the double-float (magicl:det def))))
+                   (av (/ (* j (+ (the double-float (magicl:tref stress 0 0)) (the double-float (magicl:tref stress 1 0)))) 2))
+                   (diff (the double-float
+                              (sqrt (the double-float
+                                         (+ (the double-float
+                                                 (expt
+                                                  (/
+                                                   (* j (the double-float (- (the double-float (magicl:tref stress 0 0))
+                                                                             (the double-float (magicl:tref stress 1 0)))))
+                                                   2d0)
+                                                  2d0))
+                                            (* j (the double-float (magicl:tref stress 2 0))))))))
                    (s_1 (+ av diff))
-                   (s_2 (- av diff))
+                   ;(s_2 (- av diff))
                    (pressure-effective (* pressure 1d0))
                    (s_1 (- s_1 pressure-effective))
-                   (s_2 (- s_2 pressure-effective))
-                   (s_1 (max 0 s_1))
-                   (s_2 (max 0 s_2))
+                   ;(s_2 (- s_2 pressure-effective))
+                   (s_1 (max 0d0 s_1))
+                   ;(s_2 (max 0d0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
-                   (vm (- s_1 s_2))
-                   (s_1 vm)
-                   (damage-inv (- 1 damage))
+                   ;(vm (- s_1 s_2))
+                   ;(s_1 vm)
+                   ;(damage-inv (- 1d0 damage))
                    )
               ;; (setf damage-increment 0)
               (when (> s_1 0)
@@ -63,7 +75,7 @@
                 ;; (when (> damage-inv 0)
                 ;;   (setf damage-increment (* s_1 (/ 1 (expt damage-inv 1)))))
                 ))
-            (when (>= damage 1)
+            (when (>= damage 1d0)
               (setf damage-increment 0d0))
 
             (when (= damage 1d0)
@@ -89,12 +101,13 @@
                      (pressure cl-mpm/particle::mp-pressure)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ) mp
+      (declare (double-float damage damage-inc critical-damage))
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
 
-          (when (< damage 1)
-            (setf damage-inc (* damage-inc (/ 1 (expt (- 1 damage) 2)))));3
+          (when (< damage 1d0)
+            (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 2d0)))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
@@ -295,6 +308,7 @@
             (values))
   localise-damage))
 (defun localise-damage (mesh mps dt)
+  (declare ((array cl-mpm/particle::particle *) mps))
   "Apply local damage model"
   (lparallel:pdotimes (i (length mps))
                       (let ((mp (aref mps i)))
