@@ -148,7 +148,7 @@
                     (apply-bcs mesh bcs-force dt) ;;Update nodes
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
-                    (update-node-forces mesh (sim-damping-factor sim) dt)
+                    (update-node-forces mesh (sim-damping-factor sim) dt(sim-mass-scale sim))
                     ;Apply vel bcs
                     (apply-bcs mesh bcs dt)
                     ;;G2p + Particle update
@@ -241,7 +241,7 @@
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
-                    (update-node-forces mesh (sim-damping-factor sim) dt)
+                    (update-node-forces mesh (sim-damping-factor sim) dt(sim-mass-scale sim))
                     ;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
