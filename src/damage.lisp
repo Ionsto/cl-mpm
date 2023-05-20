@@ -222,7 +222,7 @@
         weight-func
         ))
 (defun weight-func (dist-squared length)
-  (values (the double-float (exp (- (* (/ 4d0 (* length length)) dist-squared))))))
+  (values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared)))))))
 (declaim
  (inline weight-func-mps)
  (ftype (function (cl-mpm/particle:particle
@@ -257,7 +257,7 @@
                           (declare (dynamic-extent idx))
                           (when (cl-mpm/mesh:in-bounds mesh idx)
                             (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                              (loop for mp-other across (the (vector T 0) (cl-mpm/mesh::node-local-list node))
+                              (loop for mp-other across (the (vector T *) (cl-mpm/mesh::node-local-list node))
                                     do
                                        (with-accessors ((d cl-mpm/particle::mp-damage)
                                                         (m cl-mpm/particle:mp-volume)
@@ -308,7 +308,7 @@
             (values))
   localise-damage))
 (defun localise-damage (mesh mps dt)
-  (declare ((array cl-mpm/particle::particle *) mps))
+  ;(declare ((array cl-mpm/particle::particle *) mps))
   "Apply local damage model"
   (lparallel:pdotimes (i (length mps))
                       (let ((mp (aref mps i)))
