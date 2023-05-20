@@ -41,7 +41,7 @@
   ;; (let ((m (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float))))
   ;;   (magicl::copy-matrix/double-float m mat)
   ;;   m)
-  ;; (magicl::copy-matrix/double-float mat)
+  (magicl::copy-matrix/double-float mat)
   )
 
 (declaim (inline stretch-dsvp-zeros)
