@@ -56,7 +56,7 @@
                                                                              (the double-float (magicl:tref stress 1 0)))))
                                                    2d0)
                                                   2d0))
-                                            (* j (the double-float (magicl:tref stress 2 0))))))))
+                                            (the double-float (expt (* j (the double-float (magicl:tref stress 2 0))) 2d0)))))))
                    (s_1 (+ av diff))
                    ;(s_2 (- av diff))
                    (pressure-effective (* pressure 1d0))
