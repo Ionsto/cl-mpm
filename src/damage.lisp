@@ -39,9 +39,10 @@
                      ) mp
       (declare (double-float pressure damage))
         (progn
-          (progn;multiple-value-bind (l v) (magicl:eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
+          (progn
+                                        ;multiple-value-bind (l v) (magicl:eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (let* (;(l (sort l #'>))
-                   ;; (s_1 (nth 0 l))
+                   ;(s_1 (nth 0 l))
                    ;; (s_2 (nth 1 l))
                    ;(cauchy-stress (magicl:scale! (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
                    ;; (cauchy-stress (magicl:scale! (voight-to-matrix stress) ))
@@ -70,7 +71,7 @@
                    ;(damage-inv (- 1d0 damage))
                    )
               ;; (setf damage-increment 0)
-              (when (> s_1 0)
+              (when (> s_1 0d0)
                 (setf damage-increment s_1)
                 ;; (when (> damage-inv 0)
                 ;;   (setf damage-increment (* s_1 (/ 1 (expt damage-inv 1)))))
@@ -78,8 +79,8 @@
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
 
-            (when (= damage 1d0)
-              (setf damage-increment 0d0))
+            ;; (when (= damage 1d0)
+            ;;   (setf damage-increment 0d0))
             ;;(setf ybar damage-increment)
 
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
