@@ -323,16 +323,18 @@
     ;; (populate-cell-mp-count mesh mps)
     ;; (populate-cell-mp-count-gimp mesh mps)
     (populate-cell-mp-count-volume mesh mps)
+    ;; (prune-buoyancy-nodes mesh '(0 0) 300)
     (lparallel:pdotimes (i (array-total-size cells))
       (let ((cell (row-major-aref cells i)))
         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                          (neighbours cl-mpm/mesh::cell-neighbours)
                          (index cl-mpm/mesh::cell-index)
                          (nodes cl-mpm/mesh::cell-nodes)
+                         (pruned cl-mpm/mesh::cell-pruned)
                          (pos cl-mpm/mesh::cell-centroid)
                          )
             cell
-          (when (and (= mp-count 0) (cell-clipping pos))
+          (when (and (= mp-count 0) (cell-clipping pos) (not pruned))
               (loop for neighbour in neighbours
                     do
                        (when (check-neighbour-cell neighbour)
@@ -438,6 +440,42 @@
   ;;                         )
   ;;                        ))
   )
+(defun prune-buoyancy-nodes (mesh origin datum)
+    (with-accessors ((size cl-mpm/mesh::mesh-count))
+        mesh
+      (let ((cell-size (mapcar #'round (mapcar #'- size '(1 1)))))
+        (let ((fill-array (make-array cell-size :initial-element nil))
+              (search-queue (list origin)))
+          ;; (setf (apply #'aref fill-array origin) nil)
+          (loop while search-queue
+                do
+                 (let* ((s (pop search-queue)))
+                   (when (and (cl-mpm/mesh::in-bounds-cell mesh s)
+                              (not (apply #'aref fill-array s))
+                              )
+                     (let ((cell (cl-mpm/mesh::get-cell mesh s)))
+                       (when (and
+                              (eq (cl-mpm/mesh::cell-mp-count cell) 0)
+                              (< (magicl:tref (cl-mpm/mesh::cell-centroid cell) 1 0) datum))
+                         (setf (apply #'aref fill-array s) t)
+                         (push (mapcar #'+ s (list 1 0)) search-queue)
+                         (push (mapcar #'+ s (list -1 0)) search-queue)
+                         (push (mapcar #'+ s (list 0 1)) search-queue)
+                         (push (mapcar #'+ s (list 0 -1)) search-queue)
+                         )))))
+          (loop for x from 0 below (nth 0 cell-size)
+                do (loop for y from 0 below (nth 1 cell-size)
+                         do
+                            ;; (unless (aref fill-array x y))
+                                        ;(cl-mpm/mesh::cell-nodes (cl-mpm/mesh::get-cell mesh (list x y)))
+                            ;; (print (cl-mpm/mesh::get-cell mesh (list x y)))
+                            (setf (cl-mpm/mesh::cell-pruned (cl-mpm/mesh::get-cell mesh (list x y)))
+                                  (not (aref fill-array x y)))
+                            ;; (loop for n in (cl-mpm/mesh::cell-nodes (cl-mpm/mesh::get-cell mesh (list x y)))
+                            ;;       do (when (cl-mpm/mesh::node-boundary-node n)
+                            ;;            ;; (format t "~F ~F ~%" x y)
+                            ;;            (setf (cl-mpm/mesh::node-boundary-node n) nil)))
+                         ))))))
 
 (defun make-bc-buoyancy (sim datum rho)
   (make-instance 'cl-mpm/bc::bc-closure

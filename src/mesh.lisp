@@ -132,7 +132,12 @@
    (deformation-gradient
        :accessor cell-deformation-gradient
        :type MAGICL:MATRIX/DOUBLE-FLOAT
-       :initform (magicl:zeros '(2 2) :type 'double-float)))
+       :initform (magicl:zeros '(2 2) :type 'double-float))
+   (pruned
+    :accessor cell-pruned
+    :type bool
+    :initform nil)
+   )
    )
 
 (defclass node-fracture (node)
@@ -366,7 +371,7 @@
 (defun get-cell (mesh pos)
   "Check bounds and get cell"
   (policy-cond:policy-if (> safety speed)
-                         (if (in-bounds mesh pos)
+                         (if (in-bounds-cell mesh pos)
                              (apply #'aref (mesh-cells mesh) pos)
                              (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref (mesh-cells mesh) pos)))
