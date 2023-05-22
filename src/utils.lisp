@@ -50,6 +50,12 @@
 (defun stretch-dsvp-zeros ()
   (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
 
+(declaim (inline dsvp-2d-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) dsvp-2d-zeros))
+(defun dsvp-2d-zeros ()
+  (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
+
 (declaim (inline voigt-from-list)
          (ftype (function (list)
                           magicl:matrix/double-float) voigt-from-list))
