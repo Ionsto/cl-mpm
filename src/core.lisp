@@ -810,7 +810,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (progn
           (magicl:scale acc 0d0)
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-          (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+          ;; (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+          (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))

@@ -321,9 +321,9 @@
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     ;;The aproach described by the paper
     ;; (populate-cell-mp-count mesh mps)
-    ;; (populate-cell-mp-count-gimp mesh mps)
-    (populate-cell-mp-count-volume mesh mps)
-    (prune-buoyancy-nodes mesh '(0 0) 300)
+    (populate-cell-mp-count-gimp mesh mps)
+    ;; (populate-cell-mp-count-volume mesh mps)
+    ;; (prune-buoyancy-nodes mesh '(0 0) 300)
     (lparallel:pdotimes (i (array-total-size cells))
       (let ((cell (row-major-aref cells i)))
         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
@@ -496,7 +496,7 @@
                                       (cl-mpm::iterate-over-neighbours
                                        mesh mp
                                        (lambda (mesh mp node svp grads fsvp fgrad)
-                                         (when (cl-mpm/mesh::node-boundary-node node)
+                                         (when t;(cl-mpm/mesh::node-boundary-node node)
                                            (with-accessors ((pos cl-mpm/particle:mp-position)
                                                             (pressure cl-mpm/particle::mp-pressure))
                                                mp
