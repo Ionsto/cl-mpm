@@ -367,7 +367,7 @@
 
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
-           (substeps-e (floor target-time dt-e)))
+           (substeps-e (/ target-time dt-e)))
       (setf substeps-e (min 1000 substeps-e))
       (format t "CFL dt estimate: ~f~%" dt-e)
       (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -562,11 +562,16 @@
   (let ((mp (cl-mpm/particle:make-particle 2 'cl-mpm/particle:particle
                                            :size (magicl:from-list '(1d0 1d0) '(2 1))))
         (mesh (cl-mpm::sim-mesh *sim*)))
-  (time-form 1000
-       (cl-mpm::update-sim *sim*))
-    ;; (time
-    ;;  (loop repeat 1000
-    ;;               do (cl-mpm::update-sim *sim*)))
+  (time-form 100
+     (with-accessors ((mesh cl-mpm:sim-mesh)
+                      (mps cl-mpm:sim-mps)
+                      (dt cl-mpm:sim-dt))
+         *sim*
+       (cl-mpm::update-sim *sim*)
+         ))
+    (time
+     (loop repeat 100
+                  do (cl-mpm::update-sim *sim*)))
     ))
 ;(let ((stress (magicl:zeros '(3 1)))
 ;      (strain (magicl:zeros '(3 1)))
