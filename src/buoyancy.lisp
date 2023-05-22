@@ -152,7 +152,7 @@
                                      node-force
                                      (magicl:scale!
                                       (magicl:@
-                                       (magicl:transpose!
+                                       (magicl:transpose
                                         (cl-mpm/shape-function::assemble-dsvp-2d grads))
                                        (funcall func-stress mp)
                                        )
@@ -208,7 +208,7 @@
                                                 node-force
                                                 (magicl:scale!
                                                  (magicl:@
-                                                  (magicl:transpose!
+                                                  (magicl:transpose
                                                    (cl-mpm/shape-function::assemble-dsvp-2d grads))
                                                   (funcall func-stress pos))
                                                  (* -1d0 volume))))
