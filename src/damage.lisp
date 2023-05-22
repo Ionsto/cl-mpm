@@ -8,6 +8,9 @@
   )
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim
+ ;(inline damage-rate-profile)
+ (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
 (defun damage-rate-profile (stress damage rate init-stress)
   (declare (double-float stress damage rate init-stress))
   "Function that controls how damage evolves with principal stresses"
@@ -22,6 +25,9 @@
     (expt (- 1d0 damage) 1d0)
     0d0))
 
+(declaim
+ ;(inline calculate-damage-increment)
+ (ftype (function (cl-mpm/particle:particle double-float) (values)) calculate-damage-increment))
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -47,35 +53,34 @@
                    ;(cauchy-stress (magicl:scale! (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
                    ;; (cauchy-stress (magicl:scale! (voight-to-matrix stress) ))
                    (j (/ 1d0 (the double-float (magicl:det def))))
-                   (av (/ (* j (+ (the double-float (magicl:tref stress 0 0)) (the double-float (magicl:tref stress 1 0)))) 2))
+                   (av (/ (* j (+ (the double-float (magicl:tref stress 0 0))
+                                  (the double-float (magicl:tref stress 1 0)))) 2))
                    (diff (the double-float
                               (sqrt (the double-float
                                          (+ (the double-float
                                                  (expt
                                                   (/
-                                                   (* j (the double-float (- (the double-float (magicl:tref stress 0 0))
-                                                                             (the double-float (magicl:tref stress 1 0)))))
+                                                   (* j (the double-float
+                                                             (- (the double-float (magicl:tref stress 0 0))
+                                                                (the double-float (magicl:tref stress 1 0)))))
                                                    2d0)
                                                   2d0))
-                                            (the double-float (expt (* j (the double-float (magicl:tref stress 2 0))) 2d0)))))))
+                                            (the double-float
+                                                 (expt (* j (the double-float (magicl:tref stress 2 0))) 2d0)))))))
                    (s_1 (+ av diff))
-                   ;(s_2 (- av diff))
+                   (s_2 (- av diff))
                    (pressure-effective (* pressure 1d0))
                    (s_1 (- s_1 pressure-effective))
-                   ;(s_2 (- s_2 pressure-effective))
+                   (s_2 (- s_2 pressure-effective))
                    (s_1 (max 0d0 s_1))
-                   ;(s_2 (max 0d0 s_2))
+                   (s_2 (max 0d0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
-                   ;(vm (- s_1 s_2))
-                   ;(s_1 vm)
+                   (vm (- s_1 s_2))
+                   ;; (s_1 vm)
                    ;(damage-inv (- 1d0 damage))
                    )
-              ;; (setf damage-increment 0)
               (when (> s_1 0d0)
-                (setf damage-increment s_1)
-                ;; (when (> damage-inv 0)
-                ;;   (setf damage-increment (* s_1 (/ 1 (expt damage-inv 1)))))
-                ))
+                (setf damage-increment (* s_1 (- 1d0 damage)))))
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
 
@@ -85,7 +90,8 @@
 
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-            )))))
+            ))))
+  (values))
 
 (declaim
  (inline apply-damage)
@@ -106,7 +112,6 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-
           (when (< damage 1d0)
             (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 2d0)))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
@@ -116,7 +121,8 @@
           (incf damage damage-inc)
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
-            (setf damage 1d0))
+            (setf damage 1d0)
+            (setf damage-inc 0d0))
           ;; (when (> damage 0.0d0)
           ;;   (multiple-value-bind (l v) (magicl:eig
           ;;                               (voight-to-matrix stress))

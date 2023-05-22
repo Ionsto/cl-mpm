@@ -195,8 +195,7 @@
   "Calculate the product A_{ij}A_{ij}"
   (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
-    (+ (aref arr 0)
-               (aref arr 1))))
+    (+ (aref arr 0) (aref arr 1))))
 
 (declaim (inline deviatoric-voigt)
          (ftype (function (magicl:matrix/double-float)

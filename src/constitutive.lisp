@@ -53,18 +53,11 @@
 
 (defun maxwell (strain-increment stress elasticity poisson-ratio de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* (;(order 2)
-         ;; (stress-matrix (voight-to-matrix stress))
-         ;; (pressure (/ (magicl:trace stress-matrix) 2d0))
-         ;; (pressure-matrix (magicl:eye 2 :value pressure))
-         ;; (dev-stress (magicl:.- stress-matrix pressure-matrix))
-         (relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
-         )
+  (let* ((relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity))))
     (declare (type double-float relaxation-const))
     (magicl:.-
      (magicl:@ de strain-increment)
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
-    ;(magicl:scale! (matrix-to-voight dev-stress) relaxation-const))
     ))
 
 (defun tensile-projection-eig (stress)

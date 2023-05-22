@@ -1089,6 +1089,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
+          ;;Stretch rate update
           (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
             (let ((stretch
                     (magicl:@
@@ -1104,7 +1105,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
               (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
                                          (the double-float (tref stretch 1 1))))
               ))
-          ))))
+          ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+          ;;                             (the double-float (tref def 0 0))))
+          ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+          ;;                             (the double-float (tref def 1 1))))
+          )
+          )))
   (values))
 
 
@@ -1142,12 +1148,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             ;;2.018s
             ;;Update our kirchoff stress with constitutive model
             (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+            ;; (cl-mpm/particle::inplace-stress-update mp strain dt stress-kirchoff)
 
             ;;Check volume constraint!
             (when (<= volume 0d0)
               (error "Negative volume"))
             ;;Turn kirchoff stress to cauchy
-            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (magicl:det def))))
+            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
@@ -1251,7 +1258,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (with-accessors ((damage cl-mpm/particle:mp-damage))
                               mp
                             (and (>= damage 1d0)
-                                 ;(split-criteria mp h)
+                                 (split-criteria mp h)
                                  ))) mps)))
       ;(delete-if (lambda (mp)
       ;                        (with-accessors ((damage cl-mpm/particle:mp-damage))
@@ -1266,7 +1273,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.20d0)
+    (let ((l-factor 1.00d0)
           (h-factor (* 0.8d0 h))
           (s-factor 1.5d0))
       (cond
