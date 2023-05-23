@@ -292,7 +292,8 @@
                :index 0
                )))
       (let ((ms 1d2))
-        (setf (cl-mpm:sim-damping-factor sim) (* 0.10d0 ms))
+        ;; (setf (cl-mpm:sim-damping-factor sim) (* 0.10d0 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 0.01d0 ms))
         (setf (cl-mpm::sim-mass-scale sim) ms))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
@@ -366,13 +367,13 @@
       sim)))
 
 ;Setup
-(defun setup (&optional (notch-length 100))
+(defun setup (&optional (notch-length 000))
   (let* ((shelf-length 8000)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
+         (mesh-size 20)
          (mps-per-cell 2)
          (offset 00)
          )
@@ -661,7 +662,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (let* ((target-time 10d0)
+  (let* ((target-time 50d0)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* 0.9d0 (cl-mpm::calculate-min-dt *sim*)))
@@ -673,7 +674,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 10
+    (time (loop for steps from 0 to 200
                 while *run-sim*
                 do
                    (progn
@@ -699,7 +700,7 @@
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
                      (let ((av-v (find-average-v *sim*)))
                        (format t "~A~%" av-v)
-                       (when (and (< av-v 7d-4) (> *t* 100d0) )
+                       (when (and nil (< av-v 7d-4) (> *t* 100d0) )
                          (setf *run-sim* nil)))
 
                      ;; (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
