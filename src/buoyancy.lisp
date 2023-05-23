@@ -341,8 +341,8 @@
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     ;;The aproach described by the paper
     ;; (populate-cell-mp-count mesh mps)
-    (populate-cell-mp-count-gimp mesh mps)
-    ;; (populate-cell-mp-count-volume mesh mps)
+    ;; (populate-cell-mp-count-gimp mesh mps)
+    (populate-cell-mp-count-volume mesh mps)
     ;; (prune-buoyancy-nodes mesh '(0 0) 300)
     (lparallel:pdotimes (i (array-total-size cells))
       (let ((cell (row-major-aref cells i)))

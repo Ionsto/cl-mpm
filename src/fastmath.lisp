@@ -115,7 +115,7 @@
 
 (declaim (inline voigt-tensor-reduce-lisp)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
-(let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 1/4)) '(3 1) :type 'double-float :layout :column-major)))
+(let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 0.5d0)) '(3 1) :type 'double-float :layout :column-major)))
   (defun voigt-tensor-reduce-lisp (a)
      (values (magicl::sum (magicl:.* a a second-invar)))))
 
@@ -128,7 +128,7 @@
     (values (+
             (* (aref arr 0) (aref arr 0))
             (* (aref arr 1) (aref arr 1))
-            (* (aref arr 2) (aref arr 2) 1/2)))))
+            (* (aref arr 2) (aref arr 2) 0.5d0)))))
 
 (defun voigt-tensor-reduce (a)
   #+:sb-simd (voigt-tensor-reduce-simd a)
@@ -144,7 +144,7 @@
     (values (+
              (* (aref arr 0) (aref arr 0))
              (* (aref arr 1) (aref arr 1))
-             (* (aref arr 2) (aref arr 2) 1/2)))))
+             (* (aref arr 2) (aref arr 2) 0.5d0)))))
 
 (declaim (inline stretch-to-sym)
          (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float) (values)) stretch-to-sym))
