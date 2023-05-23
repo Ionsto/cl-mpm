@@ -501,8 +501,8 @@
       stress-undamaged
       def
       vorticity
-      ;; D
-      velocity-rate
+      D
+      ;; velocity-rate
       )
      stress-undamaged)
 
@@ -800,7 +800,8 @@
         stress
         def
         vorticity
-        velocity-rate))
+        D
+        ))
       )
     ))
 (defun inplace-stress-update (mp strain dt stress)
@@ -831,7 +832,8 @@
         stress
         def
         vorticity
-        velocity-rate)
+        D
+        )
        stress))))
 
 (defmethod constitutive-model ((mp particle-viscoplastic-damage) strain dt)
