@@ -160,6 +160,7 @@
     (setf (magicl:tref result  1 0)
           (magicl:tref stretch 1 1))
 
+    ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
     (setf (magicl:tref result  2 0)
           (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
                     (the double-float (magicl:tref stretch 1 0))))))
