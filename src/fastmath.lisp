@@ -164,3 +164,18 @@
   (setf (magicl:tref result  2 0)
         (- (the double-float (magicl:tref stretch 0 1))
            (the double-float (magicl:tref stretch 1 0)))))
+
+(defun mult-transpose-accumulate (a b scale res)
+  "(incf res (scale! (@ (tranpose a) b) scale))"
+  (declare (type magicl:matrix/double-float a b res)
+           (type double-float scale))
+  (declare (optimize (safety 3)))
+  (let (
+        ;; (a-s (magicl::matrix/double-float-storage a))
+        ;; (b-s (magicl::matrix/double-float-storage b))
+        ;; (res-s (magicl::matrix/double-float-storage res))
+        )
+    (loop for i from 0 to 1
+          do (loop for j from 0 to 2
+                   do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
+                                                                        (the double-float (magicl:tref b j 0)) scale))))))

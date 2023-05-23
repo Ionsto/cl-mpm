@@ -643,7 +643,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (lparallel:pdotimes (i (length mps))
     (p2g-mp mesh (aref mps i))))
 
-(declaim (inline p2g-force-mp)
+(declaim (notinline p2g-force-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
          )
 (defun p2g-force-mp (mesh mp)
@@ -653,31 +653,34 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare
-        (cl-mpm/particle:particle mp)
-        (cl-mpm/mesh::node node)
-        (double-float svp)
-        )
-       (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                        (node-active  cl-mpm/mesh:node-active)
-                        (node-mass  cl-mpm/mesh:node-mass)
-                        (node-force cl-mpm/mesh:node-force)
-                        (node-lock  cl-mpm/mesh:node-lock)) node
-         (declare (type double-float node-mass)
-                  (type sb-thread:mutex node-lock))
-         (when node-active
-           (sb-thread:with-mutex (node-lock)
-             (det-ext-force mp node svp node-force)
-             (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
-             ))
+    (let ((dsvp (cl-mpm/utils::dsvp-2d-zeros)))
+      (iterate-over-neighbours
+       mesh mp
+       (lambda (mesh mp node svp grads fsvp fgrads)
+         (declare
+          (cl-mpm/particle:particle mp)
+          (cl-mpm/mesh::node node)
+          (double-float svp)
           )
-        )))
+         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                          (node-active  cl-mpm/mesh:node-active)
+                          (node-mass  cl-mpm/mesh:node-mass)
+                          (node-force cl-mpm/mesh:node-force)
+                          (node-lock  cl-mpm/mesh:node-lock)) node
+           (declare (type double-float node-mass)
+                    (type sb-thread:mutex node-lock))
+           (when node-active
+             (sb-thread:with-mutex (node-lock)
+               (det-ext-force mp node svp node-force)
+               (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+               (det-int-force mp dsvp node-force)
+               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
+               ))
+           )
+         ))))
   (values))
 
-(declaim (inline p2g))
+(declaim (notinline p2g-force))
 (defun p2g-force (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
@@ -797,7 +800,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale! vel (/ 1.0d0 mass))
           ))))
 
-(declaim (inline calculate-forces)
+(declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
   (when (cl-mpm/mesh:node-active node)
@@ -1229,6 +1232,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   ;;   (update-stress-mp mesh (aref mps i) dt))
   (values))
 
+(declaim (notinline reset-grid))
 (defun reset-grid (mesh)
   (declare (cl-mpm/mesh::mesh mesh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))

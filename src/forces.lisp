@@ -17,16 +17,17 @@
 (defun mult-force (a b scale res)
   (declare (type magicl:matrix/double-float a b res)
            (type double-float scale))
-  (let ((a-s (magicl::matrix/double-float-storage a))
-        (b-s (magicl::matrix/double-float-storage b))
-        (res-s (magicl::matrix/double-float-storage res))
+  (declare (optimize (safety 3)))
+  (let (
+        ;; (a-s (magicl::matrix/double-float-storage a))
+        ;; (b-s (magicl::matrix/double-float-storage b))
+        ;; (res-s (magicl::matrix/double-float-storage res))
         )
     (declare (type (simple-array double-float) a-s b-s res-s))
     (loop for i from 0 to 1
           do (loop for j from 0 to 2
-                   do (decf (aref res-s i) (* (aref a-s (+ i (* 2 j)))
-                                              (aref b-s j) scale))))
-  ))
+                   do (decf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
+                                                     (the double-float (magicl:tref b j 0)) scale))))))
 (declaim
  (inline det-int-force)
  (ftype (function (cl-mpm/particle::particle magicl:matrix/double-float
@@ -38,9 +39,10 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))
-      ;; (mult-force dsvp stress volume f-out))
+      ;; (print dsvp)
+      (mult-force dsvp stress volume f-out))
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
-      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
+      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
     f-out))
 
 (declaim
