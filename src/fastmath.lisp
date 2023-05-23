@@ -128,7 +128,7 @@
     (values (+
             (* (aref arr 0) (aref arr 0))
             (* (aref arr 1) (aref arr 1))
-            (* (aref arr 2) (aref arr 2) 1/4)))))
+            (* (aref arr 2) (aref arr 2) 1/2)))))
 
 (defun voigt-tensor-reduce (a)
   #+:sb-simd (voigt-tensor-reduce-simd a)
