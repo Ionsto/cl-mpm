@@ -7,6 +7,7 @@
 (in-package :cl-mpm/examples/slump)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+;; (pushnew :cl-mpm-pic *features*)
 ;; (pushnew :cl-mpm-fbar *features*)
 ;; (remove :cl-mpm-fbar *features*)
 ;; (setf *features* (delete :cl-mpm-pic *features*))
@@ -223,7 +224,7 @@
                :nu 0.3250d0
                ;; :nu 0.4950d0
 
-               :visc-factor 11d6
+               :visc-factor 111d6
                :visc-power 3d0
 
                ;; :initiation-stress 0.2d6
@@ -236,8 +237,9 @@
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                )))
-      (setf (cl-mpm::sim-mass-scale sim) 10000d0)
-      (setf (cl-mpm:sim-damping-factor sim) 0.5d0)
+      (let ((mass-scale 1d5))
+        (setf (cl-mpm::sim-mass-scale sim) mass-scale)
+        (setf (cl-mpm:sim-damping-factor sim) (* 0.5d0 mass-scale)))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -361,7 +363,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 100d0)
+  (let* ((target-time 1000d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
 

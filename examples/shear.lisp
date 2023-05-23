@@ -273,7 +273,7 @@
              (cl-mpm::iterate-over-neighbours
               mesh
               mp
-              (lambda (mesh mp node svp grad)
+              (lambda (mesh mp node svp grad fsvp fgrad)
                 (with-accessors (
                                  ;; (vel cl-mpm/particle:mp-velocity)
                                  )
@@ -425,18 +425,22 @@
   (defparameter *stress-xy-table* '())
   (defparameter *table-names* '())
   (defparameter *table-times* '())
-  (loop for name in '("true" "inc" "logspin" "jaumann")
+  (loop for name in '(;"true"
+                      ;; "inc"
+                      "logspin"
+                      ;"jaumann"
+                      )
         for model in
-        '(cl-mpm/particle::particle-elastic
-          cl-mpm/particle::particle-elastic-inc
+        '(;cl-mpm/particle::particle-elastic
+          ;; cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
-          cl-mpm/particle::particle-elastic-jaumann
+          ;cl-mpm/particle::particle-elastic-jaumann
           ;; cl-mpm/particle::particle-elastic-truesdale
           )
         do
            (progn
              (let ((mesh-size 2)
-                   (mps-per-cell 6));2
+                   (mps-per-cell 1));2
                (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
@@ -457,7 +461,7 @@
                (vgplot:format-plot t "set xtics ~f" h)
                ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
                (incf *sim-step*)
-               (time (loop for steps from 0 to 80
+               (time (loop for steps from 0 to 20
                            while *run-sim*
                            do
                               (progn
@@ -527,9 +531,9 @@
     ;; (print sxy-an)
   (vgplot:plot
    shear (mapcar (lambda (x) (/ x E)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
-   shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
-   shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
-   shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
+   ;; shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
+   ;; shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
+   ;; shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
    shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
                ))
   )
