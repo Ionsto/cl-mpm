@@ -23,7 +23,7 @@
         ;; (b-s (magicl::matrix/double-float-storage b))
         ;; (res-s (magicl::matrix/double-float-storage res))
         )
-    (declare (type (simple-array double-float) a-s b-s res-s))
+    ;; (declare (type (simple-array double-float) a-s b-s res-s))
     (loop for i from 0 to 1
           do (loop for j from 0 to 2
                    do (decf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))

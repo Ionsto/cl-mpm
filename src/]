@@ -75,19 +75,23 @@
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) matrix-to-voight))
 (defun matrix-to-voight (matrix)
-  "Stress matrix to voigt"
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (exy (magicl:tref matrix 1 0)))
+    ;; (magicl:from-list (list exx eyy
+    ;;                         exy)
+    ;;                   '(3 1) :type 'double-float))
     (voigt-from-list (list exx eyy exy))))
 (declaim (inline voight-to-matrix)
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) voight-to-matrix))
 (defun voight-to-matrix (vec)
-  "Stress format voight to matrix"
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
           (exy (magicl:tref vec 2 0)))
+    ;; (magicl:from-list (list exx exy
+    ;;                         exy eyy)
+    ;;                   '(2 2) :type 'double-float)
     (matrix-from-list (list exx exy exy eyy))
     ))
 
@@ -97,18 +101,9 @@
 (defun voigt-to-matrix (vec)
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
-          (exy (* 0.5d0 (the double-float (magicl:tref vec 2 0)))))
+          (* 0.5d0 (exy (magicl:tref vec 2 0))))
     (matrix-from-list (list exx exy exy eyy))
     ))
-
-(declaim (inline matrix-to-voigt)
-         (ftype (function (magicl:matrix/double-float)
-                          magicl:matrix/double-float) matrix-to-voigt))
-(defun matrix-to-voigt (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (exy (magicl:tref matrix 1 0)))
-    (voigt-from-list (list exx eyy (* 2d0 exy)))))
 
 (defun stretch-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))

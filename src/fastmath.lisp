@@ -135,6 +135,17 @@
   #-:sb-simd (voigt-tensor-reduce-lisp a)
   )
 
+(declaim (inline flat-tensor-reduce-simd)
+         (ftype (function (magicl:matrix/double-float) (values double-float)) flat-tensor-reduce-simd))
+(defun flat-tensor-reduce-simd (a)
+  "Calculate the product A_{ij}A_{ij} but without voigt notation"
+  (let ((arr (magicl::matrix/double-float-storage a)))
+    (declare ((simple-array double-float) arr))
+    (values (+
+             (* (aref arr 0) (aref arr 0))
+             (* (aref arr 1) (aref arr 1))
+             (* (aref arr 2) (aref arr 2) 1/2)))))
+
 (declaim (inline stretch-to-sym)
          (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float) (values)) stretch-to-sym))
 (defun stretch-to-sym (stretch &optional (result nil))
@@ -150,8 +161,8 @@
           (magicl:tref stretch 1 1))
 
     (setf (magicl:tref result  2 0)
-          (+ (the double-float (magicl:tref stretch 0 1))
-             (the double-float (magicl:tref stretch 1 0)))))
+          (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
+                    (the double-float (magicl:tref stretch 1 0))))))
   (values))
 
 (defun stretch-to-skew (stretch &optional (result nil))
@@ -161,6 +172,7 @@
         0)
   (setf (magicl:tref result  1 0)
         0)
+  ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
   (setf (magicl:tref result  2 0)
         (- (the double-float (magicl:tref stretch 0 1))
            (the double-float (magicl:tref stretch 1 0)))))

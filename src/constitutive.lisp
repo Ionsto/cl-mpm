@@ -332,7 +332,7 @@
                            double-float
                            double-float
                            &optional
-                           result-stress
+                           (magicl:matrix/double-float nil)
                            )) maxwell-exp-v-simd))
 (defun maxwell-exp-v-simd (strain-increment stress elasticity nu de viscosity dt &optional (result-stress nil))
   "A stress increment form of a viscoelastic maxwell material"
