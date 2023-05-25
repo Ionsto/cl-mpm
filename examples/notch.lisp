@@ -369,7 +369,7 @@
                   )))))
       sim)))
 
-(defparameter *ice-length* 2000)
+(defparameter *ice-length* 1000)
 ;Setup
 (defun setup (&optional (notch-length 000))
   (let* ((shelf-length *ice-length*)
@@ -377,7 +377,7 @@
          (shelf-bottom 120);;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 10)
          (mps-per-cell 2)
          (offset 00)
          )
