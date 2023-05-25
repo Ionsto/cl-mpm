@@ -124,6 +124,10 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :accessor mp-velocity-rate
     :initform (magicl:zeros '(3 1)))
+   (eng-strain-rate
+    :accessor mp-eng-strain-rate
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(3 1)))
    (vorticity
     :accessor mp-vorticity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -224,7 +228,8 @@
   (:documentation "A fluid material point"))
 
 (defclass particle-viscoelastic (particle-elastic)
-  ((viscosity
+  (
+   (viscosity
     :accessor mp-viscosity
     :initarg :viscosity)
    )
@@ -247,6 +252,9 @@
    (visc-power
     :accessor mp-visc-power
     :initarg :visc-power)
+   (true-visc
+    :accessor mp-true-visc
+    :initform 0d0)
    )
   (:documentation "A visco-plastic material point"))
 
@@ -763,13 +771,12 @@
                (stress stress)
                (strain strain)
                (stretch stretch-tensor)
+               (eng-strain-rate eng-strain-rate)
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-           ;(viscosity (* viscosity 0d0))
-           ;; (viscosity 1d6)
-           )
+    (let* (;(viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
+           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power)))
       (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
       )))
 (defmethod constitutive-model ((mp particle-viscoplastic) strain dt)
@@ -786,17 +793,24 @@
                (vorticity vorticity)
                (D stretch-tensor)
                (stress stress)
+               (temp true-visc)
+               (eng-strain-rate eng-strain-rate)
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power)))
+    (let* (;(eng-strain-rate (magicl:.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+                                       ;(cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
+          (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+          ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
+          )
       ;; stress
+      (setf temp viscosity)
       (magicl:.+
        stress
        (objectify-stress-logspin
-        ;; (if (> viscosity 0d0)
+        (if (> viscosity 0d0)
             (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-            ;; (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+            (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
         stress
         def
         vorticity

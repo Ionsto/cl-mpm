@@ -1055,6 +1055,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
                    ) mp
     (declare (type double-float volume)
              (type magicl:matrix/double-float
@@ -1064,32 +1065,41 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
-          ;; (multiple-value-bind (l v) (magicl:eig (voight-to-matrix-strain strain))
-          ;;   (let ((trial-lgs (magicl:@ df
-          ;;                               v
-          ;;                               (magicl:from-diag (mapcar (lambda (x)
-          ;;                                                           (declare (type double-float x))
-          ;;                                                           (the double-float (exp (* x 2d0)))) l)
-          ;;                                                 :type 'double-float)
-          ;;                               (magicl:transpose v)
-          ;;                              (magicl:transpose df))))
-          ;;     ;; (when (> (abs
-          ;;     ;;           (- (magicl:tref trial-lgs 0 1)
-          ;;     ;;              (magicl:tref trial-lgs 1 0)))
-          ;;     ;;          0.1d0
-          ;;     ;;          )
-          ;;     ;;   (error "Unsymetric b matrix"))
-          ;;     (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
-          ;;       (setf strain (magicl:scale!
-          ;;                      (matrix-to-voight
-          ;;                       (magicl:@ vf
-          ;;                                 (magicl:from-diag (mapcar (lambda (x)
-          ;;                                                             (the double-float
-          ;;                                                                  (log (the double-float x)))) lf)
-          ;;                                                   :type 'double-float)
-          ;;                                 (magicl:transpose vf)))
-          ;;                     0.5d0))
-          ;;       (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0)))))))
+          (let ((initial-strain (magicl::copy-matrix/double-float strain)))
+            (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix strain))
+              (let ((trial-lgs (magicl:@ df
+                                         v
+                                         ;; (matrix-from-list (list (the double-float (expt (the double-float (nth 0 l)) 2d0))
+                                         ;;                         0d0 0d0
+                                         ;;                         (the double-float (expt (the double-float (nth 1 l)) 2d0 ))))
+                                         (magicl:from-diag (mapcar (lambda (x)
+                                                                     (declare (type double-float x))
+                                                                     (the double-float (exp (* x 2d0)))) l)
+                                                           :type 'double-float)
+                                         (magicl:transpose v)
+                                         (magicl:transpose df))))
+                ;; (when (> (abs
+                ;;           (- (magicl:tref trial-lgs 0 1)
+                ;;              (magicl:tref trial-lgs 1 0)))
+                ;;          0.1d0
+                ;;          )
+                ;;   (error "Unsymetric b matrix"))
+                (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
+                  (setf strain (magicl:scale!
+                                (matrix-to-voigt
+                                 (magicl:@ vf
+                                           ;; (matrix-from-list (list (the double-float (log (the double-float (nth 0 lf))))
+                                           ;;                         0d0 0d0
+                                           ;;                         (the double-float (log (the double-float (nth 1 lf))))))
+                                           (magicl:from-diag (mapcar (lambda (x)
+                                                                       (the double-float
+                                                                            (log (the double-float x)))) lf)
+                                                             :type 'double-float)
+                                           (magicl:transpose vf)))
+                                0.5d0))
+                  ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
+                  )))
+            (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt))))
 
           ;;Post multiply to turn to eng strain
           (setf volume (* volume-0 (magicl:det def)))

@@ -120,15 +120,17 @@
      (values (magicl::sum (magicl:.* a a second-invar)))))
 
 (declaim (inline voigt-tensor-reduce-simd)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-simd))
+         (ftype (function (magicl:matrix/double-float) double-float) voigt-tensor-reduce-simd))
 (defun voigt-tensor-reduce-simd (a)
   "Calculate the product A_{ij}A_{ij}"
   (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
-    (values (+
-            (* (aref arr 0) (aref arr 0))
-            (* (aref arr 1) (aref arr 1))
-            (* (aref arr 2) (aref arr 2) 0.5d0)))))
+    (+
+     0d0
+     ;(* (aref arr 0) (aref arr 0))
+     ;(* (aref arr 1) (aref arr 1))
+     (* (aref arr 2) (aref arr 2) 0.5d0)
+     )))
 
 (defun voigt-tensor-reduce (a)
   #+:sb-simd (voigt-tensor-reduce-simd a)
@@ -136,15 +138,15 @@
   )
 
 (declaim (inline flat-tensor-reduce-simd)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) flat-tensor-reduce-simd))
+         (ftype (function (magicl:matrix/double-float) double-float) flat-tensor-reduce-simd))
 (defun flat-tensor-reduce-simd (a)
   "Calculate the product A_{ij}A_{ij} but without voigt notation"
   (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
-    (values (+
-             (* (aref arr 0) (aref arr 0))
-             (* (aref arr 1) (aref arr 1))
-             (* (aref arr 2) (aref arr 2) 0.5d0)))))
+    (+
+     (* (aref arr 0) (aref arr 0))
+     (* (aref arr 1) (aref arr 1))
+     (* (aref arr 2) (aref arr 2) 0.5d0))))
 
 (declaim (inline stretch-to-sym)
          (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float) (values)) stretch-to-sym))

@@ -271,9 +271,9 @@
                ;; 'cl-mpm/particle::particle-elastic-damage
                'cl-mpm/particle::particle-elastic-logspin
                 ;; 'cl-mpm/particle::particle-viscoplastic-damage
-               ;'cl-mpm/particle::particle-elastic
+               ;; 'cl-mpm/particle::particle-elastic
 
-               :E 1d7
+               :E 10d6
                :nu 0.3250d0
 
                ;; :visc-factor 11d6
@@ -291,9 +291,12 @@
                :gravity-axis (magicl:from-list (list 0d0 -1d0) '(2 1))
                :index 0
                )))
-      (let ((ms 1d2))
+      (let ((ms 1d1))
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 0.10d0 ms))
-        (setf (cl-mpm:sim-damping-factor sim) (* 0.01d0 ms))
+        (setf (cl-mpm:sim-damping-factor sim)
+              ;; 0.5d0
+              (* 0.5d0 ms)
+              )
         (setf (cl-mpm::sim-mass-scale sim) ms))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
@@ -366,9 +369,10 @@
                   )))))
       sim)))
 
+(defparameter *ice-length* 2000)
 ;Setup
 (defun setup (&optional (notch-length 000))
-  (let* ((shelf-length 8000)
+  (let* ((shelf-length *ice-length*)
          (shelf-height 200)
          (shelf-bottom 120);;120
          (notch-length notch-length)
@@ -413,12 +417,18 @@
             collect mp))))
 (defun plot-bottom-sxx (mps)
   ;; (vgplot:figure)
-  (let ((x (loop for mp in mps collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-        (s (loop for mp in mps collect (magicl:tref
+  (let* ((x (loop for mp in mps collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+         (s (loop for mp in mps collect (magicl:tref
                                                  (cl-mpm/utils::deviatoric-voigt
                                                   (cl-mpm/particle:mp-stress mp)) 0 0)))
+         (x (mapcar (lambda (z) (- z *ice-length*)) x))
+         (av (loop for s1 in s
+                   for s2 in (cdr s)
+                   for s3 in (cddr s)
+                   collect (/ (+ s1 s2 s3) 3d0)))
         )
-    (vgplot:plot x s "Stress")
+    (vgplot:plot x s "Stress"
+                 (butlast (cdr x)) av "Average")
   ))
 
 (defparameter *run-sim* nil)
@@ -504,7 +514,7 @@
   (defparameter *notch-position* 0.1d0)
   (ensure-directories-exist "./output_notch/")
   (defparameter *run-sim* t)
-  (loop for notch-length from 0 to 100 by 10
+  (loop for notch-length from 0 to 100 by 20
         do (progn
              (format t "Notch length ~A~%" notch-length)
              (setup notch-length)
@@ -514,7 +524,7 @@
              (let* ((target-time 100d0)
                     (substeps (floor target-time (cl-mpm::sim-dt *sim*))))
                (cl-mpm::update-sim *sim*)
-               (let* ((dt-e (* 0.9 (cl-mpm::calculate-min-dt *sim*)))
+               (let* ((dt-e (* 1d0 (cl-mpm::calculate-min-dt *sim*)))
                       (substeps-e (floor target-time dt-e)))
                  (format t "CFL dt estimate: ~f~%" dt-e)
                  (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -531,12 +541,10 @@
                              (time (dotimes (i substeps)
                                      (cl-mpm::update-sim *sim*)
                                      (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
-                            (let ((av-v (find-average-v *sim*)))
-                            (format t "~A~%" av-v)
-                              (swank.live:update-swank)
-                            ;(when (and (< av-v 0.005d0) (> *sim-step* 2) )
-                            ;   (setf *run-sim* nil))
-                            )
+                             (swank.live:update-swank)
+                            ;; (let ((av-v (find-average-v *sim*)))
+                            ;; (format t "~A~%" av-v)
+                            ;;   )
                 (let* ((slicer (floor (length *bottom-mps*) 2))
                        (test-mps (subseq *bottom-mps* slicer))
                        (x (loop for mp in test-mps collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
@@ -546,9 +554,8 @@
                        (ipos (position max-s s))
                        (x-pos (nth ipos x)))
                   (plot-bottom-sxx test-mps)
-                  (format t "X conv: ~f~%" (- 8000 x-pos)))
-                (incf *sim-step*)
-                             ))))
+                  (format t "X conv: ~f~%" (- *ice-length* x-pos)))
+                (incf *sim-step*)))))
 
                 ;;Take the 2nd half of the domain - taking off the end-effect
                 (let* ((slicer (floor (length *bottom-mps*) 2))
@@ -560,12 +567,23 @@
                         (ipos (position max-s s))
                         (x-pos (nth ipos x)))
                   (plot-bottom-sxx test-mps)
-                  (format t "X pos final: ~f~%" (- 8000 x-pos))
+                  (format t "X pos final: ~f~%" (- *ice-length* x-pos))
 				                 (with-open-file (stream (merge-pathnames "output_notch/notch_txx.csv") :direction :output :if-exists :append)
                  (format stream "~f, ~f, ~f ~%" notch-length max-s x-pos)))
 
              (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_notch/sim_~a.vtk" notch-length)) *sim*)
              (cl-mpm/output:save-csv (merge-pathnames (format nil "output_notch/final_~a.csv" notch-length)) *sim*)
+
+             (let* ((test-mps *bottom-mps*)
+                    (x (loop for mp in test-mps collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+                    (s (loop for mp in test-mps collect (magicl:tref (cl-mpm/utils::deviatoric-voigt
+                                                                      (cl-mpm/particle:mp-stress mp)) 0 0))))
+				       (with-open-file (stream (merge-pathnames (format nil "output_notch/bottom_txx_~a.csv" notch-length)) :direction :output :if-exists :supersede)
+                 (format stream "x,t_xx~%")
+                 (loop for sval in s
+                       for xval in x
+                       do (format stream "~f, ~f~%" xval sval))))
+
         )))
 ;; (defun test-notch-length-max-stress ()
 ;;   (defparameter *run-sim* t)
@@ -662,7 +680,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 0.1d0)
-  (let* ((target-time 50d0)
+  (let* ((target-time 10d0)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* 0.9d0 (cl-mpm::calculate-min-dt *sim*)))
@@ -693,15 +711,16 @@
                       *x-pos*)
                      (let ((max-cfl 0))
                        ;; (remove-sdf *sim* (rectangle-sdf (list 1000 330) (list *notch-position* 40)))
-                       (time (dotimes (i substeps)
+                       (time (dotimes ;(i 10)
+                                 (i substeps)
                                (cl-mpm::update-sim *sim*)
                                         ;(melt-sdf *sim* (rectangle-sdf (list 0 0) (list 1500 300)) (* (cl-mpm:sim-dt *sim*) 1e0))
                                (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))))
-                     (let ((av-v (find-average-v *sim*)))
-                       (format t "~A~%" av-v)
-                       (when (and nil (< av-v 7d-4) (> *t* 100d0) )
-                         (setf *run-sim* nil)))
+                     ;; (let ((av-v (find-average-v *sim*)))
+                     ;;   (format t "~A~%" av-v)
+                     ;;   (when (and nil (< av-v 7d-4) (> *t* 100d0) )
+                     ;;     (setf *run-sim* nil)))
 
                      ;; (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
                      ;;        (substeps-e (/ target-time dt-e))
@@ -723,7 +742,7 @@
                             (max-s (reduce #'max s))
                             (ipos (position max-s s))
                             (x-pos (nth ipos x)))
-                       (format t "Max at: ~f ~%" (- 8000 x-pos)))
+                       (format t "Max at: ~f ~%" (- *ice-length* x-pos)))
                      (vgplot:replot)
                      (swank.live:update-swank)
                      (sleep .01)

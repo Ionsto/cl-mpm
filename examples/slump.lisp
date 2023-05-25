@@ -61,7 +61,10 @@
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     (apply #'max l)
-    (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0)))
+    (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
+    ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
+    )
+  )
 (defun plot (sim &optional (plot :stress))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
@@ -100,7 +103,7 @@
        )
       (
        (eq plot :stress)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
        (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
       ((eq plot :deformed)
        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
@@ -222,24 +225,23 @@
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
-               ;; :nu 0.4950d0
-
                :visc-factor 111d6
                :visc-power 3d0
-
                ;; :initiation-stress 0.2d6
                ;; :damage-rate 1d-10
                ;; :critical-damage 0.5d0
                ;; :local-length 20d0
-
                :gravity -9.8d0
-
-                 ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
+               ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
-               )))
-      (let ((mass-scale 1d5))
+               ))
+        )
+      (let ((mass-scale 1d10))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
-        (setf (cl-mpm:sim-damping-factor sim) (* 0.5d0 mass-scale)))
+        (setf (cl-mpm:sim-damping-factor sim) ;(* 0.01d0 mass-scale)
+              0.1d0
+              )
+        )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -253,23 +255,23 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ))
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc::make-outside-bc-var
-             (cl-mpm:sim-mesh sim)
-             nil
-             nil
-             nil
-             nil
-             ;; (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d3))
-             ))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc::make-outside-bc-var
+      ;;        (cl-mpm:sim-mesh sim)
+      ;;        nil
+      ;;        nil
+      ;;        nil
+      ;;        nil
+      ;;        ;; (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d3))
+      ;;        ))
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 20)
+  (let ((mesh-size 25)
         (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(1500 200) '(500 100) '(000 0) (/ 1 mesh-size) mps-per-cell)))
+    (defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
   ;;       (setf (cl-mpm/particle:mp-damage mp) (random 0.1)))
@@ -347,28 +349,28 @@
     (vgplot:close-all-plots)
     (vgplot:figure)
   (sleep 1)
-  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
-         (ms-x (first ms))
-         (ms-y (second ms))
-         )
-    (vgplot:axis (list 0 ms-x
-                       0 ms-y))
-    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h))
+  ;; (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
+  ;;        (ms-x (first ms))
+  ;;        (ms-y (second ms))
+  ;;        )
+  ;;   (vgplot:axis (list 0 ms-x
+  ;;                      0 ms-y))
+  ;;   (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+  ;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+  ;;     (vgplot:format-plot t "set ytics ~f" h)
+  ;;     (vgplot:format-plot t "set xtics ~f" h))
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 1000d0)
+  (let* ((target-time 100000d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
-    (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
+    (let* ((dt-e (* 1d0 (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e)))
       (setf substeps-e (min 1000 substeps-e))
       (format t "CFL dt estimate: ~f~%" dt-e)
@@ -424,13 +426,15 @@
                      (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
                        (format stream "~f, ~f ~%" *t* *x*))
                      (incf *sim-step*)
-                     (plot *sim*)
+                     ;; (plot *sim*)
+                     (plot-disp)
                      (swank.live:update-swank)
                      (sleep .01)
 
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-  (plot-s-xx *far-field-mps* 125d0)
+  ;; (plot-s-xx *far-field-mps* 125d0)
+  (plot-disp)
   ;; (with-open-file (stream (merge-pathnames "output/far-field-stress.csv") :direction :output :if-exists :append)
   ;;   (format stream "~f, ~f ~%" *t* *x*)
   ;;   )
@@ -471,12 +475,19 @@
                (format stream "~f, ~f, ~f ~%" yi si sai))))
   )
 (defun plot-disp ()
-  (let* ()
-    (vgplot:figure)
+  (let* ((df (lisp-stat:read-csv
+	            (uiop:read-file-string #P"stokes.csv")))
+         (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
+         )
+    ;; (vgplot:figure)
     (vgplot:title "S_{xx} over height")
     (vgplot:xlabel "Time (s)")
     (vgplot:ylabel "Displacment (m)")
-    (vgplot:plot *time* *x-pos*)))
+    (vgplot:axis (list 0 (reduce #'max time-month)
+                       0 (reduce #'max *x-pos*)))
+    (vgplot:plot time-month *x-pos* "MPM"
+                 (lisp-stat:column df 'time) (lisp-stat:column df 'disp) "stokes"
+                 )))
 (defun plot-s-xx (mps H)
   (let* (
          (rho-ice 900)

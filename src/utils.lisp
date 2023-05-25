@@ -20,6 +20,8 @@
    #:stress-from-list
    #:deviatoric-voigt
    #:trace-voigt
+   #:matrix-to-voigt
+   #:voigt-to-matrix
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -108,7 +110,7 @@
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (exy (magicl:tref matrix 1 0)))
-    (voigt-from-list (list exx eyy (* 2d0 exy)))))
+    (voigt-from-list (list exx eyy (* 2d0 (the double-float exy))))))
 
 (defun stretch-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
