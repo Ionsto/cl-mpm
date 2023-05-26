@@ -333,6 +333,7 @@
 
 (defun cell-clipping (pos)
   (<= (magicl:tref pos 1 0) 300)
+  ;; (<= (magicl:tref pos 1 0) 300)
   ;; t
   )
 

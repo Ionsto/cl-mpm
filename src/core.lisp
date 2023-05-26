@@ -960,29 +960,29 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 )
             (declare (magicl:matrix/double-float stretch-dsvp v-s)
                      (dynamic-extent stretch-dsvp v-s))
-            (iterate-over-neighbours mesh mp
-                                     (lambda (mesh mp node svp grads fsvp fgrads)
-                                       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                                        (node-active cl-mpm/mesh:node-active)
-                                                        )
-                                           node
-                                         (declare (double-float))
-                                         (when node-active
-                                           (magicl:.+
-                                            stretch-tensor
-                                            (cl-mpm/utils::voight-to-stretch-prealloc
-                                             (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                                        grads stretch-dsvp) node-vel) v-s)
-                                            stretch-tensor)
-                                           #+cl-mpm-fbar (magicl:.+
-                                            stretch-tensor-fbar
-                                            (cl-mpm/utils::voight-to-stretch-prealloc
-                                             (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                                        fgrads stretch-dsvp) node-vel) v-s)
-                                            stretch-tensor-fbar)
-                                           ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
-                                           ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
-                                           ))))
+            (iterate-over-neighbours
+             mesh mp
+             (lambda (mesh mp node svp grads fsvp fgrads)
+               (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                                (node-active cl-mpm/mesh:node-active))
+                   node
+                 (declare (double-float))
+                 (when node-active
+                   (magicl:.+
+                    stretch-tensor
+                    (cl-mpm/utils::voight-to-stretch-prealloc
+                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                                grads stretch-dsvp) node-vel) v-s)
+                    stretch-tensor)
+                   #+cl-mpm-fbar (magicl:.+
+                                  stretch-tensor-fbar
+                                  (cl-mpm/utils::voight-to-stretch-prealloc
+                                   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                                              fgrads stretch-dsvp) node-vel) v-s)
+                                  stretch-tensor-fbar)
+                   ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
+                   ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
+                   ))))
             #+cl-mpm-fbar (setf jfbar (magicl:det (magicl:.+ (magicl:eye 2) stretch-tensor-fbar)))
             )
           #+cl-mpm-fbar (when (<= jfbar 0d0)
@@ -1065,62 +1065,117 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
-          (let ((initial-strain (magicl::copy-matrix/double-float strain)))
+          (let ((initial-strain (magicl::copy-matrix/double-float strain))
+                ;(initial-strain (cl-mpm/utils::matrix-zeros))
+                (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
+                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
+                )
             (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix strain))
-              (let ((trial-lgs (magicl:@ df
+              (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
+                    (trial-lgs (magicl:@ df
                                          v
-                                         ;; (matrix-from-list (list (the double-float (expt (the double-float (nth 0 l)) 2d0))
-                                         ;;                         0d0 0d0
-                                         ;;                         (the double-float (expt (the double-float (nth 1 l)) 2d0 ))))
-                                         (magicl:from-diag (mapcar (lambda (x)
-                                                                     (declare (type double-float x))
-                                                                     (the double-float (exp (* x 2d0)))) l)
-                                                           :type 'double-float)
+                                         (cl-mpm/utils::matrix-from-list
+                                          (list
+                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
+                                           0d0 0d0
+                                           (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
+                                         ;; (magicl:from-diag (mapcar (lambda (x)
+                                         ;;                             (declare (type double-float x))
+                                         ;;                             (the double-float (exp (* x 2d0)))) l)
+                                         ;;                   :type 'double-float)
                                          (magicl:transpose v)
-                                         (magicl:transpose df))))
-                ;; (when (> (abs
-                ;;           (- (magicl:tref trial-lgs 0 1)
-                ;;              (magicl:tref trial-lgs 1 0)))
-                ;;          0.1d0
-                ;;          )
-                ;;   (error "Unsymetric b matrix"))
-                (multiple-value-bind (lf vf) (magicl:eig trial-lgs)
+                                         (magicl:transpose df)))
+                    )
+                ;; (magicl:mult
+                ;;  df
+                ;;  v
+                ;;  :target temp-strain-mat-a)
+                ;; (magicl:mult
+                ;;  temp-strain-mat-a
+                ;;  (cl-mpm/utils::matrix-from-list
+                ;;   (list
+                ;;    (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
+                ;;    0d0 0d0
+                ;;    (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
+                ;;  :target temp-strain-mat-b)
+
+                ;; (magicl:mult
+                ;;  temp-strain-mat-b
+                ;;  v
+                ;;  :target temp-strain-mat-a
+                ;;  :transb :t)
+
+                ;; (magicl:mult
+                ;;  temp-strain-mat-a
+                ;;  df
+                ;;  :target temp-strain-mat-b
+                ;;  :transb :t)
+                (multiple-value-bind (lf vf) (magicl:eig
+                                              ;; temp-strain-mat-b)
+                                              trial-lgs)
+                  ;; (magicl:mult
+                  ;;  vf
+                  ;;  (cl-mpm/utils::matrix-from-list
+                  ;;   (list
+                  ;;    (the double-float (log (the double-float (nth 0 lf))))
+                  ;;    0d0 0d0
+                  ;;    (the double-float (log (the double-float (nth 1 lf))))))
+                  ;;  :target temp-strain-mat-a)
+                  ;; (magicl:mult
+                  ;;  temp-strain-mat-a
+                  ;;  vf
+                  ;;  ;; (magicl:transpose vf)
+                  ;;  :target temp-strain-mat-b
+                  ;;  :transb :t
+                  ;;  )
+                  ;; (setf strain (matrix-to-voigt temp-strain-mat-b))
+                  ;; (magicl:scale! strain 0.5d0)
+
+                  ;; (print temp-strain-mat)
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
-                                 (magicl:@ vf
-                                           ;; (matrix-from-list (list (the double-float (log (the double-float (nth 0 lf))))
-                                           ;;                         0d0 0d0
-                                           ;;                         (the double-float (log (the double-float (nth 1 lf))))))
-                                           (magicl:from-diag (mapcar (lambda (x)
-                                                                       (the double-float
-                                                                            (log (the double-float x)))) lf)
-                                                             :type 'double-float)
-                                           (magicl:transpose vf)))
+                                 (magicl:@
+                                  vf
+                                  (cl-mpm/utils::matrix-from-list
+                                   (list
+                                    (the double-float (log (the double-float (nth 0 lf))))
+                                    0d0 0d0
+                                    (the double-float (log (the double-float (nth 1 lf))))))
+                                  (magicl:transpose vf)))
                                 0.5d0))
+                  ;; (print strain)
                   ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
                   )))
-            (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt))))
+            (magicl:.- initial-strain strain initial-strain)
+            (setf eng-strain-rate initial-strain)
+            (magicl:scale! eng-strain-rate (/ 1d0 dt))
+
+            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
+            )
 
           ;;Post multiply to turn to eng strain
           (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
-            (let ((stretch
-                    (magicl:@
-                     v
-                     (matrix-from-list (list (the double-float (sqrt (the double-float (nth 0 l)) ))
-                                             0d0 0d0
-                                             (the double-float (sqrt (the double-float (nth 1 l)) ))))
-                     ;; (magicl:from-diag (mapcar (lambda (x) (sqrt (the double-float x))) l) :type 'double-float)
-                     (magicl:transpose v))))
-              (declare (type magicl:matrix/double-float stretch))
-              (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                                         (the double-float (tref stretch 0 0))))
-              (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                                         (the double-float (tref stretch 1 1))))
-              ))
+          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
+          ;;   (magicl:mult def def :target F :transb :t)
+          ;;   (multiple-value-bind (l v) (magicl:eig F)
+          ;;     (let ((stretch
+          ;;             (magicl:@
+          ;;              v
+          ;;              (cl-mpm/utils::matrix-from-list
+          ;;               (list (the double-float (sqrt (the double-float (nth 0 l))))
+          ;;                     0d0 0d0
+          ;;                     (the double-float (sqrt (the double-float (nth 1 l))))))
+          ;;              (magicl:transpose v)))
+          ;;           )
+          ;;       (declare (type magicl:matrix/double-float stretch))
+          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+          ;;                                  (the double-float (tref stretch 0 0))))
+          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+          ;;                                  (the double-float (tref stretch 1 1))))
+          ;;       )))
           (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
                                       (the double-float (tref def 0 0))))
           (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
@@ -1145,31 +1200,21 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (progn
       ;;   ;;For no FBAR we need to update our strains
           (progn
-            ;;0.2s
             (calculate-strain-rate mesh mp dt)
-      ;;       (progn
-      ;;         ;; ;;Linear strain update
-      ;;         ;; (update-strain-linear mesh mp dstrain)
-      ;;         ;; (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
-      ;;         ;; (when (<= volume 0d0)
-      ;;         ;;   (error "Negative volume"))
 
-              ;; Turn cauchy stress to kirchoff
+            ;; Turn cauchy stress to kirchoff
             (setf stress stress-kirchoff)
 
-            ;;1.442s
-            ;; ;Update our strains
+            ;; Update our strains
             (update-strain-kirchoff mesh mp dt)
 
-            ;;2.018s
             ;;Update our kirchoff stress with constitutive model
             (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-            ;; (cl-mpm/particle::inplace-stress-update mp strain dt stress-kirchoff)
 
-            ;;Check volume constraint!
+            ;; Check volume constraint!
             (when (<= volume 0d0)
               (error "Negative volume"))
-            ;;Turn kirchoff stress to cauchy
+            ;; Turn kirchoff stress to cauchy
             (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
