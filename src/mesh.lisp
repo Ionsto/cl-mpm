@@ -133,6 +133,10 @@
        :accessor cell-deformation-gradient
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (magicl:zeros '(2 2) :type 'double-float))
+   (boundary
+    :accessor cell-boundary
+    :type bool
+    :initform nil)
    (pruned
     :accessor cell-pruned
     :type bool
