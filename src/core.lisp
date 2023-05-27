@@ -1361,7 +1361,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
-(defun split-mp (mp h)
+(defun split-mp (mp h direction)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
@@ -1372,8 +1372,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let ((l-factor 1.20d0)
           (h-factor (* 0.8d0 h)))
     (cond
-      (;(< (* l-factor (tref lens-0 0 0)) (tref lens 0 0))
-       (< h-factor (tref lens 0 0))
+      ((eq direction :x)
        (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
              (new-size-0 (magicl:.* lens-0 (magicl:from-list '(0.5d0 1d0) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
@@ -1390,8 +1389,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          :size new-size
                          :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
-      (;(< (* l-factor (tref lens-0 1 0)) (tref lens 1 0))
-       (< h-factor (tref lens 1 0))
+      ((eq direction :y)
        (let ((new-size (magicl:.* lens (magicl:from-list '(1d0 0.5d0) '(2 1))))
              (new-size-0 (magicl:.* lens-0 (magicl:from-list '(1d0 0.5d0) '(2 1))))
              (pos-offset (magicl:.* lens (magicl:from-list '(0d0 0.25d0) '(2 1)))))
@@ -1408,8 +1406,36 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          :size new-size
                          :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
-      ;((< 2.0d0 (tref def 1 1)) t)
-                                        ;((> 1.5d0 (tref def 0 0)) t)
+      ((eq direction :xy)
+       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
+         (list
+          (copy-particle mp
+                         :mass (/ mass 4d0)
+                         :volume (/ volume 4d0)
+                         :size new-size
+                         :size-0 new-size-0
+                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
+          (copy-particle mp
+                         :mass (/ mass 4d0)
+                         :volume (/ volume 4d0)
+                         :size new-size
+                         :size-0 new-size-0
+                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
+          (copy-particle mp
+                         :mass (/ mass 4d0)
+                         :volume (/ volume 4d0)
+                         :size new-size
+                         :size-0 new-size-0
+                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
+          (copy-particle mp
+                         :mass (/ mass 4d0)
+                         :volume (/ volume 4d0)
+                         :size new-size
+                         :size-0 new-size-0
+                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
+          )))
       (t nil)
       ))))
 (defun split-mps (sim)
@@ -1418,20 +1444,30 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mesh cl-mpm:sim-mesh))
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
-      ;; (format t "~A ~%"h)
-      ;(format t "~A~%" mps-to-split)
-      ;; (print mps-to-split)
-      ;(format t "~A~%" mps-to-split)
-      (delete-if (lambda (mp) (split-criteria mp h)) mps)
-      ;; (setf mps (remove-if (lambda (mp) (split-criteria mp h)) mps))
+           (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps))
+           (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps)))
+      (setf mps (delete-if (lambda (mp) (split-criteria mp h)) mps))
       (loop for mp across mps-to-split
-            do (loop for new-mp in (split-mp mp h)
+            for direction in split-direction
+            do (loop for new-mp in (split-mp mp h direction)
                      do (vector-push-extend new-mp mps)))
-      )
-    ;; (delete-if (lambda (mp)
-    ;;                (>= damage 1d0))) mps))
-  ))
+      )))
+
+(defun split-mps-criteria (sim criteria)
+  "Remove material points that have strain energy density exceeding fracture toughness"
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
+           (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
+      (print split-direction)
+      (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
+      (loop for mp across mps-to-split
+            for direction in split-direction
+            do (loop for new-mp in (split-mp mp h direction)
+                     do (vector-push-extend new-mp mps)))
+      )))
 
 (defun calculate-min-dt (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
