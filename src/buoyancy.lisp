@@ -28,25 +28,18 @@
       ))
   (declaim (notinline buoyancy-virtual-stress))
   (defun buoyancy-virtual-stress (z datum-true rho)
-    (let* (;(rho rho-true)
-           (g -9.8d0)
+    (let* ((g -9.8d0)
            (datum datum-true)
            (h (- datum z))
            (f (* rho g h))
-           (p -1d5)
            )
       (if (> h 0d0)
           (magicl:from-list (list f f 0d0) '(3 1) :type 'double-float)
-          ;; (magicl:zeros '(3 1))
           (magicl:zeros '(3 1))
           )
-      ;; (magicl:from-list (list 0d0 p 0d0)
-      ;;                   '(3 1)
-      ;;                   :type 'double-float)
       ))
   (defun buoyancy-virtual-div (z datum-true rho)
-    (let* (;(rho rho-true)
-           (g -9.8d0)
+    (let* ((g -9.8d0)
            (datum datum-true)
            (h (- datum z))
            (f (* -1d0 rho g))
@@ -144,34 +137,36 @@
                               (node-active  cl-mpm/mesh:node-active))
                  node
                (declare (double-float volume svp))
-               (when (and node-active node-boundary)
+               (when (and node-active
+                          node-boundary
+                          )
                  ;;Lock node for multithreading
                  (sb-thread:with-mutex (node-lock)
 
-                   ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                   ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
-                   ;;                                             (funcall func-stress mp)
-                   ;;                                             (* volume)
-                   ;;                                             node-force);
-                   ;; (cl-mpm/fastmath::fast-fmacc node-force
-                   ;;                              (funcall func-div mp)
-                   ;;                              (* svp volume))
+                   (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                   (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                                               (funcall func-stress mp)
+                                                               (* volume)
+                                                               node-force);
+                   (cl-mpm/fastmath::fast-fmacc node-force
+                                                (funcall func-div mp)
+                                                (* svp volume))
                    ;;Add the gradient of stress
-                   (setf node-force (magicl:.+
-                                     node-force
-                                     (magicl:scale!
-                                      (magicl:@
-                                       (magicl:transpose
-                                        (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                       (funcall func-stress mp)
-                                       )
-                                      (* volume))))
-                   ;;Add the divergance
-                   (setf node-force (magicl:.+
-                                     node-force
-                                     (magicl:scale!
-                                      (funcall func-div mp)
-                                      (* svp volume))))
+                   ;; (setf node-force (magicl:.+
+                   ;;                   node-force
+                   ;;                   (magicl:scale!
+                   ;;                    (magicl:@
+                   ;;                     (magicl:transpose
+                   ;;                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                   ;;                     (funcall func-stress mp)
+                   ;;                     )
+                   ;;                    (* volume))))
+                   ;; ;;Add the divergance
+                   ;; (setf node-force (magicl:.+
+                   ;;                   node-force
+                   ;;                   (magicl:scale!
+                   ;;                    (funcall func-div mp)
+                   ;;                    (* svp volume))))
                    (incf node-boundary-scalar
                          (* volume svp (calculate-val-mp mp #'melt-rate)))
                    ))))))))))
@@ -197,53 +192,50 @@
                  (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                    ;;Iterate over a cells nodes
                    (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-                     (when ;t
-                       (cell-clipping (cl-mpm/mesh::cell-centroid cell))
-                                        ;(cl-mpm/mesh::cell-boundary cell)
-                       (cl-mpm/mesh::cell-iterate-over-neighbours
-                        mesh cell
-                        (lambda (mesh cell pos volume node svp grads)
-                          (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                           (node-lock  cl-mpm/mesh:node-lock)
-                                           (node-active cl-mpm/mesh:node-active)
-                                           (node-boundary cl-mpm/mesh::node-boundary-node)
-                                           (node-volume cl-mpm/mesh::node-volume)
-                                           (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                           )
-                              node
-                            (declare (double-float volume svp))
-                            (when (and node-active
-                                       node-boundary
-                                       )
-                              ;;Lock node
-                              (sb-thread:with-mutex (node-lock)
-                                ;;Subtract gradient of stress from node force
-                                ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                                ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
-                                ;;                                             (funcall func-stress pos)
-                                ;;                                             (* -1d0 volume)
-                                ;;                                             node-force);
-                                ;; (cl-mpm/fastmath::fast-fmacc node-force
-                                ;;                              (funcall func-div pos)
-                                ;;                              (* -1d0 svp volume))
-                                (setf node-force (magicl:.+
-                                                  node-force
-                                                  (magicl:scale!
-                                                   (magicl:@
-                                                    (magicl:transpose
-                                                     (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                                                    (funcall func-stress pos))
-                                                   (* -1d0 volume))))
-                                ;;Subtract stress divergance from node force
-                                (setf node-force (magicl:.+
-                                                  node-force
-                                                  (magicl:scale!
-                                                   (funcall func-div pos)
-                                                   (* -1d0 svp volume))))
-                                (incf node-boundary-scalar
-                                      (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
-                                )))
-                          ))))))))))
+                     (cl-mpm/mesh::cell-iterate-over-neighbours
+                      mesh cell
+                      (lambda (mesh cell pos volume node svp grads)
+                        (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                         (node-lock  cl-mpm/mesh:node-lock)
+                                         (node-active cl-mpm/mesh:node-active)
+                                         (node-boundary cl-mpm/mesh::node-boundary-node)
+                                         (node-volume cl-mpm/mesh::node-volume)
+                                         (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                         )
+                            node
+                          (declare (double-float volume svp))
+                          (when (and node-active
+                                     node-boundary
+                                     )
+                            ;;Lock node
+                            (sb-thread:with-mutex (node-lock)
+                              ;;Subtract gradient of stress from node force
+                              (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                              (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                                                          (funcall func-stress pos)
+                                                                          (* -1d0 volume)
+                                                                          node-force);
+                              (cl-mpm/fastmath::fast-fmacc node-force
+                                                           (funcall func-div pos)
+                                                           (* -1d0 svp volume))
+                              ;; (setf node-force (magicl:.+
+                              ;;                   node-force
+                              ;;                   (magicl:scale!
+                              ;;                    (magicl:@
+                              ;;                     (magicl:transpose
+                              ;;                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
+                              ;;                     (funcall func-stress pos))
+                              ;;                    (* -1d0 volume))))
+                              ;; ;;Subtract stress divergance from node force
+                              ;; (setf node-force (magicl:.+
+                              ;;                   node-force
+                              ;;                   (magicl:scale!
+                              ;;                    (funcall func-div pos)
+                              ;;                    (* -1d0 svp volume))))
+                              (incf node-boundary-scalar
+                                    (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
+                              )))
+                        )))))))))
 (defun direct-mp-enforcment (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
@@ -331,7 +323,7 @@
                          )
             cell
           (when (every (lambda (n)
-                         (> (cl-mpm/mesh:node-mass n) 0d0)
+                         (and (cl-mpm/mesh:node-active n) (> (cl-mpm/mesh:node-mass n) 0d0))
                          ) nodes)
             (setf mp-count 1))
           )))))
@@ -341,14 +333,44 @@
   ;; (<= (magicl:tref pos 1 0) 300)
   ;; t
   )
+(defun populate-nodes-volume (mesh)
+  (cl-mpm::iterate-over-nodes
+   mesh
+   (lambda (node)
+     (with-accessors ((node-lock cl-mpm/mesh::node-lock)
+                      (volume cl-mpm/mesh::node-volume)
+                      (vt cl-mpm/mesh::node-volume-true)
+                      (boundary cl-mpm/mesh::node-boundary-node)
+                      (active cl-mpm/mesh::node-active)
+                      (pos cl-mpm/mesh::node-position)
+                      )
+         node
+       (when (< volume (* 0.95d0 vt))
+         (when (cell-clipping pos)
+           (when active
+             (setf boundary t))))))))
+(defun populate-nodes-domain (mesh)
+  (cl-mpm::iterate-over-nodes
+   mesh
+   (lambda (node)
+     (with-accessors ((node-lock cl-mpm/mesh::node-lock)
+                      (volume cl-mpm/mesh::node-volume)
+                      (vt cl-mpm/mesh::node-volume-true)
+                      (boundary cl-mpm/mesh::node-boundary-node)
+                      (active cl-mpm/mesh::node-active)
+                      (pos cl-mpm/mesh::node-position)
+                      )
+         node
+       (setf boundary t)))))
 
 (defun locate-mps-cells (mesh mps)
   "Mark boundary nodes based on neighbour MP inclusion"
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     ;;The aproach described by the paper
     ;; (populate-cell-mp-count mesh mps)
-    ;; (populate-cell-mp-count-gimp mesh mps)
-    (populate-cell-mp-count-volume mesh mps)
+    (populate-cell-mp-count-gimp mesh mps)
+    ;; (populate-cell-mp-count-volume mesh mps)
+    ;; (populate-cell-nodes mesh mps)
     ;; (prune-buoyancy-nodes mesh '(0 0) 300)
     (lparallel:pdotimes (i (array-total-size cells))
       (let ((cell (row-major-aref cells i)))
@@ -362,7 +384,8 @@
                          )
             cell
           (setf boundary nil)
-          (when (and (= mp-count 0) (cell-clipping pos) (not pruned))
+          (when (and (= mp-count 0)
+                     (cell-clipping pos) (not pruned))
               (loop for neighbour in neighbours
                     do
                        (when (cell-clipping (cl-mpm/mesh::cell-centroid neighbour))
@@ -373,7 +396,9 @@
                                   (when (cl-mpm/mesh:node-active n)
                                     (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
                                       (setf (cl-mpm/mesh::node-boundary-node n) t))))))
-              ))))))
+              ))))
+    )
+  )
 
 (defun find-active-nodes (mesh mps)
   (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -386,22 +411,8 @@
                                                    (boundary cl-mpm/mesh::node-boundary-node))
                                       node
                                       (when active
-                                        (setf boundary t)
-                                        ))))))
+                                        (setf boundary t)))))))
 
-;; (defun apply-bouyancy (sim datum-true)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                    (mps cl-mpm::sim-mps))
-;;       sim
-;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-;;         mesh
-;;       (let ((datum (- datum-true (* 0 0.5d0 h))))
-;;         (locate-mps-cells mesh mps)
-;;         (apply-force-mps mesh mps datum)
-;;         (apply-force-cells mesh datum)
-;;         ;; (direct-mp-enforcment mesh mps datum-true)
-;;         )))
-;;   )
 
 (declaim (notinline apply-non-conforming-nuemann))
 (defun apply-non-conforming-nuemann (sim func-stress func-div)
@@ -410,15 +421,15 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells mesh mps)
+      ;; (locate-mps-cells mesh mps)
+      ;; (populate-nodes-volume mesh)
+      (populate-nodes-domain mesh)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
                        (lambda (mp) (calculate-val-mp mp func-div)))
       (apply-force-cells mesh
                          func-stress
                          func-div
-                         ;; (lambda (cell) (calculate-val-cell cell func-stress))
-                         ;; (lambda (cell) (calculate-val-cell cell func-div))
                          )
       )))
 
