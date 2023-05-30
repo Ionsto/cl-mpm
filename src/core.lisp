@@ -616,6 +616,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-active  cl-mpm/mesh::node-active)
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-volume  cl-mpm/mesh::node-volume)
+                        (node-volume-true  cl-mpm/mesh::node-volume-true)
                         (node-force cl-mpm/mesh:node-force)
                         (node-p-wave cl-mpm/mesh::node-pwave)
                         (node-lock  cl-mpm/mesh:node-lock)) node
@@ -628,7 +629,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (incf node-volume
                  (* mp-volume svp))
            (incf node-p-wave
-                 (* mp-pmod svp))
+                 (* mp-pmod (/ mp-volume node-volume-true) svp))
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
          ;; (special-p2g mp node svp dsvp)
@@ -1485,6 +1486,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (when node-active
                (let ((nf (/ mass (* vol pmod))))
                  (when (< nf inner-factor)
+                   (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol pmod)
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
