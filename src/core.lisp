@@ -1066,93 +1066,45 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
-          (let ((initial-strain (magicl::copy-matrix/double-float strain))
-                ;(initial-strain (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
-                )
-            (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix strain))
-              (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
-                    (trial-lgs (magicl:@ df
-                                         v
-                                         (cl-mpm/utils::matrix-from-list
-                                          (list
-                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
-                                           0d0 0d0
-                                           (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
-                                         ;; (magicl:from-diag (mapcar (lambda (x)
-                                         ;;                             (declare (type double-float x))
-                                         ;;                             (the double-float (exp (* x 2d0)))) l)
-                                         ;;                   :type 'double-float)
-                                         (magicl:transpose v)
-                                         (magicl:transpose df)))
-                    )
-                ;; (magicl:mult
-                ;;  df
-                ;;  v
-                ;;  :target temp-strain-mat-a)
-                ;; (magicl:mult
-                ;;  temp-strain-mat-a
-                ;;  (cl-mpm/utils::matrix-from-list
-                ;;   (list
-                ;;    (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
-                ;;    0d0 0d0
-                ;;    (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
-                ;;  :target temp-strain-mat-b)
+          ;; (let ((initial-strain (magicl::copy-matrix/double-float strain))
+          ;;       ;(initial-strain (cl-mpm/utils::matrix-zeros))
+          ;;       (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
+          ;;       (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
+          ;;       )
+          ;;   (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix strain))
+          ;;     (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
+          ;;           (trial-lgs (magicl:@ df
+          ;;                                v
+          ;;                                (cl-mpm/utils::matrix-from-list
+          ;;                                 (list
+          ;;                                  (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
+          ;;                                  0d0 0d0
+          ;;                                  (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
+          ;;                                (magicl:transpose v)
+          ;;                                (magicl:transpose df)))
+          ;;           )
+          ;;       (multiple-value-bind (lf vf) (magicl:eig
+          ;;                                     trial-lgs)
+          ;;         (setf strain (magicl:scale!
+          ;;                       (matrix-to-voigt
+          ;;                        (magicl:@
+          ;;                         vf
+          ;;                         (cl-mpm/utils::matrix-from-list
+          ;;                          (list
+          ;;                           (the double-float (log (the double-float (nth 0 lf))))
+          ;;                           0d0 0d0
+          ;;                           (the double-float (log (the double-float (nth 1 lf))))))
+          ;;                         (magicl:transpose vf)))
+          ;;                       0.5d0))
+          ;;         ;; (print strain)
+          ;;         ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
+          ;;         )))
+          ;;   (magicl:.- initial-strain strain initial-strain)
+          ;;   (setf eng-strain-rate initial-strain)
+          ;;   (magicl:scale! eng-strain-rate (/ 1d0 dt))
 
-                ;; (magicl:mult
-                ;;  temp-strain-mat-b
-                ;;  v
-                ;;  :target temp-strain-mat-a
-                ;;  :transb :t)
-
-                ;; (magicl:mult
-                ;;  temp-strain-mat-a
-                ;;  df
-                ;;  :target temp-strain-mat-b
-                ;;  :transb :t)
-                (multiple-value-bind (lf vf) (magicl:eig
-                                              ;; temp-strain-mat-b)
-                                              trial-lgs)
-                  ;; (magicl:mult
-                  ;;  vf
-                  ;;  (cl-mpm/utils::matrix-from-list
-                  ;;   (list
-                  ;;    (the double-float (log (the double-float (nth 0 lf))))
-                  ;;    0d0 0d0
-                  ;;    (the double-float (log (the double-float (nth 1 lf))))))
-                  ;;  :target temp-strain-mat-a)
-                  ;; (magicl:mult
-                  ;;  temp-strain-mat-a
-                  ;;  vf
-                  ;;  ;; (magicl:transpose vf)
-                  ;;  :target temp-strain-mat-b
-                  ;;  :transb :t
-                  ;;  )
-                  ;; (setf strain (matrix-to-voigt temp-strain-mat-b))
-                  ;; (magicl:scale! strain 0.5d0)
-
-                  ;; (print temp-strain-mat)
-                  (setf strain (magicl:scale!
-                                (matrix-to-voigt
-                                 (magicl:@
-                                  vf
-                                  (cl-mpm/utils::matrix-from-list
-                                   (list
-                                    (the double-float (log (the double-float (nth 0 lf))))
-                                    0d0 0d0
-                                    (the double-float (log (the double-float (nth 1 lf))))))
-                                  (magicl:transpose vf)))
-                                0.5d0))
-                  ;; (print strain)
-                  ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
-                  )))
-            (magicl:.- initial-strain strain initial-strain)
-            (setf eng-strain-rate initial-strain)
-            (magicl:scale! eng-strain-rate (/ 1d0 dt))
-
-            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
-            )
+          ;;   ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
+          ;;   )
 
           ;;Post multiply to turn to eng strain
           (setf volume (* volume-0 (magicl:det def)))

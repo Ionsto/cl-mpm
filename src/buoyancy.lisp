@@ -344,7 +344,7 @@
                       (pos cl-mpm/mesh::node-position)
                       )
          node
-       (when (< volume (* 0.95d0 vt))
+       (when (< volume (* 0.99d0 vt))
          (when t;(cell-clipping pos)
            (when active
              (setf boundary t))))))))
