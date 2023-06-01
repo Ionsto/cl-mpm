@@ -420,8 +420,8 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells mesh mps)
-      (populate-nodes-volume mesh)
+      (locate-mps-cells mesh mps)
+      ;; (populate-nodes-volume mesh)
       ;; (populate-nodes-domain mesh)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))

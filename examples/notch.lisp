@@ -305,8 +305,8 @@
         (setf (cl-mpm:sim-damping-factor sim)
               ;; 0.5d0
               ;; 0.5d0
-              ;; (* 0.5d0 ms)
-              0.2d0
+              (* 0.5d0 ms)
+              ;; 0.5d0
               )
         (setf (cl-mpm::sim-mass-scale sim) ms))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
@@ -351,19 +351,19 @@
                     )))))))
       sim)))
 
-(defparameter *ice-length* 3000)
+(defparameter *ice-length* 2000)
 (defparameter *ice-density* 850)
 (defparameter *water-density* 1028)
 (defparameter *average-window* 5)
 ;Setup
-(defun setup (&optional (notch-length 000))
+(defun setup (&optional (notch-length 100))
   (let* ((shelf-length *ice-length*)
          (shelf-height 200)
          (density-ratio (/ *ice-density* *water-density*))
          (shelf-bottom (- 300 (* density-ratio shelf-height)));;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 100)
+         (mesh-size 50)
          (mps-per-cell 4)
          (offset 00)
          )
@@ -651,7 +651,7 @@
   (let* ((target-time 10d0)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
     (cl-mpm::update-sim *sim*)
-    (let* ((dt-e (* 0.1d0 (cl-mpm::calculate-min-dt *sim*)))
+    (let* ((dt-e (* 1d0 (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e))
            )
       ;; (setf substeps-e (min 10000 substeps-e))
@@ -660,7 +660,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 200
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
