@@ -344,7 +344,7 @@
                       (pos cl-mpm/mesh::node-position)
                       )
          node
-       (when (< volume (* 0.99d0 vt))
+       (when (< volume (* 0.95d0 vt))
          (when t;(cell-clipping pos)
            (when active
              (setf boundary t))))))))
@@ -388,7 +388,7 @@
               (loop for neighbour in neighbours
                     do
                        (when (cell-clipping (cl-mpm/mesh::cell-centroid neighbour))
-                           (check-neighbour-cell neighbour)
+                         (check-neighbour-cell neighbour)
                          (setf boundary t)
                          (loop for n in nodes
                                do
@@ -420,8 +420,8 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells mesh mps)
-      ;; (populate-nodes-volume mesh)
+      ;; (locate-mps-cells mesh mps)
+      (populate-nodes-volume mesh)
       ;; (populate-nodes-domain mesh)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
