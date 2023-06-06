@@ -1065,6 +1065,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (progn
       (let ((df (calculate-df mesh mp)))
         (progn
+          ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
           ;; (let ((initial-strain (magicl::copy-matrix/double-float strain))
           ;;       ;(initial-strain (cl-mpm/utils::matrix-zeros))
@@ -1107,7 +1108,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;   )
 
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume-0 (magicl:det def)))
+          (setf volume (* volume (magicl:det df)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
@@ -1320,7 +1321,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    (pos cl-mpm/particle:mp-position)
                    (mass cl-mpm/particle:mp-mass)
-                   (volume cl-mpm/particle:mp-volume))
+                   (volume cl-mpm/particle:mp-volume)
+                   ;; (volume cl-mpm/particle::mp-volume-0)
+                   )
       mp
     (let ((l-factor 1.20d0)
           (h-factor (* 0.8d0 h)))
