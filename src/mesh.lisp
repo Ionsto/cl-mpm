@@ -94,6 +94,11 @@
     :type double-float
     :initform 0d0
     )
+   (svp-sum
+    :accessor node-svp-sum
+    :type double-float
+    :initform 0d0
+    )
 
    (sdf
     :accessor node-sdf
@@ -409,6 +414,7 @@
                (j-inc jacobian-inc)
                (j jacobian)
                (p-wave p-wave)
+               (svp-sum svp-sum)
                (volume volume)
                (active active)
                (boundary boundary-node)
@@ -420,6 +426,7 @@
     (setf mass 0d0)
     (setf volume 0d0)
     (setf p-wave 0d0)
+    (setf svp-sum 0d0)
     (setf j 0d0)
     (setf boundary-scalar 0d0)
     (setf j-inc 0d0)

@@ -421,7 +421,7 @@
                    (mps cl-mpm::sim-mps))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        mesh
+        ;; mesh
       ;; (locate-mps-cells mesh mps)
       (populate-nodes-volume mesh)
       ;; (populate-nodes-domain mesh)
