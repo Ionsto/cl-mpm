@@ -452,9 +452,13 @@
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
   (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
-         (effective-strain (+ 1d-15 (* 0.5d0 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))))
+         (effective-strain (+ 1d-30 (* 0.5d0 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
+         ;; (effective-strain (+ 1d-30 (* 0.5d0 (* 0.5d0 (expt (magicl:tref strain 2 0) 2)))))
+         )
     (declare (type double-float effective-strain))
-    (* ;(sqrt 2d0)
+    (*
+     ;; (sqrt 2d0)
+     ;; 2d0
      0.5d0
        visc-factor (the double-float (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0))))
        ;; (the double-float (expt fudge -0.3d0))

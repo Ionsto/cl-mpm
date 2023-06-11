@@ -151,7 +151,7 @@
         (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
-        ;; (save-parameter "temp" (cl-mpm/particle::mp-true-visc mp))
+        (save-parameter "viscosity" (cl-mpm/particle::mp-true-visc mp))
 
         (save-parameter "strain_rate"
                         (multiple-value-bind (l v)

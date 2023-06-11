@@ -242,6 +242,9 @@
    (visc-power
     :accessor mp-visc-power
     :initarg :visc-power)
+   (true-visc
+    :accessor mp-true-visc
+    :initform 0d0)
    )
   (:documentation "A glen flow law material point"))
 
@@ -799,7 +802,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* (;(eng-strain-rate (magicl:.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
-                                       ;(cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
+           ;                            (cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
           ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
           )
