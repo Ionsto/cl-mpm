@@ -304,7 +304,7 @@
                :initiation-stress 0.33d6
                :damage-rate 1d-14
                :critical-damage 0.56d0
-               :local-length 100d0
+               :local-length 50d0
                :damage 0.0d0
 
                :gravity 9.8d0
@@ -325,19 +325,16 @@
       ;;      :xy
       ;;      )))
 
-      (let ((ms 1d2))
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 0.10d0 ms))
+      (let ((ms 1d3))
         (setf (cl-mpm:sim-damping-factor sim)
+              (* 0.1d0 ms)
               ;; 0.5d0
-              ;; 0.5d0
-              ;; (* 0.1d0 ms)
-              0.5d0
               )
         (setf (cl-mpm::sim-mass-scale sim) ms))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15);1d-15
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       (setf (cl-mpm:sim-bcs sim)
             (append
@@ -358,17 +355,17 @@
                      mp
                    (setf stress
                          ;(ice-init-stress nu rho-ice rho-water ice-datum water-datum y g ice-size)
-                         (ice-init-stress 0.325d0
-                                          *ice-density*
-                                          *water-density*
-                                          (+ (second block-offset) (second block-size))
-                                          water-line
-                                          (magicl:tref pos 1 0)
-                                          9.8d0
-                                          (second block-size)
-                                          )
-                         ;; (cl-mpm/utils:matrix-to-voight
-                         ;;  (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line *water-density*))))
+                         ;; (ice-init-stress 0.325d0
+                         ;;                  *ice-density*
+                         ;;                  *water-density*
+                         ;;                  (+ (second block-offset) (second block-size))
+                         ;;                  water-line
+                         ;;                  (magicl:tref pos 1 0)
+                         ;;                  9.8d0
+                         ;;                  (second block-size)
+                         ;;                  )
+                         (cl-mpm/utils:matrix-to-voight
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line *water-density*))))
                          stress-cauchy (magicl:scale stress 1d0)
                          undamaged-stress (magicl:scale stress 1d0)
                          )))
@@ -386,7 +383,7 @@
                     )))))))
       sim)))
 
-(defparameter *ice-length* 3000)
+(defparameter *ice-length* 2000)
 (defparameter *ice-density* 850)
 (defparameter *water-density* 1028)
 (defparameter *average-window* 5)
@@ -399,7 +396,7 @@
          (notch-length notch-length)
          (notch-depth 30);0
          (mesh-size 50)
-         (mps-per-cell 4)
+         (mps-per-cell 6)
          (offset 00)
          )
     (format t "Shelf-bottom ~f~%" shelf-bottom)
@@ -708,9 +705,10 @@
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 1d0)
   (let* ((target-time 10d0)
-         (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*)))))
+         (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*))))
+         (dt-scale 0.5d0))
     (cl-mpm::update-sim *sim*)
-    (let* ((dt-e (* 1d0 (cl-mpm::calculate-min-dt *sim*)))
+    (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e))
            )
       ;; (setf substeps-e (min 10000 substeps-e))
@@ -746,6 +744,13 @@
                                         ;(melt-sdf *sim* (rectangle-sdf (list 0 0) (list 1500 300)) (* (cl-mpm:sim-dt *sim*) 1e0))
                                         (incf *notch-position* (* (cl-mpm:sim-dt *sim*) 5d0))
                                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))))
+                     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                            (substeps-e (floor target-time dt-e))
+                            )
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf (cl-mpm:sim-dt *sim*) dt-e)
+                       (setf substeps substeps-e))
                      (let ((av-v (find-average-v *sim*)))
                        (format t "~A~%" av-v)
                        ;; (push av-v *conv-vel*)

@@ -225,6 +225,7 @@
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
+               ;; :nu 0.4950d0
                :visc-factor 111d6
                :visc-power 3d0
                ;; :initiation-stress 0.2d6
@@ -236,9 +237,13 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d10))
+      (let ((mass-scale 1d08))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
-        (setf (cl-mpm:sim-damping-factor sim) ;(* 0.01d0 mass-scale)
+        (setf (cl-mpm:sim-damping-factor sim)
+              ;; (* 0.001d0 mass-scale)
+              ;; 1d0
+              ;; (* 0.001d0 mass-scale)
+              ;; 0.1d0
               0.1d0
               )
         )
@@ -246,7 +251,7 @@
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
@@ -270,7 +275,7 @@
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 25)
-        (mps-per-cell 2))
+        (mps-per-cell 4))
     (defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
@@ -365,14 +370,14 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 100000d0)
+  (let* ((target-time 200000d0)
          (dt (cl-mpm:sim-dt *sim*))
+         (dt-scale 1d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
-    (let* ((dt-e (* 1d0 (cl-mpm::calculate-min-dt *sim*)))
+    (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e)))
-      (setf substeps-e (min 1000 substeps-e))
       (format t "CFL dt estimate: ~f~%" dt-e)
       (format t "CFL step count estimate: ~D~%" substeps-e)
       (setf (cl-mpm:sim-dt *sim*) dt-e)
@@ -413,13 +418,12 @@
                          ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
                          ;;   (setf substeps substeps-e)
                          ;;   )
-                       ;; (let* ((dt-e (cl-mpm::calculate-min-dt *sim*))
-                       ;;        (substeps-e (/ target-time dt-e)))
-                       ;;   (setf substeps-e (min 1000 substeps-e))
-                       ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                       ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                       ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
-                       ;;   (setf substeps substeps-e))
+                       (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                              (substeps-e (floor target-time dt-e)))
+                         (format t "CFL dt estimate: ~f~%" dt-e)
+                         (format t "CFL step count estimate: ~D~%" substeps-e)
+                         (setf (cl-mpm:sim-dt *sim*) dt-e)
+                         (setf substeps substeps-e))
                          )
                      ;; (setf (cl-mpm:sim-damping-factor *sim*) (max 0.1d0 (/ (cl-mpm:sim-damping-factor *sim*) 1.1d0)))
                      ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
@@ -427,7 +431,7 @@
                        (format stream "~f, ~f ~%" *t* *x*))
                      (incf *sim-step*)
                      ;; (plot *sim*)
-                     (plot-disp)
+                     (plot-disp-day)
                      (swank.live:update-swank)
                      (sleep .01)
 
@@ -474,10 +478,26 @@
             do
                (format stream "~f, ~f, ~f ~%" yi si sai))))
   )
+(defun plot-disp-day ()
+  (let* ((df (lisp-stat:read-csv
+	            (uiop:read-file-string #P"stokes.csv")))
+         (time-day (mapcar (lambda (x) (/ x (* 24 60 60))) *time*))
+         ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
+         )
+    ;; (vgplot:figure)
+    (vgplot:title "S_{xx} over height")
+    (vgplot:xlabel "Time (s)")
+    (vgplot:ylabel "Displacment (m)")
+    (vgplot:axis (list 0 (reduce #'max time-day)
+                       0 (reduce #'max *x-pos*)))
+    (vgplot:plot time-day *x-pos* "MPM"
+                 (aops:each (lambda (x) (* x 32d0)) (lisp-stat:column df 'time)) (lisp-stat:column df 'disp) "stokes"
+                 )))
 (defun plot-disp ()
   (let* ((df (lisp-stat:read-csv
 	            (uiop:read-file-string #P"stokes.csv")))
          (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
+         ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
          )
     ;; (vgplot:figure)
     (vgplot:title "S_{xx} over height")
