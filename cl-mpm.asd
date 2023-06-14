@@ -190,6 +190,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
+               "lisp-stat"
                "magicl")
   :serial t
   :components ((:file "examples/slump")))

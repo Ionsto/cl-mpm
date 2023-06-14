@@ -60,9 +60,12 @@
     ))
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    (apply #'max l)
-    (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
+    ;(apply #'max l)
+    (- (max 0d0 (apply #'max l))
+       (max 0d0 (apply #'min l)))
+    ;; (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
     ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
+    ;; (abs (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
     )
   )
 (defun plot (sim &optional (plot :stress))
@@ -221,30 +224,39 @@
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
                ;; 'cl-mpm/particle::particle-elastic-damage
-               'cl-mpm/particle::particle-viscoplastic
+               ;; 'cl-mpm/particle::particle-viscoplastic
+               'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
                ;; :nu 0.4950d0
                :visc-factor 111d6
                :visc-power 3d0
+
                ;; :initiation-stress 0.2d6
                ;; :damage-rate 1d-10
                ;; :critical-damage 0.5d0
                ;; :local-length 20d0
+
+               :initiation-stress 0.33d6
+               :damage-rate 1d-19
+               :critical-damage 0.56d0
+               :local-length 50d0
+               :damage 0.0d0
+
                :gravity -9.8d0
                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
                :index 0
                ))
         )
-      (let ((mass-scale 1d08))
+      (let ((mass-scale 1d09))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.001d0 mass-scale)
               ;; 1d0
-              ;; (* 0.001d0 mass-scale)
+              (* 0.001d0 mass-scale)
               ;; 0.1d0
-              0.1d0
+              ;; 0.1d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -276,7 +288,9 @@
   (defparameter *run-sim* nil)
   (let ((mesh-size 25)
         (mps-per-cell 4))
-    (defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell)))
+    ;(defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    (defparameter *sim* (setup-test-column '(1500 500) '(800 400) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    )
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
   ;;       (setf (cl-mpm/particle:mp-damage mp) (random 0.1)))
@@ -370,7 +384,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (let* ((target-time 200000d0)
+  (let* ((target-time 10000d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -430,8 +444,8 @@
                      (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
                        (format stream "~f, ~f ~%" *t* *x*))
                      (incf *sim-step*)
-                     ;; (plot *sim*)
-                     (plot-disp-day)
+                     (plot *sim*)
+                     ;; (plot-disp-day)
                      (swank.live:update-swank)
                      (sleep .01)
 
