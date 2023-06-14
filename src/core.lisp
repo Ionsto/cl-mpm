@@ -616,6 +616,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-active  cl-mpm/mesh::node-active)
                         (node-mass  cl-mpm/mesh:node-mass)
                         (node-volume  cl-mpm/mesh::node-volume)
+                        (node-volume-true  cl-mpm/mesh::node-volume-true)
+                        (node-svp-sum  cl-mpm/mesh::node-svp-sum)
                         (node-force cl-mpm/mesh:node-force)
                         (node-p-wave cl-mpm/mesh::node-pwave)
                         (node-lock  cl-mpm/mesh:node-lock)) node
@@ -629,6 +631,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-volume svp))
            (incf node-p-wave
                  (* mp-pmod svp))
+           (incf node-svp-sum svp)
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
          ;; (special-p2g mp node svp dsvp)
@@ -1064,6 +1067,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (progn
       (let ((df (calculate-df mesh mp)))
         (progn
+          ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
           (let ((initial-strain (magicl::copy-matrix/double-float strain))
                 ;(initial-strain (cl-mpm/utils::matrix-zeros))
@@ -1079,59 +1083,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                            (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
                                            0d0 0d0
                                            (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
-                                         ;; (magicl:from-diag (mapcar (lambda (x)
-                                         ;;                             (declare (type double-float x))
-                                         ;;                             (the double-float (exp (* x 2d0)))) l)
-                                         ;;                   :type 'double-float)
                                          (magicl:transpose v)
                                          (magicl:transpose df)))
                     )
-                ;; (magicl:mult
-                ;;  df
-                ;;  v
-                ;;  :target temp-strain-mat-a)
-                ;; (magicl:mult
-                ;;  temp-strain-mat-a
-                ;;  (cl-mpm/utils::matrix-from-list
-                ;;   (list
-                ;;    (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
-                ;;    0d0 0d0
-                ;;    (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
-                ;;  :target temp-strain-mat-b)
-
-                ;; (magicl:mult
-                ;;  temp-strain-mat-b
-                ;;  v
-                ;;  :target temp-strain-mat-a
-                ;;  :transb :t)
-
-                ;; (magicl:mult
-                ;;  temp-strain-mat-a
-                ;;  df
-                ;;  :target temp-strain-mat-b
-                ;;  :transb :t)
                 (multiple-value-bind (lf vf) (magicl:eig
-                                              ;; temp-strain-mat-b)
                                               trial-lgs)
-                  ;; (magicl:mult
-                  ;;  vf
-                  ;;  (cl-mpm/utils::matrix-from-list
-                  ;;   (list
-                  ;;    (the double-float (log (the double-float (nth 0 lf))))
-                  ;;    0d0 0d0
-                  ;;    (the double-float (log (the double-float (nth 1 lf))))))
-                  ;;  :target temp-strain-mat-a)
-                  ;; (magicl:mult
-                  ;;  temp-strain-mat-a
-                  ;;  vf
-                  ;;  ;; (magicl:transpose vf)
-                  ;;  :target temp-strain-mat-b
-                  ;;  :transb :t
-                  ;;  )
-                  ;; (setf strain (matrix-to-voigt temp-strain-mat-b))
-                  ;; (magicl:scale! strain 0.5d0)
-
-                  ;; (print temp-strain-mat)
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
                                  (magicl:@
@@ -1154,7 +1110,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             )
 
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume-0 (magicl:det def)))
+          (setf volume (* volume (magicl:det df)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
@@ -1367,7 +1323,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    (pos cl-mpm/particle:mp-position)
                    (mass cl-mpm/particle:mp-mass)
-                   (volume cl-mpm/particle:mp-volume))
+                   (volume cl-mpm/particle:mp-volume)
+                   ;; (volume cl-mpm/particle::mp-volume-0)
+                   )
       mp
     (let ((l-factor 1.20d0)
           (h-factor (* 0.8d0 h)))
@@ -1480,11 +1438,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (with-accessors ((node-active  cl-mpm/mesh:node-active)
                           (pmod cl-mpm/mesh::node-pwave)
                           (mass cl-mpm/mesh::node-mass)
+                          (svp-sum cl-mpm/mesh::node-svp-sum)
                           (vol cl-mpm/mesh::node-volume)
                           ) node
            (when node-active
-               (let ((nf (/ mass (* vol pmod))))
+             (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
                  (when (< nf inner-factor)
+                   ;; (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol (/ pmod svp-sum))
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))

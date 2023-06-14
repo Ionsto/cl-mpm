@@ -242,6 +242,9 @@
    (visc-power
     :accessor mp-visc-power
     :initarg :visc-power)
+   (true-visc
+    :accessor mp-true-visc
+    :initform 0d0)
    )
   (:documentation "A glen flow law material point"))
 
@@ -799,7 +802,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let* (;(eng-strain-rate (magicl:.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
-                                       ;(cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
+           ;                            (cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
           ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
           )
@@ -890,40 +893,40 @@
               D)))
       (setf stress (magicl:scale stress-u 1d0))
 
-      (let ((rho 1000d0)
-            (datum 300d0)
-            (g -9.8d0))
-        (let* ((z (magicl:tref pos 1 0))
-               (np (* rho g (max 0 (- datum z)))))
-          (let* ((damage-ef (min damage 0.95d0))
-                 (ep (* np damage-ef (magicl:det def))))
-            (declare (double-float damage-ef ep np))
-            ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
-            ;; (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
-            ;;                         (voigt-from-list (list ep ep 0d0))))
-            (setf stress (magicl:.+ (magicl:scale stress-u (- 1d0 damage-ef))
-                                    (voigt-from-list (list ep ep 0d0))))
-            )))
+      ;; (let ((rho 1000d0)
+      ;;       (datum 300d0)
+      ;;       (g -9.8d0))
+      ;;   (let* ((z (magicl:tref pos 1 0))
+      ;;          (np (* rho g (max 0 (- datum z)))))
+      ;;     (let* ((damage-ef (min damage 0.95d0))
+      ;;            (ep (* np damage-ef (magicl:det def))))
+      ;;       (declare (double-float damage-ef ep np))
+      ;;       ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
+      ;;       ;; (setf stress (magicl:.+ (magicl:scale stress-undamaged (- 1d0 damage-ef))
+      ;;       ;;                         (voigt-from-list (list ep ep 0d0))))
+      ;;       (setf stress (magicl:.+ (magicl:scale stress-u (- 1d0 damage-ef))
+      ;;                               (voigt-from-list (list ep ep 0d0))))
+      ;;       )))
 
-      ;; (when (> damage 0.0d0)
-      ;;   (multiple-value-bind (l v) (magicl:eig
-      ;;                               (voight-to-matrix stress))
-      ;;     (loop for i from 0 to 1
-      ;;           do (let* ((sii (nth i l))
-      ;;                     (esii (- sii
-      ;;                              (* pressure 1)))
-      ;;                     )
-      ;;                (when (> esii 0d0)
-      ;;                  (setf (nth i l)
-      ;;                        (+
-      ;;                         (* esii (- 1d0 damage))
-      ;;                         (* 1 pressure)
-      ;;                         ))
-      ;;                  ))
-      ;;     (setf stress (matrix-to-voight (magicl:@ v
-      ;;                                              (magicl:from-diag l :type 'double-float)
-      ;;                                              (magicl:transpose v))))
-      ;;     )))
+      (when (> damage 0.0d0)
+        (multiple-value-bind (l v) (magicl:eig
+                                    (voight-to-matrix stress))
+          (loop for i from 0 to 1
+                do (let* ((sii (nth i l))
+                          (esii (- sii
+                                   (* pressure 1)))
+                          )
+                     (when (> esii 0d0)
+                       (setf (nth i l)
+                             (+
+                              (* esii (- 1d0 damage))
+                              (* 1 pressure)
+                              ))
+                       ))
+          (setf stress (matrix-to-voight (magicl:@ v
+                                                   (magicl:from-diag l :type 'double-float)
+                                                   (magicl:transpose v))))
+          )))
 
       stress
       ;; (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
