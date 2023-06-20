@@ -360,6 +360,27 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               (when (< 0d0 weight)
                                 (funcall func mesh mp node weight grads))))))))))
 
+(declaim (inline iterate-over-neighbours-point-linear))
+(defun iterate-over-neighbours-point-linear (mesh position func)
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec position)
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                          (when (cl-mpm/mesh:in-bounds mesh id)
+                            (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                                   (node (cl-mpm/mesh:get-node mesh id))
+                                   (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                   (weight (reduce #'* weights))
+                                   (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                                                  dist (nreverse weights))))
+                              (when (< 0d0 weight)
+                                (funcall func mesh node weight grads))))))))))
+
 (declaim (inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp))
@@ -1115,7 +1136,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             (error "Negative volume"))
           ;;Stretch rate update
           (let ((F (cl-mpm/utils::matrix-zeros)))
-            (magicl:mult def def :target F :transb :t)
+            (magicl:mult df df :target F :transb :t)
             (multiple-value-bind (l v) (magicl:eig F)
               (let ((stretch
                       (magicl:@
@@ -1127,11 +1148,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                        (magicl:transpose v)))
                     )
                 (declare (type magicl:matrix/double-float stretch))
-                (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
                                            (the double-float (tref stretch 0 0))))
-                (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
                                            (the double-float (tref stretch 1 1))))
                 )))
+          ;; (update-domain-corner mesh mp dt (magicl:det df))
           ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
           ;;                             (the double-float (tref def 0 0))))
           ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
@@ -1139,6 +1161,49 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           )
           )))
   (values))
+(defun update-domain-corner (mesh mp dt)
+  (with-accessors ((position cl-mpm/particle::mp-position)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    (let ((points (list '(-0.5d0 0d0) '(0.5d0 0d0) '(0d0 -0.5d0) '(0d0 0.5d0)))
+          (dim '(0 0 1 1))
+          (disp (make-array 4 :element-type 'double-float :initial-element 0d0)))
+      (loop for point in points
+            for d in dim
+            for i from 0 below 4
+            do
+               (let ((corner (magicl:.+ position
+                                        (magicl:scale!
+                                         (magicl:from-list point '(2 1)
+                                                           :type 'double-float
+                                                           )
+                                         (magicl:tref domain d 0)
+                                         ))))
+                 (iterate-over-neighbours-point-linear
+                  mesh corner
+                  (lambda (mesh node svp grads)
+                    (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                        node
+                      (incf (aref disp i)
+                            (* svp dt (magicl:tref vel d 0))))))))
+      (incf (magicl:tref domain 0 0) (- (aref disp 1) (aref disp 0)))
+      (incf (magicl:tref domain 1 0) (- (aref disp 3) (aref disp 2)))
+      (let* ((jf (magicl:det def))
+             (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+             (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+             (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
+        (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+              (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+              )
+        )
+      )
+
+    )
+  )
+
 
 
 (declaim (inline update-stress-mp)
@@ -1291,14 +1356,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.00d0)
+    (let ((l-factor 1.10d0)
           (h-factor (* 0.8d0 h))
           (s-factor 1.5d0))
       (cond
-        ;; ((< h-factor (tref lens 0 0)) t)
-        ;; ((< h-factor (tref lens 1 0)) t)
-        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) t)
-        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) t)
+        ((< h-factor (tref lens 0 0)) :x)
+        ((< h-factor (tref lens 1 0)) :y)
+        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
         ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
@@ -1403,7 +1468,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps))
-           (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps)))
+           (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
       (setf mps (delete-if (lambda (mp) (split-criteria mp h)) mps))
       (loop for mp across mps-to-split
             for direction in split-direction

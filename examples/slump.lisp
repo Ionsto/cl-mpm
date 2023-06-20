@@ -5,7 +5,7 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/slump)
-;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 ;; (pushnew :cl-mpm-pic *features*)
 ;; (pushnew :cl-mpm-fbar *features*)
@@ -68,7 +68,7 @@
     ;; (abs (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
     )
   )
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -229,19 +229,14 @@
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
-               ;; :nu 0.4950d0
                :visc-factor 111d6
                :visc-power 3d0
 
-               ;; :initiation-stress 0.2d6
-               ;; :damage-rate 1d-10
-               ;; :critical-damage 0.5d0
-               ;; :local-length 20d0
-
                :initiation-stress 0.33d6
-               :damage-rate 1d-19
-               :critical-damage 0.56d0
-               :local-length 50d0
+               :damage-rate 1d-09
+               :critical-damage 1.00d0
+               :local-length 100d0
+               :local-length-damaged 0.1d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -249,14 +244,14 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d09))
+      (let ((mass-scale 1d04))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.001d0 mass-scale)
               ;; 1d0
               (* 0.001d0 mass-scale)
               ;; 0.1d0
-              ;; 0.1d0
+              ;; 0.01d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -270,26 +265,31 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ))
-      ;; (setf (cl-mpm::sim-bcs-force sim)
-      ;;       (cl-mpm/bc::make-outside-bc-var
-      ;;        (cl-mpm:sim-mesh sim)
-      ;;        nil
-      ;;        nil
-      ;;        nil
-      ;;        nil
-      ;;        ;; (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d3))
-      ;;        ))
+       ;; (setf (cl-mpm::sim-bcs-force sim)
+       ;;       (cl-mpm/bc::make-outside-bc-var
+       ;;        (cl-mpm:sim-mesh sim)
+       ;;        nil
+       ;;        nil
+       ;;        nil
+       ;;        (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d22))
+       ;;        ))
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 25)
-        (mps-per-cell 4))
+  (let* ((mesh-size 50)
+         (mps-per-cell 4)
+         (shelf-height 400)
+         (shelf-aspect 3)
+         (shelf-length (* shelf-height shelf-aspect))
+         )
     ;(defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (defparameter *sim* (setup-test-column '(1500 500) '(800 400) '(000 0) (/ 1 mesh-size) mps-per-cell))
+    (defparameter *sim* (setup-test-column (list (+ shelf-length shelf-height)
+                                                 (+ shelf-height 100))
+                                           (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
     )
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
@@ -300,6 +300,7 @@
   ; (remove-sdf *sim* (rectangle-sdf '(250 100) '(20 40)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
+  (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -383,8 +384,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-
-  (let* ((target-time 10000d0)
+  (let* ((target-time 100d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -452,7 +452,7 @@
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
   ;; (plot-s-xx *far-field-mps* 125d0)
-  (plot-disp)
+  ;(plot-disp)
   ;; (with-open-file (stream (merge-pathnames "output/far-field-stress.csv") :direction :output :if-exists :append)
   ;;   (format stream "~f, ~f ~%" *t* *x*)
   ;;   )

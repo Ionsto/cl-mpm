@@ -16,7 +16,8 @@
   "Function that controls how damage evolves with principal stresses"
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
-      (* (expt (max 0d0 (- stress init-stress)) 2.00d0) rate)
+      ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -30,8 +31,8 @@
  (ftype (function (cl-mpm/particle:particle double-float) (values)) calculate-damage-increment))
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors (;(stress cl-mpm/particle::mp-undamaged-stress)
-                     (stress cl-mpm/particle::mp-stress-kirchoff)
+    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     ;(stress cl-mpm/particle::mp-stress)
                      ;; (strain cl-mpm/particle::mp-strain)
                      (damage cl-mpm/particle:mp-damage)
                      (strain-rate cl-mpm/particle::mp-velocity-rate)
@@ -53,7 +54,9 @@
                    ;; (s_2 (nth 1 l))
                    ;(cauchy-stress (magicl:scale! (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
                    ;; (cauchy-stress (magicl:scale! (voight-to-matrix stress) ))
-                   (j (/ 1d0 (the double-float (magicl:det def))))
+
+                   ;(j (/ 1d0 (the double-float (magicl:det def))))
+                   (j 1d0)
                    (av (/ (* j (+ (the double-float (magicl:tref stress 0 0))
                                   (the double-float (magicl:tref stress 1 0)))) 2))
                    (diff (the double-float
@@ -77,17 +80,16 @@
                    (s_2 (max 0d0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   ;; (s_1 vm)
+                   (s_1 vm)
                    ;(damage-inv (- 1d0 damage))
                    )
               (when (> s_1 0d0)
                 ;;(setf damage-increment (* s_1 (- 1d0 damage)))
-          
-      (setf damage-increment s_1)
-                (if (> damage 0d0)
-                  (setf damage-increment (/ s_1 (- 1d0 damage)))
-                  (setf damage-increment s_1)
-                  )
+                (setf damage-increment s_1)
+                ;; (if (< damage 1d0)
+                ;;   (setf damage-increment (/ s_1 (- 1d0 damage)))
+                ;;   (setf damage-increment s_1)
+                ;;   )
                 ))
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
@@ -121,7 +123,7 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           ;; (when (< damage 1d0)
-          ;;   (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 2d0)))));3
+          (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
@@ -291,8 +293,8 @@
       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
       )))
 
-(defun length-localisation (local-length damage)
-  (+ (* local-length (- 1d0 damage)) (* 0.1d0 local-length damage)))
+(defun length-localisation (local-length local-length-damaged damage)
+  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage)))
 (declaim
  (ftype
   (function (cl-mpm/mesh::mesh
@@ -311,9 +313,12 @@
                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                          (damage cl-mpm/particle::mp-damage)
                          (local-length cl-mpm/particle::mp-local-length)
+                         (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
+                         (local-length-t cl-mpm/particle::mp-true-local-length)
                          )
             mp
-          (setf damage-inc (calculate-delocalised-damage mesh mp (length-localisation local-length damage)))
+          (setf local-length-t (length-localisation local-length local-length-damaged damage))
+          (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t))
           ))))
   (values))
 

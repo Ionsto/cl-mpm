@@ -303,8 +303,10 @@
 
                :initiation-stress 0.33d6
                :damage-rate 1d-14
-               :critical-damage 0.56d0
+               ;:critical-damage 0.56d0
+               :critical-damage 1d0
                :local-length 50d0
+               :local-length-damaged 10d0
                :damage 0.0d0
 
                :gravity 9.8d0
@@ -395,8 +397,8 @@
          (shelf-bottom (- 300 (* density-ratio shelf-height)));;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
-         (mps-per-cell 6)
+         (mesh-size 25)
+         (mps-per-cell 2)
          (offset 00)
          )
     (format t "Shelf-bottom ~f~%" shelf-bottom)

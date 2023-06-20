@@ -197,3 +197,6 @@
           do (loop for j from 0 to 2
                    do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
                                                                         (the double-float (magicl:tref b j 0)) scale))))))
+
+(defun norm (a)
+  (magicl::scale a (sqrt (magicl::sum (magicl:.* a a)))))
