@@ -235,8 +235,8 @@
                :initiation-stress 0.33d6
                :damage-rate 1d-08
                :critical-damage 1.00d0
-               :local-length 100d0
-               :local-length-damaged 0.1d0
+               :local-length 50d0
+               :local-length-damaged 50d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -267,6 +267,18 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ))
+      (let ((ocean-x 1000)
+            (ocean-y (* 0.6 (second block-size))))
+        (format t "Ocean level ~a~%" ocean-y)
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (append
+                (list
+                 (cl-mpm/buoyancy::make-bc-buoyancy
+                  sim
+                  ocean-y
+                  1000
+                  ))))))
        ;; (setf (cl-mpm::sim-bcs-force sim)
        ;;       (cl-mpm/bc::make-outside-bc-var
        ;;        (cl-mpm:sim-mesh sim)
@@ -282,12 +294,12 @@
   (defparameter *run-sim* nil)
   (let* ((mesh-size 20)
          (mps-per-cell 2)
-         (shelf-height 400)
-         (shelf-aspect 3)
+         (shelf-height 800)
+         (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          )
     ;(defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (defparameter *sim* (setup-test-column (list (+ shelf-length shelf-height)
+    (defparameter *sim* (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
     )

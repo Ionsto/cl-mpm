@@ -73,7 +73,7 @@
                                                  (expt (* j (the double-float (magicl:tref stress 2 0))) 2d0)))))))
                    (s_1 (+ av diff))
                    (s_2 (- av diff))
-                   (pressure-effective (* pressure 1d0))
+                   (pressure-effective (* pressure damage))
                    (s_1 (- s_1 pressure-effective))
                    (s_2 (- s_2 pressure-effective))
                    (s_1 (max 0d0 s_1))

@@ -64,7 +64,7 @@
   (let* ((relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity))))
     (declare (type double-float relaxation-const))
     (magicl:.-
-     (magicl:scale! (magicl:@ de strain-increment) (max 1d-3 (- 1d0 damage)))
+     (magicl:scale! (magicl:@ de strain-increment) (max 1d-2 (expt (- 1d0 damage) 2d0)))
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
     ))
 ;; (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)

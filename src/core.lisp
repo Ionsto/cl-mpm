@@ -1153,7 +1153,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;       (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
           ;;                                  (the double-float (tref stretch 1 1))))
           ;;       )))
-          ;; (update-domain-corner mesh mp dt (magicl:det df))
+          (update-domain-corner mesh mp dt)
           ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
           ;;                             (the double-float (tref def 0 0))))
           ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
@@ -1168,37 +1168,52 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((points (list '(-0.5d0 0d0) '(0.5d0 0d0) '(0d0 -0.5d0) '(0d0 0.5d0)))
+    (let ((points (list '(-0.5d0 -0.5d0) '(0.5d0 -0.5d0) '(0.5d0 0.5d0) '(-0.5d0 0.5d0)))
           (dim '(0 0 1 1))
-          (disp (make-array 4 :element-type 'double-float :initial-element 0d0)))
+          ;(disp (make-array 4 :element-type 'double-float :initial-element 0d0))
+          (disp (make-array 4 :initial-element (magicl:zeros '(2 1) :type 'double-float)))
+          )
       (loop for point in points
             for d in dim
             for i from 0 below 4
             do
                (let ((corner (magicl:.+ position
-                                        (magicl:scale!
+                                        (magicl:.*
                                          (magicl:from-list point '(2 1)
-                                                           :type 'double-float
-                                                           )
-                                         (magicl:tref domain d 0)
+                                                           :type 'double-float)
+                                         domain
                                          ))))
                  (iterate-over-neighbours-point-linear
                   mesh corner
                   (lambda (mesh node svp grads)
                     (with-accessors ((vel cl-mpm/mesh:node-velocity))
                         node
-                      (incf (aref disp i)
-                            (* svp dt (magicl:tref vel d 0))))))))
-      (incf (magicl:tref domain 0 0) (- (aref disp 1) (aref disp 0)))
-      (incf (magicl:tref domain 1 0) (- (aref disp 3) (aref disp 2)))
+                      ;; (incf (aref disp i)
+                      ;;       (* svp dt (magicl:tref vel d 0)))
+                      (setf (aref disp i)
+                            (magicl:.+ (aref disp i)
+                                       (magicl:scale vel (* dt svp)))))))))
+      (incf (magicl:tref domain 0 0) (* 0.5
+                                        (-
+                                         (+ (magicl:tref (aref disp 1) 0 0)
+                                            (magicl:tref (aref disp 2) 0 0))
+                                         (+ (magicl:tref (aref disp 0) 0 0)
+                                            (magicl:tref (aref disp 3) 0 0))
+                                         )))
+      (incf (magicl:tref domain 1 0) (* 0.5
+                                        (-
+                                         (+ (magicl:tref (aref disp 3) 1 0)
+                                            (magicl:tref (aref disp 2) 1 0))
+                                         (+ (magicl:tref (aref disp 0) 1 0)
+                                            (magicl:tref (aref disp 1) 1 0))
+                                         )))
       (let* ((jf (magicl:det def))
              (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
              (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
              (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
         (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
               (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-              )
-        )
+              ))
       )
 
     )
@@ -1360,10 +1375,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (h-factor (* 0.8d0 h))
           (s-factor 1.5d0))
       (cond
-        ;; ((< h-factor (tref lens 0 0)) :x)
-        ;; ((< h-factor (tref lens 1 0)) :y)
-        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
-        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ((< h-factor (tref lens 0 0)) :x)
+        ((< h-factor (tref lens 1 0)) :y)
+        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
         ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
