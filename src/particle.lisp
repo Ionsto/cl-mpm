@@ -325,7 +325,10 @@
     :accessor mp-true-local-length
     :type DOUBLE-FLOAT
     :initform 1d0)
-
+   (damage-position
+    :accessor mp-damage-position
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 1)))
    )
   (:documentation "A material point with a damage tensor"))
 (defclass particle-thermal (particle)
