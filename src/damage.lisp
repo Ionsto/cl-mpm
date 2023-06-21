@@ -17,7 +17,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (- stress init-stress)) 1d0) rate)
+      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
