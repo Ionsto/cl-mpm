@@ -126,8 +126,8 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          ;; (when (< damage 1d0)
-          (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
+          (when (< damage 1d0)
+            (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0)))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
