@@ -68,7 +68,7 @@
     ;; (abs (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
     )
   )
-(defun plot (sim &optional (plot :deformed))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y c stress-y lx ly e density temp vx)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -236,7 +236,7 @@
                :damage-rate 1d-08
                :critical-damage 1.00d0
                :local-length 50d0
-               :local-length-damaged 50d0
+               :local-length-damaged 10d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -244,7 +244,7 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d05))
+      (let ((mass-scale 1d5))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.001d0 mass-scale)
@@ -267,18 +267,18 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ))
-      (let ((ocean-x 1000)
-            (ocean-y (* 0.6 (second block-size))))
-        (format t "Ocean level ~a~%" ocean-y)
-        (setf (cl-mpm::sim-bcs-force sim)
-              (cl-mpm/bc:make-bcs-from-list
-               (append
-                (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy
-                  sim
-                  ocean-y
-                  1000
-                  ))))))
+      ;; (let ((ocean-x 1000)
+      ;;       (ocean-y (* 0.0 (second block-size))))
+      ;;   (format t "Ocean level ~a~%" ocean-y)
+      ;;   (setf (cl-mpm::sim-bcs-force sim)
+      ;;         (cl-mpm/bc:make-bcs-from-list
+      ;;          (append
+      ;;           (list
+      ;;            (cl-mpm/buoyancy::make-bc-buoyancy
+      ;;             sim
+      ;;             ocean-y
+      ;;             1000
+      ;;             ))))))
        ;; (setf (cl-mpm::sim-bcs-force sim)
        ;;       (cl-mpm/bc::make-outside-bc-var
        ;;        (cl-mpm:sim-mesh sim)
@@ -294,8 +294,8 @@
   (defparameter *run-sim* nil)
   (let* ((mesh-size 20)
          (mps-per-cell 2)
-         (shelf-height 800)
-         (shelf-aspect 2)
+         (shelf-height 400)
+         (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          )
     ;(defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
@@ -396,7 +396,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-  (let* ((target-time 500d0)
+  (let* ((target-time 100d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -409,7 +409,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 1000
                 while *run-sim*
                 do
                    (progn

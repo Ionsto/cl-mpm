@@ -44,6 +44,9 @@
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ;(damage-driving-factor cl-mpm/particle::mp-damage-driving-factor)
+                     (local-length cl-mpm/particle::mp-local-length)
+                     (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
+                     (local-length-t cl-mpm/particle::mp-true-local-length)
                      ) mp
       (declare (double-float pressure damage))
         (progn
@@ -100,6 +103,7 @@
 
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+            (setf local-length-t (length-localisation local-length local-length-damaged damage))
             ))))
   (values))
 
@@ -320,10 +324,11 @@
                                     do
                                        (with-accessors ((d cl-mpm/particle::mp-damage)
                                                         (m cl-mpm/particle:mp-volume)
+                                                        (ll cl-mpm/particle::mp-true-local-length)
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (when (< (the double-float d) 1d0)
-                                           (let ((weight (weight-func-mps mp mp-other length)))
+                                           (let ((weight (weight-func-mps mp mp-other (* 0.5d0 (+ length ll)))))
                                              (declare (double-float weight m d mass-total damage-inc))
                                              (incf mass-total (* weight m))
                                              (incf damage-inc
@@ -354,12 +359,9 @@
         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                          (damage cl-mpm/particle::mp-damage)
-                         (local-length cl-mpm/particle::mp-local-length)
-                         (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
-                         (local-length-t cl-mpm/particle::mp-true-local-length)
+                         (local-length-t cl-mpm/particle::mp-local-length)
                          )
             mp
-          (setf local-length-t (length-localisation local-length local-length-damaged damage))
           (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t))
           ))))
   (values))
