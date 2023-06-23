@@ -198,5 +198,7 @@
                    do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
                                                                         (the double-float (magicl:tref b j 0)) scale))))))
 
+(defun dot (a b)
+  (magicl::sum (magicl:.* a b)))
 (defun norm (a)
-  (magicl::scale a (sqrt (magicl::sum (magicl:.* a a)))))
+  (magicl::scale a (sqrt (dot a a))))

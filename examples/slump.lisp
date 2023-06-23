@@ -89,6 +89,7 @@
        ;; (vgplot:format-plot t "set cbrange [0:1]")
        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
        (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
+       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (+ 0d0 (apply #'min c)) (+ 1e-6 (apply #'max c)))
        (vgplot:plot x y c ";;with points pt 7 lc palette")
        )
       ((eq plot :velocity)
@@ -136,14 +137,16 @@
                            ))
                        (cl-mpm:sim-mps sim))))
 
-(defun damage-sdf (sim sdf)
+(defun damage-sdf (sim sdf &optional (d 1d0))
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
       (loop for mp across mps
             do (with-accessors ((pos cl-mpm/particle:mp-position)
                                  (damage cl-mpm/particle:mp-damage)) mp
+                 ;; (setf damage (funcall sdf pos))
                   (when (>= 0 (funcall sdf pos))
-                    (setf damage 1d0))))))
+                    (setf damage (coerce d 'double-float)))
+                 ))))
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
@@ -166,6 +169,17 @@
              (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
+(defun line-sdf (position a b width)
+  (let* ((start (magicl:from-list a '(2 1) :type 'double-float))
+         (end (magicl:from-list b '(2 1) :type 'double-float))
+         (pa (magicl:.- position start))
+         (ba (magicl:.- end start))
+         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmath::dot pa ba)
+                                 (cl-mpm/fastmath::dot ba ba)
+                                 ))))
+         (v (magicl:.- pa (magicl:scale ba h)))
+         )
+    (- (sqrt (cl-mpm/fastmath::dot v v)) width)))
 
 
 ;; (defun test-iter ()
@@ -233,10 +247,10 @@
                :visc-power 3d0
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-08
+               :damage-rate 1d-12
                :critical-damage 1.00d0
                :local-length 50d0
-               :local-length-damaged 10d0
+               :local-length-damaged 0.1d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -249,9 +263,10 @@
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.001d0 mass-scale)
               ;; 1d0
-              (* 0.001d0 mass-scale)
+              ;; (* 0.0001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
+              0.1d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -265,10 +280,10 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ))
       ;; (let ((ocean-x 1000)
-      ;;       (ocean-y (* 0.0 (second block-size))))
+      ;;       (ocean-y (* 0.1 (second block-size))))
       ;;   (format t "Ocean level ~a~%" ocean-y)
       ;;   (setf (cl-mpm::sim-bcs-force sim)
       ;;         (cl-mpm/bc:make-bcs-from-list
@@ -279,30 +294,41 @@
       ;;             ocean-y
       ;;             1000
       ;;             ))))))
-       ;; (setf (cl-mpm::sim-bcs-force sim)
-       ;;       (cl-mpm/bc::make-outside-bc-var
-       ;;        (cl-mpm:sim-mesh sim)
-       ;;        nil
-       ;;        nil
-       ;;        nil
-       ;;        (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d22))
-       ;;        ))
+       (setf (cl-mpm::sim-bcs-force sim)
+             (cl-mpm/bc::make-outside-bc-var
+              (cl-mpm:sim-mesh sim)
+              nil
+              nil
+              nil
+              (lambda (i) (cl-mpm/bc:make-bc-friction i (magicl:from-list (list 0d0 1d0) '(2 1)) 1d10))
+              ))
       sim)))
 
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
          (shelf-height 400)
-         (shelf-aspect 3)
+         (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          )
-    ;(defparameter *sim* (setup-test-column '(1500 200) '(500 125) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (defparameter *sim* (setup-test-column (list (+ shelf-length (* 2 shelf-height))
+    (defparameter *sim*
+      (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
+
+    (damage-sdf *sim* (lambda (p) (line-sdf p
+                                            (list (- shelf-length shelf-height) shelf-height)
+                                            (list shelf-length 0d0)
+                                            50d0
+                                            )) 0.99d0)
     )
+  ;; (damage-sdf *sim* (lambda (p) (line-sdf p
+  ;;                                         (list 0d0 0d0)
+  ;;                                         (list 100d0 0d0)
+  ;;                                         100d0
+  ;;                                         )) 0.8))
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;       do
   ;;       (setf (cl-mpm/particle:mp-damage mp) (random 0.1)))

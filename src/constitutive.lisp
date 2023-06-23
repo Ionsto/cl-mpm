@@ -59,12 +59,23 @@
      (magicl:@ de strain-increment)
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
     ))
-(defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
+(defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage strain)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity))))
+  (let* ((relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
+         (elastic-increment (magicl:@ de strain-increment))
+         )
     (declare (type double-float relaxation-const))
+    ;; (let* ((stress-matrix (voight-to-matrix elastic-increment))
+    ;;        (p (/ (magicl:trace stress-matrix) 2d0))
+    ;;        (pressure-matrix (magicl:eye 2 :value p))
+    ;;        (dev-stress (magicl:.- stress-matrix pressure-matrix)))
+    ;;   (setf elastic-increment (matrix-to-voight
+    ;;                 (magicl:.+ pressure-matrix
+    ;;                            (magicl:scale! dev-stress (max 1d-5 (- 1d0 damage)))))))
     (magicl:.-
-     (magicl:scale! (magicl:@ de strain-increment) (max 1d-2 (expt (- 1d0 damage) 1d0)))
+     ;; elastic-increment
+     ;; (magicl:scale! (magicl:@ de strain-increment) (max 1d-4 (expt (- 1d0 damage) 1d0)))
+     (magicl:@ (apply-damage-constitutive de strain damage) strain-increment)
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
     ))
 ;; (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
@@ -179,7 +190,7 @@
   "Generate a mandel form tensile projection matrix A* from stress"
   (let ((Q (tensile-projection-q-cw-mandel strain))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
-    (magicl:.- I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
+    (magicl:.+ I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
 
 ;; (defun test-tensile ()
 ;;   (loop for stress in (list
