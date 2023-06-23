@@ -71,11 +71,11 @@
     ;;        (dev-stress (magicl:.- stress-matrix pressure-matrix)))
     ;;   (setf elastic-increment (matrix-to-voight
     ;;                 (magicl:.+ pressure-matrix
-    ;;                            (magicl:scale! dev-stress (max 1d-5 (- 1d0 damage)))))))
+    ;;                            (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
     (magicl:.-
      ;; elastic-increment
-     ;; (magicl:scale! (magicl:@ de strain-increment) (max 1d-4 (expt (- 1d0 damage) 1d0)))
-     (magicl:@ (apply-damage-constitutive de strain damage) strain-increment)
+     (magicl:scale! (magicl:@ de strain-increment) (max 1d-5 (expt (- 1d0 damage) 1d0)))
+     ;; (magicl:@ (apply-damage-constitutive de strain damage) strain-increment)
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
     ))
 ;; (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage)
