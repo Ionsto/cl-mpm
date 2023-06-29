@@ -539,18 +539,18 @@
       ;;   (setf elastic-increment (matrix-to-voight
       ;;                 (magicl:.+ pressure-matrix
       ;;                            (magicl:scale! dev-stress (max 1d-3 (- 1d0 damage)))))))
-      (setf stress (magicl:scale stress-undamaged 1d0))
-      ;; (magicl::scale! elastic-increment (max 1d-3 (- 1d0 damage)))
-      ;; (magicl:.+
-      ;;  stress
-      ;;  (objectify-stress-logspin
-      ;;   elastic-increment
-      ;;   stress
-      ;;   def
-      ;;   vorticity
-      ;;   D
-      ;;   )
-      ;;  stress)
+      ;; (setf stress (magicl:scale stress-undamaged 1d0))
+      (magicl::scale! elastic-increment (max 1d-3 (- 1d0 damage)))
+      (magicl:.+
+       stress
+       (objectify-stress-logspin
+        elastic-increment
+        stress
+        def
+        vorticity
+        D
+        )
+       stress)
       ;; )
     ;; (magicl:.+
     ;;  stress
@@ -589,40 +589,40 @@
     ;;                                                  (magicl:transpose v))))))
     ;;       ;; (setf stress new-stress)
     ;;   ))
-    (when (> damage 0.0d0)
-      (let ((j ;(magicl:det def)
-               1d0
-               )
-            (rho 1000d0)
-            (datum 300d0)
-            (g -9.8d0))
-        (let* ((z (magicl:tref pos 1 0))
-               (np (* rho g (max 0 (- datum z)))))
-          (multiple-value-bind (l v) (magicl:eig
-                                      ;; (voight-to-matrix stress)
-                                      (magicl:scale! (voight-to-matrix stress) (/ 1d0 j))
-                                      )
-            (let* ((damage-limit (min damage (- 1d0 0d-3)))
-                   (pressure-ke (* np 0d0))
-                   (pressure-drive (* np 0d0))
-                   )
-              (declare (double-float damage-limit pressure-ke pressure-drive))
-              (loop for i from 0 to 1
-                    do (let* ((sii (nth i l))
-                              (esii (- sii pressure-ke)))
-                         (declare (double-float sii))
-                         (when (> esii 0d0)
-                           (setf (nth i l)
-                                 (+
-                                  (* esii (- 1d0 damage))
-                                  pressure-ke)))
-                         (setf (nth i l) (+ (nth i l) pressure-drive)
-                               )))
-              (setf stress (magicl:scale!
-                            (matrix-to-voight (magicl:@ v
-                                                        (magicl:from-diag l :type 'double-float)
-                                                        (magicl:transpose v))) j))))))
-      )
+    ;; (when (> damage 0.0d0)
+    ;;   (let ((j ;(magicl:det def)
+    ;;            1d0
+    ;;            )
+    ;;         (rho 1000d0)
+    ;;         (datum 300d0)
+    ;;         (g -9.8d0))
+    ;;     (let* ((z (magicl:tref pos 1 0))
+    ;;            (np (* rho g (max 0 (- datum z)))))
+    ;;       (multiple-value-bind (l v) (magicl:eig
+    ;;                                   ;; (voight-to-matrix stress)
+    ;;                                   (magicl:scale! (voight-to-matrix stress) (/ 1d0 j))
+    ;;                                   )
+    ;;         (let* ((damage-limit (min 0d0 (- 1d0 damage)))
+    ;;                (pressure-ke (* np 0d0))
+    ;;                (pressure-drive (* np 0d0))
+    ;;                )
+    ;;           (declare (double-float damage-limit pressure-ke pressure-drive))
+    ;;           (loop for i from 0 to 1
+    ;;                 do (let* ((sii (nth i l))
+    ;;                           (esii (- sii pressure-ke)))
+    ;;                      (declare (double-float sii))
+    ;;                      (when (> esii 0d0)
+    ;;                        (setf (nth i l)
+    ;;                              (+
+    ;;                               (* esii (- 1d0 damage))
+    ;;                               pressure-ke)))
+    ;;                      (setf (nth i l) (+ (nth i l) pressure-drive)
+    ;;                            )))
+    ;;           (setf stress (magicl:scale!
+    ;;                         (matrix-to-voight (magicl:@ v
+    ;;                                                     (magicl:from-diag l :type 'double-float)
+    ;;                                                     (magicl:transpose v))) j))))))
+      ;; )
     stress
     )))
 

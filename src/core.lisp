@@ -1353,10 +1353,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
        (setf mps
              (lparallel:premove-if (lambda (mp)
-                          (with-accessors ((damage cl-mpm/particle:mp-damage))
+                          (with-accessors ((damage cl-mpm/particle:mp-damage)
+                                           (def cl-mpm/particle::mp-deformation-gradient))
                               mp
                             (and (>= damage 1d0)
-                                 (split-criteria mp h)
+                                 (or 
+                                  (split-criteria mp h)
+                                  (< (magicl:det def) 1d-3)
+                                  )
                                  ))) mps)))
       ;(delete-if (lambda (mp)
       ;                        (with-accessors ((damage cl-mpm/particle:mp-damage))
@@ -1375,10 +1379,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (h-factor (* 0.8d0 h))
           (s-factor 1.5d0))
       (cond
-        ((< h-factor (tref lens 0 0)) :x)
-        ((< h-factor (tref lens 1 0)) :y)
-        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
-        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ;; ((< h-factor (tref lens 0 0)) :x)
+        ;; ((< h-factor (tref lens 1 0)) :y)
+        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
         ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
