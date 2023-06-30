@@ -1357,7 +1357,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                            (def cl-mpm/particle::mp-deformation-gradient))
                               mp
                             (and (>= damage 1d0)
-                                 (or 
+                                 (or
                                   (split-criteria mp h)
                                   (< (magicl:det def) 1d-3)
                                   )

@@ -253,10 +253,10 @@
                :visc-power 3d0
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-09
+               :damage-rate 1d-10
                :critical-damage 1.00d0
-               :local-length 100d0
-               :local-length-damaged 100d0
+               :local-length 50d0
+               :local-length-damaged 1d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -277,7 +277,7 @@
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim)
@@ -313,7 +313,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
          (shelf-height 400)
          (shelf-aspect 3)
@@ -436,7 +436,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-  (let* ((target-time 100d0)
+  (let* ((target-time 1000d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
