@@ -1131,33 +1131,34 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             )
 
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume (magicl:det df)))
+          ;; (setf volume (* volume (magicl:det df)))
+          (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
-          ;;   (magicl:mult df df :target F :transb :t)
-          ;;   (multiple-value-bind (l v) (magicl:eig F)
-          ;;     (let ((stretch
-          ;;             (magicl:@
-          ;;              v
-          ;;              (cl-mpm/utils::matrix-from-list
-          ;;               (list (the double-float (sqrt (the double-float (nth 0 l))))
-          ;;                     0d0 0d0
-          ;;                     (the double-float (sqrt (the double-float (nth 1 l))))))
-          ;;              (magicl:transpose v)))
-          ;;           )
-          ;;       (declare (type magicl:matrix/double-float stretch))
-          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-          ;;                                  (the double-float (tref stretch 0 0))))
-          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-          ;;                                  (the double-float (tref stretch 1 1))))
-          ;;       )))
-          (update-domain-corner mesh mp dt)
-          ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-          ;;                             (the double-float (tref def 0 0))))
-          ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-          ;;                             (the double-float (tref def 1 1))))
+          (let ((F (cl-mpm/utils::matrix-zeros)))
+            (magicl:mult df df :target F :transb :t)
+            (multiple-value-bind (l v) (magicl:eig F)
+              (let ((stretch
+                      (magicl:@
+                       v
+                       (cl-mpm/utils::matrix-from-list
+                        (list (the double-float (sqrt (the double-float (nth 0 l))))
+                              0d0 0d0
+                              (the double-float (sqrt (the double-float (nth 1 l))))))
+                       (magicl:transpose v)))
+                    )
+                (declare (type magicl:matrix/double-float stretch))
+                (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                                           (the double-float (tref stretch 0 0))))
+                (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                                           (the double-float (tref stretch 1 1))))
+                )))
+          ;; (update-domain-corner mesh mp dt)
+          ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+          ;;                             (the double-float (tref df 0 0))))
+          ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+          ;;                             (the double-float (tref df 1 1))))
           )
           )))
   (values))
@@ -1357,10 +1358,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                            (def cl-mpm/particle::mp-deformation-gradient))
                               mp
                             (and (>= damage 1d0)
-                                 (or
-                                  (split-criteria mp h)
-                                  (< (magicl:det def) 1d-3)
-                                  )
+                                 ;; (or
+                                 ;;  ;; (split-criteria mp h)
+                                 ;;  (< (magicl:det def) 1d-3)
+                                 ;;  )
                                  ))) mps)))
       ;(delete-if (lambda (mp)
       ;                        (with-accessors ((damage cl-mpm/particle:mp-damage))

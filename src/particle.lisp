@@ -542,7 +542,7 @@
       ;;        (dev-stress (magicl:.- stress-matrix pressure-matrix)))
       ;;   (setf elastic-increment (matrix-to-voight
       ;;                 (magicl:.+ pressure-matrix
-      ;;                            (magicl:scale! dev-stress (max 1d-3 (- 1d0 damage)))))))
+      ;;                            (magicl:scale! dev-stress (max 1d-5 (- 1d0 damage)))))))
       ;; (setf stress (magicl:scale stress-undamaged 1d0))
       (magicl::scale! elastic-increment (max 1d-3 (- 1d0 damage)))
       (magicl:.+
@@ -555,6 +555,9 @@
         D
         )
        stress)
+
+      ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+      ;; (setf stress (magicl:scale stress-undamaged (max 1d-2 (- 1d0 damage))))
       ;; )
     ;; (magicl:.+
     ;;  stress
