@@ -266,6 +266,10 @@
 
 (defclass particle-damage (particle)
   (
+   (log-damage
+    :accessor mp-log-damage
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (damage
     :accessor mp-damage
     :type DOUBLE-FLOAT

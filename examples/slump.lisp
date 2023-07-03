@@ -14,6 +14,34 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
+(defun apply-pullout (sim load-mps shear-rate)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (loop for mp in load-mps
+          do
+             (cl-mpm::iterate-over-neighbours
+              mesh
+              mp
+              (lambda (mesh mp node svp grad fsvp fgrad)
+                (with-accessors (
+                                 ;; (vel cl-mpm/particle:mp-velocity)
+                                 )
+                    mp
+                  (with-accessors ((pos cl-mpm/mesh::node-position)
+                                   (vel cl-mpm/mesh::node-velocity)
+                                   (active cl-mpm/mesh::node-active)
+                                   (acc cl-mpm/mesh::node-acceleration)
+                                   )
+                      node
+                    (when active
+                      (setf (magicl:tref vel 0 0)
+                            shear-rate
+                            (magicl:tref vel 1 0)
+                            0d0
+                            )
+                      )
+                    )))))))
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
@@ -252,11 +280,11 @@
                :visc-factor 111d6
                :visc-power 3d0
 
-               :initiation-stress 0.33d6
-               :damage-rate 1d-10
-               :critical-damage 1.00d0
+               :initiation-stress 0.33d6;0.33d6
+               :damage-rate 1d-12
+               :critical-damage 0.99d0
                :local-length 50d0
-               :local-length-damaged 1d0
+               :local-length-damaged 50d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -286,10 +314,10 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ))
       ;; (let ((ocean-x 1000)
-      ;;       (ocean-y (* 0.1 (second block-size))))
+      ;;       (ocean-y (* 0.0 (second block-size))))
       ;;   (format t "Ocean level ~a~%" ocean-y)
       ;;   (setf (cl-mpm::sim-bcs-force sim)
       ;;         (cl-mpm/bc:make-bcs-from-list
@@ -300,6 +328,32 @@
       ;;             ocean-y
       ;;             1000
       ;;             ))))))
+      (let ((mps (cl-mpm:sim-mps *sim*)))
+        (let ((x-max (loop for mp across mps
+                           maximize (magicl:tref
+                                     (cl-mpm/particle:mp-position mp)
+                                     0 0))))
+          (defparameter *terminus-mps*
+            (loop for mp across mps
+                  when (= x-max (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 0 0))
+                    collect mp))))
+      (defparameter *shear-rate* .01d0)
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (append
+              (map 'list #'identity (cl-mpm:sim-bcs sim))
+              (list
+               (cl-mpm/bc::make-bc-closure
+                '(0 0)
+                (lambda ()
+                  (apply-pullout
+                   sim
+                   *terminus-mps*
+                   *shear-rate*)
+                  )
+                )))))
        ;; (setf (cl-mpm::sim-bcs-force sim)
        ;;       (cl-mpm/bc::make-outside-bc-var
        ;;        (cl-mpm:sim-mesh sim)
@@ -324,11 +378,12 @@
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
 
+    (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(25 50)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
     ;;                                         50d0
-    ;;                                         )) 0.99d0)
+    ;;                                         )) 0.1d0)
     ;; (let* ((n (magicl:from-list (list shelf-height
     ;;                                   (* 3d0 shelf-length)) '(2 1) :type 'double-float))
     ;;       (d (plane-sdf (magicl:from-list (list 0d0 shelf-height) '(2 1) :type 'double-float) n 0d0))
@@ -349,7 +404,6 @@
   ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
   ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
   ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
-  ; (remove-sdf *sim* (rectangle-sdf '(250 100) '(20 40)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps *sim*)))

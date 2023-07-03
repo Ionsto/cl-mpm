@@ -114,6 +114,7 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
+                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -132,7 +133,11 @@
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
+          ;;Transform to log damage
+          ;; (setf damage (- (log (- 1d0 damage))))
           (incf damage damage-inc)
+          ;;Transform to linear damage
+          ;; (setf damage (- 1d0 (exp (- damage))))
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
             (setf damage 1d0)

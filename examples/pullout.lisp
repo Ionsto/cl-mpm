@@ -267,7 +267,7 @@
                :initiation-stress 0.33d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-10
+               :damage-rate 1d-12
                :critical-damage 1d0
                :local-length 1d0
                :local-length-damaged 1d0
@@ -447,14 +447,8 @@
                             (magicl:tref vel 1 0)
                             0d0
                             )
-                      ;; (setf (magicl:tref acc 0 0) 0d0
-                      ;;       (magicl:tref acc 1 0) 0d0
-                      ;;       )
                       )
-                    ))))
-             ;; (progn
-             ;;   (setf (cl-mpm/particle:mp-velocity mp) vel))
-          )))
+                    )))))))
 
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
