@@ -271,18 +271,18 @@
                density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
-               ;; 'cl-mpm/particle::particle-elastic-damage
+               'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-               'cl-mpm/particle::particle-viscoplastic-damage
+               ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
-               :visc-factor 111d6
-               :visc-power 3d0
+               ;; :visc-factor 111d6
+               ;; :visc-power 3d0
 
                :initiation-stress 0.33d6;0.33d6
-               :damage-rate 1d-12
-               :critical-damage 0.99d0
+               :damage-rate 1d-15
+               :critical-damage 0.50d0
                :local-length 50d0
                :local-length-damaged 50d0
                :damage 0.0d0
