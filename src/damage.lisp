@@ -17,7 +17,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 1d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 1.0d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -124,7 +124,8 @@
 
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-            (setf local-length-t (length-localisation local-length local-length-damaged damage))
+            ;(setf local-length-t (length-localisation local-length local-length-damaged damage))
+            (setf local-length-t local-length)
             ))))
   (values))
 
@@ -188,6 +189,19 @@
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
   ;(update-damage mp dt)
   )
+(defun find-nodal-local-length (mesh mp)
+  (let ((nodal-damage 0d0))
+    (cl-mpm::iterate-over-neighbours
+     mesh mp
+     (lambda (mesh mp node svp grads fsvp fgrads)
+       (incf nodal-damage (/ (* (cl-mpm/mesh::node-damage node) svp)
+                             (cl-mpm/mesh::node-svp-sum node)))
+       ))
+    (with-accessors ((local-length cl-mpm/particle::mp-local-length)
+                     (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
+                     (local-length-t cl-mpm/particle::mp-true-local-length)
+                     ) mp
+      (setf local-length-t (length-localisation local-length local-length-damaged nodal-damage)))))
 
 (defparameter *delocal-counter* 0)
 (defparameter *delocal-counter-max* 4)
@@ -205,6 +219,7 @@
     (localise-damage mesh mps dt))
   (lparallel:pdotimes (i (length mps))
                       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
+                        (find-nodal-local-length mesh (aref mps i))
                         (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))

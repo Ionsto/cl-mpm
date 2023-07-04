@@ -103,6 +103,10 @@
    (sdf
     :accessor node-sdf
     :initform 0d0)
+   (damage
+    :accessor node-damage
+    :initform 0d0
+    :type double-float)
   (lock
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -416,6 +420,7 @@
                (p-wave p-wave)
                (svp-sum svp-sum)
                (volume volume)
+               (damage damage)
                (active active)
                (boundary boundary-node)
                (boundary-scalar boundary-scalar)
@@ -426,6 +431,7 @@
     (setf mass 0d0)
     (setf volume 0d0)
     (setf p-wave 0d0)
+    (setf damage 0d0)
     (setf svp-sum 0d0)
     (setf j 0d0)
     (setf boundary-scalar 0d0)

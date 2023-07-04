@@ -622,6 +622,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mp-mass cl-mpm/particle:mp-mass)
                    (mp-volume cl-mpm/particle:mp-volume)
                    (mp-pmod cl-mpm/particle::mp-p-modulus)
+                   (mp-damage cl-mpm/particle::mp-damage)
                    ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
     (declare (type double-float mp-mass mp-volume))
@@ -641,6 +642,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-svp-sum  cl-mpm/mesh::node-svp-sum)
                         (node-force cl-mpm/mesh:node-force)
                         (node-p-wave cl-mpm/mesh::node-pwave)
+                        (node-damage cl-mpm/mesh::node-damage)
                         (node-lock  cl-mpm/mesh:node-lock)) node
          (declare (type double-float node-mass node-volume mp-volume)
                   (type sb-thread:mutex node-lock))
@@ -652,6 +654,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-volume svp))
            (incf node-p-wave
                  (* mp-pmod svp))
+           (incf node-damage
+                 (* mp-damage svp))
            (incf node-svp-sum svp)
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
@@ -1136,29 +1140,29 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (let ((F (cl-mpm/utils::matrix-zeros)))
-            (magicl:mult df df :target F :transb :t)
-            (multiple-value-bind (l v) (magicl:eig F)
-              (let ((stretch
-                      (magicl:@
-                       v
-                       (cl-mpm/utils::matrix-from-list
-                        (list (the double-float (sqrt (the double-float (nth 0 l))))
-                              0d0 0d0
-                              (the double-float (sqrt (the double-float (nth 1 l))))))
-                       (magicl:transpose v)))
-                    )
-                (declare (type magicl:matrix/double-float stretch))
-                (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                                           (the double-float (tref stretch 0 0))))
-                (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                                           (the double-float (tref stretch 1 1))))
-                )))
+          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
+          ;;   (magicl:mult df df :target F :transb :t)
+          ;;   (multiple-value-bind (l v) (magicl:eig F)
+          ;;     (let ((stretch
+          ;;             (magicl:@
+          ;;              v
+          ;;              (cl-mpm/utils::matrix-from-list
+          ;;               (list (the double-float (sqrt (the double-float (nth 0 l))))
+          ;;                     0d0 0d0
+          ;;                     (the double-float (sqrt (the double-float (nth 1 l))))))
+          ;;              (magicl:transpose v)))
+          ;;           )
+          ;;       (declare (type magicl:matrix/double-float stretch))
+          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+          ;;                                  (the double-float (tref stretch 0 0))))
+          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+          ;;                                  (the double-float (tref stretch 1 1))))
+          ;;       )))
           ;; (update-domain-corner mesh mp dt)
-          ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-          ;;                             (the double-float (tref df 0 0))))
-          ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-          ;;                             (the double-float (tref df 1 1))))
+          (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                                      (the double-float (tref df 0 0))))
+          (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                                      (the double-float (tref df 1 1))))
           )
           )))
   (values))
