@@ -37,8 +37,8 @@
                     (when active
                       (setf (magicl:tref vel 0 0)
                             shear-rate
-                            (magicl:tref vel 1 0)
-                            0d0
+                            ;; (magicl:tref vel 1 0)
+                            ;; 0d0
                             )
                       )
                     )))))))
@@ -107,47 +107,101 @@
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
           collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
-          collect (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar) (cl-mpm/particle:mp-damage mp) 0) into ybar
+          collect (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar) (cl-mpm/particle::mp-damage-ybar mp) 0) into ybar
           collect (if (slot-exists-p mp 'cl-mpm/particle::temperature) (cl-mpm/particle:mp-temperature mp) 0) into temp
           collect (if (slot-exists-p mp 'cl-mpm/particle::strain-energy-density) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
           collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
           ;; collect (cl-mpm/particle:mp-volume mp) into density
           collect (max-stress mp) into stress-y
           finally (return (values x y c stress-y lx ly e density temp vx ybar)))
-    (cond
-      ((eq plot :damage)
-       ;; (vgplot:format-plot t "set cbrange [0:1]")
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
-       (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (+ 0d0 (apply #'min c)) (+ 1e-6 (apply #'max c)))
-       (vgplot:plot x y c ";;with points pt 7 lc palette")
-       )
-      ((eq plot :velocity)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min vx) (+ 0.01 (apply #'max vx)))
-       (vgplot:plot x y vx ";;with points pt 7 lc palette")
-       )
-      ((eq plot :temperature)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min temp) (+ 0.01 (apply #'max temp)))
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-       (vgplot:plot x y temp ";;with points pt 7 lc palette")
-       )
-      ((eq plot :energy)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
-       (vgplot:plot x y e ";;with points pt 7 lc palette")
-       )
-      ((eq plot :stress)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
-       (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
-      ((eq plot :damage-ybar)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min ybar) (+ 1e-20 (apply #'max ybar)))
-       (vgplot:plot x y ybar ";;with points pt 7 lc palette"))
-      ((eq plot :deformed)
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y lx ly ";;with ellipses"))
-      ((eq plot :density)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
-       (vgplot:plot x y e ";;with points pt 7 lc palette")
-       ))
+
+    (let* ((node-x '())
+           (node-y '())
+           (node-c '())
+           (mesh (cl-mpm:sim-mesh *sim*))
+           (nodes (cl-mpm/mesh:mesh-nodes mesh))
+           )
+      (dotimes (i (array-total-size nodes))
+        (let ((n (row-major-aref nodes i)))
+          (with-accessors ((index cl-mpm/mesh:node-index)
+                           (boundary cl-mpm/mesh::node-boundary-node)
+                           (boundary-s cl-mpm/mesh::node-boundary-scalar)
+                           (active cl-mpm/mesh::node-active)
+                           )
+
+              n
+            (let ((n-ratio (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))))
+              (when active
+                (if boundary
+                    ;; (print index)
+                    (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
+                      ;; (push (nth 0 index) node-x)
+                      ;; (push (nth 1 index) node-y)
+                      (push x node-x)
+                      (push y node-y)
+                      (push 2 node-c)
+                      ;; (push n-ratio node-c)
+                      ;; (push boundary-s node-c)
+                      )
+                    (destructuring-bind (x y) (cl-mpm/mesh:index-to-position mesh index)
+                      (push x node-x)
+                      (push y node-y)
+                      ;; (push n-ratio node-c)
+                      (push 0 node-c)
+                      ;; (push boundary-s node-c)
+                      ))
+                ;; (push (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n)) node-c)
+                )))))
+      (cond
+        ((eq plot :point)
+         ;; (vgplot:format-plot t "set cbrange [0:1]")
+         ;; (vgplot:plot x y ";;with points pt 7")
+                                        ;(vgplot:format-plot t "set cbrange [0:2]")
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min node-c) (+ 0.01 (apply #'max node-c)))
+         (if node-x
+             ;; (multiple-value-bind (xp yp) (max-spacial (map 'list #'identity (cl-mpm::sim-mps *sim*)))
+               (vgplot:plot
+                ;; x y ";;with points pt 7"
+                x y lx ly ";;with ellipses"
+                node-x node-y node-c ";;with points pt 7 lc palette"
+                ;; (list xp) (list yp) ";;with points"
+                )
+               ;)
+             (vgplot:plot x y ";;with points pt 7"))
+         )
+        ((eq plot :damage)
+         ;; (vgplot:format-plot t "set cbrange [0:1]")
+         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
+         (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
+         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (+ 0d0 (apply #'min c)) (+ 1e-6 (apply #'max c)))
+         (vgplot:plot x y c ";;with points pt 7 lc palette")
+         )
+        ((eq plot :velocity)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min vx) (+ 0.01 (apply #'max vx)))
+         (vgplot:plot x y vx ";;with points pt 7 lc palette")
+         )
+        ((eq plot :temperature)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min temp) (+ 0.01 (apply #'max temp)))
+         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
+         (vgplot:plot x y temp ";;with points pt 7 lc palette")
+         )
+        ((eq plot :energy)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
+         (vgplot:plot x y e ";;with points pt 7 lc palette")
+         )
+        ((eq plot :stress)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
+         (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
+        ((eq plot :damage-ybar)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min ybar) (+ 1e-20 (apply #'max ybar)))
+         (vgplot:plot x y ybar ";;with points pt 7 lc palette"))
+        ((eq plot :deformed)
+         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+         (vgplot:plot x y lx ly ";;with ellipses"))
+        ((eq plot :density)
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
+         (vgplot:plot x y e ";;with points pt 7 lc palette")
+         )))
     )
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -214,7 +268,9 @@
     (- (sqrt (cl-mpm/fastmath::dot v v)) width)))
 (defun plane-sdf (position normal distance)
   (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal))))
-
+(defun plane-point-sdf (position normal point)
+  (let ((distance (cl-mpm/fastmath::dot point (cl-mpm/fastmath::norm normal))))
+    (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal)))))
 
 ;; (defun test-iter ()
 ;;     (let ((iters 1000)
@@ -271,20 +327,20 @@
                density
                'cl-mpm::make-particle
                ;; 'cl-mpm/particle::particle-elastic
-               'cl-mpm/particle::particle-elastic-damage
+               ;; 'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic
-               ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
                :nu 0.3250d0
-               ;; :visc-factor 111d6
-               ;; :visc-power 3d0
+               :visc-factor 111d6
+               :visc-power 3d0
 
-               :initiation-stress 0.33d6;0.33d6
-               :damage-rate 1d-15
+               :initiation-stress 0.10d6;0.33d6
+               :damage-rate 1d-4
                :critical-damage 0.50d0
-               :local-length 50d0
-               :local-length-damaged 50d0
+               :local-length 20d0
+               :local-length-damaged 20d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -292,12 +348,12 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d5))
+      (let ((mass-scale 1d7))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              ;; (* 0.001d0 mass-scale)
+              (* 0.001d0 mass-scale)
               ;; 1d0
-              (* 0.0001d0 mass-scale)
+              ;; (* 0.0001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
               ;; 0.1d0
@@ -314,10 +370,10 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ))
       ;; (let ((ocean-x 1000)
-      ;;       (ocean-y (* 0.0 (second block-size))))
+      ;;       (ocean-y (* 0.5 (second block-size))))
       ;;   (format t "Ocean level ~a~%" ocean-y)
       ;;   (setf (cl-mpm::sim-bcs-force sim)
       ;;         (cl-mpm/bc:make-bcs-from-list
@@ -328,32 +384,32 @@
       ;;             ocean-y
       ;;             1000
       ;;             ))))))
-      (let ((mps (cl-mpm:sim-mps *sim*)))
-        (let ((x-max (loop for mp across mps
-                           maximize (magicl:tref
-                                     (cl-mpm/particle:mp-position mp)
-                                     0 0))))
-          (defparameter *terminus-mps*
-            (loop for mp across mps
-                  when (= x-max (magicl:tref
-                                 (cl-mpm/particle:mp-position mp)
-                                 0 0))
-                    collect mp))))
-      (defparameter *shear-rate* .01d0)
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (append
-              (map 'list #'identity (cl-mpm:sim-bcs sim))
-              (list
-               (cl-mpm/bc::make-bc-closure
-                '(0 0)
-                (lambda ()
-                  (apply-pullout
-                   sim
-                   *terminus-mps*
-                   *shear-rate*)
-                  )
-                )))))
+      ;; (let ((mps (cl-mpm:sim-mps sim)))
+      ;;   (let ((x-max (loop for mp across mps
+      ;;                      maximize (magicl:tref
+      ;;                                (cl-mpm/particle:mp-position mp)
+      ;;                                0 0))))
+      ;;     (defparameter *terminus-mps*
+      ;;       (loop for mp across mps
+      ;;             when (= x-max (magicl:tref
+      ;;                            (cl-mpm/particle:mp-position mp)
+      ;;                            0 0))
+      ;;               collect mp))))
+      ;; (defparameter *shear-rate* 1d0)
+      ;; (setf (cl-mpm:sim-bcs sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (append
+      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
+      ;;         (list
+      ;;          (cl-mpm/bc::make-bc-closure
+      ;;           '(0 0)
+      ;;           (lambda ()
+      ;;             (apply-pullout
+      ;;              sim
+      ;;              *terminus-mps*
+      ;;              *shear-rate*)
+      ;;             )
+      ;;           )))))
        ;; (setf (cl-mpm::sim-bcs-force sim)
        ;;       (cl-mpm/bc::make-outside-bc-var
        ;;        (cl-mpm:sim-mesh sim)
@@ -367,9 +423,9 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 400)
+         (shelf-height 100)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          )
@@ -378,12 +434,19 @@
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
 
-    (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(25 50)))
+    ;; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
-    ;;                                         50d0
-    ;;                                         )) 0.1d0)
+    ;;                                         10d0
+    ;;                                         )) 0.9d0)
+    (let* ((undercut-angle 00d0)
+           (normal (magicl:from-list (list (sqrt 2) (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1))))
+      (remove-sdf *sim* (lambda (p) (plane-point-sdf p
+                                                     normal
+                                                     (magicl:from-list (list shelf-length shelf-height)
+                                                                       '(2 1) :type 'double-float)
+                                                     ))))
     ;; (let* ((n (magicl:from-list (list shelf-height
     ;;                                   (* 3d0 shelf-length)) '(2 1) :type 'double-float))
     ;;       (d (plane-sdf (magicl:from-list (list 0d0 shelf-height) '(2 1) :type 'double-float) n 0d0))
@@ -490,7 +553,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-  (let* ((target-time 1000d0)
+  (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -503,7 +566,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 1000
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -655,7 +718,7 @@
   (vgplot:title "CFL over time")
   (vgplot:plot *time* *cfl-max*))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 
 (defun profile ()
   (sb-profile:unprofile)

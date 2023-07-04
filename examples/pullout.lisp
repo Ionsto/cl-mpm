@@ -267,7 +267,7 @@
                :initiation-stress 0.33d6
                ;; :damage-rate 1d-9
                ;; :damage-rate 1d-8
-               :damage-rate 1d-12
+               :damage-rate 1d-01
                :critical-damage 1d0
                :local-length 1d0
                :local-length-damaged 1d0
@@ -279,10 +279,10 @@
       (let ((mass-scale 1d0))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         ;; (setf (cl-mpm:sim-damping-factor sim)
-        ;;       ;; (* 0.001d0 mass-scale)
+        ;;       ;; (* 0.01d0 mass-scale)
         ;;       )
         )
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -299,20 +299,20 @@
              )
             )
       (defparameter *shear-rate* .1d0)
-      ;; (setf (cl-mpm:sim-bcs sim)
-      ;;       (cl-mpm/bc:make-bcs-from-list
-      ;;        (append
-      ;;         (map 'list #'identity (cl-mpm:sim-bcs sim))
-      ;;         (list
-      ;;          (cl-mpm/bc::make-bc-closure
-      ;;           '(0 0)
-      ;;           (lambda ()
-      ;;             (apply-pullout
-      ;;              sim
-      ;;              *terminus-mps*
-      ;;              *shear-rate*)
-      ;;             )
-      ;;           )))))
+      (setf (cl-mpm:sim-bcs sim)
+            (cl-mpm/bc:make-bcs-from-list
+             (append
+              (map 'list #'identity (cl-mpm:sim-bcs sim))
+              (list
+               (cl-mpm/bc::make-bc-closure
+                '(0 0)
+                (lambda ()
+                  (apply-pullout
+                   sim
+                   *terminus-mps*
+                   *shear-rate*)
+                  )
+                )))))
       (defparameter *pressure-inc-rate* 0d4)
       (defparameter *fatigue-load* 0d5)
       (defparameter *fatigue-period* 8d0)
@@ -324,9 +324,9 @@
          0d0
          0d0
          ))
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (list *load-bc*)))
+      ;; (setf (cl-mpm::sim-bcs-force sim)
+      ;;       (cl-mpm/bc:make-bcs-from-list
+      ;;        (list *load-bc*)))
 
       sim)))
 
@@ -477,7 +477,7 @@
 
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 1.0d0)
          (substeps (floor target-time dt)))
     (cl-mpm::update-sim *sim*)
 

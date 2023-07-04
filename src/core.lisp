@@ -1359,7 +1359,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               mp
                             (and (>= damage 1d0)
                                  ;; (or
-                                 ;;  ;; (split-criteria mp h)
+                                  (split-criteria mp h)
                                  ;;  (< (magicl:det def) 1d-3)
                                  ;;  )
                                  ))) mps)))
@@ -1376,7 +1376,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((l-factor 1.20d0)
+    (let ((l-factor 1.50d0)
           (h-factor (* 0.8d0 h))
           (s-factor 1.5d0))
       (cond
