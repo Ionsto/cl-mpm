@@ -117,7 +117,7 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-               "cl-mpm/damage"
+               ;"cl-mpm/damage"
                )
   :description ""
   :in-order-to ((test-op (load-op "test/all")))
@@ -188,6 +188,7 @@
                "cl-mpm/output"
                "cl-mpm/buoyancy"
                "cl-mpm/eigenerosion"
+               "cl-mpm/damage"
                "vgplot"
                "swank.live"
                "lisp-stat"
