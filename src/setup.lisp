@@ -14,11 +14,13 @@
 
 
 
-(defun make-block (res element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear))
+(defun make-block (res element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear)
+                                       (sim-type 'cl-mpm::mpm-sim-usf)
+                                       )
   "Make a 2D column of heigh size, and width 1 - filled with elements"
   (let* ((nD 2)
          (size (mapcar (lambda (x) (* x res)) element-count))
-         (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res))))
+         (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
     (progn
           (setf (cl-mpm:sim-mps sim) #())
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 

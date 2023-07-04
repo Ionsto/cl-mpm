@@ -306,7 +306,9 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline)) 
+                                        #'cl-mpm/shape-function:make-shape-function-bspline
+                                        'cl-mpm/damage::mpm-sim-damage))
+
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -336,11 +338,11 @@
                :visc-factor 111d6
                :visc-power 3d0
 
-               :initiation-stress 0.10d6;0.33d6
-               :damage-rate 1d-4
+               :initiation-stress 0.1d6;0.33d6
+               :damage-rate 1d-3
                :critical-damage 0.50d0
-               :local-length 20d0
-               :local-length-damaged 20d0
+               :local-length 50d0
+               :local-length-damaged 1d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -348,12 +350,12 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d7))
+      (let ((mass-scale 1d3))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.001d0 mass-scale)
+              ;; (* 0.00001d0 mass-scale)
               ;; 1d0
-              ;; (* 0.0001d0 mass-scale)
+              (* 0.0001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
               ;; 0.1d0
@@ -423,9 +425,9 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
-         (shelf-height 100)
+         (shelf-height 400)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          )
@@ -438,7 +440,7 @@
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
-    ;;                                         10d0
+    ;;                                         50d0
     ;;                                         )) 0.9d0)
     (let* ((undercut-angle 00d0)
            (normal (magicl:from-list (list (sqrt 2) (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1))))
@@ -553,7 +555,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-  (let* ((target-time 1d3)
+  (let* ((target-time 1d1)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -784,20 +786,20 @@
     ;;  (loop repeat 1000
     ;;               do (cl-mpm::update-sim *sim*)))
     ))
-;(let ((stress (magicl:zeros '(3 1)))
-;      (strain (magicl:zeros '(3 1)))
-;      (de (cl-mpm/constitutive::linear-elastic-matrix 1d0 0d0))
-;      )
-;  (format t "mat")
-;  (time
-;   (dotimes (i 100000)
-;       (cl-mpm/constitutive::maxwell-exp strain stress 1d0 0d0 1d0 1d0)))
-;  (format t "voight")
-;  (time
-;   (dotimes (i 100000)
-;     (cl-mpm/constitutive::maxwell-exp-v strain stress 1d0 0d0 1d0 1d0)))
-;  (format t "simd")
-;  (time
-;   (dotimes (i 100000)
-;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
-;  )
+;; (let ((stress (magicl:zeros '(3 1)))
+;;      (strain (magicl:zeros '(3 1)))
+;;      (de (cl-mpm/constitutive::linear-elastic-matrix 1d0 0d0))
+;;      )
+;;  (format t "mat")
+;;  (time
+;;   (dotimes (i 100000)
+;;       (cl-mpm/constitutive::maxwell-exp strain stress 1d0 0d0 1d0 1d0)))
+;;  (format t "voight")
+;;  (time
+;;   (dotimes (i 100000)
+;;     (cl-mpm/constitutive::maxwell-exp-v strain stress 1d0 0d0 1d0 1d0)))
+;;  (format t "simd")
+;;  (time
+;;   (dotimes (i 100000)
+;;     (cl-mpm/constitutive::maxwell-exp-v-simd strain stress 1d0 0d0 de 1d0  1d0)))
+;;  )

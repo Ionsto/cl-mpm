@@ -102,8 +102,8 @@
   ()
   (:documentation "Explicit simulation with update stress last update"))
 
-(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim))
-  (make-instance 'mpm-sim-usf
+(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
+  (make-instance sim-type
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
@@ -154,13 +154,13 @@
                     ;;G2p + Particle update
                     (g2p mesh mps dt)
                     (update-stress mesh mps dt)
-                    (when enable-damage
-                      (cl-mpm/damage::calculate-damage mesh
-                                                       mps
-                                                       dt
-                                                       50d0
-                                                       nonlocal-damage
-                                                       ))
+                    ;; (when enable-damage
+                      ;; (cl-mpm/damage::calculate-damage mesh
+                      ;;                                  mps
+                      ;;                                  dt
+                      ;;                                  50d0
+                      ;;                                  nonlocal-damage
+                      ;;                                  ))
                     ;; (update-particle mps dt)
                     ;;Update stress last
                     (when remove-damage
@@ -192,13 +192,13 @@
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
-                    (when enable-damage
-                     (cl-mpm/damage::calculate-damage mesh
-                                                      mps
-                                                      dt
-                                                      50d0
-                                                      nonlocal-damage
-                                                      ))
+                    ;; (when enable-damage
+                    ;;  (cl-mpm/damage::calculate-damage mesh
+                    ;;                                   mps
+                    ;;                                   dt
+                    ;;                                   50d0
+                    ;;                                   nonlocal-damage
+                    ;;                                   ))
                     ;Map forces onto nodes
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
@@ -257,13 +257,13 @@
 
                     ;;Update stress last
                     (update-stress mesh mps dt)
-                    (when enable-damage
-                      (cl-mpm/damage::calculate-damage mesh
-                                                       mps
-                                                       dt
-                                                       50d0
-                                                       nonlocal-damage
-                                                       ))
+                    ;; (when enable-damage
+                    ;;   (cl-mpm/damage::calculate-damage mesh
+                    ;;                                    mps
+                    ;;                                    dt
+                    ;;                                    50d0
+                    ;;                                    nonlocal-damage
+                    ;;                                    ))
                     ;; (cl-mpm/damage::calculate-damage mesh
                     ;;                                  mps
                     ;;                                  dt

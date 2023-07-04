@@ -428,3 +428,53 @@
                               mp
                             (setf damage-inc damage-inc-local)))))
   (values))
+
+(defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
+  ()
+  (:documentation "Explicit simulation with update stress first update"))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-damage))
+  (declare (cl-mpm::mpm-sim-usf sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps  cl-mpm::mps)
+               (bcs  cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               )
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt )
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    (cl-mpm::update-stress mesh mps dt)
+                    (when enable-damage
+                     (cl-mpm/damage::calculate-damage mesh
+                                                      mps
+                                                      dt
+                                                      50d0
+                                                      nonlocal-damage
+                                                      ))
+                    ;Map forces onto nodes
+                    (cl-mpm::p2g-force mesh mps)
+                    (cl-mpm::apply-bcs mesh bcs-force dt)
+                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    ;Reapply velocity BCs
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    ;Also updates mps inline
+                    (cl-mpm::g2p mesh mps dt)
+
+                    (when remove-damage
+                      (cl-mpm::remove-material-damaged sim))
+                    (when split
+                      (cl-mpm::split-mps sim))
+                    (cl-mpm::check-mps mps)
+                    )))
