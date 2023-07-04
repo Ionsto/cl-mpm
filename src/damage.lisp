@@ -194,8 +194,12 @@
     (cl-mpm::iterate-over-neighbours
      mesh mp
      (lambda (mesh mp node svp grads fsvp fgrads)
-       (incf nodal-damage (/ (* (cl-mpm/mesh::node-damage node) svp)
-                             (cl-mpm/mesh::node-svp-sum node)))
+       (with-accessors ((node-damage cl-mpm/mesh::node-damage)
+                        (node-svp cl-mpm/mesh::node-svp-sum))
+           node
+         (when (> node-svp 0d0)
+           (incf nodal-damage (/ (* node-damage svp)
+                                 node-svp))))
        ))
     (with-accessors ((local-length cl-mpm/particle::mp-local-length)
                      (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
