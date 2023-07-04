@@ -65,14 +65,14 @@
          (elastic-increment (magicl:@ de strain-increment))
          )
     (declare (type double-float relaxation-const))
-    (let* ((stress-matrix (voight-to-matrix elastic-increment))
-           (p (/ (magicl:trace stress-matrix) 2d0))
-           (pressure-matrix (magicl:eye 2 :value p))
-           (dev-stress (magicl:.- stress-matrix pressure-matrix)))
-      (setf elastic-increment (matrix-to-voight
-                    (magicl:.+ pressure-matrix
-                               (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
-    ;; (magicl:scale! elastic-increment (- 1d0 damage))
+    ;; (let* ((stress-matrix (voight-to-matrix elastic-increment))
+    ;;        (p (/ (magicl:trace stress-matrix) 2d0))
+    ;;        (pressure-matrix (magicl:eye 2 :value p))
+    ;;        (dev-stress (magicl:.- stress-matrix pressure-matrix)))
+    ;;   (setf elastic-increment (matrix-to-voight
+    ;;                 (magicl:.+ pressure-matrix
+    ;;                            (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
+    (magicl:scale! elastic-increment (- 1d0 damage))
     (magicl:.-
      elastic-increment
      ;; (magicl:scale! (magicl:@ de strain-increment) (max 1d-3 (expt (- 1d0 damage) 1d0)))
