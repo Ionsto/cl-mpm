@@ -199,18 +199,9 @@
                     ((and n (not ni))
                      (setf i pos)
                      )
-                    ;; ((and (not n) ni)
-                    ;;  (setf i (+ pos inc))
-                    ;;  )
                     (t
                      i)
-                    )
-                  ;; (if (and n ni)
-                  ;;         (setf i (/ (+ pos pos 1) 2))
-                  ;;         (if ni
-                  ;;             i
-                  ;;             (setf i (+ pos 0))))
-                  )))
+                    ))))
 (defun make-bspline-knots (nodes h)
   (let* ((mid-node-id (round (- (length nodes) 1) 2)))
     (nreverse (append
@@ -249,18 +240,35 @@
   ;;   (incf node -1))
   ;; (unless (nth 5 nodes)
   ;;   (incf node 1))
-  (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
+  (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 2))
 
 ;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x))
+;;       (node 0)
+;;       (node-list '(nil nil nil nil
+;;                    t
+;;                    t t t t))
 ;;       (h 1))
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp-fbar (+ y h) 0.1d0 1d0)) x) "-1"
+;;    (mapcar (lambda (y)
+;;              (nodal-bspline node-list (+ y) -1 1d0)) x) "-1"
+;;     x
+;;     (mapcar (lambda (y)
+;;               (nodal-bspline-dsvp node-list (+ y) 0 1d0)
+;;               ) x) "d-1"
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp-fbar (+ y 0) 0.1d0 1d0)) x) "0"
+;;    (mapcar (lambda (y)
+;;              (nodal-bspline node-list (+ y) 0 1d0)
+;;              ) x) "0"
 ;;    x
-;;    (mapcar (lambda (y) (shape-gimp-fbar (- y h) 0.1d0 1d0)) x) "1"
+;;    (mapcar (lambda (y)
+;;              (nodal-bspline-dsvp node-list (+ y) 1 1d0)
+;;              ) x) "d0"
+;;   ;; x
+;;   ;; (mapcar (lambda (y) (nodal-bspline-dsvp
+;;   ;;                      node-list
+;;   ;;                      (+ y h) node 1d0)) x) "-1"
 ;;    ))
 
 

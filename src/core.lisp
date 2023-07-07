@@ -301,7 +301,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-      (iterate-over-neighbours-shape-gimp
+    (iterate-over-neighbours-shape-gimp
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
          (vector-push-extend
@@ -565,7 +565,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                           local-id-list
                                                           (nreverse weights)))
                                            )
-                                      (funcall func mesh mp node weight grads))))))))
+                                      (funcall func mesh mp node weight grads nil nil))))))))
           (loop for dx from -1 to 1
                 do (loop for dy from -1 to 1
                          do (let* ((id (mapcar #'+ pos-index (list dx dy))))
@@ -577,7 +577,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        (grads (mapcar (lambda (d w)
                                                         (* (cl-mpm/shape-function:shape-bspline-dsvp d h) w))
                                                       dist (nreverse weights))))
-                                  (funcall func mesh mp node weight grads))))))))))
+                                  (funcall func mesh mp node weight grads nil nil))))))))))
 
 (defgeneric special-p2g (mp node svp dsvp)
   (:documentation "P2G behaviour for specific features")
@@ -642,7 +642,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (node-svp-sum  cl-mpm/mesh::node-svp-sum)
                         (node-force cl-mpm/mesh:node-force)
                         (node-p-wave cl-mpm/mesh::node-pwave)
-                        (node-damage cl-mpm/mesh::node-damage)
+                        ;; (node-damage cl-mpm/mesh::node-damage)
                         (node-lock  cl-mpm/mesh:node-lock)) node
          (declare (type double-float node-mass node-volume mp-volume)
                   (type sb-thread:mutex node-lock))
@@ -654,8 +654,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (* mp-volume svp))
            (incf node-p-wave
                  (* mp-pmod svp))
-           (incf node-damage
-                 (* mp-damage svp))
+           ;; (incf node-damage
+           ;;       (* mp-damage svp))
            (incf node-svp-sum svp)
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
@@ -718,11 +718,20 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (:documentation "G2P behaviour for specific features")
   (:method (mesh mp node svp grads)))
 
-(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp grads) 
+(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp grads)
   (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
+      (progn
+        (setf temp (+ temp (* node-temp svp)))
+        ))))
+
+(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-damage) node svp grads)
+  (declare (ignore mesh))
+  "Map grid to particle for one mp-node pair"
+  (with-accessors ((node-damage cl-mpm/mesh::node-damage)) node
+    (with-accessors ((temp cl-mpm/particle::mp-damage)) mp
       (progn
         (setf temp (+ temp (* node-temp svp)))
         ))))

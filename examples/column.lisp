@@ -75,11 +75,12 @@
          (h-y (/ h 1d0))
          (density 80)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
-        (block-size (list (* (first size) h-x) (second block-size)))
+         ;(block-size (list (* (first size) h-x) (second block-size)))
+         (block-size (list (* 1d0 h-x) (second block-size)))
          )
     (progn
       (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
-                                  (* h-y (+ (/ 1d0 (* 2d0 mp-scale)) )))))
+                                  (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
         (print block-position)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
@@ -115,29 +116,35 @@
 ;Setup
 (defun setup ()
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
-  (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 16 50) 2))
+  (let* ((e 16)
+        (L 50d0)
+        (h (/ L e)))
+    (defparameter *sim* (setup-test-column (list 3 (+ L h))
+                                           (list h L)
+                                           ;(list h h)
+                                           (/ 1d0 h) 2)))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *run-sim* t)
-  (defparameter *load-mps-top*
-    (let* ((mps (cl-mpm:sim-mps *sim*))
-           (least-pos
-              (apply #'max (loop for mp across mps
-                                 collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
-      (loop for id from 0 to (- (length mps) 1)
-            when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
-              collect (aref mps id))))
-  (defparameter *slice-mps*
-    (let* ((mps (cl-mpm:sim-mps *sim*))
-           (least-pos
-             (apply #'max (loop for mp across mps
-                                collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
-      (loop for id from 0 to (- (length mps) 1)
-            when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
-              collect (aref mps id))))
+  ;; (defparameter *load-mps-top*
+  ;;   (let* ((mps (cl-mpm:sim-mps *sim*))
+  ;;          (least-pos
+  ;;             (apply #'max (loop for mp across mps
+  ;;                                collect (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))))
+  ;;     (loop for id from 0 to (- (length mps) 1)
+  ;;           when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 1 0) (- least-pos 0.001))
+  ;;             collect (aref mps id))))
+  ;; (defparameter *slice-mps*
+  ;;   (let* ((mps (cl-mpm:sim-mps *sim*))
+  ;;          (least-pos
+  ;;            (apply #'max (loop for mp across mps
+  ;;                               collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
+  ;;     (loop for id from 0 to (- (length mps) 1)
+  ;;           when (>= (magicl:tref (cl-mpm/particle:mp-position (aref mps id)) 0 0) (- least-pos 0.001))
+  ;;             collect (aref mps id))))
   ;; (increase-load *sim* *load-mps* -100)
   ;; (increase-load *sim* *load-mps-top* -100)
   )

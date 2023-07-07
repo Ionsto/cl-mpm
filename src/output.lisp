@@ -152,7 +152,6 @@
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
         ;; (save-parameter "viscosity" (cl-mpm/particle::mp-true-visc mp))
-        (save-parameter "local-length" (cl-mpm/particle::mp-true-local-length mp))
 
         (save-parameter "strain_rate"
                         (multiple-value-bind (l v)
@@ -203,6 +202,10 @@
         (save-parameter "damage_ybar"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle::mp-damage-ybar mp)
+                            0d0))
+        (save-parameter "local_length"
+                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                            (cl-mpm/particle::mp-true-local-length mp)
                             0d0))
         )
       )))

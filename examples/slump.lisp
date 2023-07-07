@@ -427,7 +427,7 @@
   (defparameter *run-sim* nil)
   (let* ((mesh-size 20)
          (mps-per-cell 2)
-         (shelf-height 400)
+         (shelf-height 100)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          )
@@ -436,7 +436,7 @@
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
 
-    ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
+    t (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
