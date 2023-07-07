@@ -338,11 +338,11 @@
                :visc-factor 111d6
                :visc-power 3d0
 
-               :initiation-stress 0.1d6;0.33d6
-               :damage-rate 1d-3
+               :initiation-stress 0.33d6
+               :damage-rate 1d-2
                :critical-damage 0.50d0
                :local-length 50d0
-               :local-length-damaged 1d0
+               :local-length-damaged 0.1d0
                :damage 0.0d0
 
                :gravity -9.8d0
@@ -350,7 +350,7 @@
                :index 0
                ))
         )
-      (let ((mass-scale 1d3))
+      (let ((mass-scale 1d5))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.00001d0 mass-scale)
@@ -374,18 +374,18 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ))
-      ;; (let ((ocean-x 1000)
-      ;;       (ocean-y (* 0.5 (second block-size))))
-      ;;   (format t "Ocean level ~a~%" ocean-y)
-      ;;   (setf (cl-mpm::sim-bcs-force sim)
-      ;;         (cl-mpm/bc:make-bcs-from-list
-      ;;          (append
-      ;;           (list
-      ;;            (cl-mpm/buoyancy::make-bc-buoyancy
-      ;;             sim
-      ;;             ocean-y
-      ;;             1000
-      ;;             ))))))
+      (let ((ocean-x 1000)
+            (ocean-y (* 0.50 (second block-size))))
+        (format t "Ocean level ~a~%" ocean-y)
+        (setf (cl-mpm::sim-bcs-force sim)
+              (cl-mpm/bc:make-bcs-from-list
+               (append
+                (list
+                 (cl-mpm/buoyancy::make-bc-buoyancy
+                  sim
+                  ocean-y
+                  1000
+                  ))))))
       ;; (let ((mps (cl-mpm:sim-mps sim)))
       ;;   (let ((x-max (loop for mp across mps
       ;;                      maximize (magicl:tref
@@ -425,7 +425,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 400)
          (shelf-aspect 3)
@@ -436,7 +436,7 @@
                                                  (+ shelf-height 100))
                                            (list shelf-length shelf-height) '(000 0) (/ 1 mesh-size) mps-per-cell))
 
-    ;; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
+    ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -555,9 +555,9 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
-  (let* ((target-time 1d1)
+  (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 1.0d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
@@ -574,7 +574,7 @@
                    (progn
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
