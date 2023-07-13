@@ -232,39 +232,69 @@
   ;;    (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2)
   ;;    ))
   (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  ;; (print nodes)
+  ;; (let ((nc (count t nodes)))
+  ;;   (cond
+  ;;     ((= nc 1)
+  ;;      (if (nth 3 nodes)
+  ;;          (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 1)
+  ;;          (bspline (make-bspline-knots nodes h) (+ eta) (+ node 3) 1)))
+  ;;     (t
+  ;;      (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2))
+  ;;     )
+  ;;   )
   (bspline (make-bspline-knots nodes h) (+ eta) (+ node 2) 2)
   )
 (defun nodal-bspline-dsvp (nodes eta node h)
-  ;; (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
-  ;; (unless (nth 3 nodes)
-  ;;   (incf node -1))
-  ;; (unless (nth 5 nodes)
-  ;;   (incf node 1))
-  (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 2))
+  (setf (nth 4 nodes) (and (nth 3 nodes) (nth 5 nodes)))
+  ;; (let ((nc (count t nodes)))
+  ;;   (cond
+  ;;     ((= nc 1)
+  ;;      (if (nth 3 nodes)
+  ;;          (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 1)
+  ;;          (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 4) 1)))
+  ;;     (t
+  ;;      (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 2))
+  ;;     )
+  ;;   )
+  (bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 2)
+  ;(bspline-dsvp (make-bspline-knots nodes h) (+ eta) (+ node 3) 2)
+  )
 
-;; (let ((x (loop for x from -2d0 upto 2d0 by 0.01d0 collect x))
+;; (let* ((h 1.0d0)
+;;       (x (loop for x from -2d0 upto 2d0 by 0.01d0 collect (* h x)))
 ;;       (node 0)
-;;       (node-list '(nil nil nil nil
-;;                    t
-;;                    t t t t))
-;;       (h 1))
+;;       ;; (node-list '(nil nil nil nil T t nil nil nil))
+;;        (node-list '(nil nil nil t T t t t t))
+;;        )
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
 ;;    x
 ;;    (mapcar (lambda (y)
-;;              (nodal-bspline node-list (+ y) -1 1d0)) x) "-1"
-;;     x
-;;     (mapcar (lambda (y)
-;;               (nodal-bspline-dsvp node-list (+ y) 0 1d0)
-;;               ) x) "d-1"
+;;              (nodal-bspline '(nil nil nil nil T t t t t) (+ y h) 0 h)) x) "-1a"
 ;;    x
 ;;    (mapcar (lambda (y)
-;;              (nodal-bspline node-list (+ y) 0 1d0)
+;;              (nodal-bspline node-list (+ y) -1 h)) x) "-1"
+;;     ;; x
+;;     ;; (mapcar (lambda (y)
+;;     ;;           (nodal-bspline-dsvp node-list (+ y) -1 h)
+;;     ;;           ) x) "d-1"
+;;    x
+;;    (mapcar (lambda (y)
+;;              (nodal-bspline node-list (+ y) 0 h)
 ;;              ) x) "0"
+;;    ;; x
+;;    ;; (mapcar (lambda (y)
+;;    ;;           (nodal-bspline-dsvp node-list (+ y) 0 h)
+;;    ;;           ) x) "d0"
 ;;    x
 ;;    (mapcar (lambda (y)
-;;              (nodal-bspline-dsvp node-list (+ y) 1 1d0)
-;;              ) x) "d0"
+;;              (nodal-bspline node-list (+ y) 1 h)
+;;              ) x) "1"
+;;    ;; x
+;;    ;; (mapcar (lambda (y)
+;;    ;;           (nodal-bspline-dsvp node-list (+ y) 1 h)
+;;    ;;           ) x) "d1"
 ;;   ;; x
 ;;   ;; (mapcar (lambda (y) (nodal-bspline-dsvp
 ;;   ;;                      node-list
