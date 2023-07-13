@@ -324,9 +324,11 @@
 
 (defun diff-damaged (mesh mp-a mp-b)
   (flet ((node-dam (node)
-           (/ (cl-mpm/mesh::node-damage node)
-              (cl-mpm/mesh::node-svp-sum node)
-              )))
+           (if (> (cl-mpm/mesh::node-svp-sum node) 0d0)
+               (/ (cl-mpm/mesh::node-damage node)
+                  (cl-mpm/mesh::node-svp-sum node)
+                  )
+               0d0)))
     (with-accessors
           ((h cl-mpm/mesh::mesh-resolution))
         mesh
