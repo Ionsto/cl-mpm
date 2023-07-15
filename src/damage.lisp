@@ -17,7 +17,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 1.0d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 0.5d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -223,7 +223,7 @@
     (localise-damage mesh mps dt))
   (lparallel:pdotimes (i (length mps))
                       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
-                        ;(find-nodal-local-length mesh (aref mps i))
+                        (find-nodal-local-length mesh (aref mps i))
                         (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
@@ -407,15 +407,16 @@
   (values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared)))))))
 (declaim
  (inline weight-func-mps)
- (ftype (function (cl-mpm/particle:particle
+ (ftype (function (cl-mpm/mesh::mesh
+                   cl-mpm/particle:particle
                    cl-mpm/particle:particle
                    double-float
                    ) double-float)
         weight-func-mps
         ))
-(defun weight-func-mps (mp-a mp-b length)
+(defun weight-func-mps (mesh mp-a mp-b length)
   (weight-func (diff-squared mp-a mp-b) length))
-(defun weight-func-mps-damaged (mp-a mp-b length mesh)
+(defun weight-func-mps-damaged (mesh mp-a mp-b length)
   (weight-func (diff-damaged mesh mp-a mp-b) length))
 
 
@@ -450,7 +451,7 @@
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (when (< (the double-float d) 1d0)
-                                           (let ((weight (weight-func-mps-damaged mp mp-other (* 0.5d0 (+ length ll)) mesh)))
+                                           (let ((weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))))
                                              (declare (double-float weight m d mass-total damage-inc))
                                              (incf mass-total (* weight m))
                                              (incf damage-inc
