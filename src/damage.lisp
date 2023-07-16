@@ -78,7 +78,7 @@
                                                  (expt (* j (the double-float (magicl:tref stress 2 0))) 2d0)))))))
                    (s_1 (+ av diff))
                    (s_2 (- av diff))
-                   (pressure-effective (* pressure damage))
+                   (pressure-effective (* pressure 1d0))
                    (s_1 (- s_1 pressure-effective))
                    (s_2 (- s_2 pressure-effective))
                    (s_1 (max 0d0 s_1))
@@ -223,7 +223,7 @@
     (localise-damage mesh mps dt))
   (lparallel:pdotimes (i (length mps))
                       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
-                        (find-nodal-local-length mesh (aref mps i))
+                        ;(find-nodal-local-length mesh (aref mps i))
                         (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
@@ -451,7 +451,7 @@
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (when (< (the double-float d) 1d0)
-                                           (let ((weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))))
+                                           (let ((weight (weight-func-mps-damaged mesh mp mp-other (* 0.5d0 (+ length ll)))))
                                              (declare (double-float weight m d mass-total damage-inc))
                                              (incf mass-total (* weight m))
                                              (incf damage-inc

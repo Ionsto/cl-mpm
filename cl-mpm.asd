@@ -201,6 +201,7 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/damage"
                "vgplot"
                "swank.live"
                "magicl")
