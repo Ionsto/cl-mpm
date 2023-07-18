@@ -22,9 +22,17 @@
    #:trace-voigt
    #:matrix-to-voigt
    #:voigt-to-matrix
+   #:vector-zeros
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+
+(declaim (inline vector-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) voigt-zeros))
+(defun vector-zeros ()
+  (magicl::make-matrix/double-float 2 1 2 :column-major (make-array 2 :element-type 'double-float)))
+
 (declaim (inline voigt-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) voigt-zeros))

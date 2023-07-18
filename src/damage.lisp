@@ -125,7 +125,7 @@
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             ;(setf local-length-t (length-localisation local-length local-length-damaged damage))
-            (setf local-length-t local-length)
+            ;; (setf local-length-t local-length)
             ))))
   (values))
 
@@ -223,7 +223,7 @@
     (localise-damage mesh mps dt))
   (lparallel:pdotimes (i (length mps))
                       (when (typep (aref mps i) 'cl-mpm/particle:particle-damage)
-                        ;(find-nodal-local-length mesh (aref mps i))
+                        (find-nodal-local-length mesh (aref mps i))
                         (apply-damage (aref mps i) dt))))
 (defun create-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
@@ -324,7 +324,7 @@
 
 (defun diff-damaged (mesh mp-a mp-b)
   (flet ((node-dam (node)
-           (if (> (cl-mpm/mesh::node-svp-sum node) 0d0)
+           (if (cl-mpm/mesh::node-active node)
                (/ (cl-mpm/mesh::node-damage node)
                   (cl-mpm/mesh::node-svp-sum node)
                   )
@@ -334,64 +334,66 @@
         mesh
       (let* ((pos-a (cl-mpm/particle:mp-position mp-a))
              (pos-b (cl-mpm/particle:mp-position mp-b))
-             (diff (magicl:.- pos-b pos-a))
-             (length (sqrt (cl-mpm/fastmath::dot diff diff)))
-             (final-distance 0d0)
+             (diff (cl-mpm/utils:vector-zeros))
              (epsilon 1d-8)
+             (final-distance 0d0)
              )
-        ;; Sample damage at midpoint and integrated with constant damage assumption
-        ;; Can utilise linear shape function damage assumption but produced a nasty looking intergral
-        (declare (double-float length final-distance))
-        (when (> length 0d0)
-          (let* (
-                 (step-norm (magicl:scale diff (/ 1d0 length)))
-                 ;;Start at point a and step through to b
-                 (step-point (magicl:scale pos-a 1d0))
-                 ;;Resolution of our midpoint integration
-                 (step-size (/ h 1d0))
-                 )
-            (multiple-value-bind (steps remainder) (floor length step-size)
-              (when (> steps 0)
-                (let* ((dhstep (magicl:scale step-norm (* 0.5d0 step-size)))
+        (magicl:.- pos-b pos-a diff)
+        (let* ((length (sqrt (cl-mpm/fastmath::dot diff diff))))
+
+          ;; Sample damage at midpoint and integrated with constant damage assumption
+          ;; Can utilise linear shape function damage assumption but produced a nasty looking intergral
+          (declare (double-float length final-distance))
+          (when (> length 0d0)
+            (let* (
+                   (step-norm (magicl:scale diff (/ 1d0 length)))
+                   ;;Start at point a and step through to b
+                   (step-point (magicl::copy-matrix/double-float pos-a))
+                   ;;Resolution of our midpoint integration
+                   (step-size (/ h 1d0))
+                   )
+              (multiple-value-bind (steps remainder) (floor length step-size)
+                (when (> steps 0)
+                  (let* ((dhstep (magicl:scale step-norm (* 0.5d0 step-size)))
+                         )
+                    (loop for i from 0 below steps
+                          do
+                             (progn
+                               (magicl:.+ step-point dhstep step-point)
+                               (let ((damage 0d0))
+                                 (cl-mpm::iterate-over-neighbours-point-linear
+                                  mesh
+                                  step-point
+                                  (lambda (m node weight grads)
+                                    (incf damage
+                                          (* (node-dam node) weight))))
+                                 ;; (print damage)
+                                 (incf final-distance (* step-size
+                                                         (/ 1d0 (max epsilon (sqrt (- 1d0 damage)))))))
+                               (magicl:.+ step-point dhstep step-point)
+                               )
+                          )))
+                (let* ((step-size remainder)
+                       (dhstep (magicl:scale step-norm (* 0.5d0 step-size)))
                        )
-                  (loop for i from 0 below steps
-                        do
-                           (progn
-                             (magicl:.+ step-point dhstep step-point)
-                             (let ((damage 0d0))
-                               (cl-mpm::iterate-over-neighbours-point-linear
-                                mesh
-                                step-point
-                                (lambda (m node weight grads)
-                                  (incf damage
-                                        (* (node-dam node) weight))))
-                               ;; (print damage)
-                               (incf final-distance (* step-size
-                                                       (/ 1d0 (max epsilon (sqrt (- 1d0 damage)))))))
-                             (magicl:.+ step-point dhstep step-point)
-                             )
-                        )))
-              (let* ((step-size remainder)
-                     (dhstep (magicl:scale step-norm (* 0.5d0 step-size)))
-                     )
-                (progn
-                  (magicl:.+ step-point dhstep step-point)
-                  (let ((damage 0d0))
-                    (cl-mpm::iterate-over-neighbours-point-linear
-                     mesh
-                     step-point
-                     (lambda (m node weight grads)
-                       (incf damage
-                             (* (node-dam node) weight))))
-                    ; (print damage)
-                    (incf final-distance (* step-size (/ 1d0
-                                                         (max epsilon
-                                                              (the double-float (sqrt (- 1d0 damage))))))))
+                  (progn
+                    (magicl:.+ step-point dhstep step-point)
+                    (let ((damage 0d0))
+                      (cl-mpm::iterate-over-neighbours-point-linear
+                       mesh
+                       step-point
+                       (lambda (m node weight grads)
+                         (incf damage
+                               (* (node-dam node) weight))))
+                                        ; (print damage)
+                      (incf final-distance (* step-size (/ 1d0
+                                                           (max epsilon
+                                                                (the double-float (sqrt (- 1d0 damage))))))))
+                    )
                   )
-                )
-              )))
-        ;(setf final-distance length)
-        (* final-distance final-distance)
+                )))
+                                        ;(setf final-distance length)
+          (* final-distance final-distance))
         ))))
 
 
@@ -451,7 +453,7 @@
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (when (< (the double-float d) 1d0)
-                                           (let ((weight (weight-func-mps-damaged mesh mp mp-other (* 0.5d0 (+ length ll)))))
+                                           (let ((weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))))
                                              (declare (double-float weight m d mass-total damage-inc))
                                              (incf mass-total (* weight m))
                                              (incf damage-inc
@@ -482,7 +484,7 @@
         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                          (damage cl-mpm/particle::mp-damage)
-                         (local-length-t cl-mpm/particle::mp-local-length)
+                         (local-length-t cl-mpm/particle::mp-true-local-length)
                          )
             mp
           (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t))

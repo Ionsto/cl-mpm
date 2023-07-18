@@ -360,7 +360,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               (when (< 0d0 weight)
                                 (funcall func mesh mp node weight grads))))))))))
 
-(declaim (inline iterate-over-neighbours-point-linear))
+(declaim (inline iterate-over-neighbours-point-linear)
+         (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
+                iterate-over-neighbours-point-linear)
+         )
 (defun iterate-over-neighbours-point-linear (mesh position func)
   (declare (cl-mpm/mesh::mesh mesh))
   (progn
@@ -368,18 +371,25 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (pos-vec position)
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
            (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+      (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
                      do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                          (declare (dynamic-extent id))
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                    (node (cl-mpm/mesh:get-node mesh id))
                                    (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                                    (weight (reduce #'* weights))
-                                   (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                                   (grads (mapcar (lambda (d w) (* (the double-float
+                                                                        (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                                                   (the double-float w)))
                                                   dist (nreverse weights))))
+                              (declare (double-float weight)
+                                       (dynamic-extent dist weights))
                               (when (< 0d0 weight)
-                                (funcall func mesh node weight grads))))))))))
+                                (funcall func mesh node weight grads))))
+                          ))))))
 
 (declaim (inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
