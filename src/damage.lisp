@@ -85,7 +85,7 @@
                    (s_2 (max 0d0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   ;; (s_1 vm)
+                   ;(s_1 vm)
                    ;(damage-inv (- 1d0 damage))
                    )
               (when (> s_1 0d0)
@@ -125,7 +125,7 @@
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             ;(setf local-length-t (length-localisation local-length local-length-damaged damage))
-            ;; (setf local-length-t local-length)
+            (setf local-length-t local-length)
             ))))
   (values))
 
@@ -348,7 +348,7 @@
             (let* (
                    (step-norm (magicl:scale diff (/ 1d0 length)))
                    ;;Start at point a and step through to b
-                   (step-point (magicl::copy-matrix/double-float pos-a))
+                   (step-point (magicl:scale pos-a 1d0))
                    ;;Resolution of our midpoint integration
                    (step-size (/ h 1d0))
                    )

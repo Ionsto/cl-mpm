@@ -33,7 +33,7 @@
   ;; (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
   ;;   (apply #'max l))
   )
-(defun plot (sim &optional (plot :stress))
+(defun plot (sim &optional (plot :deformed))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (multiple-value-bind (x y stress-y lx ly e)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -80,8 +80,8 @@
          )
     (progn
       (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
-                                  (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
-        (print block-position)
+                                  (* h-y (+ 8 (/ 1d0 (* 2d0 mp-scale)) )))))
+        ;; (print block-position)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
@@ -91,14 +91,14 @@
                density
                'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic
-               :E 1d6
+               :E 1d5
                :nu 0.0d0
                :gravity -10.0d0
                )))
 
       ;; (loop for mp across (cl-mpm::sim-mps sim)
       ;;       do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -119,9 +119,9 @@
   (let* ((e 16)
         (L 50d0)
         (h (/ L e)))
-    (defparameter *sim* (setup-test-column (list 3 (+ L h))
-                                           (list h L)
-                                           ;(list h h)
+    (defparameter *sim* (setup-test-column (list 1 (+ L h))
+                                           ;(list h L)
+                                           (list (* 1 h) (* 4 h))
                                            (/ 1d0 h) 2)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -189,33 +189,52 @@
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
+  (let* ((target-time 1d0)
+         (dt (cl-mpm:sim-dt *sim*))
+         (dt-scale 1d0)
+         (substeps (floor target-time dt)))
+    (cl-mpm::update-sim *sim*)
+    (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+           (substeps-e (floor target-time dt-e)))
+      (format t "CFL dt estimate: ~f~%" dt-e)
+      (format t "CFL step count estimate: ~D~%" substeps-e)
+      (setf (cl-mpm:sim-dt *sim*) dt-e)
+      (setf substeps substeps-e))
+    (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
-                (progn
-                  (format t "Step ~d ~%" steps)
-                  (time
-                   (dotimes (i 100)
-                         ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) :type 'double-float))
-                         ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 -0.5d0) '(2 1)))
-                         ;; (break)
-                         ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
-                         ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
-                         (cl-mpm::update-sim *sim*)
-                         ;; (cl-mpm/eigenerosion:update-fracture *sim*)
-                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                         ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
-                         ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
-                         ;; (setf *time*     (cons *t* *time*))
-                         ))
-                  (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                          *sim*)
-                  (incf *sim-step*)
-                  (plot *sim*)
-                  (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
-                  (swank.live:update-swank)
-                  (sleep .01)
-                  )))
+                   (progn
+                     (format t "Step ~d ~%" steps)
+                     (time
+                      (dotimes (i substeps)
+                        ;; (pescribe-velocity *sim* *load-mps* (magicl:from-list '(0d0 -1d0) '(2 1) :type 'double-float))
+                        ;; (pescribe-velocity *sim* *load-mps-top* (magicl:from-list '(0d0 -0.5d0) '(2 1)))
+                        ;; (break)
+                        ;; (increase-load *sim* *load-mps* (* -100 (cl-mpm:sim-dt *sim*)))
+                        ;; (increase-load *sim* *load-mps-top* (* 100 (cl-mpm:sim-dt *sim*)))
+                        (cl-mpm::update-sim *sim*)
+                        ;; (cl-mpm/eigenerosion:update-fracture *sim*)
+                        (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                        ;; (let ((h (/ (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)) 2)))
+                        ;;   (setf *velocity* (cons (magicl:tref (cl-mpm/output::sample-point-velocity *sim* (list h (* h 2))) 1 0) *velocity*)))
+                        ;; (setf *time*     (cons *t* *time*))
+                        ))
+
+                     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                            (substeps-e (floor target-time dt-e)))
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf (cl-mpm:sim-dt *sim*) dt-e)
+                       (setf substeps substeps-e))
+                     (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
+                                             *sim*)
+                     (incf *sim-step*)
+                     (plot *sim*)
+                     (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                     (swank.live:update-swank)
+                     (sleep .01)
+                     ))))
     ;; (vgplot:figure)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)

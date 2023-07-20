@@ -25,11 +25,11 @@
    #:vector-zeros
    ))
 (in-package :cl-mpm/utils)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 0) (speed 3)))
 
 (declaim (inline vector-zeros)
          (ftype (function ()
-                          magicl:matrix/double-float) voigt-zeros))
+                          magicl:matrix/double-float) vector-zeros))
 (defun vector-zeros ()
   (magicl::make-matrix/double-float 2 1 2 :column-major (make-array 2 :element-type 'double-float)))
 
@@ -38,6 +38,7 @@
                           magicl:matrix/double-float) voigt-zeros))
 (defun voigt-zeros ()
   (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
+
 (declaim (inline matrix-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) matrix-zeros))

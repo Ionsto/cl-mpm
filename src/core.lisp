@@ -358,7 +358,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                    (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                                   dist (nreverse weights))))
                               (when (< 0d0 weight)
-                                (funcall func mesh mp node weight grads))))))))))
+                                (funcall func mesh mp node weight grads nil nil))))))))))
 
 (declaim (inline iterate-over-neighbours-point-linear)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
@@ -381,8 +381,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                    (node (cl-mpm/mesh:get-node mesh id))
                                    (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                                    (weight (reduce #'* weights))
-                                   (grads (mapcar (lambda (d w) (* (the double-float
-                                                                        (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                   (grads (mapcar (lambda (d w) (* (the double-float (cl-mpm/shape-function::shape-linear-dsvp d h))
                                                                    (the double-float w)))
                                                   dist (nreverse weights))))
                               (declare (double-float weight)
@@ -457,7 +456,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                     (declare (dynamic-extent domain dist))
                                     (declare ;(type double-float h)
                                      (double-float weight)
-                                     (type list domain dist))
+                                     (type list domain dist)
+                                     (dynamic-extent domain dist))
                                     (when (< 0d0 weight)
                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
                                              (grads (mapcar (lambda (d l w)

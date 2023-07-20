@@ -270,7 +270,9 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline))
+                                        #'cl-mpm/shape-function:make-shape-function-bspline
+                                        'cl-mpm/damage::mpm-sim-damage
+                                        ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -302,11 +304,11 @@
 
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-14
+               :damage-rate 1d-2
                ;:critical-damage 0.56d0
-               :critical-damage 1d0
+               :critical-damage 0.5d0
                :local-length 50d0
-               :local-length-damaged 10d0
+               :local-length-damaged 50d0
                :damage 0.0d0
 
                :gravity 9.8d0
@@ -329,7 +331,7 @@
 
       (let ((ms 1d3))
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.1d0 ms)
+              (* 0.001d0 ms)
               ;; 0.5d0
               )
         (setf (cl-mpm::sim-mass-scale sim) ms))
@@ -385,7 +387,7 @@
                     )))))))
       sim)))
 
-(defparameter *ice-length* 2000)
+(defparameter *ice-length* 1500)
 (defparameter *ice-density* 850)
 (defparameter *water-density* 1028)
 (defparameter *average-window* 5)
@@ -397,7 +399,7 @@
          (shelf-bottom (- 300 (* density-ratio shelf-height)));;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 25)
+         (mesh-size 50)
          (mps-per-cell 2)
          (offset 00)
          )
@@ -706,9 +708,9 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 1d0)
-  (let* ((target-time 10d0)
+  (let* ((target-time 1d1)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*))))
-         (dt-scale 0.5d0))
+         (dt-scale 1d0))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e))

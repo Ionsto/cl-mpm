@@ -144,11 +144,11 @@
        :initform (magicl:zeros '(2 2) :type 'double-float))
    (boundary
     :accessor cell-boundary
-    :type bool
+    :type boolean
     :initform nil)
    (pruned
     :accessor cell-pruned
-    :type bool
+    :type boolean
     :initform nil)
    )
    )
