@@ -143,12 +143,11 @@
                           )
                  ;;Lock node for multithreading
                  (sb-thread:with-mutex (node-lock)
-
                    (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                    (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                                                                (funcall func-stress mp)
                                                                (* volume)
-                                                               node-force);
+                                                               node-force)
                    (cl-mpm/fastmath::fast-fmacc node-force
                                                 (funcall func-div mp)
                                                 (* svp volume))
@@ -346,7 +345,7 @@
                       (pos cl-mpm/mesh::node-position)
                       )
          node
-       (when (< volume (* 0.99d0 vt))
+       (when (< volume (* 0.999d0 vt))
          (when t;(cell-clipping pos)
            (when active
              (setf boundary t))))))))
@@ -544,4 +543,11 @@
                                                             (pressure cl-mpm/particle::mp-pressure))
                                                mp
                                              (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
-                                           )))))))))
+                                           )
+                                         (when (cl-mpm/mesh::node-boundary-node node)
+                                           (with-accessors ((pos cl-mpm/mesh::node-position)
+                                                            (pressure cl-mpm/mesh::node-pressure))
+                                               node
+                                             (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
+                                           )
+                                         ))))))))

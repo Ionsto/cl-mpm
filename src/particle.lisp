@@ -178,6 +178,11 @@
     :accessor mp-p-modulus
     :initform 1d0
     )
+   (damage
+    :accessor mp-damage
+    :type DOUBLE-FLOAT
+    :initarg :damage
+    :initform 0d0)
    (j-fbar
     :accessor mp-j-fbar
     :initform 1d0)
@@ -270,11 +275,11 @@
     :accessor mp-log-damage
     :type DOUBLE-FLOAT
     :initform 0d0)
-   (damage
-    :accessor mp-damage
-    :type DOUBLE-FLOAT
-    :initarg :damage
-    :initform 0d0)
+   ;; (damage
+   ;;  :accessor mp-damage
+   ;;  :type DOUBLE-FLOAT
+   ;;  :initarg :damage
+   ;;  :initform 0d0)
    (local-damage
     :accessor mp-local-damage
     :type DOUBLE-FLOAT

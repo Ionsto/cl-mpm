@@ -200,5 +200,7 @@
 
 (defun dot (a b)
   (magicl::sum (magicl:.* a b)))
+(defun mag (a)
+  (magicl::sum (magicl:.* a a)))
 (defun norm (a)
-  (magicl::scale a (sqrt (dot a a))))
+  (magicl::scale a (sqrt (mag a))))

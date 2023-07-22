@@ -164,10 +164,38 @@
   "Fixed velocity BC over some non-stick surface"
   (with-slots ((normal normal))
     bc
-    (with-accessors ((node-vel cl-mpm/mesh:node-velocity)) node
-      (let ((rel-vel (magicl:tref (magicl:@ (magicl:transpose normal) node-vel) 0 0)))
-        (when (< rel-vel 0)
-          (setf node-vel (magicl:.- (magicl:scale normal rel-vel) node-vel)))))))
+    (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                     (node-acc cl-mpm/mesh:node-acceleration)
+                     (node-force cl-mpm/mesh:node-force)
+                     (node-lock cl-mpm/mesh:node-lock)
+                     (node-pressure cl-mpm/mesh::node-pressure)
+                     ) node
+      (let ((rel-vel (cl-mpm/fastmath::mag (magicl:.* normal node-vel)))
+            (rel-force (cl-mpm/fastmath::mag (magicl:.* normal node-force)))
+            (rel-acc (cl-mpm/fastmath::mag (magicl:.* normal node-acc)))
+            )
+        ;; (when (< rel-vel 0)
+          ;; (magicl:.+ node-vel (magicl:scale normal (sqrt (abs rel-vel))) node-vel)
+          ;; (magicl:.+ node-force (magicl:scale normal (sqrt (abs rel-force))) node-force)
+          ;; )
+        ;; (when (< rel-force 0)
+        ;;   (magicl:.+ node-force (magicl:scale normal (sqrt (abs rel-force))) node-force))
+          ;; (magicl:.+ node-acc (magicl:scale normal (sqrt (abs rel-acc))) node-acc)
+        (when (> rel-force 0)
+          ;; (format t "~f ~%" (+ (sqrt rel-force) node-pressure))
+          (when (> (+ (sqrt rel-force) node-pressure) 0)
+                                        ;(magicl:.+ node-vel (magicl:scale normal (sqrt rel-vel)) node-vel)
+            (setf (magicl:tref node-vel 1 0) 0d0)
+            ;; (setf (magicl:tref node-acc 1 0) (* -1d0 (magicl:tref node-acc 1 0)))
+            ;; (setf (magicl:tref node-force 1 0) (* -1d0 (magicl:tref node-force 1 0)))
+            ))
+        ;; (when (> rel-acc 0)
+        ;;   (setf (magicl:tref node-acc 1 0) 0d0)
+        ;;   )
+        ;; (when (> rel-force 0)
+        ;;   (setf (magicl:tref node-force 1 0) 0d0)
+        ;;   )
+        ))))
 
 (defmethod apply-bc ((bc bc-friction) node mesh dt)
   "Frictional velocity BC over some non-stick surface"
@@ -311,25 +339,28 @@
                           (list (make-bc-fixed (list order     y) '(0d0 nil))
                                 (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))))
 
-(defun make-outside-bc-var (mesh left right top bottom)
+(defun make-outside-bc-var-list (mesh left right top bottom)
   "Construct fixed bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
                    (order cl-mpm/mesh::mesh-boundary-order))
       mesh
     (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
+      (remove nil
+              (loop for o from 0 to order
+                    append
+                    (append
+                     (loop for x from 0 to xsize
+                           append
+                           (list (when bottom (funcall bottom (list x o)))
+                                 (when top (funcall top (list x (- ysize o))))))
+                     (loop for y from 0 to ysize
+                           append
+                           (list (when left (funcall left (list o y)))
+                                 (when right (funcall right (list (- xsize o) y)))))))))))
+(defun make-outside-bc-var (mesh left right top bottom)
+  "Construct fixed bcs over the outside of a mesh"
       (make-bcs-from-list
-       (remove nil
-               (loop for o from 0 to order
-                     append
-                     (append
-                      (loop for x from 0 to xsize
-                            append
-                            (list (when bottom (funcall bottom (list x o)))
-                                  (when top (funcall top (list x (- ysize o))))))
-                      (loop for y from 0 to ysize
-                            append
-                            (list (when left (funcall left (list o y)))
-                                  (when right (funcall right (list (- xsize o) y))))))))))))
+       (make-outside-bc-var-list mesh left right top bottom)))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

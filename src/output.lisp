@@ -196,15 +196,15 @@
                             (cl-mpm/particle:mp-damage mp)
                             0d0))
         (save-parameter "damage_inc"
-                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                        (if (slot-exists-p mp 'cl-mpm/particle::damage-increment)
                             (cl-mpm/particle::mp-damage-increment mp)
                             0d0))
         (save-parameter "damage_ybar"
-                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                             (cl-mpm/particle::mp-damage-ybar mp)
                             0d0))
         (save-parameter "local_length"
-                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                             (cl-mpm/particle::mp-true-local-length mp)
                             0d0))
         )
@@ -236,3 +236,63 @@
                        (coerce (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) 'single-float)
                        ))
       )))
+
+(defun format-scalar-node (stream name id nodes accessor)
+  (format stream "SCALARS ~a FLOAT ~d~%" name 1)
+  (format stream "LOOKUP_TABLE default~%")
+  (destructuring-bind (n m) (array-dimensions nodes)
+    (loop for i from 0 below n do
+      (loop for j from 0 below m
+        do (format stream "~E ~%"
+                   (coerce (funcall accessor (aref nodes i j)) 'single-float)))))
+  (format stream "~%")
+  )
+(defmacro save-parameter-nodes (name accessor)
+  `(progn
+     (format-scalar-node fs ,name id nodes (lambda (node) ,accessor))
+     (incf id)))
+(defun save-vtk-nodes (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (with-accessors ((nodes cl-mpm/mesh::mesh-nodes))
+        mesh
+        (with-open-file (fs filename :direction :output :if-exists :supersede)
+          (format fs "# vtk DataFile Version 2.0~%")
+          (format fs "Lisp generated vtk file, WMC~%")
+          (format fs "ASCII~%")
+          (format fs "DATASET UNSTRUCTURED_GRID~%")
+          (format fs "POINTS ~d double~%" (array-total-size nodes))
+          (destructuring-bind (n m) (array-dimensions nodes)
+            (loop for i from 0 below n do
+              (loop for j from 0 below m
+                do (format fs "~E ~E ~E ~%"
+                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j)) 0 0) 'single-float)
+                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j)) 1 0) 'single-float)
+                           0e0))))
+          (format fs "~%")
+          (let ((id 1))
+            (declare (special id))
+            (format fs "POINT_DATA ~d~%" (array-total-size nodes))
+
+            (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
+
+            (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
+            (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
+
+            (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
+            (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
+            ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
+            ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
+
+            ;; (save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
+            ;; (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
+            ;; (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+            (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+
+            (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)
+                                            (cl-mpm/mesh::node-pressure node)))
+            (save-parameter-nodes "damage"
+                            (if (slot-exists-p node 'cl-mpm/mesh::damage)
+                                (cl-mpm/mesh::node-damage node)
+                                0d0))
+            )
+          ))))

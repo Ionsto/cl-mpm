@@ -89,6 +89,9 @@
    (boundary-scalar
     :accessor node-boundary-scalar
     :initform 0d0)
+   (pressure
+    :accessor node-pressure
+    :initform 0d0)
    (p-wave
     :accessor node-pwave
     :type double-float
@@ -308,7 +311,7 @@
 (declaim (inline in-bounds-1d))
 (defun in-bounds-1d (mesh value dim)
   "Check a single dimension is inside a mesh"
-  (and (>= value 0) (< value (nth dim (slot-value mesh 'mesh-count)))))
+  (and (>= value 0) (< value (nth dim (mesh-count mesh)))))
 (defun in-bounds (mesh pos)
   "Check a position (list) is inside a mesh"
   (and (in-bounds-1d mesh (first pos) 0)
@@ -319,6 +322,12 @@
   ;; (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
   ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
   )
+(declaim (ftype (function (mesh (simple-array fixnume))) in-bounds-array))
+(defun in-bounds-array (mesh pos)
+  (declare (type (simple-array fixnum) pos))
+  "Check a position (list) is inside a mesh"
+  (and (in-bounds-1d mesh (aref pos 0) 0)
+       (in-bounds-1d mesh (aref pos 1) 1)))
 
 (declaim
  (inline position-to-index-array)
@@ -379,6 +388,14 @@
                              (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref (mesh-nodes mesh) pos)))
 
+(defun get-node-array (mesh pos)
+  "Check bounds and get node"
+  (policy-cond:policy-if (> safety speed)
+                         (if (in-bounds-array mesh pos)
+                             (aref (mesh-nodes mesh) (aref pos 0) (aref pos 1))
+                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                         (aref (mesh-nodes mesh) (aref pos 0) (aref pos 1))))
+
 (declaim (inline get-cell)
          (ftype (function (mesh list) cell) get-cell))
 (defun get-cell (mesh pos)
@@ -424,6 +441,7 @@
                (active active)
                (boundary boundary-node)
                (boundary-scalar boundary-scalar)
+               (pressure pressure)
                 (force force))
                 node
     (setf active nil)
@@ -435,6 +453,7 @@
     (setf svp-sum 0d0)
     (setf j 0d0)
     (setf boundary-scalar 0d0)
+    (setf pressure 0d0)
     (setf j-inc 0d0)
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)
