@@ -328,12 +328,12 @@
             (setf mp-count 1))
           )))))
 
-(defun cell-clipping (pos)
-  (<= (magicl:tref pos 1 0) 300)
+(defun cell-clipping (pos datum)
+  (<= (magicl:tref pos 1 0) datum)
   ;; (<= (magicl:tref pos 1 0) 300)
   ;; t
   )
-(defun populate-nodes-volume (mesh)
+(defun populate-nodes-volume (mesh clip-function)
   (cl-mpm::iterate-over-nodes
    mesh
    (lambda (node)
@@ -345,11 +345,11 @@
                       (pos cl-mpm/mesh::node-position)
                       )
          node
-       (when (< volume (* 0.999d0 vt))
-         (when t;(cell-clipping pos)
+       (when (< volume (* 0.95d0 vt))
+         (when (and (funcall clip-function pos))
            (when active
              (setf boundary t))))))))
-(defun populate-nodes-domain (mesh)
+(defun populate-nodes-domain (mesh clip-function)
   (cl-mpm::iterate-over-nodes
    mesh
    (lambda (node)
@@ -361,7 +361,10 @@
                       (pos cl-mpm/mesh::node-position)
                       )
          node
-       (setf boundary t)))))
+       (when (and active
+                  (funcall clip-function pos)
+                  )
+         (setf boundary t))))))
 
 (defun locate-mps-cells (mesh mps)
   "Mark boundary nodes based on neighbour MP inclusion"
@@ -415,15 +418,15 @@
 
 
 (declaim (notinline apply-non-conforming-nuemann))
-(defun apply-non-conforming-nuemann (sim func-stress func-div)
+(defun apply-non-conforming-nuemann (sim func-stress func-div clip-function)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         ;; mesh
       ;; (locate-mps-cells mesh mps)
-      (populate-nodes-volume mesh)
-      ;; (populate-nodes-domain mesh)
+      (populate-nodes-volume mesh clip-function)
+      ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
                        (lambda (mp) (calculate-val-mp mp func-div)))
@@ -458,6 +461,7 @@
        (pressure-virtual-stress (first pressures) (second pressures)))
      (lambda (pos)
        (pressure-virtual-div))
+     (lambda (pos) t)
      )))
 
 (defclass bc-nc-buoyancy (bc)
@@ -520,34 +524,45 @@
                          ))))))
 
 (defun make-bc-buoyancy (sim datum rho)
-  (make-instance 'cl-mpm/bc::bc-closure
-                 :index '(0 0)
-                 :func (lambda ()
-                         (progn
-                           (apply-non-conforming-nuemann
-                            sim
-                            (lambda (pos)
-                              (buoyancy-virtual-stress (tref pos 1 0) datum rho))
-                            (lambda (pos)
-                              (buoyancy-virtual-div (tref pos 1 0) datum rho)))
-                           (with-accessors ((mesh cl-mpm:sim-mesh)
-                                            (mps cl-mpm:sim-mps))
-                               sim
-                             (loop for mp across mps
-                                   do
-                                      (cl-mpm::iterate-over-neighbours
-                                       mesh mp
-                                       (lambda (mesh mp node svp grads fsvp fgrad)
-                                         (when t;(cl-mpm/mesh::node-boundary-node node)
-                                           (with-accessors ((pos cl-mpm/particle:mp-position)
-                                                            (pressure cl-mpm/particle::mp-pressure))
-                                               mp
-                                             (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
-                                           )
-                                         (when (cl-mpm/mesh::node-boundary-node node)
-                                           (with-accessors ((pos cl-mpm/mesh::node-position)
-                                                            (pressure cl-mpm/mesh::node-pressure))
-                                               node
-                                             (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
-                                           )
-                                         ))))))))
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      (make-instance 'cl-mpm/bc::bc-closure
+                     :index '(0 0)
+                     :func (lambda ()
+                             (progn
+                               (apply-non-conforming-nuemann
+                                sim
+                                (lambda (pos)
+                                  (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+                                (lambda (pos)
+                                  (buoyancy-virtual-div (tref pos 1 0) datum rho))
+                                (lambda (pos)
+                                  (and
+                                   (cell-clipping pos datum)
+                                   (>= (magicl:tref pos 1 0) h)
+                                   )
+                                  )
+                                )
+                               (with-accessors ((mesh cl-mpm:sim-mesh)
+                                                (mps cl-mpm:sim-mps))
+                                   sim
+                                 (loop for mp across mps
+                                       do
+                                          (cl-mpm::iterate-over-neighbours
+                                           mesh mp
+                                           (lambda (mesh mp node svp grads fsvp fgrad)
+                                             (when (cl-mpm/mesh::node-boundary-node node)
+                                               (with-accessors ((pos cl-mpm/particle:mp-position)
+                                                                (pressure cl-mpm/particle::mp-pressure))
+                                                   mp
+                                                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
+                                               )
+                                             (when (cl-mpm/mesh::node-boundary-node node)
+                                               (with-accessors ((pos cl-mpm/mesh::node-position)
+                                                                (pressure cl-mpm/mesh::node-pressure))
+                                                   node
+                                                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
+                                               )
+                                             ))))))))))

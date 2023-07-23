@@ -523,6 +523,7 @@
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
                (bcs-force cl-mpm::bcs-force)
+               (bcs-force-list cl-mpm::bcs-force-list)
                (dt cl-mpm::dt)
                (mass-filter cl-mpm::mass-filter)
                (split cl-mpm::allow-mp-split)
@@ -537,6 +538,7 @@
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                      ;; (cl-mpm::filter-grid-volume mesh 1d-8)
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::update-stress mesh mps dt)
@@ -549,7 +551,10 @@
                                                       ))
                     ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
-                    (cl-mpm::apply-bcs mesh bcs-force dt)
+                    ;(cl-mpm::apply-bcs mesh bcs-force dt)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (cl-mpm::apply-bcs mesh bcs-f dt))
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
                     ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)

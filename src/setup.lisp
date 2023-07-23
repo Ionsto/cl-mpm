@@ -88,11 +88,23 @@
 
 (defun remove-sdf (sim sdf)
   (setf (cl-mpm:sim-mps sim)
-        (lparallel:premove-if (lambda (mp)
-                                (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-                                  (>= 0 (funcall sdf pos))
-                                  ))
-                              (cl-mpm:sim-mps sim))))
+        (remove-if (lambda (mp)
+                     (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                       (>= 0 (funcall sdf pos))
+                       ))
+                   (cl-mpm:sim-mps sim))))
+
+(defun damage-sdf (sim sdf &optional (d 1d0))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (loop for mp across mps
+          do (with-accessors ((pos cl-mpm/particle:mp-position)
+                              (damage cl-mpm/particle:mp-damage)) mp
+               ;; (setf damage (funcall sdf pos))
+               (when (>= 0 (funcall sdf pos))
+                 (setf damage (coerce d 'double-float)))
+               ))))
+
 (defun rectangle-sdf (position size)
   (lambda (pos)
       (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
@@ -116,3 +128,20 @@
         (- distance x-l)))))
 (defun circle-sdf (position radius)
   (ellipse-sdf position radius radius))
+
+(defun line-sdf (position a b width)
+  (let* ((start (magicl:from-list a '(2 1) :type 'double-float))
+         (end (magicl:from-list b '(2 1) :type 'double-float))
+         (pa (magicl:.- position start))
+         (ba (magicl:.- end start))
+         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmath::dot pa ba)
+                                 (cl-mpm/fastmath::dot ba ba)
+                                 ))))
+         (v (magicl:.- pa (magicl:scale ba h)))
+         )
+    (- (sqrt (cl-mpm/fastmath::dot v v)) width)))
+(defun plane-sdf (position normal distance)
+  (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal))))
+(defun plane-point-sdf (position normal point)
+  (let ((distance (cl-mpm/fastmath::dot point (cl-mpm/fastmath::norm normal))))
+    (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal)))))

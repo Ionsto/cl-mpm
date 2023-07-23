@@ -56,6 +56,10 @@
     :accessor sim-bcs-force
     :initarg :bcs-force
     :initform (make-array 0))
+   (bcs-force-list
+    :accessor sim-bcs-force-list
+    :initarg :bcs-force-list
+    :initform nil)
    (damping-factor
      :type double-float
      :accessor sim-damping-factor
@@ -175,6 +179,7 @@
                (mps mps)
                (bcs bcs)
                (bcs-force bcs-force)
+               (bcs-force-list bcs-force-list)
                (dt dt)
                (mass-filter mass-filter)
                (split allow-mp-split)
@@ -192,13 +197,15 @@
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
-                    Map forces onto nodes
+                    ;; Map forces onto nodes
                     (p2g-force mesh mps)
-                    (apply-bcs mesh bcs-force dt)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (apply-bcs mesh bcs-f dt))
                     (update-node-forces mesh (sim-damping-factor sim) dt (sim-mass-scale sim))
-                    Reapply velocity BCs
+                    ;; Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
-                    Also updates mps inline
+                    ;; Also updates mps inline
                     (g2p mesh mps dt)
 
                     (when remove-damage
@@ -851,7 +858,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass dt damping))
         (progn
-          (magicl:scale acc 0d0)
+          (magicl:scale! acc 0d0)
+          ;;Set acc to f/m
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
           (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
           ;; (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
@@ -1152,25 +1160,25 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (let ((F (cl-mpm/utils::matrix-zeros)))
-            (magicl:mult def def :target F :transb :t)
-            (multiple-value-bind (l v) (magicl:eig F)
-              (let ((stretch
-                      (magicl:@
-                       v
-                       (cl-mpm/utils::matrix-from-list
-                        (list (the double-float (sqrt (the double-float (nth 0 l))))
-                              0d0 0d0
-                              (the double-float (sqrt (the double-float (nth 1 l))))))
-                       (magicl:transpose v)))
-                    )
-                (declare (type magicl:matrix/double-float stretch))
-                (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                                           (the double-float (tref stretch 0 0))))
-                (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                                           (the double-float (tref stretch 1 1))))
-                )))
-          ;; (update-domain-corner mesh mp dt)
+          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
+          ;;   (magicl:mult def def :target F :transb :t)
+          ;;   (multiple-value-bind (l v) (magicl:eig F)
+          ;;     (let ((stretch
+          ;;             (magicl:@
+          ;;              v
+          ;;              (cl-mpm/utils::matrix-from-list
+          ;;               (list (the double-float (sqrt (the double-float (nth 0 l))))
+          ;;                     0d0 0d0
+          ;;                     (the double-float (sqrt (the double-float (nth 1 l))))))
+          ;;              (magicl:transpose v)))
+          ;;           )
+          ;;       (declare (type magicl:matrix/double-float stretch))
+          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+          ;;                                  (the double-float (tref stretch 0 0))))
+          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+          ;;                                  (the double-float (tref stretch 1 1))))
+          ;;       )))
+          (update-domain-corner mesh mp dt)
           ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
           ;;                             (the double-float (tref df 0 0))))
           ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
@@ -1361,6 +1369,17 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (setf (cl-mpm/mesh::node-active node) nil)
         (cl-mpm/mesh:reset-node node)
         )))))
+(defun filter-grid-volume (mesh volume-ratio)
+  (declare (cl-mpm/mesh::mesh mesh) (double-float volume-ratio))
+  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+    (dotimes (i (array-total-size nodes))
+      (let ((node (row-major-aref nodes i)))
+        (when (and (cl-mpm/mesh:node-active node)
+                   (< (the double-float (cl-mpm/mesh:node-mass node))
+                      (* volume-ratio (the double-float (cl-mpm/mesh::node-volume-true node)))))
+          (setf (cl-mpm/mesh::node-active node) nil)
+          (cl-mpm/mesh:reset-node node)
+          )))))
 
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
