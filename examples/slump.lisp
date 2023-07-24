@@ -491,7 +491,7 @@
   (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 200)
-         (shelf-aspect 2)
+         (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          )
     (defparameter *sim*
@@ -631,7 +631,7 @@
           do (format stream "~f, ~f ~%" tim x)))
  (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.5d0)
+         (dt-scale 0.1d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
