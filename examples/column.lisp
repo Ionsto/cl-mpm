@@ -80,7 +80,7 @@
          )
     (progn
       (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
-                                  (* h-y (+ 8 (/ 1d0 (* 2d0 mp-scale)) )))))
+                                  (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
         ;; (print block-position)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
@@ -112,16 +112,22 @@
                                            (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
                                            ))
       sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(defun simple-time ()
+  (setup)
+  (time
+   (dotimes (i 1000)
+     (cl-mpm::update-sim *sim*))))
 ;Setup
 (defun setup ()
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
-  (let* ((e 16)
+  (let* ((e (expt 2 4))
         (L 50d0)
         (h (/ L e)))
     (defparameter *sim* (setup-test-column (list 1 (+ L h))
-                                           ;(list h L)
-                                           (list (* 1 h) (* 4 h))
+                                           (list h L)
+                                           ;(list 0d0 0d0)
+                                           ;(list (* 1 h) (* 4 h))
                                            (/ 1d0 h) 2)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -191,7 +197,7 @@
       (vgplot:format-plot t "set xtics ~f" h))
   (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 0.1d0)
          (substeps (floor target-time dt)))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -310,3 +316,13 @@
     ;; (vgplot:plot x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline nodes x 0 1d0)) x) ""
     ;;              x (mapcar (lambda (x) (cl-mpm/shape-function::nodal-bspline-dsvp nodes x 1 1d0)) x)) ""
     ))
+
+(defun test ()
+  (let ((a (make-array 2 :initial-contents '(0d0 0d0) :element-type 'double-float))
+        (b (make-array 2 :initial-contents '(0d0 0d0) :element-type 'double-float))
+        )
+    ;(declare ((simple-array double-float 2) a b))
+    (time
+     (dotimes (i 1000000)
+       (map '(vector double-float 2) #'+ a b)
+       ))))

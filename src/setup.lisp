@@ -38,6 +38,7 @@
            sim)))
 
 (defun make-block-mps-list (offset size mps density constructor &rest args)
+  "Construct a block of mxn (mps) material points real size (size) with a density (density)"
   (let*  ((nD 2)
           (spacing (mapcar #'/ size mps))
           (volume (* (first spacing) (second spacing)))

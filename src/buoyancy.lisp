@@ -366,7 +366,7 @@
                   )
          (setf boundary t))))))
 
-(defun locate-mps-cells (mesh mps)
+(defun locate-mps-cells (mesh mps clip-function)
   "Mark boundary nodes based on neighbour MP inclusion"
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     ;;The aproach described by the paper
@@ -388,10 +388,10 @@
             cell
           (setf boundary nil)
           (when (and (= mp-count 0)
-                     (cell-clipping pos) (not pruned))
+                     (funcall clip-function pos) (not pruned))
               (loop for neighbour in neighbours
                     do
-                       (when (cell-clipping (cl-mpm/mesh::cell-centroid neighbour))
+                       (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
                          (check-neighbour-cell neighbour)
                          (setf boundary t)
                          (loop for n in nodes
@@ -424,8 +424,8 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         ;; mesh
-      ;; (locate-mps-cells mesh mps)
-      (populate-nodes-volume mesh clip-function)
+        (locate-mps-cells mesh mps clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
@@ -541,7 +541,7 @@
                                 (lambda (pos)
                                   (and
                                    (cell-clipping pos datum)
-                                   (>= (magicl:tref pos 1 0) h)
+                                   (>= (magicl:tref pos 1 0) (* 0 h))
                                    )
                                   )
                                 )

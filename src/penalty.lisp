@@ -16,55 +16,60 @@
 (in-package :cl-mpm/penalty)
 
 
-(defun pentration-distance (mp datum)
-  (let* ((ypos (magicl:tref (cl-mpm/particle:mp-position mp) 1 0))
-         (yheight (* 0.5d0 (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0)))
+(defun penetration-distance (mp datum normal)
+  "Get linear penetration distance"
+  (let* (
+         (ypos (magicl::sum (magicl:.* (cl-mpm/particle:mp-position mp) normal)))
+         (yheight (* 0.5d0 (magicl::sum (magicl:.* (cl-mpm/particle::mp-domain-size mp) normal))))
         (dist (- datum (- ypos yheight))))
-    dist
-    ))
+    (the double-float dist)))
+(defun penetration-point (mp pen datum normal)
+  "Get linear penetration distance"
+  (let* ((pos (cl-mpm/particle:mp-position mp))
+         (domain (cl-mpm/particle::mp-domain-size mp)))
+    (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 pen)))))
 
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps datum epsilon)
   "Update force on nodes, with virtual stress field from mps"
-  (lparallel:pdotimes (i (length mps))
-    (let ((mp (aref mps i)))
+  (let ((normal (cl-mpm/fastmath::norm (magicl:from-list '(0d0 1d0) '(2 1)))))
+    (lparallel:pdotimes
+     (i (length mps))
+     (let ((mp (aref mps i)))
 
-      (let* ((pos (cl-mpm/particle:mp-position mp))
-            (ypos (magicl:tref (cl-mpm/particle:mp-position mp) 1 0))
-            (yheight (* 1.0d0 0.5d0 (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0)))
-            (penetration-dist (- datum (- ypos yheight))));(pentration-distance mp datum)))
-        (declare (double-float penetration-dist))
-        (when (> penetration-dist 0d0)
-          (with-accessors ((volume cl-mpm/particle:mp-volume)
-                           (pressure cl-mpm/particle::mp-pressure)
-                           )
-              mp
-            (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-              ;;Iterate over neighbour nodes
-              (cl-mpm::iterate-over-neighbours-point-linear
-               mesh (.+ pos (magicl:from-list (list 0d0 (- yheight)) '(2 1)))
-               (lambda (mesh node svp grads)
-                 (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                  (node-lock  cl-mpm/mesh:node-lock)
-                                  (node-boundary cl-mpm/mesh::node-boundary-node)
-                                  (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                  (node-active  cl-mpm/mesh:node-active))
-                     node
-                   (declare (double-float volume svp))
-                   (when node-active
-                     ;;Lock node for multithreading
-                     (sb-thread:with-mutex (node-lock)
-                       ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                       (let ((force (cl-mpm/utils:vector-zeros)))
-                         (setf (tref force 1 0) (+ (* penetration-dist epsilon)
-                                                   ;; (- (* pressure volume))
-                                                   0d0
-                                                   ))
-                         (cl-mpm/fastmath::fast-fmacc node-force
-                                                      force
-                                                      ;; svp
-                                                      (* svp volume)
-                                                      ))))))))))))))
+       (let* ((penetration-dist (penetration-distance mp datum normal)))
+         (declare (double-float penetration-dist))
+         (when (> penetration-dist 0d0)
+           (with-accessors ((volume cl-mpm/particle:mp-volume)
+                            (pressure cl-mpm/particle::mp-pressure)
+                            )
+               mp
+             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
+               ;;Iterate over neighbour nodes
+               (cl-mpm::iterate-over-neighbours-point-linear
+                mesh pen-point
+                (lambda (mesh node svp grads)
+                  (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                   (node-lock  cl-mpm/mesh:node-lock)
+                                   (node-boundary cl-mpm/mesh::node-boundary-node)
+                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                   (node-active  cl-mpm/mesh:node-active))
+                      node
+                    (declare (double-float volume svp))
+                    (when node-active
+                      ;;Lock node for multithreading
+                      (sb-thread:with-mutex (node-lock)
+                        ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                        (let ((force (cl-mpm/utils:vector-zeros)))
+                          (setf (tref force 1 0) (+ (* penetration-dist epsilon)
+                                                    ;; (- (* pressure volume))
+                                                    0d0
+                                                    ))
+                          (cl-mpm/fastmath::fast-fmacc node-force
+                                                       force
+                                                       ;; svp
+                                                       (* svp volume)
+                                                       )))))))))))))))
 
 ;; (declaim (notinline apply-non-conforming-nuemann))
 ;; (defun apply-non-conforming-nuemann (sim func-stress func-div)
@@ -85,10 +90,10 @@
 ;;                          )
 ;;       )))
 (defun apply-penalty (sim datum epsilon)
-    (with-accessors ((mesh cl-mpm:sim-mesh)
-                     (mps cl-mpm::sim-mps))
-        sim
-      (apply-force-mps mesh mps datum epsilon)))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      sim
+    (apply-force-mps mesh mps datum epsilon)))
 
 (defclass bc-penalty (bc)
   ()

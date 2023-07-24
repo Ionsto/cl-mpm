@@ -1160,25 +1160,25 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
-          ;;   (magicl:mult def def :target F :transb :t)
-          ;;   (multiple-value-bind (l v) (magicl:eig F)
-          ;;     (let ((stretch
-          ;;             (magicl:@
-          ;;              v
-          ;;              (cl-mpm/utils::matrix-from-list
-          ;;               (list (the double-float (sqrt (the double-float (nth 0 l))))
-          ;;                     0d0 0d0
-          ;;                     (the double-float (sqrt (the double-float (nth 1 l))))))
-          ;;              (magicl:transpose v)))
-          ;;           )
-          ;;       (declare (type magicl:matrix/double-float stretch))
-          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-          ;;                                  (the double-float (tref stretch 0 0))))
-          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-          ;;                                  (the double-float (tref stretch 1 1))))
-          ;;       )))
-          (update-domain-corner mesh mp dt)
+          (let ((F (cl-mpm/utils::matrix-zeros)))
+            (magicl:mult def def :target F :transb :t)
+            (multiple-value-bind (l v) (magicl:eig F)
+              (let ((stretch
+                      (magicl:@
+                       v
+                       (cl-mpm/utils::matrix-from-list
+                        (list (the double-float (sqrt (the double-float (nth 0 l))))
+                              0d0 0d0
+                              (the double-float (sqrt (the double-float (nth 1 l))))))
+                       (magicl:transpose v)))
+                    )
+                (declare (type magicl:matrix/double-float stretch))
+                (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                                           (the double-float (tref stretch 0 0))))
+                (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                                           (the double-float (tref stretch 1 1))))
+                )))
+          ;; (update-domain-corner mesh mp dt)
           ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
           ;;                             (the double-float (tref df 0 0))))
           ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
@@ -1394,7 +1394,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               mp
                             (and (>= damage 1d0)
                                  ;; (or
-                                  (split-criteria mp h)
+                                  ;; (split-criteria mp h)
                                  ;;  (< (magicl:det def) 1d-3)
                                  ;;  )
                                  ))) mps)))
