@@ -30,7 +30,7 @@
     (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 pen)))))
 
 ;;Only vertical condition
-(defun apply-force-mps (mesh mps datum epsilon)
+(defun apply-force-mps (mesh mps datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   (let ((normal (cl-mpm/fastmath::norm (magicl:from-list '(0d0 1d0) '(2 1)))))
     (lparallel:pdotimes
@@ -42,6 +42,7 @@
          (when (> penetration-dist 0d0)
            (with-accessors ((volume cl-mpm/particle:mp-volume)
                             (pressure cl-mpm/particle::mp-pressure)
+                            (mp-vel cl-mpm/particle::mp-velocity)
                             )
                mp
              (let ((pen-point (penetration-point mp penetration-dist datum normal)))
@@ -60,11 +61,14 @@
                       ;;Lock node for multithreading
                       (sb-thread:with-mutex (node-lock)
                         ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                        (let ((force (cl-mpm/utils:vector-zeros)))
-                          (setf (tref force 1 0) (+ (* penetration-dist epsilon)
-                                                    ;; (- (* pressure volume))
-                                                    0d0
-                                                    ))
+                        (let* ((force (cl-mpm/utils:vector-zeros))
+                               (normal-force (* penetration-dist epsilon))
+                               (reaction-force (magicl:scale normal normal-force))
+                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
+                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
+                              )
+                          (cl-mpm/fastmath::fast-add force reaction-force)
+                          (cl-mpm/fastmath::fast-fmacc force tang-vel (* -1d0 friction normal-force))
                           (cl-mpm/fastmath::fast-fmacc node-force
                                                        force
                                                        ;; svp
@@ -89,17 +93,17 @@
 ;;                          func-div
 ;;                          )
 ;;       )))
-(defun apply-penalty (sim datum epsilon)
+(defun apply-penalty (sim datum epsilon friction)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
-    (apply-force-mps mesh mps datum epsilon)))
+    (apply-force-mps mesh mps datum epsilon friction)))
 
 (defclass bc-penalty (bc)
   ()
   (:documentation "A nonconforming neumann bc"))
 
-(defun make-bc-penalty (sim datum epsilon)
+(defun make-bc-penalty (sim datum epsilon friction)
   (make-instance 'cl-mpm/bc::bc-closure
                  :index '(0 0)
                  :func (lambda ()
@@ -107,4 +111,5 @@
                            (apply-penalty
                             sim
                             datum
-                            epsilon)))))
+                            epsilon
+                            friction)))))

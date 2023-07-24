@@ -136,6 +136,14 @@
                (:file "src/buoyancy")
                ))
 
+(defsystem "cl-mpm/penalty"
+  :depends-on ("cl-mpm"
+               "cl-mpm/bc")
+  :description ""
+  :components (
+               (:file "src/penalty")
+               ))
+
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
 (defsystem "cl-mpm/example"
@@ -187,6 +195,7 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
                "cl-mpm/eigenerosion"
                "cl-mpm/damage"
                "vgplot"

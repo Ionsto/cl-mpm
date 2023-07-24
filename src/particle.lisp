@@ -974,18 +974,17 @@
                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
-                              (esii (- sii
-                                       driving-pressure))
-                              )
+                              (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* sii (max 0d-8 degredation)))
+                           (setf (nth i l) (* esii (max 0d-8 degredation)))
+                           (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          (when (< esii 0d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l) (* sii (max 1d-2 degredation)))
+                           (setf (nth i l) (* esii (max 1d-2 degredation)))
+                           (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
-                         (setf (nth i l) (+ (nth i l) driving-pressure))
                          ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
                          ))
               (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v

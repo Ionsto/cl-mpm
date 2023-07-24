@@ -107,7 +107,7 @@
       (cl-mpm/damage::diff-squared mp *dist-mp*)
       ;; ll
       )))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :point))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -360,7 +360,7 @@
                :visc-power 3d0
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-6
+               :damage-rate 1d-5
                :critical-damage 0.50d0
                :local-length 50d0
                :local-length-damaged 1d0
@@ -403,7 +403,7 @@
              ))
       (format t "Bottom level ~F~%" h-y)
       (let ((ocean-x 1000)
-            (ocean-y (+ h-y h-y (* 0.80d0 (second block-size)))))
+            (ocean-y (+ h-y (* 0.20d0 (second block-size)))))
 
         (loop for mp across (cl-mpm:sim-mps sim)
               do
@@ -436,8 +436,9 @@
                 (list
                  (cl-mpm/penalty::make-bc-penalty
                   sim
-                  (* 2 h-y)
+                  (* 1 h-y)
                   1d6
+                  1d3
                   )
                  ))
                 ;; (cl-mpm/bc::make-outside-bc-var
@@ -490,13 +491,13 @@
   (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 200)
-         (shelf-aspect 8)
+         (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 200))
-                         (list shelf-length shelf-height) (list 000 (* 2 mesh-size)) (/ 1 mesh-size) mps-per-cell))
+                         (list shelf-length shelf-height) (list 000 (* 1 mesh-size)) (/ 1 mesh-size) mps-per-cell))
 
     ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
@@ -512,18 +513,18 @@
     ;; (loop for mp across (cl-mpm:sim-mps *sim*)
     ;;       do
     ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.5d0)))
-    (let* ((undercut-angle -70d0)
-           (normal (magicl:from-list (list
-                                      (cos (- (* pi (/ undercut-angle 180d0))))
-                                      (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
-           (cutback (* shelf-height (/ 1d0 (cos (- (* pi (/ undercut-angle 180d0)))))))
-           )
-      (remove-sdf *sim* (lambda (p) (plane-point-sdf p
-                                                     normal
-                                                     (magicl:from-list (list (- shelf-length cutback)
-                                                                             shelf-height)
-                                                                       '(2 1) :type 'double-float)
-                                                     ))))
+    ;; (let* ((undercut-angle -70d0)
+    ;;        (normal (magicl:from-list (list
+    ;;                                   (cos (- (* pi (/ undercut-angle 180d0))))
+    ;;                                   (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+    ;;        (cutback (* shelf-height (/ 1d0 (cos (- (* pi (/ undercut-angle 180d0)))))))
+    ;;        )
+    ;;   (remove-sdf *sim* (lambda (p) (plane-point-sdf p
+    ;;                                                  normal
+    ;;                                                  (magicl:from-list (list (- shelf-length cutback)
+    ;;                                                                          shelf-height)
+    ;;                                                                    '(2 1) :type 'double-float)
+    ;;                                                  ))))
     ;; (let* ((undercut-angle 10d0)
     ;;        (normal (magicl:from-list (list
     ;;                                        (cos (- (* pi (/ undercut-angle 180d0))))
@@ -628,9 +629,9 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d4)
+ (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 0.5d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
