@@ -70,8 +70,8 @@
                          (cl-mpm/fastmath::fast-fmacc force tang-vel (* -1d0 friction normal-force))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
-                                                      ;; svp
-                                                      (* svp volume)
+                                                      svp
+                                                      ;; (* svp volume)
                                                       ))))))))))))))
 
 ;; (declaim (notinline apply-non-conforming-nuemann))
