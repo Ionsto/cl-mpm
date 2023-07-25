@@ -30,50 +30,49 @@
     (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 pen)))))
 
 ;;Only vertical condition
-(defun apply-force-mps (mesh mps datum epsilon friction)
+(defun apply-force-mps (mesh mps normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
-  (let ((normal (cl-mpm/fastmath::norm (magicl:from-list '(0d0 1d0) '(2 1)))))
-    (lparallel:pdotimes
-     (i (length mps))
-     (let ((mp (aref mps i)))
+  (lparallel:pdotimes
+      (i (length mps))
+    (let ((mp (aref mps i)))
 
-       (let* ((penetration-dist (penetration-distance mp datum normal)))
-         (declare (double-float penetration-dist))
-         (when (> penetration-dist 0d0)
-           (with-accessors ((volume cl-mpm/particle:mp-volume)
-                            (pressure cl-mpm/particle::mp-pressure)
-                            (mp-vel cl-mpm/particle::mp-velocity)
-                            )
-               mp
-             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
-               ;;Iterate over neighbour nodes
-               (cl-mpm::iterate-over-neighbours-point-linear
-                mesh pen-point
-                (lambda (mesh node svp grads)
-                  (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                   (node-lock  cl-mpm/mesh:node-lock)
-                                   (node-boundary cl-mpm/mesh::node-boundary-node)
-                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                   (node-active  cl-mpm/mesh:node-active))
-                      node
-                    (declare (double-float volume svp))
-                    (when node-active
-                      ;;Lock node for multithreading
-                      (sb-thread:with-mutex (node-lock)
-                        ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                        (let* ((force (cl-mpm/utils:vector-zeros))
-                               (normal-force (* penetration-dist epsilon))
-                               (reaction-force (magicl:scale normal normal-force))
-                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
-                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
+      (let* ((penetration-dist (penetration-distance mp datum normal)))
+        (declare (double-float penetration-dist))
+        (when (> penetration-dist 0d0)
+          (with-accessors ((volume cl-mpm/particle:mp-volume)
+                           (pressure cl-mpm/particle::mp-pressure)
+                           (mp-vel cl-mpm/particle::mp-velocity)
+                           )
+              mp
+            (let ((pen-point (penetration-point mp penetration-dist datum normal)))
+              ;;Iterate over neighbour nodes
+              (cl-mpm::iterate-over-neighbours-point-linear
+               mesh pen-point
+               (lambda (mesh node svp grads)
+                 (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                  (node-lock  cl-mpm/mesh:node-lock)
+                                  (node-boundary cl-mpm/mesh::node-boundary-node)
+                                  (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                  (node-active  cl-mpm/mesh:node-active))
+                     node
+                   (declare (double-float volume svp))
+                   (when node-active
+                     ;;Lock node for multithreading
+                     (sb-thread:with-mutex (node-lock)
+                       ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                       (let* ((force (cl-mpm/utils:vector-zeros))
+                              (normal-force (* penetration-dist epsilon))
+                              (reaction-force (magicl:scale normal normal-force))
+                              (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
+                              (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               )
-                          (cl-mpm/fastmath::fast-add force reaction-force)
-                          (cl-mpm/fastmath::fast-fmacc force tang-vel (* -1d0 friction normal-force))
-                          (cl-mpm/fastmath::fast-fmacc node-force
-                                                       force
-                                                       ;; svp
-                                                       (* svp volume)
-                                                       )))))))))))))))
+                         (cl-mpm/fastmath::fast-add force reaction-force)
+                         (cl-mpm/fastmath::fast-fmacc force tang-vel (* -1d0 friction normal-force))
+                         (cl-mpm/fastmath::fast-fmacc node-force
+                                                      force
+                                                      ;; svp
+                                                      (* svp volume)
+                                                      ))))))))))))))
 
 ;; (declaim (notinline apply-non-conforming-nuemann))
 ;; (defun apply-non-conforming-nuemann (sim func-stress func-div)
@@ -93,23 +92,41 @@
 ;;                          func-div
 ;;                          )
 ;;       )))
-(defun apply-penalty (sim datum epsilon friction)
+(defun apply-penalty (sim normal datum epsilon friction)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
-    (apply-force-mps mesh mps datum epsilon friction)))
+    (apply-force-mps mesh mps normal datum epsilon friction)))
 
 (defclass bc-penalty (bc)
   ()
   (:documentation "A nonconforming neumann bc"))
 
 (defun make-bc-penalty (sim datum epsilon friction)
-  (make-instance 'cl-mpm/bc::bc-closure
-                 :index '(0 0)
-                 :func (lambda ()
-                         (progn
-                           (apply-penalty
-                            sim
-                            datum
-                            epsilon
-                            friction)))))
+  (let ((normal (cl-mpm/fastmath::norm (magicl:from-list '(0d0 1d0) '(2 1)))))
+    (make-instance 'cl-mpm/bc::bc-closure
+                   :index '(0 0)
+                   :func (lambda ()
+                           (progn
+                             (apply-penalty
+                              sim
+                              normal
+                              datum
+                              epsilon
+                              friction))))))
+
+(defun make-bc-penalty-point-normal (sim normal point epsilon friction)
+  (let* ((normal (cl-mpm/fastmath::norm normal))
+         (datum (cl-mpm/fastmath::dot normal point))
+         )
+    (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
+    (make-instance 'cl-mpm/bc::bc-closure
+                   :index '(0 0)
+                   :func (lambda ()
+                           (progn
+                             (apply-penalty
+                              sim
+                              normal
+                              datum
+                              epsilon
+                              friction))))))
