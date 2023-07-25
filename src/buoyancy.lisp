@@ -333,6 +333,42 @@
   ;; (<= (magicl:tref pos 1 0) 300)
   ;; t
   )
+(defun populate-cells-volume (mesh clip-function)
+  (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+    (lparallel:pdotimes (i (array-total-size cells))
+      (let ((cell (row-major-aref cells i)))
+        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                         (neighbours cl-mpm/mesh::cell-neighbours)
+                         (index cl-mpm/mesh::cell-index)
+                         (nodes cl-mpm/mesh::cell-nodes)
+                         (pruned cl-mpm/mesh::cell-pruned)
+                         (boundary cl-mpm/mesh::cell-boundary)
+                         (pos cl-mpm/mesh::cell-centroid)
+                         (vt cl-mpm/mesh::cell-volume)
+                         )
+            cell
+          (setf boundary nil)
+          (when (and (funcall clip-function pos) ;(not pruned)
+                     )
+              (loop for neighbour in neighbours
+                    do
+                       (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
+                         (let ((vest 0d0))
+                           (loop for n in nodes
+                                 do
+                                    (when (cl-mpm/mesh:node-active n)
+                                      (incf vest
+                                            (* 0.25d0 (cl-mpm/mesh::node-volume n)))
+                                      ))
+                           (when (< vest (* 0.95d0 vt))
+                             (setf boundary t)
+                             (loop for n in nodes
+                                   do
+                                      (when (cl-mpm/mesh:node-active n)
+                                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                          (setf (cl-mpm/mesh::node-boundary-node n) t))))))))
+              ))))
+    ))
 (defun populate-nodes-volume (mesh clip-function)
   (cl-mpm::iterate-over-nodes
    mesh
@@ -425,6 +461,7 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         ;; mesh
         (locate-mps-cells mesh mps clip-function)
+        ;; (populate-cells-volume mesh clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
@@ -541,7 +578,7 @@
                                 (lambda (pos)
                                   (and
                                    (cell-clipping pos datum)
-                                   (>= (magicl:tref pos 1 0) (* 0 h))
+                                   (>= (magicl:tref pos 1 0) (* 1 h))
                                    )
                                   )
                                 )
