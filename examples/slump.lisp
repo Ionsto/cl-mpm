@@ -107,7 +107,7 @@
       (cl-mpm/damage::diff-squared mp *dist-mp*)
       ;; ll
       )))
-(defun plot (sim &optional (plot :point))
+(defun plot (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -334,6 +334,7 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
+         (angle 0d0)
          (density *ice-density*)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
@@ -343,44 +344,48 @@
                                 (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
                       block-offset)))
         (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-block-mps
-               block-position
-               block-size
-               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-               density
-               'cl-mpm::make-particle
-               ;; 'cl-mpm/particle::particle-elastic
-               ;; 'cl-mpm/particle::particle-elastic-damage
-               ;; 'cl-mpm/particle::particle-viscoplastic
-               'cl-mpm/particle::particle-viscoplastic-damage
-               ;; 'cl-mpm/particle::particle-glen
-               :E 1d9
-               :nu 0.3250d0
-               :visc-factor 111d6
-               :visc-power 3d0
+              (cl-mpm/setup::make-mps-from-list
+               (cl-mpm/setup::make-block-mps-sloped-list
+                block-position
+                block-size
+                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                density
+                ;; 'cl-mpm::make-particle
+                ;; 'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-elastic-damage
+                ;; 'cl-mpm/particle::particle-viscoplastic
+                'cl-mpm/particle::particle-viscoplastic-damage
+                ;; 'cl-mpm/particle::particle-glen
+                :E 1d9
+                :nu 0.3250d0
+                :visc-factor 111d6
+                :visc-power 3d0
 
-               :initiation-stress 0.33d6
-               :damage-rate 1d-5
-               :critical-damage 0.50d0
-               :local-length 50d0
-               :local-length-damaged 1d0
-               ;:local-length-damaged 0.1d0
-               :damage 0.0d0
+                :initiation-stress 0.33d6
+                :damage-rate 1d-6
+                :critical-damage 0.50d0
+                :local-length 50d0
+                :local-length-damaged 0.1d0
+                                        ;:local-length-damaged 0.1d0
+                :damage 0.0d0
 
-               :gravity -9.8d0
-               ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
-               :index 0
-               ))
+                :gravity -9.8d0
+                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
+                :index 0
+                ;:angle angle
+                :slope 0d0 ;-0.01d0
+                )))
         )
-      (let ((mass-scale 1d7))
+      (let ((mass-scale 1d8))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              ;; (* 0.00001d0 mass-scale)
+              (* 0.0001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
-              0.1d0
+              ;; 0.1d0
+              ;; 0.1d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -402,8 +407,10 @@
              ;; (lambda (i) (cl-mpm/bc:make-bc-surface i (magicl:from-list (list 0d0 1d0) '(2 1))))
              ))
       (format t "Bottom level ~F~%" h-y)
-      (let ((ocean-x 1000)
-            (ocean-y (+ h-y (* 0.20d0 (second block-size)))))
+      (let* ((ocean-x 1000)
+            (ocean-y (+ h-y (* 0.00d0 (second block-size))))
+            ;(angle -1d0)
+            )
 
         (loop for mp across (cl-mpm:sim-mps sim)
               do
@@ -424,21 +431,25 @@
         (defparameter *water-height* ocean-y)
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
+               ;; (cl-mpm/bc:make-bcs-from-list
+               ;;  (list
+               ;;   (cl-mpm/buoyancy::make-bc-buoyancy
+               ;;    sim
+               ;;    ocean-y
+               ;;    *water-density*
+               ;;    )
+               ;;   ))
                (cl-mpm/bc:make-bcs-from-list
                 (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy
+                 (cl-mpm/penalty::make-bc-penalty-point-normal
                   sim
-                  ocean-y
-                  *water-density* 
-                  )
-                 ))
-               (cl-mpm/bc:make-bcs-from-list
-                (list
-                 (cl-mpm/penalty::make-bc-penalty
-                  sim
-                  (* 1 h-y)
-                  1d6
-                  1d3
+                  ;; (* 1 h-y)
+                  (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
+                                          (cos (+ (* pi (/ angle 180d0))))) '(2 1))
+                  (magicl:from-list (list 00d0 (+ 0d0 h-y)) '(2 1))
+                  ;; (/ 1d10 h-y)
+                  1d8
+                  1d4
                   )
                  ))
                 ;; (cl-mpm/bc::make-outside-bc-var
@@ -481,23 +492,29 @@
       ;;           )))))
       sim)))
 
-(defparameter *ice-density* 850)
-(defparameter *water-density* 1028)
+(defparameter *ice-density* 900)
+(defparameter *water-density* 1000)
 ;; (defparameter *ice-density* 900)
 ;; (defparameter *water-density* 1000)
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 200)
-         (shelf-aspect 3)
+         (slope -0.00)
+         (shelf-height 135)
+         (shelf-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
+         (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
+         (shelf-height-terminus shelf-height)
+         (shelf-height shelf-end-height)
+         (offset (list 0 0))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
-                                                 (+ shelf-height 200))
-                         (list shelf-length shelf-height) (list 000 (* 1 mesh-size)) (/ 1 mesh-size) mps-per-cell))
+                                                 (+ shelf-height 100))
+                         (list shelf-length shelf-height)
+                         (mapcar #'+ offset (list 000 (* 1 mesh-size))) (/ 1 mesh-size) mps-per-cell))
 
     ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
@@ -513,6 +530,19 @@
     ;; (loop for mp across (cl-mpm:sim-mps *sim*)
     ;;       do
     ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.5d0)))
+    ;; (let* ((normal (cl-mpm/fastmath::norm
+    ;;                 (magicl:from-list (list
+    ;;                                    (- slope)
+    ;;                                    1d0) '(2 1))))
+    ;;        )
+    ;;   (remove-sdf *sim*
+    ;;               (lambda (p)
+    ;;                 (plane-point-sdf
+    ;;                  p
+    ;;                  normal
+    ;;                  (magicl:from-list (list shelf-length
+    ;;                                          shelf-height-terminus)
+    ;;                                    '(2 1) :type 'double-float)))))
     ;; (let* ((undercut-angle -70d0)
     ;;        (normal (magicl:from-list (list
     ;;                                   (cos (- (* pi (/ undercut-angle 180d0))))
@@ -631,7 +661,7 @@
           do (format stream "~f, ~f ~%" tim x)))
  (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.1d0)
+         (dt-scale 1d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
@@ -784,7 +814,7 @@
   (vgplot:title "CFL over time")
   (vgplot:plot *time* *cfl-max*))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 
 (defun profile ()
   (sb-profile:unprofile)
