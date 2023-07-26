@@ -31,7 +31,9 @@
   (let* ((nD 2)
          (mp-spacing (/ height element-count))
          (sim (cl-mpm:make-mpm-sim (list mp-spacing height) mp-spacing 1e-3
-                                                  (funcall shape-maker nD mp-spacing))))
+                                   nil
+                                   ;(funcall shape-maker nD mp-spacing)
+                                   )))
     (progn
           (setf (cl-mpm:sim-mps sim) #())
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
@@ -163,7 +165,6 @@
 
 (defun make-block-mps-sloped-list (offset size mps density constructor &rest args &key (slope 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
-  (print args)
   (let*  ((nD 2)
           (args (alexandria:remove-from-plist args :slope))
           (spacing-0 (mapcar #'/ size mps))
@@ -174,7 +175,7 @@
                         collect
                         (let* ((i (+ y (* x (first mps))))
                                (spacing (list (first spacing-0)
-                                              (+ (second spacing-0) (* slope x))
+                                              (+ (second spacing-0) (* slope x (first spacing-0)))
                                               ))
                                (volume (* (first spacing) (second spacing)))
                                (position-vec (magicl:from-list (list (+ (first offset) (* (first spacing) x))
