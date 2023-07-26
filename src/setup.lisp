@@ -175,7 +175,8 @@
                         collect
                         (let* ((i (+ y (* x (first mps))))
                                (spacing (list (first spacing-0)
-                                              (+ (second spacing-0) (* slope x (first spacing-0)))
+                                              (/ (+ (second size) (* slope (+ x 1) (first spacing-0)))
+                                                 (second mps))
                                               ))
                                (volume (* (first spacing) (second spacing)))
                                (position-vec (magicl:from-list (list (+ (first offset) (* (first spacing) x))
