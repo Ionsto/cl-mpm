@@ -23,6 +23,8 @@
     #:sim-damping-factor
     #:sim-mass-filter
     #:post-stress-step
+    #:iterate-over-nodes
+    #:iterate-over-neighbours
     ))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
@@ -436,7 +438,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                   do (loop for dy from dyf
                              to dyc
                            do
-                              (let* ((id (list (+ ix dx) (+ iy dy))))
+                              (let* ((id (list (the fixnum (+ ix dx))
+                                               (the fixnum (+ iy dy)))))
                                 (declare (dynamic-extent id))
                                 (when (cl-mpm/mesh:in-bounds mesh id)
                                   (let* ((distx (- cx (* h dx)))
@@ -871,6 +874,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes)
          )
 (defun iterate-over-nodes (mesh func)
+  "Helper function for iterating over all nodes in a mesh"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
@@ -1263,13 +1267,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (progn
             (calculate-strain-rate mesh mp dt)
 
-            ;; Turn cauchy stress to kirchoff
+            ;;; Turn cauchy stress to kirchoff
             (setf stress stress-kirchoff)
 
-            ;; Update our strains
+            ;;; Update our strains
             (update-strain-kirchoff mesh mp dt)
 
-            ;;Update our kirchoff stress with constitutive model
+            ;;;Update our kirchoff stress with constitutive model
             (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
             ;; Check volume constraint!
@@ -1345,9 +1349,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   ;;Update stress
   (lparallel:pdotimes (i (length mps))
      (update-stress-mp mesh (aref mps i) dt))
-  ;; (lparallel:pmap nil (lambda (mp) (update-stress-mp mesh mp dt)) mps)
-  ;; (dotimes (i (length mps))
-  ;;   (update-stress-mp mesh (aref mps i) dt))
   (values))
 
 (declaim (notinline reset-grid))

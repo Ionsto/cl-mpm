@@ -67,7 +67,7 @@
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               )
                          (cl-mpm/fastmath::fast-add force reaction-force)
-                         (cl-mpm/fastmath::fast-fmacc force tang-vel (* -1d0 friction normal-force))
+                         (cl-mpm/fastmath::fast-fmacc force (cl-mpm/fastmath::norm tang-vel) (* -1d0 friction normal-force))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       svp

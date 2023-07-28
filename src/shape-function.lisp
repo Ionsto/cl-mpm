@@ -395,8 +395,9 @@
      (make-instance ,shape-class
                     :nD ,nD
                     :order ,order
-                    :svp (nd-svp ,nD svp dsvp)
-                    :dsvp (nd-dsvp ,nD svp dsvp))))
+                    :svp nil;(nd-svp ,nD svp dsvp)
+                    :dsvp nil;(nd-dsvp ,nD svp dsvp)
+                    )))
 
 
 (defun make-shape-function-linear (nD h)

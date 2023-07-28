@@ -198,6 +198,7 @@
                "cl-mpm/penalty"
                "cl-mpm/eigenerosion"
                "cl-mpm/damage"
+               "lfarm-client"
                "vgplot"
                "swank.live"
                "lisp-stat"
