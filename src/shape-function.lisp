@@ -56,6 +56,51 @@
      (/ (expt (- (+ h l) x) 2d0) (* 4d0 h l)))
     (t
      0d0)))
+
+(declaim (inline shape-gimp-fast)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp-fast))
+(defun shape-gimp-fast (x l h)
+  (declare (type double-float x l h))
+  (let ((ax (abs x)))
+    (declare (type double-float ax))
+    (cond
+      ((and (< (- h l) ax) (<= ax (+ h l)))
+       (/ (expt (- (+ h l) ax) 2d0) (* 4d0 h l)))
+      ((and (< l ax) (<= ax (- h l)))
+       (- 1d0 (/ ax h)))
+      ((<= ax l)
+       (- 1d0 (/ (+ (* x x) (* l l)) (* 2d0 h l))))
+      (t
+       0d0))))
+
+(declaim (inline shape-gimp-branchless)
+         (ftype (function (double-float double-float double-float) double-float) shape-gimp-fast))
+(defun shape-gimp-branchless (x l h)
+  (declare (type double-float x l h))
+  (let ((ax (abs x))
+        (res 0d0))
+    (declare (type double-float ax res))
+    (when (and (< (- h l) ax) (<= ax (+ h l)))
+      (incf res (/ (expt (- (+ h l) ax) 2d0) (* 4d0 h l))))
+    (when (and (< l ax) (<= ax (- h l)))
+      (incf res(- 1d0 (/ ax h))))
+    (when (<= ax l)
+      (incf res (- 1d0 (/ (+ (* x x) (* l l)) (* 2d0 h l)))))
+    res))
+
+;; (let* ((h 1.0d0)
+;;        (x (loop for x from -2d0 upto 2d0 by 0.01d0 collect (* h x)))
+;;        (node 0)
+;;        (l 0.1d0)
+;;        )
+;;   (vgplot:figure)
+;;   (vgplot:plot
+;;    ;; x
+;;    ;; (mapcar (lambda (y) (shape-gimp y l h)) x) "0"
+;;    x
+;;    (mapcar (lambda (y) (shape-gimp-fast y l h)) x) "0"
+;;    ))
+
 (declaim (inline shape-gimp-dsvp)
          (ftype (function (double-float double-float double-float) double-float) shape-gimp-dsvp))
 (defun shape-gimp-dsvp (x l h)
