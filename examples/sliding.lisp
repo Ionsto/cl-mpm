@@ -1,10 +1,10 @@
-(defpackage :cl-mpm/examples/slump
+(defpackage :cl-mpm/examples/sliding
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
-(in-package :cl-mpm/examples/slump)
+(in-package :cl-mpm/examples/sliding)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 ;; (pushnew :cl-mpm-pic *features*)
@@ -14,70 +14,12 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
-(defun apply-pullout (sim load-mps shear-rate)
-  (with-accessors ((mps cl-mpm:sim-mps)
-
-                   (mesh cl-mpm:sim-mesh))
-      sim
-    (loop for mp in load-mps
-          do
-             (cl-mpm::iterate-over-neighbours
-              mesh
-              mp
-              (lambda (mesh mp node svp grad fsvp fgrad)
-                (with-accessors (
-                                 ;; (vel cl-mpm/particle:mp-velocity)
-                                 )
-                    mp
-                  (with-accessors ((pos cl-mpm/mesh::node-position)
-                                   (vel cl-mpm/mesh::node-velocity)
-                                   (active cl-mpm/mesh::node-active)
-                                   (acc cl-mpm/mesh::node-acceleration)
-                                   )
-                      node
-                    (when active
-                      (setf (magicl:tref vel 0 0)
-                            shear-rate
-                            ;; (magicl:tref vel 1 0)
-                            ;; 0d0
-                            )
-                      )
-                    )))))))
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))
       mp
     (magicl::sum (magicl:map #'abs vel))))
 
-(defun find-max-cfl (sim)
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps)
-                   (dt cl-mpm:sim-dt))
-      sim
-    (let ((max-v (lparallel:preduce #'max
-                                    (lparallel:pmapcar #'max-v-sum
-                                                    mps))))
-      (* dt (/ max-v (cl-mpm/mesh:mesh-resolution mesh))))))
-
-(defun pescribe-velocity (sim load-mps vel)
-  (let ((mps (cl-mpm:sim-mps sim)))
-    (loop for mp in load-mps
-          do
-             (progn
-               (loop for v in vel
-                     for i from 0
-                     do
-                     (when v
-                       (setf (magicl:tref (cl-mpm/particle:mp-velocity mp) i 0) v)
-                       )
-                     )))))
-(defun increase-load (sim load-mps amount)
-  (loop for mp in load-mps
-        do (with-accessors ((pos cl-mpm/particle:mp-position)
-                            (force cl-mpm/particle:mp-body-force)) mp
-             ;(incf (magicl:tref force 0 0) amount)
-             (magicl:.+ force amount force)
-             )))
 
 (defun length-from-def (sim mp dim)
   (let* ((mp-scale 2)
@@ -89,12 +31,11 @@
     ))
 (defun max-stress (mp)
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-    ;(apply #'max l)
+    (apply #'max l)
     ;; (- (max 0d0 (apply #'max l))
     ;;    (max 0d0 (apply #'min l)))
     ;; (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
     ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
-    (cl-mpm/particle::mp-damage-ybar mp)
     ;; (abs (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
     )
   )
@@ -108,30 +49,22 @@
       (cl-mpm/damage::diff-squared mp *dist-mp*)
       ;; ll
       )))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :point))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
          )
-    (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
-
-  (multiple-value-bind (x y c stress-y lx ly e density temp vx ybar dist)
+  (multiple-value-bind (x y stress-y lx ly)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (magicl:tref (cl-mpm::mp-velocity mp) 0 0) into vx
           collect (length-from-def sim mp 0) into lx
           collect (length-from-def sim mp 1) into ly
-          collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
-          collect (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar) (cl-mpm/particle::mp-damage-ybar mp) 0) into ybar
-          collect (if (slot-exists-p mp 'cl-mpm/particle::temperature) (cl-mpm/particle:mp-temperature mp) 0) into temp
-          collect (if (slot-exists-p mp 'cl-mpm/particle::strain-energy-density) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
-          collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
+          ;; collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
           ;; collect (cl-mpm/particle:mp-volume mp) into density
           collect (max-stress mp) into stress-y
-          collect (local-dist sim mp) into dist
-          finally (return (values x y c stress-y lx ly e density temp vx ybar dist)))
+          finally (return (values x y stress-y lx ly)))
 
     (let* ((node-x '())
            (node-y '())
@@ -187,45 +120,14 @@
                ;)
              (vgplot:plot x y ";;with points pt 7"))
          )
-        ((eq plot :damage)
-         ;; (vgplot:format-plot t "set cbrange [0:1]")
-         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
-         (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
-         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (+ 0d0 (apply #'min c)) (+ 1e-6 (apply #'max c)))
-         (vgplot:plot x y c ";;with points pt 7 lc palette")
-         )
-        ((eq plot :dist)
-         (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max dist)))
-         (vgplot:plot x y dist ";;with points pt 7 lc palette")
-         )
-        ((eq plot :velocity)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min vx) (+ 0.01 (apply #'max vx)))
-         (vgplot:plot x y vx ";;with points pt 7 lc palette")
-         )
-        ((eq plot :temperature)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min temp) (+ 0.01 (apply #'max temp)))
-         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-         (vgplot:plot x y temp ";;with points pt 7 lc palette")
-         )
-        ((eq plot :energy)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
-         (vgplot:plot x y e ";;with points pt 7 lc palette")
-         )
         ((eq plot :stress)
          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
          (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
-        ((eq plot :damage-ybar)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min ybar) (+ 1e-20 (apply #'max ybar)))
-         (vgplot:plot x y ybar ";;with points pt 7 lc palette"))
         ((eq plot :deformed)
          ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
          (vgplot:plot x y lx ly ";;with ellipses"))
-        ((eq plot :density)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
-         (vgplot:plot x y e ";;with points pt 7 lc palette")
-         )))
+         ))
     )
-  (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
@@ -237,7 +139,8 @@
       (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h))
 
-  (vgplot:replot))
+    (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
+  (vgplot:replot)))
 
 (defun remove-sdf (sim sdf)
       (setf (cl-mpm:sim-mps sim)
@@ -326,7 +229,9 @@
 ;;                             )))))
 ;;       ))
 
-(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0)
+(defun setup-test-column (size block-size block-offset
+                          angle
+                          &optional (e-scale 1d0) (mp-scale 1d0)
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
@@ -340,7 +245,6 @@
          ;(e-scale 1)
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
-         (angle 0d0)
          (density *ice-density*)
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
@@ -350,39 +254,21 @@
                                 (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
                       block-offset)))
         (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-mps-from-list
-               (cl-mpm/setup::make-block-mps-sloped-list
-                block-position
-                block-size
-                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                density
-                ;; 'cl-mpm::make-particle
-                ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-elastic-damage
-                ;; 'cl-mpm/particle::particle-viscoplastic
-                'cl-mpm/particle::particle-viscoplastic-damage
-                ;; 'cl-mpm/particle::particle-glen
-                :E 1d9
-                :nu 0.3250d0
-                :visc-factor 111d6
-                :visc-power 3d0
+              (cl-mpm/setup::make-block-mps
+               block-position
+               block-size
+               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+               density
+               'cl-mpm/particle::particle-elastic
+               :E 1d9
+               :nu 0.3250d0
 
-                :initiation-stress 0.10d6
-                :damage-rate 1d-5
-                :critical-damage 0.50d0
-                :local-length 10d0
-                :local-length-damaged 0.1d0
-                                        ;:local-length-damaged 0.1d0
-                :damage 0.0d0
-
-                :gravity -9.8d0
-                ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
-                :index 0
-                ;:angle angle
-                :slope -0.01d0
-                )))
+               :gravity -9.8d0
+               :index 0
+               :angle angle
+               ))
         )
-      (let ((mass-scale 1d7))
+      (let ((mass-scale 1d5))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.0001d0 mass-scale)
@@ -395,9 +281,6 @@
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm::sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -406,62 +289,28 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-fixed (mapcar #'+ i '(0 0)) '(nil nil)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-surface (mapcar #'+ i '(0 1))
-             ;;                                        (magicl:from-list (list 0d0 1d0) '(2 1))))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-surface i (magicl:from-list (list 0d0 1d0) '(2 1))))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ))
-      (format t "Bottom level ~F~%" h-y)
-      (let* ((ocean-x 1000)
-            (ocean-y (+ h-y (* 0.50d0 (second block-size))))
-            ;(angle -1d0)
-            )
-
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)
-                                  (stress cl-mpm/particle::mp-stress-kirchoff)
-                                  (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                                  (stress-cauchy cl-mpm/particle::mp-stress)
-                                  )
-                     mp
-                   (setf stress
-                         (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) ocean-y *water-density*))))
-                         stress-cauchy (magicl:scale stress 1d0)
-                         undamaged-stress (magicl:scale stress 1d0)
-                         )))
-
-        (format t "Ocean level ~a~%" ocean-y)
-        (defparameter *water-height* ocean-y)
-        (setf (cl-mpm::sim-bcs-force-list sim)
+      (setf (cl-mpm::sim-bcs-force-list sim)
+            (list
+             (cl-mpm/bc:make-bcs-from-list
               (list
-               (cl-mpm/bc:make-bcs-from-list
-                (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy
-                  sim
-                  ocean-y
-                  *water-density*
-                  )
-                 ))
-               (cl-mpm/bc:make-bcs-from-list
-                (list
-                 (cl-mpm/penalty::make-bc-penalty-point-normal
-                  sim
-                  (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
-                                          (cos (+ (* pi (/ angle 180d0))))) '(2 1))
-                  (magicl:from-list (list 00d0 (+ 0d0 h-y)) '(2 1))
-                  1d8;(* *ice-density* 1d3)
-                  0d6
-                  )
-                 )))))
+               (cl-mpm/penalty::make-bc-penalty-point-normal
+                sim
+                (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
+                                        (cos (+ (* pi (/ angle 180d0))))) '(2 1))
+                (magicl:.- (magicl:from-list block-offset '(2 1) :type 'double-float)
+                           (magicl:from-list (list 0d0 0d0) '(2 1) :type 'double-float))
+                1d6
+                1d1
+                )
+               ))))
       (let ((normal (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                             (cos (+ (* pi (/ angle 180d0))))) '(2 1))))
         (defparameter *sliding-slope* (/ (- (magicl:tref normal 0 0))
                                          (magicl:tref normal 1 0)
                                          ))
-        (defparameter *sliding-offset* (- h-y (* 0d0 *sliding-slope*))))
+        (defparameter *sliding-offset* (- (second block-offset) (* (first block-offset) *sliding-slope*))))
       sim)))
 
 (defparameter *ice-density* 900)
@@ -471,89 +320,21 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
-         (slope -0.01)
-         (shelf-height 200)
-         (shelf-aspect 6)
-         (shelf-length (* shelf-height shelf-aspect))
-         (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
-         (shelf-height-terminus shelf-height)
-         (shelf-height shelf-end-height)
-         (offset (list 0 0))
+         (block-length 200)
+         (shelf-aspect 12)
+         (offset (list mesh-size 800))
+         (angle -30d0)
          )
     (defparameter *sim*
-      (setup-test-column (list (+ shelf-length (* 2 shelf-height))
-                                                 (+ shelf-height 100))
-                         (list shelf-length shelf-height)
-                         (mapcar #'+ offset (list 000 (* 1 mesh-size))) (/ 1 mesh-size) mps-per-cell))
-
-    ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
-    ;; (damage-sdf *sim* (lambda (p) (line-sdf p
-    ;;                                         (list (- shelf-length shelf-height) shelf-height)
-    ;;                                         (list shelf-length 0d0)
-    ;;                                         50d0
-    ;;                                         )) 0.9d0)
-    ;; (damage-sdf *sim* (lambda (p) (line-sdf p
-    ;;                                         (list 0d0 shelf-height)
-    ;;                                         (list shelf-length shelf-height)
-    ;;                                         50d0
-    ;;                                         )) 0.4d0)
-    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;       do
-    ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.5d0)))
-    ;; (let* ((normal (cl-mpm/fastmath::norm
-    ;;                 (magicl:from-list (list
-    ;;                                    (- slope)
-    ;;                                    1d0) '(2 1))))
-    ;;        )
-    ;;   (remove-sdf *sim*
-    ;;               (lambda (p)
-    ;;                 (plane-point-sdf
-    ;;                  p
-    ;;                  normal
-    ;;                  (magicl:from-list (list shelf-length
-    ;;                                          shelf-height-terminus)
-    ;;                                    '(2 1) :type 'double-float)))))
-    ;; (let* ((undercut-angle -70d0)
-    ;;        (normal (magicl:from-list (list
-    ;;                                   (cos (- (* pi (/ undercut-angle 180d0))))
-    ;;                                   (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
-    ;;        (cutback (* shelf-height (/ 1d0 (cos (- (* pi (/ undercut-angle 180d0)))))))
-    ;;        )
-    ;;   (remove-sdf *sim* (lambda (p) (plane-point-sdf p
-    ;;                                                  normal
-    ;;                                                  (magicl:from-list (list (- shelf-length cutback)
-    ;;                                                                          shelf-height)
-    ;;                                                                    '(2 1) :type 'double-float)
-    ;;                                                  ))))
-    ;; (let* ((undercut-angle 10d0)
-    ;;        (normal (magicl:from-list (list
-    ;;                                        (cos (- (* pi (/ undercut-angle 180d0))))
-    ;;                                        (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1))))
-    ;;   (remove-sdf *sim* (lambda (p) (plane-point-sdf p
-    ;;                                                  normal
-    ;;                                                  (magicl:from-list (list shelf-length shelf-height)
-    ;;                                                                    '(2 1) :type 'double-float)
-    ;;                                                  ))))
-    ;; (let* ((n (magicl:from-list (list shelf-height
-    ;;                                   (* 3d0 shelf-length)) '(2 1) :type 'double-float))
-    ;;       (d (plane-sdf (magicl:from-list (list 0d0 shelf-height) '(2 1) :type 'double-float) n 0d0))
-    ;;       )
-    ;;   (remove-sdf *sim* (lambda (p) (plane-sdf p
-    ;;                                            n
-    ;;                                            (- d)
-    ;;                                            ))))
+      (setup-test-column (list 2000d0 1000d0)
+                         (list block-length 100d0)
+                         offset
+                         ;;Angle
+                         angle
+                         (/ 1 mesh-size) mps-per-cell))
     )
-  ;; (damage-sdf *sim* (lambda (p) (line-sdf p
-  ;;                                         (list 0d0 0d0)
-  ;;                                         (list 100d0 0d0)
-  ;;                                         100d0
-  ;;                                         )) 0.8))
-  ;; (defparameter *sim* (setup-test-column '(1 1) '(1 1) '(0 0) 1 1))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 250 100) 20 40))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 2 50 100) 20 40))
-  ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (print (cl-mpm:sim-dt *sim*))
   (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *velocity* '())
@@ -590,7 +371,7 @@
       (defparameter *terminus-mps*
         (loop for mp across mps
               when (= x-max (magicl:tref
-                             (cl-mpm/particle:mp-position mp)
+                             (cl-mpm/particle::mp-displacement mp)
                              0 0))
                 collect mp)))
     ;; (increase-load *sim* *terminus-mps*
@@ -625,15 +406,16 @@
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
+  ;; (vgplot:replot)
   (sleep 1)
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 0.1d0)
          (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
@@ -644,7 +426,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
@@ -684,9 +466,17 @@
                        (format stream "~f, ~f ~%" *t* *x*))
                      (incf *sim-step*)
                      (plot *sim*)
+                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                                        :terminal "png size 1920,1080"
+                                        )
                      (swank.live:update-swank)
                      (sleep .01)
                      ))))
+  (format t "Mean X position ~F~%" (/
+                               (loop for mp across (cl-mpm:sim-mps *sim*)
+                                      sum (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
+                               (length (cl-mpm:sim-mps *sim*))
+                               ))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
   ;; (plot-s-xx *far-field-mps* 125d0)
   ;(plot-disp)
@@ -729,62 +519,6 @@
             do
                (format stream "~f, ~f, ~f ~%" yi si sai))))
   )
-(defun plot-disp-day ()
-  (let* ((df (lisp-stat:read-csv
-	            (uiop:read-file-string #P"stokes.csv")))
-         (time-day (mapcar (lambda (x) (/ x (* 24 60 60))) *time*))
-         ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
-         )
-    ;; (vgplot:figure)
-    (vgplot:title "S_{xx} over height")
-    (vgplot:xlabel "Time (s)")
-    (vgplot:ylabel "Displacment (m)")
-    (vgplot:axis (list 0 (reduce #'max time-day)
-                       0 (reduce #'max *x-pos*)))
-    (vgplot:plot time-day *x-pos* "MPM"
-                 (aops:each (lambda (x) (* x 32d0)) (lisp-stat:column df 'time)) (lisp-stat:column df 'disp) "stokes"
-                 )))
-(defun plot-disp ()
-  (let* ((df (lisp-stat:read-csv
-	            (uiop:read-file-string #P"stokes.csv")))
-         (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
-         ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
-         )
-    ;; (vgplot:figure)
-    (vgplot:title "S_{xx} over height")
-    (vgplot:xlabel "Time (s)")
-    (vgplot:ylabel "Displacment (m)")
-    (vgplot:axis (list 0 (reduce #'max time-month)
-                       0 (reduce #'max *x-pos*)))
-    (vgplot:plot time-month *x-pos* "MPM"
-                 (lisp-stat:column df 'time) (lisp-stat:column df 'disp) "stokes"
-                 )))
-(defun plot-s-xx (mps H)
-  (let* (
-         (rho-ice 900)
-         (E (cl-mpm/particle::mp-e (first mps)))
-         (nu (cl-mpm/particle::mp-nu (first mps)))
-         (g (cl-mpm/particle::mp-gravity (first mps)))
-         (s-xx (loop for mp in mps
-                    collect
-                    (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-         (y (loop for mp in mps
-                    collect
-                    (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
-         (s-an (mapcar
-                (lambda (y)
-                  (* (/ nu (- 1 nu)) rho-ice g -1d0 (- y (/ H 2d0))))
-                y)))
-    (vgplot:figure)
-    (vgplot:title "S_{xx} over height")
-    (vgplot:xlabel "Height (m)")
-    (vgplot:ylabel "Longitudinal stress (MPa)")
-    (vgplot:plot y (mapcar (lambda (x) (* 1d-6 x)) s-xx) "s_{xx} mpm"
-                 y (mapcar (lambda (x) (* 1d-6 x)) s-an) "s_{xx} analytic")))
-(defun plot-cfl ()
-  (vgplot:figure)
-  (vgplot:title "CFL over time")
-  (vgplot:plot *time* *cfl-max*))
 
 
 (defun profile ()

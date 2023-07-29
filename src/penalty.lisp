@@ -15,19 +15,25 @@
 ;    #:make-shape-function
 (in-package :cl-mpm/penalty)
 
+(defun ssqrt (a)
+  (* (signum a) (sqrt (abs a))))
+(defun penetration-distance-point (point datum normal)
+  "Get linear penetration distance"
+  (let* ((ypos (cl-mpm/fastmath::dot point normal))
+         (dist (- datum ypos)))
+    (the double-float dist)))
 
 (defun penetration-distance (mp datum normal)
   "Get linear penetration distance"
-  (let* (
-         (ypos (magicl::sum (magicl:.* (cl-mpm/particle:mp-position mp) normal)))
-         (yheight (* 0.5d0 (magicl::sum (magicl:.* (cl-mpm/particle::mp-domain-size mp) normal))))
+  (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
+         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal))
         (dist (- datum (- ypos yheight))))
     (the double-float dist)))
 (defun penetration-point (mp pen datum normal)
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 pen)))))
+    (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 0.5d0 pen)))))
 
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps normal datum epsilon friction)
@@ -67,7 +73,9 @@
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               )
                          (cl-mpm/fastmath::fast-add force reaction-force)
-                         (cl-mpm/fastmath::fast-fmacc force (cl-mpm/fastmath::norm tang-vel) (* -1d0 friction normal-force))
+                         ;; (cl-mpm/fastmath::fast-fmacc force
+                         ;;                              (cl-mpm/fastmath::norm tang-vel)
+                         ;;                              (* -1d0 friction normal-force))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       svp
@@ -117,7 +125,8 @@
 
 (defun make-bc-penalty-point-normal (sim normal point epsilon friction)
   (let* ((normal (cl-mpm/fastmath::norm normal))
-         (datum (cl-mpm/fastmath::dot normal point))
+         ;(datum (cl-mpm/fastmath::dot normal point))
+         (datum (- (penetration-distance-point point 0d0 normal)))
          )
     (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
     (make-instance 'cl-mpm/bc::bc-closure

@@ -183,7 +183,10 @@
                      (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
                      (local-length-t cl-mpm/particle::mp-true-local-length)
                      ) mp
-      (setf local-length-t (length-localisation local-length local-length-damaged nodal-damage)))))
+      ;;Damage length control
+      (setf local-length-t (length-localisation local-length local-length-damaged nodal-damage))
+      ;; (setf local-length-t local-length)
+      )))
 
 (defparameter *delocal-counter* 0)
 (defparameter *delocal-counter-max* 4)

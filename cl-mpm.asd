@@ -290,3 +290,19 @@
                "magicl")
   :serial t
   :components ((:file "examples/creep")))
+
+(defsystem "cl-mpm/examples/sliding"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "lfarm-client"
+               "vgplot"
+               "swank.live"
+               "lisp-stat"
+               "magicl")
+  :serial t
+  :components ((:file "examples/sliding")))

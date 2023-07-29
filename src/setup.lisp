@@ -41,7 +41,6 @@
 
 (defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
-  (print args)
   (let*  ((nD 2)
           (args (alexandria:remove-from-plist args :angle))
           (spacing (mapcar #'/ size mps))
@@ -53,13 +52,19 @@
                         collect
                         (let* ((i (+ y (* x (first mps))))
                                (rot (cl-mpm::rotation-matrix angle))
-                               (position-vec (magicl:from-list (list (+ (first offset) (* (first spacing) x))
-                                                                     (+ (second offset) (* (second spacing) y)))
+                               (origin-vec (magicl:from-list (list (first offset)
+                                                                   (second offset))
+                                                               '(2 1) :type 'double-float))
+                               (position-vec (magicl:from-list (list (* (first spacing) x)
+                                                                     (* (second spacing) y))
                                                                '(2 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(2 1) :type 'double-float))
-                               (position-vec (magicl:@ rot position-vec))
-                               (size-vec (magicl:@ rot size-vec))
+                               (position-vec (magicl:.+ origin-vec
+                                                        (magicl:@ rot position-vec)))
+                               ;; (size-vec (magicl:map #'abs (magicl:@ rot size-vec)))
                                )
+                          ;; (print spacing)
+                          ;; (print size-vec)
                           (flet ((lisp-list (m) (loop for i from 0 to 1 collect (magicl:tref m i 0))))
                             (apply #'cl-mpm::make-particle
                                    (append (list 2 constructor)
