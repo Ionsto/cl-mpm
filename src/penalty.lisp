@@ -33,7 +33,7 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.+ pos (magicl:scale (magicl:.* normal domain) (* -1d0 0.5d0 pen)))))
+    (magicl:.- pos (magicl:.* normal (magicl:scale domain 0.5d0)))))
 
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps normal datum epsilon friction)
@@ -51,6 +51,7 @@
                            )
               mp
             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
+              ;(format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours-point-linear
                mesh pen-point
@@ -73,9 +74,13 @@
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               )
                          (cl-mpm/fastmath::fast-add force reaction-force)
-                         ;; (cl-mpm/fastmath::fast-fmacc force
-                         ;;                              (cl-mpm/fastmath::norm tang-vel)
-                         ;;                              (* -1d0 friction normal-force))
+                         (cl-mpm/fastmath::fast-fmacc force
+                                                      ;(cl-mpm/fastmath::norm)
+                                                      tang-vel
+                                                      (* -1d0
+                                                         friction
+                                                         ;normal-force
+                                                         ))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       svp
