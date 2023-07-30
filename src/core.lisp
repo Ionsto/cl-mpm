@@ -398,7 +398,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          )
 (defun iterate-over-neighbours-point-linear-simd (mesh position func)
   (declare (cl-mpm/mesh::mesh mesh))
-  (flet ((simd-abs (vec)
+  (labels ((simd-abs (vec)
            (sb-simd-avx:f64.2-and vec (sb-simd-avx:f64.2-not -0.0d0)))
          ;; (in-bounds-simd (pos)
          ;;   t)
@@ -411,10 +411,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (sb-simd-avx:f64.2-if (sb-simd-avx:f64.2> dist 0d0) (/ 1d0 h) (/ -1d0 h))
            dist)
          (in-bounds-simd (mesh dist)
-           (sb-simd-avx:f64.2-and
-            (sb-simd-avx:f64.2> dist 0d0)
-            (sb-simd-avx:f64.2< dist (apply #'sb-simd-avx:make-f64.2 (cl-mpm/mesh:mesh-count mesh)))
-            )
+           t
+           ;; (sb-simd-avx:f64.2-horizontal-and
+           ;;  (sb-simd-avx:f64.2-and
+           ;;   (sb-simd-avx:f64.2> dist 0d0)
+           ;;   (sb-simd-avx:f64.2< dist (sb-simd-avx:make-f64.2 (coerce (the fixnum (first (cl-mpm/mesh:mesh-count mesh))) 'double-float)
+           ;;                                                    (coerce (the fixnum (second (cl-mpm/mesh:mesh-count mesh))) 'double-float)
+           ;;                                                    ))))
            )
          )
     (progn
@@ -430,15 +433,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
               do (loop for dy from 0 to 1
                        do (let* ((id-vec ;(mapcar #'+ pos-index (list dx dy)))
                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
+                                 (id (mapcar (lambda (x) (truncate x))
+                                             (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
                                  )
                             ;; (declare (dynamic-extent id))
-                            (when ;(cl-mpm/mesh:in-bounds mesh id)
-                                (in-bounds-simd mesh id-vec)
+                            (when (cl-mpm/mesh:in-bounds mesh id)
+                                ;(in-bounds-simd mesh id-vec)
                               (let* ((dist (sb-simd-avx:f64.2-
                                             pos-vec
                                             (sb-simd-avx:f64.2* id-vec h)))
-                                     (id (mapcar (lambda (x) (truncate x))
-                                                 (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
                                      ;; (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                      (node (cl-mpm/mesh:get-node mesh id))
                                      ;; (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
@@ -570,7 +573,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 0) (safety 3) (debug 3))
+           (optimize (speed 1) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -1568,7 +1571,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               mp
                             (and (>= damage 1d0)
                                  ;; (or
-                                  (split-criteria mp h)
+                                  ;; (split-criteria mp h)
                                  ;;  (< (magicl:det def) 1d-3)
                                  ;;  )
                                  ))) mps)))

@@ -85,7 +85,7 @@
                    (s_2 (max 0d0 s_2))
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   ;; (s_1 vm)
+                   (s_1 vm)
                    ;(damage-inv (- 1d0 damage))
                    )
               (when (> s_1 0d0)
@@ -343,7 +343,7 @@
                              (progn
                                (magicl:.+ step-point dhstep step-point)
                                (let ((damage 0d0))
-                                 (cl-mpm::iterate-over-neighbours-point-linear
+                                 (cl-mpm::iterate-over-neighbours-point-linear-simd
                                   mesh
                                   step-point
                                   (lambda (m node weight grads)
@@ -361,7 +361,7 @@
                   (progn
                     (magicl:.+ step-point dhstep step-point)
                     (let ((damage 0d0))
-                      (cl-mpm::iterate-over-neighbours-point-linear
+                      (cl-mpm::iterate-over-neighbours-point-linear-simd
                        mesh
                        step-point
                        (lambda (m node weight grads)
@@ -420,14 +420,14 @@
     (let ((damage-inc 0d0)
           (mass-total 0d0))
       (declare (double-float damage-inc mass-total))
-      (loop for dx from (- node-reach) to node-reach
-            do (loop for dy from (- node-reach) to node-reach
+      (loop for dx fixnum from (- node-reach) to node-reach
+            do (loop for dy fixnum from (- node-reach) to node-reach
                      do
                         (let ((idx (mapcar #'+ node-id (list dx dy))))
                           (declare (dynamic-extent idx))
                           (when (cl-mpm/mesh:in-bounds mesh idx)
                             (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                              (loop for mp-other across (the (vector T *) (cl-mpm/mesh::node-local-list node))
+                              (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
                                     do
                                        (with-accessors ((d cl-mpm/particle::mp-damage)
                                                         (m cl-mpm/particle:mp-volume)
@@ -435,7 +435,12 @@
                                                         (p cl-mpm/particle:mp-position))
                                            mp-other
                                          (when (< (the double-float d) 1d0)
-                                           (let ((weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))))
+                                           (let (
+                                                 ;;Nodally averaged local funcj
+                                                 (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                 ;;
+                                                 ;; (weight (weight-func-mps-damaged mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                 )
                                              (declare (double-float weight m d mass-total damage-inc))
                                              (incf mass-total (* weight m))
                                              (incf damage-inc
@@ -621,7 +626,7 @@
                   (setf damage-increment s_1))))
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
-            (setf local-length-t local-length)
+            ;; (setf local-length-t local-length)
             ;; (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             damage-increment
             ))))

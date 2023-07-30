@@ -53,7 +53,7 @@
             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
               ;; (format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
-              (cl-mpm::iterate-over-neighbours-point-linear
+              (cl-mpm::iterate-over-neighbours-point-linear-simd
                mesh pen-point
                (lambda (mesh node svp grads)
                  (with-accessors ((node-force cl-mpm/mesh:node-force)
@@ -68,24 +68,47 @@
                      (sb-thread:with-mutex (node-lock)
                        ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                        (let* ((force (cl-mpm/utils:vector-zeros))
-                              (normal-force (* penetration-dist epsilon))
-                              (reaction-force (magicl:scale normal normal-force))
+                              (normal-force (* (expt penetration-dist 1) epsilon))
+                              ;; (reaction-force (magicl:scale normal normal-force))
                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
+                              (normal-damping 0d10)
+                              (damping-force (* normal-damping rel-vel))
                               )
-                         (cl-mpm/fastmath::fast-add force reaction-force)
+                         ;; (cl-mpm/fastmath::fast-add force reaction-force)
                          (cl-mpm/fastmath::fast-fmacc force
-                                                      ;(cl-mpm/fastmath::norm)
+                                                      normal
+                                                      (- normal-force
+                                                         damping-force))
+                         (cl-mpm/fastmath::fast-fmacc force
                                                       tang-vel
                                                       (* -1d0
                                                          friction
-                                                         ;normal-force
                                                          ))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       svp
                                                       ;; (* svp volume)
                                                       ))))))))))))))
+(defun collect-contact-points (mesh mps normal datum)
+  (loop for mp across mps
+        when (> (penetration-distance mp datum normal) 0d0)
+        collect
+     (let* ((penetration-dist (penetration-distance mp datum normal)))
+       (declare (double-float penetration-dist))
+       (when (> penetration-dist 0d0)
+         (with-accessors ((volume cl-mpm/particle:mp-volume)
+                          (pressure cl-mpm/particle::mp-pressure)
+                          (mp-vel cl-mpm/particle::mp-velocity)
+                          )
+             mp
+           (penetration-point mp penetration-dist datum normal))))))
+(defun collect-contact-points-bc (mesh mps bc)
+  (with-accessors ((normal bc-penalty-normal)
+                   (datum bc-penalty-datum)
+                   )
+      bc
+    (collect-contact-points mesh mps normal datum)))
 
 ;; (declaim (notinline apply-non-conforming-nuemann))
 ;; (defun apply-non-conforming-nuemann (sim func-stress func-div)
@@ -111,8 +134,15 @@
       sim
     (apply-force-mps mesh mps normal datum epsilon friction)))
 
-(defclass bc-penalty (bc)
-  ()
+(defclass bc-penalty (cl-mpm/bc::bc-closure)
+  ((normal
+    :accessor bc-penalty-normal
+    :initarg :normal
+    )
+   (datum
+    :accessor bc-penalty-datum
+    :initarg :datum
+    ))
   (:documentation "A nonconforming neumann bc"))
 
 (defun make-bc-penalty (sim datum epsilon friction)
@@ -134,8 +164,10 @@
          (datum (- (penetration-distance-point point 0d0 normal)))
          )
     (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
-    (make-instance 'cl-mpm/bc::bc-closure
+    (make-instance 'bc-penalty
                    :index '(0 0)
+                   :normal normal
+                   :datum datum
                    :func (lambda ()
                            (progn
                              (apply-penalty
