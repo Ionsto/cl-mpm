@@ -400,8 +400,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh))
   (flet ((simd-abs (vec)
            (sb-simd-avx:f64.2-and vec (sb-simd-avx:f64.2-not -0.0d0)))
-         (in-bounds-simd (pos)
-           t)
+         ;; (in-bounds-simd (pos)
+         ;;   t)
          (linear-weight-simd (dist h)
            (declare (double-float h))
            ;;Add an abs
@@ -410,6 +410,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (declare (double-float h))
            (sb-simd-avx:f64.2-if (sb-simd-avx:f64.2> dist 0d0) (/ 1d0 h) (/ -1d0 h))
            dist)
+         (in-bounds-simd (mesh dist)
+           (sb-simd-avx:f64.2-and
+            (sb-simd-avx:f64.2> dist 0d0)
+            (sb-simd-avx:f64.2< dist (apply #'sb-simd-avx:make-f64.2 (cl-mpm/mesh:mesh-count mesh)))
+            )
+           )
          )
     (progn
       (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -424,13 +430,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
               do (loop for dy from 0 to 1
                        do (let* ((id-vec ;(mapcar #'+ pos-index (list dx dy)))
                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
-                                 (id (multiple-value-list (sb-simd-avx:f64.2-values id-vec)))
                                  )
                             ;; (declare (dynamic-extent id))
-                            (when (cl-mpm/mesh:in-bounds mesh id)
+                            (when ;(cl-mpm/mesh:in-bounds mesh id)
+                                (in-bounds-simd mesh id-vec)
                               (let* ((dist (sb-simd-avx:f64.2-
                                             pos-vec
                                             (sb-simd-avx:f64.2* id-vec h)))
+                                     (id (mapcar (lambda (x) (truncate x))
+                                                 (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
                                      ;; (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                      (node (cl-mpm/mesh:get-node mesh id))
                                      ;; (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))

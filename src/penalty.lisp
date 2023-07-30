@@ -51,7 +51,7 @@
                            )
               mp
             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
-              ;(format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
+              ;; (format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours-point-linear
                mesh pen-point
