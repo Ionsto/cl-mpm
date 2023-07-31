@@ -423,6 +423,7 @@
                 :damage-rate 1d-5
                 :critical-damage 0.50d0
                 :local-length 50d0
+                ;; :local-length-damaged 50d0
                 :local-length-damaged 0.1d0
                                         ;:local-length-damaged 0.1d0
                 :damage 0.0d0
@@ -437,7 +438,7 @@
       (let ((mass-scale 1d6))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.0001d0 mass-scale)
+              (* 0.001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
@@ -450,7 +451,8 @@
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -459,7 +461,7 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
              ;; (lambda (i) (cl-mpm/bc:make-bc-fixed (mapcar #'+ i '(0 0)) '(nil nil)))
              ;; (lambda (i) (cl-mpm/bc:make-bc-surface (mapcar #'+ i '(0 1))
              ;;                                        (magicl:from-list (list 0d0 1d0) '(2 1))))
@@ -468,24 +470,24 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 0.1d0 terminus-size)))
             ;(angle -1d0)
             )
 
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((pos cl-mpm/particle:mp-position)
-                                  (stress cl-mpm/particle::mp-stress-kirchoff)
-                                  (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-                                  (stress-cauchy cl-mpm/particle::mp-stress)
-                                  )
-                     mp
-                   (setf stress
-                         (cl-mpm/utils:matrix-to-voight
-                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) ocean-y *water-density*))))
-                         stress-cauchy (magicl:scale stress 1d0)
-                         undamaged-stress (magicl:scale stress 1d0)
-                         )))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (with-accessors ((pos cl-mpm/particle:mp-position)
+        ;;                           (stress cl-mpm/particle::mp-stress-kirchoff)
+        ;;                           (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+        ;;                           (stress-cauchy cl-mpm/particle::mp-stress)
+        ;;                           )
+        ;;              mp
+        ;;            (setf stress
+        ;;                  (cl-mpm/utils:matrix-to-voight
+        ;;                   (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) ocean-y *water-density*))))
+        ;;                  stress-cauchy (magicl:scale stress 1d0)
+        ;;                  undamaged-stress (magicl:scale stress 1d0)
+        ;;                  )))
 
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
@@ -496,7 +498,7 @@
                                    (cos (+ (* pi (/ angle 180d0))))) '(2 1))
            (magicl:from-list (list 00d0 (+ 0d0 h-y)) '(2 1))
            (* *ice-density* 1d5)
-           1d5
+           1d8
            ))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
@@ -511,7 +513,8 @@
                (cl-mpm/bc:make-bcs-from-list
                 (list
                  *floor-bc*
-                 )))))
+                 ))))
+        )
       (let ((normal (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                             (cos (+ (* pi (/ angle 180d0))))) '(2 1))))
         (defparameter *sliding-slope* (/ (- (magicl:tref normal 0 0))
@@ -528,11 +531,11 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
-         (mps-per-cell 2)
-         (slope -0.01)
-         (shelf-height 400)
-         (shelf-aspect 6)
+  (let* ((mesh-size 50)
+         (mps-per-cell 4)
+         (slope -0.02)
+         (shelf-height 200)
+         (shelf-aspect 12)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -690,7 +693,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d2)
+ (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -707,6 +710,10 @@
                 while *run-sim*
                 do
                    (progn
+                     (if t;(> steps 10)
+                         (setf (cl-mpm::sim-enable-damage *sim*) t)
+                         (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                         )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -905,29 +912,17 @@
          (format t "Throughput: ~f~%" (/ 1 dt))
          dt))))
 (defun simple-time (&optional (k 4))
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
   (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
   (setup)
   (let ((mps (cl-mpm:sim-mps *sim*) )
-        (iters 1000000))
+        (a (magicl:zeros '(3 1)))
+        (b (magicl:zeros '(3 1)))
+        (c (magicl:zeros '(3 1)))
+        (iters 100000))
     (let ((mesh (cl-mpm::sim-mesh *sim*)))
       (format t "Testing normal ~%")
       ;; (time
-       (time-form iters
-                  (progn
-                    ;; (lparallel:pdotimes 
-                    ;;  (i (length mps)))
-                    (cl-mpm/damage::diff-damaged
-                     mesh
-                     (aref mps 0)
-                     (aref mps 1)))
-                  ;; (cl-mpm/damage::calculate-delocalised-damage mesh
-                  ;;                                 (aref mps 0)
-                  ;;                                 (cl-mpm/particle::mp-local-length
-                  ;;                                  (aref mps 0)
-                  ;;                                  )
-                  ;;                                 )
-                  
-       )
       ;; (time
       ;;  (time-form iters
       ;;             (progn
@@ -948,25 +943,32 @@
       ;;                 mesh
       ;;                 (cl-mpm/particle:mp-position (aref mps i))
       ;;                 (lambda (m n s g)))))))
-      ;; (time-form 1000
-      ;;      (cl-mpm::update-sim *sim*))
 
-      ;; (format t "Normal ~%")
-      ;; (time-form iters 
-      ;;            (cl-mpm/shape-function::shape-gimp (- (random 3.0d0) 1.5d0) 0.5d0 1d0)
-      ;;            ;(cl-mpm::update-sim *sim*)
-      ;;            )
-      ;; (format t "Less branchy ~%")
-      ;; (time-form iters 
-      ;;            (cl-mpm/shape-function::shape-gimp-fast (- (random 3.0d0) 1.5d0) 0.5d0 1d0)
-      ;;                                   ;(cl-mpm::update-sim *sim*)
-      ;;            )
-      ;; (format t " branchless ~%")
-      ;; (time-form iters 
-      ;;            (cl-mpm/shape-function::shape-gimp-branchless (- (random 3.0d0) 1.5d0) 0.5d0 1d0)
-      ;;                                   ;(cl-mpm::update-sim *sim*)
-      ;;            )
+      ;; (magicl.backends:with-backends (:LAPACK :BLAS :LISP)
+      ;;   (time-form 100
+      ;;              (cl-mpm::update-sim *sim*)))
+      ;; (magicl.backends:with-backends (:SIMD :LAPACK :BLAS :LISP)
+      ;;   (time-form 100
+      ;;              (cl-mpm::update-sim *sim*)))
+
+      (format t "Normal ~%")
+      (time-form iters
+                 (magicl:.+ a b)
+                 )
+      (format t "Blas ~%")
+      (time-form iters
+                 (magicl.blas::.+-blas a b)
+                 )
+      (format t "Simd ~%")
+      (time-form iters
+                 (magicl.simd::.+-simd a b)
+                 )
       )))
+(defun test-backend ()
+  (let ((a (magicl:zeros '(2 1)))
+        (b (magicl:zeros '(2 1)))
+        (c (magicl:zeros '(2 1))))
+    (magicl:.+ a b c)))
 (defun time-diff ()
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))

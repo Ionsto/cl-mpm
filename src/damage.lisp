@@ -193,7 +193,9 @@
 (defun calculate-damage (mesh mps dt len non-local-damage)
   (when non-local-damage
     (when (<= *delocal-counter* 0)
-      (create-delocalisation-list mesh mps len)
+      ;(create-delocalisation-list mesh mps len)
+      ;;Ensure they have a home
+      (update-delocalisation-list mesh mps)
       (setf *delocal-counter* *delocal-counter-max*))
     (decf *delocal-counter*))
   (lparallel:pdotimes (i (length mps))
@@ -235,34 +237,57 @@
           (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))
 
 (defun local-list-remove-particle (mesh mp)
-  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
-    (when (cl-mpm/mesh:in-bounds mesh node-id)
-      (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-        (with-accessors ((ll cl-mpm/mesh::node-local-list)
-                         (lock cl-mpm/mesh:node-lock)
-                         ) node
-          (sb-thread:with-mutex (lock)
-            (setf ll (delete mp ll))))))))
+  (flet ((remove-mp-ll (node)
+           (with-accessors ((ll cl-mpm/mesh::node-local-list)
+                            (lock cl-mpm/mesh:node-lock)
+                            ) node
+             (if (position mp ll)
+                 (progn
+                   (sb-thread:with-mutex (lock)
+                     (setf ll (delete mp ll)))
+                   t)
+                 nil))))
+    (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+      (when (cl-mpm/mesh:in-bounds mesh node-id)
+        (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+          (if (remove-mp-ll node)
+              t
+              (cl-mpm::iterate-over-nodes-serial
+               mesh
+               (lambda (node)
+                 (remove-mp-ll node)))))))))
+
+(defun update-particle (mesh mp)
+  (wh)
+
+  )
 
 (defun update-delocalisation-list (mesh mps length)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                    (h cl-mpm/mesh:mesh-resolution))
         mesh
-      (lparallel:pdotimes (i (array-total-size nodes))
-        (let ((node (row-major-aref nodes i)))
-          (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
+      ;; (lparallel:pdotimes (i (array-total-size nodes))
+      ;;   (let ((node (row-major-aref nodes i)))
+      ;;     (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
     (lparallel:pdotimes (i (length mps))
       (let ((mp (aref mps i)))
         (when (typep mp 'cl-mpm/particle:particle-damage)
-          (let* ((delta (simd-accumulate (cl-mpm/particle:mp-position mp)
-                                         (cl-mpm/particle::mp-damage-position mp)
-                                         )))
-            (when (> delta (/ h 4d0))
-              (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
-                (when (cl-mpm/mesh:in-bounds mesh node-id)
-                  (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-                    (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-                      (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))))))
+          (if (eq (cl-mpm/particle::mp-damage-position mp) nil)
+              ;;New particle - needs to be added to the mesh
+              (local-list-add-particle mesh mp)
+              ;; Already inserted mesh - sanity check to see if it should be recalced
+              (let* ((delta (simd-accumulate (cl-mpm/particle:mp-position mp)
+                                             (cl-mpm/particle::mp-damage-position mp)
+                                             )))
+                (when (> delta (/ h 4d0))
+                  (local-list-remove-particle mesh mp)
+                  (local-list-add-particle mesh mp)
+                  ;; (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
+                  ;;   (when (cl-mpm/mesh:in-bounds mesh node-id)
+                  ;;     (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+                  ;;       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+                  ;;         (vector-push-extend mp (cl-mpm/mesh::node-local-list node))))))
+                  ))))))
     (lparallel:pdotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
@@ -404,6 +429,20 @@
   (weight-func (diff-damaged mesh mp-a mp-b) length))
 
 
+(defun iterate-over-damage-bounds (mesh mp length func)
+  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+                                                        (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
+    (declare (dynamic-extent node-id))
+    (loop for dx fixnum from (- node-reach) to node-reach
+          do (loop for dy fixnum from (- node-reach) to node-reach
+                   do
+                      (let ((idx (mapcar #'+ node-id (list dx dy))))
+                        (declare (dynamic-extent idx))
+                        (when (cl-mpm/mesh:in-bounds mesh idx)
+                          (let ((node (cl-mpm/mesh:get-node mesh idx)))
+                            (funcall func mesh mp node))))))))
+
 (declaim
  (inline calculate-delocalised-damage)
  (ftype (function (cl-mpm/mesh::mesh
@@ -437,7 +476,9 @@
                                          (when (< (the double-float d) 1d0)
                                            (let (
                                                  ;;Nodally averaged local funcj
-                                                 (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                 ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                 (weight (weight-func-mps mesh mp mp-other
+                                                                          (sqrt (* length ll))))
                                                  ;;
                                                  ;; (weight (weight-func-mps-damaged mesh mp mp-other (* 0.5d0 (+ length ll))))
                                                  )
@@ -503,6 +544,26 @@
 (defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
   ()
   (:documentation "Explicit simulation with update stress first update"))
+
+(defun remove-mp-damage (sim func)
+  )
+
+(defmethod cl-mpm::remove-mps-func (sim func)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    ;;Remove mps from local-lists too
+    (setf mps
+          (lparallel:premove-if 'func mps))))
+(defmethod (setf cl-mpm::sim-mps) (mps (sim mpm-sim-damage))
+  ;; (format t "Resetting mps~%")
+  ;; (with-accessors ((mesh cl-mpm::sim-mesh))
+  ;;     sim
+  ;;   (loop for mp across mps
+  ;;         when (and
+  ;;               (typep mp 'cl-mpm/particle:particle-damage)
+  ;;               (eq (cl-mpm/particle::mp-damage-position mp) nil))
+  ;;           do (local-list-add-particle mesh mp)))
+  (call-next-method))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-damage))
   (declare (cl-mpm::mpm-sim-usf sim))

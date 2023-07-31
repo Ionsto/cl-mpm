@@ -7,6 +7,8 @@
    #:fast-fmacc
    #:mult
    #:det
+   #:dot
+   #:norm
     ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))

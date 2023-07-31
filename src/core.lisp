@@ -362,11 +362,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               (when (< 0d0 weight)
                                 (funcall func mesh mp node weight grads nil nil))))))))))
 
+
 (declaim (inline iterate-over-neighbours-point-linear)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
-                iterate-over-neighbours-point-linear)
-         )
+                iterate-over-neighbours-point-linear))
 (defun iterate-over-neighbours-point-linear (mesh position func)
+  (iterate-over-neighbours-point-linear-simd mesh position func)
+  )
+
+(declaim (inline iterate-over-neighbours-point-linear-lisp)
+         (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
+                iterate-over-neighbours-point-linear-lisp)
+         )
+(defun iterate-over-neighbours-point-linear-lisp (mesh position func)
   (declare (cl-mpm/mesh::mesh mesh))
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -397,7 +405,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 iterate-over-neighbours-point-linear-simd)
          )
 (defun iterate-over-neighbours-point-linear-simd (mesh position func)
-  (declare (cl-mpm/mesh::mesh mesh))
+  (declare (cl-mpm/mesh::mesh mesh)
+           (magicl:matrix/double-float position)
+           (function func))
   (labels ((simd-abs (vec)
            (sb-simd-avx:f64.2-and vec (sb-simd-avx:f64.2-not -0.0d0)))
          ;; (in-bounds-simd (pos)
@@ -411,57 +421,37 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (sb-simd-avx:f64.2-if (sb-simd-avx:f64.2> dist 0d0) (/ 1d0 h) (/ -1d0 h))
            dist)
          (in-bounds-simd (mesh dist)
-           t
-           ;; (sb-simd-avx:f64.2-horizontal-and
-           ;;  (sb-simd-avx:f64.2-and
-           ;;   (sb-simd-avx:f64.2> dist 0d0)
-           ;;   (sb-simd-avx:f64.2< dist (sb-simd-avx:make-f64.2 (coerce (the fixnum (first (cl-mpm/mesh:mesh-count mesh))) 'double-float)
-           ;;                                                    (coerce (the fixnum (second (cl-mpm/mesh:mesh-count mesh))) 'double-float)
-           ;;                                                    ))))
-           )
+           t)
          )
     (progn
       (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
              (pos-vec (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage position) 0))
-             ;; (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-             ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor))
              (pos-index (sb-simd-avx:f64.2-floor
-                         (sb-simd-avx:f64.2/ pos-vec h)))
-             )
-        ;; (declare (dynamic-extent pos pos-index pos-vec))
+                         (sb-simd-avx:f64.2/ pos-vec h))))
         (loop for dx from 0 to 1
               do (loop for dy from 0 to 1
-                       do (let* ((id-vec ;(mapcar #'+ pos-index (list dx dy)))
+                       do (let* ((id-vec 
                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
                                  (id (mapcar (lambda (x) (truncate x))
                                              (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
                                  )
-                            ;; (declare (dynamic-extent id))
+                            (declare (dynamic-extent id))
                             (when (cl-mpm/mesh:in-bounds mesh id)
                                 ;(in-bounds-simd mesh id-vec)
                               (let* ((dist (sb-simd-avx:f64.2-
                                             pos-vec
                                             (sb-simd-avx:f64.2* id-vec h)))
-                                     ;; (dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                      (node (cl-mpm/mesh:get-node mesh id))
-                                     ;; (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
-                                     ;; (weight (reduce #'* weights))
                                      (weights (linear-weight-simd dist h))
                                      (weight (sb-simd-avx::f64.2-horizontal* weights))
                                      (grads-vec (sb-simd-avx:f64.2*
                                                  (linear-grads-simd dist h)
                                                  (sb-simd-avx:f64.2-shuffle weights weights 1)))
                                      (grads (multiple-value-list (sb-simd-avx:f64.2-values grads-vec)))
-                                     ;; (grads (mapcar (lambda (d w) (* (the double-float (cl-mpm/shape-function::shape-linear-dsvp d h))
-                                     ;;                                 (the double-float w)))
-                                                    ;; dist (nreverse weights)))
                                      )
-                                (declare (double-float weight)
-                                         ;; (dynamic-extent dist weights)
-                                         )
+                                (declare (double-float weight))
                                 (when (< 0d0 weight)
-                                  (funcall func mesh node weight grads))))
-                            )))))))
+                                  (funcall func mesh node weight grads)))))))))))
 
 
 (declaim (inline iterate-over-neighbours-shape-gimp)
@@ -1558,6 +1548,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (cl-mpm/mesh:reset-node node)
           )))))
 
+(defun remove-mp (sim mp)
+  (setf mps
+        (lparallel:premove-if (lambda (m)
+                                (= m mp)) mps)))
+(defgeneric remove-mps-func (sim func)
+  (:documentation "A function for removing mps from a sim"))
+
+(defmethod remove-mps-func (sim func)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+      (setf mps
+            (lparallel:premove-if 'func mps))))
+
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1571,7 +1574,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               mp
                             (and (>= damage 1d0)
                                  ;; (or
-                                  ;; (split-criteria mp h)
+                                  (split-criteria mp h)
                                  ;;  (< (magicl:det def) 1d-3)
                                  ;;  )
                                  ))) mps)))

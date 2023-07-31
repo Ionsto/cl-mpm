@@ -336,8 +336,10 @@
     :initform 1d0)
    (damage-position
     :accessor mp-damage-position
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1)))
+    ;:type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform nil
+    ;:initform (magicl:zeros '(2 1))
+    )
    (damage-tensor
     :accessor mp-damage-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT

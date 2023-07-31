@@ -58,6 +58,7 @@
                (lambda (mesh node svp grads)
                  (with-accessors ((node-force cl-mpm/mesh:node-force)
                                   (node-lock  cl-mpm/mesh:node-lock)
+                                  (node-vel  cl-mpm/mesh:node-velocity)
                                   (node-boundary cl-mpm/mesh::node-boundary-node)
                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                   (node-active  cl-mpm/mesh:node-active))
@@ -76,6 +77,11 @@
                               (damping-force (* normal-damping rel-vel))
                               )
                          ;; (cl-mpm/fastmath::fast-add force reaction-force)
+                         ;; (when (> rel-vel 1d0))
+                         ;; (magicl:scale! node-vel 0d0)
+                         (magicl:.- node-vel (cl-mpm/fastmath::dot
+                                              node-vel
+                                              normal))
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
@@ -85,6 +91,9 @@
                                                       (* -1d0
                                                          friction
                                                          ))
+                         ;; (cl-mpm/fastmath::fast-fmacc node-vel
+                         ;;                              tang-vel
+                         ;;                              (* -1d0))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       svp
