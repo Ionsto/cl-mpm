@@ -957,20 +957,20 @@
         (incf time-averaged-visc viscosity)
         ;; (setf stress-u
         ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de visc-u dt))
-        (setf stress
-              (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
+        ;; (setf stress
+        ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
 
-        ;; (magicl.simd::.+-simd
-        ;;  stress
-        ;;  (objectify-stress-logspin
-        ;;   (if (> viscosity 0d0)
-        ;;       (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-        ;;       (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-        ;;   stress
-        ;;   def
-        ;;   vorticity
-        ;;   D
-        ;;   ))
+        (magicl.simd::.+-simd
+         stress
+         (objectify-stress-logspin
+          (if (> viscosity 0d0)
+              (cl-mpm/constitutive::maxwell-exp-inc strain-rate stress E nu de viscosity dt)
+              (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+          stress
+          def
+          vorticity
+          D
+          ))
         ))
     ))
 

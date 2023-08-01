@@ -117,8 +117,8 @@
                          ;;                              (* -1d0))
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
-                                                      svp
-                                                      ;; (* svp volume)
+                                                      ;; svp
+                                                      (* svp volume)
                                                       )
                          )))))))))))))
 (defun collect-contact-points (mesh mps normal datum)

@@ -1302,7 +1302,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (magicl:transpose df)))
                     )
                 (multiple-value-bind (lf vf) (magicl:hermitian-eig
-                                              trial-lgs)
+                                              (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
                                  (magicl:@

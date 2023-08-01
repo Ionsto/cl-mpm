@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -137,7 +137,7 @@
       ;; ll
       )))
 (declaim (notinline plot))
-(defun plot (sim &optional (plot :damage))
+(defun plot (sim &optional (plot :contact))
   (declare (optimize (speed 0) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
@@ -429,10 +429,10 @@
 
                 ;; :plastic-stress 0.7d6
 
-                :initiation-stress 0.10d6
+                :initiation-stress 0.5d6
                 :damage-rate 1d-6
                 :critical-damage 0.50d0
-                :local-length 50d0
+                :local-length 100d0
                 :local-length-damaged 0.1d0
                 :damage 0.0d0
 
@@ -446,12 +446,12 @@
       (let ((mass-scale 1d8))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              ;; (* 0.0001d0 mass-scale)
+              (* 0.00001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
-              0.1d0
+              ;; 0.1d0
               ;; 0.0d0
               ;; 100d0
               )
@@ -505,8 +505,8 @@
            (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                    (cos (+ (* pi (/ angle 180d0))))) '(2 1))
            (magicl:from-list (list 00d0 (+ 1d0 h-y)) '(2 1))
-           (* *ice-density* 1d5)
-           1d11
+           (* *ice-density* 1d3)
+           1d08
            ))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
@@ -538,16 +538,16 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
          (slope -0.02)
-         (shelf-height 100)
-         (shelf-aspect 4)
+         (shelf-height 200)
+         (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
          (shelf-height shelf-end-height)
-         (offset (list 0 0))
+         (offset (list 0 1))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
@@ -933,14 +933,27 @@
   (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
   (setup)
   (let ((mps (cl-mpm:sim-mps *sim*) )
-        (a (magicl:zeros '(2 2)))
+        (a (magicl:random-hermitian 2))
         (b (magicl:zeros '(2 2)))
         (c (magicl:zeros '(2 2)))
-        (iters 100))
+        (iters 10000))
     (let ((mesh (cl-mpm::sim-mesh *sim*)))
-      (format t "Testing normal ~%")
+      ;; (format t "Testing normal ~%")
+      ;;  (time-form iters
+      ;;             (cl-mpm::update-sim *sim*))
+      (format t "Eig ~%")
        (time-form iters
-                  (cl-mpm::update-sim *sim*))
+                  (magicl::eig a))
+      (format t "Eig real ~%")
+      (time-form iters
+                 (magicl:eig a :realtype))
+      (format t "herm Eig ~%")
+      (time-form iters
+                 (magicl::hermitian-eig a)
+                 )
+      (format t "realpart Eig ~%")
+      (time-form iters
+                 (multiple-value-bind (l v) (magicl::eig a) (magicl:.realpart v)))
       ;; (time
       ;; (time
       ;;  (time-form iters
@@ -1221,3 +1234,4 @@
   (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+;; (setf *run-sim* nil)

@@ -59,6 +59,12 @@
      (magicl:@ de strain-increment)
      (magicl:scale! (deviatoric-voigt stress) relaxation-const))
     ))
+
+(defun maxwell-exp-inc (strain-increment stress elasticity poisson-ratio de viscosity dt)
+  "A stress increment form of a viscoelastic maxwell material"
+  (magicl:.-
+   stress
+   (maxwell-exp-v strain-increment stress elasticity poisson-ratio de viscosity dt)))
 (defun maxwell-damage (strain-increment stress elasticity poisson-ratio de viscosity dt damage strain)
   "A stress increment form of a viscoelastic maxwell material"
   (let* ((relaxation-const (/ (* dt elasticity) (* 2d0 (- 1d0 poisson-ratio) viscosity)))
