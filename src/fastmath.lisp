@@ -104,14 +104,14 @@
   #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
                           (magicl::matrix/double-float-storage b)
                           d)
-  #-:sb-simd (magicl:.+ a (magicl:scale b d) a))
+  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a))
 
 (declaim
    (inline fast-add)
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) fast-add))
 (defun fast-add (a b)
   #+:sb-simd (simd-add a b)
-  #-:sb-simd (magicl:.+ a b a)
+  #-:sb-simd (magicl.simd::.+-simd a b a)
   )
 
 
@@ -119,7 +119,7 @@
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
 (let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 0.5d0)) '(3 1) :type 'double-float :layout :column-major)))
   (defun voigt-tensor-reduce-lisp (a)
-     (values (magicl::sum (magicl:.* a a second-invar)))))
+     (values (magicl::sum (magicl.simd::.*-simd a a second-invar)))))
 
 (declaim (inline voigt-tensor-reduce-simd)
          (ftype (function (magicl:matrix/double-float) double-float) voigt-tensor-reduce-simd))
@@ -128,9 +128,8 @@
   (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
     (+
-     0d0
-     ;(* (aref arr 0) (aref arr 0))
-     ;(* (aref arr 1) (aref arr 1))
+     (* (aref arr 0) (aref arr 0))
+     (* (aref arr 1) (aref arr 1))
      (* (aref arr 2) (aref arr 2) 0.5d0)
      )))
 
@@ -201,8 +200,8 @@
                                                                         (the double-float (magicl:tref b j 0)) scale))))))
 
 (defun dot (a b)
-  (magicl::sum (magicl:.* a b)))
+  (magicl::sum (magicl.simd::.*-simd a b)))
 (defun mag (a)
-  (magicl::sum (magicl:.* a a)))
+  (magicl::sum (magicl.simd::.*-simd a a)))
 (defun norm (a)
   (magicl::scale a (sqrt (mag a))))

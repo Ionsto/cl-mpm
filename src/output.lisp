@@ -19,7 +19,7 @@
       (loop :repeat (+ steps 1) collect 
               (prog1
                 (funcall get-value (cl-mpm:sim-mesh sim) sample-mp)
-                (setf (cl-mpm/particle:mp-position sample-mp) (magicl:.+ (cl-mpm/particle:mp-position sample-mp) direction))))))
+                (setf (cl-mpm/particle:mp-position sample-mp) (magicl.simd::.+-simd (cl-mpm/particle:mp-position sample-mp) direction))))))
 
 (defun sample-point (sim point get-value)
     (let ((sample-mp (cl-mpm/particle:make-particle 2 :pos point)))
@@ -40,7 +40,7 @@
           (progn
             (cl-mpm::iterate-over-neighbours mesh mp 
              (lambda (mesh mp node svp dsvp) 
-               (setf av (magicl:.+ av (magicl:scale (,accessor node) svp)))))
+               (setf av (magicl.simd::.+-simd av (magicl:scale (,accessor node) svp)))))
             av))))
 
 (defun sample-line-mass (sim start end steps)
@@ -151,16 +151,21 @@
         (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
-        ;; (save-parameter "viscosity" (cl-mpm/particle::mp-true-visc mp))
+
+        (save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
+        ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
+        ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
 
         (save-parameter "strain_rate"
-                        (multiple-value-bind (l v)
-                            (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
-                          (reduce #'+ (mapcar #'* l l))))
+                        (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
+                        ;; (multiple-value-bind (l v)
+                        ;;     (magicl:eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
+                        ;;   (reduce #'+ (mapcar #'* l l)))
+                        )
         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
         ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
-        (labels ((dot (a b) (magicl::sum (magicl:.* a b)))
+        (labels ((dot (a b) (magicl::sum (magicl.simd::.*-simd a b)))
                  (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
                  (radial-stress (mp)
                    (with-accessors ((stress cl-mpm/particle:mp-stress)

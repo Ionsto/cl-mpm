@@ -59,7 +59,7 @@
                                                                      (* (second spacing) y))
                                                                '(2 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(2 1) :type 'double-float))
-                               (position-vec (magicl:.+ origin-vec
+                               (position-vec (magicl.simd::.+-simd origin-vec
                                                         (magicl:@ rot position-vec)))
                                ;; (size-vec (magicl:map #'abs (magicl:@ rot size-vec)))
                                )
@@ -141,7 +141,7 @@
   (let ((aspect (/ x-l y-l)))
     (lambda (pos)
       (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
-             (dist-vec (magicl:.* (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
+             (dist-vec (magicl.simd::.*-simd (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
                                                                              :type 'double-float)))
              (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
                                                     dist-vec) 0 0))))

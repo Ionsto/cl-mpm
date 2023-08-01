@@ -782,7 +782,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         mp-thermal-conductivity
                                         mp-temp
                                         (magicl::sum
-                                         (magicl:.* dsvp dsvp)))))
+                                         (magicl.simd::.*-simd dsvp dsvp)))))
                   (sb-thread:with-mutex (node-lock)
                     (setf node-temp
                           (+ node-temp weighted-temp))
@@ -1076,7 +1076,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      (magicl:.- force
                                 (magicl:scale vel damping))
                                 (/ 1.0 mass)))
-          (setf vel (.+ vel (magicl:scale acc dt)))
+          (setf vel (magicl.simd::.+-simd vel (magicl:scale acc dt)))
           (special-update-node mesh dt node damping)
           ))))
 
@@ -1134,7 +1134,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 ;;     do (with-accessors ((vel cl-mpm/particle:mp-velocity)
 ;;                         (pos cl-mpm/particle:mp-position)) mp
 ;;       (progn 
-;;       (setf pos (magicl:.+ pos (magicl:scale vel dt)))))))
+;;       (setf pos (magicl.simd::.+-simd pos (magicl:scale vel dt)))))))
 (declaim (inline update-particle-mp))
 (defun update-particle-mp (mp dt)
   (declare (cl-mpm/particle:particle mp) (double-float dt))
@@ -1144,10 +1144,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (nc cl-mpm/particle::mp-cached-nodes)
                    ) mp
       (progn
-        (setf pos (magicl:.+ pos (magicl:scale vel dt)))
-        (setf disp (magicl:.+ disp (magicl:scale vel dt)))
+        (setf pos (magicl.simd::.+-simd pos (magicl:scale vel dt)))
+        (setf disp (magicl.simd::.+-simd disp (magicl:scale vel dt)))
         (setf (fill-pointer nc) 0)
-        ;; (.+ disp (magicl:scale vel dt) disp)
+        ;; (magicl.simd::.+-simd disp (magicl:scale vel dt) disp)
         )))
 
 ;; (defun update-particle (mps dt)
@@ -1186,13 +1186,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    node
                  (declare (double-float))
                  (when node-active
-                   (magicl:.+
+                   (magicl.simd::.+-simd
                     stretch-tensor
                     (cl-mpm/utils::voight-to-stretch-prealloc
                      (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
                                 grads stretch-dsvp) node-vel) v-s)
                     stretch-tensor)
-                   #+cl-mpm-fbar (magicl:.+
+                   #+cl-mpm-fbar (magicl.simd::.+-simd
                                   stretch-tensor-fbar
                                   (cl-mpm/utils::voight-to-stretch-prealloc
                                    (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
@@ -1201,7 +1201,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
                    ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
                    ))))
-            #+cl-mpm-fbar (setf jfbar (magicl:det (magicl:.+ (magicl:eye 2) stretch-tensor-fbar)))
+            #+cl-mpm-fbar (setf jfbar (magicl:det (magicl.simd::.+-simd (magicl:eye 2) stretch-tensor-fbar)))
             )
           #+cl-mpm-fbar (when (<= jfbar 0d0)
             (error "FBAR volume non-positive"))
@@ -1234,7 +1234,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let ((df (calculate-df mesh mp)))
                    (progn
                      (setf def (magicl:@ df def))
-                     (setf strain (magicl:.+ strain dstrain))
+                     (setf strain (magicl.simd::.+-simd strain dstrain))
                      ;(setf volume (* volume (det df)))
                      (setf volume (* volume-0 (magicl:det def)))
 
@@ -1372,8 +1372,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             for d in dim
             for i from 0 below 4
             do
-               (let ((corner (magicl:.+ position
-                                        (magicl:.*
+               (let ((corner (magicl.simd::.+-simd position
+                                        (magicl.simd::.*-simd
                                          (magicl:from-list point '(2 1)
                                                            :type 'double-float)
                                          domain
@@ -1386,7 +1386,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                       ;; (incf (aref disp i)
                       ;;       (* svp dt (magicl:tref vel d 0)))
                       (setf (aref disp i)
-                            (magicl:.+ (aref disp i)
+                            (magicl.simd::.+-simd (aref disp i)
                                        (magicl:scale vel (* dt svp)))))))))
       (incf (magicl:tref domain 0 0) (* 0.5
                                         (-
@@ -1465,7 +1465,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel dstrain))
            )))
       (magicl:scale! dstrain dt)
-      (let ((df (.+ (magicl:eye 2) (voight-to-matrix dstrain))))
+      (let ((df (magicl.simd::.+-simd (magicl:eye 2) (voight-to-matrix dstrain))))
         (progn
           (setf def (magicl:@ df def))
           (setf volume (* volume (det df)))
@@ -1479,7 +1479,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (volume cl-mpm/particle:mp-volume)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (.+ (magicl:eye 2) stretch-rate))
+    (let* ((df (magicl.simd::.+-simd (magicl:eye 2) stretch-rate))
            (j-inc (det df))
            (j-n (det def)))
       (iterate-over-neighbours mesh mp
@@ -1505,7 +1505,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
     (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0 1d0))))
-      (.+ df stretch-tensor df)
+      (magicl.simd::.+-simd df stretch-tensor df)
       #+cl-mpm-fbar (progn
                       (magicl:scale! df (expt (/ jfbar (magicl:det df)) (/ 1d0 2d0))))
       df)))
@@ -1559,7 +1559,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
       (setf mps
-            (lparallel:premove-if 'func mps))))
+            (lparallel:premove-if func mps)))
+  (values))
 
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
@@ -1567,23 +1568,29 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mesh cl-mpm:sim-mesh))
       sim
     (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-       (setf mps
-             (lparallel:premove-if (lambda (mp)
-                          (with-accessors ((damage cl-mpm/particle:mp-damage)
-                                           (def cl-mpm/particle::mp-deformation-gradient))
-                              mp
-                            (and (>= damage 1d0)
-                                 ;; (or
-                                  (split-criteria mp h)
-                                 ;;  (< (magicl:det def) 1d-3)
-                                 ;;  )
-                                 ))) mps)))
-      ;(delete-if (lambda (mp)
-      ;                        (with-accessors ((damage cl-mpm/particle:mp-damage))
-      ;                            mp
-      ;                          (and (>= damage 1d0)
-      ;                                  ;(split-criteria mp h)
-      ;                               ))) mps))
+      (remove-mps-func
+       sim
+       (lambda (mp)
+         (with-accessors ((damage cl-mpm/particle:mp-damage)
+                          (def cl-mpm/particle::mp-deformation-gradient))
+             mp
+           (and (>= damage 1d0)
+                ;; (or
+                (split-criteria mp h)
+                ;;  (< (magicl:det def) 1d-3)
+                ;;  )
+                )))))
+       ;; (setf mps
+       ;;       (lparallel:premove-if (lambda (mp)
+       ;;                    (with-accessors ((damage cl-mpm/particle:mp-damage)
+       ;;                                     (def cl-mpm/particle::mp-deformation-gradient))
+       ;;                        mp
+       ;;                      (and (>= damage 1d0)
+       ;;                           ;; (or
+       ;;                            (split-criteria mp h)
+       ;;                           ;;  (< (magicl:det def) 1d-3)
+       ;;                           ;;  )
+       ;;                           ))) mps)))
     ))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
@@ -1631,16 +1638,16 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (h-factor (* 0.8d0 h)))
     (cond
       ((eq direction :x)
-       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
-             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(0.5d0 1d0) '(2 1))))
-             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
+       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
+             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 1d0) '(2 1))))
+             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos pos-offset))
+                         :position (magicl.simd::.+-simd pos pos-offset))
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
@@ -1648,16 +1655,16 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
       ((eq direction :y)
-       (let ((new-size (magicl:.* lens (magicl:from-list '(1d0 0.5d0) '(2 1))))
-             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(1d0 0.5d0) '(2 1))))
-             (pos-offset (magicl:.* lens (magicl:from-list '(0d0 0.25d0) '(2 1)))))
+       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(1d0 0.5d0) '(2 1))))
+             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(1d0 0.5d0) '(2 1))))
+             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0d0 0.25d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos pos-offset))
+                         :position (magicl.simd::.+-simd pos pos-offset))
           (copy-particle mp
                          :mass (/ mass 2)
                          :volume (/ volume 2)
@@ -1665,34 +1672,34 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          :size-0 new-size-0
                          :position (magicl:.- pos pos-offset)))))
       ((eq direction :xy)
-       (let ((new-size (magicl:.* lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-             (new-size-0 (magicl:.* lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-             (pos-offset (magicl:.* lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
+       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
          (list
           (copy-particle mp
                          :mass (/ mass 4d0)
                          :volume (/ volume 4d0)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
+                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
           (copy-particle mp
                          :mass (/ mass 4d0)
                          :volume (/ volume 4d0)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
+                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
           (copy-particle mp
                          :mass (/ mass 4d0)
                          :volume (/ volume 4d0)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
+                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
           (copy-particle mp
                          :mass (/ mass 4d0)
                          :volume (/ volume 4d0)
                          :size new-size
                          :size-0 new-size-0
-                         :position (magicl:.+ pos (magicl:.* pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
+                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
           )))
       (t nil)
       ))))

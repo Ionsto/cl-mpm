@@ -230,7 +230,7 @@
   (let ((centroid (magicl:zeros '(2 1))))
     (loop for node in nodes
           do
-             (magicl:.+ centroid (node-position node) centroid))
+             (magicl.simd::.+-simd centroid (node-position node) centroid))
     (magicl:scale centroid (/ 1d0 (length nodes)))))
 (defun make-cell (mesh index h)
   ;;Get local nodes
@@ -243,7 +243,7 @@
                                                    (list x y))))))
          (volume (expt h 2))
          (centroid (cell-calculate-centroid nodes))
-         (centroid (magicl:.+ (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
+         (centroid (magicl.simd::.+-simd (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
                               (magicl:scale! (magicl:from-list (list h h) '(2 1) :type 'double-float) 0.5d0)))
          )
     (loop for n in nodes
@@ -417,7 +417,7 @@
 ;;                      (temp cl-mpm/particle::mp-temperature)
 ;;                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
 ;;       (progn 
-;;         (setf vel (magicl:.+ vel (magicl:scale node-vel svp)))))))
+;;         (setf vel (magicl.simd::.+-simd vel (magicl:scale node-vel svp)))))))
 (defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
@@ -489,7 +489,7 @@
                      (volume cell-volume))
         cell
       (dolist (point (gauss-points gp h))
-        (let ((quad (magicl:.+ centroid point))
+        (let ((quad (magicl.simd::.+-simd centroid point))
               (volume-ratio (/ 1 (expt gp 2))))
           (loop for node in nodes
                 do

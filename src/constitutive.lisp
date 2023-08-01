@@ -48,7 +48,7 @@
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
-  (magicl:.+ stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
+  (magicl.simd::.+-simd stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
 
 (defun maxwell (strain-increment stress elasticity poisson-ratio de viscosity dt)
@@ -70,7 +70,7 @@
            (pressure-matrix (magicl:eye 2 :value p))
            (dev-stress (magicl:.- stress-matrix pressure-matrix)))
       (setf elastic-increment (matrix-to-voight
-                    (magicl:.+ pressure-matrix
+                    (magicl.simd::.+-simd pressure-matrix
                                (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
     ;; (magicl:scale! elastic-increment (max 1d-3 (- 1d0 damage)))
     (magicl:.-
@@ -140,7 +140,7 @@
                            (H sii))
                           )
                         )
-                   (magicl:.+ Q comp Q)
+                   (magicl.simd::.+-simd Q comp Q)
                    )
               )
       Q))))
@@ -148,7 +148,7 @@
 (defun tensile-projection-Q-cw-mandel (strain)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
-      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix (magicl:.* strain
+      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix (magicl.simd::.*-simd strain
                                                                           (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))
                                                                           )))
         (loop for i from 0 to 1
@@ -160,7 +160,7 @@
                                          (matrix-to-mandel vii)
                                          (magicl:transpose (matrix-to-mandel vii)))
                                         (H si))))
-                   (magicl:.+ Q comp-prod Q)
+                   (magicl.simd::.+-simd Q comp-prod Q)
                    )
               )
         (let* ((si (nth 0 l))
@@ -170,14 +170,14 @@
                (vij (magicl:@ vi (magicl:transpose vj)))
                (vji (magicl:@ vj (magicl:transpose vi)))
                (pij (magicl:scale!
-                     (magicl:.+ vij vji)
+                     (magicl.simd::.+-simd vij vji)
                      0.5d0))
                (comp-prod
                  (magicl:scale! (magicl:@
                                 (matrix-to-mandel pij)
                                 (magicl:transpose (matrix-to-mandel pij)))
                                (+ (H si) (H sj)))))
-          (magicl:.+ Q comp-prod Q))
+          (magicl.simd::.+-simd Q comp-prod Q))
           )
       Q)))
 
@@ -191,7 +191,7 @@
   "Generate a mandel form tensile projection matrix A* from stress"
   (let ((Q (tensile-projection-q-cw-mandel strain))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
-    (magicl:.+ I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
+    (magicl.simd::.+-simd I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
 
 ;; (defun test-tensile ()
 ;;   (loop for stress in (list
@@ -234,7 +234,7 @@
                    (when (> sii 0d0)
                      (setf scale (sqrt (- 1d0 damage)))
                      (magicl:scale! A scale))
-                   (magicl:.+ damaged-stiffness
+                   (magicl.simd::.+-simd damaged-stiffness
                               (magicl:@ A stiffness A)
                               damaged-stiffness)
                      )))
@@ -246,7 +246,7 @@
                                 1d0 1d0 (sqrt 2)
                                 (sqrt 2) (sqrt 2) 2d0) '(3 3))))
   (defun voigt-4th-to-mandel (tensor)
-    (magicl:.* tensor mandel-constant))
+    (magicl.simd::.*-simd tensor mandel-constant))
   (defun mandel-to-voigt-4th (tensor)
     (magicl:./ tensor mandel-constant))
   )
@@ -265,7 +265,7 @@
          (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
     (declare (type double-float pressure))
-    (magicl:.+
+    (magicl.simd::.+-simd
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
     )))
@@ -280,7 +280,7 @@
     (declare (type double-float pressure))
     (when (< pressure 0)
       (setf pressure (* pressure (- 1d0 damage))))
-    (magicl:.+
+    (magicl.simd::.+-simd
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
      )))
@@ -320,9 +320,9 @@
          (stress-inc-pressure (magicl:eye 2 :value (/ (magicl:trace stress-inc) 2d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
-    (magicl:.+
-     (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
-               (magicl:.+ (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
+    (magicl.simd::.+-simd
+     (matrix-to-voight (magicl.simd::.+-simd pressure-matrix stress-inc-pressure))
+               (magicl.simd::.+-simd (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
                           (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
 (defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
@@ -340,9 +340,9 @@
          )
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
-     (magicl:.+
-      (magicl:.+ pressure-matrix stress-inc-pressure)
-      (magicl:.+ (magicl:scale! dev-stress exp-rho)
+     (magicl.simd::.+-simd
+      (magicl.simd::.+-simd pressure-matrix stress-inc-pressure)
+      (magicl.simd::.+-simd (magicl:scale! dev-stress exp-rho)
                  (magicl:scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
@@ -379,9 +379,9 @@
     (cl-mpm/fastmath:fast-fmacc result-stress dev-stress exp-rho)
     (cl-mpm/fastmath:fast-fmacc result-stress stress-inc-dev lam)
     result-stress
-    ;; (magicl:.+
-    ;;  (magicl:.+ pressure-matrix stress-inc-pressure result-stress)
-    ;;  (magicl:.+ (magicl:scale! dev-stress exp-rho)
+    ;; (magicl.simd::.+-simd
+    ;;  (magicl.simd::.+-simd pressure-matrix stress-inc-pressure result-stress)
+    ;;  (magicl.simd::.+-simd (magicl:scale! dev-stress exp-rho)
     ;;             (magicl:scale! stress-inc-dev lam) result-stress))
   ))
 
@@ -394,11 +394,11 @@
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
-                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress
+                                                        (expt (magicl::sum (magicl.simd::.*-simd dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
                                                               (* 0.5 (- visc-power 1)))))))
-    (magicl:.+ stress
+    (magicl.simd::.+-simd stress
                (magicl:.-
                 ;;I think this is correct but not sure
                 (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
@@ -418,7 +418,7 @@
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
-                                                        (expt (magicl::sum (magicl:.* dev-stress dev-stress
+                                                        (expt (magicl::sum (magicl.simd::.*-simd dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
                                                               (- visc-power 1)))))
@@ -434,13 +434,13 @@
          (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
          (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
          (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
-    (magicl:.+ (matrix-to-voight pressure-matrix) dev-stress)))
+    (magicl.simd::.+-simd (matrix-to-voight pressure-matrix) dev-stress)))
 
 (defun glen-stress (strain visc-factor visc-power dt)
   (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 2d0))
          (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 2 :value strain-trace))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
-         (effective-strain (magicl::sum (magicl:.* dev-strain dev-strain second-invar)))
+         (effective-strain (magicl::sum (magicl.simd::.*-simd dev-strain dev-strain second-invar)))
          )
     (if (> effective-strain 0d0)
         (magicl:scale dev-strain (* visc-factor (expt effective-strain
@@ -449,11 +449,11 @@
 
 (defun deviatoric (voigt)
   (let* ((mat (voight-to-matrix voigt))
-         (trace (/ (magicl:trace mat) 2)))
+         (trace (/ (magicl:trace mat) 2d0)))
     (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
 
 (defun deviatoric-mat (mat)
-  (let* ((trace (/ (magicl:trace mat) 2)))
+  (let* ((trace (/ (magicl:trace mat) 2d0)))
     (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
 
 
@@ -462,28 +462,30 @@
   "Get the viscosity for a given stress state"
   (let* ((dev-stress (deviatoric stress))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
-         (effective-stress (+ 1d-30 (magicl::sum (magicl:.* dev-stress dev-stress second-invar))))
+         (effective-stress (+ 1d-30 (magicl::sum (magicl.simd::.*-simd dev-stress dev-stress second-invar))))
          )
     (declare (type double-float effective-stress))
     (if (> effective-stress 0d0)
         (/ 1d0 (* 2d0 visc-factor (expt effective-stress (* 0.5d0 (- visc-power 1)))))
         0d0)))
+(defun effective-strain-rate (strain)
+  (sqrt (* 0.5d0 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
   (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
-         ;; (effective-strain (+ 1d-40 (* 0.5d0 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
-         (effective-strain (+ 1d-40 (* 0.5d0 (* 0.5d0 (expt (magicl:tref strain 2 0) 2)))))
+         (effective-strain (+ 1d-20 (effective-strain-rate strain)))
+         ;; (effective-strain (+ 1d-40 (* 0.5d0 (* 0.5d0 (expt (magicl:tref strain 2 0) 2)))))
          )
     (declare (type double-float effective-strain))
     (*
-     (/ 1d0 (sqrt 2d0))
+     ;; (/ 1d0 (sqrt 2d0))
      1d0
      ;; 2d0
      ;; 0.5d0
      ;; 0.5d0
-       visc-factor (the double-float (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0))))
+       visc-factor (the double-float (expt effective-strain (* 1d0 (- (/ 1d0 visc-power) 1d0))))
        ;; (the double-float (expt fudge -0.3d0))
        )
     ;; (if (> effective-strain 0d0)
@@ -508,7 +510,7 @@
   "Get the viscosity for a given strain state"
   (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
          (dev-stretch (deviatoric-voigt stretch))
-         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (magicl:.* dev-stretch dev-stretch)))))
+         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (magicl.simd::.*-simd dev-stretch dev-stretch)))))
          )
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)

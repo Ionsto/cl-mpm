@@ -548,13 +548,13 @@
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;        (dotimes (i 1000000)
-;;          (setf a (magicl:.+ a b))
+;;          (setf a (magicl.simd::.+-simd a b))
 ;;          )))
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;    (dotimes (i 1000000)
-;;      (magicl:.+ a b a)
+;;      (magicl.simd::.+-simd a b a)
 ;;      )))
 
 (declaim

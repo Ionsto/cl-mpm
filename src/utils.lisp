@@ -54,6 +54,11 @@
   ;;   m)
   (magicl::copy-matrix/double-float mat)
   )
+(defun vector-copy (vec)
+  (let ((v(vector-zeros)))
+    (aops:copy-into (magicl::matrix/double-float-storage v)
+                    (magicl::matrix/double-float-storage vec))
+    v))
 
 (declaim (inline stretch-dsvp-zeros)
          (ftype (function ()

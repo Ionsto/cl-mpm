@@ -144,29 +144,15 @@
                  ;;Lock node for multithreading
                  (sb-thread:with-mutex (node-lock)
                    (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                   ;; Add gradient of stress
                    (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                                                                (funcall func-stress mp)
                                                                (* volume)
                                                                node-force)
+                   ;; Add divergance of stress
                    (cl-mpm/fastmath::fast-fmacc node-force
                                                 (funcall func-div mp)
                                                 (* svp volume))
-                   ;;Add the gradient of stress
-                   ;; (setf node-force (magicl:.+
-                   ;;                   node-force
-                   ;;                   (magicl:scale!
-                   ;;                    (magicl:@
-                   ;;                     (magicl:transpose
-                   ;;                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                   ;;                     (funcall func-stress mp)
-                   ;;                     )
-                   ;;                    (* volume))))
-                   ;; ;;Add the divergance
-                   ;; (setf node-force (magicl:.+
-                   ;;                   node-force
-                   ;;                   (magicl:scale!
-                   ;;                    (funcall func-div mp)
-                   ;;                    (* svp volume))))
                    (incf node-boundary-scalar
                          (* volume svp (calculate-val-mp mp #'melt-rate)))
                    ))))))))))
@@ -218,7 +204,7 @@
                               (cl-mpm/fastmath::fast-fmacc node-force
                                                            (funcall func-div pos)
                                                            (* -1d0 svp volume))
-                              ;; (setf node-force (magicl:.+
+                              ;; (setf node-force (magicl.simd::.+-simd
                               ;;                   node-force
                               ;;                   (magicl:scale!
                               ;;                    (magicl:@
@@ -227,7 +213,7 @@
                               ;;                     (funcall func-stress pos))
                               ;;                    (* -1d0 volume))))
                               ;; ;;Subtract stress divergance from node force
-                              ;; (setf node-force (magicl:.+
+                              ;; (setf node-force (magicl.simd::.+-simd
                               ;;                   node-force
                               ;;                   (magicl:scale!
                               ;;                    (funcall func-div pos)
@@ -300,7 +286,7 @@
                               (size cl-mpm/particle::mp-domain-size))
                  mp
                (let* ((pmin (cl-mpm/mesh:position-to-index mesh (magicl:.- pos (magicl:scale size 0.5d0)) #'floor))
-                      (pmax (cl-mpm/mesh:position-to-index mesh (magicl:.+ pos (magicl:scale size 0.5d0)) #'floor)))
+                      (pmax (cl-mpm/mesh:position-to-index mesh (magicl.simd::.+-simd pos (magicl:scale size 0.5d0)) #'floor)))
                  (loop for x from (first pmin) to (first pmax)
                        do
                           (loop for y from (second pmin) to (second pmax)

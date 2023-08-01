@@ -33,7 +33,7 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.- pos (magicl:.* normal (magicl:scale domain 0.5d0)))))
+    (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
 
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps normal datum epsilon friction)
@@ -79,9 +79,30 @@
                          ;; (cl-mpm/fastmath::fast-add force reaction-force)
                          ;; (when (> rel-vel 1d0))
                          ;; (magicl:scale! node-vel 0d0)
-                         (magicl:.- node-vel (cl-mpm/fastmath::dot
-                                              node-vel
-                                              normal))
+                         ;; (magicl:.-
+                         ;;  node-vel
+                         ;;  (magicl:scale!
+                         ;;   (magicl:.-
+                         ;;    node-vel
+                         ;;    (magicl:scale
+                         ;;     normal
+                         ;;     (cl-mpm/fastmath::dot
+                         ;;      node-vel
+                         ;;      normal)))
+                         ;;   (* svp))
+                         ;;  node-vel)
+                         ;;  (magicl:.-
+                         ;;   node-force
+                         ;;   (magicl:scale!
+                         ;;    (magicl:.-
+                         ;;     node-force
+                         ;;     (magicl:scale
+                         ;;      normal
+                         ;;      (cl-mpm/fastmath::dot
+                         ;;       node-force
+                         ;;       normal)))
+                         ;;    (* svp))
+                         ;;   node-force)
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
@@ -98,7 +119,8 @@
                                                       force
                                                       svp
                                                       ;; (* svp volume)
-                                                      ))))))))))))))
+                                                      )
+                         )))))))))))))
 (defun collect-contact-points (mesh mps normal datum)
   (loop for mp across mps
         when (> (penetration-distance mp datum normal) 0d0)

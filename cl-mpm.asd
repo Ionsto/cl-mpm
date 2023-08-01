@@ -7,7 +7,9 @@
   :components ((:file "src/symbolic-derivation")))
 
 (defsystem "cl-mpm/utils"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "array-operations"
+               )
   :description "MPM utility functions definitions"
   :serial t
   :components ((:file "src/utils")))

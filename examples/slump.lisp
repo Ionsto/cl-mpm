@@ -113,13 +113,16 @@
     ;(* (magicl:tref (cl-mpm::mp-deformation-gradient mp) dim dim) h-initial)
     ))
 (defun max-stress (mp)
+  (declare (optimize (speed 0) (debug 3)))
   (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     ;(apply #'max l)
     ;; (- (max 0d0 (apply #'max l))
     ;;    (max 0d0 (apply #'min l)))
     ;; (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
     ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
-    (cl-mpm/particle::mp-damage-ybar mp)
+    ;; (cl-mpm/particle::mp-damage-ybar mp)
+    ;; (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
+    (cl-mpm/particle::mp-time-averaged-visc mp)
     ;; (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0)
     )
   )
@@ -133,7 +136,9 @@
       (cl-mpm/damage::diff-squared mp *dist-mp*)
       ;; ll
       )))
-(defun plot (sim &optional (plot :contact))
+(declaim (notinline plot))
+(defun plot (sim &optional (plot :damage))
+  (declare (optimize (speed 0) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -222,7 +227,7 @@
                 (c-c (mapcar (lambda (p) 1d0) contact-points))
            )
            ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
-           (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
+           (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-40 (apply #'max c)))
          ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min node-c) (+ 0.01 (apply #'max node-c)))
          (if c-x
              ;; (multiple-value-bind (xp yp) (max-spacial (map 'list #'identity (cl-mpm::sim-mps *sim*)))
@@ -263,7 +268,7 @@
          (vgplot:plot x y e ";;with points pt 7 lc palette")
          )
         ((eq plot :stress)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
+         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-40 (apply #'max stress-y)))
          (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
         ((eq plot :damage-ybar)
          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min ybar) (+ 1e-20 (apply #'max ybar)))
@@ -377,6 +382,7 @@
 ;;                             )))))
 ;;       ))
 
+(declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size block-offset slope &optional (e-scale 1d0) (mp-scale 1d0)
                           &rest mp-args)
   (declare (optimize (speed 0)))
@@ -384,6 +390,7 @@
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline
                                         'cl-mpm/damage::mpm-sim-damage
+                                        ;; 'cl-mpm::mpm-sim-usf
                                         ;; 'mpm-sim-debug-g2p
                                          ;; 'mpm-sim-debug-stress
                                         ))
@@ -413,19 +420,20 @@
                 ;; 'cl-mpm/particle::particle-elastic-damage
                 ;; 'cl-mpm/particle::particle-viscoplastic
                 'cl-mpm/particle::particle-viscoplastic-damage
+                ;; 'cl-mpm/particle::particle-m-ice
                 ;; 'cl-mpm/particle::particle-glen
                 :E 1d9
                 :nu 0.3250d0
                 :visc-factor 111d6
                 :visc-power 3d0
 
-                :initiation-stress 0.33d6
-                :damage-rate 1d-5
+                ;; :plastic-stress 0.7d6
+
+                :initiation-stress 0.10d6
+                :damage-rate 1d-6
                 :critical-damage 0.50d0
                 :local-length 50d0
-                ;; :local-length-damaged 50d0
                 :local-length-damaged 0.1d0
-                                        ;:local-length-damaged 0.1d0
                 :damage 0.0d0
 
                 :gravity -9.8d0
@@ -435,15 +443,15 @@
                 :slope slope
                 )))
         )
-      (let ((mass-scale 1d6))
+      (let ((mass-scale 1d8))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.001d0 mass-scale)
+              ;; (* 0.0001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
-              ;; 0.1d0
+              0.1d0
               ;; 0.0d0
               ;; 100d0
               )
@@ -461,7 +469,7 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              ;; (lambda (i) (cl-mpm/bc:make-bc-fixed (mapcar #'+ i '(0 0)) '(nil nil)))
              ;; (lambda (i) (cl-mpm/bc:make-bc-surface (mapcar #'+ i '(0 1))
              ;;                                        (magicl:from-list (list 0d0 1d0) '(2 1))))
@@ -470,7 +478,7 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.1d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
             ;(angle -1d0)
             )
 
@@ -496,9 +504,9 @@
            sim
            (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                    (cos (+ (* pi (/ angle 180d0))))) '(2 1))
-           (magicl:from-list (list 00d0 (+ 0d0 h-y)) '(2 1))
+           (magicl:from-list (list 00d0 (+ 1d0 h-y)) '(2 1))
            (* *ice-density* 1d5)
-           1d8
+           1d11
            ))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
@@ -511,9 +519,8 @@
                   )
                  ))
                (cl-mpm/bc:make-bcs-from-list
-                (list
-                 *floor-bc*
-                 ))))
+                (list *floor-bc*)
+                )))
         )
       (let ((normal (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                             (cos (+ (* pi (/ angle 180d0))))) '(2 1))))
@@ -531,11 +538,11 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
-         (mps-per-cell 4)
+  (let* ((mesh-size 20)
+         (mps-per-cell 2)
          (slope -0.02)
-         (shelf-height 200)
-         (shelf-aspect 12)
+         (shelf-height 100)
+         (shelf-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -550,6 +557,8 @@
                          slope
                          (/ 1 mesh-size) mps-per-cell))
 
+    ;;Delete all the plotted frames
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
@@ -693,7 +702,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d4)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -706,14 +715,17 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 1000
                 while *run-sim*
                 do
                    (progn
-                     (if t;(> steps 10)
+                     (if (> steps 2)
                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
                          )
+                     ;; (when (> steps 2)
+                     ;;   (setf dt-scale 1d0)
+                     ;;     )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -739,6 +751,11 @@
                                (cl-mpm::update-sim *sim*)
                                ;; (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                       (loop for mp across (cl-mpm:sim-mps *sim*)
+                             do
+                                (with-accessors ((tv cl-mpm/particle::mp-time-averaged-visc))
+                                    mp
+                                  (setf tv (/ tv substeps))))
                        ;; (setf cfl (find-max-cfl *sim*))
                        (format t "CFL: ~f~%" cfl)
                        (push cfl *cfl-max*)
@@ -916,12 +933,14 @@
   (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
   (setup)
   (let ((mps (cl-mpm:sim-mps *sim*) )
-        (a (magicl:zeros '(3 1)))
-        (b (magicl:zeros '(3 1)))
-        (c (magicl:zeros '(3 1)))
-        (iters 100000))
+        (a (magicl:zeros '(2 2)))
+        (b (magicl:zeros '(2 2)))
+        (c (magicl:zeros '(2 2)))
+        (iters 100))
     (let ((mesh (cl-mpm::sim-mesh *sim*)))
       (format t "Testing normal ~%")
+       (time-form iters
+                  (cl-mpm::update-sim *sim*))
       ;; (time
       ;; (time
       ;;  (time-form iters
@@ -951,18 +970,18 @@
       ;;   (time-form 100
       ;;              (cl-mpm::update-sim *sim*)))
 
-      (format t "Normal ~%")
-      (time-form iters
-                 (magicl:.+ a b)
-                 )
-      (format t "Blas ~%")
-      (time-form iters
-                 (magicl.blas::.+-blas a b)
-                 )
-      (format t "Simd ~%")
-      (time-form iters
-                 (magicl.simd::.+-simd a b)
-                 )
+      ;; (format t "Normal ~%")
+      ;; (time-form iters
+      ;;            (magicl:.+ a b)
+      ;;            )
+      ;; (format t "Blas ~%")
+      ;; (time-form iters
+      ;;            (magicl.blas::.+-blas a b)
+      ;;            )
+      ;; (format t "Simd ~%")
+      ;; (time-form iters
+      ;;            (magicl.simd::.+-simd a b)
+      ;;            )
       )))
 (defun test-backend ()
   (let ((a (magicl:zeros '(2 1)))

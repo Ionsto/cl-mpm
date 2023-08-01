@@ -74,9 +74,9 @@
             )
 
           ;; (magicl:scale!
-          ;;   ;; (magicl:.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
+          ;;   ;; (magicl.simd::.+-simd (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
           ;;   ;;                               '(2 1) :type 'double-float :layout :column-major)
-          ;;   (magicl:.+ (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
+          ;;   (magicl.simd::.+-simd (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
           ;;              (magicl:scale body-force mass))
           ;;   svp))
       f-out)))
