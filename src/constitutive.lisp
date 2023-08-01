@@ -99,7 +99,7 @@
 
 (defun tensile-projection-eig (stress)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
-    (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+    (multiple-value-bind (l v) (magicl:hermitian-eig (voight-to-matrix stress))
       (loop for i from 0 to 1
             do (let* ((sii (nth i l)))
                  (setf (nth i l) (* sii (H sii)))))
@@ -110,7 +110,7 @@
 (defun tensile-projection-Q-mandel (stress)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
-      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+      (multiple-value-bind (l v) (magicl:hermitian-eig (voight-to-matrix stress))
         (loop for i from 0 to 1
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))
@@ -148,7 +148,7 @@
 (defun tensile-projection-Q-cw-mandel (strain)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
-      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix (magicl.simd::.*-simd strain
+      (multiple-value-bind (l v) (magicl:hermitian-eig (voight-to-matrix (magicl.simd::.*-simd strain
                                                                           (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))
                                                                           )))
         (loop for i from 0 to 1
@@ -224,7 +224,7 @@
 (defun tensile-project (stiffness stress damage)
   (if (> damage 0.0d0)
     (let ((damaged-stiffness (magicl:zeros '(2 2) :type 'double-float)))
-      (multiple-value-bind (l v) (magicl:eig (voight-to-matrix stress))
+      (multiple-value-bind (l v) (magicl:hermitian-eig (voight-to-matrix stress))
         (loop for i from 0 to 1
               do (let* ((sii (nth i l))
                         (vii (magicl::column v i))

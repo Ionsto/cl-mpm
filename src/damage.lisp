@@ -53,7 +53,7 @@
       (declare (double-float pressure damage))
         (progn
           (progn
-                                        ;multiple-value-bind (l v) (magicl:eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
+                                        ;multiple-value-bind (l v) (magicl:hermitian-eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (let* (;(l (sort l #'>))
                    ;(s_1 (nth 0 l))
                    ;; (s_2 (nth 1 l))
@@ -101,7 +101,7 @@
           ;;                            (magicl:transpose (magicl:@ identity omega))))
           ;;              (su (magicl:@ M stress))
           ;;              )
-          ;; (multiple-value-bind (l v) (magicl:eig
+          ;; (multiple-value-bind (l v) (magicl:hermitian-eig
           ;;                             su)
           ;;   (let* ()
           ;;     (loop for i from 0 to 1
@@ -743,7 +743,7 @@
                      ) mp
       (declare (double-float pressure damage))
         (progn
-          (multiple-value-bind (l v) (magicl:eig  (voight-to-matrix strain))
+          (multiple-value-bind (l v) (magicl:hermitian-eig  (voight-to-matrix strain))
             (let* ((l (sort l #'>))
                    (s_1 (nth 0 l))
                    (s_2 (nth 1 l))

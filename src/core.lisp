@@ -1238,7 +1238,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      ;(setf volume (* volume (det df)))
                      (setf volume (* volume-0 (magicl:det def)))
 
-                     (multiple-value-bind (l v) (magicl:eig (magicl:@ def (magicl:transpose def)))
+                     (multiple-value-bind (l v) (magicl:hermitian-eig (magicl:@ def (magicl:transpose def)))
                        (let ((stretch
                                (magicl:@
                                 v
@@ -1284,12 +1284,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (progn
           ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
-          (let ((initial-strain (magicl::copy-matrix/double-float strain))
+          (let ((initial-strain (magicl:scale strain 1d0))
                 ;(initial-strain (cl-mpm/utils::matrix-zeros))
                 (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
                 (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
                 )
-            (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix strain))
+            (multiple-value-bind (l v) (magicl:hermitian-eig (voigt-to-matrix strain))
               (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
                     (trial-lgs (magicl:@ df
                                          v
@@ -1301,7 +1301,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (magicl:transpose v)
                                          (magicl:transpose df)))
                     )
-                (multiple-value-bind (lf vf) (magicl:eig
+                (multiple-value-bind (lf vf) (magicl:hermitian-eig
                                               trial-lgs)
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
@@ -1316,7 +1316,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                 0.5d0))
                   ;; (print strain)
                   ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
-                  )))
+                  )
+                ))
             (magicl:.- initial-strain strain initial-strain)
             (setf eng-strain-rate initial-strain)
             (magicl:scale! eng-strain-rate (/ 1d0 dt))
@@ -1332,7 +1333,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Stretch rate update
           (let ((F (cl-mpm/utils::matrix-zeros)))
             (magicl:mult def def :target F :transb :t)
-            (multiple-value-bind (l v) (magicl:eig F)
+            (multiple-value-bind (l v) (magicl:hermitian-eig F)
               (let ((stretch
                       (magicl:@
                        v
