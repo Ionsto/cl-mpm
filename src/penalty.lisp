@@ -36,7 +36,7 @@
     (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
 
 ;;Only vertical condition
-(defun apply-force-mps (mesh mps normal datum epsilon friction)
+(defun apply-force-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   (lparallel:pdotimes
       (i (length mps))
@@ -48,6 +48,7 @@
           (with-accessors ((volume cl-mpm/particle:mp-volume)
                            (pressure cl-mpm/particle::mp-pressure)
                            (mp-vel cl-mpm/particle::mp-velocity)
+                           (mp-mass cl-mpm/particle::mp-mass)
                            )
               mp
             (let ((pen-point (penetration-point mp penetration-dist datum normal)))
@@ -59,6 +60,7 @@
                  (with-accessors ((node-force cl-mpm/mesh:node-force)
                                   (node-lock  cl-mpm/mesh:node-lock)
                                   (node-vel  cl-mpm/mesh:node-velocity)
+                                  (node-mass  cl-mpm/mesh:node-mass)
                                   (node-boundary cl-mpm/mesh::node-boundary-node)
                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                   (node-active  cl-mpm/mesh:node-active))
@@ -73,45 +75,36 @@
                               ;; (reaction-force (magicl:scale normal normal-force))
                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
+                              (tang-normal (cl-mpm/fastmath:norm tang-vel))
                               (normal-damping 0d10)
                               (damping-force (* normal-damping rel-vel))
+                              (force-friction (cl-mpm/utils:vector-zeros))
                               )
-                         ;; (cl-mpm/fastmath::fast-add force reaction-force)
-                         ;; (when (> rel-vel 1d0))
-                         ;; (magicl:scale! node-vel 0d0)
-                         ;; (magicl:.-
-                         ;;  node-vel
-                         ;;  (magicl:scale!
-                         ;;   (magicl:.-
-                         ;;    node-vel
-                         ;;    (magicl:scale
-                         ;;     normal
-                         ;;     (cl-mpm/fastmath::dot
-                         ;;      node-vel
-                         ;;      normal)))
-                         ;;   (* svp))
-                         ;;  node-vel)
-                         ;;  (magicl:.-
-                         ;;   node-force
-                         ;;   (magicl:scale!
-                         ;;    (magicl:.-
-                         ;;     node-force
-                         ;;     (magicl:scale
-                         ;;      normal
-                         ;;      (cl-mpm/fastmath::dot
-                         ;;       node-force
-                         ;;       normal)))
-                         ;;    (* svp))
-                         ;;   node-force)
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
                                                          damping-force))
-                         (cl-mpm/fastmath::fast-fmacc force
-                                                      tang-vel
+                         (cl-mpm/fastmath::fast-fmacc force-friction
+                                                      tang-normal
                                                       (* -1d0
                                                          friction
+                                                         (abs normal-force)
                                                          ))
+                         ;; (let* ((vest (magicl:.+ tang-vel (magicl:scale force-friction (/ dt mp-mass))))
+                         ;;        (current-prod (cl-mpm/fastmath:dot mp-vel tang-normal))
+                         ;;        (vest-prod (cl-mpm/fastmath:dot vest tang-normal)))
+                         ;;   (when (not (= (signum current-prod) (signum vest-prod)))
+                         ;;     ;;Overcorrecting force
+                         ;;     ;; (format t "force overcorrecting")
+                         ;;     (loop for i from 0 to 1
+                         ;;           do
+                         ;;              (when (not (= (magicl:tref mp-vel i 0) 0d0))
+                         ;;                (setf (magicl:tref force-friction i 0)
+                         ;;                      (*
+                         ;;                       -1d0
+                         ;;                       (magicl:tref tang-vel i 0)
+                         ;;                       (/ mp-mass dt)))))))
+                         (magicl:.+ force force-friction force)
                          ;; (cl-mpm/fastmath::fast-fmacc node-vel
                          ;;                              tang-vel
                          ;;                              (* -1d0))
@@ -161,9 +154,11 @@
 ;;       )))
 (defun apply-penalty (sim normal datum epsilon friction)
   (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm::sim-mps))
+                   (mps cl-mpm::sim-mps)
+                   (dt cl-mpm::sim-dt)
+                   )
       sim
-    (apply-force-mps mesh mps normal datum epsilon friction)))
+    (apply-force-mps mesh mps dt normal datum epsilon friction)))
 
 (defclass bc-penalty (cl-mpm/bc::bc-closure)
   ((normal

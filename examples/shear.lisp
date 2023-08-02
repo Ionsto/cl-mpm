@@ -23,7 +23,7 @@
          )
     h-initial))
 (defun max-stress (mp)
-  (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+  (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     ;; (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
@@ -503,7 +503,7 @@
                )))
   (plot-stress-table))
 (defun mat-log (m)
-    (multiple-value-bind (l v) (magicl:eig m)
+    (multiple-value-bind (l v) (magicl:hermitian-eig m)
       (magicl:@
          v
          (magicl:from-diag (mapcar (lambda (x) (the double-float (log (the double-float x)))) l) :type 'double-float)

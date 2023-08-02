@@ -281,7 +281,7 @@
          (vgplot:plot x y e ";;with points pt 7 lc palette")
          )))
     )
-  (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
+  (vgplot:format-plot t "replot (~f*x + ~f)~%" *sliding-slope* *sliding-offset*)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms))
@@ -429,10 +429,10 @@
 
                 ;; :plastic-stress 0.7d6
 
-                :initiation-stress 0.5d6
-                :damage-rate 1d-6
+                :initiation-stress 0.7d6
+                :damage-rate 1d-4
                 :critical-damage 0.50d0
-                :local-length 100d0
+                :local-length 50d0
                 :local-length-damaged 0.1d0
                 :damage 0.0d0
 
@@ -443,17 +443,17 @@
                 :slope slope
                 )))
         )
-      (let ((mass-scale 1d8))
+      (let ((mass-scale 1d6))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.00001d0 mass-scale)
+              ;; (* 0.0001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
               ;; 0.1d0
               ;; 0.0d0
-              ;; 100d0
+              100d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -478,24 +478,24 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 0.9d0 terminus-size)))
             ;(angle -1d0)
             )
 
-        ;; (loop for mp across (cl-mpm:sim-mps sim)
-        ;;       do
-        ;;          (with-accessors ((pos cl-mpm/particle:mp-position)
-        ;;                           (stress cl-mpm/particle::mp-stress-kirchoff)
-        ;;                           (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                           (stress-cauchy cl-mpm/particle::mp-stress)
-        ;;                           )
-        ;;              mp
-        ;;            (setf stress
-        ;;                  (cl-mpm/utils:matrix-to-voight
-        ;;                   (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) ocean-y *water-density*))))
-        ;;                  stress-cauchy (magicl:scale stress 1d0)
-        ;;                  undamaged-stress (magicl:scale stress 1d0)
-        ;;                  )))
+        (loop for mp across (cl-mpm:sim-mps sim)
+              do
+                 (with-accessors ((pos cl-mpm/particle:mp-position)
+                                  (stress cl-mpm/particle::mp-stress-kirchoff)
+                                  (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                                  (stress-cauchy cl-mpm/particle::mp-stress)
+                                  )
+                     mp
+                   (setf stress
+                         (cl-mpm/utils:matrix-to-voight
+                          (magicl:eye 2 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) ocean-y *water-density*))))
+                         stress-cauchy (magicl:scale stress 1d0)
+                         undamaged-stress (magicl:scale stress 1d0)
+                         )))
 
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
@@ -506,7 +506,7 @@
                                    (cos (+ (* pi (/ angle 180d0))))) '(2 1))
            (magicl:from-list (list 00d0 (+ 1d0 h-y)) '(2 1))
            (* *ice-density* 1d3)
-           1d08
+           0.9d0
            ))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
@@ -539,9 +539,9 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 50)
-         (mps-per-cell 2)
+         (mps-per-cell 4)
          (slope -0.02)
-         (shelf-height 200)
+         (shelf-height 400)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
@@ -559,7 +559,12 @@
 
     ;;Delete all the plotted frames
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    ; (remove-sdf *sim* (rectangle-sdf (list (/ shelf-length 2) shelf-height) '(50 100)))
+    (remove-sdf *sim* (rectangle-sdf
+                       (list shelf-length
+                             shelf-height-terminus)
+                       (list
+                        200
+                        (* 0.2 shelf-height-terminus))))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -702,7 +707,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d4)
+ (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -719,7 +724,7 @@
                 while *run-sim*
                 do
                    (progn
-                     (if (> steps 2)
+                     (if (> steps 3)
                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
                          )
@@ -1234,4 +1239,4 @@
   (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
-;; (setf *run-sim* nil)
+(setf *run-sim* nil)

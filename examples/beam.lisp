@@ -38,7 +38,7 @@
          )
     h-initial))
 (defun max-stress (mp)
-  (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+  (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     ;; (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))

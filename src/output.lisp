@@ -190,6 +190,18 @@
                             (* (sqrt (/ 3 4)) (- s_1 s_2))
                             )
                           ))
+        (save-parameter "s_vm_t"
+                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+
+                          (let* ((l (sort l #'>))
+                                 (s_1 (first l))
+                                 (s_2 (second l)))
+                            (* ;(sqrt (/ 3 4))
+                              1d0
+                               (- s_1 s_2))
+                            )
+                          ))
+
 
         (save-parameter "EPS"
                         (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))

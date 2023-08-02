@@ -17,7 +17,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 1.0d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2.0d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -81,8 +81,11 @@
                    (pressure-effective (* pressure 1d0))
                    (s_1 (- s_1 pressure-effective))
                    (s_2 (- s_2 pressure-effective))
-                   (s_1 (max 0d0 s_1))
-                   (s_2 (max 0d0 s_2))
+
+                   ;;Only allow tensile damage
+                   ;; (s_1 (max 0d0 s_1))
+                   ;; (s_2 (max 0d0 s_2))
+
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
                    (s_1 vm)
@@ -248,15 +251,17 @@
                      (setf ll (delete mp ll)))
                    t)
                  nil))))
-    (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
-      (when (cl-mpm/mesh:in-bounds mesh node-id)
-        (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-          (if (remove-mp-ll node)
-              t
-              (cl-mpm::iterate-over-nodes-serial
-               mesh
-               (lambda (node)
-                 (remove-mp-ll node)))))))))
+    ;;Check if the particle has been inserted by checking nil equality of damage position
+    (when (cl-mpm/particle::mp-damage-position mp)
+      (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+        (when (cl-mpm/mesh:in-bounds mesh node-id)
+          (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+            (if (remove-mp-ll node)
+                t
+                (cl-mpm::iterate-over-nodes-serial
+                 mesh
+                 (lambda (node)
+                   (remove-mp-ll node))))))))))
 
 (defun update-particle (mesh mp)
   (wh)

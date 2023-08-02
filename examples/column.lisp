@@ -30,7 +30,7 @@
 
 (defun max-stress (mp)
   (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)
-  ;; (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+  ;; (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
   ;;   (apply #'max l))
   )
 (defun plot (sim &optional (plot :deformed))

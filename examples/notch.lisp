@@ -56,7 +56,7 @@
     ))
 (defun max-stress (mp)
   ;; (declare (opt (speed 2) (debug 3)))
-  (multiple-value-bind (l v) (magicl:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+  (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     ;; (/ (apply #'max l) 1d6)
     (/ (- (apply #'max l) (cl-mpm/particle::mp-pressure mp)) 1d6)
     ;; (cl-mpm/particle::mp-damage-ybar mp)
