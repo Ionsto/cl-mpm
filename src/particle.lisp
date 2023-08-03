@@ -1035,9 +1035,9 @@
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
            ;; (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) (- visc-power 1)))))
-           ;(visc-u viscosity)
-           ;(viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
-           (viscosity (* viscosity (max 1d-1 (expt (- 1d0 damage) 2))))
+           (visc-u viscosity)
+           (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
+           ;; (viscosity (* viscosity (max 1d-1 (expt (- 1d0 damage) 2))))
            )
       ;; (setf p
       ;;       (/ (/ E (* (+ 1 nu) (- 1 nu)))
@@ -1048,23 +1048,24 @@
       ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
 
       (incf time-averaged-visc viscosity)
-      (setf stress-u
-            (magicl.simd::.+-simd
-             stress-u
-             (objectify-stress-logspin
-              (if (> viscosity 0d0)
-                  ;; (cl-mpm/constitutive::maxwell-damage strain-rate stress E nu de viscosity dt damage)
-                  (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
-                  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-              stress-u
-              def
-              vorticity
-              D)))
-      (setf stress (magicl:scale stress-u 1d0))
       ;; (setf stress-u
-      ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de visc-u dt))
+      ;;       (magicl.simd::.+-simd
+      ;;        stress-u
+      ;;        (objectify-stress-logspin
+      ;;         (if (> viscosity 0d0)
+      ;;             ;; (cl-mpm/constitutive::maxwell-damage strain-rate stress E nu de viscosity dt damage)
+      ;;             ;; (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de visc-u dt))
+      ;;             (cl-mpm/constitutive::maxwell strain-rate stress E nu de viscosity dt)
+      ;;             (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+      ;;         stress-u
+      ;;         def
+      ;;         vorticity
+      ;;         D)))
+      (setf stress-u
+            (cl-mpm/constitutive:maxwell-exp-v strain-rate stress-u E nu de visc-u dt))
       ;; (setf stress
       ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
+      (setf stress (magicl:scale stress-u 1d0))
 
       (when (> damage 0.0d0)
         (let ((j 1d0))

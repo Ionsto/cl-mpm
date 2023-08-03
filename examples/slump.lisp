@@ -478,7 +478,7 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.9d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
             ;(angle -1d0)
             )
 
@@ -538,10 +538,10 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (slope -0.02)
-         (shelf-height 200)
+         (shelf-height 400)
          (shelf-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
@@ -559,12 +559,12 @@
 
     ;;Delete all the plotted frames
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    (remove-sdf *sim* (rectangle-sdf
-                       (list shelf-length
-                             shelf-height-terminus)
-                       (list
-                        200
-                        (* 0.2 shelf-height-terminus))))
+    ;; (remove-sdf *sim* (rectangle-sdf
+    ;;                    (list shelf-length
+    ;;                          shelf-height-terminus)
+    ;;                    (list
+    ;;                     200
+    ;;                     (* 0.2 shelf-height-terminus))))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -707,7 +707,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))

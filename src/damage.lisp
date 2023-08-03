@@ -6,6 +6,9 @@
     #:post-stress-step
     )
   )
+(defconstant +damage-exp+ 0.5d0)
+(defconstant +stress-exp+ 2d0)
+
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim
@@ -17,7 +20,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2.0d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -95,7 +98,8 @@
                 ;; (setf damage-increment (* s_1 (- 1d0 damage)))
                 ;; (setf damage-increment s_1)
                 (if (< damage 1d0)
-                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
+                    ;; (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
+                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 2d0)))
                   (setf damage-increment s_1)
                   )
           ;;       (let* ((omega (matrix-to-voigt (magicl:inv (magicl:.- (magicl:from-diag '(1d0 1d0)) (voigt-to-matrix damage-tensor)))))
@@ -715,7 +719,7 @@
                    )
               (when (> s_1 0d0)
                 (if (< damage 1d0)
-                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
+                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 2d0)))
                   (setf damage-increment s_1))))
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
