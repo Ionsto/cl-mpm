@@ -30,7 +30,7 @@
 (declaim (inline vector-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))
-(defun cl-eig (mat)
+(defun eig (mat)
   (multiple-value-bind (l v) (magicl:eig mat)
     (values l (magicl:.realpart v))))
 
