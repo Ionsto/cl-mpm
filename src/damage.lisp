@@ -6,8 +6,8 @@
     #:post-stress-step
     )
   )
-(defconstant +damage-exp+ 0.5d0)
-(defconstant +stress-exp+ 2d0)
+;; (defconstant +damage-exp+ 0.5d0)
+;; (defconstant +stress-exp+ 2d0)
 
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))

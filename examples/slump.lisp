@@ -137,7 +137,7 @@
       ;; ll
       )))
 (declaim (notinline plot))
-(defun plot (sim &optional (plot :contact))
+(defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
@@ -244,11 +244,13 @@
              ))
          )
         ((eq plot :damage)
+         (vgplot:format-plot t "set style fill solid")
          ;; (vgplot:format-plot t "set cbrange [0:1]")
          ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
          (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
          ;; (vgplot:format-plot t "set cbrange [~f:~f]" (+ 0d0 (apply #'min c)) (+ 1e-6 (apply #'max c)))
-         (vgplot:plot x y c ";;with points pt 7 lc palette")
+         ;; (vgplot:plot x y c ";;with points pt 7 lc palette")
+         (vgplot:plot x y lx ly c ";;with ellipses lc palette")
          )
         ((eq plot :dist)
          (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max dist)))
@@ -430,7 +432,7 @@
                 ;; :plastic-stress 0.7d6
 
                 :initiation-stress 0.7d6
-                :damage-rate 1d-4
+                :damage-rate 1d-5
                 :critical-damage 0.50d0
                 :local-length 50d0
                 :local-length-damaged 0.1d0
@@ -478,7 +480,7 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 0.6d0 terminus-size)))
             ;(angle -1d0)
             )
 
@@ -538,11 +540,11 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 50)
          (mps-per-cell 2)
          (slope -0.02)
          (shelf-height 400)
-         (shelf-aspect 4)
+         (shelf-aspect 6)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -707,7 +709,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d2)
+ (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
