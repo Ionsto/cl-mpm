@@ -619,8 +619,8 @@
     ;;         (stress-matrix (voight-to-matrix stress))
     ;;         ;; (new-stress (magicl:zeros '(2 2)))
     ;;         )
-    ;;     (multiple-value-bind (le ve) (magicl:hermitian-eig strain-matrix)
-    ;;       (multiple-value-bind (l v) (magicl:hermitian-eig stress-matrix)
+    ;;     (multiple-value-bind (le ve) (cl-mpm/utils::eig strain-matrix)
+    ;;       (multiple-value-bind (l v) (cl-mpm/utils::eig stress-matrix)
     ;;         (loop for i from 0 to 1
     ;;               do (progn
     ;;                    (when (> (nth i le) 0d0)
@@ -631,50 +631,75 @@
     ;;                                                  (magicl:transpose v))))))
     ;;       ;; (setf stress new-stress)
     ;;   ))
-    (when (> damage 0.0d0)
-      (let ((j ;(magicl:det def)
-               1d0
-               )
-            (rho 1000d0)
-            (datum 300d0)
-            (g -9.8d0))
-        (let* ((z (magicl:tref pos 1 0))
-               ;(np (* rho g (max 0 (- datum z))))
-               (np pressure)
-               )
-          (multiple-value-bind (l v) (magicl:hermitian-eig
-                                      ;; (voight-to-matrix stress)
-                                      (magicl:scale! (voight-to-matrix stress) (/ 1d0 j))
-                                      )
-            (let* ((damage-limit (max 0d0 (- 1d0 damage)))
-                   (pressure-ke (* np damage-limit))
-                   (pressure-drive (* np 0d0))
-                   (degredation (expt (- 1d0 damage) 2d0))
-                   )
-              (declare (double-float damage-limit pressure-ke pressure-drive))
+    ;; (when (> damage 0.0d0)
+    ;;   (let ((j ;(magicl:det def)
+    ;;            1d0
+    ;;            )
+    ;;         (rho 1000d0)
+    ;;         (datum 300d0)
+    ;;         (g -9.8d0))
+    ;;     (let* ((z (magicl:tref pos 1 0))
+    ;;            ;(np (* rho g (max 0 (- datum z))))
+    ;;            (np pressure)
+    ;;            )
+    ;;       (multiple-value-bind (l v) (cl-mpm/utils::eig
+    ;;                                   ;; (voight-to-matrix stress)
+    ;;                                   (magicl:scale! (voight-to-matrix stress) (/ 1d0 j))
+    ;;                                   )
+    ;;         (let* ((damage-limit (max 0d0 (- 1d0 damage)))
+    ;;                (pressure-ke (* np damage-limit))
+    ;;                (pressure-drive (* np 0d0))
+    ;;                (degredation (expt (- 1d0 damage) 2d0))
+    ;;                )
+    ;;           (declare (double-float damage-limit pressure-ke pressure-drive))
+    ;;           (loop for i from 0 to 1
+    ;;                 do (let* ((sii (nth i l))
+    ;;                           (esii (- sii pressure-ke)))
+    ;;                      (declare (double-float sii))
+    ;;                      (when (> esii 0d0)
+    ;;                        ;;Tensile damage -> unbounded
+    ;;                        (setf (nth i l)
+    ;;                              (+ (* esii (max 0d-4 degredation))
+    ;;                                 pressure-ke)))
+    ;;                      (when (< esii 0d0)
+    ;;                        ;;Bounded compressive damage
+    ;;                        (setf (nth i l)
+    ;;                              (+
+    ;;                               (* esii (max 1d-2 degredation))
+    ;;                               pressure-ke))
+    ;;                        )
+    ;;                      (incf (nth i l) pressure-ke)
+    ;;                      ))
+    ;;           (setf stress (magicl:scale!
+    ;;                         (matrix-to-voight (magicl:@ v
+    ;;                                                     (magicl:from-diag l :type 'double-float)
+    ;;                                                     (magicl:transpose v))) j))))))
+    ;;   )
+      (when (> damage 0.0d0)
+        (let ((j 1d0))
+          (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                      (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+            (let ((driving-pressure (* pressure (min 1.00d0 damage)))
+                  (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
-                              (esii (- sii pressure-ke)))
-                         (declare (double-float sii))
+                              (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l)
-                                 (+ (* esii (max 1d-4 degredation))
-                                    pressure-ke)))
+                           (setf (nth i l) (* esii (max 0d-8 degredation)))
+                           (setf (nth i l) (+ (nth i l) driving-pressure))
+                           )
                          (when (< esii 0d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l)
-                                 (+
-                                  (* esii (max 1d-2 degredation))
-                                  pressure-ke))
+                           (setf (nth i l) (* esii (max 1d-2 degredation)))
+                           (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
-                         (incf (nth i l) pressure-ke)
+                         ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
                          ))
-              (setf stress (magicl:scale!
-                            (matrix-to-voight (magicl:@ v
-                                                        (magicl:from-diag l :type 'double-float)
-                                                        (magicl:transpose v))) j))))))
-      )
+              (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+                                                                      (magicl:from-diag l :type 'double-float)
+                                                                      (magicl:transpose v))) j))
+              ))))
     stress
     
     ))
@@ -1069,7 +1094,7 @@
 
       (when (> damage 0.0d0)
         (let ((j 1d0))
-          (multiple-value-bind (l v) (magicl:hermitian-eig
+          (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
             (let ((driving-pressure (* pressure (min 1.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
@@ -1228,7 +1253,7 @@
           (D (magicl:scale! (magicl.simd::.+-simd D (magicl:transpose D)) 0.5d0))
           ;; (D (cl-mpm/utils::voigt-to-matrix D))
           )
-        (multiple-value-bind (l v) (magicl:hermitian-eig b)
+        (multiple-value-bind (l v) (cl-mpm/utils::eig b)
           (loop for i from 0 to 1
                 do (loop for j from 0 to 1
                          do

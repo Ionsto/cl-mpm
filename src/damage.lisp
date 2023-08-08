@@ -20,7 +20,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 1d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -56,7 +56,7 @@
       (declare (double-float pressure damage))
         (progn
           (progn
-                                        ;multiple-value-bind (l v) (magicl:hermitian-eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
+                                        ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (let* (;(l (sort l #'>))
                    ;(s_1 (nth 0 l))
                    ;; (s_2 (nth 1 l))
@@ -91,7 +91,7 @@
 
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
-                   (s_1 vm)
+                   ;; (s_1 vm)
                    ;(damage-inv (- 1d0 damage))
                    )
               (when (> s_1 0d0)
@@ -99,7 +99,7 @@
                 ;; (setf damage-increment s_1)
                 (if (< damage 1d0)
                     ;; (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
-                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 2d0)))
+                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 1d0)))
                   (setf damage-increment s_1)
                   )
           ;;       (let* ((omega (matrix-to-voigt (magicl:inv (magicl:.- (magicl:from-diag '(1d0 1d0)) (voigt-to-matrix damage-tensor)))))
@@ -108,7 +108,7 @@
           ;;                            (magicl:transpose (magicl:@ identity omega))))
           ;;              (su (magicl:@ M stress))
           ;;              )
-          ;; (multiple-value-bind (l v) (magicl:hermitian-eig
+          ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
           ;;                             su)
           ;;   (let* ()
           ;;     (loop for i from 0 to 1
@@ -752,7 +752,7 @@
                      ) mp
       (declare (double-float pressure damage))
         (progn
-          (multiple-value-bind (l v) (magicl:hermitian-eig  (voight-to-matrix strain))
+          (multiple-value-bind (l v) (cl-mpm/utils::eig  (voight-to-matrix strain))
             (let* ((l (sort l #'>))
                    (s_1 (nth 0 l))
                    (s_2 (nth 1 l))

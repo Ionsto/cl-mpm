@@ -18,7 +18,7 @@
                    (strain-energy-density cl-mpm/particle::mp-strain-energy-density)
                    ) mp
     (progn
-      (multiple-value-bind (l v) (magicl:hermitian-eig (voight-to-matrix strain))
+      (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix strain))
         (map-into l (lambda (sii) (max sii 0)) l)
         (let* ((driving-strain (matrix-to-voight (magicl:@ v (magicl:from-diag l :type 'double-float) (magicl:transpose v))))
                (ss (magicl.simd::.*-simd stress driving-strain))

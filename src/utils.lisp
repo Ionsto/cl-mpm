@@ -30,6 +30,10 @@
 (declaim (inline vector-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))
+(defun cl-eig (mat)
+  (multiple-value-bind (l v) (magicl:eig mat)
+    (values l (magicl:.realpart v))))
+
 (defun vector-zeros ()
   (magicl::make-matrix/double-float 2 1 2 :column-major (make-array 2 :element-type 'double-float)))
 

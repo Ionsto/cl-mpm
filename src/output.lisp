@@ -152,14 +152,14 @@
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
-        (save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
+        ;; (save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
         ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
         ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
 
         (save-parameter "strain_rate"
                         (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
                         ;; (multiple-value-bind (l v)
-                        ;;     (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
+                        ;;     (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
                         ;;   (reduce #'+ (mapcar #'* l l)))
                         )
         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
@@ -178,10 +178,10 @@
           (save-parameter "s_rr" (radial-stress mp)))
 
         (save-parameter "s_1"
-                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (loop for sii in l maximize sii)))
         (save-parameter "s_vm"
-                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
                           (let* ((l (sort l #'>))
                                  (s_1 (max 0 (- (first l) (cl-mpm/particle::mp-pressure mp))))
@@ -191,7 +191,7 @@
                             )
                           ))
         (save-parameter "s_vm_t"
-                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
                           (let* ((l (sort l #'>))
                                  (s_1 (first l))
@@ -204,7 +204,7 @@
 
 
         (save-parameter "EPS"
-                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
@@ -241,10 +241,10 @@
                        (coerce (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0) 'single-float)
                        (coerce (multiple-value-bind (l v)
-                                   (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                                   (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                                  (loop for sii in l maximize sii)) 'single-float)
                        (coerce
-                        (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (apply #'max l) (cl-mpm/particle::mp-pressure mp))) 'single-float)
                        (coerce (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle:mp-damage mp)

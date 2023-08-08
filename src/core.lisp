@@ -1238,7 +1238,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      ;(setf volume (* volume (det df)))
                      (setf volume (* volume-0 (magicl:det def)))
 
-                     (multiple-value-bind (l v) (magicl:hermitian-eig (magicl:@ def (magicl:transpose def)))
+                     (multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:@ def (magicl:transpose def)))
                        (let ((stretch
                                (magicl:@
                                 v
@@ -1289,7 +1289,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
                 (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
                 )
-            (multiple-value-bind (l v) (magicl:hermitian-eig (voigt-to-matrix strain))
+            (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
               (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
                     (trial-lgs (magicl:@ df
                                          v
@@ -1301,7 +1301,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (magicl:transpose v)
                                          (magicl:transpose df)))
                     )
-                (multiple-value-bind (lf vf) (magicl:hermitian-eig
+                (multiple-value-bind (lf vf) (cl-mpm/utils::eig
                                               (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
@@ -1333,7 +1333,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Stretch rate update
           (let ((F (cl-mpm/utils::matrix-zeros)))
             (magicl:mult def def :target F :transb :t)
-            (multiple-value-bind (l v) (magicl:hermitian-eig F)
+            (multiple-value-bind (l v) (cl-mpm/utils::eig F)
               (let ((stretch
                       (magicl:@
                        v
