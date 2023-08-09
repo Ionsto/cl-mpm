@@ -55,7 +55,9 @@
          (ms-x (first ms))
          (ms-y (second ms))
          )
-    (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
+    (vgplot:format-plot t "set object 1 rect from ~f,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" *crack-water-width* ms-x *water-height*)
+    (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" *crack-water-width* *crack-water-height*)
+    )
 
   (multiple-value-bind (x y c stress-y lx ly e density temp vx ybar dist)
     (loop for mp across (cl-mpm:sim-mps sim)
@@ -330,12 +332,12 @@
                 ;; :visc-factor 111d6
                 ;; :visc-power 3d0
 
-                :initiation-stress 0.33d6
-                :damage-rate 1d-3
+                :initiation-stress 0.00d6
+                :damage-rate 1d-18
                 :critical-damage 0.50d0
-                :local-length 50d0
-                :local-length-damaged 50d0
-                ;; :local-length-damaged 0.1d0
+                :local-length 20d0
+                ;; :local-length-damaged 20d0
+                :local-length-damaged 0.1d0
                 :damage 0.0d0
 
                 :gravity -9.8d0
@@ -347,7 +349,7 @@
       (let ((mass-scale 1d8))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.00001d0 mass-scale)
+              (* 0.0001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
@@ -379,7 +381,8 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* 0d0 (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
+            ;; (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
+             (ocean-y (* 0.0d0 terminus-size))
             ;(angle -1d0)
             )
 
@@ -409,6 +412,41 @@
            (* *ice-density* 1d3)
            0.0d0
            ))
+        (defparameter *crack-water-height* terminus-size)
+        (defparameter *crack-water-width* (- (first block-size) h-x))
+        (defparameter *crack-water-bc*
+          (cl-mpm/buoyancy::make-bc-buoyancy-clip
+           sim
+           ocean-y
+           *water-density*
+           (lambda (pos)
+             (and
+              (< (magicl:tref pos 0 0) *crack-water-width*)
+              ))))
+
+        (setf (cl-mpm::sim-bcs-force-list sim)
+              (list
+               (cl-mpm/bc:make-bcs-from-list
+                (list
+                 (cl-mpm/buoyancy::make-bc-buoyancy-clip
+                  sim
+                  ocean-y
+                  *water-density*
+                  (lambda (pos)
+                    (and
+                     (>= (magicl:tref pos 0 0) *crack-water-width*)
+                     )))
+                 ;; (cl-mpm/buoyancy::make-bc-buoyancy
+                 ;;  sim
+                 ;;  ocean-y
+                 ;;  *water-density*
+                 ;;  )
+                 ;; *crack-water-bc*
+                 ))
+               ;; (cl-mpm/bc:make-bcs-from-list
+               ;;  (list *floor-bc*)
+               ;;  )
+               ))
         ;; (setf (cl-mpm::sim-bcs-force-list sim)
         ;;       (list
         ;;        (cl-mpm/bc:make-bcs-from-list
@@ -438,7 +476,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (shelf-length 400)
@@ -460,7 +498,7 @@
             shelf-height)
       (list
        10
-       40
+       10
        )))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
@@ -604,7 +642,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d4)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -650,6 +688,12 @@
 
                                ;; (melt-sdf *sim* (rectangle-sdf (list 0 0) (list 5000 *water-level*))
                                ;;           (* (cl-mpm:sim-dt *sim*) 1d-3))
+                               (let ((min-y (loop for mp across (cl-mpm::sim-mps *sim*)
+                                                  when (> (cl-mpm/particle::mp-damage mp) 0.4d0)
+                                                    minimize (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)
+                                                  )))
+                                 ;; (setf (cl-mpm/buoyancy::bc-buoyancy-datum *crack-water-bc*) min-y)
+                                 )
                                (cl-mpm::update-sim *sim*)
                                ;; (setf cfl (max cfl (find-max-cfl *sim*)))
                                (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
