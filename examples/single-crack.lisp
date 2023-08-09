@@ -330,11 +330,12 @@
                 ;; :visc-factor 111d6
                 ;; :visc-power 3d0
 
-                :initiation-stress 0.1d6
-                :damage-rate 1d-5
+                :initiation-stress 0.33d6
+                :damage-rate 1d-3
                 :critical-damage 0.50d0
-                :local-length 20d0
-                :local-length-damaged 0.1d0
+                :local-length 50d0
+                :local-length-damaged 50d0
+                ;; :local-length-damaged 0.1d0
                 :damage 0.0d0
 
                 :gravity -9.8d0
@@ -343,10 +344,10 @@
                 ;:angle angle
                 )))
         )
-      (let ((mass-scale 1d6))
+      (let ((mass-scale 1d8))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.001d0 mass-scale)
+              (* 0.00001d0 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
@@ -408,20 +409,20 @@
            (* *ice-density* 1d3)
            0.0d0
            ))
-        (setf (cl-mpm::sim-bcs-force-list sim)
-              (list
-               (cl-mpm/bc:make-bcs-from-list
-                (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy
-                  sim
-                  ocean-y
-                  *water-density*
-                  )
-                 ))
-               (cl-mpm/bc:make-bcs-from-list
-                (list *floor-bc*)
-                )
-               ))
+        ;; (setf (cl-mpm::sim-bcs-force-list sim)
+        ;;       (list
+        ;;        (cl-mpm/bc:make-bcs-from-list
+        ;;         (list
+        ;;          (cl-mpm/buoyancy::make-bc-buoyancy
+        ;;           sim
+        ;;           ocean-y
+        ;;           *water-density*
+        ;;           )
+        ;;          ))
+        ;;        (cl-mpm/bc:make-bcs-from-list
+        ;;         (list *floor-bc*)
+        ;;         )
+        ;;        ))
         )
       (let ((normal (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
                                             (cos (+ (* pi (/ angle 180d0))))) '(2 1))))
@@ -437,17 +438,17 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (shelf-length 500)
+         (shelf-length 400)
          (offset (list 0 0))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 1 shelf-height))
                                                  (+ shelf-height 100))
                          (list shelf-length shelf-height)
-                         (mapcar #'+ offset (list 000 (* 1 mesh-size)))
+                         (mapcar #'+ offset (list 000 (* 0 mesh-size)))
                          (/ 1 mesh-size) mps-per-cell))
 
     ;;Delete all the plotted frames
@@ -458,8 +459,8 @@
       (list (* 0.5d0 shelf-length)
             shelf-height)
       (list
-       15
        10
+       40
        )))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)

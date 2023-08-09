@@ -686,7 +686,7 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* esii (max 0d-8 degredation)))
+                           (setf (nth i l) (* esii (max 1d-8 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          (when (< esii 0d0)

@@ -213,12 +213,32 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
                "cl-mpm/damage"
+               "lfarm-client"
                "vgplot"
+               "lisp-stat"
                "swank.live"
                "magicl")
   :serial t
   :components ((:file "examples/notch")))
+
+(defsystem "cl-mpm/examples/single-crack"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "lfarm-client"
+               "vgplot"
+               "lisp-stat"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/single-crack")))
+
 (defsystem "cl-mpm/examples/float"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
