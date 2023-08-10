@@ -391,10 +391,10 @@
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline
-                                        'cl-mpm/damage::mpm-sim-damage
+                                        ;; 'cl-mpm/damage::mpm-sim-damage
                                         ;; 'cl-mpm::mpm-sim-usf
                                         ;; 'mpm-sim-debug-g2p
-                                         ;; 'mpm-sim-debug-stress
+                                         'mpm-sim-debug-stress
                                         ))
 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -1206,18 +1206,25 @@
 ;; (lfarm-server:start-server "127.0.0.1" 22222 :background t)
 
 (defun collect-servers (n)
-  (setf lfarm:*kernel* (lfarm:make-kernel (loop for i from 1 to n
-                                                collect (list
-                                                         "127.0.0.1"
-                                                         (+ 11110 n))
-                                            )))
+  (let ((servers
+          (loop for i from 1 below n
+                collect (list
+                         "127.0.0.1"
+                         (+ 11110 i))
+                )))
+    (format t "~S ~%" servers)
+    (setf lfarm:*kernel* (lfarm:make-kernel servers))
+    )
+  (print "Broadcasting setup info")
   (lfarm:broadcast-task (lambda ()
                           (progn
                             (ql:quickload :cl-mpm)
                             (ql:quickload :cl-mpm/damage)
                             (ql:quickload :cl-mpm/examples/slump)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
-                            t))))
+                            t)))
+  (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+  )
 ;; (time
 ;;  (lfarm:pmapcar (lambda (i)
 ;;                   (dotimes (j 10000000)
@@ -1233,11 +1240,15 @@
 
 (defun mpi-run (total-rank-count)
   ;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+  (format t "Collecting servers~%")
   (collect-servers total-rank-count)
-  (setup)
-  (run))
+  ;; (format t "Setup ~%")
+  ;; (setup)
+  ;; (format t "Run ~%")
+  ;; (run)
+  )
 
 (let ((a (magicl:from-list '(1d0 0d0) '(2 1) :type 'double-float)))
   (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))

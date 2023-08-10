@@ -332,8 +332,8 @@
                 ;; :visc-factor 111d6
                 ;; :visc-power 3d0
 
-                :initiation-stress 0.00d6
-                :damage-rate 1d-18
+                :initiation-stress 0.01d6
+                :damage-rate 1d-5
                 :critical-damage 0.50d0
                 :local-length 20d0
                 ;; :local-length-damaged 20d0
@@ -346,10 +346,10 @@
                 ;:angle angle
                 )))
         )
-      (let ((mass-scale 1d8))
+      (let ((mass-scale 1d0))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.0001d0 mass-scale)
+              (* 1d-3 mass-scale)
               ;; 1d0
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
@@ -413,6 +413,7 @@
            0.0d0
            ))
         (defparameter *crack-water-height* terminus-size)
+        (setf *crack-water-height* 0d0)
         (defparameter *crack-water-width* (- (first block-size) h-x))
         (defparameter *crack-water-bc*
           (cl-mpm/buoyancy::make-bc-buoyancy-clip
@@ -478,8 +479,8 @@
   (defparameter *run-sim* nil)
   (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 100)
-         (shelf-length 400)
+         (shelf-height 125)
+         (shelf-length 500)
          (offset (list 0 0))
          )
     (defparameter *sim*
@@ -498,8 +499,12 @@
             shelf-height)
       (list
        10
-       10
+       20
        )))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       when
+    ;;       (<= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (* 0.25d0 shelf-length))
+    ;;       do (setf (cl-mpm/particle::mp-damage-rate mp) 0d0))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -642,7 +647,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d4)
+ (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -655,14 +660,28 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 1000
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
-                     (if (> steps 3)
-                         (setf (cl-mpm::sim-enable-damage *sim*) t)
-                         (setf (cl-mpm::sim-enable-damage *sim*) nil)
-                         )
+                     (let ((base-damping 1d-3))
+                       (if (> steps 5)
+                           (progn
+                             (setf (cl-mpm::sim-enable-damage *sim*) t)
+                             (setf (cl-mpm::sim-damping-factor *sim*) base-damping
+                                   dt-scale 1d0)
+                             )
+                           (progn
+                             (setf (cl-mpm::sim-enable-damage *sim*) nil
+                                   (cl-mpm::sim-damping-factor *sim*)
+                                   (+ (* 1d0 (cl-mpm::sim-mass-scale *sim*)
+                                         (exp (- steps))
+                                         )
+                                      base-damping)
+                                   )
+                             )
+                           ))
+                     (format t "Damping ~F~%" (cl-mpm::sim-damping-factor *sim*))
                      ;; (when (> steps 2)
                      ;;   (setf dt-scale 1d0)
                      ;;     )
@@ -882,24 +901,27 @@
         (a (magicl:random-hermitian 2))
         (b (magicl:zeros '(2 2)))
         (c (magicl:zeros '(2 2)))
-        (iters 10000))
+        (iters 100000))
     (let ((mesh (cl-mpm::sim-mesh *sim*)))
-      ;; (format t "Testing normal ~%")
-      ;;  (time-form iters
-      ;;             (cl-mpm::update-sim *sim*))
+      (format t "Testing normal ~%")
+       ;; (time-form iters
+       ;;            (cl-mpm::update-sim *sim*))
       (format t "Eig ~%")
        (time-form iters
                   (magicl::eig a))
+      ;; (format t "Eig real ~%")
+      ;; (time-form iters
+      ;;            (magicl:eig a))
       (format t "Eig real ~%")
       (time-form iters
-                 (magicl:eig a :realtype))
-      (format t "herm Eig ~%")
-      (time-form iters
-                 (magicl::hermitian-eig a)
-                 )
-      (format t "realpart Eig ~%")
-      (time-form iters
-                 (multiple-value-bind (l v) (magicl::eig a) (magicl:.realpart v)))
+                 (magicl:self-adjoint-eig a))
+      ;; (format t "herm Eig ~%")
+      ;; (time-form iters
+      ;;            (magicl::hermitian-eig a)
+      ;;            )
+      ;; (format t "realpart Eig ~%")
+      ;; (time-form iters
+      ;;            (multiple-value-bind (l v) (magicl::eig a) (magicl:.realpart v)))
       ;; (time
       ;; (time
       ;;  (time-form iters
