@@ -27,13 +27,18 @@
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 3) (safety 0) (speed 3)))
 
+(declaim (inline eig)
+         (ftype (function (magicl:matrix/double-float)
+                          (values list magicl:matrix/double-float)) eig))
+(defun eig (mat)
+  (magicl:self-adjoint-eig mat)
+  ;; (multiple-value-bind (l v) (magicl:eig mat)
+  ;;   (values l (magicl:.realpart v)))
+  )
+
 (declaim (inline vector-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))
-(defun eig (mat)
-  (multiple-value-bind (l v) (magicl:eig mat)
-    (values l (magicl:.realpart v))))
-
 (defun vector-zeros ()
   (magicl::make-matrix/double-float 2 1 2 :column-major (make-array 2 :element-type 'double-float)))
 
