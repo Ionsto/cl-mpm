@@ -20,8 +20,8 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      ;(* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2d0) rate)
-      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 3d0) rate)
+      ;; (* (expt (max 0d0 (- stress init-stress)) 3d0) rate)
       0d0))
 
 (defun damage-profile (damage damage-crit)
@@ -87,8 +87,8 @@
                    (s_2 (- s_2 pressure-effective))
 
                    ;;Only allow tensile damage
-                   ;; (s_1 (max 0d0 s_1))
-                   ;; (s_2 (max 0d0 s_2))
+                   (s_1 (max 0d0 s_1))
+                   (s_2 (max 0d0 s_2))
 
                    ;; (vm (* (sqrt (/ 3 4)) (- s_1 s_2)))
                    (vm (- s_1 s_2))
@@ -100,7 +100,7 @@
                 ;; (setf damage-increment s_1)
                 (if (< damage 1d0)
                     ;; (setf damage-increment (/ s_1 (expt (- 1d0 damage) 0.5d0)))
-                    (setf damage-increment (/ s_1 (expt (- 1d0 damage) 2d0)))
+                    (setf damage-increment (/ s_1 (expt (max 0d0 (- 1d0 damage)) 0.5d0)))
                   (setf damage-increment s_1)
                   )
           ;;       (let* ((omega (matrix-to-voigt (magicl:inv (magicl:.- (magicl:from-diag '(1d0 1d0)) (voigt-to-matrix damage-tensor)))))

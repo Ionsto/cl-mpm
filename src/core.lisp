@@ -1577,7 +1577,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              mp
            (and (>= damage 1d0)
                 ;; (or
-                ;; (split-criteria mp h)
+                (split-criteria mp h)
                 ;;  (< (magicl:det def) 1d-3)
                 ;;  )
                 )))))
