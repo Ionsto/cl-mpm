@@ -1206,12 +1206,14 @@
 ;; (lfarm-server:start-server "127.0.0.1" 22222 :background t)
 
 (defun collect-servers (n)
-  (let ((servers
-          (loop for i from 1 below n
-                collect (list
-                         "127.0.0.1"
-                         (+ 11110 i))
-                )))
+  (let ( ;(servers
+        ;  (loop for i from 1 below n
+        ;        collect (list
+        ;                 "127.0.0.1"
+        ;                 (+ 11110 i))
+        ;        ))
+        (servers (with-open-file (s "lfarm_connections") (read s)))
+        )
     (format t "~S ~%" servers)
     (setf lfarm:*kernel* (lfarm:make-kernel servers))
     )
@@ -1242,10 +1244,10 @@
   ;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
   (format t "Collecting servers~%")
   (collect-servers total-rank-count)
-  ;; (format t "Setup ~%")
-  ;; (setup)
-  ;; (format t "Run ~%")
-  ;; (run)
+  (format t "Setup ~%")
+  (setup)
+  (format t "Run ~%")
+  (run)
   )
 
 (let ((a (magicl:from-list '(1d0 0d0) '(2 1) :type 'double-float)))
