@@ -7,6 +7,9 @@
    :cl-mpm/utils
    :cl-mpm/fastmath
    )
+  (:import-from
+   :magicl tref .+ .-
+   )
   )
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
                                         ;    #:make-shape-function
@@ -93,14 +96,11 @@
                    domain
                    ))
     (progn
-      (let ((df (calculate-df mp)))
+      (let ((df (cl-mpm::calculate-df mp)))
         (progn
           ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
           (let ((initial-strain (magicl:scale strain 1d0))
-                ;(initial-strain (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
                 )
             (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
               (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
@@ -233,7 +233,7 @@
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;(cl-mpm::update-stress mesh mps dt)
                     (loop for mp across mps
-                          do (cl-mpm/mpi::update-stress-mp mps dt))
+                          do (cl-mpm/mpi::update-stress-mp mp dt))
                     ;; (lfarm:pmap-into (cl-mpm::sim-mps sim)
                     ;;                  (lambda (mp)
                     ;;                    (cl-mpm/mpi::update-stress-mp mp dt)
@@ -330,7 +330,8 @@
                             (in-package :cl-mpm/examples/slump)
                             (defparameter *local-sim* nil)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
-                            t)))
-  (lfarm:deftask uls (mp mesh dt)
-    (cl-mpm::update-stress-mp mesh mp dt)
-    mp)
+                            t))))
+(lfarm:deftask uls (mp mesh dt)
+  (cl-mpm::update-stress-mp mesh mp dt)
+  (setf (fill-pointer (cl-mpm/particle::nc mp)) 0)
+  mp)
