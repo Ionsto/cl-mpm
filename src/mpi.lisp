@@ -316,6 +316,32 @@
       (setf (cl-mpm::sim-mesh obj) (cl-store:restore-object stream))
       obj))
 
+;; (defmethod cl-store:serializable-slots-using-class ((object t) (class cl-mpm/mesh::node))
+;;   (delete 'cl-mpm/mesh::local-list (call-next-method) :key 'c2mop:slot-definition-name))
+
+(defvar *node-code* (cl-store:register-code 113 'cl-mpm/mesh::node))
+(cl-store:defstore-cl-store (obj cl-mpm/mesh::node stream)
+  (cl-store:output-type-code *node-code* stream)
+  (loop for slot in (cl-store:serializable-slots obj)
+        do
+           (cond
+             ((eq 'cl-mpm/mesh::local-list (sb-mop:slot-definition-name slot))
+              nil)
+             (t
+              (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) stream)))))
+(cl-store:defrestore-cl-store (cl-mpm/mesh::node stream)
+  (let ((obj (make-instance 'cl-mpm/mesh::node)))
+    (loop for slot in (cl-store:serializable-slots obj)
+          do
+             (cond
+               ((eq 'cl-mpm/mesh::local-list (sb-mop:slot-definition-name slot))
+                nil)
+               (t
+                (setf (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) (cl-store:restore-object stream)))))
+  ;; (setf (cl-mpm::sim-dt obj) (cl-store:restore-object stream))
+    obj))
+
+
 (defun collect-servers (n)
   (let ((servers (with-open-file (s "lfarm_connections") (read s))))
     (format t "~S ~%" servers)
