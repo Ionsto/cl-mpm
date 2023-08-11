@@ -126,6 +126,7 @@
             (when (>= damage 1d0)
               (setf damage-increment 0d0))
 
+
             ;; (when (= damage 1d0)
             ;;   (setf damage-increment 0d0))
             ;;(setf ybar damage-increment)
@@ -158,6 +159,8 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
+          (incf (cl-mpm/particle::mp-time-averaged-visc mp) ybar)
+          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
           ;; (when (< damage 1d0)
           ;; (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))

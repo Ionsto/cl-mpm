@@ -336,6 +336,12 @@
     :accessor mp-damage-ybar
     :type DOUBLE-FLOAT
     :initform 0d0)
+   (time-averaged-ybar
+    :accessor mp-time-averaged-ybar
+    :initform 0d0)
+   (time-averaged-counter
+    :accessor mp-time-averaged-counter
+    :initform 0d0)
    (local-length
     :accessor mp-local-length
     :type DOUBLE-FLOAT
