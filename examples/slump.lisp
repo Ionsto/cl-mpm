@@ -391,10 +391,10 @@
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline
-                                        ;; 'cl-mpm/damage::mpm-sim-damage
+                                        'cl-mpm/damage::mpm-sim-damage
                                         ;; 'cl-mpm::mpm-sim-usf
                                         ;; 'mpm-sim-debug-g2p
-                                         'mpm-sim-debug-stress
+                                         ;; 'mpm-sim-debug-stress
                                         ))
 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -1129,13 +1129,15 @@
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;(cl-mpm::update-stress mesh mps dt)
-                    (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                                     (lambda (mp)
-                                       (cl-mpm::update-stress-mp mesh mp dt)
-                                       mp
-                                       )
-                                     (cl-mpm::sim-mps sim)
-                                     )
+                    (loop for mp across mps
+                          do (cl-mpm/mpi::update-stress-mp mps dt))
+                    ;; (lfarm:pmap-into (cl-mpm::sim-mps sim)
+                    ;;                  (lambda (mp)
+                    ;;                    (cl-mpm/mpi::update-stress-mp mp dt)
+                    ;;                    mp
+                    ;;                    )
+                    ;;                  (cl-mpm::sim-mps sim)
+                    ;;                  )
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -1168,6 +1170,15 @@
    (cl-store:output-type-code *mutex-code* stream))
 (cl-store:defrestore-cl-store (sb-thread:mutex stream)
    (sb-thread:make-mutex))
+
+;; (defvar *node-cache-code* (cl-store:register-code 112 'cl-mpm/particle::node-cache))
+;; (cl-store:defstore-cl-store (obj cl-mpm/particle::node-cache stream)
+;;   (cl-store:output-type-code *node-cache-code* stream)
+;;   )
+;; (cl-store:defrestore-cl-store (sb-thread:mutex stream)
+;;   ;(sb-thread:make-mutex)
+;;   )
+
 
 (defvar *mesh-code* (cl-store:register-code 111 'cl-mpm/mesh::mesh))
 (cl-store:defstore-cl-store (obj cl-mpm/mesh::mesh stream)

@@ -130,6 +130,26 @@
                (:file "src/forces")
                (:file "src/core")
                ))
+(defsystem "cl-mpm/mpi"
+  :depends-on ("cl-mpm"
+               "lfarm-client"
+               "cl-mpm/fastmath"
+               "cl-mpm/utils"
+               "alexandria"
+               "array-operations"
+               "lparallel"
+               "symbolic-derivation"
+               "cl-mpm/constitutive"
+               "cl-mpm/particle"
+               "cl-mpm/shape-function"
+               "cl-mpm/bc"
+               "cl-mpm/mesh"
+
+               "cl-mpi")
+  :description ""
+  :components (
+               (:file "src/mpi")
+               ))
 (defsystem "cl-mpm/buoyancy"
   :depends-on ("cl-mpm"
                "cl-mpm/bc")
@@ -200,6 +220,7 @@
                "cl-mpm/penalty"
                "cl-mpm/eigenerosion"
                "cl-mpm/damage"
+               "cl-mpm/mpi"
                "lfarm-client"
                "vgplot"
                "swank.live"

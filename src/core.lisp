@@ -4,7 +4,6 @@
         :cl-mpm/mesh
         :cl-mpm/utils
         :cl-mpm/fastmath
-;        :cl-mpm/shape-function
         )
   (:import-from
     :magicl tref .+ .-
@@ -1231,7 +1230,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
-    (let ((df (calculate-df mesh mp)))
+    (let ((df (calculate-df mp)))
                    (progn
                      (setf def (magicl:@ df def))
                      (setf strain (magicl.simd::.+-simd strain dstrain))
@@ -1280,7 +1279,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    domain
                    ))
     (progn
-      (let ((df (calculate-df mesh mp)))
+      (let ((df (calculate-df mp)))
         (progn
           ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
@@ -1497,9 +1496,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                  )))))
 
 (declaim (inline calculate-df)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) magicl:matrix/double-float)
+         (ftype (function (cl-mpm/particle:particle) magicl:matrix/double-float)
                 calculate-df))
-(defun calculate-df (mesh mp)
+(defun calculate-df (mp)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (jfbar cl-mpm/particle::mp-j-fbar)
