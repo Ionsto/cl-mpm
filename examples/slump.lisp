@@ -1217,15 +1217,15 @@
     (format t "~S ~%" servers)
     (setf lfarm:*kernel* (lfarm:make-kernel servers))
     )
+  (asdf:compile-system :magicl)
   (print "Broadcasting setup info")
   (lfarm:broadcast-task (lambda ()
                           (progn
-                            (ql:quickload :cl-mpm)
-                            (ql:quickload :cl-mpm/damage)
+                            ;; (asdf:compile-system :magicl :force t)
                             (ql:quickload :cl-mpm/examples/slump)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t)))
-  (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+  ;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
   )
 ;; (time
 ;;  (lfarm:pmapcar (lambda (i)
@@ -1241,16 +1241,17 @@
 
 
 (defun mpi-run (total-rank-count)
-  ;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+  (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
   (format t "Collecting servers~%")
   (collect-servers total-rank-count)
   (format t "Setup ~%")
   (setup)
+  (format t "Ran setup ~%")
   (format t "Run ~%")
   (run)
   )
 
-(let ((a (magicl:from-list '(1d0 0d0) '(2 1) :type 'double-float)))
-  (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
+;; (let ((a (magicl:from-list '(1d0 0d0) '(2 1) :type 'double-float)))
+;;   (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
 
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
