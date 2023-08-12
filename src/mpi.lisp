@@ -351,7 +351,7 @@
     (defparameter *open-servers* servers)
     (setf lfarm:*kernel* (lfarm:make-kernel servers))
     )
-  (asdf:compile-system :magicl)
+  ;; (asdf:compile-system :magicl)
   (print "Broadcasting setup info")
   (lfarm:broadcast-task (lambda ()
                           (progn
