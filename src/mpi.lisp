@@ -232,15 +232,21 @@
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;(cl-mpm::update-stress mesh mps dt)
-                    (loop for mp across mps
-                          do (cl-mpm/mpi::update-stress-mp mp dt))
-                    ;; (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                    ;;                  (lambda (mp)
-                    ;;                    (cl-mpm/mpi::update-stress-mp mp dt)
-                    ;;                    mp
-                    ;;                    )
-                    ;;                  (cl-mpm::sim-mps sim)
-                    ;;                  )
+                    ;; (loop for mp across mps
+                    ;;       do (cl-mpm/mpi::update-stress-mp mp dt))
+
+                    (lfarm:broadcast-task (lambda ()
+                                            (progn
+                                              (setf *global-dt* dt)
+                                              t)))
+                    (lfarm:pmap-into (cl-mpm::sim-mps sim)
+                                     ;; (lambda (mp)
+                                     ;;   (cl-mpm/mpi::update-stress-mp mp dt)
+                                     ;;   mp
+                                     ;;   )
+                                     'uls
+                                     (cl-mpm::sim-mps sim)
+                                     )
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -357,7 +363,12 @@
                             (defparameter *local-sim* nil)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
-(lfarm:deftask uls (mp mesh dt)
-  (cl-mpm::update-stress-mp mesh mp dt)
-  (setf (fill-pointer (cl-mpm/particle::nc mp)) 0)
+;; (lfarm:deftask uls (mp mesh dt)
+;;   (cl-mpm::update-stress-mp mesh mp dt)
+;;   (setf (fill-pointer (cl-mpm/particle::nc mp)) 0)
+;;   mp)
+(defparameter *global-dt* 1d0)
+(lfarm:deftask uls (mp)
+  (update-stress-mp mp *global-dt*)
+  (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
   mp)
