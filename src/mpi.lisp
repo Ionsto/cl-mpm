@@ -241,10 +241,6 @@
                                                 (setf *global-dt* dt-e)
                                                 t))))
                     (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                                     ;; (lambda (mp)
-                                     ;;   (cl-mpm/mpi::update-stress-mp mp dt)
-                                     ;;   mp
-                                     ;;   )
                                      'uls
                                      (cl-mpm::sim-mps sim)
                                      )
