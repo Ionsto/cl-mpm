@@ -364,7 +364,7 @@
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
 
-(defun kill-servers
+(defun kill-servers ()
     (dolist (server *open-servers*)
       (lfarm-admin:end-server (first server) (second server))))
 
