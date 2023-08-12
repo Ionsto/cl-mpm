@@ -235,15 +235,12 @@
                     ;; (loop for mp across mps
                     ;;       do (cl-mpm/mpi::update-stress-mp mp dt))
 
-                    (lfarm:broadcast-task (lambda ()
-                                            (progn
-                                              (setf *global-dt* dt)
-                                              t)))
+                    (let ((dt-e dt))
+                      (lfarm:broadcast-task (lambda ()
+                                              (progn
+                                                (setf *global-dt* dt-e)
+                                                t))))
                     (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                                     ;; (lambda (mp)
-                                     ;;   (cl-mpm/mpi::update-stress-mp mp dt)
-                                     ;;   mp
-                                     ;;   )
                                      'uls
                                      (cl-mpm::sim-mps sim)
                                      )
@@ -360,8 +357,10 @@
                           (progn
                             ;; (asdf:compile-system :magicl :force t)
                             (ql:quickload :cl-mpm/examples/slump)
+                            (ql:quickload :cl-mpm/mpi)
                             (in-package :cl-mpm/examples/slump)
                             (defparameter *local-sim* nil)
+                            (defparameter *global-dt* 1d0)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
 
