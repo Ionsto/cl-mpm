@@ -365,12 +365,9 @@
                             t))))
 
 (defun kill-servers
-    (dolist (server servers)
+    (dolist (server *open-servers*)
       (lfarm-admin:end-server (first server) (second server))))
-;; (lfarm:deftask uls (mp mesh dt)
-;;   (cl-mpm::update-stress-mp mesh mp dt)
-;;   (setf (fill-pointer (cl-mpm/particle::nc mp)) 0)
-;;   mp)
+
 (defparameter *global-dt* 1d0)
 (lfarm:deftask uls (mp)
   (update-stress-mp mp *global-dt*)
