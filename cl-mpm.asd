@@ -133,6 +133,7 @@
 (defsystem "cl-mpm/mpi"
   :depends-on ("cl-mpm"
                "lfarm-client"
+               "lfarm-server"
                "cl-mpm/fastmath"
                "cl-mpm/utils"
                "alexandria"
