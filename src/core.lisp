@@ -75,25 +75,25 @@
     :type boolean
     :accessor sim-allow-mp-split
     :initarg :splitting
-    :initform nil
-    )
+    :initform nil)
    (enable-damage
     :type boolean
     :accessor sim-enable-damage
     :initarg :enable-damage
-    :initform nil
-    )
+    :initform nil)
    (nonlocal-damage
     :type boolean
     :accessor sim-nonlocal-damage
-    :initform t
-    )
+    :initform t)
    (allow-mp-damage-removal
     :type boolean
     :accessor sim-allow-mp-damage-removal
     :initarg :damage-removal
-    :initform nil
-    )
+    :initform nil)
+   (mp-damage-removal-instant
+    :type boolean
+    :accessor sim-mp-damage-removal-instant
+    :initform nil)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter
@@ -1565,7 +1565,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun remove-material-damaged (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
   (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
+                   (mesh cl-mpm:sim-mesh)
+                   (instant-damage-removal cl-mpm::sim-mp-damage-removal-instant)
+                   )
       sim
     (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
       (remove-mps-func
@@ -1576,7 +1578,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              mp
            (and (>= damage 1d0)
                 ;; (or
-                (split-criteria mp h)
+                (or (split-criteria mp h) instant-damage-removal)
                 ;;  (< (magicl:det def) 1d-3)
                 ;;  )
                 )))))

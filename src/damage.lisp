@@ -20,7 +20,7 @@
   (if (> stress init-stress)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.43d0) rate)
       ;(* (expt (max 0d0 (- stress init-stress)) 0.50d0) rate)
-      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 3d0) rate)
+      (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2d0) rate)
       ;; (* (expt (max 0d0 (- stress init-stress)) 3d0) rate)
       0d0))
 
@@ -159,7 +159,7 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-visc mp) ybar)
+          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
           (incf (cl-mpm/particle::mp-time-averaged-counter mp))
           ;; (when (< damage 1d0)
           ;; (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
