@@ -134,6 +134,7 @@
   :depends-on ("cl-mpm"
                "lfarm-client"
                "lfarm-server"
+               "lfarm-admin"
                "cl-mpm/fastmath"
                "cl-mpm/utils"
                "alexandria"

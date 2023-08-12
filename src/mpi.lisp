@@ -351,6 +351,7 @@
 (defun collect-servers (n)
   (let ((servers (with-open-file (s "lfarm_connections") (read s))))
     (format t "~S ~%" servers)
+    (defparameter *open-servers* servers)
     (setf lfarm:*kernel* (lfarm:make-kernel servers))
     )
   (asdf:compile-system :magicl)
@@ -363,6 +364,10 @@
                             (defparameter *local-sim* nil)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
+
+(defun kill-servers
+    (dolist (server servers)
+      (lfarm-admin:end-server (first server) (second server))))
 ;; (lfarm:deftask uls (mp mesh dt)
 ;;   (cl-mpm::update-stress-mp mesh mp dt)
 ;;   (setf (fill-pointer (cl-mpm/particle::nc mp)) 0)
