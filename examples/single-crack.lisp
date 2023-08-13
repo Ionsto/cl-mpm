@@ -39,6 +39,7 @@
   )
 (defun local-dist (sim mp)
   (with-accessors ((ll cl-mpm/particle::mp-true-local-length)) mp
+
     (with-accessors ((llm cl-mpm/particle::mp-true-local-length)) *dist-mp*
       ;(cl-mpm/damage::weight-func-mps mp *dist-mp* (* 0.5d0 (+ ll llm)))
       ;; (cl-mpm/damage::weight-func-mps mp *dist-mp* 500d0)
@@ -333,7 +334,7 @@
                 ;; :visc-power 3d0
 
                 :initiation-stress 0.01d6
-                :damage-rate 1d-5
+                :damage-rate 1d-4
                 :critical-damage 0.50d0
                 :local-length 20d0
                 ;; :local-length-damaged 20d0
@@ -364,6 +365,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -373,10 +375,6 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-fixed (mapcar #'+ i '(0 0)) '(nil nil)))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-surface (mapcar #'+ i '(0 1))
-             ;;                                        (magicl:from-list (list 0d0 1d0) '(2 1))))
-             ;; (lambda (i) (cl-mpm/bc:make-bc-surface i (magicl:from-list (list 0d0 1d0) '(2 1))))
              ))
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* 0d0 (first block-size))))
@@ -420,7 +418,7 @@
            sim
            ocean-y
            *water-density*
-           (lambda (pos)
+           (lambda (pos datum)
              (and
               (< (magicl:tref pos 0 0) *crack-water-width*)
               ))))
@@ -433,7 +431,7 @@
                   sim
                   ocean-y
                   *water-density*
-                  (lambda (pos)
+                  (lambda (pos datum)
                     (and
                      (>= (magicl:tref pos 0 0) *crack-water-width*)
                      )))
@@ -442,7 +440,7 @@
                  ;;  ocean-y
                  ;;  *water-density*
                  ;;  )
-                 ;; *crack-water-bc*
+                 *crack-water-bc*
                  ))
                ;; (cl-mpm/bc:make-bcs-from-list
                ;;  (list *floor-bc*)
@@ -477,7 +475,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 125)
          (shelf-length 500)
@@ -669,7 +667,7 @@
                            (progn
                              (setf (cl-mpm::sim-enable-damage *sim*) t)
                              (setf (cl-mpm::sim-damping-factor *sim*) base-damping
-                                   dt-scale 1d0)
+                                   dt-scale 0.5d0)
                              )
                            (progn
                              (setf (cl-mpm::sim-enable-damage *sim*) nil

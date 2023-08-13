@@ -391,8 +391,9 @@
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline
-                                        'cl-mpm/damage::mpm-sim-damage
+                                        ;; 'cl-mpm/damage::mpm-sim-damage
                                         ;; 'cl-mpm::mpm-sim-usf
+                                        'cl-mpm/mpi::mpm-sim-mpi-stress
                                         ;; 'mpm-sim-debug-g2p
                                          ;; 'mpm-sim-debug-stress
                                         ))
