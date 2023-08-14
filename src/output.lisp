@@ -152,9 +152,10 @@
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
-        (save-parameter "ybar-average" (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
-                                                   (cl-mpm/particle::mp-time-averaged-counter mp)
-                                                  )))
+        (save-parameter "ybar-average"
+                        (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
+                                    (max 1d0
+                                         (cl-mpm/particle::mp-time-averaged-counter mp)))))
                                          (setf (cl-mpm/particle::mp-time-averaged-counter mp) 1d0)
                                          v))
         ;; (save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))

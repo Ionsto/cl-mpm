@@ -610,10 +610,11 @@
       (make-instance 'bc-buoyancy
                      :index '(0 0)
                      :sim sim
-                     :clip-func (lambda (pos)
-                                  (and
-                                   (cell-clipping pos datum)
-                                   (funcall clip-func pos datum)))
+                     :clip-func clip-func
+                                        ;(lambda (pos)
+                                        ;  (and
+                                        ;   (cell-clipping pos datum)
+                                        ;   (funcall clip-func pos datum)))
                      :rho rho
                      :datum datum
                      ))))

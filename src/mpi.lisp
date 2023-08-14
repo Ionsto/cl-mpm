@@ -344,6 +344,19 @@
   ;; (setf (cl-mpm::sim-dt obj) (cl-store:restore-object stream))
     obj))
 
+;; (defun mpi-run (setup-func run-func)
+;;   (lfarm:broadcast-task (lambda ()
+;;                           (progn
+;;                             ;; (asdf:compile-system :magicl :force t)
+;;                             (ql:quickload :cl-mpm/examples/slump)
+;;                             (ql:quickload :cl-mpm/mpi)
+;;                             (in-package :cl-mpm/examples/slump)
+;;                             (defparameter *local-sim* nil)
+;;                             (defparameter *global-dt* 1d0)
+;;                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
+;;                             t)))
+
+;;   )
 
 (defun collect-servers (n)
   (let ((servers (with-open-file (s "lfarm_connections") (read s))))
@@ -363,10 +376,29 @@
                             (defparameter *global-dt* 1d0)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
+(defun domain-decompose (sim)
+  "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
+
+  (with-accessors ((mesh-count cl-mpm/mesh::mesh-count)
+                   (h cl-mpm/mesh::mesh-resolution))
+      (cl-mpm:sim-mesh sim)
+    (let* ((rank (cl-mpi:mpi-comm-rank))
+           (count (cl-mpi:mpi-comm-size))
+           (x-length (second mesh-count))
+           (slice-size (floor x-length count))
+           (slice-count count))
+      (loop for mp across mps
+            when
+            (and
+             (> (tref (cl-mpm/particle::mp-position mp) 0 0) (* rank slice-size))
+             (< (tref (cl-mpm/particle::mp-position mp) 0 0) (* (+ 1 rank) slice-size))
+             )
+            do (setf (cl-mpm/particle::mp-index mp) rank)))))
 
 (defun kill-servers ()
     (dolist (server *open-servers*)
-      (lfarm-admin:end-server (first server) (second server))))
+      (lfarm-admin:end-server (first server) (second server)))
+  (setf *open-servers* nil))
 
 (defparameter *global-dt* 1d0)
 (lfarm:deftask uls (mp)

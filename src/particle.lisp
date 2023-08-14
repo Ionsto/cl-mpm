@@ -371,6 +371,10 @@
     :accessor mp-damage-ybar-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(3 1)))
+   (damage-model
+    :accessor mp-damage-model
+    :initarg :damage-model
+    )
    )
   (:documentation "A material point with a damage tensor"))
 (defclass particle-thermal (particle)
