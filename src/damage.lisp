@@ -80,6 +80,9 @@
                                         ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (multiple-value-bind (s_1 s_2) (principal-stresses stress)
               (let* (;;Only allow tensile damage
+                     (pressure-effective (* damage pressure))
+                     (s_1 (- s_1 pressure-effective))
+                     (s_2 (- s_2 pressure-effective))
                      (s_1 (max 0d0 s_1))
                      (s_2 (max 0d0 s_2))
 
@@ -381,7 +384,7 @@
               (magicl:scale! step-norm (/ 1d0 length))
               (multiple-value-bind (steps remainder) (floor length step-size)
                 (when (> steps 0)
-                  (let* ((dhstep (cl-mpm/utils::matrix-copy step-norm)))
+                  (let* ((dhstep (cl-mpm/utils::vector-copy step-norm)))
                     (magicl:scale! dhstep (* 0.5d0 step-size))
                     (loop for i fixnum from 0 below steps
                           do
@@ -511,8 +514,8 @@
                                          (when (< (the double-float d) 1d0)
                                            (let (
                                                  ;;Nodally averaged local funcj
-                                                 (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
-                                                 ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+                                                 ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                 (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                                                  ;;
                                                  ;; (weight (weight-func-mps-damaged mesh mp mp-other
                                                  ;;                                  (cl-mpm/particle::mp-local-length mp)

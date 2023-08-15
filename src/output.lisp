@@ -156,7 +156,8 @@
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
                                     (max 1d0
                                          (cl-mpm/particle::mp-time-averaged-counter mp)))))
-                                         (setf (cl-mpm/particle::mp-time-averaged-counter mp) 1d0)
+                                         (setf (cl-mpm/particle::mp-time-averaged-counter mp) 0d0
+                                               (cl-mpm/particle::mp-time-averaged-ybar mp) 0d0)
                                          v))
         ;; (save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
         ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))

@@ -75,22 +75,40 @@
                               ;; (reaction-force (magicl:scale normal normal-force))
                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
-                              (tang-normal (cl-mpm/fastmath:norm tang-vel))
-                              (normal-damping 1d2)
+                              (normal-damping 0d2)
                               (damping-force (* normal-damping rel-vel))
-                              (force-friction (cl-mpm/utils:vector-zeros))
                               )
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
                                                          damping-force))
-                         ;; (cl-mpm/fastmath::fast-fmacc force-friction
-                         ;;                              tang-normal
-                         ;;                              (* -1d0
-                         ;;                                 friction
-                         ;;                                 (coerce (abs normal-force) 'double-float)
-                         ;;                                 ))
-                         ;; (magicl:.+ force force-friction force)
+                         ;; (let* ((vest (magicl:.+ tang-vel (magicl:scale force-friction (/ dt mp-mass))))
+                         ;;        (current-prod (cl-mpm/fastmath:dot mp-vel tang-normal))
+                         ;;        (vest-prod (cl-mpm/fastmath:dot vest tang-normal)))
+                         ;;   (when (not (= (signum current-prod) (signum vest-prod)))
+                         ;;     ;;Overcorrecting force
+                         ;;     ;; (format t "force overcorrecting")
+                         ;;     (loop for i from 0 to 1
+                         ;;           do
+                         ;;              (when (not (= (magicl:tref mp-vel i 0) 0d0))
+                         ;;                (setf (magicl:tref force-friction i 0)
+                         ;;                      (*
+                         ;;                       -1d0
+                         ;;                       (magicl:tref tang-vel i 0)
+                         ;;                       (/ mp-mass dt)))))))
+                         (when (> (cl-mpm/fastmath:dot tang-vel tang-vel) 0d0)
+                           (let (
+                                 (tang-normal (cl-mpm/fastmath:norm tang-vel))
+                                 (force-friction (cl-mpm/utils:vector-zeros))
+                                 )
+                             (cl-mpm/fastmath::fast-fmacc force-friction
+                                                          tang-normal
+                                                          (* -1d0
+                                                             friction
+                                                             (coerce (abs normal-force) 'double-float)
+                                                             ))
+                             (magicl:.+ force force-friction force))
+                         )
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
                                                       ;; svp
