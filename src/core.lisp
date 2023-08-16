@@ -23,6 +23,7 @@
     #:sim-mass-filter
     #:post-stress-step
     #:iterate-over-nodes
+    #:iterate-over-nodes-serial
     #:iterate-over-neighbours
     ))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -1039,7 +1040,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes)
          )
 (defun iterate-over-nodes (mesh func)
-  "Helper function for iterating over all nodes in a mesh"
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
@@ -1052,6 +1054,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes-serial)
          )
 (defun iterate-over-nodes-serial (mesh func)
+  "Helper function for iterating over all nodes in a mesh - in a serial way
+Calls func with only the node"
+
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))

@@ -123,39 +123,39 @@
   (declare (function func-stress func-div))
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
-
-      (with-accessors ((volume cl-mpm/particle:mp-volume))
-          mp
-        (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-          ;;Iterate over neighbour nodes
-          (cl-mpm::iterate-over-neighbours
-           mesh mp
-           (lambda (mesh mp node svp grads fsvp fgrads)
-             (with-accessors ((node-force cl-mpm/mesh:node-force)
-                              (node-lock  cl-mpm/mesh:node-lock)
-                              (node-boundary cl-mpm/mesh::node-boundary-node)
-                              (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                              (node-active  cl-mpm/mesh:node-active))
-                 node
-               (declare (double-float volume svp))
-               (when (and node-active
-                          node-boundary
-                          )
-                 ;;Lock node for multithreading
-                 (sb-thread:with-mutex (node-lock)
-                   (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                   ;; Add gradient of stress
-                   (cl-mpm/fastmath::mult-transpose-accumulate dsvp
-                                                               (funcall func-stress mp)
-                                                               (* volume)
-                                                               node-force)
-                   ;; Add divergance of stress
-                   (cl-mpm/fastmath::fast-fmacc node-force
-                                                (funcall func-div mp)
-                                                (* svp volume))
-                   (incf node-boundary-scalar
-                         (* volume svp (calculate-val-mp mp #'melt-rate)))
-                   ))))))))))
+      (unless (>= (cl-mpm/particle::mp-damage mp) 1d0)
+        (with-accessors ((volume cl-mpm/particle:mp-volume))
+            mp
+          (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
+            ;;Iterate over neighbour nodes
+            (cl-mpm::iterate-over-neighbours
+             mesh mp
+             (lambda (mesh mp node svp grads fsvp fgrads)
+               (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                (node-lock  cl-mpm/mesh:node-lock)
+                                (node-boundary cl-mpm/mesh::node-boundary-node)
+                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                (node-active  cl-mpm/mesh:node-active))
+                   node
+                 (declare (double-float volume svp))
+                 (when (and node-active
+                            node-boundary
+                            )
+                   ;;Lock node for multithreading
+                   (sb-thread:with-mutex (node-lock)
+                     (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                     ;; Add gradient of stress
+                     (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                                                 (funcall func-stress mp)
+                                                                 (* volume)
+                                                                 node-force)
+                     ;; Add divergance of stress
+                     (cl-mpm/fastmath::fast-fmacc node-force
+                                                  (funcall func-div mp)
+                                                  (* svp volume))
+                     (incf node-boundary-scalar
+                           (* volume svp (calculate-val-mp mp #'melt-rate)))
+                     )))))))))))
 
 (defun melt-rate (pos)
   (if (< (magicl:tref pos 1 0) 300)
@@ -399,6 +399,25 @@
          (when (and (funcall clip-function pos))
            (when active
              (setf boundary t))))))))
+
+(defun populate-nodes-volume-damage (mesh clip-function)
+  (cl-mpm::iterate-over-nodes
+   mesh
+   (lambda (node)
+     (with-accessors ((node-lock cl-mpm/mesh::node-lock)
+                      (volume cl-mpm/mesh::node-volume)
+                      (damage cl-mpm/mesh::node-damage)
+                      (vt cl-mpm/mesh::node-volume-true)
+                      (boundary cl-mpm/mesh::node-boundary-node)
+                      (active cl-mpm/mesh::node-active)
+                      (pos cl-mpm/mesh::node-position)
+                      )
+         node
+       (when (< (* volume (- 1d0 damage)) (* 0.95d0 vt))
+         (when (and (funcall clip-function pos))
+           (when active
+             (setf boundary t))))))))
+
 (defun populate-nodes-domain (mesh clip-function)
   (cl-mpm::iterate-over-nodes
    mesh
@@ -476,7 +495,8 @@
         ;; mesh
         ;; (locate-mps-cells mesh mps clip-function)
         ;; (populate-cells-volume mesh clip-function)
-        (populate-nodes-volume mesh clip-function)
+        ;; (populate-nodes-volume mesh clip-function)
+      (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
@@ -648,12 +668,14 @@
                     (with-accessors ((pos cl-mpm/particle:mp-position)
                                      (pressure cl-mpm/particle::mp-pressure))
                         mp
-                      (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
+                      (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
+                                 (funcall clip-func (cl-mpm/mesh::node-position node) datum))
+                        (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))))
                     )
-                  (when (cl-mpm/mesh::node-boundary-node node)
-                    (with-accessors ((pos cl-mpm/mesh::node-position)
-                                     (pressure cl-mpm/mesh::node-pressure))
-                        node
-                      (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
-                    )
+                  ;; (when (cl-mpm/mesh::node-boundary-node node)
+                  ;;   (with-accessors ((pos cl-mpm/mesh::node-position)
+                  ;;                    (pressure cl-mpm/mesh::node-pressure))
+                  ;;       node
+                  ;;     (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
+                  ;;   )
                   ))))))

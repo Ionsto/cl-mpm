@@ -391,9 +391,9 @@
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-bspline
-                                        ;; 'cl-mpm/damage::mpm-sim-damage
+                                        'cl-mpm/damage::mpm-sim-damage
                                         ;; 'cl-mpm::mpm-sim-usf
-                                        'cl-mpm/mpi::mpm-sim-mpi-stress
+                                        ;; 'cl-mpm/mpi::mpm-sim-mpi-stress
                                         ;; 'mpm-sim-debug-g2p
                                          ;; 'mpm-sim-debug-stress
                                         ))
@@ -432,11 +432,11 @@
 
                 ;; :plastic-stress 0.7d6
 
-                :initiation-stress 0.7d6
-                :damage-rate 1d-5
+                :initiation-stress 0.3d6
+                :damage-rate 1d-8
                 :critical-damage 0.50d0
                 :local-length 50d0
-                :local-length-damaged 0.1d0
+                :local-length-damaged 50d0
                 :damage 0.0d0
 
                 :gravity -9.8d0
@@ -456,7 +456,8 @@
               ;; 0.01d0
               ;; 0.1d0
               ;; 0.0d0
-              100d0
+              0d0
+              ;100d0
               )
         )
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -464,6 +465,8 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -481,7 +484,7 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 0.6d0 terminus-size)))
+            (ocean-y (+ h-y (* 0.90d0 1.0d0 terminus-size)))
             ;(angle -1d0)
             )
 
@@ -542,7 +545,7 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 50)
-         (mps-per-cell 2)
+         (mps-per-cell 4)
          (slope -0.02)
          (shelf-height 400)
          (shelf-aspect 6)
@@ -562,12 +565,12 @@
 
     ;;Delete all the plotted frames
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    ;; (remove-sdf *sim* (rectangle-sdf
-    ;;                    (list shelf-length
-    ;;                          shelf-height-terminus)
-    ;;                    (list
-    ;;                     200
-    ;;                     (* 0.2 shelf-height-terminus))))
+    (remove-sdf *sim* (rectangle-sdf
+                       (list shelf-length
+                             shelf-height-terminus)
+                       (list
+                        200
+                        (* 0.2 shelf-height-terminus))))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -727,10 +730,22 @@
                 while *run-sim*
                 do
                    (progn
-                     (if (> steps 3)
-                         (setf (cl-mpm::sim-enable-damage *sim*) t)
-                         (setf (cl-mpm::sim-enable-damage *sim*) nil)
-                         )
+                     (let ((base-damping 0d-5))
+                       (if (> steps 5)
+                           (progn
+                             (setf (cl-mpm::sim-enable-damage *sim*) t)
+                             (setf (cl-mpm::sim-damping-factor *sim*) base-damping
+                                   dt-scale 1.0d0))
+                           (progn
+                             (setf (cl-mpm::sim-enable-damage *sim*) nil
+                                   (cl-mpm::sim-damping-factor *sim*)
+                                   (+ (* 1d-3 (cl-mpm::sim-mass-scale *sim*)
+                                         ;; (exp (- steps))
+                                         )
+                                      base-damping)
+                                   )
+                             )
+                           ))
                      ;; (when (> steps 2)
                      ;;   (setf dt-scale 1d0)
                      ;;     )
