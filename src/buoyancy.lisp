@@ -118,7 +118,7 @@
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 
-(defun apply-force-mps (mesh mps func-stress func-div)
+(defun apply-force-mps (mesh mps func-stress func-div clip-func)
   "Update force on nodes, with virtual stress field from mps"
   (declare (function func-stress func-div))
   (lparallel:pdotimes (i (length mps))
@@ -132,6 +132,8 @@
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
                (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                (node-pos cl-mpm/mesh::node-position)
+                                (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                 (node-lock  cl-mpm/mesh:node-lock)
                                 (node-boundary cl-mpm/mesh::node-boundary-node)
                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
@@ -140,6 +142,7 @@
                  (declare (double-float volume svp))
                  (when (and node-active
                             node-boundary
+                            (funcall clip-func node-pos)
                             )
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
@@ -151,6 +154,15 @@
                                                                  node-force)
                      ;; Add divergance of stress
                      (cl-mpm/fastmath::fast-fmacc node-force
+                                                  (funcall func-div mp)
+                                                  (* svp volume))
+                     ;;Debug buoyancy
+                     (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                                                 (funcall func-stress mp)
+                                                                 (* volume)
+                                                                 node-buoyancy-force)
+                     ;; Add divergance of stress
+                     (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
                                                   (funcall func-div mp)
                                                   (* svp volume))
                      (incf node-boundary-scalar
@@ -165,7 +177,7 @@
       ;;            (abs (min 0 (- (magicl:tref pos 1 0) 300))) 2)))
       0d0))
 
-(defun apply-force-cells (mesh func-stress func-div)
+(defun apply-force-cells (mesh func-stress func-div clip-func)
   "Update force on nodes, with virtual stress field from cells"
   (declare (function func-stress func-div))
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
@@ -182,6 +194,8 @@
                       mesh cell
                       (lambda (mesh cell pos volume node svp grads)
                         (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                         (node-pos cl-mpm/mesh::node-position)
+                                         (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                          (node-lock  cl-mpm/mesh:node-lock)
                                          (node-active cl-mpm/mesh:node-active)
                                          (node-boundary cl-mpm/mesh::node-boundary-node)
@@ -192,6 +206,7 @@
                           (declare (double-float volume svp))
                           (when (and node-active
                                      node-boundary
+                                     (funcall clip-func node-pos)
                                      )
                             ;;Lock node
                             (sb-thread:with-mutex (node-lock)
@@ -204,20 +219,14 @@
                               (cl-mpm/fastmath::fast-fmacc node-force
                                                            (funcall func-div pos)
                                                            (* -1d0 svp volume))
-                              ;; (setf node-force (magicl.simd::.+-simd
-                              ;;                   node-force
-                              ;;                   (magicl:scale!
-                              ;;                    (magicl:@
-                              ;;                     (magicl:transpose
-                              ;;                      (cl-mpm/shape-function::assemble-dsvp-2d grads))
-                              ;;                     (funcall func-stress pos))
-                              ;;                    (* -1d0 volume))))
-                              ;; ;;Subtract stress divergance from node force
-                              ;; (setf node-force (magicl.simd::.+-simd
-                              ;;                   node-force
-                              ;;                   (magicl:scale!
-                              ;;                    (funcall func-div pos)
-                              ;;                    (* -1d0 svp volume))))
+
+                              (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                                                          (funcall func-stress pos)
+                                                                          (* -1d0 volume)
+                                                                          node-buoyancy-force);
+                              (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                                           (funcall func-div pos)
+                                                           (* -1d0 svp volume))
                               (incf node-boundary-scalar
                                     (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                               )))
@@ -493,17 +502,20 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         ;; mesh
-        (locate-mps-cells mesh mps clip-function)
+        ;; (locate-mps-cells mesh mps clip-function)
         ;; (populate-cells-volume mesh clip-function)
         ;; (populate-nodes-volume mesh clip-function)
-      ;; (populate-nodes-volume-damage mesh clip-function)
+      (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
-                       (lambda (mp) (calculate-val-mp mp func-div)))
+                       (lambda (mp) (calculate-val-mp mp func-div))
+                       clip-function
+                       )
       (apply-force-cells mesh
                          func-stress
                          func-div
+                         clip-function
                          )
       )))
 

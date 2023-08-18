@@ -67,6 +67,10 @@
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (magicl:zeros '(2 1) :type 'double-float))
+   (buoyancy-force
+    :accessor node-buoyancy-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (magicl:zeros '(2 1) :type 'double-float))
   (velocity
     :accessor node-velocity
     :initarg :velocity
@@ -442,7 +446,9 @@
                (boundary boundary-node)
                (boundary-scalar boundary-scalar)
                (pressure pressure)
-                (force force))
+               (force force)
+               (buoyancy-force buoyancy-force)
+               )
                 node
     (setf active nil)
     (setf boundary nil)
@@ -457,7 +463,9 @@
     (setf j-inc 0d0)
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)
-    (magicl:scale! force 0d0)))
+    (magicl:scale! force 0d0)
+    (magicl:scale! buoyancy-force 0d0)
+    ))
 
 (defmethod reset-node ((node node-thermal))
   (with-accessors ((temperature node-temperature)
