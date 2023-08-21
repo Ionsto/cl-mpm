@@ -701,3 +701,20 @@
                   ;;     (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
                   ;;   )
                   ))))))
+
+(defun set-pressure-all (sim bc)
+  (with-accessors ((datum bc-buoyancy-datum)
+                   (rho bc-buoyancy-rho)
+                   (clip-func bc-buoyancy-clip-func)
+                   (sim bc-buoyancy-sim))
+      bc
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mps cl-mpm:sim-mps))
+        sim
+      (loop for mp across mps
+            do
+
+               (with-accessors ((pos cl-mpm/particle:mp-position)
+                                (pressure cl-mpm/particle::mp-pressure))
+                   mp
+                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))))))
