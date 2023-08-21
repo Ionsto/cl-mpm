@@ -881,7 +881,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (det-ext-force mp node svp node-force)
                (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                (det-int-force mp dsvp node-force)
-               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
                ))
            )
          ))))
@@ -1056,7 +1055,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun iterate-over-nodes-serial (mesh func)
   "Helper function for iterating over all nodes in a mesh - in a serial way
 Calls func with only the node"
-
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
@@ -1064,6 +1062,25 @@ Calls func with only the node"
       (let ((node (row-major-aref nodes i)))
         (funcall func node))))
   (values))
+;; 
+;; (defun iterate-over-mps (mps func)
+;;   "Helper function for iterating over all nodes in a mesh
+;;    Calls func with only the node"
+;;   (declare (type function func)
+;;            (type (array cl-mpm/particle:particle) mps))
+;;   (lparallel:pdotimes (i (length mps))
+;;                       (funcall func (aref mps i)))
+;;   (values))
+;; 
+;; (defun iterate-over-mps-serial (mps func)
+;;   "Helper function for iterating over all nodes in a mesh
+;;    Calls func with only the node"
+;;   (declare (type function func)
+;;            (type (array cl-mpm/particle:particle) mps))
+;;   (loop for mp across mps
+;;         do (funcall func mp))
+;;   (values))
+
 
 (defun update-node (mesh dt node damping)
     (when (cl-mpm/mesh:node-active node)

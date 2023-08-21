@@ -165,10 +165,12 @@
   ((normal
     :accessor bc-penalty-normal
     :initarg :normal
+    :initform (magicl:zeros '(2 1))
     )
    (datum
     :accessor bc-penalty-datum
     :initarg :datum
+    :initform 0d0
     ))
   (:documentation "A nonconforming neumann bc"))
 

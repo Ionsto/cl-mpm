@@ -50,7 +50,7 @@
    (index
      :accessor mp-index
      :type integer
-     :initform 0
+     :initform -1
      :initarg :index)
    (volume
      :accessor mp-volume

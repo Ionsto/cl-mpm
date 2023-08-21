@@ -207,7 +207,8 @@
             ))))
 
 (defclass mpm-sim-mpi-stress (cl-mpm/damage::mpm-sim-damage)
-  ()
+  ((neighbour-node-list
+    ))
   (:documentation "Damage sim with only stress update on mpi"))
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
   (with-slots ((mesh cl-mpm::mesh)
@@ -229,21 +230,25 @@
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    ;;MPI reduce mass and momentum?
                     (cl-mpm::update-node-kinematics mesh dt )
+                    ;;MPI reduce kinematics?
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;(cl-mpm::update-stress mesh mps dt)
                     ;; (loop for mp across mps
                     ;;       do (cl-mpm/mpi::update-stress-mp mp dt))
 
-                    (let ((dt-e dt))
-                      (lfarm:broadcast-task (lambda ()
-                                              (progn
-                                                (setf *global-dt* dt-e)
-                                                t))))
-                    (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                                     'uls
-                                     (cl-mpm::sim-mps sim)
-                                     )
+                    ;; (let ((dt-e dt))
+                    ;;   (lfarm:broadcast-task (lambda ()
+                    ;;                           (progn
+                    ;;                             (setf *global-dt* dt-e)
+                    ;;                             t))))
+                    (cl-mpm::update-stress mesh mps dt)
+                    ;; (lfarm:pmap-into (cl-mpm::sim-mps sim)
+                    ;;                  'uls
+                    ;;                  (cl-mpm::sim-mps sim)
+                    ;;                  )
+                    ;;halo exchange mps on boundary
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -253,21 +258,26 @@
                                                       ))
                     ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
+                    ;;MPI reduce forces onto mesh
                     ;(cl-mpm::apply-bcs mesh bcs-force dt)
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
+                    ;;MPI reduce forces onto mesh
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    ;;MPI reduce new velocities
                     ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
+                    ;;MPI reduce new velocities
 
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps mps)
+                    ;;Update mp list between processors
                     )))
 
 
@@ -358,7 +368,7 @@
 
 ;;   )
 
-(defun collect-servers (n)
+(defun collect-servers (n &optional (dir (uiop:getcwd)))
   (let ((servers (with-open-file (s "lfarm_connections") (read s))))
     (format t "~S ~%" servers)
     (defparameter *open-servers* servers)
@@ -376,24 +386,39 @@
                             (defparameter *global-dt* 1d0)
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
+
 (defun domain-decompose (sim)
   "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
 
-  (with-accessors ((mesh-count cl-mpm/mesh::mesh-count)
+  (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size)
+                   (mesh-count cl-mpm/mesh::mesh-count)
                    (h cl-mpm/mesh::mesh-resolution))
       (cl-mpm:sim-mesh sim)
     (let* ((rank (cl-mpi:mpi-comm-rank))
            (count (cl-mpi:mpi-comm-size))
-           (x-length (second mesh-count))
+           (x-length (first mesh-size))
            (slice-size (floor x-length count))
-           (slice-count count))
-      (loop for mp across mps
+           (slice-count count)
+           (bound-lower (* rank slice-size))
+           (bound-upper (* (+ 1 rank) slice-size))
+           )
+      (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
+      (loop for mp across (cl-mpm:sim-mps sim)
             when
             (and
-             (> (tref (cl-mpm/particle::mp-position mp) 0 0) (* rank slice-size))
-             (< (tref (cl-mpm/particle::mp-position mp) 0 0) (* (+ 1 rank) slice-size))
+             (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
+             (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
              )
-            do (setf (cl-mpm/particle::mp-index mp) rank)))))
+            do (setf (cl-mpm/particle::mp-index mp) rank))
+      (cl-mpm::remove-mps-func
+       sim
+       (lambda (mp)
+         (not (= rank (cl-mpm/particle::mp-index mp)))
+         ;; t
+         )))
+    (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
+    )
+)
 
 (defun kill-servers ()
     (dolist (server *open-servers*)

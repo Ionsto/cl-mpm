@@ -552,17 +552,25 @@
 (defclass bc-buoyancy (cl-mpm/bc::bc)
   ((sim
     :accessor bc-buoyancy-sim
-    :initarg :sim)
+    :initarg :sim
+    :initform nil
+    )
    (datum
     :accessor bc-buoyancy-datum
-    :initarg :datum)
+    :initarg :datum
+    :initform 0d0
+    )
    (rho
     :accessor bc-buoyancy-rho
-    :initarg :rho)
+    :initarg :rho
+    :initform 0d0
+    )
    (clip-func
     :accessor bc-buoyancy-clip-func
     :type function
-    :initarg :clip-func)
+    :initarg :clip-func
+    :initform (lambda (&rest args) t)
+    )
    )
   (:documentation "A nonconforming buoyancy bc"))
 
