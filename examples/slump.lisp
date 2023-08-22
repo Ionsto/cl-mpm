@@ -627,6 +627,10 @@
     ;;                                            (- d)
     ;;                                            ))))
     )
+  (str:to-file #p"output/settings.json"
+               (jonathan:to-json (list :ocean-height *water-height* :domain-size
+                                       (cl-mpm/mesh::mesh-mesh-size (cl-mpm::sim-mesh *sim*))
+                                       )))
   ;; (damage-sdf *sim* (lambda (p) (line-sdf p
   ;;                                         (list 0d0 0d0)
   ;;                                         (list 100d0 0d0)
@@ -1282,3 +1286,4 @@
 ;;   (format t "~A" (sb-simd-avx:f64.2-values (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage a) 0))))
 
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+
