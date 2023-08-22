@@ -113,20 +113,36 @@
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
-(defun check-mps (mps)
+(defun check-mps (sim)
   "Function to check that stresses and positions are sane"
-  (loop for mp across mps
-        do
-        (progn
-          (with-accessors ((vel cl-mpm/particle::mp-velocity)) mp
-            (loop for i from 0 to 1
-                 do (progn
-                      (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
-                        (print mp)
-                        (error "Infinite velocity found"))
-                      (when (> (abs (magicl:tref vel i 0)) 1e10)
-                        (print mp)
-                        (error "High velocity found"))))))))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+  (with-accessors ((h cl-mpm/mesh::mesh-resolution))
+      mesh
+      (loop for mp across mps
+            do
+               (progn
+                 (with-accessors ((vel cl-mpm/particle::mp-velocity)
+                                  (domain cl-mpm/particle::mp-domain-size)
+                                  ) mp
+                   (loop for i from 0 to 1
+                         do (progn
+                              (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
+                                (print mp)
+                                (error "Infinite velocity found"))
+                              (when (> (abs (magicl:tref vel i 0)) 1e10)
+                                (print mp)
+                                (error "High velocity found"))
+                         )
+                         ))))
+    (remove-mps-func
+       sim
+       (lambda (mp)
+         (with-accessors ((damage cl-mpm/particle:mp-damage)
+                          (def cl-mpm/particle::mp-deformation-gradient))
+             mp
+           (gimp-removal-criteria mp h)))))))
 
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
@@ -173,7 +189,7 @@
                       (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
-                    (check-mps mps)
+                    (check-mps mesh mps)
                     )))
 (defmethod update-sim ((sim mpm-sim-usf))
   (declare (cl-mpm::mpm-sim-usf sim))
@@ -214,7 +230,7 @@
                     (remove-material-damaged sim))
                     (when split
                     (split-mps sim))
-                    (check-mps mps)
+                    (check-mps mesh mps)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
   (declare (cl-mpm::mpm-sim sim))
@@ -275,7 +291,7 @@
                       (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
-                    (check-mps mps)
+                    (check-mps mesh mps)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -1634,6 +1650,16 @@ Calls func with only the node"
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
+        (t nil)
+        ))))
+(defun gimp-removal-criteria (mp h)
+  (with-accessors ((lens cl-mpm/particle::mp-domain-size))
+      mp
+    (declare (double-float h))
+    (let ((h-factor (* 0.8d0 h)))
+      (cond
+        ((< h-factor (the double-float (tref lens 0 0))) :x)
+        ((< h-factor (the double-float (tref lens 1 0))) :y)
         (t nil)
         ))))
 (defun copy-particle (original &rest initargs &key &allow-other-keys)

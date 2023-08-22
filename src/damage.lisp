@@ -658,7 +658,7 @@
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
-                    (cl-mpm::check-mps mps)
+                    (cl-mpm::check-mps sim)
                     )))
 
 
