@@ -123,7 +123,7 @@
   (declare (function func-stress func-div))
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
-      (when (< (cl-mpm/particle::mp-damage mp) 1d0)
+      (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
         (with-accessors ((volume cl-mpm/particle:mp-volume))
             mp
           (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
