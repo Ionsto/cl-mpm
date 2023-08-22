@@ -152,6 +152,12 @@
         (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
+        (save-parameter "damage-inc-average"
+                        (let ((v (/ (cl-mpm/particle::mp-time-averaged-damage-inc mp)
+                                    (max 1d0
+                                         (cl-mpm/particle::mp-time-averaged-counter mp)))))
+                          (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) 0d0)
+                          v))
         (save-parameter "ybar-average"
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
                                     (max 1d0

@@ -339,6 +339,9 @@
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar
     :initform 1d0)
+   (time-averaged-damage-inc
+    :accessor mp-time-averaged-damage-inc
+    :initform 1d0)
    (time-averaged-counter
     :accessor mp-time-averaged-counter
     :initform 0d0)

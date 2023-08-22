@@ -185,15 +185,16 @@
 
     (lparallel:pdotimes (i (array-total-size cells))
              (let ((cell (row-major-aref cells i)))
-               (when (loop for n in (cl-mpm/mesh::cell-nodes cell)
-                             thereis (cl-mpm/mesh::node-boundary-node n))
+               (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
                  (let ((nodal-volume 0d0))
                    ;;Possibly clip ill posed cells
                    (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                      ;;Iterate over a cells nodes
                      (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-                       (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
-                        mesh cell 2
+                       ;(cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
+                       ; mesh cell 2
+                       (cl-mpm/mesh::cell-iterate-over-neighbours
+                        mesh cell
                         (lambda (mesh cell pos volume node svp grads)
                           (with-accessors ((node-force cl-mpm/mesh:node-force)
                                            (node-pos cl-mpm/mesh::node-position)

@@ -129,7 +129,7 @@
             ;; (setf damage-increment (* dt (damage-rate-profile damage-increment damage damage-rate init-stress)))
                                         ;(setf local-length-t (length-localisation local-length local-length-damaged damage))
             ;;Delocalisation switch
-            (setf local-length-t local-length)
+            ;; (setf local-length-t local-length)
             (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
             ))))
   (values))
@@ -154,14 +154,15 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
-          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
           ;; (when (< damage 1d0)
           ;; (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
+          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
           ;;Transform to log damage
           (incf damage damage-inc)
           ;;Transform to linear damage
