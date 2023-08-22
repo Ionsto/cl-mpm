@@ -189,7 +189,7 @@
                       (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
-                    (check-mps mesh mps)
+                    (check-mps sim)
                     )))
 (defmethod update-sim ((sim mpm-sim-usf))
   (declare (cl-mpm::mpm-sim-usf sim))
@@ -230,7 +230,7 @@
                     (remove-material-damaged sim))
                     (when split
                     (split-mps sim))
-                    (check-mps mesh mps)
+                    (check-mps sim)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
   (declare (cl-mpm::mpm-sim sim))
@@ -291,7 +291,7 @@
                       (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
-                    (check-mps mesh mps)
+                    (check-mps sim)
                     )))
 
 (defgeneric iterate-over-neighbours-shape (mesh shape-func mp func)
@@ -1586,10 +1586,11 @@ Calls func with only the node"
           (cl-mpm/mesh:reset-node node)
           )))))
 
-(defun remove-mp (sim mp)
-  (setf mps
-        (lparallel:premove-if (lambda (m)
-                                (= m mp)) mps)))
+;; (defun remove-mp (sim mp)
+;;   (setf mps
+;;         (lparallel:premove-if (lambda (m)
+;;                                 (= m mp)) mps)))
+
 (defgeneric remove-mps-func (sim func)
   (:documentation "A function for removing mps from a sim"))
 
