@@ -231,24 +231,14 @@
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     ;;MPI reduce mass and momentum?
-                    (cl-mpm::update-node-kinematics mesh dt )
+                    (cl-mpm::update-node-kinematics mesh dt)
                     ;;MPI reduce kinematics?
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    ;; ;(cl-mpm::update-stress mesh mps dt)
-                    ;; (loop for mp across mps
-                    ;;       do (cl-mpm/mpi::update-stress-mp mp dt))
 
-                    ;; (let ((dt-e dt))
-                    ;;   (lfarm:broadcast-task (lambda ()
-                    ;;                           (progn
-                    ;;                             (setf *global-dt* dt-e)
-                    ;;                             t))))
                     (cl-mpm::update-stress mesh mps dt)
-                    ;; (lfarm:pmap-into (cl-mpm::sim-mps sim)
-                    ;;                  'uls
-                    ;;                  (cl-mpm::sim-mps sim)
-                    ;;                  )
-                    ;;halo exchange mps on boundary
+
+                    ;;Get new MPS
+
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -256,21 +246,24 @@
                                                       50d0
                                                       nonlocal-damage
                                                       ))
-                    ;Map forces onto nodes
+                    ;;Get new MPS
+
                     (cl-mpm::p2g-force mesh mps)
-                    ;;MPI reduce forces onto mesh
                     ;(cl-mpm::apply-bcs mesh bcs-force dt)
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
+                    ;;Get new MPS
+
                     ;;MPI reduce forces onto mesh
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
-                    ;;MPI reduce new velocities
                     ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
                     ;;MPI reduce new velocities
+
+                    ;;Get new MPS
 
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
