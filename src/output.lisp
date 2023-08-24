@@ -70,6 +70,18 @@
   `(progn
      (format-scalar fs ,name id mps (lambda (mp) ,accessor))
      (incf id)))
+
+(defun save-simulation-parameters (filename sim &rest args)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (str:to-file
+     filename
+     (jonathan:to-json
+      (append
+       (list ;:ocean-height *water-height* 
+        :resolution (cl-mpm/mesh::mesh-resolution mesh)
+        :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
+       args)))))
 (defun save-vtk-mesh (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
@@ -316,6 +328,8 @@
             (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
             (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
             (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
+            (save-parameter-nodes "buoyancy_node" (if
+                                                   (cl-mpm/mesh::node-boundary-node node) 1 0))
             ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
             ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
 
