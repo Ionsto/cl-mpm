@@ -88,7 +88,9 @@
   :components ((:file "src/eigenerosion")))
 
 (defsystem "cl-mpm/output"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "jonathan"
+               "str")
   :description "MPM output helper functions"
   :serial t
   :components ((:file "src/output")))
