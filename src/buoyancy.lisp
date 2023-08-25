@@ -33,9 +33,10 @@
          (f (* rho g h))
          )
     (if (> h 0d0)
-        (stress-from-list (list f f 0d0))
+        (voigt-from-list (list f f 0d0))
         (voigt-zeros)
         )
+    ;; (voigt-zeros)
     ))
 (defun buoyancy-virtual-div (z datum-true rho)
   (let* ((g -9.8d0)
@@ -43,10 +44,12 @@
          (h (- datum z))
          (f (* -1d0 rho g))
          )
+    ;; (vector-from-list (list 0d0 f))
     (if (> h 0d0)
-        (magicl:from-list (list 0d0 f) '(2 1) :type 'double-float)
-        (magicl:zeros '(2 1))
+        (vector-from-list (list 0d0 f))
+        (vector-zeros)
         )
+    ;; (vector-zeros)
     ))
 (defun pressure-virtual-stress (pressure-x pressure-y)
   (magicl:from-list (list pressure-x pressure-y 0d0)
@@ -122,7 +125,8 @@
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
-        (with-accessors ((volume cl-mpm/particle:mp-volume))
+        (with-accessors ((volume cl-mpm/particle:mp-volume)
+                         (pos cl-mpm/particle::mp-position))
             mp
           (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
             ;;Iterate over neighbour nodes
@@ -140,7 +144,7 @@
                  (declare (double-float volume svp))
                  (when (and node-active
                             node-boundary
-                            (funcall clip-func node-pos)
+                            (funcall clip-func pos)
                             )
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
@@ -189,10 +193,10 @@
                    (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                      ;;Iterate over a cells nodes
                      (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-                       ;(cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
-                       ; mesh cell 2
-                       (cl-mpm/mesh::cell-iterate-over-neighbours
-                        mesh cell
+                       (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
+                       mesh cell 1
+                       ;; (cl-mpm/mesh::cell-iterate-over-neighbours
+                       ;;  mesh cell
                         (lambda (mesh cell pos volume node svp grads)
                           (with-accessors ((node-force cl-mpm/mesh:node-force)
                                            (node-pos cl-mpm/mesh::node-position)
@@ -207,7 +211,7 @@
                             (declare (double-float volume svp))
                             (when (and node-active
                                        node-boundary
-                                       (funcall clip-func node-pos)
+                                       (funcall clip-func pos)
                                        )
                               ;;Lock node
                               (sb-thread:with-mutex (node-lock)
@@ -502,10 +506,10 @@
                    (mps cl-mpm::sim-mps))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        ;; mesh
-        ;; (locate-mps-cells mesh mps clip-function)
-        ;; (populate-cells-volume mesh clip-function)
-        ;; (populate-nodes-volume mesh clip-function)
+        mesh
+      ;; (locate-mps-cells mesh mps clip-function)
+      ;; (populate-cells-volume mesh clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
       (apply-force-mps mesh mps
@@ -638,8 +642,10 @@
                      :sim sim
                      :clip-func (lambda (pos datum)
                                   (and
-                                   (cell-clipping pos datum)
-                                   (>= (magicl:tref pos 1 0) (* 1 h))))
+                                   t
+                                   ;(cell-clipping pos datum)
+                                   ;(>= (magicl:tref pos 1 0) (* 1 h))
+                                   ))
                      :rho rho
                      :datum datum))))
 
@@ -676,7 +682,9 @@
      (lambda (pos)
        (and
         (cell-clipping pos datum)
-        (funcall clip-func pos datum))))
+        t
+        ;; (funcall clip-func pos datum)
+        )))
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))
         sim

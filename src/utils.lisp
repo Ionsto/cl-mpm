@@ -23,6 +23,7 @@
    #:matrix-to-voigt
    #:voigt-to-matrix
    #:vector-zeros
+   #:vector-from-list
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 3) (safety 0) (speed 3)))
@@ -91,6 +92,14 @@
 (defun voigt-from-list (elements)
   (magicl::make-matrix/double-float 3 1 3 :column-major
                                     (make-array 3 :element-type 'double-float :initial-contents elements)))
+
+(declaim (inline vector-from-list)
+         (ftype (function (list)
+                          magicl:matrix/double-float) vector-from-list))
+(defun vector-from-list (elements)
+  (magicl::make-matrix/double-float 2 1 2 :column-major
+                                    (make-array 2 :element-type 'double-float :initial-contents elements)))
+
 
 (declaim (inline matrix-from-list)
          (ftype (function (list)

@@ -497,9 +497,52 @@
            (loop for y from -1 to 1 by 2
                  collect
                  (magicl:scale! (magicl:from-list (list x y) '(2 1) :type 'double-float)
-                                (/ h (* 2 (sqrt 3)))))))
-    )
-  )
+                                (/ h (* 2 (sqrt 3)))))))))
+
+(defun gauss-weights (n h)
+  (cond
+    ((= n 1)
+     (list 1d0)
+     )
+    ((= n 2)
+     (loop for x from -1 to 1 by 2
+           append
+           (loop for y from -1 to 1 by 2
+                 collect
+                 0.25d0)))))
+
+(defun newton-points (n h)
+  (declare (fixnum n))
+  (let ((spaceing (/ h (+ (coerce n 'double-float) 1d0))))
+    (declare (double-float h spaceing))
+    (cond
+      ((= n 1)
+       (list (magicl:zeros '(2 1))))
+      ((> n 1)
+       (loop for x from 1 to n
+             append
+             (loop for y from 1 to n
+                   collect
+                   (magicl:.+
+                    (magicl:scale!
+                     (cl-mpm/utils:vector-from-list (mapcar
+                                                     (lambda (x) (coerce x 'double-float))
+                                                     (list x y))) spaceing
+                     )
+                    (magicl:scale! (cl-mpm/utils:vector-from-list (list -0.5d0 -0.5d0)) h))))
+       ))))
+
+(defun newton-weights (n h)
+  (cond
+    ((= n 1)
+     (list 1d0)
+     )
+    ((> n 1)
+     (loop for x from 1 to n
+           append
+           (loop for y from 1 to n
+                 collect
+                 (/ 1d0 (* n n)))))))
 
 (defun cell-quadrature-iterate-over-neighbours (mesh cell gp func)
   (declare (function func))
@@ -508,7 +551,9 @@
                      (centroid cell-centroid)
                      (volume cell-volume))
         cell
-      (dolist (point (gauss-points gp h))
+      (loop for point in (newton-points gp h)
+            for gweight in (newton-weights gp h)
+            do
         (let ((quad (magicl.simd::.+-simd centroid point))
               (volume-ratio (/ 1 (expt gp 2))))
           (loop for node in nodes
@@ -519,6 +564,8 @@
                             (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
                             (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                             (weight (reduce #'* weights))
+                            ;; (weight 1d0)
+                            ;; (weights ())
                             (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                            dist (nreverse weights)))
                             )
@@ -526,8 +573,7 @@
                                 mesh
                                 cell
                                 quad
-                                volume
-                                ;(* volume volume-ratio)
+                                (* volume gweight)
                                 node
                                 weight
                                 grads)))))))))

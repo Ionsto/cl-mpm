@@ -627,10 +627,10 @@
     ;;                                            (- d)
     ;;                                            ))))
     )
-  (str:to-file #p"output/settings.json"
-               (jonathan:to-json (list :ocean-height *water-height* :domain-size
-                                       (cl-mpm/mesh::mesh-mesh-size (cl-mpm::sim-mesh *sim*))
-                                       )))
+  ;; (str:to-file #p"output/settings.json"
+  ;;              (jonathan:to-json (list :ocean-height *water-height* :domain-size
+  ;;                                      (cl-mpm/mesh::mesh-mesh-size (cl-mpm::sim-mesh *sim*))
+  ;;                                      )))
   ;; (damage-sdf *sim* (lambda (p) (line-sdf p
   ;;                                         (list 0d0 0d0)
   ;;                                         (list 100d0 0d0)
@@ -721,6 +721,10 @@
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
+
+   (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
+                                              *sim*
+                                              (list :dt target-time))
 
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))

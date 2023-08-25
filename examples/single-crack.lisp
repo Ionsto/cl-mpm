@@ -393,7 +393,7 @@
       (let* ((terminus-size (+ (second block-size) (* 0d0 (first block-size))))
              (ocean-x 1000)
             ;; (ocean-y (+ h-y (* 0.90d0 0.0d0 terminus-size)))
-             (ocean-y (* 0.0d0 terminus-size))
+             (ocean-y (* 0.45d0 terminus-size))
             ;(angle -1d0)
             )
 
@@ -477,8 +477,8 @@
   (defparameter *run-sim* nil)
   (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 120)
-         (shelf-length 600)
+         (shelf-height 125)
+         (shelf-length 500)
          (offset (list 0 0))
          )
     (defparameter *sim*
@@ -490,7 +490,7 @@
 
     ;;Delete all the plotted frames
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    (let ((cut-depth 20))
+    (let ((cut-depth 50))
       (cl-mpm/setup::remove-sdf
        *sim*
        (rectangle-sdf
@@ -614,7 +614,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d-1)
+ (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -635,7 +635,7 @@
                        (when (= steps 30)
                          (progn
                            (setf (cl-mpm::sim-enable-damage *sim*) t)
-                           (setf (cl-mpm::sim-damping-factor *sim*) base-damping
+                           (setf (cl-mpm::sim-damping-factor *sim*) 0d0;base-damping
                                  ;; dt-scale 0.1d0
                                  ;; target-time 1d-2
                                  )
@@ -659,7 +659,7 @@
                                   (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (* (- 0.5d0 crack-width) *ice-length*))
                                   (<= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (* (+ 0.5d0 crack-width) *ice-length*))
                                   )
-                                 do (setf  (cl-mpm/particle::mp-damage-rate mp) 1d-1
+                                 do (setf  (cl-mpm/particle::mp-damage-rate mp) 0d-1
                                            (cl-mpm/particle::mp-initiation-stress mp) init-stress-reduced
                                            ))
                            )))
@@ -688,7 +688,7 @@
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
