@@ -193,10 +193,10 @@
                    (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                      ;;Iterate over a cells nodes
                      (let ((dsvp (cl-mpm/utils::stretch-dsvp-zeros)))
-                       (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
-                       mesh cell 1
-                       ;; (cl-mpm/mesh::cell-iterate-over-neighbours
-                       ;;  mesh cell
+                       ;; (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
+                       ;; mesh cell 1
+                       (cl-mpm/mesh::cell-iterate-over-neighbours
+                        mesh cell
                         (lambda (mesh cell pos volume node svp grads)
                           (with-accessors ((node-force cl-mpm/mesh:node-force)
                                            (node-pos cl-mpm/mesh::node-position)
@@ -682,8 +682,8 @@
      (lambda (pos)
        (and
         (cell-clipping pos datum)
-        t
-        ;; (funcall clip-func pos datum)
+        ;; t
+        (funcall clip-func pos datum)
         )))
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))

@@ -576,7 +576,7 @@
         (let ((j 1d0))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let ((driving-pressure (* pressure (min 0.00d0 damage)))
+            (let ((driving-pressure (* pressure (min 1.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
@@ -653,14 +653,6 @@
                (def deformation-gradient)
                )
       mp
-    ;; Kirchoff stress rate?
-    ;; (magicl.simd::.+-simd stress
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-    ;; (magicl.simd::.+-simd
-    ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
     ;;Jaumann rate equation
     (magicl.simd::.+-simd
      stress
@@ -668,13 +660,6 @@
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
       stress
       vorticity))
-    ;; Truesdale rate
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (objectify-stress-kirchoff-truesdale
-    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;   stress
-    ;;   strain-rate))
     ))
 (defclass particle-elastic-truesdale (particle-elastic)
   ()
@@ -691,21 +676,6 @@
                (def deformation-gradient)
                )
       mp
-    ;; Kirchoff stress rate?
-    ;; (magicl.simd::.+-simd stress
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-    ;; (magicl.simd::.+-simd
-    ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
-    ;;Jaumann rate equation
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (objectify-stress-jaumann
-    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;   stress
-    ;;   vorticity))
     ;; Truesdale rate
     (magicl.simd::.+-simd
      stress
@@ -725,10 +695,8 @@
                (stress stress)
                (strain-rate strain-rate)
                (D stretch-tensor)
-               ;; (velocity-rate velocity-rate)
                (vorticity vorticity)
-               (def deformation-gradient)
-               )
+               (def deformation-gradient))
       mp
     (let (
           ;; (strain-rate (magicl:scale strain-rate (/ 1d0 dt)))
