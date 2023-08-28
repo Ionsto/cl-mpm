@@ -494,10 +494,11 @@
   "Assemble d/di to the strain-displacement matrix"
   (let* ((dx (nth 0 dsvp))
          (dy (nth 1 dsvp)))
-    (setf (magicl:tref mat 0 0) dx)
-    (setf (magicl:tref mat 1 1) dy)
-    (setf (magicl:tref mat 2 0) dy)
-    (setf (magicl:tref mat 2 1) dx))
+    (setf
+     (magicl:tref mat 0 0) dx
+     (magicl:tref mat 1 1) dy
+     (magicl:tref mat 2 0) dy
+     (magicl:tref mat 2 1) dx))
   mat)
 
 (declaim

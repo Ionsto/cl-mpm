@@ -433,10 +433,11 @@
                 ;; :plastic-stress 0.7d6
 
                 :initiation-stress 0.3d6
-                :damage-rate 1d-8
+                :damage-rate 1d-3
                 :critical-damage 0.50d0
                 :local-length 50d0
-                :local-length-damaged 50d0
+                ;:local-length-damaged 50d0
+                :local-length-damaged 0.1d0
                 :damage 0.0d0
 
                 :gravity -9.8d0
@@ -446,7 +447,7 @@
                 :slope slope
                 )))
         )
-      (let ((mass-scale 1d6))
+      (let ((mass-scale 1d7))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.0001d0 mass-scale)
@@ -465,7 +466,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
@@ -484,7 +485,8 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-            (ocean-y (+ h-y (* 0.90d0 1.0d0 terminus-size)))
+            ;; (ocean-y (+ h-y (* 0.90d0 0.5d0 terminus-size)))
+             (ocean-y (* (round (+ (* 0.9d0 0.5d0 terminus-size) h-y) h-y) h-y))
             ;(angle -1d0)
             )
 
@@ -518,11 +520,22 @@
               (list
                (cl-mpm/bc:make-bcs-from-list
                 (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy
+                 (cl-mpm/buoyancy::make-bc-buoyancy-clip
                   sim
                   ocean-y
                   *water-density*
+                  (lambda (pos datum)
+                    t;(>= (magicl:tref pos 1 0) h-y)
+                    )
                   )
+                 ;; (cl-mpm/bc::make-bc-closure
+                 ;;  '(0 0)
+                 ;;  (lambda ()
+                 ;;    (setf (magicl:tref (cl-mpm/mesh::node-force
+                 ;;                        (cl-mpm/mesh::get-node (cl-mpm:sim-mesh sim) '(24 1))
+                 ;;                        ) 1 0)
+                 ;;          1d3
+                 ;;          )))
                  ))
                (cl-mpm/bc:make-bcs-from-list
                 (list *floor-bc*)
@@ -544,11 +557,11 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
-         (mps-per-cell 4)
+  (let* ((mesh-size 20)
+         (mps-per-cell 2)
          (slope -0.02)
          (shelf-height 400)
-         (shelf-aspect 6)
+         (shelf-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -565,12 +578,12 @@
 
     ;;Delete all the plotted frames
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    (remove-sdf *sim* (rectangle-sdf
-                       (list shelf-length
-                             shelf-height-terminus)
-                       (list
-                        200
-                        (* 0.2 shelf-height-terminus))))
+    ;; (remove-sdf *sim* (rectangle-sdf
+    ;;                    (list shelf-length
+    ;;                          shelf-height-terminus)
+    ;;                    (list
+    ;;                     200
+    ;;                     (* 0.2 shelf-height-terminus))))
     ;; (damage-sdf *sim* (lambda (p) (line-sdf p
     ;;                                         (list (- shelf-length shelf-height) shelf-height)
     ;;                                         (list shelf-length 0d0)
@@ -724,7 +737,9 @@
 
    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
                                               *sim*
-                                              (list :dt target-time))
+                                              (list :dt target-time
+                                                    :ocean-height *water-height*
+                                                    ))
 
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -743,7 +758,8 @@
                            (progn
                              (setf (cl-mpm::sim-enable-damage *sim*) t)
                              (setf (cl-mpm::sim-damping-factor *sim*) base-damping
-                                   dt-scale 1.0d0))
+                                   ;dt-scale 1.0d0
+                                   ))
                            (progn
                              (setf (cl-mpm::sim-enable-damage *sim*) nil
                                    (cl-mpm::sim-damping-factor *sim*)
@@ -760,7 +776,7 @@
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
