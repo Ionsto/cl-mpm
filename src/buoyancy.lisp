@@ -144,7 +144,7 @@
                  (declare (double-float volume svp))
                  (when (and node-active
                             node-boundary
-                            ;; (funcall clip-func pos)
+                            (funcall clip-func pos)
                             )
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
