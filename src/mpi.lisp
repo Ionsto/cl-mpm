@@ -269,10 +269,39 @@
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
-                    (cl-mpm::check-mps mps)
+                    (cl-mpm::check-mps sim)
                     ;;Update mp list between processors
                     )))
 
+(defun clear-ghost-mps (sim)
+  (let ((rank (cl-mpi:mpi-comm-rank)))
+    (cl-mpm::remove-mps-func
+     (cl-mpm::remove-mps-func
+      sim
+      (lambda (mp)
+        (not (= rank (cl-mpm/particle::mp-index mp)))
+        ;; t
+        ))))
+  )
+(defun exchange-mps (sim)
+  (let* ((rank (cl-mpi:mpi-comm-rank))
+         (size (cl-mpi:mpi-comm-size))
+         (left-neighbor (mod (- rank 1) size))
+         (right-neighbor (mod (+ rank 1) size))
+         (object (aref (cl-mpm:sim-mps sim) 0)))
+    (format t "Exchanging MP ~A ~%" object)
+    ;; (format t "~a~%")
+    (describe (caddar
+               (cl-mpi-extensions:mpi-waitall-anything
+                (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                (cl-mpi-extensions:mpi-isend-anything
+                 object
+                 left-neighbor :tag 1)
+                (cl-mpi-extensions:mpi-isend-anything
+                 object
+                 right-neighbor :tag 2)
+                )))))
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
@@ -423,3 +452,19 @@
   (update-stress-mp mp *global-dt*)
   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
   mp)
+
+(setf cl-mpi-extensions::*standard-encode-function*
+      (lambda (x)
+        (let ((res (flexi-streams:with-output-to-sequence (stream)
+                     (cl-store:store x stream))))
+          (static-vectors:make-static-vector (length res)
+                      :element-type '(unsigned-byte 8)
+                      :initial-contents res
+                      )
+          ;; (simple-vector (unsigned-byte 8) (length res))
+          )))
+
+(setf cl-mpi-extensions::*standard-decode-function*
+      (lambda (x)
+        (flexi-streams:with-input-from-sequence (stream x)
+          (cl-store:restore stream))))

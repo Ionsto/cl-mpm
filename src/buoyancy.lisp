@@ -201,10 +201,10 @@
                    (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
                      ;;Iterate over a cells nodes
                      (let ((dsvp (cl-mpm/utils::dsvp-2d-zeros)))
-                       (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
-                       mesh cell 1
-                       ;; (cl-mpm/mesh::cell-iterate-over-neighbours
-                       ;;  mesh cell
+                       ;; (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
+                       ;; mesh cell 1
+                       (cl-mpm/mesh::cell-iterate-over-neighbours
+                        mesh cell
                         (lambda (mesh cell pos volume node svp grads)
                           (with-accessors ((node-force cl-mpm/mesh:node-force)
                                            (node-pos cl-mpm/mesh::node-position)
@@ -253,6 +253,72 @@
                                       (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                                 )))
                           ))))))))))
+
+(defun apply-force-cells-buoy (mesh func-stress func-div clip-func datum)
+  "Update force on nodes, with virtual stress field from cells"
+  (declare (function func-stress func-div))
+  (let ((cells (cl-mpm/mesh::mesh-cells mesh))
+        (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
+
+    (lparallel:pdotimes (i (array-total-size cells))
+             (let ((cell (row-major-aref cells i)))
+               (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
+                 (let ((nodal-volume 0d0))
+                   ;;Possibly clip ill posed cells
+                   (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
+                     ;;Iterate over a cells nodes
+                     (let ((dsvp (cl-mpm/utils::dsvp-2d-zeros))
+                           (center-pos (cl-mpm/mesh::cell-centroid cell))
+                           (h (cl-mpm/mesh::mesh-resolution mesh)))
+                       (flet ((apply-force (mesh cell pos volume node svp grads)
+                                (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                                 (node-pos cl-mpm/mesh::node-position)
+                                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                                                 (node-lock  cl-mpm/mesh:node-lock)
+                                                 (node-active cl-mpm/mesh:node-active)
+                                                 (node-boundary cl-mpm/mesh::node-boundary-node)
+                                                 (node-volume cl-mpm/mesh::node-volume)
+                                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                                 )
+                                    node
+                                  (declare (double-float volume svp))
+                                  (when (and node-active
+                                             node-boundary
+                                             (funcall clip-func pos)
+                                             )
+                                    ;;Lock node
+                                    (sb-thread:with-mutex (node-lock)
+                                      ;;Subtract gradient of stress from node force
+                                      (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+                                      ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+                                      ;;                                             (funcall func-stress pos)
+                                      ;;                                             (* -1d0 volume)
+                                      ;;                                             node-force)
+                                      (cl-mpm/fastmath::fast-fmacc node-force
+                                                                   (magicl:@ (magicl:transpose dsvp)
+                                                                             (funcall func-stress pos))
+                                                                   (* -1d0 volume))
+
+                                      (cl-mpm/fastmath::fast-fmacc node-force
+                                                                   (funcall func-div pos)
+                                                                   (* -1d0 svp volume))
+                                      (incf node-boundary-scalar
+                                            (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
+                                      )))
+                                ))
+                         (if (> datum (- (magicl:tref center-pos 1 0) h))
+                             ;;Happy path; use centered gauss point
+                             (cl-mpm/mesh::cell-iterate-over-neighbours
+                              mesh cell
+                              #'apply-force)
+                             ;;Sad path; we need to use a smart quadrature point
+                             (cl-mpm/mesh::cell-iterate-over-neighbours
+                              mesh cell
+                              #'apply-force)
+                             )))
+                       )))))))
+
+
 (defun direct-mp-enforcment (mesh mps datum)
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
