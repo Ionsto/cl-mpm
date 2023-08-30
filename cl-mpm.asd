@@ -148,8 +148,9 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-
-               "cl-mpi")
+               "cl-mpi"
+               "cl-mpi-extensions"
+               )
   :description ""
   :components (
                (:file "src/mpi")
