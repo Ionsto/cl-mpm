@@ -1621,17 +1621,6 @@ Calls func with only the node"
                 ;;  (< (magicl:det def) 1d-3)
                 ;;  )
                 )))))
-       ;; (setf mps
-       ;;       (lparallel:premove-if (lambda (mp)
-       ;;                    (with-accessors ((damage cl-mpm/particle:mp-damage)
-       ;;                                     (def cl-mpm/particle::mp-deformation-gradient))
-       ;;                        mp
-       ;;                      (and (>= damage 1d0)
-       ;;                           ;; (or
-       ;;                            (split-criteria mp h)
-       ;;                           ;;  (< (magicl:det def) 1d-3)
-       ;;                           ;;  )
-       ;;                           ))) mps)))
     ))
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)

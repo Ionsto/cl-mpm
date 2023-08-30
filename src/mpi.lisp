@@ -208,8 +208,12 @@
 
 (defclass mpm-sim-mpi-stress (cl-mpm/damage::mpm-sim-damage)
   ((neighbour-node-list
-    ))
+    )
+   (neighbour-ranks
+    :initform '())
+   )
   (:documentation "Damage sim with only stress update on mpi"))
+
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)
@@ -226,17 +230,19 @@
                 sim
     (declare (type double-float mass-filter))
                 (progn
+                  (exchange-mps sim)
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     ;;MPI reduce mass and momentum?
-                    (cl-mpm::update-node-kinematics mesh dt)
+                      (cl-mpm::update-node-kinematics mesh dt)
                     ;;MPI reduce kinematics?
                     (cl-mpm::apply-bcs mesh bcs dt)
 
                     (cl-mpm::update-stress mesh mps dt)
 
+                    (exchange-mps sim)
                     ;;Get new MPS
 
                     (when enable-damage
@@ -247,6 +253,8 @@
                                                       nonlocal-damage
                                                       ))
                     ;;Get new MPS
+
+                    (exchange-mps sim)
 
                     (cl-mpm::p2g-force mesh mps)
                     ;(cl-mpm::apply-bcs mesh bcs-force dt)
@@ -262,6 +270,8 @@
                     ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
                     ;;MPI reduce new velocities
+
+                    (exchange-mps sim)
 
                     ;;Get new MPS
 
@@ -281,27 +291,59 @@
       (lambda (mp)
         (not (= rank (cl-mpm/particle::mp-index mp)))
         ;; t
-        ))))
-  )
+        )))))
+
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
-         (left-neighbor (mod (- rank 1) size))
-         (right-neighbor (mod (+ rank 1) size))
-         (object (aref (cl-mpm:sim-mps sim) 0)))
-    (format t "Exchanging MP ~A ~%" object)
-    ;; (format t "~a~%")
-    (describe (caddar
-               (cl-mpi-extensions:mpi-waitall-anything
-                (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                (cl-mpi-extensions:mpi-isend-anything
-                 object
-                 left-neighbor :tag 1)
-                (cl-mpi-extensions:mpi-isend-anything
-                 object
-                 right-neighbor :tag 2)
-                )))))
+         (left-neighbor  (- rank 1))
+         (right-neighbor (+ rank 1))
+         ;; (object (aref (cl-mpm:sim-mps sim) 0))
+         )
+    (cl-mpm::remove-mps-func
+     sim
+     (lambda (mp)
+       (not (= rank (cl-mpm/particle::mp-index mp)))))
+    (let ((all-mps (cl-mpm:sim-mps sim)))
+      (with-accessors ((mps cl-mpm:sim-mps))
+          sim
+        (let ((recv
+                (cond
+                  ((and (>= left-neighbor 0)
+                        (< right-neighbor size)
+                        )
+                   (cl-mpi-extensions:mpi-waitall-anything
+                    (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                    (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                    (cl-mpi-extensions:mpi-isend-anything
+                     all-mps
+                     left-neighbor :tag 1)
+                    (cl-mpi-extensions:mpi-isend-anything
+                     all-mps
+                     right-neighbor :tag 2)
+                    ))
+
+                  ((< left-neighbor 0)
+                   (cl-mpi-extensions:mpi-waitall-anything
+                    (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                    (cl-mpi-extensions:mpi-isend-anything
+                     all-mps
+                     right-neighbor :tag 2)
+                    ))
+                  ((>= right-neighbor size)
+                   (cl-mpi-extensions:mpi-waitall-anything
+                    (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                    (cl-mpi-extensions:mpi-isend-anything
+                     all-mps
+                     left-neighbor :tag 1)
+                    )))))
+          (loop for packet in recv
+                do
+                   (destructuring-bind (rank tag object) packet
+                     (setf mps (concatenate '(vector t) mps object))
+                     ;; (loop for mp in object
+                     ;;       do (vector-push mp mps))
+                     )))))))
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
