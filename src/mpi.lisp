@@ -234,32 +234,33 @@
     (declare (type double-float mass-filter))
                 (progn
                     (exchange-mps sim)
+                  (when (> (length mps) 0)
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                      (cl-mpm::update-node-kinematics mesh dt)
+                    (cl-mpm::update-node-kinematics mesh dt)
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::update-stress mesh mps dt)
-                    ;(exchange-mps sim)
+                                        ;(exchange-mps sim)
                     (when enable-damage
-                     (cl-mpm/damage::calculate-damage mesh
-                                                      mps
-                                                      dt
-                                                      50d0
-                                                      nonlocal-damage
-                                                      ))
-                    ;(exchange-mps sim)
+                      (cl-mpm/damage::calculate-damage mesh
+                                                       mps
+                                                       dt
+                                                       50d0
+                                                       nonlocal-damage
+                                                       ))
+                                        ;(exchange-mps sim)
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    ;Also updates mps inline
+                                        ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
                     ;;MPI reduce new velocities
-                    ;(exchange-mps sim)
+                                        ;(exchange-mps sim)
                     ;;Get new MPS
 
                     (when remove-damage
@@ -267,7 +268,7 @@
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
-                    (set-mp-index sim)
+                    (set-mp-index sim))
                     ;; (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
@@ -282,31 +283,33 @@
         ))))
 
 (defun serialise-mps (mps)
-  (let* ((collect-res
-           (lparallel:pmapcar
-            (lambda (mp)
-              (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-                (cl-store:store mp stream)))
-            mps
-            ))
-         (total-length (reduce #'+ (mapcar #'length collect-res)))
-         )
-    (let ((out
-            (static-vectors:make-static-vector total-length
-                                               :element-type '(unsigned-byte 8)
-                                               ;; :initial-contents res
-                                               ))
-          (i 0))
-      (declare (fixnum i)
-               ((simple-array (unsigned-byte 8) *) out))
-      (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
-            do
-               (loop for b of-type (unsigned-byte 8) across arr
-                     do
-                        (setf (aref out i) b)
-                        (incf i)))
-      out
-      ))
+  (if (> (length mps) 0)
+    (let* ((collect-res
+             (lparallel:pmapcar
+              (lambda (mp)
+                (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                  (cl-store:store mp stream)))
+              mps
+              ))
+           (total-length (reduce #'+ (mapcar #'length collect-res)))
+           )
+      (let ((out
+              (static-vectors:make-static-vector total-length
+                                                 :element-type '(unsigned-byte 8)
+                                                 ;; :initial-contents res
+                                                 ))
+            (i 0))
+        (declare (fixnum i)
+                 ((simple-array (unsigned-byte 8) *) out))
+        (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
+              do
+                 (loop for b of-type (unsigned-byte 8) across arr
+                       do
+                          (setf (aref out i) b)
+                          (incf i)))
+        out
+        ))
+    )
 
   ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
   ;;              (cl-store:store mps stream))))
@@ -318,8 +321,9 @@
   ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
   )
 (defun deserialise-mps (x)
-  (flexi-streams:with-input-from-sequence (stream x)
-    (cl-store:restore stream)))
+  (when x
+    (flexi-streams:with-input-from-sequence (stream x)
+      (cl-store:restore stream))))
 
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
@@ -343,10 +347,7 @@
                        (let ((res
                                (lparallel:premove-if-not
                                 (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-                                all-mps
-                                )))
-                         ;; (loop for mp across mps
-                         ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
+                                all-mps)))
                          res)
                        )
                      (left-filter ()
@@ -392,18 +393,23 @@
                           (cl-mpi-extensions:mpi-isend-anything
                            (left-filter)
                            left-neighbor :tag 1)
-                          )))))
+                          ))
+                        (t nil)))
+                    )
                 (loop for packet in recv
                       do
                          (destructuring-bind (rank tag object) packet
-                           (loop for mp across object
-                                 do (progn
-                                      (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                            (cl-mpm/particle::mp-damage-position mp) nil)))
-                           (setf mps (concatenate '(vector t) mps object))
+                           (when object
+                             (loop for mp across object
+                                   do (progn
+                                        (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                                              (cl-mpm/particle::mp-damage-position mp) nil)))
+                             (setf mps (concatenate '(vector t) mps object)))
                            ))
                 )
-              )))))))
+              ))))))
+  ;; (cl-mpi:mpi-barrier)
+  )
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
@@ -588,7 +594,11 @@
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
-    (let ((inner-factor most-positive-double-float))
+    (let ((inner-factor 
+            ;;MPI not a fan of most-positive-double-float
+            1d50
+            ;most-positive-double-float
+                        ))
       (iterate-over-nodes-serial
        mesh
        (lambda (node)
