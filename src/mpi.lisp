@@ -233,7 +233,7 @@
                 sim
     (declare (type double-float mass-filter))
                 (progn
-                    (exchange-mps sim)
+                    ;; (exchange-mps sim)
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
@@ -267,7 +267,8 @@
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
-                    (clear-ghost-mps sim)
+                    (set-mp-index sim)
+                    ;; (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
 
@@ -280,42 +281,50 @@
         ;; t
         ))))
 
+(defun serialise-mps (mps)
+  ;; (loop for mp across mps
+  ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
+  )
+
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
          (left-neighbor  (- rank 1))
          (right-neighbor (+ rank 1)))
-    (cl-mpm::remove-mps-func
-     sim
-     (lambda (mp)
-       (not (= rank (cl-mpm/particle::mp-index mp)))))
+
+    (clear-ghost-mps sim)
+    ;; (cl-mpm::remove-mps-func
+    ;;  sim
+    ;;  (lambda (mp)
+    ;;    (not (= rank (cl-mpm/particle::mp-index mp)))))
+
     (let ((all-mps (cl-mpm:sim-mps sim)))
       (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
         (with-accessors ((mps cl-mpm:sim-mps)
                          (mesh cl-mpm:sim-mesh))
             sim
-          (let ((halo-depth (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
+          (let ((halo-depth (* 4 (cl-mpm/mesh:mesh-resolution mesh))))
             (labels ((halo-filter (test)
                        (let ((res
                                (lparallel:premove-if-not
                                 (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
                                 all-mps
                                 )))
-                         (loop for mp across mps
-                               do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
+                         ;; (loop for mp across mps
+                         ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
                          res)
                        )
                      (left-filter ()
                        (halo-filter (lambda (pos)
                                       (and
-                                       (> pos bl)
+                                       ;; (> pos bl)
                                        (< pos (+ bl halo-depth)))
                                       ))
                        )
                      (right-filter ()
                        (halo-filter (lambda (pos)
                                       (and
-                                       (< pos bu)
+                                       ;; (< pos bu)
                                        (> pos (- bu halo-depth)))
                                       ))
                        ))
@@ -351,6 +360,10 @@
                 (loop for packet in recv
                       do
                          (destructuring-bind (rank tag object) packet
+                           (loop for mp across object
+                                 do (progn
+                                      (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                                            (cl-mpm/particle::mp-damage-position mp) nil)))
                            (setf mps (concatenate '(vector t) mps object))
                            ))
                 )
@@ -462,6 +475,19 @@
                             (setf lparallel:*kernel* (lparallel:make-kernel 4))
                             t))))
 
+(defun in-computational-domain (sim pos)
+  (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
+    (and
+     (>= bl (magicl:tref pos 0 0))
+     (< bu (magicl:tref pos 0 0))
+     )))
+(defun set-mp-index (sim)
+  (let* ((rank (cl-mpi:mpi-comm-rank)))
+    (loop for mp across (cl-mpm:sim-mps sim)
+          when
+          (in-computational-domain sim (cl-mpm/particle:mp-position mp))
+          do (setf (cl-mpm/particle::mp-index mp) rank))))
+
 (defun domain-decompose (sim)
   "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
 
@@ -521,12 +547,6 @@
         (flexi-streams:with-input-from-sequence (stream x)
           (cl-store:restore stream))))
 
-(defun in-computational-domain (sim pos)
-  (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
-    (and
-     (>= bl (magicl:tref pos 0 0))
-     (< bu (magicl:tref pos 0 0))
-     )))
 
 (defun calculate-min-dt (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
