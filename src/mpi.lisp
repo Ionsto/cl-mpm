@@ -283,40 +283,40 @@
         ))))
 
 (defun serialise-mps (mps)
-  (if (> (length mps) 0)
-    (let* ((collect-res
-             (lparallel:pmapcar
-              (lambda (mp)
-                (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-                  (cl-store:store mp stream)))
-              mps
-              ))
-           (total-length (reduce #'+ (mapcar #'length collect-res)))
-           )
-      (let ((out
-              (static-vectors:make-static-vector total-length
-                                                 :element-type '(unsigned-byte 8)
-                                                 ;; :initial-contents res
-                                                 ))
-            (i 0))
-        (declare (fixnum i)
-                 ((simple-array (unsigned-byte 8) *) out))
-        (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
-              do
-                 (loop for b of-type (unsigned-byte 8) across arr
-                       do
-                          (setf (aref out i) b)
-                          (incf i)))
-        out
-        ))
-    )
+  ;; (if (> (length mps) 0)
+  ;;   (let* ((collect-res
+  ;;            (lparallel:pmapcar
+  ;;             (lambda (mp)
+  ;;               (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+  ;;                 (cl-store:store mp stream)))
+  ;;             mps
+  ;;             ))
+  ;;          (total-length (reduce #'+ (mapcar #'length collect-res)))
+  ;;          )
+  ;;     (let ((out
+  ;;             (static-vectors:make-static-vector total-length
+  ;;                                                :element-type '(unsigned-byte 8)
+  ;;                                                ;; :initial-contents res
+  ;;                                                ))
+  ;;           (i 0))
+  ;;       (declare (fixnum i)
+  ;;                ((simple-array (unsigned-byte 8) *) out))
+  ;;       (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
+  ;;             do
+  ;;                (loop for b of-type (unsigned-byte 8) across arr
+  ;;                      do
+  ;;                         (setf (aref out i) b)
+  ;;                         (incf i)))
+  ;;       out
+  ;;       ))
+  ;;   )
 
-  ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
-  ;;              (cl-store:store mps stream))))
-  ;;   (static-vectors:make-static-vector (length res)
-  ;;                                      :element-type '(unsigned-byte 8)
-  ;;                                      :initial-contents res
-  ;;                                      ))
+  (let ((res (flexi-streams:with-output-to-sequence (stream)
+               (cl-store:store mps stream))))
+    (static-vectors:make-static-vector (length res)
+                                       :element-type '(unsigned-byte 8)
+                                       :initial-contents res
+                                       ))
   ;; (loop for mp across mps
   ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
   )
@@ -324,6 +324,15 @@
   (when x
     (flexi-streams:with-input-from-sequence (stream x)
       (cl-store:restore stream))))
+
+
+(defun test-ser (mps)
+  (let ((res (flexi-streams:with-output-to-sequence (stream)
+             (cl-store:store mps stream))))
+  (static-vectors:make-static-vector (length res)
+                                     :element-type '(unsigned-byte 8)
+                                     :initial-contents res
+                                     )))
 
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
