@@ -238,16 +238,10 @@
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                    ;;MPI reduce mass and momentum?
                       (cl-mpm::update-node-kinematics mesh dt)
-                    ;;MPI reduce kinematics?
                     (cl-mpm::apply-bcs mesh bcs dt)
-
                     (cl-mpm::update-stress mesh mps dt)
-
                     ;(exchange-mps sim)
-                    ;;Get new MPS
-
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -255,27 +249,17 @@
                                                       50d0
                                                       nonlocal-damage
                                                       ))
-                    ;;Get new MPS
-
                     ;(exchange-mps sim)
-
                     (cl-mpm::p2g-force mesh mps)
-                    ;(cl-mpm::apply-bcs mesh bcs-force dt)
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
-                    ;;Get new MPS
-
-                    ;;MPI reduce forces onto mesh
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
-                    ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
                     ;;MPI reduce new velocities
-
                     ;(exchange-mps sim)
-
                     ;;Get new MPS
 
                     (when remove-damage
@@ -536,3 +520,45 @@
       (lambda (x)
         (flexi-streams:with-input-from-sequence (stream x)
           (cl-store:restore stream))))
+
+(defun in-computational-domain (sim pos)
+  (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
+    (and
+     (>= bl (magicl:tref pos 0 0))
+     (< bu (magicl:tref pos 0 0))
+     )))
+
+(defun calculate-min-dt (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mass-scale cl-mpm::sim-mass-scale))
+      sim
+    (let ((inner-factor most-positive-double-float))
+      (iterate-over-nodes-serial
+       mesh
+       (lambda (node)
+         (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                          (node-pos cl-mpm/mesh::node-position)
+                          (pmod cl-mpm/mesh::node-pwave)
+                          (mass cl-mpm/mesh::node-mass)
+                          (svp-sum cl-mpm/mesh::node-svp-sum)
+                          (vol cl-mpm/mesh::node-volume)
+                          ) node
+           (when (and node-active
+                      ;(in-computational-domain sim node-pos)
+                      )
+             (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
+                 (when (< nf inner-factor)
+                   ;; (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol (/ pmod svp-sum))
+                   (setf inner-factor nf)))))))
+      (let ((rank (cl-mpi:mpi-comm-rank))
+            (size (cl-mpi:mpi-comm-size)))
+        (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element inner-factor)
+          (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
+            (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-min+)
+            (if (< inner-factor most-positive-double-float)
+                (progn
+                  ;; (format t "Rank ~D: dt - ~F~%" rank (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
+                  (setf inner-factor (aref dest 0))
+                  ;; (format t "global : dt - ~F~%" (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
+                  (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
+                (cl-mpm::sim-dt sim))))))))
