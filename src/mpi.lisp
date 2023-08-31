@@ -11,7 +11,7 @@
    :magicl tref .+ .-
    )
   )
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
@@ -233,7 +233,7 @@
                 sim
     (declare (type double-float mass-filter))
                 (progn
-                  (exchange-mps sim)
+                    (exchange-mps sim)
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
@@ -245,7 +245,7 @@
 
                     (cl-mpm::update-stress mesh mps dt)
 
-                    (exchange-mps sim)
+                    ;(exchange-mps sim)
                     ;;Get new MPS
 
                     (when enable-damage
@@ -257,7 +257,7 @@
                                                       ))
                     ;;Get new MPS
 
-                    (exchange-mps sim)
+                    ;(exchange-mps sim)
 
                     (cl-mpm::p2g-force mesh mps)
                     ;(cl-mpm::apply-bcs mesh bcs-force dt)
@@ -274,7 +274,7 @@
                     (cl-mpm::g2p mesh mps dt)
                     ;;MPI reduce new velocities
 
-                    (exchange-mps sim)
+                    ;(exchange-mps sim)
 
                     ;;Get new MPS
 
@@ -283,18 +283,18 @@
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
+                    (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
 
 (defun clear-ghost-mps (sim)
   (let ((rank (cl-mpi:mpi-comm-rank)))
-    (cl-mpm::remove-mps-func
      (cl-mpm::remove-mps-func
       sim
       (lambda (mp)
         (not (= rank (cl-mpm/particle::mp-index mp)))
         ;; t
-        )))))
+        ))))
 
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
