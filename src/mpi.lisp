@@ -211,7 +211,10 @@
     )
    (neighbour-ranks
     :initform '())
-   )
+   (domain-bounds
+    :accessor mpm-sim-mpi-domain-bounds
+    :initform '(0 0)
+    ))
   (:documentation "Damage sim with only stress update on mpi"))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
@@ -297,53 +300,77 @@
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
          (left-neighbor  (- rank 1))
-         (right-neighbor (+ rank 1))
-         ;; (object (aref (cl-mpm:sim-mps sim) 0))
-         )
+         (right-neighbor (+ rank 1)))
     (cl-mpm::remove-mps-func
      sim
      (lambda (mp)
        (not (= rank (cl-mpm/particle::mp-index mp)))))
     (let ((all-mps (cl-mpm:sim-mps sim)))
-      (with-accessors ((mps cl-mpm:sim-mps))
-          sim
-        (let ((recv
-                (cond
-                  ((and (>= left-neighbor 0)
-                        (< right-neighbor size)
-                        )
-                   (cl-mpi-extensions:mpi-waitall-anything
-                    (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                    (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                    (cl-mpi-extensions:mpi-isend-anything
-                     all-mps
-                     left-neighbor :tag 1)
-                    (cl-mpi-extensions:mpi-isend-anything
-                     all-mps
-                     right-neighbor :tag 2)
-                    ))
-
-                  ((< left-neighbor 0)
-                   (cl-mpi-extensions:mpi-waitall-anything
-                    (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                    (cl-mpi-extensions:mpi-isend-anything
-                     all-mps
-                     right-neighbor :tag 2)
-                    ))
-                  ((>= right-neighbor size)
-                   (cl-mpi-extensions:mpi-waitall-anything
-                    (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                    (cl-mpi-extensions:mpi-isend-anything
-                     all-mps
-                     left-neighbor :tag 1)
-                    )))))
-          (loop for packet in recv
-                do
-                   (destructuring-bind (rank tag object) packet
-                     (setf mps (concatenate '(vector t) mps object))
-                     ;; (loop for mp in object
-                     ;;       do (vector-push mp mps))
-                     )))))))
+      (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
+        (with-accessors ((mps cl-mpm:sim-mps)
+                         (mesh cl-mpm:sim-mesh))
+            sim
+          (let ((halo-depth (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
+            (labels ((halo-filter (test)
+                       (let ((res
+                               (lparallel:premove-if-not
+                                (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+                                all-mps
+                                )))
+                         (loop for mp across mps
+                               do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
+                         res)
+                       )
+                     (left-filter ()
+                       (halo-filter (lambda (pos)
+                                      (and
+                                       (> pos bl)
+                                       (< pos (+ bl halo-depth)))
+                                      ))
+                       )
+                     (right-filter ()
+                       (halo-filter (lambda (pos)
+                                      (and
+                                       (< pos bu)
+                                       (> pos (- bu halo-depth)))
+                                      ))
+                       ))
+              (let ((recv
+                      (cond
+                        ((and (>= left-neighbor 0)
+                              (< right-neighbor size)
+                              )
+                         (cl-mpi-extensions:mpi-waitall-anything
+                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                          (cl-mpi-extensions:mpi-isend-anything
+                           (left-filter)
+                           left-neighbor :tag 1)
+                          (cl-mpi-extensions:mpi-isend-anything
+                           (right-filter)
+                           right-neighbor :tag 2)
+                          ))
+                        ((< left-neighbor 0)
+                         (cl-mpi-extensions:mpi-waitall-anything
+                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                          (cl-mpi-extensions:mpi-isend-anything
+                           (right-filter)
+                           right-neighbor :tag 2)
+                          ))
+                        ((>= right-neighbor size)
+                         (cl-mpi-extensions:mpi-waitall-anything
+                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                          (cl-mpi-extensions:mpi-isend-anything
+                           (left-filter)
+                           left-neighbor :tag 1)
+                          )))))
+                (loop for packet in recv
+                      do
+                         (destructuring-bind (rank tag object) packet
+                           (setf mps (concatenate '(vector t) mps object))
+                           ))
+                )
+              )))))))
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
@@ -466,6 +493,8 @@
            (bound-lower (* rank slice-size))
            (bound-upper (* (+ 1 rank) slice-size))
            )
+      (setf (mpm-sim-mpi-domain-bounds sim)
+            (list bound-lower bound-upper))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
       (loop for mp across (cl-mpm:sim-mps sim)
             when
@@ -478,7 +507,6 @@
        sim
        (lambda (mp)
          (not (= rank (cl-mpm/particle::mp-index mp)))
-         ;; t
          )))
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
     )
@@ -502,9 +530,7 @@
           (static-vectors:make-static-vector (length res)
                       :element-type '(unsigned-byte 8)
                       :initial-contents res
-                      )
-          ;; (simple-vector (unsigned-byte 8) (length res))
-          )))
+                      ))))
 
 (setf cl-mpi-extensions::*standard-decode-function*
       (lambda (x)
