@@ -812,7 +812,7 @@
              (buoyancy-virtual-div (tref pos 1 0) datum rho))
            (lambda (pos)
              (and
-              ;; (cell-clipping pos datum)
+              (cell-clipping pos datum)
               ;; t
               (funcall clip-func pos datum)
               ))
@@ -827,11 +827,17 @@
                 (lambda (mesh mp node svp grads fsvp fgrad)
                   (when (cl-mpm/mesh::node-boundary-node node)
                     (with-accessors ((pos cl-mpm/particle:mp-position)
-                                     (pressure cl-mpm/particle::mp-pressure))
+                                     (pressure cl-mpm/particle::mp-pressure)
+                                     (mp-datum cl-mpm/particle::mp-pressure-datum)
+                                     (mp-head cl-mpm/particle::mp-pressure-head)
+                                     )
                         mp
                       (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                                  (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-                        (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))))
+                        (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                        (setf mp-datum datum
+                              mp-head rho)
+                        ))
                     )
                   ;; (when (cl-mpm/mesh::node-boundary-node node)
                   ;;   (with-accessors ((pos cl-mpm/mesh::node-position)
@@ -854,6 +860,12 @@
             do
 
                (with-accessors ((pos cl-mpm/particle:mp-position)
-                                (pressure cl-mpm/particle::mp-pressure))
+                                (pressure cl-mpm/particle::mp-pressure)
+                                (mp-datum cl-mpm/particle::mp-pressure-datum)
+                                (mp-head cl-mpm/particle::mp-pressure-head)
+                                )
                    mp
-                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))))))
+                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                 (setf mp-datum datum
+                       mp-head rho)
+                 )))))

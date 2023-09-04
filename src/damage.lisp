@@ -55,8 +55,8 @@
  (ftype (function (cl-mpm/particle:particle double-float) (values)) calculate-damage-increment))
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-stress)
-                     ;(stress cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors (;(stress cl-mpm/particle::mp-stress)
+                     (stress cl-mpm/particle::mp-undamaged-stress)
                      ;; (strain cl-mpm/particle::mp-strain)
                      (damage cl-mpm/particle:mp-damage)
                      (strain-rate cl-mpm/particle::mp-velocity-rate)
@@ -78,9 +78,9 @@
         (progn
           (progn
                                         ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
-            (multiple-value-bind (s_1 s_2) (principal-stresses stress)
+            (multiple-value-bind (s_1 s_2) (principal-stresses (magicl:scale stress (/ 1d0 (magicl:det def))))
               (let* (;;Only allow tensile damage
-                     (pressure-effective (* damage pressure))
+                     (pressure-effective (* 1d0 damage pressure))
                      (s_1 (- s_1 pressure-effective))
                      (s_2 (- s_2 pressure-effective))
                      (s_1 (max 0d0 s_1))
@@ -294,8 +294,8 @@
               ;;New particle - needs to be added to the mesh
               (local-list-add-particle mesh mp)
               ;; Already inserted mesh - sanity check to see if it should be recalced
-              (let* ((delta (simd-accumulate (cl-mpm/particle:mp-position mp)
-                                             (cl-mpm/particle::mp-damage-position mp)
+              (let* ((delta (diff-squared-mat (cl-mpm/particle:mp-position mp)
+                                              (cl-mpm/particle::mp-damage-position mp)
                                              )))
                 (when (> delta (/ h 4d0))
                   (when (not (eq
@@ -336,6 +336,11 @@
       (values (sb-simd-avx::f64.2-horizontal+
                (sb-simd-avx:f64.2* diff diff))))
     )
+  (defun diff-squared-mat (pos-a pos-b)
+    (let ((pos-a (magicl::matrix/double-float-storage pos-a))
+          (pos-b (magicl::matrix/double-float-storage pos-b))
+          )
+      (values (the double-float (simd-accumulate pos-a pos-b)))))
   (declaim
    (inline diff-squared)
    (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
@@ -343,7 +348,8 @@
     (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
           (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
           )
-      (values (the double-float (simd-accumulate pos-a pos-b))))))
+      (values (the double-float (simd-accumulate pos-a pos-b)))))
+  )
 
 (declaim
  (inline diff-damaged)
