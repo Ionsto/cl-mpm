@@ -576,7 +576,7 @@
         (let ((j 1d0))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let ((driving-pressure (* 0d0 pressure (min 0.00d0 damage)))
+            (let ((driving-pressure (* 1d0 pressure (min 0.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))

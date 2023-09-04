@@ -10,7 +10,7 @@
     :magicl tref .+ .-)
   (:export
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;    #:make-shape-function
 (in-package :cl-mpm/buoyancy)
 
@@ -278,8 +278,7 @@
                                                  (node-active cl-mpm/mesh:node-active)
                                                  (node-boundary cl-mpm/mesh::node-boundary-node)
                                                  (node-volume cl-mpm/mesh::node-volume)
-                                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                                 )
+                                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
                                     node
                                   (declare (double-float volume svp))
                                   (when (and node-active
@@ -288,12 +287,7 @@
                                              )
                                     ;;Lock node
                                     (sb-thread:with-mutex (node-lock)
-                                      ;;Subtract gradient of stress from node force
                                       (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                                      ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
-                                      ;;                                             (funcall func-stress pos)
-                                      ;;                                             (* -1d0 volume)
-                                      ;;                                             node-force)
                                       (cl-mpm/fastmath::fast-fmacc node-force
                                                                    (magicl:@ (magicl:transpose dsvp)
                                                                              (funcall func-stress pos))
@@ -306,17 +300,30 @@
                                             (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                                       )))
                                 ))
-                         (if (> datum (- (magicl:tref center-pos 1 0) h))
-                             ;;Happy path; use centered gauss point
-                             (cl-mpm/mesh::cell-iterate-over-neighbours
-                              mesh cell
-                              #'apply-force)
-                             ;;Sad path; we need to use a smart quadrature point
-                             (cl-mpm/mesh::cell-iterate-over-neighbours
-                              mesh cell
-                              #'apply-force)
+                         (when (> datum (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
+                           (if (>= datum (+ (magicl:tref center-pos 1 0) (* 0.5d0 h)))
+                               ;;Happy path; use centered gauss point
+                               (cl-mpm/mesh::cell-iterate-over-neighbours
+                                mesh cell
+                                #'apply-force)
+                               ;;Sad path; we need to use a smart quadrature point
+                               (let* ((gp (cl-mpm/utils::vector-copy center-pos))
+                                      (floor-point (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
+                                      (fill-height (- datum floor-point))
+                                      (fill-ratio (/ fill-height h))
+                                      )
+                                 (setf (magicl:tref gp 1 0) (+ floor-point (* 0.5d0 fill-height)))
+                                 ;; (print gp)
+                                 ;; (break)
+                                 (with-accessors ((volume   cl-mpm/mesh::cell-volume))
+                                     cell
+                                   (cl-mpm::iterate-over-neighbours-point-linear
+                                    mesh gp
+                                    (lambda (mesh node svp grads)
+                                      (apply-force mesh cell gp (* fill-ratio volume) node svp grads))))
+                               )))
                              )))
-                       )))))))
+                       ))))))
 
 
 (defun direct-mp-enforcment (mesh mps datum)
@@ -746,6 +753,31 @@
                      :rho rho
                      :datum datum
                      ))))
+
+(defun apply-buoyancy (sim func-stress func-div clip-function datum)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      sim
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      ;; (locate-mps-cells mesh mps clip-function)
+      ;; (populate-cells-volume mesh clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
+      (populate-nodes-volume-damage mesh clip-function)
+      ;; (populate-nodes-domain mesh clip-function)
+      (apply-force-mps mesh mps
+                       (lambda (mp) (calculate-val-mp mp func-stress))
+                       (lambda (mp) (calculate-val-mp mp func-div))
+                       clip-function
+                       )
+      (apply-force-cells-buoy mesh
+                         func-stress
+                         func-div
+                         clip-function
+                         datum
+                         )
+      )))
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
@@ -754,20 +786,37 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-    (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
-      (setf datum (* (round datum h) h)))
-    (apply-non-conforming-nuemann
-     sim
-     (lambda (pos)
-       (buoyancy-virtual-stress (tref pos 1 0) datum rho))
-     (lambda (pos)
-       (buoyancy-virtual-div (tref pos 1 0) datum rho))
-     (lambda (pos)
-       (and
-        (cell-clipping pos datum)
-        ;; t
-        (funcall clip-func pos datum)
-        )))
+    (let ((datum-rounding t))
+      (if datum-rounding
+          (progn
+            (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+              (setf datum (* (round datum h) h)))
+            (apply-non-conforming-nuemann
+             sim
+             (lambda (pos)
+               (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+             (lambda (pos)
+               (buoyancy-virtual-div (tref pos 1 0) datum rho))
+             (lambda (pos)
+               (and
+                (cell-clipping pos datum)
+                ;; t
+                (funcall clip-func pos datum)
+                ))
+             ))
+          (apply-buoyancy
+           sim
+           (lambda (pos)
+             (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+           (lambda (pos)
+             (buoyancy-virtual-div (tref pos 1 0) datum rho))
+           (lambda (pos)
+             (and
+              ;; (cell-clipping pos datum)
+              ;; t
+              (funcall clip-func pos datum)
+              ))
+           datum)))
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))
         sim

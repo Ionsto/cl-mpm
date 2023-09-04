@@ -604,8 +604,18 @@
                               volume
                               node
                               weight
-                              grads)))))))
-  )
+                              grads))))))))
+
+;; (defun cell-iterate-over-neighbours-point (mesh cell pos func)
+;;   (declare (function func))
+;;     (with-accessors ((nodes cell-nodes)
+;;                      (centroid cell-centroid)
+;;                      (volume cell-volume))
+;;         cell
+;;       (cl-mpm::iterate-over-neighbours-point-linear
+;;        mesh pos
+;;        (lambda (mesh node weight grads)
+;;          (funcall func mesh cell pos volume node weight grads)))))
 
 
 ;;; Printing methods
