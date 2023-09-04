@@ -26,7 +26,7 @@
    #:vector-from-list
    ))
 (in-package :cl-mpm/utils)
-(declaim (optimize (debug 3) (safety 0) (speed 3)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (declaim (inline eig)
          (ftype (function (magicl:matrix/double-float)
