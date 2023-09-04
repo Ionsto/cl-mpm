@@ -863,9 +863,13 @@
                                 (pressure cl-mpm/particle::mp-pressure)
                                 (mp-datum cl-mpm/particle::mp-pressure-datum)
                                 (mp-head cl-mpm/particle::mp-pressure-head)
+                                (mp-pfunc cl-mpm/particle::mp-pressure-func)
                                 )
                    mp
                  (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                 (setf mp-pfunc
+                       (lambda (p)
+                         (pressure-at-depth (tref p 1 0) datum rho)))
                  (setf mp-datum datum
                        mp-head rho)
                  )))))

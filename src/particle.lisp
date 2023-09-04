@@ -159,6 +159,9 @@
     :type double-float
     :accessor mp-pressure-head
     :initform 0d0)
+   (pressure-func
+    :type function
+    :accessor mp-pressure-func)
 
    (boundary
     :type double-float
@@ -573,12 +576,14 @@
                (def deformation-gradient)
                (damage damage)
                (pressure pressure)
-               (datum pressure-datum)
-               (rho pressure-head)
+               ;; (datum pressure-datum)
+               ;; (rho pressure-head)
                (pos position)
+               (calc-pressure pressure-func)
                )
       mp
-    (declare (double-float pressure damage))
+    (declare (double-float pressure damage)
+             (function calc-pressure))
     ;; Non-objective stress intergration
 
     (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
@@ -587,7 +592,8 @@
         (let ((j 1d0))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let* ((tp (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) datum rho))
+            (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
+                   (tp (funcall calc-pressure pos))
                    (driving-pressure (* 1d0 tp (min 1.00d0 damage)))
                    (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
