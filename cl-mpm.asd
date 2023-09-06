@@ -66,7 +66,9 @@
   :components ((:file "src/constitutive")))
 ;
 (defsystem "cl-mpm/particle"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "cl-mpm/constitutive"
+               )
   :description "MPM particle definitions"
   :serial t
   :components ((:file "src/particle")))
@@ -74,6 +76,7 @@
 (defsystem "cl-mpm/damage"
   :depends-on ("magicl"
                "cl-mpm/utils"
+               "cl-mpm/constitutive"
                "cl-mpm/particle")
   :description "MPM smeared damage mechanics"
   :serial t
@@ -148,6 +151,7 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
+               "cl-mpm/damage"
                "cl-mpi"
                "cl-mpi-extensions"
                )
