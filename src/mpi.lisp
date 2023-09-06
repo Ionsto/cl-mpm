@@ -307,7 +307,7 @@
                           (incf i)))
         out
         ))
-    #())
+    (cl-store-encoder nil))
 
   ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
   ;;              (cl-store:store mps stream))))
@@ -315,6 +315,14 @@
   ;;                                      :element-type '(unsigned-byte 8)
   ;;                                      :initial-contents res
   ;;                                      ))
+  )
+(defun cl-store-encoder (x)
+  (let ((res (flexi-streams:with-output-to-sequence (stream)
+               (cl-store:store x stream))))
+    (static-vectors:make-static-vector (length res)
+                                       :element-type '(unsigned-byte 8)
+                                       :initial-contents res
+                                       ))
   )
 (defun deserialise-mps (x)
   (when x
