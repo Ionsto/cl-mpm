@@ -302,14 +302,14 @@
                  (dolist (x (multiple-value-list (array-displacement mps)))
                    (cl-store:store-object x stream))
                  (cl-store:store-object (array-total-size mps) stream)
-                 (loop for x from 0 below (array-total-size mps) do
-                   (cl-store:store-object (row-major-aref mps x) stream))
+                 ;; (loop for x from 0 below (array-total-size mps) do
+                 ;;   (cl-store:store-object (row-major-aref mps x) stream))
                  ))
-              ;; (lparallel:pmapcar
-              ;;  (lambda (mp)
-              ;;    (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-              ;;      (cl-store:store mp stream)))
-              ;;  mps)
+              (lparallel:pmapcar
+               (lambda (mp)
+                 (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                   (cl-store:store mp stream)))
+               mps)
               ))
            (total-length (reduce #'+ (mapcar #'length collect-res))))
       (let ((out
@@ -438,16 +438,16 @@
                       do
                          (destructuring-bind (rank tag object) packet
                            (when object
-                             (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes object)) 0
-                                   (cl-mpm/particle::mp-damage-position object) nil)
-                             (vector-push-extend object mps))
+                             ;; (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes object)) 0
+                             ;;       (cl-mpm/particle::mp-damage-position object) nil)
+                             ;; (vector-push-extend object mps))
                              ;; (print (type-of object))
-                             ;; (loop for mp across object
-                             ;;       do (progn
-                             ;;            (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                             ;;                  (cl-mpm/particle::mp-damage-position mp) nil))
-                             ;;          (vector-push-extend mp mps)
-                             ;;       )
+                             (loop for mp across object
+                                   do (progn
+                                        (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                                              (cl-mpm/particle::mp-damage-position mp) nil))
+                                      (vector-push-extend mp mps)
+                                   ))
                              ;(setf mps (concatenate '(vector t) mps object))
                              ))))))))))
   ;; (cl-mpi:mpi-barrier)
