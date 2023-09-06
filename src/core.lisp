@@ -211,7 +211,7 @@
                     (reset-grid mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
-                    (filter-grid mesh (sim-mass-filter sim)))
+                      (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
@@ -225,11 +225,10 @@
                     (apply-bcs mesh bcs dt)
                     ;; Also updates mps inline
                     (g2p mesh mps dt)
-
                     (when remove-damage
-                    (remove-material-damaged sim))
+                      (remove-material-damaged sim))
                     (when split
-                    (split-mps sim))
+                      (split-mps sim))
                     (check-mps sim)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))

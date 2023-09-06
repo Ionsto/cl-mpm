@@ -14,7 +14,7 @@
 
 
 
-(defun make-block (res element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear)
+(defun make-block (res element-count &optional (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
                                        (sim-type 'cl-mpm::mpm-sim-usf)
                                        )
   "Make a 2D column of heigh size, and width 1 - filled with elements"
@@ -23,7 +23,7 @@
          (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
     (progn
           (setf (cl-mpm:sim-mps sim) #())
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
+          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
            sim)))
 
 (defun make-column (height element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear))
@@ -44,6 +44,8 @@
   (let*  ((nD 2)
           (args (alexandria:remove-from-plist args :angle))
           (spacing (mapcar #'/ size mps))
+          (offset (mapcar (lambda (x) (* x 0.5d0))
+                          (mapcar #'+ offset spacing)))
           (volume (* (first spacing) (second spacing)))
           (data (loop for x from 0 to (- (first mps) 1)
                       append

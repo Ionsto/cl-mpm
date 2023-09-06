@@ -282,6 +282,28 @@
         ;; t
         ))))
 
+(defstore-cl-store (obj array stream)
+  (store-array))
+
+
+(defun store-array (obj stream)
+  (declare (optimize speed (safety 0) (debug 0))
+           (type array obj))
+  (output-type-code +array-code+ stream)
+  (if (and (= (array-rank obj) 1)
+           (array-has-fill-pointer-p obj))
+      (store-object (fill-pointer obj) stream)
+      (store-object nil stream))
+  (store-object (array-element-type obj) stream)
+  (store-object (adjustable-array-p obj) stream)
+  (store-object (array-dimensions obj) stream)
+  (dolist (x (multiple-value-list (array-displacement obj)))
+    (store-object x stream))
+  (store-object (array-total-size obj) stream)
+  (loop for x from 0 below (array-total-size obj) do
+        (store-object (row-major-aref obj x) stream))
+  )
+
 (defun serialise-mps (mps)
   ;; (if (> (length mps) 0)
   ;;   (let* ((cl-store:*current-backend* cl-store:*default-backend*)
@@ -448,8 +470,7 @@
                                    do (progn
                                         (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
                                               (cl-mpm/particle::mp-damage-position mp) nil))
-                                      (vector-push-extend mp mps)
-                                   ))
+                                      (vector-push-extend mp mps)))
                              ;(setf mps (concatenate '(vector t) mps object))
                              ))))))))))
   ;; (cl-mpi:mpi-barrier)
