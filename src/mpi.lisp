@@ -405,16 +405,16 @@
                           ))
                         (t nil)))
                     )
-                (loop for packet in recv
-                      do
-                         (destructuring-bind (rank tag object) packet
-                           (when object
-                             (loop for mp across object
-                                   do (progn
-                                        (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                              (cl-mpm/particle::mp-damage-position mp) nil)))
-                             (setf mps (concatenate '(vector t) mps object)))
-                           ))
+                ;; (loop for packet in recv
+                ;;       do
+                ;;          (destructuring-bind (rank tag object) packet
+                ;;            (when object
+                ;;              (loop for mp across object
+                ;;                    do (progn
+                ;;                         (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                ;;                               (cl-mpm/particle::mp-damage-position mp) nil)))
+                ;;              (setf mps (concatenate '(vector t) mps object)))
+                ;;            ))
                 )
               ))))))
   ;; (cl-mpi:mpi-barrier)
