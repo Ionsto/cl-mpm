@@ -1597,8 +1597,11 @@ Calls func with only the node"
 (defmethod remove-mps-func (sim func)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
-      (setf mps
-            (lparallel:premove-if func mps)))
+    (declare ((vector cl-mpm/particle::particle) mps))
+    (setf mps
+          (delete-if func mps)
+          ;(lparallel:premove-if func mps)
+          ))
   (values))
 
 (defun remove-material-damaged (sim)

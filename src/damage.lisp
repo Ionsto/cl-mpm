@@ -602,8 +602,8 @@
                 (typep mp 'cl-mpm/particle:particle-damage)
                 (funcall func mp))
             do (local-list-remove-particle mesh mp)))
-  (call-next-method)
-  )
+  (call-next-method))
+
 (defmethod (setf cl-mpm::sim-mps) (mps (sim mpm-sim-damage))
   ;; (format t "Resetting mps~%")
   ;; (with-accessors ((mesh cl-mpm::sim-mesh))

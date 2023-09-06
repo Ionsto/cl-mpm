@@ -283,42 +283,38 @@
         ))))
 
 (defun serialise-mps (mps)
-  ;; (if (> (length mps) 0)
-  ;;   (let* ((collect-res
-  ;;            (lparallel:pmapcar
-  ;;             (lambda (mp)
-  ;;               (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-  ;;                 (cl-store:store mp stream)))
-  ;;             mps
-  ;;             ))
-  ;;          (total-length (reduce #'+ (mapcar #'length collect-res)))
-  ;;          )
-  ;;     (let ((out
-  ;;             (static-vectors:make-static-vector total-length
-  ;;                                                :element-type '(unsigned-byte 8)
-  ;;                                                ;; :initial-contents res
-  ;;                                                ))
-  ;;           (i 0))
-  ;;       (declare (fixnum i)
-  ;;                ((simple-array (unsigned-byte 8) *) out))
-  ;;       (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
-  ;;             do
-  ;;                (loop for b of-type (unsigned-byte 8) across arr
-  ;;                      do
-  ;;                         (setf (aref out i) b)
-  ;;                         (incf i)))
-  ;;       out
-  ;;       ))
-  ;;   )
+  (if (> (length mps) 0)
+    (let* ((collect-res
+             (lparallel:pmapcar
+              (lambda (mp)
+                (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                  (cl-store:store mp stream)))
+              mps))
+           (total-length (reduce #'+ (mapcar #'length collect-res))))
+      (let ((out
+              (static-vectors:make-static-vector total-length
+                                                 :element-type '(unsigned-byte 8)
+                                                 ;; :initial-contents res
+                                                 ))
+            (i 0))
+        (declare (fixnum i)
+                 ((simple-array (unsigned-byte 8) *) out))
+        (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
+              do
+                 (loop for b of-type (unsigned-byte 8) across arr
+                       do
+                          (setf (aref out i) b)
+                          (incf i)))
+        out
+        ))
+    #())
 
-  (let ((res (flexi-streams:with-output-to-sequence (stream)
-               (cl-store:store mps stream))))
-    (static-vectors:make-static-vector (length res)
-                                       :element-type '(unsigned-byte 8)
-                                       :initial-contents res
-                                       ))
-  ;; (loop for mp across mps
-  ;;       do (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0))
+  ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
+  ;;              (cl-store:store mps stream))))
+  ;;   (static-vectors:make-static-vector (length res)
+  ;;                                      :element-type '(unsigned-byte 8)
+  ;;                                      :initial-contents res
+  ;;                                      ))
   )
 (defun deserialise-mps (x)
   (when x
@@ -373,7 +369,8 @@
                                        (> pos (- bu halo-depth)))
                                       ))
                        ))
-              (let ((cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
+              ;(setf cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
+              (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
                     (recv
                       (cond
                         ((and (>= left-neighbor 0)
@@ -405,20 +402,24 @@
                           ))
                         (t nil)))
                     )
-                ;; (loop for packet in recv
-                ;;       do
-                ;;          (destructuring-bind (rank tag object) packet
-                ;;            (when object
-                ;;              (loop for mp across object
-                ;;                    do (progn
-                ;;                         (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                ;;                               (cl-mpm/particle::mp-damage-position mp) nil)))
-                ;;              (setf mps (concatenate '(vector t) mps object)))
-                ;;            ))
-                )
-              ))))))
+                (loop for packet in recv
+                      do
+                         (destructuring-bind (rank tag object) packet
+                           (when object
+                             (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes object)) 0
+                                   (cl-mpm/particle::mp-damage-position object) nil)
+                             (vector-push-extend object mps))
+                             ;; (print (type-of object))
+                             ;; (loop for mp across object
+                             ;;       do (progn
+                             ;;            (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                             ;;                  (cl-mpm/particle::mp-damage-position mp) nil))
+                             ;;          (vector-push-extend mp mps)
+                             ;;       )
+                             ;(setf mps (concatenate '(vector t) mps object))
+                             ))))))))))
   ;; (cl-mpi:mpi-barrier)
-  )
+;  )
 
 (defvar *mutex-code* (cl-store:register-code 110 'sb-thread:mutex))
 (cl-store:defstore-cl-store (obj sb-thread:mutex stream)
