@@ -588,7 +588,6 @@
 (declaim (notinline set-mp-index))
 (defun set-mp-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
-    (print rank)
     (loop for mp across (cl-mpm:sim-mps sim)
           do (setf (cl-mpm/particle::mp-index mp)
                    (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
