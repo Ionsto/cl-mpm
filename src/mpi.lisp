@@ -393,10 +393,6 @@
          (right-neighbor (+ rank 1)))
 
     (clear-ghost-mps sim)
-    ;; (cl-mpm::remove-mps-func
-    ;;  sim
-    ;;  (lambda (mp)
-    ;;    (not (= rank (cl-mpm/particle::mp-index mp)))))
 
     (let ((all-mps (cl-mpm:sim-mps sim)))
       (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
@@ -585,11 +581,14 @@
 (defun in-computational-domain (sim pos)
   (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
     (and
-     (>= bl (magicl:tref pos 0 0))
-     (< bu (magicl:tref pos 0 0))
+     (> (coerce bu 'double-float) (magicl:tref pos 0 0))
+     (<= (coerce bl 'double-float) (magicl:tref pos 0 0))
      )))
+
+(declaim (notinline set-mp-index))
 (defun set-mp-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
+    (print rank)
     (loop for mp across (cl-mpm:sim-mps sim)
           do (setf (cl-mpm/particle::mp-index mp)
                    (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
@@ -615,6 +614,7 @@
             (list bound-lower bound-upper))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
       (set-mp-index sim)
+      (clear-ghost-mps sim)
       ;; (loop for mp across (cl-mpm:sim-mps sim)
       ;;       when
       ;;       (and
@@ -622,11 +622,12 @@
       ;;        (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
       ;;        )
       ;;       do (setf (cl-mpm/particle::mp-index mp) rank))
-      (cl-mpm::remove-mps-func
-       sim
-       (lambda (mp)
-         (not (= rank (cl-mpm/particle::mp-index mp)))
-         )))
+      ;; (cl-mpm::remove-mps-func
+      ;;  sim
+      ;;  (lambda (mp)
+      ;;    (not (= rank (cl-mpm/particle::mp-index mp)))
+      ;;    ))
+      )
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
     )
 )
