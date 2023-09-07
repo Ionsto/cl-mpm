@@ -614,13 +614,14 @@
       (setf (mpm-sim-mpi-domain-bounds sim)
             (list bound-lower bound-upper))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
-      (loop for mp across (cl-mpm:sim-mps sim)
-            when
-            (and
-             (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
-             (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
-             )
-            do (setf (cl-mpm/particle::mp-index mp) rank))
+      (set-mp-index sim)
+      ;; (loop for mp across (cl-mpm:sim-mps sim)
+      ;;       when
+      ;;       (and
+      ;;        (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
+      ;;        (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
+      ;;        )
+      ;;       do (setf (cl-mpm/particle::mp-index mp) rank))
       (cl-mpm::remove-mps-func
        sim
        (lambda (mp)
