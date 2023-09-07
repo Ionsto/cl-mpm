@@ -843,31 +843,31 @@
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
 
-        (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
-        (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
-        (save-parameter "index" (cl-mpm/particle::mp-index mp))
-        (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
-        (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
-        (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
-        (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
-        (save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
-        (save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
-        (save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
-        (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+        (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
+        (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
+        (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
+        (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
+        (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        (cl-mpm/output::save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
+        (cl-mpm/output::save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
+        (cl-mpm/output::save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
+        (cl-mpm/output::save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+        (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
+        (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
+        (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
 
-        (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
-        (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
-        (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
-        (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
+        (cl-mpm/output::save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
+        (cl-mpm/output::save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
+        (cl-mpm/output::save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
+        (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
-        (save-parameter "damage-inc-average"
+        (cl-mpm/output::save-parameter "damage-inc-average"
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-damage-inc mp)
                                     (max 1d0
                                          (cl-mpm/particle::mp-time-averaged-counter mp)))))
                           (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) 0d0)
                           v))
-        (save-parameter "ybar-average"
+        (cl-mpm/output::save-parameter "ybar-average"
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
                                     (max 1d0
                                          (cl-mpm/particle::mp-time-averaged-counter mp)))))
@@ -878,31 +878,18 @@
         ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
         ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
 
-        (save-parameter "strain_rate"
+        (cl-mpm/output::save-parameter "strain_rate"
                         (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
                         ;; (multiple-value-bind (l v)
                         ;;     (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
                         ;;   (reduce #'+ (mapcar #'* l l)))
                         )
-        (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
-        ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
-        ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
-        (labels ((dot (a b) (magicl::sum (magicl.simd::.*-simd a b)))
-                 (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
-                 (radial-stress (mp)
-                   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                    (pos cl-mpm/particle:mp-position))
-                       mp
-                     (let ((normal (norm (magicl:.- pos (magicl:from-list '(250d0 250d0) '(2 1))))))
-                       (dot normal
-                            (magicl:@ (cl-mpm/utils:voight-to-matrix stress)
-                                      normal))))))
-          (save-parameter "s_rr" (radial-stress mp)))
+        (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
 
-        (save-parameter "s_1"
+        (cl-mpm/output::save-parameter "s_1"
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (loop for sii in l maximize sii)))
-        (save-parameter "s_vm"
+        (cl-mpm/output::save-parameter "s_vm"
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
                           (let* ((l (sort l #'>))
@@ -912,7 +899,7 @@
                             (* (sqrt (/ 3 4)) (- s_1 s_2))
                             )
                           ))
-        (save-parameter "s_vm_t"
+        (cl-mpm/output::save-parameter "s_vm_t"
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
                           (let* ((l (sort l #'>))
@@ -925,28 +912,28 @@
                           ))
 
 
-        (save-parameter "EPS"
+        (cl-mpm/output::save-parameter "EPS"
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
-        (save-parameter "EPS-pd"
+        (cl-mpm/output::save-parameter "EPS-pd"
                         (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                           (- (loop for sii in l maximize sii) (* (cl-mpm/particle::mp-damage mp)
                                                                  (cl-mpm/particle::mp-pressure mp)))))
-        (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
-        (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        (save-parameter "damage"
+        (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
+        (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+        (cl-mpm/output::save-parameter "damage"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle:mp-damage mp)
                             0d0))
-        (save-parameter "damage_inc"
+        (cl-mpm/output::save-parameter "damage_inc"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage-increment)
                             (cl-mpm/particle::mp-damage-increment mp)
                             0d0))
-        (save-parameter "damage_ybar"
+        (cl-mpm/output::save-parameter "damage_ybar"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                             (cl-mpm/particle::mp-damage-ybar mp)
                             0d0))
-        (save-parameter "local_length"
+        (cl-mpm/output::save-parameter "local_length"
                         (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                             (cl-mpm/particle::mp-true-local-length mp)
                             0d0))

@@ -66,10 +66,16 @@
                      (coerce (funcall accessor mp) 'single-float)))
   (format stream "~%")
   )
+
 (defmacro save-parameter (name accessor)
+  (let ((mps (intern (symbol-name 'mps)))
+        (fs (intern (symbol-name 'fs)))
+        (mp (intern (symbol-name 'mp)))
+        (id (intern (symbol-name 'id)))
+        )
   `(progn
-     (format-scalar fs ,name id mps (lambda (mp) ,accessor))
-     (incf id)))
+     (format-scalar ,fs ,name ,id ,mps (lambda (,mp) ,accessor))
+     (incf ,id))))
 
 (defun save-simulation-parameters (filename sim &rest args)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -391,3 +397,7 @@
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
         )
       )))
+(defmacro save-point-data (mp mps)
+  (loop for )
+
+  )
