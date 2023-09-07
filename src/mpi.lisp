@@ -269,7 +269,7 @@
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
                     (set-mp-index sim))
-                    ;; (clear-ghost-mps sim)
+                    (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
 
