@@ -591,9 +591,10 @@
 (defun set-mp-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
     (loop for mp across (cl-mpm:sim-mps sim)
-          when
-          (in-computational-domain sim (cl-mpm/particle:mp-position mp))
-          do (setf (cl-mpm/particle::mp-index mp) rank))))
+          do (setf (cl-mpm/particle::mp-index mp)
+                   (if (in-computational-domain sim (cl-mpm/particle:mp-position mp)))
+                   rank
+                   -1))))
 
 (defun domain-decompose (sim)
   "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
