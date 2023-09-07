@@ -134,8 +134,7 @@
                               (when (> (abs (magicl:tref vel i 0)) 1e10)
                                 (print mp)
                                 (error "High velocity found"))
-                         )
-                         ))))
+                         )))))
     (remove-mps-func
        sim
        (lambda (mp)
@@ -225,8 +224,8 @@
                     (apply-bcs mesh bcs dt)
                     ;; Also updates mps inline
                     (g2p mesh mps dt)
-                    (when remove-damage
-                      (remove-material-damaged sim))
+                    ;; (when remove-damage
+                    ;;   (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
                     (check-mps sim)

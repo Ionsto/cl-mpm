@@ -77,6 +77,7 @@
   :depends-on ("magicl"
                "cl-mpm/utils"
                "cl-mpm/constitutive"
+               "cl-mpm/output"
                "cl-mpm/particle")
   :description "MPM smeared damage mechanics"
   :serial t
