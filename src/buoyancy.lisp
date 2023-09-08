@@ -786,7 +786,7 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-    (let ((datum-rounding nil))
+    (let ((datum-rounding t))
       (if datum-rounding
           (progn
             (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
