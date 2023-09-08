@@ -269,7 +269,7 @@
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
                     (set-mp-index sim))
-                    ;; (clear-ghost-mps sim)
+                    (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
 
@@ -282,27 +282,27 @@
         ;; t
         ))))
 
-(defstore-cl-store (obj array stream)
-  (store-array))
+;; (defun store-array (obj stream)
+;;   (declare (optimize speed (safety 0) (debug 0))
+;;            (type array obj))
+;;   (cl-store:output-type-code cl-store::+array-code+ stream)
+;;   (if (and (= (array-rank obj) 1)
+;;            (array-has-fill-pointer-p obj))
+;;       (cl-store:store-object (fill-pointer obj) stream)
+;;       (cl-store:store-object nil stream))
+;;   (cl-store:store-object (array-element-type obj) stream)
+;;   (cl-store:store-object (adjustable-array-p obj) stream)
+;;   (cl-store:store-object (array-dimensions obj) stream)
+;;   (dolist (x (multiple-value-list (array-displacement obj)))
+;;     (cl-store:store-object x stream))
+;;   (cl-store:store-object (array-total-size obj) stream)
+;;   (loop for x from 0 below (array-total-size obj) do
+;;     (cl-store:store-object (row-major-aref obj x) stream)))
+
+;; (cl-store:defstore-cl-store (obj array stream)
+;;   (store-array))
 
 
-(defun store-array (obj stream)
-  (declare (optimize speed (safety 0) (debug 0))
-           (type array obj))
-  (output-type-code +array-code+ stream)
-  (if (and (= (array-rank obj) 1)
-           (array-has-fill-pointer-p obj))
-      (store-object (fill-pointer obj) stream)
-      (store-object nil stream))
-  (store-object (array-element-type obj) stream)
-  (store-object (adjustable-array-p obj) stream)
-  (store-object (array-dimensions obj) stream)
-  (dolist (x (multiple-value-list (array-displacement obj)))
-    (store-object x stream))
-  (store-object (array-total-size obj) stream)
-  (loop for x from 0 below (array-total-size obj) do
-        (store-object (row-major-aref obj x) stream))
-  )
 
 (defun serialise-mps (mps)
   ;; (if (> (length mps) 0)
@@ -393,10 +393,6 @@
          (right-neighbor (+ rank 1)))
 
     (clear-ghost-mps sim)
-    ;; (cl-mpm::remove-mps-func
-    ;;  sim
-    ;;  (lambda (mp)
-    ;;    (not (= rank (cl-mpm/particle::mp-index mp)))))
 
     (let ((all-mps (cl-mpm:sim-mps sim)))
       (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
@@ -585,15 +581,18 @@
 (defun in-computational-domain (sim pos)
   (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
     (and
-     (>= bl (magicl:tref pos 0 0))
-     (< bu (magicl:tref pos 0 0))
+     (> (coerce bu 'double-float) (magicl:tref pos 0 0))
+     (<= (coerce bl 'double-float) (magicl:tref pos 0 0))
      )))
+
+(declaim (notinline set-mp-index))
 (defun set-mp-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
     (loop for mp across (cl-mpm:sim-mps sim)
-          when
-          (in-computational-domain sim (cl-mpm/particle:mp-position mp))
-          do (setf (cl-mpm/particle::mp-index mp) rank))))
+          do (setf (cl-mpm/particle::mp-index mp)
+                   (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
+                       rank
+                       -1)))))
 
 (defun domain-decompose (sim)
   "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
@@ -613,18 +612,21 @@
       (setf (mpm-sim-mpi-domain-bounds sim)
             (list bound-lower bound-upper))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
-      (loop for mp across (cl-mpm:sim-mps sim)
-            when
-            (and
-             (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
-             (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
-             )
-            do (setf (cl-mpm/particle::mp-index mp) rank))
-      (cl-mpm::remove-mps-func
-       sim
-       (lambda (mp)
-         (not (= rank (cl-mpm/particle::mp-index mp)))
-         )))
+      (set-mp-index sim)
+      (clear-ghost-mps sim)
+      ;; (loop for mp across (cl-mpm:sim-mps sim)
+      ;;       when
+      ;;       (and
+      ;;        (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
+      ;;        (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
+      ;;        )
+      ;;       do (setf (cl-mpm/particle::mp-index mp) rank))
+      ;; (cl-mpm::remove-mps-func
+      ;;  sim
+      ;;  (lambda (mp)
+      ;;    (not (= rank (cl-mpm/particle::mp-index mp)))
+      ;;    ))
+      )
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
     )
 )
