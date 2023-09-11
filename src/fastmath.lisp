@@ -157,29 +157,38 @@
   (progn
     (declaim (magicl:matrix/double-float result))
 
+    ;; (magicl:.+ stretch (magicl:transpose stretch) result)
+    ;; (loop for i from 0 below 3
+    ;;       do
+    ;;          (setf (magicl:tref result  i 0)
+    ;;                (magicl:tref stretch i 0)))
     (setf (magicl:tref result  0 0)
           (magicl:tref stretch 0 0))
 
     (setf (magicl:tref result  1 0)
           (magicl:tref stretch 1 1))
-
     ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
-    (setf (magicl:tref result  2 0)
+    (setf (magicl:tref result 5 0)
           (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
-                    (the double-float (magicl:tref stretch 1 0))))))
+                    (the double-float (magicl:tref stretch 1 0)))))
+    )
   (values))
 
 (declaim (inline stretch-to-skew)
          (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-skew))
 (defun stretch-to-skew (stretch result)
+  ;; (magicl:.- stretch (magicl:transpose stretch) result)
+  ;; (loop for i from 0 below 3
+  ;;       do
+  ;;          (setf (magicl:tref result  i 0) 0d0))
   ;; (unless result
   ;;   (setf result (cl-mpm/utils:voigt-zeros)))
   (setf (magicl:tref result  0 0)
         0)
   (setf (magicl:tref result  1 0)
         0)
-  ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
-  (setf (magicl:tref result  2 0)
+  ;; Since off diagonal components get halved, then voigt doubles them this is net 1d0
+  (setf (magicl:tref result 5 0)
         (- (the double-float (magicl:tref stretch 0 1))
            (the double-float (magicl:tref stretch 1 0))))
   (values))

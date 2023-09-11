@@ -18,10 +18,13 @@
   "Create an isotropic linear elastic matrix"
   (magicl:scale!
     (magicl:from-list (list
-                        (- 1d0 nu) nu 0d0
-                        nu (- 1d0 nu) 0d0
-                        0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))))
-                      '(3 3) :type 'double-float)
+                        (- 1d0 nu) nu nu 0d0 0d0 0d0
+                        nu (- 1d0 nu) nu 0d0 0d0 0d0
+                        nu nu (- 1d0 nu) 0d0 0d0 0d0
+                        0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))) 0d0 0d0
+                        0d0 0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))) 0d0
+                        0d0 0d0 0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))))
+                      '(6 6) :type 'double-float)
     (/ E (* (+ 1 nu) (- 1 (* 2 nu))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
@@ -522,3 +525,48 @@
     (if (> effective-strain 0d0)
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
         (values 0d0))))
+
+(defun voigt-j2 (s)
+  (/ (+ (magicl:dot s s) (expt (magicl:tref s 2) 2)) 2d0))
+
+(defun vm-yield-func (j2 rho)
+  (- (/ (sqrt (* 2d0 j2)) rho) 1d0))
+(defun vm-derivatives (sig rho)
+  (let* ((df (cl-mpm/utils:voigt-zeros))
+        (ddf (cl-mpm/utils:matrix-zeros))
+        (s (deviatoric-voigt sig))
+        (j2 (voigt-j2 s))
+         (dj2 (magicl:.* (cl-mpm/utils::voigt-copy s)
+                         (cl-mpm/utils::voigt-from-list '(1d0 1d0 2d0))))
+         (ddj2 (magicl:from-list '(0.5d0 -0.5d0 0d0
+                                   -0.5d0 0.5d0 0d0
+                                   0d0 0d0 2d0) '(3 3) :type 'double-flat ))
+         )
+    (setf df (magicl:scale dj2 (/ 1d0 (* rho (sqrt (* 2d0 j2))))))
+    (setf ddf (magicl:scale
+               (magicl:.-
+                (magicl:scale ddj2 (/ 1d0 (sqrt (* 2d0 j2))))
+                (magicl:scale (magicl:@ ddj2 ddj2) (/ 1d0 (expt (* 2d0 j2) 3/2)))
+                )
+               (/ 1d0 rho)))
+    (values df ddf))
+  )
+(defun vm-plastic (stress de trial-elastic-strain rho)
+  (let ((tol 1d-9)
+        (max-iter 5)
+        (sig (cl-mpm/utils:matrix-zeros))
+        (s (cl-mpm/utils:matrix-zeros))
+        (j2 0d0)
+        (f 0d0)
+        (eps-e (cl-mpm/utils::vector-copy trial-elastic-strain))
+        )
+    (setf sig (magicl:@ de eps-e))
+    (setf s (deviatoric-voigt sig))
+    (setf j2 (/ (+ (magicl:dot s s) (expt (magicl:tref s 2) 2)) 2d0))
+    (setf f (vm-yield-func j2 rho))
+    ;; (multiple-value-bind df ddf (vm-derivatives sig rho))
+    ;; (if (> f tol)
+    ;;     ;;Plastic deformation is occuring
+
+    ;;     )
+    ))

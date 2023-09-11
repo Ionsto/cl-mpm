@@ -513,24 +513,30 @@
 
 (defun newton-points (n h)
   (declare (fixnum n))
-  (let ((spaceing (/ h (+ (coerce n 'double-float) 1d0))))
+  (let ((spaceing (/ h (+ (coerce n 'double-float) 0d0))))
     (declare (double-float h spaceing))
     (cond
       ((= n 1)
        (list (magicl:zeros '(2 1))))
       ((> n 1)
-       (loop for x from 1 to n
-             append
-             (loop for y from 1 to n
-                   collect
-                   (magicl:.+
-                    (magicl:scale!
-                     (cl-mpm/utils:vector-from-list (mapcar
-                                                     (lambda (x) (coerce x 'double-float))
-                                                     (list x y))) spaceing
-                     )
-                    (magicl:scale! (cl-mpm/utils:vector-from-list (list -0.5d0 -0.5d0)) h))))
-       ))))
+       (let ((start-point
+               (magicl:.+
+                (magicl:scale! (cl-mpm/utils:vector-from-list (list -0.5d0 -0.5d0)) h)
+                (magicl:scale! (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0)) spaceing)
+                )
+               ))
+         ;; (break)
+         (loop for x from 0 below n
+               append
+               (loop for y from 0 below n
+                     collect
+                     (magicl:.+
+                      (magicl:scale!
+                       (cl-mpm/utils:vector-from-list (mapcar
+                                                       (lambda (x) (coerce x 'double-float))
+                                                       (list x y))) spaceing
+                       )
+                      start-point))))))))
 
 (defun newton-weights (n h)
   (cond

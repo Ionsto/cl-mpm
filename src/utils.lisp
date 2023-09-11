@@ -47,29 +47,32 @@
          (ftype (function ()
                           magicl:matrix/double-float) voigt-zeros))
 (defun voigt-zeros ()
-  (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 6 1 6 :column-major (make-array 6 :element-type 'double-float)))
 
 (declaim (inline matrix-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) matrix-zeros))
 (defun matrix-zeros ()
-  (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 3 3 9 :column-major (make-array 9 :element-type 'double-float)))
 
 (declaim (inline matrix-copy)
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) matrix-copy))
 (defun matrix-copy (mat)
-  ;; (let ((m (magicl::make-matrix/double-float 2 2 4 :column-major (make-array 4 :element-type 'double-float))))
-  ;;   (magicl::copy-matrix/double-float m mat)
-  ;;   m)
   (let ((v (matrix-zeros)))
     (aops:copy-into (magicl::matrix/double-float-storage v)
                     (magicl::matrix/double-float-storage mat))
-    v)
-  ;; (magicl::copy-matrix/double-float mat)
-  )
+    v))
+
 (defun vector-copy (vec)
   (let ((v (vector-zeros)))
+    (aops:copy-into (magicl::matrix/double-float-storage v)
+                    (magicl::matrix/double-float-storage vec))
+    v)
+  )
+
+(defun voigt-copy (vec)
+  (let ((v (voigt-zeros)))
     (aops:copy-into (magicl::matrix/double-float-storage v)
                     (magicl::matrix/double-float-storage vec))
     v))
@@ -78,20 +81,20 @@
          (ftype (function ()
                           magicl:matrix/double-float) stretch-dsvp-zeros))
 (defun stretch-dsvp-zeros ()
-  (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
 
 (declaim (inline dsvp-2d-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) dsvp-2d-zeros))
 (defun dsvp-2d-zeros ()
-  (magicl::make-matrix/double-float 3 2 6 :column-major (make-array 6 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
 
 (declaim (inline voigt-from-list)
          (ftype (function (list)
                           magicl:matrix/double-float) voigt-from-list))
 (defun voigt-from-list (elements)
-  (magicl::make-matrix/double-float 3 1 3 :column-major
-                                    (make-array 3 :element-type 'double-float :initial-contents elements)))
+  (magicl::make-matrix/double-float 6 1 6 :column-major
+                                    (make-array 6 :element-type 'double-float :initial-contents elements)))
 
 (declaim (inline vector-from-list)
          (ftype (function (list)
@@ -105,8 +108,8 @@
          (ftype (function (list)
                           magicl:matrix/double-float) matrix-from-list))
 (defun matrix-from-list (elements)
-  (magicl::make-matrix/double-float 2 2 4 :column-major
-                                    (make-array 4 :element-type 'double-float :initial-contents elements)))
+  (magicl::make-matrix/double-float 3 3 9 :column-major
+                                    (make-array 9 :element-type 'double-float :initial-contents elements)))
 
 
 (declaim (inline matrix-to-voight)
@@ -116,18 +119,28 @@
   "Stress matrix to voigt"
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
-          (exy (magicl:tref matrix 1 0)))
-    (voigt-from-list (list exx eyy exy))))
+          (ezz (magicl:tref matrix 2 2))
+          (exy (magicl:tref matrix 1 0))
+          (eyz (magicl:tref matrix 1 1))
+          (ezx (magicl:tref matrix 2 0))
+          )
+    (voigt-from-list (list exx eyy ezz eyz ezx exy))))
+
 (declaim (inline voight-to-matrix)
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) voight-to-matrix))
+
 (defun voight-to-matrix (vec)
   "Stress format voight to matrix"
-  (let* ( (exx (magicl:tref vec 0 0))
-          (eyy (magicl:tref vec 1 0))
-          (exy (magicl:tref vec 2 0)))
-    (matrix-from-list (list exx exy exy eyy))
-    ))
+  (let* ((exx (magicl:tref vec 0 0))
+         (eyy (magicl:tref vec 1 0))
+         (ezz (magicl:tref vec 2 0))
+         (eyz (magicl:tref vec 3 0))
+         (ezx (magicl:tref vec 4 0))
+         (exy (magicl:tref vec 5 0)))
+    (matrix-from-list (list exx exy ezx
+                            exy eyy eyz
+                            ezx eyz ezz))))
 
 (declaim (inline voigt-to-matrix)
          (ftype (function (magicl:matrix/double-float)
@@ -135,8 +148,10 @@
 (defun voigt-to-matrix (vec)
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
-          (exy (* 0.5d0 (the double-float (magicl:tref vec 2 0)))))
-    (matrix-from-list (list exx exy exy eyy))
+          (exy (* 0.5d0 (the double-float (magicl:tref vec 5 0)))))
+    (matrix-from-list (list exx exy 0d0
+                            exy eyy 0d0
+                            0d0 0d0 0d0))
     ))
 
 (declaim (inline matrix-to-voigt)
@@ -146,7 +161,7 @@
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (exy (magicl:tref matrix 1 0)))
-    (voigt-from-list (list exx eyy (* 2d0 (the double-float exy))))))
+    (voigt-from-list (list exx eyy 0d0 0d0 0d0 (* 2d0 (the double-float exy))))))
 
 (defun stretch-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
@@ -173,12 +188,11 @@
  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
                   magicl:matrix/double-float) voight-to-stretch-prealloc))
 (defun voight-to-stretch-prealloc (vec result)
-
+  "Take a voigt matrix of stretches to "
   (let* ((exx (magicl:tref vec 0 0))
          (eyy (magicl:tref vec 1 0))
          (exy (magicl:tref vec 2 0))
          (eyx (magicl:tref vec 3 0))
-         ;(s (magicl::matrix/double-float-storage result))
          (s result)
          )
     (declare (double-float exx eyy exy eyx))
@@ -266,4 +280,7 @@
     (declare ((simple-array double-float) arr))
     (stress-from-list (list (- (aref arr 0) tr)
                             (- (aref arr 1) tr)
-                            (aref arr 2)))))
+                            0d0
+                            0d0
+                            0d0
+                            (aref arr 5)))))

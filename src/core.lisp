@@ -14,6 +14,7 @@
   (:export
     #:mpm-sim
     #:make-mpm-sim
+    #:update-sim
     #:make-shape-function-linear
     #:sim-mesh
     #:sim-mps
@@ -214,7 +215,7 @@
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt)
-                    ;; Map forces onto nodes
+                    ;; ;; Map forces onto nodes
                     (p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do
@@ -224,8 +225,6 @@
                     (apply-bcs mesh bcs dt)
                     ;; Also updates mps inline
                     (g2p mesh mps dt)
-                    ;; (when remove-damage
-                    ;;   (remove-material-damaged sim))
                     (when split
                       (split-mps sim))
                     (check-mps sim)
@@ -1205,9 +1204,7 @@ Calls func with only the node"
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
           (magicl:scale! stretch-tensor 0d0)
-          (let (;(stretch-dsvp (magicl:zeros '(4 2)))
-                #+cl-mpm-fbar (stretch-tensor-fbar (magicl:zeros '(2 2) :type 'double-float))
-                ;(v-s (magicl:zeros '(2 2)))
+          (let (#+cl-mpm-fbar (stretch-tensor-fbar (magicl:zeros '(2 2) :type 'double-float))
                 (v-s (matrix-zeros))
                 (stretch-dsvp (stretch-dsvp-zeros))
                 )
@@ -1292,7 +1289,7 @@ Calls func with only the node"
                          ))
                      ))))
 
-(declaim (inline update-strain-kirchoff))
+(declaim (notinline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            double-float) (values))
@@ -1330,9 +1327,10 @@ Calls func with only the node"
                                          v
                                          (cl-mpm/utils::matrix-from-list
                                           (list
-                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
-                                           0d0 0d0
-                                           (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
+                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                                           0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                                           0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                                           ))
                                          (magicl:transpose v)
                                          (magicl:transpose df)))
                     )
@@ -1344,9 +1342,11 @@ Calls func with only the node"
                                   vf
                                   (cl-mpm/utils::matrix-from-list
                                    (list
-                                    (the double-float (log (the double-float (nth 0 lf))))
-                                    0d0 0d0
-                                    (the double-float (log (the double-float (nth 1 lf))))))
+                                    (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                                    0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                                    0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                                    )
+                                   )
                                   (magicl:transpose vf)))
                                 0.5d0))
                   ;; (print strain)
@@ -1373,9 +1373,9 @@ Calls func with only the node"
                       (magicl:@
                        v
                        (cl-mpm/utils::matrix-from-list
-                        (list (the double-float (sqrt (the double-float (nth 0 l))))
-                              0d0 0d0
-                              (the double-float (sqrt (the double-float (nth 1 l))))))
+                        (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                              0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                              0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
                        (magicl:transpose v)))
                     )
                 (declare (type magicl:matrix/double-float stretch))
@@ -1452,7 +1452,7 @@ Calls func with only the node"
 
 
 
-(declaim (inline update-stress-mp)
+(declaim (notinline update-stress-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) update-stress-mp))
 (defun update-stress-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
@@ -1469,7 +1469,7 @@ Calls func with only the node"
           (progn
             (calculate-strain-rate mesh mp dt)
 
-            ;;; Turn cauchy stress to kirchoff
+            ;; ;;; Turn cauchy stress to kirchoff
             (setf stress stress-kirchoff)
 
             ;;; Update our strains
@@ -1540,7 +1540,9 @@ Calls func with only the node"
                    (jfbar cl-mpm/particle::mp-j-fbar)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0 1d0))))
+    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                                 0d0 1d0 0d0
+                                                 0d0 0d0 1d0))))
       (magicl.simd::.+-simd df stretch-tensor df)
       #+cl-mpm-fbar (progn
                       (magicl:scale! df (expt (/ jfbar (magicl:det df)) (/ 1d0 2d0))))

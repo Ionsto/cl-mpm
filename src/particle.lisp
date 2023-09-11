@@ -66,12 +66,12 @@
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
     :initarg :size-0
-    :initform (magicl:zeros '(2 1)))
+    :initform (cl-mpm/utils:vector-zeros))
    (size
      :accessor mp-domain-size
      :type magicl:matrix/double-float
      :initarg :size
-     :initform (magicl:ones '(2 1)))
+     :initform (cl-mpm/utils:vector-zeros))
    (position
      :accessor mp-position
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -83,63 +83,58 @@
      :accessor mp-velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :velocity
-     :initform (magicl:zeros '(2 1)))
+     :initform (cl-mpm/utils:vector-zeros))
    (acceleration
     :accessor mp-acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1)))
+    :initform (cl-mpm/utils:vector-zeros))
    (stress
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :stress
-     :initform (magicl:zeros '(3 1)))
+     :initform (cl-mpm/utils:voigt-zeros))
    (stress-kirchoff
     :accessor mp-stress-kirchoff
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :stress
-    :initform (magicl:zeros '(3 1)))
+    :initform (cl-mpm/utils:voigt-zeros))
    (strain
      :accessor mp-strain
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :strain
-     :initform (magicl:zeros '(3 1)))
-   (strain-plastic
-     :accessor mp-strain-plastic
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-     :initarg :strain-plastic
-     :initform (magicl:zeros '(3 1)))
+     :initform (cl-mpm/utils:voigt-zeros))
    (stretch-tensor
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 2)))
+    :initform (magicl:zeros '(3 3)))
    (strain-rate-tensor
     :accessor mp-strain-rate-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 2)))
+    :initform (magicl:zeros '(3 3)))
    (strain-rate
      :accessor mp-strain-rate
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :accessor mp-strain-rate
      :initarg :strain-rate
-     :initform (magicl:zeros '(3 1)))
+     :initform (cl-mpm/utils:voigt-zeros))
    (velocity-rate
     :accessor mp-velocity-rate
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :accessor mp-velocity-rate
-    :initform (magicl:zeros '(3 1)))
+    :initform (magicl:zeros '(6 1)))
    (eng-strain-rate
     :accessor mp-eng-strain-rate
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1)))
+    :initform (magicl:zeros '(6 1)))
    (vorticity
     :accessor mp-vorticity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1)))
+    :initform (magicl:zeros '(6 1)))
    (deformation-gradient
      :accessor mp-deformation-gradient
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :deformation-gradient
-     :initform (magicl:eye 2))
+     :initform (magicl:eye 3))
    (gravity
      :type double-float
      :accessor mp-gravity
@@ -161,7 +156,8 @@
     :initform 0d0)
    (pressure-func
     :type function
-    :accessor mp-pressure-func)
+    :accessor mp-pressure-func
+    :initform (lambda (pos) (declare (ignore pos)) 0d0))
 
    (boundary
     :type double-float
@@ -184,8 +180,7 @@
     :initform (magicl:zeros '(2 1)))
    (cached-nodes
     :accessor mp-cached-nodes
-    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache)
-    )
+    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache))
    (p-modulus
     :accessor mp-p-modulus
     :initform 1d0
@@ -214,6 +209,19 @@
     :type magicl:matrix/double-float)
    )
   (:documentation "A linear-elastic material point"))
+
+(defclass particle-vm (particle-elastic)
+  ((rho
+    :accessor mp-rho
+    :initarg :rho
+    )
+   (strain-plastic
+    :accessor mp-strain-plastic
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initarg :strain-plastic
+    :initform (magicl:zeros '(3 1))))
+  (:documentation "A vm perfectly plastic material point"))
+
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
@@ -536,31 +544,7 @@
                (def deformation-gradient)
                )
       mp
-    ;; Kirchoff stress rate?
-    ;; (magicl.simd::.+-simd stress
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
-    ;; (magicl.simd::.+-simd
-    ;;  (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;  (objectify-stress-kirchoff-truesdale stress vorticity))
-    ;;Jaumann rate equation
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (objectify-stress-jaumann
-    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;   stress
-    ;;   vorticity))
-    ;; Truesdale rate
-    ;; (magicl.simd::.+-simd
-    ;;  stress
-    ;;  (objectify-stress-kirchoff-truesdale
-    ;;   (cl-mpm/constitutive:linear-elastic strain-rate E nu)
-    ;;   stress
-    ;;   strain-rate))
-    (cl-mpm/constitutive::linear-elastic-mat strain de)
-    ;; (cl-mpm/constitutive:linear-elastic strain E nu)
-    ))
+    (cl-mpm/constitutive::linear-elastic-mat strain de)))
 
 (defmethod constitutive-model ((mp particle-elastic-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -587,6 +571,7 @@
     ;; Non-objective stress intergration
 
     (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (setf pressure (funcall calc-pressure pos))
     (setf stress (magicl:scale stress-undamaged 1d0))
       (when (> damage 0.0d0)
         (let ((j 1d0))
@@ -594,19 +579,19 @@
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
             (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
                    (tp (funcall calc-pressure pos))
-                   (driving-pressure (* 1d0 tp (min 1.00d0 damage)))
+                   (driving-pressure (* tp (expt (min 1.00d0 damage) 1)))
                    (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 1
                     do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* esii (max 1d-4 degredation)))
+                           (setf (nth i l) (* esii (max 1d-8 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          (when (< esii 0d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l) (* esii (max 1d-2 degredation)))
+                           (setf (nth i l) (* esii (max 1d-1 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
@@ -1186,3 +1171,24 @@
         (magicl::.- (magicl:@ (cl-mpm/utils::voight-to-matrix stress) omega)
                     (magicl:@ omega (cl-mpm/utils::voight-to-matrix stress)))))
       ))
+
+
+(defmethod constitutive-model ((mp particle-vm) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((E mp-e)
+                   (nu mp-nu)
+                   (de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (rho mp-rho)
+                   (plastic-strain mp-plastic-strain)
+                   )
+      mp
+    ;;Train elastic strain - plus trail kirchoff stress
+    (setf stress
+          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    (setf stress
+          (cl-mpm/constitutive::vm-plastic stress de strain rho))
+    ;; ()
+    )
+
+  )

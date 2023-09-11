@@ -306,22 +306,31 @@
                                (cl-mpm/mesh::cell-iterate-over-neighbours
                                 mesh cell
                                 #'apply-force)
+                               ;; (cl-mpm/mesh::cell-iterate-over-neighbours
+                               ;;  mesh cell
+                               ;;  #'apply-force)
+                               ;;Go overboard with trapz
+                               (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
+                                mesh cell 10
+                                #'apply-force)
+                               ;;Go overboard with trapz
                                ;;Sad path; we need to use a smart quadrature point
-                               (let* ((gp (cl-mpm/utils::vector-copy center-pos))
-                                      (floor-point (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
-                                      (fill-height (- datum floor-point))
-                                      (fill-ratio (/ fill-height h))
-                                      )
-                                 (setf (magicl:tref gp 1 0) (+ floor-point (* 0.5d0 fill-height)))
-                                 ;; (print gp)
-                                 ;; (break)
-                                 (with-accessors ((volume   cl-mpm/mesh::cell-volume))
-                                     cell
-                                   (cl-mpm::iterate-over-neighbours-point-linear
-                                    mesh gp
-                                    (lambda (mesh node svp grads)
-                                      (apply-force mesh cell gp (* fill-ratio volume) node svp grads))))
-                               )))
+                               ;; (let* ((gp (cl-mpm/utils::vector-copy center-pos))
+                               ;;        (floor-point (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
+                               ;;        (fill-height (- datum floor-point))
+                               ;;        (fill-ratio (/ fill-height h))
+                               ;;        )
+                               ;;   (setf (magicl:tref gp 1 0) (+ floor-point (* 0.5d0 fill-height)))
+                               ;;   ;; (print gp)
+                               ;;   ;; (break)
+                               ;;   (with-accessors ((volume   cl-mpm/mesh::cell-volume))
+                               ;;       cell
+                               ;;     (cl-mpm::iterate-over-neighbours-point-linear
+                               ;;      mesh gp
+                               ;;      (lambda (mesh node svp grads)
+                               ;;        (apply-force mesh cell gp (* fill-ratio volume) node svp grads))))
+                               ;; )
+                               ))
                              )))
                        ))))))
 
@@ -786,7 +795,7 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-    (let ((datum-rounding t))
+    (let ((datum-rounding nil))
       (if datum-rounding
           (progn
             (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
@@ -822,6 +831,23 @@
         sim
       (loop for mp across mps
             do
+               (with-accessors ((pos cl-mpm/particle:mp-position)
+                                (pressure cl-mpm/particle::mp-pressure)
+                                (mp-datum cl-mpm/particle::mp-pressure-datum)
+                                (mp-pfunc cl-mpm/particle::mp-pressure-func)
+                                (mp-head cl-mpm/particle::mp-pressure-head)
+                                )
+                   mp
+                 (setf pressure 0d0)
+                 (setf mp-pfunc
+                       (lambda (p)
+                         0d0))
+                 (setf mp-datum datum
+                       mp-head rho)
+                 ))
+
+      (loop for mp across mps
+            do
                (cl-mpm::iterate-over-neighbours
                 mesh mp
                 (lambda (mesh mp node svp grads fsvp fgrad)
@@ -830,11 +856,15 @@
                                      (pressure cl-mpm/particle::mp-pressure)
                                      (mp-datum cl-mpm/particle::mp-pressure-datum)
                                      (mp-head cl-mpm/particle::mp-pressure-head)
+                                     (mp-pfunc cl-mpm/particle::mp-pressure-func)
                                      )
                         mp
                       (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                                  (funcall clip-func (cl-mpm/mesh::node-position node) datum))
                         (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                        (setf mp-pfunc
+                              (lambda (p)
+                                (pressure-at-depth (tref p 1 0) datum rho)))
                         (setf mp-datum datum
                               mp-head rho)
                         ))
@@ -851,14 +881,14 @@
   (with-accessors ((datum bc-buoyancy-datum)
                    (rho bc-buoyancy-rho)
                    (clip-func bc-buoyancy-clip-func)
-                   (sim bc-buoyancy-sim))
+                   ;(sim bc-buoyancy-sim)
+                   )
       bc
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))
         sim
       (loop for mp across mps
             do
-
                (with-accessors ((pos cl-mpm/particle:mp-position)
                                 (pressure cl-mpm/particle::mp-pressure)
                                 (mp-datum cl-mpm/particle::mp-pressure-datum)
@@ -867,9 +897,11 @@
                                 )
                    mp
                  (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                 ;; (setf pressure -1d0)
                  (setf mp-pfunc
                        (lambda (p)
                          (pressure-at-depth (tref p 1 0) datum rho)))
                  (setf mp-datum datum
                        mp-head rho)
                  )))))
+
