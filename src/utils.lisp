@@ -284,3 +284,10 @@
                             0d0
                             0d0
                             (aref arr 5)))))
+
+(defun plane-strain-transform (stress)
+  (magicl:from-list (list (magicl:tref stress 0 0)
+                          (magicl:tref stress 1 0)
+                          (magicl:tref stress 5 0))
+                    '(3 1)
+                    :type 'double-float))

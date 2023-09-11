@@ -156,7 +156,7 @@
                      ;;                                             node-force)
                      (cl-mpm/fastmath::fast-fmacc node-force
                                                   (magicl:@ (magicl:transpose dsvp)
-                                                            (funcall func-stress mp))
+                                                            (cl-mpm/utils::plane-strain-transform (funcall func-stress mp)))
                                                   volume)
                      ;; Add divergance of stress
                      (cl-mpm/fastmath::fast-fmacc node-force
@@ -165,7 +165,7 @@
                      ;;Debug buoyancy
                      (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
                                                   (magicl:@ (magicl:transpose dsvp)
-                                                            (funcall func-stress mp))
+                                                            (cl-mpm/utils::plane-strain-transform (funcall func-stress mp)))
                                                   volume)
                      ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                      ;;                                             (funcall func-stress mp)
@@ -231,7 +231,7 @@
                                 ;;                                             node-force)
                                 (cl-mpm/fastmath::fast-fmacc node-force
                                                              (magicl:@ (magicl:transpose dsvp)
-                                                                       (funcall func-stress pos))
+                                                                       (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
                                                              (* -1d0 volume))
 
                                 (cl-mpm/fastmath::fast-fmacc node-force
@@ -240,7 +240,7 @@
 
                                 (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
                                                              (magicl:@ (magicl:transpose dsvp)
-                                                                       (funcall func-stress pos))
+                                                                       (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
                                                              (* -1d0 volume))
                                 ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                                 ;;                                             (funcall func-stress pos)
@@ -290,7 +290,7 @@
                                       (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                                       (cl-mpm/fastmath::fast-fmacc node-force
                                                                    (magicl:@ (magicl:transpose dsvp)
-                                                                             (funcall func-stress pos))
+                                                                             (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
                                                                    (* -1d0 volume))
 
                                       (cl-mpm/fastmath::fast-fmacc node-force

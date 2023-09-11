@@ -47,12 +47,6 @@
                    do (decf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
                                                                         (the double-float (magicl:tref b j 0)) scale))))))
 
-(defun plain-strain-transform (stress)
-  (magicl:from-list (list (magicl:tref stress 0 0)
-                          (magicl:tref stress 1 0)
-                          (magicl:tref stress 5 0))
-                    '(3 1)
-                    :type 'double-float))
 (declaim
  (inline det-int-force)
  (ftype (function (cl-mpm/particle::particle magicl:matrix/double-float
