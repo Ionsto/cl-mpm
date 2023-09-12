@@ -534,15 +534,7 @@
 
 (defmethod constitutive-model ((mp particle-elastic) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
-  (with-slots ((E E)
-               (nu nu)
-               (de elastic-matrix)
-               (stress stress)
-               (strain-rate strain-rate)
-               (velocity-rate velocity-rate)
-               (vorticity vorticity)
-               (def deformation-gradient)
-               )
+  (with-slots ((de elastic-matrix))
       mp
     (cl-mpm/constitutive::linear-elastic-mat strain de)))
 

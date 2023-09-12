@@ -1319,8 +1319,8 @@ Calls func with only the node"
           (let ((initial-strain (magicl:scale strain 1d0))
                 ;(initial-strain (cl-mpm/utils::matrix-zeros))
                 (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros))
-                )
+                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros)))
+
             (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
               (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
                     (trial-lgs (magicl:@ df
