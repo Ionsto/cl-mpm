@@ -12,20 +12,22 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
-  (magicl:scale!
-    (magicl:from-list (list
+  (let ((inv-nu (- 1d0 nu)))
+    (magicl:scale!
+     (magicl:from-list (list
                         (- 1d0 nu) nu nu 0d0 0d0 0d0
                         nu (- 1d0 nu) nu 0d0 0d0 0d0
                         nu nu (- 1d0 nu) 0d0 0d0 0d0
-                        0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))) 0d0 0d0
-                        0d0 0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))) 0d0
-                        0d0 0d0 0d0 0d0 0d0 (* 0.5 (- 1d0 (* 2 nu))))
-                      '(6 6) :type 'double-float)
-    (/ E (* (+ 1 nu) (- 1 (* 2 nu))))))
+                        0d0 0d0 0d0 (- 1d0 (* 2d0 nu)) 0d0 0d0
+                        0d0 0d0 0d0 0d0 (- 1d0 (* 2d0 nu)) 0d0
+                        0d0 0d0 0d0 0d0 0d0 (- 1d0 (* 2d0 nu)))
+                       '(6 6) :type 'double-float)
+     (/ E
+        (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"

@@ -38,7 +38,7 @@
   ;; (multiple-value-bind (l v) (magicl:eig mat)
   ;;   (values l (magicl:.realpart v)))
   )
-(let ((stress-components '(:xx :yy :zz :yz :xz :yz)))
+(let ((stress-components '(:xx :yy :zz :yz :xz :xy)))
   (defun get-stress (stress component)
     "Get stress component from voigt notation stress vector"
     (aref (magicl::matrix/double-float-storage stress) (position component stress-components))))
@@ -87,13 +87,13 @@
          (ftype (function ()
                           magicl:matrix/double-float) stretch-dsvp-zeros))
 (defun stretch-dsvp-zeros ()
-  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
 
 (declaim (inline dsvp-2d-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) dsvp-2d-zeros))
 (defun dsvp-2d-zeros ()
-  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
 
 (declaim (inline voigt-from-list)
          (ftype (function (list)
@@ -126,8 +126,8 @@
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
           (ezz (magicl:tref matrix 2 2))
+          (eyz (magicl:tref matrix 2 1))
           (exy (magicl:tref matrix 1 0))
-          (eyz (magicl:tref matrix 1 1))
           (ezx (magicl:tref matrix 2 0))
           )
     (voigt-from-list (list exx eyy ezz eyz ezx exy))))
@@ -154,11 +154,14 @@
 (defun voigt-to-matrix (vec)
   (let* ( (exx (magicl:tref vec 0 0))
           (eyy (magicl:tref vec 1 0))
-          (exy (* 0.5d0 (the double-float (magicl:tref vec 5 0)))))
-    (matrix-from-list (list exx exy 0d0
-                            exy eyy 0d0
-                            0d0 0d0 0d0))
-    ))
+          (ezz (magicl:tref vec 2 0))
+          (eyz (* 0.5d0 (the double-float (magicl:tref vec 3 0))))
+          (ezx (* 0.5d0 (the double-float (magicl:tref vec 4 0))))
+          (exy (* 0.5d0 (the double-float (magicl:tref vec 5 0))))
+          )
+    (matrix-from-list (list exx exy eyz
+                            exy eyy ezx
+                            eyz ezx ezz))))
 
 (declaim (inline matrix-to-voigt)
          (ftype (function (magicl:matrix/double-float)
@@ -180,14 +183,14 @@
                       '(4 1) :type 'double-float)))
 
 (defun voight-to-stretch (vec)
-  (let* ( (exx (magicl:tref vec 0 0))
-          (eyy (magicl:tref vec 1 0))
-          (exy (magicl:tref vec 2 0))
-          (eyx (magicl:tref vec 3 0))
-          )
-    (magicl:from-list (list exx exy
-                            eyx eyy)
-                      '(2 2) :type 'double-float)))
+  (let* ((exx (magicl:tref vec 0 0))
+         (eyy (magicl:tref vec 1 0))
+         (exy (magicl:tref vec 2 0))
+         (eyx (magicl:tref vec 3 0)))
+    (magicl:from-list (list exx exy 0d0
+                            eyx eyy 0d0
+                            0d0 0d0 0d0)
+                      '(3 3) :type 'double-float)))
 
 (declaim
  (inline voight-to-stretch-prealloc)

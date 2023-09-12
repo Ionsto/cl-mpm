@@ -508,11 +508,11 @@
   "Assemble d/di to the strain-displacement matrix"
   (let* ((dx (nth 0 dsvp))
          (dy (nth 1 dsvp)))
-    (magicl:from-array (make-array 8 :initial-contents (list dx 0d0
-                                                             0d0 dy
-                                                             dy 0d0
-                                                             0d0 dx
-                                                             ))
+    (magicl:from-array (make-array 8
+                                   :initial-contents (list dx 0d0
+                                                           0d0 dy
+                                                           dy 0d0
+                                                           0d0 dx))
                        '(4 2) :type 'double-float)))
 
 (declaim

@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/shear
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 (setf *block-compile-default* nil)
 
 ;; (pushnew :cl-mpm-pic *features*)
@@ -139,7 +139,7 @@
         do (with-accessors ((pos cl-mpm/particle:mp-position)
                             (force cl-mpm/particle:mp-body-force)) mp
              (incf (magicl:tref force 0 0) amount))))
-(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic-logspin))
+(defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
                                         #'cl-mpm/shape-function:make-shape-function-linear))
@@ -231,7 +231,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 4.0)
-        (mps-per-cell 8))
+        (mps-per-cell 4))
     (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -348,10 +348,11 @@
                                         (progn
                                           (cl-mpm::update-sim *sim*)
                                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))))
+                       (print "finished!")
             (push *t* *time*)
-                       (push (calculate-energy-strain *sim*) *energy-se*)
-                       (push (calculate-energy-kinetic *sim*) *energy-ke*)
-                       (push (calculate-energy-gravity *sim*) *energy-gpe*)
+                       ;; (push (calculate-energy-strain *sim*) *energy-se*)
+                       ;; (push (calculate-energy-kinetic *sim*) *energy-ke*)
+                       ;; (push (calculate-energy-gravity *sim*) *energy-gpe*)
                        (with-accessors ((mps cl-mpm:sim-mps))
                            *sim*
                          (push
@@ -363,13 +364,13 @@
                          (push
                           (/
                            (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
+                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
                            (length mps))
                           *s-yy*)
                          (push
                           (/
                            (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
+                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
                            (length mps))
                           *s-xy*)
                          )
@@ -377,7 +378,7 @@
                        (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                *sim*)
                        (incf *sim-step*)
-                       (plot *sim*)
+                       ;; (plot *sim*)
                        ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                        (swank.live:update-swank)
                        (sleep .1)
@@ -397,19 +398,34 @@
       (plot-energy)
       (plot-stress)
       ))
+
 (defun plot-stress ()
-  (vgplot:figure)
-  (vgplot:title "Stress")
   (let* ((E 1d4)
          (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
-         (sxy-an (shear-stress-analytic E 0.3 shear)))
-    (print (length shear))
-    (print (length sxy-an))
-    (vgplot:plot shear (mapcar (lambda (x) (/ x E)) *s-xx*) "s-xx"
-                 shear (mapcar (lambda (x) (/ x E)) *s-yy*) "s-yy"
-                 shear (mapcar (lambda (x) (/ x E)) *s-xy*) "s-xy"
-                 shear (mapcar (lambda (x) (/ x E)) sxy-an) "s-xy-analytic"
-                 )))
+         ;; (sxy-an (shear-stress-analytic E 0.3 shear))
+         (analytic (stress-analytic E 0.3 shear))
+         )
+    (vgplot:figure)
+    (vgplot:title "Stress - xx")
+    (vgplot:plot
+     shear (mapcar (lambda (x) (/ x E)) *s-xx*) "s-xx"
+     shear (mapcar (lambda (x) (/ (cl-mpm/utils:get-stress x :xx) E)) analytic) "s-xy-analytic"
+     )
+
+    (vgplot:figure)
+    (vgplot:title "Stress - yy")
+    (vgplot:plot
+     shear (mapcar (lambda (x) (/ x E)) *s-yy*) "s-yy"
+     shear (mapcar (lambda (x) (/ (cl-mpm/utils:get-stress x :yy) E)) analytic) "s-xy-analytic")
+
+    (vgplot:figure)
+    (vgplot:title "Stress - xy")
+    (vgplot:plot
+     shear (mapcar (lambda (x) (/ x E)) *s-xy*) "s-xy"
+     shear (mapcar (lambda (x) (/ (cl-mpm/utils:get-stress x :xy) E)) analytic) "s-xy-analytic")
+    )
+  )
+
 (defun plot-energy ()
   (vgplot:figure)
   (vgplot:title "Energy over time")
@@ -511,21 +527,29 @@
     (multiple-value-bind (l v) (cl-mpm/utils::eig m)
       (magicl:@
          v
-         (magicl:from-diag (mapcar (lambda (x) (the double-float (log (the double-float x)))) l) :type 'double-float)
+         (magicl:from-diag (mapcar (lambda (x) (* 0.5d0
+                                                  (the double-float (log (the double-float x))))) l) :type 'double-float)
          (magicl:transpose v))))
 
-(defun shear-stress-analytic (E nu shear)
+(defun stress-analytic (E nu shear)
   (loop for s in shear
         collect
         (let* ((F (magicl:from-list (list 1d0 s  0d0
                                           0d0 1d0 0d0
                                           0d0 0d0 1d0) '(3 3)))
                (b (mat-log (magicl:@ F (magicl:transpose F))))
-               (s  (cl-mpm/constitutive:linear-elastic (cl-mpm/utils:matrix-to-voight b) E nu))
+               (s  (cl-mpm/constitutive:linear-elastic (magicl:.*
+                                                        (cl-mpm/utils:matrix-to-voight b)
+                                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 1d0 1d0 1d0))
+                                                        ) E nu))
                )
+          s
           ;; b
-          (magicl:tref s 5 0)
+          ;; (magicl:tref s 0 0)
           )))
+(defun shear-stress-analytic (E nu shear)
+  (cl-mpm/utils:get-stress (shear-stress-analytic E nu shear) :xy))
+
 (defun plot-stress-table ()
   (vgplot:figure)
   ;; (vgplot:title "Stress")

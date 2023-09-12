@@ -28,7 +28,7 @@
     )
   )
 (in-package :cl-mpm/particle)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defstruct node-cache
   node
@@ -629,9 +629,10 @@
                )
       mp
     ;; Non-objective stress intergration
-    (magicl.simd::.+-simd
-     stress
-     (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    ;; (magicl.simd::.+-simd
+    ;;  stress
+    ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
+    (magicl:.+ stress (magicl:@ de strain-rate))
     ))
 (defclass particle-elastic-jaumann (particle-elastic)
   ()
