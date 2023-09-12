@@ -106,7 +106,7 @@
    (stretch-tensor
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 3)))
+    :initform (magicl:zeros '(3 3) :type 'double-float))
    (strain-rate-tensor
     :accessor mp-strain-rate-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT

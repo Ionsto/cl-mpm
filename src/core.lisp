@@ -895,6 +895,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (det-ext-force mp node svp node-force)
                (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                (det-int-force mp dsvp node-force)
+               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
                ))
            )
          ))))
@@ -1219,17 +1220,17 @@ Calls func with only the node"
                    node
                  (declare (double-float))
                  (when node-active
-                   (magicl:.+
-                    stretch-tensor
-                    (voight-to-stretch
-                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
-                    stretch-tensor)
-                   ;; (magicl.simd::.+-simd
+                   ;; (magicl:.+
                    ;;  stretch-tensor
-                   ;;  (cl-mpm/utils::voight-to-stretch-prealloc
-                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                   ;;              grads stretch-dsvp) node-vel) v-s)
+                   ;;  (voight-to-stretch
+                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
                    ;;  stretch-tensor)
+                   (magicl.simd::.+-simd
+                    stretch-tensor
+                    (cl-mpm/utils::voight-to-stretch-prealloc
+                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                                grads stretch-dsvp) node-vel) v-s)
+                    stretch-tensor)
                    #+cl-mpm-fbar (magicl.simd::.+-simd
                                   stretch-tensor-fbar
                                   (cl-mpm/utils::voight-to-stretch-prealloc
@@ -1243,7 +1244,7 @@ Calls func with only the node"
             )
           #+cl-mpm-fbar (when (<= jfbar 0d0)
             (error "FBAR volume non-positive"))
-            (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
+            (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
             (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
@@ -1275,25 +1276,7 @@ Calls func with only the node"
                      (setf def (magicl:@ df def))
                      (setf strain (magicl.simd::.+-simd strain dstrain))
                      (setf volume (* volume-0 (magicl:det def)))
-                     ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:@ def (magicl:transpose def)))
-                     ;;   (let ((stretch
-                     ;;           (magicl:@
-                     ;;            v
-                     ;;            (magicl:from-diag (mapcar (lambda (x) (the double-float (sqrt
-                     ;;                                                                     (the double-float x)))) l) :type 'double-float)
-                     ;;            (magicl:transpose v))))
-                     ;;     (declare (type magicl:matrix/double-float stretch))
-                     ;;     (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                     ;;                                (the double-float (tref stretch 0 0))))
-                     ;;     (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                     ;;                                (the double-float (tref stretch 1 1))))
-                     ;;     ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                     ;;     ;;                            (the double-float (tref stretch 0 0))))
-                     ;;     ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                     ;;     ;;                            (the double-float (tref stretch 1 1))))
-                     ;;     ))
-                     (update-domain-corner mesh mp dt)
-                     ))))
+                     (update-domain-corner mesh mp dt)))))
 
 (declaim (notinline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
@@ -1315,8 +1298,7 @@ Calls func with only the node"
                    ) mp
     (declare (type double-float volume)
              (type magicl:matrix/double-float
-                   domain
-                   ))
+                   domain))
     (progn
       (let ((df (calculate-df mp)))
         (progn
@@ -1352,10 +1334,7 @@ Calls func with only the node"
             ;;       )))
 
             (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
-                                                           (magicl:.*
-                                                            strain
-                                                            (voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
-                                                          )
+                                                           strain))
               (let ((trial-lgs (magicl:@ df
                                          v
                                          (cl-mpm/utils::matrix-from-list
@@ -1366,8 +1345,8 @@ Calls func with only the node"
                                            ))
                                          (magicl:transpose v)
                                          (magicl:transpose df))))
-                (multiple-value-bind (lf vf) (cl-mpm/utils::eig
-                                              (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+                (multiple-value-bind (lf vf)
+                    (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
                   (setf strain (magicl:scale!
                                 (matrix-to-voigt
                                  (magicl:@
@@ -1380,14 +1359,8 @@ Calls func with only the node"
                                     )
                                    )
                                   (magicl:transpose vf)))
-                                0.5d0))
-                  ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
-                  (magicl:.*
-                   strain
-                   (voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))
-                   strain)
-                  )
-                ))
+                                0.5d0)))))
+
             ;;Not sure about this engineering strain calculation
             ;; (magicl:.- initial-strain strain initial-strain)
             ;; (setf eng-strain-rate initial-strain)

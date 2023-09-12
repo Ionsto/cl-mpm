@@ -22,12 +22,11 @@
                         (- 1d0 nu) nu nu 0d0 0d0 0d0
                         nu (- 1d0 nu) nu 0d0 0d0 0d0
                         nu nu (- 1d0 nu) 0d0 0d0 0d0
-                        0d0 0d0 0d0 (- 1d0 (* 2d0 nu)) 0d0 0d0
-                        0d0 0d0 0d0 0d0 (- 1d0 (* 2d0 nu)) 0d0
-                        0d0 0d0 0d0 0d0 0d0 (- 1d0 (* 2d0 nu)))
+                        0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))) 0d0 0d0
+                        0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))) 0d0
+                        0d0 0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))))
                        '(6 6) :type 'double-float)
-     (/ E
-        (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
+     (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"

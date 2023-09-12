@@ -169,8 +169,15 @@
 (defun matrix-to-voigt (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
           (eyy (magicl:tref matrix 1 1))
-          (exy (magicl:tref matrix 1 0)))
-    (voigt-from-list (list exx eyy 0d0 0d0 0d0 (* 2d0 (the double-float exy))))))
+          (ezz (magicl:tref matrix 2 2))
+          (exy (magicl:tref matrix 1 0))
+          (exz (magicl:tref matrix 2 0))
+          (ezy (magicl:tref matrix 2 1))
+          )
+    (voigt-from-list (list exx eyy ezz
+                           (* 2d0 ezy)
+                           (* 2d0 exz)
+                           (* 2d0 exy)))))
 
 (defun stretch-to-voight (matrix)
   (let* ( (exx (magicl:tref matrix 0 0))
@@ -301,3 +308,29 @@
                           (magicl:tref stress 5 0))
                     '(3 1)
                     :type 'double-float))
+
+
+(declaim (inline stretch-to-sym)
+         (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-sym))
+(defun stretch-to-sym (stretch result)
+  (progn
+    (declaim (magicl:matrix/double-float result))
+    (let ((res (matrix-to-voight (magicl:.+ stretch (magicl:transpose stretch)))))
+      (aops:copy-into (magicl::matrix/double-float-storage result)
+                      (magicl::matrix/double-float-storage res))
+      result)
+    ;; (loop for i from 0 below 3
+    ;;       do
+    ;;          (setf (magicl:tref result  i 0)
+    ;;                (magicl:tref stretch i 0)))
+    ;; (setf (magicl:tref result  0 0)
+    ;;       (magicl:tref stretch 0 0))
+
+    ;; (setf (magicl:tref result  1 0)
+    ;;       (magicl:tref stretch 1 1))
+    ;; ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
+    ;; (setf (magicl:tref result 5 0)
+    ;;       (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
+    ;;                 (the double-float (magicl:tref stretch 1 0)))))
+    )
+  (values))
