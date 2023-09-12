@@ -863,7 +863,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (lparallel:pdotimes (i (length mps))
     (p2g-mp mesh (aref mps i))))
 
-(declaim (notinline p2g-force-mp)
+(declaim (inline p2g-force-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
          )
 (defun p2g-force-mp (mesh mp)
@@ -899,7 +899,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          ))))
   (values))
 
-(declaim (notinline p2g-force))
+(declaim (inline p2g-force))
 (defun p2g-force (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps)) 
@@ -1254,7 +1254,7 @@ Calls func with only the node"
                       '(2 2)
                       :type 'double-float
                       )))
-(defun update-strain-linear (mesh mp dstrain)
+(defun update-strain-linear (mesh mp dt)
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
@@ -1263,33 +1263,33 @@ Calls func with only the node"
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
-    (let ((df (calculate-df mp)))
+    (let ((df (calculate-df mp))
+          (dstrain (magicl:scale strain-rate dt)))
                    (progn
                      (setf def (magicl:@ df def))
                      (setf strain (magicl.simd::.+-simd strain dstrain))
-                     ;(setf volume (* volume (det df)))
                      (setf volume (* volume-0 (magicl:det def)))
-
-                     (multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:@ def (magicl:transpose def)))
-                       (let ((stretch
-                               (magicl:@
-                                v
-                                (magicl:from-diag (mapcar (lambda (x) (the double-float (sqrt
-                                                                                         (the double-float x)))) l) :type 'double-float)
-                                (magicl:transpose v))))
-                         (declare (type magicl:matrix/double-float stretch))
-                         (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                                                    (the double-float (tref stretch 0 0))))
-                         (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                                                    (the double-float (tref stretch 1 1))))
-                         ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                         ;;                            (the double-float (tref stretch 0 0))))
-                         ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                         ;;                            (the double-float (tref stretch 1 1))))
-                         ))
+                     ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:@ def (magicl:transpose def)))
+                     ;;   (let ((stretch
+                     ;;           (magicl:@
+                     ;;            v
+                     ;;            (magicl:from-diag (mapcar (lambda (x) (the double-float (sqrt
+                     ;;                                                                     (the double-float x)))) l) :type 'double-float)
+                     ;;            (magicl:transpose v))))
+                     ;;     (declare (type magicl:matrix/double-float stretch))
+                     ;;     (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                     ;;                                (the double-float (tref stretch 0 0))))
+                     ;;     (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                     ;;                                (the double-float (tref stretch 1 1))))
+                     ;;     ;; (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                     ;;     ;;                            (the double-float (tref stretch 0 0))))
+                     ;;     ;; (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                     ;;     ;;                            (the double-float (tref stretch 1 1))))
+                     ;;     ))
+                     (update-domain-corner mesh mp dt)
                      ))))
 
-(declaim (notinline update-strain-kirchoff))
+(declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            double-float) (values))
@@ -1384,15 +1384,41 @@ Calls func with only the node"
           ;;       (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
           ;;                                  (the double-float (tref stretch 1 1))))
           ;;       )))
-          (update-domain-corner mesh mp dt)
-          ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-          ;;                             (the double-float (tref df 0 0))))
-          ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-          ;;                             (the double-float (tref df 1 1))))
+          (update-domain-stretch-rate df domain)
+          ;; (update-domain-corner mesh mp dt)
           )
           )))
   (values))
+
+(defun update-domain-deformation-rate (domain df)
+  "Update the domain length based on the increment of defomation rate"
+  (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                              (the double-float (tref df 0 0))))
+  (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                              (the double-float (tref df 1 1))))
+  )
+(defun update-domain-stretch-rate (df domain)
+  "Update the domain length based on the increment of the stretch rate"
+  (let ((F (cl-mpm/utils::matrix-zeros)))
+    (magicl:mult df df :target F :transb :t)
+    (multiple-value-bind (l v) (cl-mpm/utils::eig F)
+      (let* ((stretch
+              (magicl:@
+               v
+               (cl-mpm/utils::matrix-from-list
+                (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                      0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                      0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+               (magicl:transpose v)))
+            )
+        (declare (type magicl:matrix/double-float stretch))
+        (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                                   (the double-float (tref stretch 0 0))))
+        (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                                   (the double-float (tref stretch 1 1))))
+        ))))
 (defun update-domain-corner (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
   (with-accessors ((position cl-mpm/particle::mp-position)
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)
@@ -1402,18 +1428,20 @@ Calls func with only the node"
     (let ((points (list '(-0.5d0 -0.5d0) '(0.5d0 -0.5d0) '(0.5d0 0.5d0) '(-0.5d0 0.5d0)))
           (dim '(0 0 1 1))
           ;(disp (make-array 4 :element-type 'double-float :initial-element 0d0))
-          (disp (make-array 4 :initial-element (magicl:zeros '(2 1) :type 'double-float)))
+          (disp (make-array 4 :initial-element (cl-mpm/utils:vector-zeros)))
+          (domain-storage (magicl::matrix/double-float-storage domain))
           )
       (loop for point in points
             for d in dim
             for i from 0 below 4
             do
-               (let ((corner (magicl.simd::.+-simd position
-                                        (magicl.simd::.*-simd
-                                         (magicl:from-list point '(2 1)
-                                                           :type 'double-float)
-                                         domain
-                                         ))))
+               (let ((corner (cl-mpm/utils:vector-zeros)))
+                 (magicl.simd::.+-simd position
+                                       (magicl.simd::.*-simd
+                                        (magicl:from-list point '(2 1)
+                                                          :type 'double-float)
+                                        domain
+                                        ) corner)
                  (iterate-over-neighbours-point-linear
                   mesh corner
                   (lambda (mesh node svp grads)
@@ -1424,14 +1452,14 @@ Calls func with only the node"
                       (setf (aref disp i)
                             (magicl.simd::.+-simd (aref disp i)
                                        (magicl:scale vel (* dt svp)))))))))
-      (incf (magicl:tref domain 0 0) (* 0.5
+      (incf (aref domain-storage 0) (* 0.5
                                         (-
                                          (+ (magicl:tref (aref disp 1) 0 0)
                                             (magicl:tref (aref disp 2) 0 0))
                                          (+ (magicl:tref (aref disp 0) 0 0)
                                             (magicl:tref (aref disp 3) 0 0))
                                          )))
-      (incf (magicl:tref domain 1 0) (* 0.5
+      (incf (aref domain-storage 1) (* 0.5
                                         (-
                                          (+ (magicl:tref (aref disp 3) 1 0)
                                             (magicl:tref (aref disp 2) 1 0))
@@ -1452,7 +1480,7 @@ Calls func with only the node"
 
 
 
-(declaim (notinline update-stress-mp)
+(declaim (inline update-stress-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) update-stress-mp))
 (defun update-stress-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
@@ -1474,6 +1502,7 @@ Calls func with only the node"
 
             ;;; Update our strains
             (update-strain-kirchoff mesh mp dt)
+            ;; (update-strain-linear mesh mp dt)
 
             ;;;Update our kirchoff stress with constitutive model
             (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
@@ -1483,6 +1512,7 @@ Calls func with only the node"
               (error "Negative volume"))
             ;; Turn kirchoff stress to cauchy
             (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+            ;; (setf stress (magicl:scale stress-kirchoff 1d0))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)

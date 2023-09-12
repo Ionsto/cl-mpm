@@ -515,7 +515,7 @@
                                    (cos (+ (* pi (/ angle 180d0))))) '(2 1))
            (magicl:from-list (list 00d0 (+ 1d0 h-y)) '(2 1))
            (* *ice-density* 1d3)
-           0.9d0
+           0.0d0
            ))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
@@ -559,7 +559,7 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 20)
-         (mps-per-cell 4)
+         (mps-per-cell 2)
          (slope -0.02)
          (shelf-height 200)
          (shelf-aspect 4)
@@ -731,7 +731,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d4)
+ (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
