@@ -893,9 +893,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (when node-active
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-force)
-               (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-               (det-int-force mp dsvp node-force)
-               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
+               ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
+               ;; (det-int-force mp dsvp node-force)
+               (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-2d grads) node-force)
                ))
            )
          ))))
@@ -1220,17 +1220,17 @@ Calls func with only the node"
                    node
                  (declare (double-float))
                  (when node-active
-                   ;; (magicl:.+
-                   ;;  stretch-tensor
-                   ;;  (voight-to-stretch
-                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
-                   ;;  stretch-tensor)
-                   (magicl.simd::.+-simd
+                   (magicl:.+
                     stretch-tensor
-                    (cl-mpm/utils::voight-to-stretch-prealloc
-                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                grads stretch-dsvp) node-vel) v-s)
+                    (voight-to-stretch
+                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
                     stretch-tensor)
+                   ;; (magicl.simd::.+-simd
+                   ;;  stretch-tensor
+                   ;;  (cl-mpm/utils::voight-to-stretch-prealloc
+                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                   ;;              grads stretch-dsvp) node-vel) v-s)
+                   ;;  stretch-tensor)
                    #+cl-mpm-fbar (magicl.simd::.+-simd
                                   stretch-tensor-fbar
                                   (cl-mpm/utils::voight-to-stretch-prealloc
