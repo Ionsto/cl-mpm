@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -122,7 +122,8 @@
     ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
     ;; (cl-mpm/particle::mp-damage-ybar mp)
     ;; (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
-    (cl-mpm/particle::mp-time-averaged-visc mp)
+    (cl-mpm/utils:get-stress (cl-mpm/particle:mp-stress mp) :xx)
+    ;; (cl-mpm/particle::mp-time-averaged-visc mp)
     ;; (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0)
     )
   )
@@ -408,8 +409,7 @@
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
-              (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
-                                (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
+              (mapcar #'+ (list 0d0 0d0)
                       block-offset)))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
@@ -433,7 +433,7 @@
                 ;; :plastic-stress 0.7d6
 
                 :initiation-stress 0.3d6
-                :damage-rate 1d-3
+                :damage-rate 1d-5
                 :critical-damage 0.50d0
                 :local-length 50d0
                 ;:local-length-damaged 50d0
@@ -486,7 +486,8 @@
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
             ;; (ocean-y (+ h-y (* 0.90d0 0.5d0 terminus-size)))
-             (ocean-y (* (round (+ (* 0.9d0 0.5d0 terminus-size) h-y) h-y) h-y))
+             (ocean-y 0d0;(* (round (+ (* 0.9d0 0.5d0 terminus-size) h-y) h-y) h-y)
+                      )
             ;(angle -1d0)
             )
 
@@ -549,8 +550,8 @@
         (defparameter *sliding-offset* (- h-y (* 0d0 *sliding-slope*))))
       sim)))
 
-(defparameter *ice-density* 900)
-(defparameter *water-density* 1000)
+(defparameter *ice-density* 900d0)
+(defparameter *water-density* 1000d0)
 ;; (defparameter *ice-density* 900)
 ;; (defparameter *water-density* 1000)
 ;Setup
@@ -558,9 +559,9 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 20)
-         (mps-per-cell 2)
+         (mps-per-cell 4)
          (slope -0.02)
-         (shelf-height 400)
+         (shelf-height 200)
          (shelf-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
@@ -730,7 +731,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d4)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt)))
@@ -756,7 +757,7 @@
                      (let ((base-damping 0d-5))
                        (if (> steps 5)
                            (progn
-                             (setf (cl-mpm::sim-enable-damage *sim*) t)
+                             (setf (cl-mpm::sim-enable-damage *sim*) nil)
                              (setf (cl-mpm::sim-damping-factor *sim*) base-damping
                                    ;dt-scale 1.0d0
                                    ))

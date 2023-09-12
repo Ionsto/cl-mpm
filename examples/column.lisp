@@ -84,12 +84,12 @@
         ;; (print block-position)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
-               block-position
+               ;; block-position
+               '(0 0)
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                ;(list 1 (* e-scale mp-scale (second block-size)))
                density
-               'cl-mpm::make-particle
                'cl-mpm/particle::particle-elastic
                :E 1d5
                :nu 0.0d0

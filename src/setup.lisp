@@ -94,8 +94,8 @@
         (data (loop for i from 0 to (- size 1) collect 
                     (apply constructor (append '(2) args 
                                                (list
-                                                 :position (list (/ mp-spacing-x 2) 
-                                                            (+ (/ mp-spacing-y 2) (* mp-spacing-y i)))
+                                                 :position (list (/ mp-spacing-x 2d0)
+                                                            (+ (/ mp-spacing-y 2d0) (* mp-spacing-y i)))
                                                  :volume (* mp-spacing-x mp-spacing-y)
                                                  :size (magicl:from-list (list mp-spacing-x mp-spacing-y) '(2 1))))))))
     (make-array (length data) :initial-contents data)))
@@ -175,6 +175,7 @@
   (let*  ((nD 2)
           (args (alexandria:remove-from-plist args :slope))
           (spacing-0 (mapcar #'/ size mps))
+          (offset (mapcar (lambda (x s) (+ x (/ s 2d0))) offset spacing-0))
           (data (loop for x from 0 to (- (first mps) 1)
                       append
                       (loop

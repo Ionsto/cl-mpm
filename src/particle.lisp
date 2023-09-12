@@ -92,7 +92,7 @@
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :stress
-     :initform (cl-mpm/utils:voigt-zeros))
+     :initform (magicl:zeros '(6 1) :type 'double-float))
    (stress-kirchoff
     :accessor mp-stress-kirchoff
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -581,7 +581,7 @@
                    (tp (funcall calc-pressure pos))
                    (driving-pressure (* tp (expt (min 1.00d0 damage) 1)))
                    (degredation (expt (- 1d0 damage) 2d0)))
-              (loop for i from 0 to 1
+              (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
@@ -1121,8 +1121,8 @@
           ;; (D (cl-mpm/utils::voigt-to-matrix D))
           )
         (multiple-value-bind (l v) (cl-mpm/utils::eig b)
-          (loop for i from 0 to 1
-                do (loop for j from 0 to 1
+          (loop for i from 0 to 2
+                do (loop for j from 0 to 2
                          do
                             ;;For all the pairs of eigenvalues
                             (when (not (= i j))

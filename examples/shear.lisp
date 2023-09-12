@@ -5,6 +5,9 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* nil)
 
+;; (pushnew :cl-mpm-pic *features*)
+;; (setf *features* (delete :cl-mpm-pic *features*))
+;; (asdf:compile-system :cl-mpm :force T)
 (in-package :cl-mpm/examples/shear)
 (declaim (optimize (debug 2) (safety 2) (speed 2)))
 
@@ -148,16 +151,17 @@
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
-              (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
-                                (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
+              (mapcar #'+ (list (* h-x (/ 1d0 (* 2d0 mp-scale)))
+                                (* h-y (/ 1d0 (* 2d0 mp-scale))))
                       block-offset)))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
-               block-position
+               ;; block-position
+               '(0 0)
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
-               'cl-mpm::make-particle
+               ;; 'cl-mpm::make-particle
                particle-type
                :E 1d4
                :nu 0.3d0
@@ -226,8 +230,8 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 2.0)
-        (mps-per-cell 6))
+  (let ((mesh-size 4.0)
+        (mps-per-cell 8))
     (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -359,7 +363,7 @@
                          (push
                           (/
                            (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
+                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
                            (length mps))
                           *s-yy*)
                          (push
@@ -425,13 +429,13 @@
   (defparameter *stress-xy-table* '())
   (defparameter *table-names* '())
   (defparameter *table-times* '())
-  (loop for name in '(;"true"
-                      ;; "inc"
+  (loop for name in '("true"
+                      ; "inc"
                       "logspin"
                       ;"jaumann"
                       )
         for model in
-        '(;cl-mpm/particle::particle-elastic
+        '(cl-mpm/particle::particle-elastic
           ;; cl-mpm/particle::particle-elastic-inc
           cl-mpm/particle::particle-elastic-logspin
           ;cl-mpm/particle::particle-elastic-jaumann
@@ -439,9 +443,10 @@
           )
         do
            (progn
-             (let ((mesh-size 2)
-                   (mps-per-cell 1));2
-               (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
+             (let ((mesh-size 4)
+                   (mps-per-cell 8));2
+               (defparameter *sim*
+                 (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell model)))
              (defparameter *t* 0)
              (defparameter *sim-step* 0)
              (defparameter *time* '())
@@ -481,7 +486,7 @@
                                   (push
                                    (/
                                     (loop for mp across mps
-                                          sum (magicl:tref (cl-mpm/particle::mp-stress mp) 2 0))
+                                          sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
                                     (length mps))
                                    xy))
                                 ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_~a/sim_~5,'0d.vtk" name *sim-step*)) *sim*)
@@ -503,7 +508,7 @@
                )))
   (plot-stress-table))
 (defun mat-log (m)
-    (multiple-value-bind (l v) (magicl:hermitian-eig m)
+    (multiple-value-bind (l v) (cl-mpm/utils::eig m)
       (magicl:@
          v
          (magicl:from-diag (mapcar (lambda (x) (the double-float (log (the double-float x)))) l) :type 'double-float)
@@ -512,12 +517,14 @@
 (defun shear-stress-analytic (E nu shear)
   (loop for s in shear
         collect
-        (let* ((F (magicl:from-list (list 1d0 0d0 s 1d0) '(2 2)))
+        (let* ((F (magicl:from-list (list 1d0 s  0d0
+                                          0d0 1d0 0d0
+                                          0d0 0d0 1d0) '(3 3)))
                (b (mat-log (magicl:@ F (magicl:transpose F))))
                (s  (cl-mpm/constitutive:linear-elastic (cl-mpm/utils:matrix-to-voight b) E nu))
                )
           ;; b
-          (magicl:tref s 2 0)
+          (magicl:tref s 5 0)
           )))
 (defun plot-stress-table ()
   (vgplot:figure)
@@ -531,10 +538,10 @@
     ;; (print sxy-an)
   (vgplot:plot
    shear (mapcar (lambda (x) (/ x E)) (nth 0 *stress-xy-table*)) (nth 0 *table-names*)
-   ;; shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
+   shear (mapcar (lambda (x) (/ x E)) (nth 1 *stress-xy-table*)) (nth 1 *table-names*)
    ;; shear (mapcar (lambda (x) (/ x E)) (nth 2 *stress-xy-table*)) (nth 2 *table-names*)
    ;; shear (mapcar (lambda (x) (/ x E)) (nth 3 *stress-xy-table*)) (nth 3 *table-names*)
-   shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
+   ;; shear (mapcar (lambda (x) (/ x E)) sxy-an) "analytic"
                ))
   )
 (defun save-stress-table ()

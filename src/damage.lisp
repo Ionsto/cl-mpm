@@ -23,26 +23,30 @@
       (* (expt (max 0d0 (/ (- stress init-stress) init-stress)) 2d0) rate)
       ;; (* (expt (max 0d0 (- stress init-stress)) 3d0) rate)
       0d0))
+;; (defun principal-stresses (stress)
+;;   (declare (magicl:matrix/double-float stress))
+;;   (let* ((av (/ (+ (the double-float (magicl:tref stress 0 0))
+;;                    (the double-float (magicl:tref stress 1 0))) 2))
+;;          (diff (the double-float
+;;                     (sqrt (the double-float
+;;                                (+ (the double-float
+;;                                        (expt
+;;                                         (/
+;;                                          (the double-float
+;;                                               (- (the double-float (magicl:tref stress 0 0))
+;;                                                  (the double-float (magicl:tref stress 1 0))))
+;;                                          2d0)
+;;                                         2d0))
+;;                                   (the double-float
+;;                                        (expt (the double-float (magicl:tref stress 2 0)) 2d0)))))))
+;;          (s_1 (+ av diff))
+;;          (s_2 (- av diff)))
+;;     (declare (double-float av diff s_1 s_2))
+;;     (values s_1 s_2)))
 (defun principal-stresses (stress)
-  (declare (magicl:matrix/double-float stress))
-  (let* ((av (/ (+ (the double-float (magicl:tref stress 0 0))
-                   (the double-float (magicl:tref stress 1 0))) 2))
-         (diff (the double-float
-                    (sqrt (the double-float
-                               (+ (the double-float
-                                       (expt
-                                        (/
-                                         (the double-float
-                                              (- (the double-float (magicl:tref stress 0 0))
-                                                 (the double-float (magicl:tref stress 1 0))))
-                                         2d0)
-                                        2d0))
-                                  (the double-float
-                                       (expt (the double-float (magicl:tref stress 2 0)) 2d0)))))))
-         (s_1 (+ av diff))
-         (s_2 (- av diff)))
-    (declare (double-float av diff s_1 s_2))
-    (values s_1 s_2)))
+  (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
+    (declare (ignore v))
+    (values (apply #'max l) (apply #'min l))))
 
 (defun damage-profile (damage damage-crit)
   "Constitive law describing the scalar stress decrease as a function of damage"
@@ -847,20 +851,26 @@
         (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
-        (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
-        (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
-        (cl-mpm/output::save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
-        (cl-mpm/output::save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
+        ;; (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
+        ;; (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        ;; (cl-mpm/output::save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
+        ;; (cl-mpm/output::save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
+
         (cl-mpm/output::save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
         (cl-mpm/output::save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+
         (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+        (cl-mpm/output::save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+        (cl-mpm/output::save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
+        (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
+        (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
 
         (cl-mpm/output::save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
         (cl-mpm/output::save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
         (cl-mpm/output::save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
-        (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
+
+        ;; (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
         (cl-mpm/output::save-parameter "damage-inc-average"
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-damage-inc mp)
@@ -868,7 +878,7 @@
                                          (cl-mpm/particle::mp-time-averaged-counter mp)))))
                           (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) 0d0)
                           v))
-        (cl-mpm/output::save-parameter "ybar-average"
+        (cl-mpm/output::save-parameter "damage-ybar-average"
                         (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
                                     (max 1d0
                                          (cl-mpm/particle::mp-time-averaged-counter mp)))))
@@ -879,7 +889,7 @@
         ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
         ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
 
-        (cl-mpm/output::save-parameter "strain_rate"
+        (cl-mpm/output::save-parameter "strain-rate"
                         (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
                         ;; (multiple-value-bind (l v)
                         ;;     (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
@@ -922,19 +932,20 @@
                                                                  (cl-mpm/particle::mp-pressure mp)))))
         (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+
         (cl-mpm/output::save-parameter "damage"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage)
                             (cl-mpm/particle:mp-damage mp)
                             0d0))
-        (cl-mpm/output::save-parameter "damage_inc"
+        (cl-mpm/output::save-parameter "damage-inc"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage-increment)
                             (cl-mpm/particle::mp-damage-increment mp)
                             0d0))
-        (cl-mpm/output::save-parameter "damage_ybar"
+        (cl-mpm/output::save-parameter "damage-ybar"
                         (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                             (cl-mpm/particle::mp-damage-ybar mp)
                             0d0))
-        (cl-mpm/output::save-parameter "local_length"
+        (cl-mpm/output::save-parameter "local-length"
                         (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                             (cl-mpm/particle::mp-true-local-length mp)
                             0d0))

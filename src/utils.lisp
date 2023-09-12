@@ -24,6 +24,8 @@
    #:voigt-to-matrix
    #:vector-zeros
    #:vector-from-list
+   #:eig
+   #:get-stress
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -36,6 +38,10 @@
   ;; (multiple-value-bind (l v) (magicl:eig mat)
   ;;   (values l (magicl:.realpart v)))
   )
+(let ((stress-components '(:xx :yy :zz :yz :xz :yz)))
+  (defun get-stress (stress component)
+    "Get stress component from voigt notation stress vector"
+    (aref (magicl::matrix/double-float-storage stress) (position component stress-components))))
 
 (declaim (inline vector-zeros)
          (ftype (function ()

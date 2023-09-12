@@ -33,8 +33,8 @@
          (f (* rho g h))
          )
     (if (> h 0d0)
-        (voigt-from-list (list f f 0d0))
-        (voigt-zeros)
+        (magicl:from-list (list f f 0d0) '(3 1))
+        (magicl:zeros '(3 1) :type 'double-float)
         )
     ;; (voigt-zeros)
     ))
@@ -156,7 +156,7 @@
                      ;;                                             node-force)
                      (cl-mpm/fastmath::fast-fmacc node-force
                                                   (magicl:@ (magicl:transpose dsvp)
-                                                            (cl-mpm/utils::plane-strain-transform (funcall func-stress mp)))
+                                                            (funcall func-stress mp))
                                                   volume)
                      ;; Add divergance of stress
                      (cl-mpm/fastmath::fast-fmacc node-force
@@ -165,7 +165,7 @@
                      ;;Debug buoyancy
                      (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
                                                   (magicl:@ (magicl:transpose dsvp)
-                                                            (cl-mpm/utils::plane-strain-transform (funcall func-stress mp)))
+                                                            (funcall func-stress mp))
                                                   volume)
                      ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                      ;;                                             (funcall func-stress mp)
@@ -231,7 +231,7 @@
                                 ;;                                             node-force)
                                 (cl-mpm/fastmath::fast-fmacc node-force
                                                              (magicl:@ (magicl:transpose dsvp)
-                                                                       (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
+                                                                       (funcall func-stress pos))
                                                              (* -1d0 volume))
 
                                 (cl-mpm/fastmath::fast-fmacc node-force
@@ -240,7 +240,7 @@
 
                                 (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
                                                              (magicl:@ (magicl:transpose dsvp)
-                                                                       (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
+                                                                       (funcall func-stress pos))
                                                              (* -1d0 volume))
                                 ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
                                 ;;                                             (funcall func-stress pos)
@@ -290,7 +290,7 @@
                                       (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                                       (cl-mpm/fastmath::fast-fmacc node-force
                                                                    (magicl:@ (magicl:transpose dsvp)
-                                                                             (cl-mpm/utils::plane-strain-transform (funcall func-stress pos)))
+                                                                             (funcall func-stress pos))
                                                                    (* -1d0 volume))
 
                                       (cl-mpm/fastmath::fast-fmacc node-force
@@ -795,7 +795,7 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-    (let ((datum-rounding nil))
+    (let ((datum-rounding t))
       (if datum-rounding
           (progn
             (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))

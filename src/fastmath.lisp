@@ -14,12 +14,12 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (in-package :cl-mpm/fastmath)
 
-(push :sb-simd *features*)
-(eval-when
-    (:compile-toplevel)
-  (push :sb-simd *features*)
-  #+:sb-simd (require 'sb-simd)
-  )
+;; (push :sb-simd *features*)
+;; (eval-when
+;;     (:compile-toplevel)
+;;   (push :sb-simd *features*)
+;;   #+:sb-simd (require 'sb-simd)
+;;   )
 
 #+:sb-simd
 (progn
@@ -57,32 +57,32 @@
     (simd-accumulate (magicl::matrix/double-float-storage a) (magicl::matrix/double-float-storage b))
     (values)))
 
-(declaim
- (inline mult)
- (ftype (function (magicl:matrix/double-float
-                   magicl:matrix/double-float
-                   magicl:matrix/double-float) (values)
-                  ) mult))
-(defun mult (a b res)
-  (declare (type magicl:matrix/double-float a b res))
-  (let ((a-s (magicl::matrix/double-float-storage a))
-        (b-s (magicl::matrix/double-float-storage b))
-        (res-s (magicl::matrix/double-float-storage res))
-        )
-    (declare (type (simple-array double-float) a-s b-s res-s))
-    (loop for i from 0 to 2
-          do (loop for j from 0 to 1
-                   do (incf (aref res-s i) (* (aref a-s (+ j (* 2 i)))
-                                              (aref b-s j)))))))
+;; (declaim
+;;  (inline mult)
+;;  (ftype (function (magicl:matrix/double-float
+;;                    magicl:matrix/double-float
+;;                    magicl:matrix/double-float) (values)
+;;                   ) mult))
+;; (defun mult (a b res)
+;;   (declare (type magicl:matrix/double-float a b res))
+;;   (let ((a-s (magicl::matrix/double-float-storage a))
+;;         (b-s (magicl::matrix/double-float-storage b))
+;;         (res-s (magicl::matrix/double-float-storage res))
+;;         )
+;;     (declare (type (simple-array double-float) a-s b-s res-s))
+;;     (loop for i from 0 to 2
+;;           do (loop for j from 0 to 1
+;;                    do (incf (aref res-s i) (* (aref a-s (+ j (* 2 i)))
+;;                                               (aref b-s j)))))))
 
-(declaim (inline det)
-         (ftype (function (magicl:matrix/double-float) (values double-float)) det)
-         )
-(defun det (x)
-  (let ((x-a (magicl::matrix/double-float-storage x)))
-    (declare (type (simple-array double-float) x-a))
-    (values (- (* (aref x-a 0) (aref x-a 3))
-               (* (aref x-a 1) (aref x-a 2))))))
+;; (declaim (inline det)
+;;          (ftype (function (magicl:matrix/double-float) (values double-float)) det)
+;;          )
+;; (defun det (x)
+;;   (let ((x-a (magicl::matrix/double-float-storage x)))
+;;     (declare (type (simple-array double-float) x-a))
+;;     (values (- (* (aref x-a 0) (aref x-a 3))
+;;                (* (aref x-a 1) (aref x-a 2))))))
 
 (declaim
  (inline fast-fmacc-array)
@@ -117,7 +117,7 @@
 
 (declaim (inline voigt-tensor-reduce-lisp)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
-(let ((second-invar (magicl:from-array (make-array 3 :initial-contents '(1d0 1d0 0.5d0)) '(3 1) :type 'double-float :layout :column-major)))
+(let ((second-invar (magicl:from-array (make-array 6 :initial-contents '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0)) '(6 1) :type 'double-float :layout :column-major)))
   (defun voigt-tensor-reduce-lisp (a)
      (values (magicl::sum (magicl.simd::.*-simd a a second-invar)))))
 
@@ -130,7 +130,10 @@
     (+
      (* (aref arr 0) (aref arr 0))
      (* (aref arr 1) (aref arr 1))
-     (* (aref arr 2) (aref arr 2) 0.5d0)
+     (* (aref arr 2) (aref arr 2))
+     (* (aref arr 3) (aref arr 3) 0.5d0)
+     (* (aref arr 4) (aref arr 4) 0.5d0)
+     (* (aref arr 5) (aref arr 5) 0.5d0)
      )))
 
 (defun voigt-tensor-reduce (a)
@@ -138,16 +141,16 @@
   #-:sb-simd (voigt-tensor-reduce-lisp a)
   )
 
-(declaim (inline flat-tensor-reduce-simd)
-         (ftype (function (magicl:matrix/double-float) double-float) flat-tensor-reduce-simd))
-(defun flat-tensor-reduce-simd (a)
-  "Calculate the product A_{ij}A_{ij} but without voigt notation"
-  (let ((arr (magicl::matrix/double-float-storage a)))
-    (declare ((simple-array double-float) arr))
-    (+
-     (* (aref arr 0) (aref arr 0))
-     (* (aref arr 1) (aref arr 1))
-     (* (aref arr 2) (aref arr 2) 0.5d0))))
+;; (declaim (inline flat-tensor-reduce-simd)
+;;          (ftype (function (magicl:matrix/double-float) double-float) flat-tensor-reduce-simd))
+;; (defun flat-tensor-reduce-simd (a)
+;;   "Calculate the product A_{ij}A_{ij} but without voigt notation"
+;;   (let ((arr (magicl::matrix/double-float-storage a)))
+;;     (declare ((simple-array double-float) arr))
+;;     (+
+;;      (* (aref arr 0) (aref arr 0))
+;;      (* (aref arr 1) (aref arr 1))
+;;      (* (aref arr 2) (aref arr 2) 0.5d0))))
 
 (declaim (inline stretch-to-sym)
          (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-sym))
@@ -193,20 +196,20 @@
            (the double-float (magicl:tref stretch 1 0))))
   (values))
 
-(defun mult-transpose-accumulate (a b scale res)
-  "(incf res (scale! (@ (tranpose a) b) scale))"
-  (declare (type magicl:matrix/double-float a b res)
-           (type double-float scale))
-  (declare (optimize (safety 3)))
-  (let (
-        ;; (a-s (magicl::matrix/double-float-storage a))
-        ;; (b-s (magicl::matrix/double-float-storage b))
-        ;; (res-s (magicl::matrix/double-float-storage res))
-        )
-    (loop for i from 0 to 1
-          do (loop for j from 0 to 2
-                   do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
-                                                                        (the double-float (magicl:tref b j 0)) scale))))))
+;; (defun mult-transpose-accumulate (a b scale res)
+;;   "(incf res (scale! (@ (tranpose a) b) scale))"
+;;   (declare (type magicl:matrix/double-float a b res)
+;;            (type double-float scale))
+;;   (declare (optimize (safety 3)))
+;;   (let (
+;;         ;; (a-s (magicl::matrix/double-float-storage a))
+;;         ;; (b-s (magicl::matrix/double-float-storage b))
+;;         ;; (res-s (magicl::matrix/double-float-storage res))
+;;         )
+;;     (loop for i from 0 to 1
+;;           do (loop for j from 0 to 2
+;;                    do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
+;;                                                                         (the double-float (magicl:tref b j 0)) scale))))))
 
 (defun dot (a b)
   (magicl::sum (magicl.simd::.*-simd a b)))
