@@ -214,6 +214,7 @@
                       (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
+
                     (update-stress mesh mps dt)
                     ;; ;; Map forces onto nodes
                     (p2g-force mesh mps)
@@ -1190,7 +1191,7 @@ Calls func with only the node"
 ;;      (update-particle-mp (aref mps i) dt)))
 
 ;Could include this in p2g but idk
-(declaim (inline calculate-strain-rate)
+(declaim (notinline calculate-strain-rate)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
@@ -1289,7 +1290,7 @@ Calls func with only the node"
                      (update-domain-corner mesh mp dt)
                      ))))
 
-(declaim (inline update-strain-kirchoff))
+(declaim (notinline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            double-float) (values))
@@ -1314,16 +1315,11 @@ Calls func with only the node"
     (progn
       (let ((df (calculate-df mp)))
         (progn
-          ;; (magicl:mult df def :target def)
           (setf def (magicl:@ df def))
-          (let ((initial-strain (magicl:scale strain 1d0))
-                ;(initial-strain (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-a (cl-mpm/utils::matrix-zeros))
-                (temp-strain-mat-b (cl-mpm/utils::matrix-zeros)))
-
+          (let (;(initial-strain (magicl:scale strain 1d0))
+                )
             (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
-              (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
-                    (trial-lgs (magicl:@ df
+              (let ((trial-lgs (magicl:@ df
                                          v
                                          (cl-mpm/utils::matrix-from-list
                                           (list
@@ -1332,8 +1328,7 @@ Calls func with only the node"
                                            0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
                                            ))
                                          (magicl:transpose v)
-                                         (magicl:transpose df)))
-                    )
+                                         (magicl:transpose df))))
                 (multiple-value-bind (lf vf) (cl-mpm/utils::eig
                                               (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
                   (setf strain (magicl:scale!
@@ -1353,9 +1348,10 @@ Calls func with only the node"
                   ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
                   )
                 ))
-            (magicl:.- initial-strain strain initial-strain)
-            (setf eng-strain-rate initial-strain)
-            (magicl:scale! eng-strain-rate (/ 1d0 dt))
+            ;;Not sure about this engineering strain calculation
+            ;; (magicl:.- initial-strain strain initial-strain)
+            ;; (setf eng-strain-rate initial-strain)
+            ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )
@@ -1366,24 +1362,6 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          ;; (let ((F (cl-mpm/utils::matrix-zeros)))
-          ;;   (magicl:mult def def :target F :transb :t)
-          ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-          ;;     (let ((stretch
-          ;;             (magicl:@
-          ;;              v
-          ;;              (cl-mpm/utils::matrix-from-list
-          ;;               (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
-          ;;                     0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
-          ;;                     0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-          ;;              (magicl:transpose v)))
-          ;;           )
-          ;;       (declare (type magicl:matrix/double-float stretch))
-          ;;       (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-          ;;                                  (the double-float (tref stretch 0 0))))
-          ;;       (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-          ;;                                  (the double-float (tref stretch 1 1))))
-          ;;       )))
           (update-domain-stretch-rate df domain)
           ;; (update-domain-corner mesh mp dt)
           )

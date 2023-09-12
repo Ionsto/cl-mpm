@@ -195,18 +195,19 @@
                   magicl:matrix/double-float) voight-to-stretch-prealloc))
 (defun voight-to-stretch-prealloc (vec result)
   "Take a voigt matrix of stretches to "
-  (let* ((exx (magicl:tref vec 0 0))
-         (eyy (magicl:tref vec 1 0))
-         (exy (magicl:tref vec 2 0))
-         (eyx (magicl:tref vec 3 0))
-         (s result)
-         )
-    (declare (double-float exx eyy exy eyx))
-    (setf (magicl:tref s 0 0) exx
-          (magicl:tref s 0 1) exy
-          (magicl:tref s 1 0) eyx
-          (magicl:tref s 1 1) eyy
-          ))
+  (let ((vecs (magicl::matrix/double-float-storage vec)))
+    (let* ((exx (aref vecs 0))
+           (eyy (aref vecs 1))
+           (exy (aref vecs 2))
+           (eyx (aref vecs 3))
+           (s result)
+           )
+      (declare (double-float exx eyy exy eyx))
+      (setf (magicl:tref s 0 0) exx
+            (magicl:tref s 0 1) exy
+            (magicl:tref s 1 0) eyx
+            (magicl:tref s 1 1) eyy
+            )))
   result)
 
 (defun matrix-to-voight-strain (matrix)
