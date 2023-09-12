@@ -281,12 +281,12 @@
                           magicl:matrix/double-float) deviatoric-voigt))
 (defun deviatoric-voigt (a)
   "Calculate the product A_{ij}A_{ij}"
-  (let* ((tr (/ (trace-voigt a) 2d0))
+  (let* ((tr (/ (trace-voigt a) 3d0))
          (arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
     (stress-from-list (list (- (aref arr 0) tr)
                             (- (aref arr 1) tr)
-                            0d0
+                            (- (aref arr 2) tr)
                             0d0
                             0d0
                             (aref arr 5)))))

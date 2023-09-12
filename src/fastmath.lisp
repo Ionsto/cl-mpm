@@ -11,15 +11,15 @@
    #:norm
     ))
 
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmath)
 
 ;; (push :sb-simd *features*)
-;; (eval-when
-;;     (:compile-toplevel)
-;;   (push :sb-simd *features*)
-;;   #+:sb-simd (require 'sb-simd)
-;;   )
+(eval-when
+    (:compile-toplevel)
+  (push :sb-simd *features*)
+  #+:sb-simd (require 'sb-simd)
+  )
 
 #+:sb-simd
 (progn

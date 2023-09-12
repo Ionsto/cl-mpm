@@ -464,11 +464,11 @@
 (defun deviatoric (voigt)
   (let* ((mat (voight-to-matrix voigt))
          (trace (/ (magicl:trace mat) 3d0)))
-    (matrix-to-voight (magicl:.- mat (magicl:eye 3 :value (the double-float trace))))))
+    (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
 
 (defun deviatoric-mat (mat)
   (let* ((trace (/ (magicl:trace mat) 3d0)))
-    (matrix-to-voight (magicl:.- mat (magicl:eye 3 :value (the double-float trace))))))
+    (matrix-to-voight (magicl:.- mat (magicl:eye 2 :value (the double-float trace))))))
 
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity))
@@ -488,7 +488,10 @@
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
   "Get the viscosity for a given strain state"
-  (let* ((effective-strain (+ 1d-20 (effective-strain-rate strain))))
+  (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
+         (effective-strain (+ 1d-20 (effective-strain-rate strain)))
+         ;; (effective-strain (+ 1d-40 (* 0.5d0 (* 0.5d0 (expt (magicl:tref strain 2 0) 2)))))
+         )
     (declare (type double-float effective-strain))
     (* visc-factor (the double-float (expt effective-strain (* 1d0 (- (/ 1d0 visc-power) 1d0)))))))
 

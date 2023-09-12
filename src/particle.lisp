@@ -925,11 +925,11 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
-           ;; (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) (- visc-power 1)))))
+    (let* (
+           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+           ;; (viscosity 1d-14)
            (visc-u viscosity)
-           (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
-           ;; (viscosity (* viscosity (max 1d-1 (expt (- 1d0 damage) 2))))
+           ;(viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
            )
       ;; (setf p
       ;;       (/ (/ E (* (+ 1 nu) (- 1 nu)))
@@ -953,8 +953,11 @@
       ;;         def
       ;;         vorticity
       ;;         D)))
-      (setf stress-u
-            (cl-mpm/constitutive:maxwell-exp-v strain-rate stress-u E nu de visc-u dt))
+
+      ;; (setf stress-u
+      ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress-u E nu de visc-u dt))
+
+      (setf stress-u (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt))
       ;; (setf stress
       ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
       (setf stress (magicl:scale stress-u 1d0))
@@ -965,7 +968,7 @@
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
             (let ((driving-pressure (* pressure (min 1.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
-              (loop for i from 0 to 1
+              (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
