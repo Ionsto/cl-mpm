@@ -47,7 +47,7 @@
 (defun newtonian-fluid (strain pressure viscosity)
   "A newtonian fluid model"
   (let* ((strain-matrix (voight-to-matrix strain))
-         (dev-strain (matrix-to-voight (magicl:.- strain-matrix (magicl:eye 2 :value (/ (magicl:trace strain-matrix) 3))))))
+         (dev-strain (matrix-to-voight (magicl:.- strain-matrix (magicl:eye 3 :value (/ (magicl:trace strain-matrix) 3))))))
     (magicl:.- (magicl:from-list (list (- pressure) (- pressure) 0d0) '(3 1))
                (magicl:scale dev-strain viscosity))))
 
@@ -77,7 +77,7 @@
     (declare (type double-float relaxation-const))
     (let* ((stress-matrix (voight-to-matrix elastic-increment))
            (p (/ (magicl:trace stress-matrix) 3d0))
-           (pressure-matrix (magicl:eye 2 :value p))
+           (pressure-matrix (magicl:eye 3 :value p))
            (dev-stress (magicl:.- stress-matrix pressure-matrix)))
       (setf elastic-increment (matrix-to-voight
                     (magicl.simd::.+-simd pressure-matrix
@@ -94,7 +94,7 @@
 ;;   (let* ((order 2)
 ;;          (stress-matrix (voight-to-matrix stress))
 ;;          (pressure (/ (magicl:trace stress-matrix) 3d0))
-;;          (pressure-matrix (magicl:eye 2 :value pressure))
+;;          (pressure-matrix (magicl:eye 3 :value pressure))
 ;;          (dev-stress (magicl:.- stress-matrix pressure-matrix))
 ;;          (relaxation-const (/ (* dt elasticity)
 ;;                               (* 2d0 (- 1d0 poisson-ratio) viscosity)))
@@ -340,7 +340,7 @@
                           (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
 (defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
-  "A stress increment form of a viscoelastic maxwell material"
+  "A stress increment form of a viscoelastic maxwell material"
   (let* (
          (pressure (/ (voight-trace stress) 3d0))
          (pressure-matrix (voight-eye pressure))
@@ -405,7 +405,7 @@
   (let* ((order 3)
          ;(strain-matrix (voight-to-matrix strain-increment))
          (pressure (/ (magicl:trace (voight-to-matrix stress)) 3d0))
-         (pressure-matrix (magicl:eye 2 :value pressure))
+         (pressure-matrix (magicl:eye 3 :value pressure))
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
@@ -429,7 +429,7 @@
   (let* ((order 3)
          ;(strain-matrix (voight-to-matrix strain-increment))
          (pressure (/ (magicl:trace (voight-to-matrix stress)) 3d0))
-         (pressure-matrix (magicl:eye 2 :value pressure))
+         (pressure-matrix (magicl:eye 3 :value pressure))
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
@@ -447,13 +447,13 @@
          ;(strain-matrix (voight-to-matrix strain-increment))
          (pressure (/ (magicl:trace (voight-to-matrix stress)) 3d0))
          (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
-         (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
+         (pressure-matrix (magicl:eye 3 :value (+ pressure pressure-increment)))
          (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
     (magicl.simd::.+-simd (matrix-to-voight pressure-matrix) dev-stress)))
 
 (defun glen-stress (strain visc-factor visc-power dt)
   (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 3d0))
-         (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 2 :value strain-trace))))
+         (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 3 :value strain-trace))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
          (effective-strain (magicl::sum (magicl.simd::.*-simd dev-strain dev-strain second-invar)))
          )

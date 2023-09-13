@@ -571,7 +571,7 @@
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
             (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
                    (tp (funcall calc-pressure pos))
-                   (driving-pressure (* tp (expt (min 1.00d0 damage) 1)))
+                   (driving-pressure (* tp (expt (min 0.90d0 damage) 1)))
                    (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
