@@ -7,7 +7,7 @@
 
 ;; (pushnew :cl-mpm-pic *features*)
 ;; (setf *features* (delete :cl-mpm-pic *features*))
-;; (asdf:compile-system :cl-mpm :force T)
+(asdf:compile-system :cl-mpm :force T)
 (in-package :cl-mpm/examples/shear)
 (declaim (optimize (debug 2) (safety 2) (speed 2)))
 
@@ -167,16 +167,20 @@
                :nu 0.3d0
                :gravity -0.0d0
                )))
-      (setf (cl-mpm:sim-damping-factor sim) 0.01d0)
+      (setf (cl-mpm:sim-damping-factor sim) 0.00d0)
       ;; (setf (cl-mpm:sim-damping-factor sim) 1d-5)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       ;; (setf (cl-mpm:sim-mass-filter sim) 0d0)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      ;; (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf
+       (cl-mpm:sim-dt sim)
+       (* 1d0 h (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0))))))
+      (format t "DT ~f~%" (cl-mpm:sim-dt sim))
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
                                             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
                                            ))
       (with-accessors ((mps cl-mpm:sim-mps))
@@ -231,7 +235,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (let ((mesh-size 4.0)
-        (mps-per-cell 4))
+        (mps-per-cell 2))
     (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
@@ -291,7 +295,8 @@
                     (when active
                       (setf (magicl:tref vel 0 0)
                             (* shear-rate
-                               (magicl:tref pos 1 0))
+                               (magicl:tref pos 1 0)
+                               )
                             (magicl:tref vel 1 0)
                             0d0
                             )
@@ -329,14 +334,14 @@
                        0 ms-y))
     (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-          (sub-steps (/ (/ 0.1 *shear-rate*) (cl-mpm:sim-dt *sim*))))
+          (sub-steps (round (/ 0.1 *shear-rate*) (cl-mpm:sim-dt *sim*))))
       ;; (vgplot:format-plot t "set ytics ~f" h)
       (vgplot:format-plot t "set xtics ~f" h)
       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                               *sim*)
       (incf *sim-step*)
       (format t "Substeps for ~a~%" sub-steps)
-      (time (loop for steps from 0 to 80
+      (time (loop for steps from 0 below 60
                   while *run-sim*
                   do
                      (progn
@@ -348,7 +353,6 @@
                                         (progn
                                           (cl-mpm::update-sim *sim*)
                                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))))
-                       (print "finished!")
             (push *t* *time*)
                        ;; (push (calculate-energy-strain *sim*) *energy-se*)
                        ;; (push (calculate-energy-kinetic *sim*) *energy-ke*)
@@ -378,10 +382,10 @@
                        (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                                *sim*)
                        (incf *sim-step*)
-                       ;; (plot *sim*)
+                       (plot *sim*)
                        ;; (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
                        (swank.live:update-swank)
-                       (sleep .1)
+                       (sleep .01)
 
                        )))
       (cl-mpm/output:save-csv (merge-pathnames (format nil "output/final.csv" *sim-step*)) *sim*)
@@ -539,8 +543,10 @@
                                           0d0 0d0 1d0) '(3 3)))
                (b (mat-log (magicl:@ F (magicl:transpose F))))
                (s  (cl-mpm/constitutive:linear-elastic (magicl:.*
+                                                        ;;This doesn't convert to proper voigt notation
                                                         (cl-mpm/utils:matrix-to-voight b)
-                                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 1d0 1d0 1d0))
+                                                        ;;We don't need to multiply by 0.5x
+                                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))
                                                         ) E nu))
                )
           s

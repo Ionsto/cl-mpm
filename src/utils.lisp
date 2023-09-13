@@ -315,14 +315,18 @@
 (defun stretch-to-sym (stretch result)
   (progn
     (declaim (magicl:matrix/double-float result))
-    (let ((res (matrix-to-voight (magicl:.+ stretch (magicl:transpose stretch)))))
-      (aops:copy-into (magicl::matrix/double-float-storage result)
-                      (magicl::matrix/double-float-storage res))
-      result)
-    ;; (loop for i from 0 below 3
-    ;;       do
-    ;;          (setf (magicl:tref result  i 0)
-    ;;                (magicl:tref stretch i 0)))
+    ;; (let ((res (matrix-to-voight (magicl:scale! (magicl:.+ stretch (magicl:transpose stretch)) 0.5d0))))
+    ;;   (aops:copy-into (magicl::matrix/double-float-storage result)
+    ;;                   (magicl::matrix/double-float-storage res))
+    ;;   result)
+    (loop for i from 0 below 3
+          do
+             (setf (magicl:tref result  i 0)
+                   (magicl:tref stretch i i)))
+    (setf (magicl:tref result 5 0)
+          (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
+                    (the double-float (magicl:tref stretch 1 0)))))
+    ;; (setf (magicl:tref result  i 0) (magicl:tref result  i 0))
     ;; (setf (magicl:tref result  0 0)
     ;;       (magicl:tref stretch 0 0))
 
@@ -333,4 +337,24 @@
     ;;       (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
     ;;                 (the double-float (magicl:tref stretch 1 0)))))
     )
+  (values))
+
+
+(declaim (inline stretch-to-skew)
+         (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-skew))
+(defun stretch-to-skew (stretch result)
+  ;; (magicl:.- stretch (magicl:transpose stretch) result)
+  ;; (loop for i from 0 below 3
+  ;;       do
+  ;;          (setf (magicl:tref result  i 0) 0d0))
+  ;; (unless result
+  ;;   (setf result (cl-mpm/utils:voigt-zeros)))
+  (setf (magicl:tref result  0 0)
+        0)
+  (setf (magicl:tref result  1 0)
+        0)
+  ;; Since off diagonal components get halved, then voigt doubles them this is net 1d0
+  (setf (magicl:tref result 5 0)
+        (- (the double-float (magicl:tref stretch 0 1))
+           (the double-float (magicl:tref stretch 1 0))))
   (values))

@@ -414,7 +414,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                 (funcall func mesh node weight grads))))
                           ))))))
 
-(declaim (inline iterate-over-neighbours-point-linear-simd)
+(declaim (notinline iterate-over-neighbours-point-linear-simd)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear-simd)
          )
@@ -468,7 +468,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                   (funcall func mesh node weight grads)))))))))))
 
 
-(declaim (inline iterate-over-neighbours-shape-gimp)
+(declaim ;(inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp))
 (defun iterate-over-neighbours-shape-gimp (mesh mp func)
@@ -570,7 +570,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         (declare (double-float gradx grady))
                                         (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))))))))))))))
 
-(declaim (inline iterate-over-neighbours-shape-gimp-simd)
+(declaim (notinline iterate-over-neighbours-shape-gimp-simd)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-simd))
 (defun iterate-over-neighbours-shape-gimp-simd (mesh mp func)
@@ -1220,17 +1220,17 @@ Calls func with only the node"
                    node
                  (declare (double-float))
                  (when node-active
-                   (magicl:.+
-                    stretch-tensor
-                    (voight-to-stretch
-                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
-                    stretch-tensor)
-                   ;; (magicl.simd::.+-simd
+                   ;; (magicl:.+
                    ;;  stretch-tensor
-                   ;;  (cl-mpm/utils::voight-to-stretch-prealloc
-                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                   ;;              grads stretch-dsvp) node-vel) v-s)
+                   ;;  (voight-to-stretch
+                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d grads) node-vel))
                    ;;  stretch-tensor)
+                   (magicl.simd::.+-simd
+                    stretch-tensor
+                    (cl-mpm/utils::voight-to-stretch-prealloc
+                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
+                                grads stretch-dsvp) node-vel) v-s)
+                    stretch-tensor)
                    #+cl-mpm-fbar (magicl.simd::.+-simd
                                   stretch-tensor-fbar
                                   (cl-mpm/utils::voight-to-stretch-prealloc
@@ -1245,7 +1245,7 @@ Calls func with only the node"
           #+cl-mpm-fbar (when (<= jfbar 0d0)
             (error "FBAR volume non-positive"))
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
-            (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
+            (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
             (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (magicl:scale! stretch-tensor dt)
@@ -1505,12 +1505,11 @@ Calls func with only the node"
           (progn
             (calculate-strain-rate mesh mp dt)
 
-            ;; ;;; Turn cauchy stress to kirchoff
+            ;;; Turn cauchy stress to kirchoff
             (setf stress stress-kirchoff)
 
             ;;; Update our strains
             (update-strain-kirchoff mesh mp dt)
-            ;; (update-strain-linear mesh mp dt)
 
             ;;;Update our kirchoff stress with constitutive model
             (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
@@ -1520,7 +1519,6 @@ Calls func with only the node"
               (error "Negative volume"))
             ;; Turn kirchoff stress to cauchy
             (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
-            ;; (setf stress (magicl:scale stress-kirchoff 1d0))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)

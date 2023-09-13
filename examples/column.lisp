@@ -98,7 +98,7 @@
 
       ;; (loop for mp across (cl-mpm::sim-mps sim)
       ;;       do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 0.1d0)
+      (setf (cl-mpm:sim-damping-factor sim) 1d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-2)
       ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
@@ -254,9 +254,24 @@
                    when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- x-slice-pos 0.001))
                    collect mp))
            (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
-           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))))
+           (y-ref (loop for mp in mp-list collect
+                                          (magicl:tref (magicl:.- (cl-mpm/particle::mp-position mp)
+                                                                  (cl-mpm/particle::mp-displacement mp)
+                                                                  ) 1 0)))
+           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
+           (rho 80d0)
+           (E 1d6)
+           (g 10d0)
+           (max-y (+ (reduce #'max y-ref) (magicl:tref (cl-mpm/particle::mp-domain-size-0 (first mp-list)) 1 0)))
+           (syy-ref (mapcar (lambda (x) (* rho g (- x max-y))) y-ref))
+           )
       (vgplot:figure)
-      (vgplot:plot y syy ";;with points pt 7"))))
+      (vgplot:plot syy y-ref "first";"first;;with points pt 7"
+                   syy-ref y-ref "reference";"Ref;;with points pt 7"
+                   )
+      (vgplot:legend)
+      )))
+
 (defun save-sigma-yy ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
