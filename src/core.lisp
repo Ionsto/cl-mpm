@@ -1305,61 +1305,78 @@ Calls func with only the node"
           (setf def (magicl:@ df def))
           (let (;(initial-strain (magicl:scale strain 1d0))
                 )
-            ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
-            ;;   (let ((r1 (cl-mpm/utils:matrix-zeros))
-            ;;         (r2 (cl-mpm/utils:matrix-zeros)))
-            ;;     (magicl:mult df v :target r1)
-            ;;     (magicl:mult r1 (cl-mpm/utils::matrix-from-list
-            ;;                      (list
-            ;;                       (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-            ;;                       0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-            ;;                       0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-            ;;                       )) :target r2)
-            ;;     (magicl:mult r2 v :target r1 :transb :T)
-            ;;     (magicl:mult r1 v :target r2 :transb :T)
-            ;;     (magicl:.+ r1 (magicl:transpose r1) r2)
-            ;;     (magicl:scale! r2 0.5d0)
-            ;;     (multiple-value-bind (lf vf) (cl-mpm/utils::eig r2)
-            ;;       (magicl:mult vf 
-            ;;                    (cl-mpm/utils::matrix-from-list
-            ;;                     (list
-            ;;                      (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-            ;;                      0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-            ;;                      0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-            ;;                      )
-            ;;                     )
-            ;;                    :target r1)
-            ;;       (magicl:mult r1 vf :target r2 :transb :T)
-            ;;       (setf strain (magicl:scale! (matrix-to-voigt r2) 0.5d0))
-            ;;       )))
+            (let ((r1 (cl-mpm/utils:matrix-zeros))
+                  (r2 (cl-mpm/utils:matrix-zeros)))
+              (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
+                                                             strain))
+                (magicl:mult df v :target r1)
+                (magicl:mult r1
+                             (cl-mpm/utils::matrix-from-list
+                              (list
+                               (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                               0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                               0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                               ))
+                             :target r2)
+                (magicl:mult r2 (magicl:transpose v) :target r1)
+                (magicl:mult r1 (magicl:transpose df) :target r2)
+                (magicl:mult r2 v :target r1 :transb :T)
+                (magicl:mult r1 df :target r2 :transb :T)
+                ;; (magicl:.+ r1 (magicl:transpose r1) r2)
+                ;; (magicl:scale! r2 0.5d0)
+                (setf r1
+                      (magicl:@ df
+                                v
+                                (cl-mpm/utils::matrix-from-list
+                                 (list
+                                  (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                                  0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                                  0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                                  ))
+                                (magicl:transpose v)
+                                (magicl:transpose df)))
+                  (multiple-value-bind (lf vf) (cl-mpm/utils::eig (magicl:scale! (magicl:.+ r1 (magicl:transpose r1)) 0.5d0))
+                    (magicl:mult
+                     vf
+                     (cl-mpm/utils::matrix-from-list
+                      (list
+                       (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                       0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                       0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                       ))
+                     :target r1)
+                    (magicl:mult r1 vf :target r2 :transb :T)
+                    (setf strain (magicl:scale! (matrix-to-voigt r2) 0.5d0))
+                    );)
 
-            (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
-                                                           strain))
-              (let ((trial-lgs (magicl:@ df
-                                         v
-                                         (cl-mpm/utils::matrix-from-list
-                                          (list
-                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-                                           0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-                                           0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-                                           ))
-                                         (magicl:transpose v)
-                                         (magicl:transpose df))))
-                (multiple-value-bind (lf vf)
-                    (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
-                  (setf strain (magicl:scale!
-                                (matrix-to-voigt
-                                 (magicl:@
-                                  vf
-                                  (cl-mpm/utils::matrix-from-list
-                                   (list
-                                    (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-                                    0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-                                    0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-                                    )
-                                   )
-                                  (magicl:transpose vf)))
-                                0.5d0)))))
+                ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
+                ;;                                                strain))
+                ;; (let ((trial-lgs (magicl:@ df
+                ;;                            v
+                ;;                            (cl-mpm/utils::matrix-from-list
+                ;;                             (list
+                ;;                              (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                ;;                              0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                ;;                              0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                ;;                              ))
+                ;;                            (magicl:transpose v)
+                ;;                            (magicl:transpose df))))
+                ;;   (multiple-value-bind (lf vf)
+                ;;       (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+                ;;     (setf strain (magicl:scale!
+                ;;                   (matrix-to-voigt
+                ;;                    (magicl:@
+                ;;                     vf
+                ;;                     (cl-mpm/utils::matrix-from-list
+                ;;                      (list
+                ;;                       (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                ;;                       0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                ;;                       0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                ;;                       )
+                ;;                      )
+                ;;                     (magicl:transpose vf)))
+                ;;                   0.5d0)))))
+               ))
 
             ;;Not sure about this engineering strain calculation
             ;; (magicl:.- initial-strain strain initial-strain)
