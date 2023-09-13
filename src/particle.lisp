@@ -922,7 +922,7 @@
            (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
            ;; (viscosity 1d-14)
            (visc-u viscosity)
-           ;(viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
+           (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
            )
       ;; (setf p
       ;;       (/ (/ E (* (+ 1 nu) (- 1 nu)))
@@ -947,10 +947,10 @@
       ;;         vorticity
       ;;         D)))
 
-      ;; (setf stress-u
-      ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress-u E nu de visc-u dt))
+      (setf stress-u
+            (cl-mpm/constitutive:maxwell-exp strain-rate stress-u E nu de visc-u dt))
 
-      (setf stress-u (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt))
+      ;; (setf stress-u (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt))
       ;; (setf stress
       ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
       (setf stress (magicl:scale stress-u 1d0))

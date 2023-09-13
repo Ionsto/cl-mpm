@@ -12,7 +12,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -325,14 +325,13 @@
   (let* (
          (stress-matrix (voight-to-matrix stress))
          (pressure (/ (magicl:trace stress-matrix) 3d0))
-         (pressure-matrix (magicl:eye 2 :value pressure))
-
+         (pressure-matrix (magicl:eye 3 :value pressure))
          (dev-stress (magicl:.- stress-matrix pressure-matrix))
          (rho (/ (* 2 (- 1 nu) viscosity) elasticity))
          (exp-rho (exp (- (/ dt rho))))
          (lam (* (- 1 exp-rho) (/ rho dt)))
          (stress-inc (voight-to-matrix (magicl:@ de strain-increment)))
-         (stress-inc-pressure (magicl:eye 2 :value (/ (magicl:trace stress-inc) 3d0)))
+         (stress-inc-pressure (magicl:eye 3 :value (/ (magicl:trace stress-inc) 3d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
     (magicl.simd::.+-simd
@@ -370,6 +369,7 @@
                            &optional
                            (magicl:matrix/double-float nil)
                            )) maxwell-exp-v-simd))
+
 (defun maxwell-exp-v-simd (strain-increment stress elasticity nu de viscosity dt &optional (result-stress nil))
   "A stress increment form of a viscoelastic maxwell material"
   (let* (

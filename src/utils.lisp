@@ -277,7 +277,7 @@
                       '(2 2) :type 'double-float)))
 
 (defun stress-from-list (list)
-  (magicl:from-list list '(3 1) :type 'double-float))
+  (voigt-from-list list))
 
 (declaim (inline trace-voigt)
          (ftype (function (magicl:matrix/double-float) double-float) trace-voigt))
@@ -294,12 +294,13 @@
   "Calculate the product A_{ij}A_{ij}"
   (let* ((tr (/ (trace-voigt a) 3d0))
          (arr (magicl::matrix/double-float-storage a)))
-    (declare ((simple-array double-float) arr))
+    (declare ((simple-array double-float *) arr)
+             (double-float tr))
     (stress-from-list (list (- (aref arr 0) tr)
                             (- (aref arr 1) tr)
                             (- (aref arr 2) tr)
-                            0d0
-                            0d0
+                            (aref arr 3)
+                            (aref arr 4)
                             (aref arr 5)))))
 
 (defun plane-strain-transform (stress)
