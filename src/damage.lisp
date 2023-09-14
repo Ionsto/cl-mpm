@@ -885,7 +885,7 @@
                                          (setf (cl-mpm/particle::mp-time-averaged-counter mp) 0d0
                                                (cl-mpm/particle::mp-time-averaged-ybar mp) 0d0)
                                          v))
-        (cl-mpm/output::save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
+        ;; (cl-mpm/output::save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
         ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
         ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
 
