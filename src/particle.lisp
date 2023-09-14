@@ -219,7 +219,12 @@
     :accessor mp-strain-plastic
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :strain-plastic
-    :initform (magicl:zeros '(3 1))))
+    :initform (cl-mpm/utils:voigt-zeros))
+   (yield-func
+    :accessor mp-yield-func
+    :type double-float
+    :initform 0d0)
+   )
   (:documentation "A vm perfectly plastic material point"))
 
 (defun update-elastic-matrix (particle)
@@ -1171,20 +1176,23 @@
 
 (defmethod constitutive-model ((mp particle-vm) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
-  (with-accessors ((E mp-e)
-                   (nu mp-nu)
-                   (de mp-elastic-matrix)
+  (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
                    (rho mp-rho)
-                   (plastic-strain mp-plastic-strain)
+                   (plastic-strain mp-strain-plastic)
+                   (strain mp-strain)
+                   (yield-func mp-yield-func)
                    )
       mp
-    ;;Train elastic strain - plus trail kirchoff stress
+    ;;Train elasticf strain - plus trail kirchoff stress
     (setf stress
           (cl-mpm/constitutive::linear-elastic-mat strain de))
-    (setf stress
-          (cl-mpm/constitutive::vm-plastic stress de strain rho))
-    ;; ()
-    )
-
-  )
+    (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
+      (setf stress
+            sig
+            plastic-strain (magicl:.- strain eps-e)
+            strain eps-e
+            yield-func f
+            ))
+    stress
+    ))

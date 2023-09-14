@@ -285,7 +285,7 @@
   "Calculate the product A_{ij}A_{ij}"
   (let ((arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float) arr))
-    (+ (aref arr 0) (aref arr 1))))
+    (+ (aref arr 0) (aref arr 1) (aref arr 2) )))
 
 (declaim (inline deviatoric-voigt)
          (ftype (function (magicl:matrix/double-float)
@@ -296,12 +296,12 @@
          (arr (magicl::matrix/double-float-storage a)))
     (declare ((simple-array double-float *) arr)
              (double-float tr))
-    (stress-from-list (list (- (aref arr 0) tr)
-                            (- (aref arr 1) tr)
-                            (- (aref arr 2) tr)
-                            (aref arr 3)
-                            (aref arr 4)
-                            (aref arr 5)))))
+    (voigt-from-list (list (- (aref arr 0) tr)
+                           (- (aref arr 1) tr)
+                           (- (aref arr 2) tr)
+                           (aref arr 3)
+                           (aref arr 4)
+                           (aref arr 5)))))
 
 (defun plane-strain-transform (stress)
   (magicl:from-list (list (magicl:tref stress 0 0)

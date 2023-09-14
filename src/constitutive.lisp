@@ -12,7 +12,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -518,46 +518,101 @@
         (values 0d0))))
 
 (defun voigt-j2 (s)
-  (/ (+ (magicl:dot s s) (expt (magicl:tref s 2) 2)) 2d0))
+  "Calculate j2 invarient from deviatoric stress"
+  (let ((storage (magicl::matrix/double-float-storage s)))
+    (/ (+ (the double-float (cl-mpm/fastmath:dot s s))
+          (the double-float (expt (aref storage 3) 2))
+          (the double-float (expt (aref storage 4) 2))
+          (the double-float (expt (aref storage 5) 2))
+          ) 2d0)))
 
 (defun vm-yield-func (j2 rho)
-  (- (/ (sqrt (* 2d0 j2)) rho) 1d0))
+  (declare (double-float j2 rho))
+  (- (/ (the double-float (sqrt (* 2d0 j2))) rho) 1d0))
 (defun vm-derivatives (sig rho)
-  (let* ((df (cl-mpm/utils:voigt-zeros))
-        (ddf (cl-mpm/utils:matrix-zeros))
-        (s (deviatoric-voigt sig))
-        (j2 (voigt-j2 s))
-         (dj2 (magicl:.* (cl-mpm/utils::voigt-copy s)
-                         (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
-         (ddj2 (magicl:from-list '(0.5d0 -0.5d0 0d0
-                                   -0.5d0 0.5d0 0d0
-                                   0d0 0d0 2d0) '(3 3) :type 'double-flat ))
-         )
-    (setf df (magicl:scale dj2 (/ 1d0 (* rho (sqrt (* 2d0 j2))))))
-    (setf ddf (magicl:scale
+  (declare (double-float rho))
+  (let* ((s (deviatoric-voigt sig))
+         (j2 (the double-float (voigt-j2 s)))
+         (dj2 (magicl:.* s (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
+         (ddj2 (magicl:block-matrix (list (magicl:.- (magicl:eye 3) (magicl:const (/ 1d0 3d0) '(3 3)))
+                                          (magicl:zeros '(3 3))
+                                          (magicl:zeros '(3 3))
+                                          (magicl:eye 3 :value 2d0)) '(2 2)))
+         (df (magicl:scale dj2 (the double-float (/ 1d0 (the double-float (* rho (the double-float (sqrt (the double-float (* 2d0 j2))))))))))
+         (ddf (magicl:scale!
                (magicl:.-
-                (magicl:scale ddj2 (/ 1d0 (sqrt (* 2d0 j2))))
-                (magicl:scale (magicl:@ ddj2 ddj2) (/ 1d0 (expt (* 2d0 j2) 3/2)))
+                (magicl:scale! ddj2 (/ 1d0 (the double-float (sqrt (* 2d0 j2)))))
+                (magicl:scale! (magicl:@ dj2 (magicl:transpose dj2)) (/ 1d0 (the double-float (expt (* 2d0 j2) 3/2))))
                 )
-               (/ 1d0 rho)))
-    (values df ddf))
-  )
-(defun vm-plastic (stress de trial-elastic-strain rho)
-  (let ((tol 1d-9)
-        (max-iter 5)
-        (sig (cl-mpm/utils:matrix-zeros))
-        (s (cl-mpm/utils:matrix-zeros))
-        (j2 0d0)
-        (f 0d0)
-        (eps-e (cl-mpm/utils::vector-copy trial-elastic-strain))
-        )
-    (setf sig (magicl:@ de eps-e))
-    (setf s (deviatoric-voigt sig))
-    (setf j2 (/ (+ (magicl:dot s s) (expt (magicl:tref s 2) 2)) 2d0))
-    (setf f (vm-yield-func j2 rho))
-    ;; (multiple-value-bind df ddf (vm-derivatives sig rho))
-    ;; (if (> f tol)
-    ;;     ;;Plastic deformation is occuring
+               (/ 1d0 rho))))
+    (values df ddf)))
 
-    ;;     )
-    ))
+(defun b-norm (b)
+  (sqrt (loop for i from 0 below 6
+             sum (expt (magicl:tref b i 0) 2))))
+(defun vm-plastic (stress de trial-elastic-strain rho)
+  (let* ((tol 1d-9)
+        (max-iter 5)
+        ;; (sig stress)
+        (sig (cl-mpm/utils::voigt-copy stress))
+        (s (deviatoric-voigt stress))
+        (j2 (voigt-j2 s))
+        (f (vm-yield-func j2 rho))
+        )
+    (if (> f tol)
+      (let ((eps-e (cl-mpm/utils::voigt-copy trial-elastic-strain))
+            (df (cl-mpm/utils:voigt-zeros))
+            (ddf (cl-mpm/utils:matrix-zeros)))
+        (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
+          (setf df ndf
+                ddf nddf))
+        ;;Plastic deformation is occuring
+        (let* (
+               (b (magicl:from-list (list 0d0 0d0 0d0 0d0 0d0 0d0 f) '(7 1) :type 'double-float))
+               (dgam 0d0))
+          (loop for iters from 0 to max-iter
+                when (or (> (b-norm b) tol)
+                         (> (abs (magicl:tref b 6 0)) tol))
+                  do
+                     (progn
+                       ;; (format t "it:~D f:~F~%" iters (magicl:tref b 6 0))
+                       ;;Calculate backstress
+                       (let* ((A (magicl:block-matrix
+                                  (list
+                                   (magicl:.+ (magicl:eye 6)
+                                              (magicl:scale! (magicl:@ ddf de) dgam))
+                                   ;; (magicl:transpose df)
+                                   df
+                                   (magicl:@ (magicl:transpose df) de)
+                                   (magicl:zeros '(1 1))
+                                   )
+                                  '(2 2)
+                                  ))
+                              (dx (magicl:scale! (magicl:@ (magicl:inv A) b) -1d0)))
+                         ;;Add just the 6 components of stress
+                         (loop for i from 0 below 6
+                               do (incf (magicl:tref eps-e i 0) (magicl:tref dx i 0)))
+                         (incf dgam (magicl:tref dx 6 0))
+                         (setf sig (magicl:@ de eps-e))
+                         (setf s (deviatoric-voigt sig))
+                         (setf j2 (voigt-j2 s))
+                         ;; (setf f (vm-yield-func j2 rho))
+                         (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
+                           (setf df ndf
+                                 ddf nddf))
+                         (let ((b-eps (magicl:.+ eps-e
+                                                 (magicl:scale trial-elastic-strain -1d0)
+                                                 (magicl:scale! df dgam)
+                                                 )
+                                      )
+                               (b-f (vm-yield-func j2 rho)))
+                           (loop for i from 0 below 6
+                                 do (setf (magicl:tref b i 0) (magicl:tref b-eps i 0)))
+                           (setf (magicl:tref b 6 0) b-f)))
+                       ))
+          ;; (when (or (> (b-norm b) tol)
+          ;;           (> (abs (magicl:tref b 6 0)) tol))
+          ;;   (format t "Bad VM solve~%"))
+          (values sig eps-e f)
+          ))
+      (values sig trial-elastic-strain f))))
