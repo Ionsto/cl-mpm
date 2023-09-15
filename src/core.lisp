@@ -316,7 +316,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-    (iterate-over-neighbours-shape-gimp;-3d
+    (iterate-over-neighbours-shape-gimp-3d
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
          (vector-push-extend
