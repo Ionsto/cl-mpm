@@ -197,6 +197,14 @@
   :serial t
   :components ((:file "examples/column")))
 
+
+(defsystem "cl-mpm/plotter"
+  :depends-on ("cl-mpm"
+               "cl-mpm/particle"
+               "vgplot")
+  :serial t
+  :components ((:file "src/plotter")))
+
 (defsystem "cl-mpm/examples/fracture"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
