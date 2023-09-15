@@ -904,7 +904,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (inline p2g-force))
 (defun p2g-force (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (lparallel:pdotimes (i (length mps)) 
+  (lparallel:pdotimes (i (length mps))
     (p2g-force-mp mesh (aref mps i))))
 
 (defgeneric special-g2p (mesh mp node svp grads)
