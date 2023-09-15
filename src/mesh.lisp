@@ -55,27 +55,28 @@
     :accessor node-position
     :initarg :position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float)
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros)
     )
   (force
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros)
+    )
    (buoyancy-force
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (velocity
     :accessor node-velocity
     :initarg :velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (local-list
    :accessor node-local-list
    :initform (make-array 0 :fill-pointer 0 :adjustable t))
@@ -144,11 +145,11 @@
     :accessor cell-centroid
     :initarg :centroid
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
    (deformation-gradient
        :accessor cell-deformation-gradient
        :type MAGICL:MATRIX/DOUBLE-FLOAT
-       :initform (magicl:zeros '(2 2) :type 'double-float))
+       :initform (cl-mpm/utils:matrix-zeros))
    (boundary
     :accessor cell-boundary
     :type boolean
@@ -212,26 +213,25 @@
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
   (make-instance 'node
-                 ;; :force (magicl:zeros (list 2 1) :type 'double-float)
-                 ;; :velocity (magicl:zeros (list 2 1) :type 'double-float)
-                 ;; :acceleration (magicl:zeros (list 2 1) :type 'double-float)
-                 :index (mapcar (lambda (x) (coerce x 'double-float))
-                                 index)
+                 :index (mapcar (lambda (x) (coerce x 'double-float)) index)
                  :position pos
                  ))
 
 (defun make-nodes (mesh size h)
   "Make a 2d mesh of specific size"
-  (make-array size :initial-contents 
+  (make-array size :initial-contents
       (loop for x from 0 to (- (nth 0 size) 1)
-            collect (loop for y from 0 to (- (nth 1 size) 1)
-                          collect (make-node (list x y)
-                                             (magicl:from-list (index-to-position mesh (list x y)) '(2 1))
-                                             h
-                                             )))))
+            collect
+            (loop for y from 0 to (- (nth 1 size) 1)
+                          collect
+                          (loop for z from 0 to (- (nth 2 size) 1)
+                                collect
+                                (make-node (list x y z)
+                                           (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
+                                           h))))))
 
 (defun cell-calculate-centroid (nodes)
-  (let ((centroid (magicl:zeros '(2 1))))
+  (let ((centroid (cl-mpm/utils:vector-zeros)))
     (loop for node in nodes
           do
              (magicl.simd::.+-simd centroid (node-position node) centroid))
@@ -247,8 +247,8 @@
                                                    (list x y))))))
          (volume (expt h 2))
          (centroid (cell-calculate-centroid nodes))
-         (centroid (magicl.simd::.+-simd (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
-                              (magicl:scale! (magicl:from-list (list h h) '(2 1) :type 'double-float) 0.5d0)))
+         (centroid (magicl.simd::.+-simd (magicl:from-list (index-to-position mesh index) '(3 1) :type 'double-float)
+                              (magicl:scale! (magicl:from-list (list h h h) '(3 1) :type 'double-float) 0.5d0)))
          )
     (loop for n in nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
@@ -286,12 +286,11 @@
   "Create a 2D mesh and fill it with nodes"
   (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
          (resolution (coerce resolution 'double-float))
-         (boundary-order 0;(* 2 (- (cl-mpm/shape-function::order shape-function) 1))
-           )
+         (boundary-order 0)
          (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
          (nodes '()))
     (let ((mesh (make-instance 'mesh
-                              :nD 2 
+                              :nD 3
                               :mesh-size size
                               :mesh-count meshcount
                               :mesh-res resolution
@@ -300,7 +299,7 @@
                               :boundary-order boundary-order
                               )))
       (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
-      (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
+      ;; (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
       mesh)))
 
 (defun in-bounds-cell (mesh index)
@@ -324,11 +323,14 @@
   "Check a position (list) is inside a mesh"
   (let ((x (first pos))
         (y (second pos))
+        (z (nth 2 pos))
         (mc (mesh-count mesh)))
     (declare (fixnum x y)
              (list mc))
-    (and (>= x 0) (< x (the fixnum (first mc)))
-         (>= y 0) (< y (the fixnum (second mc)))))
+    (and (>= x 0) (< x (the fixnum (nth 0 mc)))
+         (>= y 0) (< y (the fixnum (nth 1 mc)))
+         (>= z 0) (< z (the fixnum (nth 2 mc)))
+         ))
   ;; (and (in-bounds-1d mesh (first pos) 0)
   ;;      (in-bounds-1d mesh (second pos) 1)
   ;;      )
@@ -381,7 +383,7 @@
   (mapcar (lambda (x) (funcall round-operator (/
                                                   (the double-float (magicl:tref pos x 0))
                                                   (the double-float (mesh-resolution mesh))))
-                         ) '(0 1)))
+                         ) '(0 1 2)))
 
 (defun index-to-position-array (mesh index)
   "Turn a vector position into a list of indexes with rounding"

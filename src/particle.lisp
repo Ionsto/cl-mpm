@@ -167,17 +167,17 @@
    (gravity-axis
     :type magicl:matrix/double-float
     :accessor mp-gravity-axis
-    :initform (magicl:from-list '(0d0 1d0) '(2 1))
+    :initform (magicl:from-list '(0d0 1d0 0d0) '(3 1))
     :initarg :gravity-axis)
    (body-force
      :accessor mp-body-force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :body-force
-     :initform (magicl:zeros '(2 1)))
+     :initform (magicl:zeros '(3 1)))
    (displacement
     :accessor mp-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1)))
+    :initform (magicl:zeros '(3 1)))
    (cached-nodes
     :accessor mp-cached-nodes
     :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache))
@@ -388,7 +388,7 @@
     :accessor mp-damage-position
     ;:type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform nil
-    ;:initform (magicl:zeros '(2 1))
+    ;:initform (magicl:zeros '(3 1))
     )
    (damage-tensor
     :accessor mp-damage-tensor

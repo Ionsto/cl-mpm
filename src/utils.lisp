@@ -4,11 +4,13 @@
    #:voigt-zeros
    #:matrix-zeros
    #:stretch-dsvp-zeros
+   #:stretch-dsvp-3d-zeros
    #:voigt-from-list
    #:matrix-from-list
    #:matrix-to-voight
    #:voight-to-matrix
    #:voight-to-stretch
+   #:voight-to-stretch-3d
    #:matrix-to-voight-strain
    #:voight-to-matrix-strain
    #:voigt-to-voight-strain
@@ -47,7 +49,7 @@
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))
 (defun vector-zeros ()
-  (magicl::make-matrix/double-float 2 1 2 :column-major (make-array 2 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
 
 (declaim (inline voigt-zeros)
          (ftype (function ()
@@ -89,11 +91,18 @@
 (defun stretch-dsvp-zeros ()
   (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
 
+(defun stretch-dsvp-3d-zeros ()
+  (magicl::make-matrix/double-float 9 3 27 :column-major (make-array 27 :element-type 'double-float)))
+
+
 (declaim (inline dsvp-2d-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) dsvp-2d-zeros))
 (defun dsvp-2d-zeros ()
-  (magicl::make-matrix/double-float 3 2 6 :column-major (make-array 8 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 3 2 6 :column-major (make-array 6 :element-type 'double-float)))
+
+(defun dsvp-3d-zeros ()
+  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
 
 (declaim (inline voigt-from-list)
          (ftype (function (list)
@@ -106,8 +115,8 @@
          (ftype (function (list)
                           magicl:matrix/double-float) vector-from-list))
 (defun vector-from-list (elements)
-  (magicl::make-matrix/double-float 2 1 2 :column-major
-                                    (make-array 2 :element-type 'double-float :initial-contents elements)))
+  (magicl::make-matrix/double-float 3 1 3 :column-major
+                                    (make-array 3 :element-type 'double-float :initial-contents elements)))
 
 
 (declaim (inline matrix-from-list)
@@ -189,14 +198,20 @@
                             exy eyx)
                       '(4 1) :type 'double-float)))
 
-(defun voight-to-stretch (vec)
+(defun voight-to-stretch-3d (vec)
   (let* ((exx (magicl:tref vec 0 0))
          (eyy (magicl:tref vec 1 0))
-         (exy (magicl:tref vec 2 0))
-         (eyx (magicl:tref vec 3 0)))
-    (magicl:from-list (list exx exy 0d0
-                            eyx eyy 0d0
-                            0d0 0d0 0d0)
+         (ezz (magicl:tref vec 2 0))
+         (exy (magicl:tref vec 3 0))
+         (eyx (magicl:tref vec 4 0))
+         (exz (magicl:tref vec 5 0))
+         (ezx (magicl:tref vec 6 0))
+         (ezy (magicl:tref vec 7 0))
+         (eyz (magicl:tref vec 8 0))
+         )
+    (magicl:from-list (list exx exy exz
+                            eyx eyy eyz
+                            ezx ezy ezz)
                       '(3 3) :type 'double-float)))
 
 (declaim
@@ -208,8 +223,13 @@
   (let ((vecs (magicl::matrix/double-float-storage vec)))
     (let* ((exx (aref vecs 0))
            (eyy (aref vecs 1))
-           (exy (aref vecs 2))
-           (eyx (aref vecs 3))
+           (ezz (aref vecs 2))
+           (exy (aref vecs 3))
+           (eyx (aref vecs 4))
+           (exz (aref vecs 5))
+           (ezx (aref vecs 6))
+           (ezy (aref vecs 7))
+           (eyz (aref vecs 8))
            (s result)
            )
       (declare (double-float exx eyy exy eyx))
@@ -217,6 +237,11 @@
             (magicl:tref s 0 1) exy
             (magicl:tref s 1 0) eyx
             (magicl:tref s 1 1) eyy
+            (magicl:tref s 0 2) exz
+            (magicl:tref s 2 0) ezx
+            (magicl:tref s 1 2) eyz
+            (magicl:tref s 2 1) ezy
+            (magicl:tref s 2 2) ezz
             )))
   result)
 
@@ -324,6 +349,12 @@
           do
              (setf (magicl:tref result  i 0)
                    (magicl:tref stretch i i)))
+    (setf (magicl:tref result 3 0)
+          (* 1d0 (+ (the double-float (magicl:tref stretch 2 1))
+                    (the double-float (magicl:tref stretch 1 2)))))
+    (setf (magicl:tref result 4 0)
+          (* 1d0 (+ (the double-float (magicl:tref stretch 0 2))
+                    (the double-float (magicl:tref stretch 2 0)))))
     (setf (magicl:tref result 5 0)
           (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
                     (the double-float (magicl:tref stretch 1 0)))))
@@ -354,8 +385,17 @@
         0)
   (setf (magicl:tref result  1 0)
         0)
+  (setf (magicl:tref result  2 0)
+        0)
   ;; Since off diagonal components get halved, then voigt doubles them this is net 1d0
+  (setf (magicl:tref result 3 0)
+        (- (the double-float (magicl:tref stretch 2 1))
+                  (the double-float (magicl:tref stretch 1 2))))
+  (setf (magicl:tref result 4 0)
+        (- (the double-float (magicl:tref stretch 0 2))
+                  (the double-float (magicl:tref stretch 2 0))))
   (setf (magicl:tref result 5 0)
         (- (the double-float (magicl:tref stretch 0 1))
-           (the double-float (magicl:tref stretch 1 0))))
+                  (the double-float (magicl:tref stretch 1 0))))
+
   (values))

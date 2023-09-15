@@ -101,10 +101,12 @@
                    magicl:matrix/double-float
                    double-float) (values)) fast-fmacc))
 (defun fast-fmacc (a b d)
-  #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
-                          (magicl::matrix/double-float-storage b)
-                          d)
-  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a))
+  ;; #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
+  ;;                         (magicl::matrix/double-float-storage b)
+  ;;                         d)
+  ;; #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a)
+  (magicl.simd::.+-simd a (magicl:scale b d) a)
+  )
 
 (declaim
    (inline fast-add)

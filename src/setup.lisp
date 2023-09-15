@@ -23,7 +23,7 @@
          (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
     (progn
           (setf (cl-mpm:sim-mps sim) #())
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
+          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
            sim)))
 
 (defun make-column (height element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear))
@@ -41,35 +41,34 @@
 
 (defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
-  (let*  ((nD 2)
+  (let*  ((nD 3)
           (args (alexandria:remove-from-plist args :angle))
           (spacing (mapcar #'/ size mps))
           (offset (mapcar (lambda (x) (* x 0.5d0))
                           (mapcar #'+ offset spacing)))
-          (volume (* (first spacing) (second spacing)))
+          (volume (reduce #'* spacing))
           (data (loop for x from 0 to (- (first mps) 1)
                       append
                       (loop
                         for y from 0 to (- (second mps) 1)
-                        collect
-                        (let* ((i (+ y (* x (first mps))))
-                               (rot (cl-mpm::rotation-matrix angle))
-                               (origin-vec (magicl:from-list (list (first offset)
-                                                                   (second offset))
-                                                               '(2 1) :type 'double-float))
+                        append
+                        (loop
+                          for z from 0 to (- (third mps) 1)
+                          collect
+                        (let* ((rot (magicl:eye 3)) ;(cl-mpm::rotation-matrix angle))
+                               (origin-vec (magicl:from-list offset '(3 1) :type 'double-float))
                                (position-vec (magicl:from-list (list (* (first spacing) x)
-                                                                     (* (second spacing) y))
-                                                               '(2 1) :type 'double-float))
-                               (size-vec (magicl:from-list spacing '(2 1) :type 'double-float))
+                                                                     (* (second spacing) y)
+                                                                     (* (third spacing) z)
+                                                                     )
+                                                               '(3 1) :type 'double-float))
+                               (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
                                (position-vec (magicl.simd::.+-simd origin-vec
                                                         (magicl:@ rot position-vec)))
-                               ;; (size-vec (magicl:map #'abs (magicl:@ rot size-vec)))
                                )
-                          ;; (print spacing)
-                          ;; (print size-vec)
-                          (flet ((lisp-list (m) (loop for i from 0 to 1 collect (magicl:tref m i 0))))
+                          (flet ((lisp-list (m) (loop for i from 0 to 2 collect (magicl:tref m i 0))))
                             (apply #'cl-mpm::make-particle
-                                   (append (list 2 constructor)
+                                   (append (list 3 constructor)
                                            args
                                            (list
                                             :position (lisp-list position-vec)
@@ -77,7 +76,7 @@
                                             :volume volume
                                             :size size-vec
                                             :size-0 size-vec
-                                            ))))
+                                            )))))
                           )))))
     data))
 (defun make-mps-from-list (mp-list)

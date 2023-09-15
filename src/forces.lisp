@@ -89,9 +89,9 @@
       ;; (print dsvp)
       ;(mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
-      (mult-force-plane-strain dsvp stress volume f-out)
+      ;; (mult-force-plane-strain dsvp stress volume f-out)
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) (plane-strain-transform stress)) volume) f-out)
-      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out))
+      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
       )
     f-out))
 
@@ -109,7 +109,7 @@
                    ) mp
     (declare (type double-float mass gravity volume)
              (type magicl:matrix/double-float body-force))
-    (let* ((f-out (if f-out f-out (magicl:zeros '(2 1))))
+    (let* ((f-out (if f-out f-out (magicl:zeros '(3 1))))
            (f-s (magicl::matrix/double-float-storage f-out))
            (b-s (magicl::matrix/double-float-storage body-force))
            (g-s (magicl::matrix/double-float-storage gravity-axis))
@@ -121,6 +121,9 @@
             (* (+ (* mass gravity (aref g-s 0)) (* volume (aref b-s 0))) svp))
       (incf (aref f-s 1)
             (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp)
+            )
+      (incf (aref f-s 2)
+            (* (+ (* mass gravity (aref g-s 2)) (* volume (aref b-s 2))) svp)
             )
 
           ;; (magicl:scale!
