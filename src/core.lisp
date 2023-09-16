@@ -22,10 +22,12 @@
     #:sim-dt
     #:sim-damping-factor
     #:sim-mass-filter
+    #:sim-allow-mp-split
     #:post-stress-step
     #:iterate-over-nodes
     #:iterate-over-nodes-serial
     #:iterate-over-neighbours
+    #:calculate-adaptive-time
     ))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
@@ -102,6 +104,7 @@
      :initarg :mass-filter
      :initform 1d-15))
   (:documentation "A self contained mpm simulation"))
+
 (defclass mpm-sim-usf (mpm-sim)
   ()
   (:documentation "Explicit simulation with update stress first update"))
@@ -1264,13 +1267,6 @@ Calls func with only the node"
                 )))))))
 
 
-;; (defun update-particle (mps dt)
-;;   (declare (array mps))
-;;   (loop for mp across mps
-;;     do (with-accessors ((vel cl-mpm/particle:mp-velocity)
-;;                         (pos cl-mpm/particle:mp-position)) mp
-;;       (progn 
-;;       (setf pos (magicl.simd::.+-simd pos (magicl:scale vel dt)))))))
 (declaim (inline update-particle-mp))
 (defun update-particle-mp (mp dt)
   (declare (cl-mpm/particle:particle mp) (double-float dt))
@@ -1780,6 +1776,7 @@ Calls func with only the node"
         ;; ((< h-factor (tref lens 1 0)) :y)
         ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
         ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
         ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
@@ -1794,6 +1791,7 @@ Calls func with only the node"
       (cond
         ((< h-factor (the double-float (tref lens 0 0))) :x)
         ((< h-factor (the double-float (tref lens 1 0))) :y)
+        ((< h-factor (the double-float (tref lens 2 0))) :z)
         (t nil)
         ))))
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
@@ -1808,6 +1806,37 @@ Calls func with only the node"
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
+(defmacro split-linear (direction dimension)
+  `((eq direction ,direction)
+    (let ((new-size (vector-from-list '(1d0 1d0 1d0)))
+          (new-size-0 (vector-from-list '(1d0 1d0 1d0)))
+          (pos-offset (vector-zeros)))
+      (setf (tref new-size ,dimension 0) 0.5d0)
+      (setf (tref new-size-0 ,dimension 0) 0.5d0)
+      (setf (tref pos-offset ,dimension 0) 0.25d0)
+      (magicl.simd::.*-simd lens new-size new-size) 
+      (magicl.simd::.*-simd lens new-size-0 new-size-0) 
+      (magicl.simd::.*-simd lens pos-offset pos-offset) 
+      (list
+       (copy-particle mp
+                      :mass (/ mass 2)
+                      :volume (/ volume 2)
+                      :size new-size
+                      :size-0 new-size-0
+                      :position (magicl.simd::.+-simd pos pos-offset))
+       (copy-particle mp
+                      :mass (/ mass 2)
+                      :volume (/ volume 2)
+                      :size new-size
+                      :size-0 new-size-0
+                      :position (magicl:.- pos pos-offset))))))
+(defmacro split-cases ()
+  `(cond
+     ,(macroexpand-1 '(split-linear :x 0))
+     ,(macroexpand-1 '(split-linear :y 1))
+     ,(macroexpand-1 '(split-linear :z 2))
+     (t nil)
+     ))
 (defun split-mp (mp h direction)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
@@ -1820,73 +1849,63 @@ Calls func with only the node"
       mp
     (let ((l-factor 1.20d0)
           (h-factor (* 0.8d0 h)))
-    (cond
-      ((eq direction :x)
-       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 1d0) '(2 1))))
-             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 1d0) '(2 1))))
-             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0d0) '(2 1)))))
-         (list
-          (copy-particle mp
-                         :mass (/ mass 2)
-                         :volume (/ volume 2)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos pos-offset))
-          (copy-particle mp
-                         :mass (/ mass 2)
-                         :volume (/ volume 2)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl:.- pos pos-offset)))))
-      ((eq direction :y)
-       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(1d0 0.5d0) '(2 1))))
-             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(1d0 0.5d0) '(2 1))))
-             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0d0 0.25d0) '(2 1)))))
-         (list
-          (copy-particle mp
-                         :mass (/ mass 2)
-                         :volume (/ volume 2)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos pos-offset))
-          (copy-particle mp
-                         :mass (/ mass 2)
-                         :volume (/ volume 2)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl:.- pos pos-offset)))))
-      ((eq direction :xy)
-       (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-             (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-             (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
-         (list
-          (copy-particle mp
-                         :mass (/ mass 4d0)
-                         :volume (/ volume 4d0)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
-          (copy-particle mp
-                         :mass (/ mass 4d0)
-                         :volume (/ volume 4d0)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
-          (copy-particle mp
-                         :mass (/ mass 4d0)
-                         :volume (/ volume 4d0)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
-          (copy-particle mp
-                         :mass (/ mass 4d0)
-                         :volume (/ volume 4d0)
-                         :size new-size
-                         :size-0 new-size-0
-                         :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
-          )))
-      (t nil)
-      ))))
+
+      (split-cases)
+      ;; (cond
+      ;;   (macroexpand-1 '(linear-split :x 0))
+      ;;   ;; ((eq direction :x)
+      ;;   ;;  (let ((new-size (magicl.simd::.*-simd lens (vector-from-list '(0.5d0 1d0 1d0))))
+      ;;   ;;        (new-size-0 (magicl.simd::.*-simd lens-0 (vector-from-list '(0.5d0 1d0 1d0))))
+      ;;   ;;        (pos-offset (magicl.simd::.*-simd lens (vector-from-list '(0.25d0 0d0 0d0)))))
+      ;;   ;;    (list
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 2)
+      ;;   ;;                    :volume (/ volume 2)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl.simd::.+-simd pos pos-offset))
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 2)
+      ;;   ;;                    :volume (/ volume 2)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl:.- pos pos-offset)))))
+
+      ;;   ;; ((eq direction :xy)
+      ;;   ;;  (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+      ;;   ;;        (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
+      ;;   ;;        (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
+      ;;   ;;    (list
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 4d0)
+      ;;   ;;                    :volume (/ volume 4d0)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 4d0)
+      ;;   ;;                    :volume (/ volume 4d0)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 4d0)
+      ;;   ;;                    :volume (/ volume 4d0)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
+      ;;   ;;     (copy-particle mp
+      ;;   ;;                    :mass (/ mass 4d0)
+      ;;   ;;                    :volume (/ volume 4d0)
+      ;;   ;;                    :size new-size
+      ;;   ;;                    :size-0 new-size-0
+      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
+      ;;   ;;     )
+      ;;   ;; )
+      ;;   ;; )
+      ;;   (t nil)
+      ;;   )
+      )))
 (defun split-mps (sim)
   "Remove material points that have strain energy density exceeding fracture toughness"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1939,7 +1958,21 @@ Calls func with only the node"
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
-          0d0))))
+          (cl-mpm:sim-dt sim)))))
+(defun calculate-adaptive-time (sim target-time &key (dt-scale 1d0))
+  "Given that the system has previously been mapped to, caluclate an estimated dt and substep for a given target time
+The value dt-scale allows for the estimated dt to be scaled up or down
+This modifies the dt of the simulation in the process
+"
+  (let* ((dt-e (* dt-scale (calculate-min-dt sim)))
+         (substeps-e (floor target-time dt-e)))
+    ;; (format t "CFL dt estimate: ~f~%" dt-e)
+    ;; (format t "CFL step count estimate: ~D~%" substeps-e)
+    (setf (cl-mpm:sim-dt sim) dt-e)
+    ;; (setf substeps substeps-e)
+    (values dt-e substeps-e)
+    )
+  )
 #||
 (progn
 (ql:quickload :cl-mpm/examples/fracture)

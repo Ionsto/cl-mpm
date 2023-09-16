@@ -434,21 +434,23 @@
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        (save-parameter
-         "plastic_strain"
-         (multiple-value-bind (l v)
-             (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-           (destructuring-bind (s1 s2 s3) l
-             (sqrt
-              (/ (+ (expt (- s1 s2) 2d0)
-                    (expt (- s2 s3) 2d0)
-                    (expt (- s3 s1) 2d0)
-                    ) 2d0)))))
-        (save-parameter
-         "f"
-         (cl-mpm/particle::mp-yield-func mp))
+        ;; (save-parameter
+        ;;  "plastic_strain"
+        ;;  (multiple-value-bind (l v)
+        ;;      (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+        ;;    (destructuring-bind (s1 s2 s3) l
+        ;;      (sqrt
+        ;;       (/ (+ (expt (- s1 s2) 2d0)
+        ;;             (expt (- s2 s3) 2d0)
+        ;;             (expt (- s3 s1) 2d0)
+        ;;             ) 2d0)))))
+        ;; (save-parameter
+        ;;  "f"
+        ;;  (cl-mpm/particle::mp-yield-func mp))
         )
       )))
+
+
 ;; (defmacro save-point-data (mp mps)
 ;;   (loop for )
 
