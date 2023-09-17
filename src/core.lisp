@@ -1303,8 +1303,7 @@ Calls func with only the node"
       (let ((df (calculate-df mp)))
         (progn
           (setf def (magicl:@ df def))
-          (let (;(initial-strain (magicl:scale strain 1d0))
-                )
+          (let ((initial-strain (cl-mpm/utils::voigt-copy strain)))
             ;; (let ((r1 (cl-mpm/utils:matrix-zeros))
             ;;       (r2 (cl-mpm/utils:matrix-zeros)))
             ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
@@ -1379,9 +1378,9 @@ Calls func with only the node"
                                   0.5d0)))))
 
             ;;Not sure about this engineering strain calculation
-            ;; (magicl:.- initial-strain strain initial-strain)
-            ;; (setf eng-strain-rate initial-strain)
-            ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
+            (magicl:.- initial-strain strain initial-strain)
+            (setf eng-strain-rate initial-strain)
+            (magicl:scale! eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )
@@ -1392,8 +1391,8 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (update-domain-stretch-rate df domain)
-          ;; (update-domain-corner mesh mp dt)
+          ;; (update-domain-stretch-rate df domain)
+          (update-domain-corner mesh mp dt)
           )
           )))
   (values))

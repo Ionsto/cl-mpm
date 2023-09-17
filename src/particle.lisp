@@ -571,7 +571,7 @@
     ;; (setf pressure (funcall calc-pressure pos))
     (setf stress (magicl:scale stress-undamaged 1d0))
       (when (> damage 0.0d0)
-        (let ((j 1d0))
+        (let ((j (magicl:det def)))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
             (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
@@ -779,8 +779,8 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (;(eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
-           ;                            (cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
+    (let* ((eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+                                                  (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
           ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
           )
@@ -918,17 +918,20 @@
                (eng-strain-rate eng-strain-rate)
                (time-averaged-visc time-averaged-visc)
                (p p-modulus)
+               (true-visc true-visc)
                ;; (stress undamaged-stress)
                ;; (stress-damaged stress)
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (
+    (let* (;; (eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+           ;;                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
            (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
-           ;; (viscosity 1d-14)
+           ;; (viscosity 1d-20)
            (visc-u viscosity)
            (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
            )
+      (setf true-visc viscosity)
       ;; (setf p
       ;;       (/ (/ E (* (+ 1 nu) (- 1 nu)))
       ;;          (expt (max 1d-2 (- 1d0 damage)) 2)
@@ -954,29 +957,31 @@
 
       (setf stress-u
             (cl-mpm/constitutive:maxwell-exp strain-rate stress-u E nu de visc-u dt))
+      ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de))
 
       ;; (setf stress-u (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt))
       ;; (setf stress
       ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
       (setf stress (magicl:scale stress-u 1d0))
-
       (when (> damage 0.0d0)
-        (let ((j 1d0))
+        (let ((j (magicl:det def)))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let ((driving-pressure (* pressure (min 1.00d0 damage)))
-                  (degredation (expt (- 1d0 damage) 2d0)))
+            (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
+                   (tp 0d0);(funcall calc-pressure pos))
+                   (driving-pressure (* tp (expt (min 0.90d0 damage) 1)))
+                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* esii (max 0d-8 degredation)))
+                           (setf (nth i l) (* esii (max 1d-8 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          (when (< esii 0d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l) (* esii (max 1d-2 degredation)))
+                           (setf (nth i l) (* esii (max 1d-1 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                          ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
@@ -985,6 +990,31 @@
                                                                       (magicl:from-diag l :type 'double-float)
                                                                       (magicl:transpose v))) j))
               ))))
+      ;; (when nil;(> damage 0.0d0)
+      ;;   (let ((j 1d0))
+      ;;     (multiple-value-bind (l v) (cl-mpm/utils::eig
+      ;;                                 (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+      ;;       (let ((driving-pressure (* pressure (min 1.00d0 damage)))
+      ;;             (degredation (expt (- 1d0 damage) 2d0)))
+      ;;         (loop for i from 0 to 2
+      ;;               do (let* ((sii (nth i l))
+      ;;                         (esii (- sii driving-pressure)))
+      ;;                    (when (> esii 0d0)
+      ;;                      ;;Tensile damage -> unbounded
+      ;;                      (setf (nth i l) (* esii (max 0d-8 degredation)))
+      ;;                      (setf (nth i l) (+ (nth i l) driving-pressure))
+      ;;                      )
+      ;;                    (when (< esii 0d0)
+      ;;                      ;;Bounded compressive damage
+      ;;                      (setf (nth i l) (* esii (max 1d-2 degredation)))
+      ;;                      (setf (nth i l) (+ (nth i l) driving-pressure))
+      ;;                      )
+      ;;                    ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
+      ;;                    ))
+      ;;         (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+      ;;                                                                 (magicl:from-diag l :type 'double-float)
+      ;;                                                                 (magicl:transpose v))) j))
+      ;;         ))))
 
       stress
       ;; (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt)
