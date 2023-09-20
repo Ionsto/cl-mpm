@@ -167,7 +167,7 @@
    (gravity-axis
     :type magicl:matrix/double-float
     :accessor mp-gravity-axis
-    :initform (magicl:from-list '(0d0 1d0 0d0) '(3 1))
+    :initform (vector-from-list '(0d0 1d0 0d0))
     :initarg :gravity-axis)
    (body-force
      :accessor mp-body-force
@@ -215,6 +215,10 @@
     :accessor mp-rho
     :initarg :rho
     )
+   (strain-plastic-vm
+    :accessor mp-strain-plastic-vm
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (strain-plastic
     :accessor mp-strain-plastic
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -236,6 +240,7 @@
       particle
     (setf p (/ E (* (+ 1 nu) (- 1 nu))))
     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
+
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 (defmethod (setf mp-nu) :after (value (p particle-elastic))
@@ -336,7 +341,7 @@
    (undamaged-stress
     :accessor mp-undamaged-stress
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1)))
+    :initform (cl-mpm/utils:voigt-zeros))
    (initiation-stress
     :accessor mp-initiation-stress
     :type DOUBLE-FLOAT
@@ -934,7 +939,6 @@
       ;;          (expt (max 1d-2 (- 1d0 damage)) 2)
       ;;          ;(expt (/ 1d13 viscosity) 1)
       ;;          ))
-      ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
       ;; (setf stress (magicl:scale stress-undamaged (- 1d0 damage)))
 
       (incf time-averaged-visc viscosity)
@@ -952,19 +956,34 @@
       ;;         vorticity
       ;;         D)))
 
+      ;; (magicl:.+
+      ;;  stress-u
+      ;;  (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt)
+      ;;  stress-u)
       (setf stress-u
-            (cl-mpm/constitutive:maxwell-exp strain-rate stress-u E nu de visc-u dt))
+            (cl-mpm/constitutive:maxwell-exp-v
+             strain-rate
+             stress-u
+             E nu de
+             viscosity dt))
+      ;; (when (> (abs(magicl:tref stress-u 3 0)) 1d-10)
+      ;;   (break)
+      ;;   )
+      ;; (setf (magicl:tref stress-u 3 0) 0d0
+      ;;       (magicl:tref stress-u 4 0) 0d0
+      ;;       )
 
       ;; (setf stress-u (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt))
       ;; (setf stress
       ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
+      ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de))
       (setf stress (magicl:scale stress-u 1d0))
 
       (when (> damage 0.0d0)
         (let ((j 1d0))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let ((driving-pressure (* pressure (min 1.00d0 damage)))
+            (let ((driving-pressure 0d0) ;;(* pressure (min 1.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
@@ -1130,24 +1149,13 @@
                               (let ((l_i (nth i l))
                                     (l_j (nth j l))
                                     (v_i (magicl:column v i))
-                                    (v_j (magicl:column v j))
-                                    )
+                                    (v_j (magicl:column v j)))
                                 (declare (double-float l_i l_j)
                                          (magicl:matrix/double-float v_i v_j))
-                                ;; (when (< l_i 0d0)
-                                ;;   (magicl:scale! v_i -1d0)
-                                ;;   (setf l_i (abs l_i))
-                                ;;   )
-                                ;; (when (< l_j 0d0)
-                                ;;   (magicl:scale! v_j -1d0)
-                                ;;   (setf l_j (abs l_j))
-                                ;;   )
                                 ;;When the eigenvalues are distinct
                                 (when (and
-                                       (> (abs (- l_i l_j)) 1d-6)
                                        ;;When they are nonzero
-                                       ;; (> l_i 0d0)
-                                       ;; (> l_j 0d0)
+                                       (> (abs (- l_i l_j)) 1d-6)
                                        )
                                   ;; When we have pairs of unique nonzero eigenvalues
                                   (setf omega
@@ -1180,11 +1188,12 @@
                    (stress mp-stress)
                    (rho mp-rho)
                    (plastic-strain mp-strain-plastic)
+                   (ps-vm mp-strain-plastic-vm)
                    (strain mp-strain)
                    (yield-func mp-yield-func)
                    )
       mp
-    ;;Train elasticf strain - plus trail kirchoff stress
+    ;;Train elastic strain - plus trail kirchoff stress
     (setf stress
           (cl-mpm/constitutive::linear-elastic-mat strain de))
     (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
@@ -1194,5 +1203,14 @@
             strain eps-e
             yield-func f
             ))
+    (incf ps-vm 
+          (multiple-value-bind (l v)
+                     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                   (destructuring-bind (s1 s2 s3) l
+                     (sqrt
+                      (/ (+ (expt (- s1 s2) 2d0)
+                            (expt (- s2 s3) 2d0)
+                            (expt (- s3 s1) 2d0)
+                            ) 2d0)))))
     stress
     ))

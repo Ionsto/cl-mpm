@@ -82,7 +82,7 @@
         det-int-force))
 (defun det-int-force (mp dsvp &optional f-out)
   "Calculate internal force contribution from mp at node"
-  (let* ((f-out (if f-out f-out (magicl:zeros '(2 1)))))
+  (let* ((f-out (if f-out f-out (magicl:zeros '(3 1)))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))

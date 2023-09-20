@@ -40,7 +40,8 @@
   ;; (multiple-value-bind (l v) (magicl:eig mat)
   ;;   (values l (magicl:.realpart v)))
   )
-(let ((stress-components '(:xx :yy :zz :yz :xz :xy)))
+(let ((stress-components '(:xx :yy :zz
+                           :yz :xz :xy)))
   (defun get-stress (stress component)
     "Get stress component from voigt notation stress vector"
     (aref (magicl::matrix/double-float-storage stress) (position component stress-components))))
@@ -102,7 +103,7 @@
   (magicl::make-matrix/double-float 3 2 6 :column-major (make-array 6 :element-type 'double-float)))
 
 (defun dsvp-3d-zeros ()
-  (magicl::make-matrix/double-float 6 2 12 :column-major (make-array 12 :element-type 'double-float)))
+  (magicl::make-matrix/double-float 6 3 18 :column-major (make-array 18 :element-type 'double-float)))
 
 (declaim (inline voigt-from-list)
          (ftype (function (list)

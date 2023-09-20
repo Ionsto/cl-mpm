@@ -26,35 +26,42 @@
   ;(require 'sb-simd)
   (declaim
    (inline simd-accumulate)
-   (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))
+   (ftype (function ((simple-array double-float)
+                     (simple-array double-float)) (values)) simd-accumulate))
   (defun simd-accumulate (a b)
-    (declare (type sb-simd:f64vec a b))
-    (setf (sb-simd-avx:f64.2-aref a 0)
-          (sb-simd-avx:f64.2+
-           (sb-simd-avx:f64.2-aref a 0)
-           (sb-simd-avx:f64.2-aref b 0)
-           ))
+    ;; (declare (type (simple-array double-float 3) a b))
+    ;; (declare (type sb-simd:f64vec a b))
+    ;; (setf (sb-simd-avx:f64.2-aref a 0)
+    ;;       (sb-simd-avx:f64.2+
+    ;;        (sb-simd-avx:f64.2-aref a 0)
+    ;;        (sb-simd-avx:f64.2-aref b 0)
+    ;;        ))
+    (loop for i from 0 to 2
+          do (incf (aref a i) (aref b i)))
     (values))
 
   (declaim
    (inline simd-fmacc)
    (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
   (defun simd-fmacc (a b scale)
-    (declare (type sb-simd:f64vec a b)
-             (type double-float scale))
-    (setf (sb-simd-avx:f64.2-aref a 0)
-          (sb-simd-avx:f64.2+
-           (sb-simd-avx:f64.2-aref a 0)
-           (sb-simd-avx:f64.2*
-            (sb-simd-avx:f64.2-aref b 0)
-            (sb-simd-avx:f64.2 scale))
-           ))
+    ;; (declare (type sb-simd:f64vec a b)
+    ;;          (type double-float scale))
+    ;; (setf (sb-simd-avx:f64.2-aref a 0)
+    ;;       (sb-simd-avx:f64.2+
+    ;;        (sb-simd-avx:f64.2-aref a 0)
+    ;;        (sb-simd-avx:f64.2*
+    ;;         (sb-simd-avx:f64.2-aref b 0)
+    ;;         (sb-simd-avx:f64.2 scale))
+    ;;        ))
+    (loop for i from 0 to 2
+          do (incf (aref a i) (* scale (aref b i))))
     (values))
   (declaim
    (inline simd-add)
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
   (defun simd-add (a b)
-    (simd-accumulate (magicl::matrix/double-float-storage a) (magicl::matrix/double-float-storage b))
+    (simd-accumulate (magicl::matrix/double-float-storage a)
+                     (magicl::matrix/double-float-storage b))
     (values)))
 
 ;; (declaim
@@ -101,11 +108,11 @@
                    magicl:matrix/double-float
                    double-float) (values)) fast-fmacc))
 (defun fast-fmacc (a b d)
-  ;; #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
-  ;;                         (magicl::matrix/double-float-storage b)
-  ;;                         d)
-  ;; #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a)
-  (magicl.simd::.+-simd a (magicl:scale b d) a)
+  #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
+                          (magicl::matrix/double-float-storage b)
+                          d)
+  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a)
+  ;; (magicl.simd::.+-simd a (magicl:scale b d) a)
   )
 
 (declaim

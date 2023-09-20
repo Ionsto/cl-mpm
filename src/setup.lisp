@@ -15,16 +15,22 @@
 
 
 (defun make-block (res element-count &optional (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
-                                       (sim-type 'cl-mpm::mpm-sim-usf)
+                                          (sim-type 'cl-mpm::mpm-sim-usf)
                                        )
   "Make a 2D column of heigh size, and width 1 - filled with elements"
-  (let* ((nD 2)
-         (size (mapcar (lambda (x) (* x res)) element-count))
-         (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
-    (progn
-          (setf (cl-mpm:sim-mps sim) #())
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
-           sim)))
+  ;; (if (= nd 1)
+  ;;     (push 1 element-count)
+  ;;     )
+  (let ((nd (length element-count)))
+    ;; (if (= nd 2)
+    ;;     (setf element-count (append  element-count '(0))))
+    (let* ((nD nd)
+           (size (mapcar (lambda (x) (* x res)) element-count))
+           (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
+      (progn
+        (setf (cl-mpm:sim-mps sim) #())
+        (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+        sim))))
 
 (defun make-column (height element-count &optional (shape-maker #'cl-mpm::make-shape-function-linear))
   "Make a 2D column of heigh size, and width 1 - filled with elements"
@@ -41,26 +47,31 @@
 
 (defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
+  (if (= (length size) 2)
+      (setf mps (append mps '(1))
+            size (append size '(0))
+            offset (append offset '(0))
+            ))
   (let*  ((nD 3)
           (args (alexandria:remove-from-plist args :angle))
           (spacing (mapcar #'/ size mps))
-          (offset (mapcar (lambda (x) (* x 0.5d0))
-                          (mapcar #'+ offset spacing)))
-          (volume (reduce #'* spacing))
-          (data (loop for x from 0 to (- (first mps) 1)
+          (offset (mapcar #'+ offset
+                          (mapcar (lambda (x) (* x 0.5d0)) spacing)
+                          ))
+          (volume (reduce #'* (remove-if (lambda (x) (= 0d0 x)) spacing)))
+          (data (loop for x from 0 to (- (nth 0 mps) 1)
                       append
                       (loop
-                        for y from 0 to (- (second mps) 1)
+                        for y from 0 to (- (nth 1 mps) 1)
                         append
                         (loop
-                          for z from 0 to (- (third mps) 1)
+                          for z from 0 to (- (nth 2 mps) 1)
                           collect
                         (let* ((rot (magicl:eye 3)) ;(cl-mpm::rotation-matrix angle))
                                (origin-vec (magicl:from-list offset '(3 1) :type 'double-float))
-                               (position-vec (magicl:from-list (list (* (first spacing) x)
-                                                                     (* (second spacing) y)
-                                                                     (* (third spacing) z)
-                                                                     )
+                               (position-vec (magicl:from-list (list (* (nth 0 spacing) x)
+                                                                     (* (nth 1 spacing) y)
+                                                                     (* (nth 2 spacing) z))
                                                                '(3 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
                                (position-vec (magicl.simd::.+-simd origin-vec
@@ -83,6 +94,9 @@
   (make-array (length mp-list)  :adjustable t :fill-pointer (length mp-list) :initial-contents mp-list))
 
 (defun make-block-mps (offset size mps constructor &rest args)
+  (if (= (length size) 2)
+      (append size '(1)))
+
   (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
     (make-mps-from-list data)))
 
@@ -171,36 +185,49 @@
 
 (defun make-block-mps-sloped-list (offset size mps density constructor &rest args &key (slope 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
-  (let*  ((nD 2)
+  (if (= (length size) 2)
+      (setf mps (append mps '(1))
+            size (append size '(0))
+            offset (append offset '(0))
+            ))
+  (let*  ((nD 3)
           (args (alexandria:remove-from-plist args :slope))
           (spacing-0 (mapcar #'/ size mps))
-          (offset (mapcar (lambda (x s) (+ x (/ s 2d0))) offset spacing-0))
+          (offset (mapcar (lambda (x) (* x 0.5d0))
+                          (mapcar #'+ offset spacing-0)))
           (data (loop for x from 0 to (- (first mps) 1)
                       append
                       (loop
                         for y from 0 to (- (second mps) 1)
-                        collect
-                        (let* ((i (+ y (* x (first mps))))
-                               (spacing (list (first spacing-0)
-                                              (/ (+ (second size) (* slope (+ x 1) (first spacing-0)))
-                                                 (second mps))
-                                              ))
-                               (volume (* (first spacing) (second spacing)))
-                               (position-vec (magicl:from-list (list (+ (first offset) (* (first spacing) x))
-                                                                     (+ (second offset) (* (second spacing) y)))
-                                                               '(2 1) :type 'double-float))
-                               (size-vec (magicl:from-list spacing '(2 1) :type 'double-float))
-                               )
-                          (flet ((lisp-list (m) (loop for i from 0 to 1 collect (magicl:tref m i 0))))
-                            (apply #'cl-mpm::make-particle
-                                   (append (list 2 constructor)
-                                           args
-                                           (list
-                                            :position (lisp-list position-vec)
-                                            :mass (* density volume)
-                                            :volume volume
-                                            :size size-vec
-                                            :size-0 size-vec
-                                            ))))
-                          )))))
+                        append 
+                        (loop
+                          for z from 0 to (- (nth 2 mps) 1)
+                          collect
+                          (let* ((i (+ y (* x (first mps))))
+                                 (spacing (list (first spacing-0)
+                                                (/ (+ (second size) (* slope (+ x 1) (first spacing-0)))
+                                                   (second mps))
+                                                (third spacing-0)
+                                                ))
+
+                                 (volume (reduce #'* (remove-if (lambda (x) (= 0d0 x)) spacing)))
+                                 (position-vec (magicl:from-list (list (+ (first offset) (* (first spacing) x))
+                                                                       (+ (second offset) (* (second spacing) y))
+                                                                       (+ (nth 2 offset) (* (nth 2 spacing) z))
+                                                                       )
+                                                                 '(3 1) :type 'double-float))
+                                 (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
+                                 )
+                            (flet ((lisp-list (m) (loop for i from 0 to 2 collect (magicl:tref m i 0))))
+                              (apply #'cl-mpm::make-particle
+                                     (append (list 2 constructor)
+                                             args
+                                             (list
+                                              :position (lisp-list position-vec)
+                                              :mass (* density volume)
+                                              :volume volume
+                                              :size size-vec
+                                              :size-0 size-vec
+                                              ))))
+                            ))))))
     data))

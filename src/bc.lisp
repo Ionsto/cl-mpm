@@ -114,7 +114,7 @@
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
-    (loop for d from 0 to (length value)
+    (loop for d from 0 below (length value)
             do (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
                  (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
@@ -374,17 +374,15 @@
             (outlist '()))
         (destructuring-bind (xsize ysize zsize) bounds
           (array-operations/utilities:nested-loop
-           (x y z) bounds
+           (x y z) mesh-count
            (when (= x 0)
              (push (funcall left (list x y z)) outlist))
            (when (= x xsize)
              (push (funcall right (list x y z)) outlist))
-
            (when (= y 0)
              (push (funcall bottom (list x y z)) outlist))
            (when (= y ysize)
              (push (funcall top (list x y z)) outlist))
-
            (when (= z 0)
              (push (funcall front (list x y z)) outlist))
            (when (= z zsize)

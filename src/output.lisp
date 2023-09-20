@@ -434,8 +434,11 @@
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+        (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0))
+        (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         ;; (save-parameter
         ;;  "plastic_strain"
+        ;;  (cl-mpm/particle::mp-strain-plastic-vm mp))
         ;;  (multiple-value-bind (l v)
         ;;      (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
         ;;    (destructuring-bind (s1 s2 s3) l

@@ -331,15 +331,27 @@
   (declaim
    (inline simd-accumulate)
    (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
+  ;; (defun simd-accumulate (a b)
+  ;;   (declare (type sb-simd:f64vec a b))
+  ;;   (let ((diff
+  ;;           (sb-simd-avx:f64.2-
+  ;;            (sb-simd-avx:f64.2-aref a 0)
+  ;;            (sb-simd-avx:f64.2-aref b 0)
+  ;;            )))
+  ;;     (values (sb-simd-avx::f64.2-horizontal+
+  ;;              (sb-simd-avx:f64.2* diff diff))))
+  ;;   )
   (defun simd-accumulate (a b)
-    (declare (type sb-simd:f64vec a b))
-    (let ((diff
-            (sb-simd-avx:f64.2-
-             (sb-simd-avx:f64.2-aref a 0)
-             (sb-simd-avx:f64.2-aref b 0)
-             )))
-      (values (sb-simd-avx::f64.2-horizontal+
-               (sb-simd-avx:f64.2* diff diff))))
+    (+
+     (the double-float (expt (- (aref a 0) (aref b 0)) 2))
+     (the double-float (expt (- (aref a 1) (aref b 1)) 2))
+     (the double-float (expt (- (aref a 2) (aref b 2)) 2))
+     )
+    ;; (loop for i fixnum from 0 to 2
+    ;;       sum
+    ;;       (the double-float (expt (- (aref a i) (aref b i)) 2))
+    ;;       double-float
+    ;;       )
     )
   (defun diff-squared-mat (pos-a pos-b)
     (let ((pos-a (magicl::matrix/double-float-storage pos-a))
@@ -509,34 +521,35 @@
       (declare (double-float damage-inc mass-total))
       (loop for dx fixnum from (- node-reach) to node-reach
             do (loop for dy fixnum from (- node-reach) to node-reach
-                     do
-                        (let ((idx (mapcar #'+ node-id (list dx dy))))
-                          (declare (dynamic-extent idx))
-                          (when (cl-mpm/mesh:in-bounds mesh idx)
-                            (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                              (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
-                                    do
-                                       (with-accessors ((d cl-mpm/particle::mp-damage)
-                                                        (m cl-mpm/particle:mp-volume)
-                                                        (ll cl-mpm/particle::mp-true-local-length)
-                                                        (p cl-mpm/particle:mp-position))
-                                           mp-other
-                                         (when (< (the double-float d) 1d0)
-                                           (let (
-                                                 ;;Nodally averaged local funcj
-                                                 ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
-                                                 (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
-                                                 ;;
-                                                 ;; (weight (weight-func-mps-damaged mesh mp mp-other
-                                                 ;;                                  (cl-mpm/particle::mp-local-length mp)
-                                                 ;;                                  ;(* 0.5d0 (+ length ll))
-                                                 ;;                                  ))
-                                                 )
-                                             (declare (double-float weight m d mass-total damage-inc))
-                                             (incf mass-total (* weight m))
-                                             (incf damage-inc
-                                                   (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-                                                      weight m)))))))))))
+                     do (loop for dz fixnum from (- node-reach) to node-reach
+                              do
+                                 (let ((idx (mapcar #'+ node-id (list dx dy dz))))
+                                   (declare (dynamic-extent idx))
+                                   (when (cl-mpm/mesh:in-bounds mesh idx)
+                                     (let ((node (cl-mpm/mesh:get-node mesh idx)))
+                                       (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+                                             do
+                                                (with-accessors ((d cl-mpm/particle::mp-damage)
+                                                                 (m cl-mpm/particle:mp-volume)
+                                                                 (ll cl-mpm/particle::mp-true-local-length)
+                                                                 (p cl-mpm/particle:mp-position))
+                                                    mp-other
+                                                  (when (< (the double-float d) 1d0)
+                                                    (let (
+                                                          ;;Nodally averaged local funcj
+                                                          ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                          (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+                                                          ;;
+                                                          ;; (weight (weight-func-mps-damaged mesh mp mp-other
+                                                          ;;                                  (cl-mpm/particle::mp-local-length mp)
+                                                          ;;                                  ;(* 0.5d0 (+ length ll))
+                                                          ;;                                  ))
+                                                          )
+                                                      (declare (double-float weight m d mass-total damage-inc))
+                                                      (incf mass-total (* weight m))
+                                                      (incf damage-inc
+                                                            (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                                                               weight m))))))))))))
       (when (> mass-total 0d0)
         (setf damage-inc (/ damage-inc mass-total)))
       damage-inc
@@ -842,7 +855,8 @@
             do (format fs "~E ~E ~E ~%"
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                       0e0))
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
+                       ))
       (format fs "~%")
       (let ((id 1))
         (declare (special id))

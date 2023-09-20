@@ -319,26 +319,44 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
-    (iterate-over-neighbours-shape-gimp-3d
-       mesh mp
-       (lambda (mesh mp node svp grads fsvp fgrads)
-         (vector-push-extend
-          (cl-mpm/particle::make-node-cache
-           :node node
-           :weight svp
-           :grads grads
-           :weight-fbar fsvp
-           :grads-fbar fgrads
-           )
-          nodes)
-         (funcall func mesh mp node svp grads fsvp fgrads)
-         ))))
+    (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
+        (iterate-over-neighbours-shape-gimp-simd
+         mesh mp
+         (lambda (mesh mp node svp grads fsvp fgrads)
+           ;; (break)
+           (vector-push-extend
+            (cl-mpm/particle::make-node-cache
+             :node node
+             :weight svp
+             :grads grads
+             :weight-fbar fsvp
+             :grads-fbar fgrads
+             )
+            nodes)
+           (funcall func mesh mp node svp grads fsvp fgrads)
+           ))
+        (iterate-over-neighbours-shape-gimp-3d
+         mesh mp
+         (lambda (mesh mp node svp grads fsvp fgrads)
+           ;; (break)
+           (vector-push-extend
+            (cl-mpm/particle::make-node-cache
+             :node node
+             :weight svp
+             :grads grads
+             :weight-fbar fsvp
+             :grads-fbar fgrads
+             )
+            nodes)
+           (funcall func mesh mp node svp grads fsvp fgrads)
+           )))
+    ))
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
   (declare (function func))
   "If a node iteration cache has been generated we loop over the data list"
-  (loop for nc across (cl-mpm/particle::mp-cached-nodes mp)
+  (loop for nc across (the (vector cl-mpm/particle::node-cache *) (cl-mpm/particle::mp-cached-nodes mp))
         do
          (funcall func mesh mp
                   (cl-mpm/particle::node-cache-node nc)
@@ -415,6 +433,33 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               (when (< 0d0 weight)
                                 (funcall func mesh node weight grads))))
                           ))))))
+(defun iterate-over-neighbours-point-linear-3d (mesh position func)
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec position)
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+      (declare (dynamic-extent pos pos-index pos-vec))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (loop for dz from 0 to 1
+                              do (let* ((id (mapcar #'+ pos-index (list dx dy dz))))
+                                   (declare (dynamic-extent id))
+                                   (when (cl-mpm/mesh:in-bounds mesh id)
+                                     (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                                            (node (cl-mpm/mesh:get-node mesh id))
+                                            (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                            (weight (reduce #'* weights))
+                                            (lin-grads (mapcar (lambda (d)
+                                                                 (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                                               dist))
+                                            (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
+                                       (declare (double-float weight)
+                                                (dynamic-extent dist weights))
+                                       (when (< 0d0 weight)
+                                         (funcall func mesh node weight grads))))
+                                   )))))))
 
 (declaim (notinline iterate-over-neighbours-point-linear-simd)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
@@ -473,104 +518,104 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim ;(inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp))
-(defun iterate-over-neighbours-shape-gimp (mesh mp func)
-  (declare (type cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp)
-           (function func)
-           (optimize (speed 3) (safety 0) (debug 0))
-           )
-  (progn
-    (with-accessors ((pos-vec cl-mpm/particle:mp-position)
-                     (d0 cl-mpm/particle::mp-domain-size))
-        mp
-      (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
-        (flet ((center-diff (x)
-                 (declare (double-float x h))
-                 (- x (the double-float
-                           (* h
-                              (the double-float
-                                   (fround (the double-float (/ x h))))))))
-               (center-id (x)
-                 (round x h))
-               )
-          (let* ((pa (magicl::matrix/double-float-storage pos-vec))
-                 (da (magicl::matrix/double-float-storage d0))
-                 (px (the double-float (aref pa 0)))
-                 (py (the double-float (aref pa 1)))
-                 (ix (the fixnum (truncate (center-id px))))
-                 (iy (the fixnum (truncate (center-id py))))
-                 ;; (cx (center-diff px))
-                 ;; (cy (center-diff py))
-                 (cx (- px (* h ix)))
-                 (cy (- py (* h iy)))
-                 (dox (* 0.5d0 (the double-float (aref da 0))))
-                 (doy (* 0.5d0 (the double-float (aref da 1))))
-                 (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
-                 (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
-                 (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
-                 (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
-                 )
-            (declare ((simple-array double-float *) pa))
-            ;; (declare (dynamic-extent pa))
-            (declare (type double-float h cx cy dox doy px py)
-                     (type integer dxf dxc dyf dyc ix iy)
-                     ;; (type list pos pos-index)
-                     )
-            (loop for dx from dxf
-                    to dxc
-                  do (loop for dy from dyf
-                             to dyc
-                           do
-                              (let* ((id (list (the fixnum (+ ix dx))
-                                               (the fixnum (+ iy dy)))))
-                                (declare (dynamic-extent id))
-                                (when (cl-mpm/mesh:in-bounds mesh id)
-                                  (let* ((distx (- cx (* h dx)))
-                                         (disty (- cy (* h dy)))
-                                         (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
-                                         (weightsy (cl-mpm/shape-function::shape-gimp-fast disty doy h))
-                                         (weight (* weightsx weightsy))
+;; (defun iterate-over-neighbours-shape-gimp (mesh mp func)
+;;   (declare (type cl-mpm/mesh::mesh mesh)
+;;            (cl-mpm/particle:particle mp)
+;;            (function func)
+;;            (optimize (speed 3) (safety 0) (debug 0))
+;;            )
+;;   (progn
+;;     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
+;;                      (d0 cl-mpm/particle::mp-domain-size))
+;;         mp
+;;       (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
+;;         (flet ((center-diff (x)
+;;                  (declare (double-float x h))
+;;                  (- x (the double-float
+;;                            (* h
+;;                               (the double-float
+;;                                    (fround (the double-float (/ x h))))))))
+;;                (center-id (x)
+;;                  (round x h))
+;;                )
+;;           (let* ((pa (magicl::matrix/double-float-storage pos-vec))
+;;                  (da (magicl::matrix/double-float-storage d0))
+;;                  (px (the double-float (aref pa 0)))
+;;                  (py (the double-float (aref pa 1)))
+;;                  (ix (the fixnum (truncate (center-id px))))
+;;                  (iy (the fixnum (truncate (center-id py))))
+;;                  ;; (cx (center-diff px))
+;;                  ;; (cy (center-diff py))
+;;                  (cx (- px (* h ix)))
+;;                  (cy (- py (* h iy)))
+;;                  (dox (* 0.5d0 (the double-float (aref da 0))))
+;;                  (doy (* 0.5d0 (the double-float (aref da 1))))
+;;                  (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
+;;                  (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
+;;                  (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
+;;                  (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
+;;                  )
+;;             (declare ((simple-array double-float *) pa))
+;;             ;; (declare (dynamic-extent pa))
+;;             (declare (type double-float h cx cy dox doy px py)
+;;                      (type integer dxf dxc dyf dyc ix iy)
+;;                      ;; (type list pos pos-index)
+;;                      )
+;;             (loop for dx from dxf
+;;                     to dxc
+;;                   do (loop for dy from dyf
+;;                              to dyc
+;;                            do
+;;                               (let* ((id (list (the fixnum (+ ix dx))
+;;                                                (the fixnum (+ iy dy)))))
+;;                                 (declare (dynamic-extent id))
+;;                                 (when (cl-mpm/mesh:in-bounds mesh id)
+;;                                   (let* ((distx (- cx (* h dx)))
+;;                                          (disty (- cy (* h dy)))
+;;                                          (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
+;;                                          (weightsy (cl-mpm/shape-function::shape-gimp-fast disty doy h))
+;;                                          (weight (* weightsx weightsy))
 
-                                         ;; (dist (list (- cx (* h dx))
-                                         ;;             (- cy (* h dy))))
-                                         ;; (domain (list dox doy))
-                                         ;; (weights (mapcar (lambda (x l)
-                                         ;;                    (cl-mpm/shape-function::shape-gimp x l h))
-                                         ;;                  dist domain))
-                                         ;; (weight (* (the double-float (first weights))
-                                         ;;            (the double-float (second weights))))
+;;                                          ;; (dist (list (- cx (* h dx))
+;;                                          ;;             (- cy (* h dy))))
+;;                                          ;; (domain (list dox doy))
+;;                                          ;; (weights (mapcar (lambda (x l)
+;;                                          ;;                    (cl-mpm/shape-function::shape-gimp x l h))
+;;                                          ;;                  dist domain))
+;;                                          ;; (weight (* (the double-float (first weights))
+;;                                          ;;            (the double-float (second weights))))
 
-                                         #+cl-mpm-fbar (weights-fbar (mapcar (lambda (x l)
-                                                                 (cl-mpm/shape-function::shape-gimp-fbar x l h))
-                                                               dist domain))
-                                         #+cl-mpm-fbar (weight-fbar (* (the double-float (first weights-fbar))
-                                                         (the double-float (second weights-fbar))))
-                                         #-cl-mpm-fbar (weight-fbar 0d0)
-                                         )
-                                    ;; (declare (sb-int::truly-dynamic-extent domain dist))
-                                    (declare ;(type double-float h)
-                                     (double-float weight weightsx weightsy distx disty)
-                                     ;; (type list domain dist)
-                                     ;(dynamic-extent domain dist)
-                                     )
-                                    (when (< 0d0 weight)
-                                      (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                             ;; (grads (mapcar (lambda (d l w)
-                                             ;;                  (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
-                                             ;;                     (the double-float w)))
-                                             ;;                dist domain (nreverse weights)))
-                                             (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
-                                                       (the double-float weightsy)))
-                                             (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
-                                                       (the double-float weightsx)))
-                                             #+cl-mpm-fbar (grads-fbar (mapcar (lambda (d l w)
-                                                              (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
-                                                                 (the double-float w)))
-                                                            dist domain (nreverse weights-fbar)))
-                                             #-cl-mpm-fbar (grads-fbar nil)
-                                             )
-                                        (declare (double-float gradx grady))
-                                        (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))))))))))))))
+;;                                          #+cl-mpm-fbar (weights-fbar (mapcar (lambda (x l)
+;;                                                                  (cl-mpm/shape-function::shape-gimp-fbar x l h))
+;;                                                                dist domain))
+;;                                          #+cl-mpm-fbar (weight-fbar (* (the double-float (first weights-fbar))
+;;                                                          (the double-float (second weights-fbar))))
+;;                                          #-cl-mpm-fbar (weight-fbar 0d0)
+;;                                          )
+;;                                     ;; (declare (sb-int::truly-dynamic-extent domain dist))
+;;                                     (declare ;(type double-float h)
+;;                                      (double-float weight weightsx weightsy distx disty)
+;;                                      ;; (type list domain dist)
+;;                                      ;(dynamic-extent domain dist)
+;;                                      )
+;;                                     (when (< 0d0 weight)
+;;                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
+;;                                              ;; (grads (mapcar (lambda (d l w)
+;;                                              ;;                  (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
+;;                                              ;;                     (the double-float w)))
+;;                                              ;;                dist domain (nreverse weights)))
+;;                                              (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
+;;                                                        (the double-float weightsy)))
+;;                                              (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
+;;                                                        (the double-float weightsx)))
+;;                                              #+cl-mpm-fbar (grads-fbar (mapcar (lambda (d l w)
+;;                                                               (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
+;;                                                                  (the double-float w)))
+;;                                                             dist domain (nreverse weights-fbar)))
+;;                                              #-cl-mpm-fbar (grads-fbar nil)
+;;                                              )
+;;                                         (declare (double-float gradx grady))
+;;                                         (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))))))))))))))
 
 (declaim (notinline iterate-over-neighbours-shape-gimp-simd)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
@@ -594,7 +639,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (round x h))
                )
           (let* ((pa (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage pos-vec) 0))
-                 (d0a (sb-simd-avx:f64.2-aref(magicl::matrix/double-float-storage d0) 0))
+                 (d0a (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage d0) 0))
                  (ia (sb-simd-avx:f64.2-round (sb-simd-avx:f64.2*
                                                pa (/ 1d0 h))))
                  (ca (sb-simd-avx:f64.2- pa (sb-simd-avx:f64.2* ia h)))
@@ -632,7 +677,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        to (the fixnum (truncate dyc))
                                      do
                                         (let* ((id (list (+ (the fixnum (truncate ix)) dx)
-                                                         (+ (the fixnum (truncate iy)) dy))))
+                                                         (+ (the fixnum (truncate iy)) dy)
+                                                         0
+                                                         )))
                                           (declare (dynamic-extent id))
                                           (when (cl-mpm/mesh:in-bounds mesh id)
                                             (let* ((dist (sb-simd-avx:f64.2-
@@ -659,6 +706,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                        (the double-float weightsy)))
                                                              (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
                                                                        (the double-float weightsx)))
+                                                             (gradz 0d0)
                                                              #+cl-mpm-fbar (grads-fbar (mapcar (lambda (d l w)
                                                                                                  (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
                                                                                                     (the double-float w)))
@@ -666,7 +714,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                              #-cl-mpm-fbar (grads-fbar nil)
                                                              )
                                                         (declare (double-float gradx grady))
-                                                        (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))
+                                                        (funcall func mesh mp node weight (list gradx grady gradz) weight-fbar grads-fbar))
                                                       )))
                                               )))))
                       )))))))))))
@@ -711,6 +759,76 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                   )
                                              (funcall func mesh mp node weight grads 0d0 nil)))))))))))))
 
+(defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)
+  (declare (type cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp)
+           (function func)
+           (optimize (speed 3) (safety 0) (debug 0))
+           )
+  (progn
+    (with-accessors ((pos-vec cl-mpm/particle:mp-position)
+                     (d0 cl-mpm/particle::mp-domain-size))
+        mp
+      (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
+        (flet ((center-diff (x)
+                 (declare (double-float x h))
+                 (- x (the double-float
+                           (* h
+                              (the double-float
+                                   (fround (the double-float (/ x h))))))))
+               (center-id (x)
+                 (round x h))
+               )
+          (let* ((pa (magicl::matrix/double-float-storage pos-vec))
+                 (da (magicl::matrix/double-float-storage d0))
+                 (px (the double-float (aref pa 0)))
+                 (py (the double-float (aref pa 1)))
+                 (ix (the fixnum (truncate (center-id px))))
+                 (iy (the fixnum (truncate (center-id py))))
+                 (cx (- px (* h ix)))
+                 (cy (- py (* h iy)))
+                 (dox (* 0.5d0 (the double-float (aref da 0))))
+                 (doy (* 0.5d0 (the double-float (aref da 1))))
+                 (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
+                 (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
+                 (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
+                 (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
+                 )
+            (declare ((simple-array double-float *) pa))
+            ;; (declare (dynamic-extent pa))
+            (declare (type double-float h cx cy dox doy px py )
+                     (type integer dxf dxc dyf dyc ix iy )
+                     )
+            (loop for dx from dxf to dxc
+                  do (loop for dy from dyf to dyc
+                           do
+                              (let* ((id (list (the fixnum (+ ix dx))
+                                               (the fixnum (+ iy dy))
+                                               (the fixnum 0)
+                                               )))
+                                (declare (dynamic-extent id))
+                                (when (cl-mpm/mesh:in-bounds mesh id)
+                                  (let* ((distx (- cx (* h dx)))
+                                         (disty (- cy (* h dy)))
+                                         (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
+                                         (weightsy (cl-mpm/shape-function::shape-gimp-fast disty doy h))
+                                         (weight (* weightsx weightsy))
+                                         )
+                                    (declare ;(type double-float h)
+                                     (double-float weight weightsx weightsy distx disty )
+                                     )
+                                    (when (< 0d0 weight)
+                                      (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                             (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
+                                                       weightsy 
+                                                       ))
+                                             (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
+                                                       weightsx
+                                                       ))
+                                             (gradz 0d0))
+                                        (declare (double-float gradx grady gradz))
+                                        (funcall func mesh mp node weight (list gradx grady gradz) 0d0 nil))))))))))))))
+
 (declaim ;(inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-3d))
@@ -747,7 +865,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (cz (- pz (* h iz)))
                  (dox (* 0.5d0 (the double-float (aref da 0))))
                  (doy (* 0.5d0 (the double-float (aref da 1))))
-                 (doz (* 0.5d0 (the double-float (aref da 1))))
+                 (doz (* 0.5d0 (the double-float (aref da 2))))
                  (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
                  (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
                  (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
@@ -760,13 +878,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             (declare (type double-float h cx cy dox doy px py pz doz cz)
                      (type integer dxf dxc dyf dyc ix iy dzf dzc iz)
                      )
-            (loop for dx from dxf
-                    to dxc
-                  do (loop for dy from dyf
-                             to dyc
+            (loop for dx from dxf to dxc
+                  do (loop for dy from dyf to dyc
                            do
-                              (loop for dz from dzf
-                                      to dzc
+                              (loop for dz from dzf to dzc
                                     do
                               (let* ((id (list (the fixnum (+ ix dx))
                                                (the fixnum (+ iy dy))
@@ -783,7 +898,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (weight (* weightsx weightsy weightsz))
                                          )
                                     (declare ;(type double-float h)
-                                     (double-float weight weightsx weightsy distx disty)
+                                     (double-float weight weightsx weightsy weightsz distx disty distz)
                                      )
                                     (when (< 0d0 weight)
                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
@@ -797,7 +912,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                        weightsx weightsy
                                                        ))
                                              )
-                                        (declare (double-float gradx grady))
+                                        (declare (double-float gradx grady gradz))
                                         (funcall func mesh mp node weight (list gradx grady gradz) 0d0 nil)))))))))))))))
 
 
@@ -968,7 +1083,41 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (let ((dsvp (cl-mpm/utils::dsvp-2d-zeros)))
+    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+      (iterate-over-neighbours
+       mesh mp
+       (lambda (mesh mp node svp grads fsvp fgrads)
+         (declare
+          (cl-mpm/particle:particle mp)
+          (cl-mpm/mesh::node node)
+          (double-float svp)
+          )
+         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                          (node-active  cl-mpm/mesh:node-active)
+                          (node-mass  cl-mpm/mesh:node-mass)
+                          (node-force cl-mpm/mesh:node-force)
+                          (node-lock  cl-mpm/mesh:node-lock)) node
+           (declare (type double-float node-mass)
+                    (type sb-thread:mutex node-lock))
+           (when node-active
+             (sb-thread:with-mutex (node-lock)
+               (det-ext-force mp node svp node-force)
+               (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+               (det-int-force mp dsvp node-force)
+               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-plane-strain grads) node-force)
+               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-3d grads) node-force)
+               ))
+           )
+         ))))
+  (values))
+(defun p2g-force-mp-3d (mesh mp)
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
+                   (mp-mass cl-mpm/particle:mp-mass)
+                   ) mp
+    (declare (type double-float mp-mass))
+    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
       (iterate-over-neighbours
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
@@ -989,7 +1138,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (det-ext-force mp node svp node-force)
                ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
                ;; (det-int-force mp dsvp node-force)
-               (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-3d grads) node-force)
+               (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+               (det-int-force mp dsvp node-force)
+               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-3d grads) node-force)
                ))
            )
          ))))
@@ -998,8 +1149,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (inline p2g-force))
 (defun p2g-force (mesh mps)
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (lparallel:pdotimes (i (length mps))
-    (p2g-force-mp mesh (aref mps i))))
+  (cond
+    ((= 3 (cl-mpm/mesh:mesh-nd mesh))
+     (lparallel:pdotimes (i (length mps))
+       (p2g-force-mp-3d mesh (aref mps i))))
+    ((= 2 (cl-mpm/mesh:mesh-nd mesh))
+     (lparallel:pdotimes (i (length mps))
+       (p2g-force-mp mesh (aref mps i))))
+    )
+  )
 
 (defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
@@ -1017,7 +1175,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defmethod special-g2p (mesh (mp cl-mpm/particle::particle-damage) node svp grads)
   (declare (ignore mesh))
   "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-damage cl-mpm/mesh::node-damage)) node
+  (with-accessors ((node-damage cl-mpm/mesh::node-damage)
+                   (node-temp cl-mpm/mesh::node-temp)) node
     (with-accessors ((temp cl-mpm/particle::mp-damage)) mp
       (progn
         (setf temp (+ temp (* node-temp svp)))
@@ -1402,8 +1561,7 @@ Calls func with only the node"
       (let ((df (calculate-df mp)))
         (progn
           (setf def (magicl:@ df def))
-          (let (;(initial-strain (magicl:scale strain 1d0))
-                )
+          (let ((initial-strain (magicl:scale strain 1d0)))
             ;; (let ((r1 (cl-mpm/utils:matrix-zeros))
             ;;       (r2 (cl-mpm/utils:matrix-zeros)))
             ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
@@ -1449,8 +1607,7 @@ Calls func with only the node"
             ;;         )
             ;;    ))
 
-                (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
-                                                               strain))
+                (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
                 (let ((trial-lgs (magicl:@ df
                                            v
                                            (cl-mpm/utils::matrix-from-list
@@ -1478,9 +1635,9 @@ Calls func with only the node"
                                   0.5d0)))))
 
             ;;Not sure about this engineering strain calculation
-            ;; (magicl:.- initial-strain strain initial-strain)
-            ;; (setf eng-strain-rate initial-strain)
-            ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
+            (magicl:.- initial-strain strain initial-strain)
+            (setf eng-strain-rate initial-strain)
+            (magicl:scale! eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )
@@ -1534,58 +1691,109 @@ Calls func with only the node"
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
                    )
       mp
-    (let ((points (list '(-0.5d0 -0.5d0) '(0.5d0 -0.5d0) '(0.5d0 0.5d0) '(-0.5d0 0.5d0)))
-          (dim '(0 0 1 1))
-          ;(disp (make-array 4 :element-type 'double-float :initial-element 0d0))
-          (disp (make-array 4 :initial-element (cl-mpm/utils:vector-zeros)))
-          (domain-storage (magicl::matrix/double-float-storage domain))
-          )
-      (loop for point in points
-            for d in dim
-            for i from 0 below 4
-            do
-               (let ((corner (cl-mpm/utils:vector-zeros)))
-                 (magicl.simd::.+-simd position
-                                       (magicl.simd::.*-simd
-                                        (magicl:from-list point '(2 1)
-                                                          :type 'double-float)
-                                        domain
-                                        ) corner)
-                 (iterate-over-neighbours-point-linear
-                  mesh corner
-                  (lambda (mesh node svp grads)
-                    (with-accessors ((vel cl-mpm/mesh:node-velocity))
-                        node
-                      ;; (incf (aref disp i)
-                      ;;       (* svp dt (magicl:tref vel d 0)))
-                      (setf (aref disp i)
-                            (magicl.simd::.+-simd (aref disp i)
-                                       (magicl:scale vel (* dt svp)))))))))
-      (incf (aref domain-storage 0) (* 0.5
-                                        (-
-                                         (+ (magicl:tref (aref disp 1) 0 0)
-                                            (magicl:tref (aref disp 2) 0 0))
-                                         (+ (magicl:tref (aref disp 0) 0 0)
-                                            (magicl:tref (aref disp 3) 0 0))
-                                         )))
-      (incf (aref domain-storage 1) (* 0.5
-                                        (-
-                                         (+ (magicl:tref (aref disp 3) 1 0)
-                                            (magicl:tref (aref disp 2) 1 0))
-                                         (+ (magicl:tref (aref disp 0) 1 0)
-                                            (magicl:tref (aref disp 1) 1 0))
-                                         )))
-      (let* ((jf (magicl:det def))
-             (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-             (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-             (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
-        (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-              (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+    (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+        mesh
+        (let ((diff (make-array 3 :initial-element 0d0))
+              (domain-storage (magicl::matrix/double-float-storage domain)))
+          (array-operations/utilities:nested-loop (x y z) '(2 2 2)
+            (let ((corner (cl-mpm/utils:vector-zeros))
+                  (disp (cl-mpm/utils:vector-zeros)))
+              (magicl.simd::.+-simd position
+                                    (magicl:scale!
+                                     (magicl.simd::.*-simd
+                                      (vector-from-list (mapcar (lambda (x) (coerce (- (* 2d0 x) 1d0) 'double-float)) (list x y z)))
+                                      domain
+                                      ) 0.5d0) corner)
+              (loop for i from 0 to 2
+                    do (setf (magicl:tref corner i 0) (max 0d0 (min (nth i mesh-size) (magicl:tref corner i 0)))))
+              (iterate-over-neighbours-point-linear-3d
+               mesh corner
+               (lambda (mesh node svp grads)
+                 (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                     node
+                   (magicl.simd::.+-simd disp
+                                         (magicl:scale vel (* dt svp))
+                                         disp))))
+              (incf (aref diff 0) (* 0.5d0 (magicl:tref disp 0 0) (- (* 2 x) 1)))
+              (incf (aref diff 1) (* 0.5d0 (magicl:tref disp 1 0) (- (* 2 y) 1)))
+              (incf (aref diff 2) (* 0.5d0 (magicl:tref disp 2 0) (- (* 2 z) 1)))
               ))
-      )
+          (incf (aref domain-storage 0) (* 0.5d0 (aref diff 0)))
+          (incf (aref domain-storage 1) (* 0.5d0 (aref diff 1)))
+          (when (= 3 (cl-mpm/mesh:mesh-nd mesh))
+              (incf (aref domain-storage 2) (* 0.5d0 (aref diff 2))))
+
+          (let* ((jf (magicl:det def))
+                 (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+                 (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                 (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
+            (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                  (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                  ))
+          ))
 
     )
   )
+;; (defun update-domain-corner (mesh mp dt)
+;;   "Use a corner tracking scheme to update domain lengths"
+;;   (with-accessors ((position cl-mpm/particle::mp-position)
+;;                    (def cl-mpm/particle::mp-deformation-gradient)
+;;                    (domain cl-mpm/particle::mp-domain-size)
+;;                    (domain-0 cl-mpm/particle::mp-domain-size-0)
+;;                    )
+;;       mp
+;;     (let ((points (list '(-0.5d0 -0.5d0) '(0.5d0 -0.5d0) '(0.5d0 0.5d0) '(-0.5d0 0.5d0)))
+;;           (dim '(0 0 1 1))
+;;           ;(disp (make-array 4 :element-type 'double-float :initial-element 0d0))
+;;           (disp (make-array 4 :initial-element (cl-mpm/utils:vector-zeros)))
+;;           (domain-storage (magicl::matrix/double-float-storage domain))
+;;           )
+;;       (loop for point in points
+;;             for d in dim
+;;             for i from 0 below 4
+;;             do
+;;                (let ((corner (cl-mpm/utils:vector-zeros)))
+;;                  (magicl.simd::.+-simd position
+;;                                        (magicl.simd::.*-simd
+;;                                         (magicl:from-list point '(2 1)
+;;                                                           :type 'double-float)
+;;                                         domain
+;;                                         ) corner)
+;;                  (iterate-over-neighbours-point-linear
+;;                   mesh corner
+;;                   (lambda (mesh node svp grads)
+;;                     (with-accessors ((vel cl-mpm/mesh:node-velocity))
+;;                         node
+;;                       ;; (incf (aref disp i)
+;;                       ;;       (* svp dt (magicl:tref vel d 0)))
+;;                       (setf (aref disp i)
+;;                             (magicl.simd::.+-simd (aref disp i)
+;;                                        (magicl:scale vel (* dt svp)))))))))
+;;       (incf (aref domain-storage 0) (* 0.5
+;;                                         (-
+;;                                          (+ (magicl:tref (aref disp 1) 0 0)
+;;                                             (magicl:tref (aref disp 2) 0 0))
+;;                                          (+ (magicl:tref (aref disp 0) 0 0)
+;;                                             (magicl:tref (aref disp 3) 0 0))
+;;                                          )))
+;;       (incf (aref domain-storage 1) (* 0.5
+;;                                         (-
+;;                                          (+ (magicl:tref (aref disp 3) 1 0)
+;;                                             (magicl:tref (aref disp 2) 1 0))
+;;                                          (+ (magicl:tref (aref disp 0) 1 0)
+;;                                             (magicl:tref (aref disp 1) 1 0))
+;;                                          )))
+;;       (let* ((jf (magicl:det def))
+;;              (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+;;              (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+;;              (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
+;;         (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+;;               (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+;;               ))
+;;       )
+
+;;     )
+;;   )
 
 
 
@@ -1769,14 +1977,15 @@ Calls func with only the node"
                    )
       mp
     (let ((l-factor 1.50d0)
-          (h-factor (* 0.8d0 h))
+          (h-factor (* 0.6d0 h))
           (s-factor 1.5d0))
       (cond
-        ;; ((< h-factor (tref lens 0 0)) :x)
-        ;; ((< h-factor (tref lens 1 0)) :y)
-        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
-        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
-        ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
+        ((< h-factor (tref lens 0 0)) :x)
+        ((< h-factor (tref lens 1 0)) :y)
+        ((< h-factor (tref lens 2 0)) :z)
+        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ;; ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
         ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
         ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)

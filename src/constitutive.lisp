@@ -52,7 +52,10 @@
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
-  (magicl.simd::.+-simd stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
+  (magicl.simd::.+-simd
+   stress
+   (magicl:@
+    (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
 
 (defun maxwell (strain-increment stress elasticity poisson-ratio de viscosity dt)
@@ -321,6 +324,7 @@
                            double-float
                            )) maxwell-exp))
 (defun maxwell-exp (strain-increment stress elasticity nu de viscosity dt)
+  ;; (declare (optimize (safety 3) (speed 0)))
   "A stress increment form of a viscoelastic maxwell material"
   (let* (
          (stress-matrix (voight-to-matrix stress))
@@ -330,14 +334,17 @@
          (rho (/ (* 2 (- 1 nu) viscosity) elasticity))
          (exp-rho (exp (- (/ dt rho))))
          (lam (* (- 1 exp-rho) (/ rho dt)))
+         ;; (exp-rho 1d0)
+         ;; (lam 1d0)
          (stress-inc (voight-to-matrix (magicl:@ de strain-increment)))
          (stress-inc-pressure (magicl:eye 3 :value (/ (magicl:trace stress-inc) 3d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
     (magicl.simd::.+-simd
      (matrix-to-voight (magicl.simd::.+-simd pressure-matrix stress-inc-pressure))
-               (magicl.simd::.+-simd (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
-                          (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
+               (magicl.simd::.+-simd
+                (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
+                (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
 (defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
   "A stress increment form of a viscoelastic maxwell material"
