@@ -316,12 +316,12 @@
   "Construct fixed bcs over the outside of a mesh"
   (make-outside-bc-var 
    mesh
-   (lambda (i) (make-bc-fixed i '(0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0))))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0))))
   ;; (destructuring-bind (xsize ysize zsize) (mapcar (lambda (x) (- x 1)) mesh-count)
   ;;   (make-bcs-from-list
   ;;    (append
@@ -389,7 +389,12 @@
              (push (funcall back (list x y z)) outlist)))
 
           (delete nil outlist)))))
-(defun make-outside-bc-var (mesh left right top bottom front back)
+(defun make-outside-bc-var (mesh left right top bottom
+                            ;; front back
+                            &optional
+                              (front (lambda (i) nil))
+                              (back (lambda (i) nil))
+                              )
   "Construct fixed bcs over the outside of a mesh"
       (make-bcs-from-list
        (make-outside-bc-var-list mesh left right top bottom front back)))

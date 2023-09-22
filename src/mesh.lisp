@@ -330,8 +330,7 @@
         (with-accessors ((neighbours cell-neighbours))
             cell
           (setf neighbours (list))
-
-          (array-operations/utilities:nested-loop (dxx dyy dzz) (list 3 3 1)
+          (array-operations/utilities:nested-loop (dxx dyy) (list 3 3)
             (let ((dx (- dxx 1))
                   (dy (- dyy 1))
                   (dz 0))
@@ -371,9 +370,9 @@
 (defun in-bounds-cell (mesh index)
   (destructuring-bind (x y z) index
     (and
-     (and (>= x 0) (< x (- (nth 0 (mesh-count mesh)) 1)))
-     (and (>= y 0) (< y (- (nth 1 (mesh-count mesh)) 1)))
-     (and (>= z 0) (< z (- (nth 2 (mesh-count mesh)) 1)))
+     (and (>= x 0) (< x (max 1 (- (nth 0 (mesh-count mesh)) 1))))
+     (and (>= y 0) (< y (max 1 (- (nth 1 (mesh-count mesh)) 1))))
+     (and (>= z 0) (< z (max 1 (- (nth 2 (mesh-count mesh)) 1))))
      )))
 
 (defun query-boundary-shapes (mesh index)
@@ -654,6 +653,47 @@
                                 weight
                                 grads)))))))))
 
+
+(defun cell-iterate-over-neighbours (mesh cell func)
+  (if (= (mesh-nd mesh) 2)
+      (cell-iterate-over-neighbours-2d mesh cell func)
+      (cell-iterate-over-neighbours-3d mesh cell func)
+      )
+  )
+(defun cell-iterate-over-neighbours-2d (mesh cell func)
+  (declare (function func))
+  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+    (with-accessors ((nodes cell-nodes)
+                     (centroid cell-centroid)
+                     (volume cell-volume))
+        cell
+      (loop for node in nodes
+            do
+               (with-accessors ((n-pos node-position))
+                   node
+                 (let* ((dist-vec (magicl:.- centroid n-pos))
+                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
+                        (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                        (weight (reduce #'* weights))
+                        ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                        ;;                dist (nreverse weights)))
+                        (lin-grads
+                          (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                           dist))
+                        (grads (cl-mpm/shape-function::grads-2d weights lin-grads))
+                        )
+                   (when (< 0d0 weight)
+                     (funcall func
+                              mesh
+                              cell
+                              centroid
+                              volume
+                              node
+                              weight
+                              (list (nth 0 grads)
+                                    (nth 1 grads)
+                                    0d0
+                                    )))))))))
 (defun cell-iterate-over-neighbours-3d (mesh cell func)
   (declare (function func))
   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
@@ -666,7 +706,7 @@
                (with-accessors ((n-pos node-position))
                    node
                  (let* ((dist-vec (magicl:.- centroid n-pos))
-                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0) (magicl:tref dist-vec 2 0) ))
+                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0) (magicl:tref dist-vec 2 0)))
                         (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                         (weight (reduce #'* weights))
                         ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))

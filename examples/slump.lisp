@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/slump)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -570,26 +570,26 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 50)
-         (mps-per-cell 2)
+         (mps-per-cell 4)
          (slope -0.02)
          (shelf-height 400)
-         (shelf-aspect 4)
+         (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
          (shelf-height shelf-end-height)
          (offset (list 0
                        (* 1 mesh-size)
-                       0
+                       ;; 0
                        ))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 100)
-                                                 500
+                                                 ;; 500
                                                  )
                          (list shelf-length shelf-height
-                               400
+                               ;; 400
                                )
                          offset
                          slope

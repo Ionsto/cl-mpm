@@ -238,7 +238,7 @@
                    (p mp-p-modulus)
                    )
       particle
-    (setf p (/ E (* (+ 1 nu) (- 1 nu))))
+    (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
 
 (defmethod (setf mp-E) :after (value (p particle-elastic))
@@ -575,16 +575,16 @@
     (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (setf pressure (funcall calc-pressure pos))
     (setf stress (magicl:scale stress-undamaged 1d0))
-      (when (> damage 0.0d0)
-        (let ((j 1d0))
-          (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                      (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
-                   (tp (funcall calc-pressure pos))
-                   (driving-pressure (* tp (expt (min 0.90d0 damage) 1)))
-                   (degredation (expt (- 1d0 damage) 2d0)))
-              (loop for i from 0 to 2
-                    do (let* ((sii (nth i l))
+    (when (> damage 0.0d0)
+      (let ((j 1d0))
+        (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+          (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
+                 (tp (funcall calc-pressure pos))
+                 (driving-pressure (* tp 0d0 (expt (min 0.90d0 damage) 1)))
+                 (degredation (expt (- 1d0 damage) 2d0)))
+            (loop for i from 0 to 2
+                  do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
@@ -698,7 +698,7 @@
   (with-slots ((E E)
                (nu nu)
                (de elastic-matrix)
-               (stress stress)
+               (stress stress-kirchoff)
                (strain-rate strain-rate)
                (D stretch-tensor)
                (vorticity vorticity)

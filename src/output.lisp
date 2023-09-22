@@ -321,11 +321,13 @@
 (defun format-scalar-node (stream name id nodes accessor)
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
-  (destructuring-bind (n m) (array-dimensions nodes)
+  (destructuring-bind (n m l) (array-dimensions nodes)
     (loop for i from 0 below n do
       (loop for j from 0 below m
-        do (format stream "~E ~%"
-                   (coerce (funcall accessor (aref nodes i j)) 'single-float)))))
+        do (loop for k from 0 below l
+                 do
+                    (format stream "~E ~%"
+                            (coerce (funcall accessor (aref nodes i j k)) 'single-float))))))
   (format stream "~%")
   )
 (defmacro save-parameter-nodes (name accessor)
@@ -365,10 +367,11 @@
             (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
             (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
             (save-parameter-nodes "force_z" (magicl:tref (cl-mpm/mesh:node-force node) 2 0))
-            ;; (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
-            ;; (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
-            ;; (save-parameter-nodes "buoyancy_node" (if
-            ;;                                        (cl-mpm/mesh::node-boundary-node node) 1 0))
+            (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
+            (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
+            (save-parameter-nodes "force_buoy_z" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 2 0))
+            (save-parameter-nodes "buoyancy_node" (if
+                                                   (cl-mpm/mesh::node-boundary-node node) 1 0))
             ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
             ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
 
@@ -391,7 +394,8 @@
    (:method (f s)))
 
 (defmethod save-vtk (filename (sim cl-mpm::mpm-sim-usf))
-  (with-accessors ((mps cl-mpm:sim-mps)) sim
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
       (format fs "# vtk DataFile Version 2.0~%")
       (format fs "Lisp generated vtk file, WMC~%")
@@ -422,10 +426,7 @@
 
         (save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
         (save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
-        (save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
-        (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
 
         (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
         (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
@@ -434,8 +435,13 @@
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0))
         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
+        (when (= (cl-mpm/mesh:mesh-nd mesh) 3)
+          (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+          (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0))
+          (save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
+          (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
+          )
         ;; (save-parameter
         ;;  "plastic_strain"
         ;;  (cl-mpm/particle::mp-strain-plastic-vm mp))

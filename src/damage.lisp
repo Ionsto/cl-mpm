@@ -10,7 +10,7 @@
 ;; (defconstant +stress-exp+ 2d0)
 
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim
  ;(inline damage-rate-profile)
  (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
@@ -84,7 +84,8 @@
                                         ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (multiple-value-bind (s_1 s_2) (principal-stresses (magicl:scale stress (/ 1d0 (magicl:det def))))
               (let* (;;Only allow tensile damage
-                     (pressure-effective (* 1d0 damage pressure))
+                     ;; (pressure-effective (* 1d0 damage pressure))
+                     (pressure-effective (* 1d0 pressure))
                      (s_1 (- s_1 pressure-effective))
                      (s_2 (- s_2 pressure-effective))
                      (s_1 (max 0d0 s_1))
@@ -488,8 +489,9 @@
 (defun weight-func-mps-damaged (mesh mp-a mp-b length)
   (weight-func (diff-damaged mesh mp-a mp-b) length))
 
-
 (defun iterate-over-damage-bounds (mesh mp length func)
+  (iterate-over-damage-bounds-2d mesh mp length func))
+(defun iterate-over-damage-bounds-2d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
@@ -497,14 +499,29 @@
     (loop for dx fixnum from (- node-reach) to node-reach
           do (loop for dy fixnum from (- node-reach) to node-reach
                    do
-                      (let ((idx (mapcar #'+ node-id (list dx dy))))
+                      (let ((idx (mapcar #'+ node-id (list dx dy 0))))
                         (declare (dynamic-extent idx))
                         (when (cl-mpm/mesh:in-bounds mesh idx)
                           (let ((node (cl-mpm/mesh:get-node mesh idx)))
                             (funcall func mesh mp node))))))))
+(defun iterate-over-damage-bounds-3d (mesh mp length func)
+  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+                                                        (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
+    (declare (dynamic-extent node-id))
+    (loop for dx fixnum from (- node-reach) to node-reach
+          do (loop for dy fixnum from (- node-reach) to node-reach
+                   do
+                      (loop for dz fixnum from (- node-reach) to node-reach
+                            do
+                               (let ((idx (mapcar #'+ node-id (list dx dy dz))))
+                                 (declare (dynamic-extent idx))
+                                 (when (cl-mpm/mesh:in-bounds mesh idx)
+                                   (let ((node (cl-mpm/mesh:get-node mesh idx)))
+                                     (funcall func mesh mp node)))))))))
 
 (declaim
- (inline calculate-delocalised-damage)
+ (notinline calculate-delocalised-damage)
  (ftype (function (cl-mpm/mesh::mesh
                    cl-mpm/particle:particle-damage
                    double-float
@@ -512,49 +529,83 @@
         calculate-delocalised-damage
         ))
 (defun calculate-delocalised-damage (mesh mp length)
-  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
-                                                        (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
-    (declare (dynamic-extent node-id))
-    (let ((damage-inc 0d0)
-          (mass-total 0d0))
-      (declare (double-float damage-inc mass-total))
-      (loop for dx fixnum from (- node-reach) to node-reach
-            do (loop for dy fixnum from (- node-reach) to node-reach
-                     do (loop for dz fixnum from (- node-reach) to node-reach
-                              do
-                                 (let ((idx (mapcar #'+ node-id (list dx dy dz))))
-                                   (declare (dynamic-extent idx))
-                                   (when (cl-mpm/mesh:in-bounds mesh idx)
-                                     (let ((node (cl-mpm/mesh:get-node mesh idx)))
-                                       (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
-                                             do
-                                                (with-accessors ((d cl-mpm/particle::mp-damage)
-                                                                 (m cl-mpm/particle:mp-volume)
-                                                                 (ll cl-mpm/particle::mp-true-local-length)
-                                                                 (p cl-mpm/particle:mp-position))
-                                                    mp-other
-                                                  (when (< (the double-float d) 1d0)
-                                                    (let (
-                                                          ;;Nodally averaged local funcj
-                                                          ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
-                                                          (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
-                                                          ;;
-                                                          ;; (weight (weight-func-mps-damaged mesh mp mp-other
-                                                          ;;                                  (cl-mpm/particle::mp-local-length mp)
-                                                          ;;                                  ;(* 0.5d0 (+ length ll))
-                                                          ;;                                  ))
-                                                          )
-                                                      (declare (double-float weight m d mass-total damage-inc))
-                                                      (incf mass-total (* weight m))
-                                                      (incf damage-inc
-                                                            (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-                                                               weight m))))))))))))
-      (when (> mass-total 0d0)
-        (setf damage-inc (/ damage-inc mass-total)))
-      damage-inc
-      ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
-      )))
+  (let ((damage-inc 0d0)
+        (mass-total 0d0))
+    (declare (double-float damage-inc mass-total))
+    (iterate-over-damage-bounds mesh mp length
+                                (lambda (mesh mp node)
+                                  (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+                                        do
+                                           (with-accessors ((d cl-mpm/particle::mp-damage)
+                                                            (m cl-mpm/particle:mp-volume)
+                                                            (ll cl-mpm/particle::mp-true-local-length)
+                                                            (p cl-mpm/particle:mp-position))
+                                               mp-other
+                                             (when (< (the double-float d) 1d0)
+                                               (let (
+                                                     ;;Nodally averaged local funcj
+                                                     ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+                                                     (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+                                                     ;;
+                                                     ;; (weight (weight-func-mps-damaged mesh mp mp-other
+                                                     ;;                                  (cl-mpm/particle::mp-local-length mp)
+                                                     ;;                                  ;(* 0.5d0 (+ length ll))
+                                                     ;;                                  ))
+                                                     )
+                                                 (declare (double-float weight m d mass-total damage-inc))
+                                                 (incf mass-total (* weight m))
+                                                 (incf damage-inc
+                                                       (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                                                          weight m))))))))
+    (when (> mass-total 0d0)
+      (setf damage-inc (/ damage-inc mass-total)))
+    damage-inc
+    ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
+    ))
+;; (defun calculate-delocalised-damage (mesh mp length)
+;;   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+;;         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+;;                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
+;;     (declare (dynamic-extent node-id))
+;;     (let ((damage-inc 0d0)
+;;           (mass-total 0d0))
+;;       (declare (double-float damage-inc mass-total))
+;;       (loop for dx fixnum from (- node-reach) to node-reach
+;;             do (loop for dy fixnum from (- node-reach) to node-reach
+;;                      do (loop for dz fixnum from (- node-reach) to node-reach
+;;                               do
+;;                                  (let ((idx (mapcar #'+ node-id (list dx dy dz))))
+;;                                    (declare (dynamic-extent idx))
+;;                                    (when (cl-mpm/mesh:in-bounds mesh idx)
+;;                                      (let ((node (cl-mpm/mesh:get-node mesh idx)))
+;;                                        (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+;;                                              do
+;;                                                 (with-accessors ((d cl-mpm/particle::mp-damage)
+;;                                                                  (m cl-mpm/particle:mp-volume)
+;;                                                                  (ll cl-mpm/particle::mp-true-local-length)
+;;                                                                  (p cl-mpm/particle:mp-position))
+;;                                                     mp-other
+;;                                                   (when (< (the double-float d) 1d0)
+;;                                                     (let (
+;;                                                           ;;Nodally averaged local funcj
+;;                                                           ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
+;;                                                           (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
+;;                                                           ;;
+;;                                                           ;; (weight (weight-func-mps-damaged mesh mp mp-other
+;;                                                           ;;                                  (cl-mpm/particle::mp-local-length mp)
+;;                                                           ;;                                  ;(* 0.5d0 (+ length ll))
+;;                                                           ;;                                  ))
+;;                                                           )
+;;                                                       (declare (double-float weight m d mass-total damage-inc))
+;;                                                       (incf mass-total (* weight m))
+;;                                                       (incf damage-inc
+;;                                                             (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+;;                                                                weight m))))))))))))
+;;       (when (> mass-total 0d0)
+;;         (setf damage-inc (/ damage-inc mass-total)))
+;;       damage-inc
+;;       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
+;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
   (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage)))

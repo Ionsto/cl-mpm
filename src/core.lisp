@@ -29,7 +29,7 @@
     #:iterate-over-neighbours
     #:calculate-adaptive-time
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -1607,7 +1607,9 @@ Calls func with only the node"
             ;;         )
             ;;    ))
 
-                (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
+                (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                            ;;Shear scaling factor halved - we are using log strain matrix
+                                            (voigt-to-matrix strain))
                 (let ((trial-lgs (magicl:@ df
                                            v
                                            (cl-mpm/utils::matrix-from-list
@@ -1621,6 +1623,7 @@ Calls func with only the node"
                   (multiple-value-bind (lf vf)
                       (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
                     (setf strain (magicl:scale!
+                                  ;;Note that this is taking care of the shear scaling factor
                                   (matrix-to-voigt
                                    (magicl:@
                                     vf
@@ -1649,6 +1652,7 @@ Calls func with only the node"
             (error "Negative volume"))
           ;;Stretch rate update
           (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch def domain domain-0)
           ;; (update-domain-corner mesh mp dt)
           )
           )))
@@ -1683,6 +1687,29 @@ Calls func with only the node"
         (setf (tref domain 2 0) (* (the double-float (tref domain 2 0))
                                    (the double-float (tref stretch 2 2))))
         ))))
+
+(defun update-domain-stretch (def domain domain-0)
+  "Update the domain length based on the increment of the stretch rate"
+  (let ((F (cl-mpm/utils::matrix-zeros)))
+    (magicl:mult def def :target F :transb :t)
+    (multiple-value-bind (l v) (cl-mpm/utils::eig F)
+      (let* ((stretch
+              (magicl:@
+               v
+               (cl-mpm/utils::matrix-from-list
+                (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                      0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                      0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+               (magicl:transpose v)))
+            )
+        (declare (type magicl:matrix/double-float stretch))
+        (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
+                                   (the double-float (tref stretch 0 0))))
+        (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
+                                   (the double-float (tref stretch 1 1))))
+        (setf (tref domain 2 0) (* (the double-float (tref domain-0 2 0))
+                                   (the double-float (tref stretch 2 2))))
+        ))))
 (defun update-domain-corner (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
   (with-accessors ((position cl-mpm/particle::mp-position)
@@ -1700,7 +1727,7 @@ Calls func with only the node"
                   (disp (cl-mpm/utils:vector-zeros)))
               (magicl.simd::.+-simd position
                                     (magicl:scale!
-                                     (magicl.simd::.*-simd
+                                     (magicl:.*
                                       (vector-from-list (mapcar (lambda (x) (coerce (- (* 2d0 x) 1d0) 'double-float)) (list x y z)))
                                       domain
                                       ) 0.5d0) corner)
@@ -1711,9 +1738,9 @@ Calls func with only the node"
                (lambda (mesh node svp grads)
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
                      node
-                   (magicl.simd::.+-simd disp
-                                         (magicl:scale vel (* dt svp))
-                                         disp))))
+                   (magicl:.+ disp
+                              (magicl:scale vel (* dt svp))
+                              disp))))
               (incf (aref diff 0) (* 0.5d0 (magicl:tref disp 0 0) (- (* 2 x) 1)))
               (incf (aref diff 1) (* 0.5d0 (magicl:tref disp 1 0) (- (* 2 y) 1)))
               (incf (aref diff 2) (* 0.5d0 (magicl:tref disp 2 0) (- (* 2 z) 1)))
@@ -1723,13 +1750,13 @@ Calls func with only the node"
           (when (= 3 (cl-mpm/mesh:mesh-nd mesh))
               (incf (aref domain-storage 2) (* 0.5d0 (aref diff 2))))
 
-          (let* ((jf (magicl:det def))
-                 (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-                 (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-                 (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
-            (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                  (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                  ))
+          ;; (let* ((jf (magicl:det def))
+          ;;        (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+          ;;        (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+          ;;        (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
+          ;;   (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+          ;;         (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+          ;;         ))
           ))
 
     )

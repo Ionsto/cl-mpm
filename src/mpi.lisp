@@ -213,8 +213,15 @@
     :initform '())
    (domain-bounds
     :accessor mpm-sim-mpi-domain-bounds
-    :initform '(0 0)
-    ))
+    :initform '((0 0)
+                (0 0)
+                (0 0))
+    )
+   (domain-count
+    :accessor mpm-sim-mpi-domain-count
+    :initform '(1 1 1)
+    )
+   )
   (:documentation "Damage sim with only stress update on mpi"))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
@@ -385,6 +392,8 @@
                                      :element-type '(unsigned-byte 8)
                                      :initial-contents res
                                      )))
+
+(defun get-mpi-index (sim))
 
 (defun exchange-mps (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank))
@@ -584,6 +593,13 @@
      (> (coerce bu 'double-float) (magicl:tref pos 0 0))
      (<= (coerce bl 'double-float) (magicl:tref pos 0 0))
      )))
+(defun calculate-domain-sizes (sim)
+  (let ((mc (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+        (divs (list 1 1 1)))
+    (loop for i from 0 below (- rank-count 1)
+          do (incf (nth (mod i 3) divs)))
+    divs
+    (mapcar #'/ mc divs)))
 
 (declaim (notinline set-mp-index))
 (defun set-mp-index (sim)
