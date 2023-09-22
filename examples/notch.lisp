@@ -147,8 +147,9 @@
          )
         ((eq plot :damage)
          (vgplot:format-plot t "set cbrange [0:1]")
+         (vgplot:format-plot t "set style fill solid")
          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1d-10 (apply #'max c)))
-         (vgplot:plot x y c ";;with points pt 7 lc palette")
+         (vgplot:plot x y lx ly c ";;with ellipses lc palette")
          ;; (if node-x
          ;;     (vgplot:plot
          ;;      x y c ";;with points pt 7 lc palette"
@@ -239,7 +240,7 @@
       (let* ((position (cl-mpm/utils:vector-from-list position))
              (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
                                   (cl-mpm/utils:vector-from-list size))))
-
+        (setf (magicl:tref dist-vec 2 0) 0d0)
         (+ (sqrt (magicl::sum
                   (magicl:map! (lambda (x) (* x x))
                                (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
@@ -311,10 +312,10 @@
 
 
                :initiation-stress 0.10d6
-               :damage-rate 1d-5
+               :damage-rate 1d-4
                ;:critical-damage 0.56d0
                :critical-damage 0.5d0
-               :local-length 50d0
+               :local-length 100d0
                :local-length-damaged 0.01d0
                ;; :local-length-damaged 50d0
                :damage 0.0d0
@@ -354,14 +355,18 @@
             (append
              (cl-mpm/bc::make-outside-bc-var
               (cl-mpm:sim-mesh sim)
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0))))))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
+              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
+              )))
       (let ((water-line 300))
         (loop for mp across (cl-mpm:sim-mps sim)
               do
                  (with-accessors ((pos cl-mpm/particle:mp-position)
+                                  (damage cl-mpm/particle::mp-damage)
                                   (stress cl-mpm/particle::mp-stress-kirchoff)
                                   (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                                   (stress-cauchy cl-mpm/particle::mp-stress)
@@ -382,6 +387,7 @@
                           (magicl:eye 3 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line *water-density*))))
                          stress-cauchy (magicl:scale stress 1d0)
                          ;; undamaged-stress (magicl:scale stress 1d0)
+                         damage (random 0.1d0)
                          )))
 
         (let ((ocean-x 1000d0)
@@ -410,15 +416,21 @@
          (shelf-bottom (- 300 (* density-ratio shelf-height)));;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 20)
+         (mesh-size 50)
          (mps-per-cell 2)
          (offset 00)
          )
     (format t "Shelf-bottom ~f~%" shelf-bottom)
     ;; (format t "Shelf-bottom ~a~%" shelf-bottom)
-    (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
-                                           (list shelf-length shelf-height)
-                                           (list offset shelf-bottom) (/ 1 mesh-size) mps-per-cell))
+    (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500
+                                                 400
+                                                 )
+                                           (list shelf-length shelf-height
+                                                 400
+                                                 )
+                                           (list offset shelf-bottom
+                                                 0
+                                                 ) (/ 1 mesh-size) mps-per-cell))
     ;; (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
     ;;                                        (list shelf-length shelf-height)
     ;;                                        (list offset 50) (/ 1 mesh-size) mps-per-cell))
@@ -730,7 +742,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 1d0)
-  (let* ((target-time 1d3)
+  (let* ((target-time 1d2)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*))))
          (dt-scale 1d0))
     (cl-mpm::update-sim *sim*)
