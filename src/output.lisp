@@ -408,6 +408,10 @@
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)))
       (format fs "~%")
+
+      ;; (with-parameter-list fs mps
+      ;;   ("mass" (lambda (mp) (cl-mpm/particle:mp-mass mp))))
+
       (let ((id 1))
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
@@ -458,6 +462,23 @@
         ;;  (cl-mpm/particle::mp-yield-func mp))
         )
       )))
+
+(defmacro with-parameter-list (file-stream mps &rest body)
+  `(let ((id 1))
+     (declare (special id))
+     (format ,file-stream "POINT_DATA ~d~%" (length ,mps))
+     ,(append
+       (list 'progn)
+       (loop for params in body
+                   collect 
+                   (destructuring-bind (name lamb) params
+                     `(progn
+                        (format-scalar ,file-stream ,name id ,mps
+                                       ,lamb)
+                        (incf id))
+                     ))))
+
+  )
 
 
 ;; (defmacro save-point-data (mp mps)

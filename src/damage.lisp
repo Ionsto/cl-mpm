@@ -490,7 +490,9 @@
   (weight-func (diff-damaged mesh mp-a mp-b) length))
 
 (defun iterate-over-damage-bounds (mesh mp length func)
-  (iterate-over-damage-bounds-2d mesh mp length func))
+  (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
+      (iterate-over-damage-bounds-2d mesh mp length func)
+      (iterate-over-damage-bounds-3d mesh mp length func)))
 (defun iterate-over-damage-bounds-2d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
@@ -909,6 +911,11 @@
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
                        ))
       (format fs "~%")
+
+      ;; (cl-mpm/output::with-parameter-list fs mps
+      ;;   ("mass" 'cl-mpm/particle:mp-mass)
+      ;;   ("density" (lambda (mp) (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp))))
+      ;;   )
       (let ((id 1))
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
