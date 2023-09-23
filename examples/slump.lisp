@@ -570,7 +570,7 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 50)
-         (mps-per-cell 4)
+         (mps-per-cell 2)
          (slope -0.02)
          (shelf-height 400)
          (shelf-aspect 2)
@@ -580,16 +580,16 @@
          (shelf-height shelf-end-height)
          (offset (list 0
                        (* 1 mesh-size)
-                       ;; 0
+                       0
                        ))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 100)
-                                                 ;; 500
+                                                 400
                                                  )
                          (list shelf-length shelf-height
-                               ;; 400
+                               400
                                )
                          offset
                          slope
