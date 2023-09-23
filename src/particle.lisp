@@ -572,8 +572,17 @@
              (function calc-pressure))
     ;; Non-objective stress intergration
 
-    (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (setf pressure (funcall calc-pressure pos))
+    (magicl.simd::.+-simd
+     stress-undamaged
+     (objectify-stress-logspin
+      (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
+      stress-undamaged
+      def
+      vorticity
+      D
+      ))
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (let ((j 1d0))
@@ -581,7 +590,7 @@
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
                  (tp (funcall calc-pressure pos))
-                 (driving-pressure (* tp 0d0 (expt (min 0.90d0 damage) 1)))
+                 (driving-pressure (* tp 1d0 (expt (min 0.90d0 damage) 1)))
                  (degredation (expt (- 1d0 damage) 2d0)))
             (loop for i from 0 to 2
                   do (let* ((sii (nth i l))
@@ -923,6 +932,7 @@
                (eng-strain-rate eng-strain-rate)
                (time-averaged-visc time-averaged-visc)
                (p p-modulus)
+               (calc-pressure pressure-func)
                ;; (stress undamaged-stress)
                ;; (stress-damaged stress)
                )
@@ -983,7 +993,9 @@
         (let ((j 1d0))
           (multiple-value-bind (l v) (cl-mpm/utils::eig
                                       (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-            (let ((driving-pressure 0d0) ;;(* pressure (min 1.00d0 damage)))
+            (let* ((tp (funcall calc-pressure pos))
+                  (driving-pressure (* tp (expt (min 0.90d0 damage) (magicl:det def))))
+                  ;; (driving-pressure 0d0) ;;(* pressure (min 1.00d0 damage)))
                   (degredation (expt (- 1d0 damage) 2d0)))
               (loop for i from 0 to 2
                     do (let* ((sii (nth i l))
