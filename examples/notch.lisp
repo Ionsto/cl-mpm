@@ -312,7 +312,7 @@
 
 
                :initiation-stress 0.10d6
-               :damage-rate 1d-4
+               :damage-rate 1d-6
                ;:critical-damage 0.56d0
                :critical-damage 0.5d0
                :local-length 100d0
@@ -338,9 +338,9 @@
       ;;      :xy
       ;;      )))
 
-      (let ((ms 1d5))
+      (let ((ms 1d7))
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d-3 ms)
+              (* 1d-5 ms)
               ;; 0d0
               ;; 0.5d0
               )
@@ -386,7 +386,7 @@
                          (cl-mpm/utils:matrix-to-voight
                           (magicl:eye 3 :value (* 1d0 (cl-mpm/buoyancy::pressure-at-depth (magicl:tref pos 1 0) water-line *water-density*))))
                          stress-cauchy (magicl:scale stress 1d0)
-                         ;; undamaged-stress (magicl:scale stress 1d0)
+                         undamaged-stress (magicl:scale stress 1d0)
                          damage (random 0.1d0)
                          )))
 
@@ -416,20 +416,17 @@
          (shelf-bottom (- 300 (* density-ratio shelf-height)));;120
          (notch-length notch-length)
          (notch-depth 30);0
-         (mesh-size 50)
+         (mesh-size 25)
          (mps-per-cell 2)
          (offset 00)
          )
     (format t "Shelf-bottom ~f~%" shelf-bottom)
     ;; (format t "Shelf-bottom ~a~%" shelf-bottom)
     (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500
-                                                 400
                                                  )
                                            (list shelf-length shelf-height
-                                                 400
                                                  )
                                            (list offset shelf-bottom
-                                                 0
                                                  ) (/ 1 mesh-size) mps-per-cell))
     ;; (defparameter *sim* (setup-test-column (list (+ shelf-length 500) 500)
     ;;                                        (list shelf-length shelf-height)
@@ -742,7 +739,7 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
   (defparameter *notch-position* 1d0)
-  (let* ((target-time 1d2)
+  (let* ((target-time 1d4)
          (substeps (floor (/ target-time (cl-mpm::sim-dt *sim*))))
          (dt-scale 1d0))
     (cl-mpm::update-sim *sim*)

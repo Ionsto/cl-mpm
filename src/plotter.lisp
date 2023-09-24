@@ -22,8 +22,8 @@
   (multiple-value-bind (x y z lx ly lz c)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (magicl:tref (cl-mpm::mp-position mp) 2 0) into z
+          collect (magicl:tref (cl-mpm::mp-position mp) 2 0) into y
+          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into z
           collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
           collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
           collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0) into lz
@@ -43,9 +43,9 @@
          (ms-y (second ms))
          (ms-z (third ms))
          )
-    (vgplot:format-plot t "set xrange [~f:~f]" 0d0 (nth 0 ms))
-    (vgplot:format-plot t "set yrange [~f:~f]" 0d0 (nth 1 ms))
-    (vgplot:format-plot t "set zrange [~f:~f]" 0d0 (nth 2 ms))
+    (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
+    (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-z)
+    (vgplot:format-plot t "set zrange [~f:~f]" 0d0 ms-y)
     ;; (vgplot::axis-3d (list 0 ms-x
     ;;                       0 ms-y
     ;;                       0 ms-z))
