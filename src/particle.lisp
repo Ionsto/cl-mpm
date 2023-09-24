@@ -582,7 +582,8 @@
       def
       vorticity
       D
-      ))
+      )
+     stress-undamaged)
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (let ((j 1d0))

@@ -84,8 +84,8 @@
                                         ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
             (multiple-value-bind (s_1 s_2) (principal-stresses (magicl:scale stress (/ 1d0 (magicl:det def))))
               (let* (;;Only allow tensile damage
-                     ;; (pressure-effective (* 1d0 damage pressure))
-                     (pressure-effective (* 1d0 pressure))
+                     (pressure-effective (* 1d0 damage pressure))
+                     ;; (pressure-effective (* 1d0 pressure))
                      (s_1 (- s_1 pressure-effective))
                      (s_2 (- s_2 pressure-effective))
                      (s_1 (max 0d0 s_1))

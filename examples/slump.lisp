@@ -139,7 +139,7 @@
       ;; ll
       )))
 (declaim (notinline plot))
-(defun plot (sim &optional (plot :damage)))
+;; (defun plot (sim &optional (plot :damage)))
 (defun plot (sim &optional (plot :damage))
   (declare (optimize (speed 0) (debug 3)))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
@@ -470,7 +470,7 @@
                  (sqrt (cl-mpm::sim-mass-scale sim))
                  (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0))))))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm::sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
@@ -569,8 +569,8 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
-         (mps-per-cell 4)
+  (let* ((mesh-size 100)
+         (mps-per-cell 2)
          (slope -0.02)
          (shelf-height 400)
          (shelf-aspect 2)
@@ -580,16 +580,16 @@
          (shelf-height shelf-end-height)
          (offset (list 0
                        (* 1 mesh-size)
-                       ;; 0
+                       0
                        ))
          )
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* 2 shelf-height))
                                                  (+ shelf-height 100)
-                                                 ;; 500
+                                                 500
                                                  )
                          (list shelf-length shelf-height
-                               ;; 400
+                               400
                                )
                          offset
                          slope
