@@ -789,12 +789,12 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
-    (let ((datum-rounding nil))
+    (let ((datum-rounding t))
       (if datum-rounding
           (progn
             (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
               (setf datum (* (round datum h) h)))
-            (apply-non-conforming-nuemann
+            (apply-buoyancy
              sim
              (lambda (pos)
                (buoyancy-virtual-stress (tref pos 1 0) datum rho))
@@ -802,11 +802,12 @@
                (buoyancy-virtual-div (tref pos 1 0) datum rho))
              (lambda (pos)
                (and
-                (cell-clipping pos datum)
-                ;; t
-                (funcall clip-func pos datum)
+                ;; (cell-clipping pos datum)
+                t
+                ;; (funcall clip-func pos datum)
                 ))
-             ))
+             datum)
+            )
           (apply-buoyancy
            sim
            (lambda (pos)
