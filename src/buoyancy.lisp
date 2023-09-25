@@ -765,8 +765,8 @@
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
       ;; (populate-nodes-volume mesh clip-function)
-      ;; (populate-nodes-volume-damage mesh clip-function)
-      (populate-nodes-domain mesh clip-function)
+      (populate-nodes-volume-damage mesh clip-function)
+      ;; (populate-nodes-domain mesh clip-function)
 
       (apply-force-mps-3d mesh mps
                        (lambda (mp)
@@ -862,15 +862,7 @@
                                 (pressure-at-depth (tref p 1 0) datum rho)))
                         (setf mp-datum datum
                               mp-head rho)
-                        ))
-                    )
-                  ;; (when (cl-mpm/mesh::node-boundary-node node)
-                  ;;   (with-accessors ((pos cl-mpm/mesh::node-position)
-                  ;;                    (pressure cl-mpm/mesh::node-pressure))
-                  ;;       node
-                  ;;     (setf pressure (pressure-at-depth (tref pos 1 0) datum rho)))
-                  ;;   )
-                  ))))))
+                        )))))))))
 
 (defun set-pressure-all (sim bc)
   (with-accessors ((datum bc-buoyancy-datum)
