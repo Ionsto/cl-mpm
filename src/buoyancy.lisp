@@ -802,9 +802,9 @@
                (buoyancy-virtual-div (tref pos 1 0) datum rho))
              (lambda (pos)
                (and
-                ;; (cell-clipping pos datum)
-                t
-                ;; (funcall clip-func pos datum)
+                (cell-clipping pos datum)
+                ;; t
+                (funcall clip-func pos datum)
                 ))
              datum)
             )
@@ -833,13 +833,15 @@
                                 (mp-head cl-mpm/particle::mp-pressure-head)
                                 )
                    mp
-                 (setf pressure 0d0)
-                 (setf mp-pfunc
-                       (lambda (p)
-                         0d0))
-                 (setf mp-datum datum
-                       mp-head rho)
-                 ))
+                 (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
+                            (funcall clip-func (cl-mpm/mesh::node-position node) datum))
+
+                   (setf pressure 0d0)
+                   (setf mp-pfunc
+                         (lambda (p)
+                           0d0))
+                   (setf mp-datum datum
+                         mp-head rho))))
 
       (loop for mp across mps
             do

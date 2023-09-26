@@ -593,6 +593,7 @@
                  (tp (funcall calc-pressure pos))
                  (driving-pressure (* tp 1d0 (expt (min 0.90d0 damage) 1)))
                  (degredation (expt (- 1d0 damage) 2d0)))
+            (setf pressure tp)
             (loop for i from 0 to 2
                   do (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
