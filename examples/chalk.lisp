@@ -1,4 +1,4 @@
-(defpackage :cl-mpm/examples/collapse
+(defpackage :cl-mpm/examples/chalk
   (:use :cl))
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
@@ -6,20 +6,20 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(in-package :cl-mpm/examples/collapse)
+(in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun plot (sim)
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :point
-   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ))
 
-(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
+(defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
@@ -40,31 +40,35 @@
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
                 (mapcar (lambda (x) 0) size)
+                ;; offset
+                ;; '(0 0)
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
                 ;; 'cl-mpm/particle::particle-elastic-damage
-                ;; 'cl-mpm/particle::particle-elastic
-                'cl-mpm/particle::particle-vm
-                :E 1d6
+                'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-vm
+                :E 1d9
                 :nu 0.3d0
-                :rho 20d3
+                ;; :rho 20d3
                 ;; :initiation-stress 1d3
                 ;; :damage-rate 1d-6
                 ;; :critical-damage 0.50d0
                 ;; :local-length 2d0
                 ;; :local-length-damaged 0.01d0
                 ;; :damage 0.0d0
-                :gravity -10.0d0
+                :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 density ms))
+        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
+        ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
+        (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
         )
 
       (let ((dt-scale 1d0))
@@ -116,9 +120,34 @@
     ))
 
 (defun setup ()
-  (let ((mps-per-dim 4))
-    (defparameter *sim* (setup-test-column '(16 16) '(8 8) *refine* mps-per-dim)))
+  ;; (let ((mps-per-dim 4))
+  ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
+
+  (let* ((mesh-size 50)
+         (mps-per-cell 2)
+         (shelf-height 400)
+         (shelf-aspect 2)
+         (shelf-length (* shelf-height shelf-aspect))
+         (shelf-height (+ shelf-height))
+         (offset (list 0 (* 0 mesh-size)))
+         )
+    (defparameter *sim*
+      (setup-test-column (list (+ shelf-length (* 2 shelf-height))
+                               (+ shelf-height 100))
+                         (list shelf-length shelf-height)
+                         offset
+                         (/ 1d0 mesh-size) mps-per-cell))
+    (let* ((undercut-angle 10d0)
+           (normal (magicl:from-list (list
+                                           (cos (- (* pi (/ undercut-angle 180d0))))
+                                           (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1))))
+      (remove-sdf *sim* (lambda (p) (plane-point-sdf p
+                                                     normal
+                                                     (magicl:from-list (list shelf-length shelf-height)
+                                                                       '(2 1) :type 'double-float)
+                                                     ))))
+    )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (defparameter *run-sim* t)
   (defparameter *t* 0)
@@ -128,7 +157,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 0.1d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -143,12 +172,12 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (> steps 5)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t))
+                     ;; (when (> steps 5)
+                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
-                      (dotimes (i substeps)
+                      (dotimes (i substeps);)
                         (cl-mpm::update-sim *sim*)
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
                      ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
