@@ -596,7 +596,7 @@
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
                  (tp (funcall calc-pressure pos))
-                 (driving-pressure (* tp 1d0 (expt (min 0.90d0 damage) 1)))
+                 (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
                  (degredation (expt (- 1d0 damage) 2d0)))
             (setf pressure tp)
             (loop for i from 0 to 2
@@ -611,7 +611,7 @@
                            (setf (nth i l) (* esii (max 1d-5 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
-                         (when (< esii 0d0)
+                         (when (< esii 1d0)
                            ;;Bounded compressive damage
                            (setf (nth i l) (* esii (max 1d0 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))

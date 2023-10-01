@@ -140,8 +140,8 @@
           ;; (when (< damage 1d0)
           ;; (setf damage-inc (* damage-inc (/ 1d0 (expt (- 1d0 damage) 1d0))));3
           ;;Normal
-          ;; (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
-          (setf damage-inc (* dt (damage-rate-profile-chalk damage-inc damage damage-rate init-stress)))
+          (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
+          ;; (setf damage-inc (* dt (damage-rate-profile-chalk damage-inc damage damage-rate init-stress)))
           ;;Mohr coloumb
           ;; (let ((angle 30d0))
           ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d (magicl:scale stress (/ 1d0 (magicl:det def))))
@@ -794,7 +794,8 @@
                        (s_1 (max 0d0 s_1))
                        (s_2 (max 0d0 s_2))
                        (s_3 (max 0d0 s_3))
-                       (s_1 (- j2 (* 0.2d0 p))))
+                       ;; (s_1 (- j2 (* 0.2d0 p)))
+                       )
                   (when (> s_1 0d0)
                     (setf damage-increment s_1)
                     )))))
