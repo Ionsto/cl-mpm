@@ -344,6 +344,8 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/plotter"
+               "cl-mpm/damage"
                "cl-mpm/eigenerosion"
                "vgplot"
                "lisp-stat"

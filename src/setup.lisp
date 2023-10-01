@@ -1,5 +1,7 @@
 (defpackage :cl-mpm/setup
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils
+        )
   (:export
     #:make-column
     #:make-block-mps
@@ -123,7 +125,7 @@
 
 (defun remove-sdf (sim sdf)
   (setf (cl-mpm:sim-mps sim)
-        (remove-if (lambda (mp)
+        (delete-if (lambda (mp)
                      (with-accessors ((pos cl-mpm/particle:mp-position)) mp
                        (>= 0 (funcall sdf pos))
                        ))
@@ -142,13 +144,14 @@
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+    (let* ((position (vector-from-list position))
              (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
-                                  (magicl:from-list size '(2 1) :type 'double-float))))
-
+                                  (vector-from-list size))))
         (+ (sqrt (magicl::sum
-                  (magicl:map! (lambda (x) (* x x))
-                               (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
+                  (magicl:.*
+                   (magicl:map! (lambda (x) (* x x)) (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))
+                   (vector-from-list '(1d0 1d0 0d0))
+                   )))
            (min (max (magicl:tref dist-vec 0 0)
                      (magicl:tref dist-vec 1 0)
                      ) 0d0)))))

@@ -599,15 +599,15 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
+      (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      (populate-nodes-domain mesh clip-function)
-      (apply-force-mps mesh mps
+      ;; (populate-nodes-domain mesh clip-function)
+      (apply-force-mps-3d mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
                        (lambda (mp) (calculate-val-mp mp func-div))
                        clip-function
                        )
-      (apply-force-cells mesh
+      (apply-force-cells-3d mesh
                          func-stress
                          func-div
                          clip-function

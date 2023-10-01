@@ -2036,41 +2036,41 @@ Calls func with only the node"
     (dolist (slot (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots class)))
       (when (slot-boundp original slot)
         (cond
-          ((typep (slot-value original slot) 'magicl:tensor)
+          ((typep (slot-value original slot) 'magicl::abstract-tensor)
            (setf (slot-value copy slot)
                  (magicl:scale (slot-value original slot) 1d0)))
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
-(defmacro split-linear (direction dimension)
-  `((eq direction ,direction)
-    (let ((new-size (vector-from-list '(1d0 1d0 1d0)))
-          (new-size-0 (vector-from-list '(1d0 1d0 1d0)))
+(defmacro split-linear (dir direction dimension)
+  `((eq ,dir ,direction)
+    (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
+          (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
           (pos-offset (vector-zeros)))
       (setf (tref new-size ,dimension 0) 0.5d0)
       (setf (tref new-size-0 ,dimension 0) 0.5d0)
       (setf (tref pos-offset ,dimension 0) 0.25d0)
-      (magicl.simd::.*-simd lens new-size new-size) 
-      (magicl.simd::.*-simd lens new-size-0 new-size-0) 
-      (magicl.simd::.*-simd lens pos-offset pos-offset) 
+      (magicl.simd::.*-simd lens new-size new-size)
+      (magicl.simd::.*-simd lens-0 new-size-0 new-size-0)
+      (magicl.simd::.*-simd lens pos-offset pos-offset)
       (list
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
-                      :size new-size
-                      :size-0 new-size-0
-                      :position (magicl.simd::.+-simd pos pos-offset))
+                      :size (cl-mpm/utils::vector-copy new-size)
+                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
+                      :position (magicl:.+ pos pos-offset))
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
-                      :size new-size
-                      :size-0 new-size-0
+                      :size (cl-mpm/utils::vector-copy new-size)
+                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
                       :position (magicl:.- pos pos-offset))))))
-(defmacro split-cases ()
+(defmacro split-cases (direction)
   `(cond
-     ,(macroexpand-1 '(split-linear :x 0))
-     ,(macroexpand-1 '(split-linear :y 1))
-     ,(macroexpand-1 '(split-linear :z 2))
+     ,(macroexpand-1 '(split-linear direction :x 0))
+     ,(macroexpand-1 '(split-linear direction :y 1))
+     ,(macroexpand-1 '(split-linear direction :z 2))
      (t nil)
      ))
 (defun split-mp (mp h direction)
@@ -2086,7 +2086,7 @@ Calls func with only the node"
     (let ((l-factor 1.20d0)
           (h-factor (* 0.8d0 h)))
 
-      (split-cases)
+      (split-cases direction)
       ;; (cond
       ;;   (macroexpand-1 '(linear-split :x 0))
       ;;   ;; ((eq direction :x)
