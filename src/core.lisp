@@ -1651,9 +1651,9 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch-rate df domain)
           ;; (update-domain-stretch def domain domain-0)
-          ;; (update-domain-corner mesh mp dt)
+          (update-domain-corner mesh mp dt)
           )
           )))
   (values))
@@ -2004,7 +2004,7 @@ Calls func with only the node"
                    )
       mp
     (let ((l-factor 1.50d0)
-          (h-factor (* 0.6d0 h))
+          (h-factor (* 0.9d0 h))
           (s-factor 1.5d0))
       (cond
         ((< h-factor (tref lens 0 0)) :x)
@@ -2023,7 +2023,7 @@ Calls func with only the node"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
-    (let ((h-factor (* 0.8d0 h)))
+    (let ((h-factor (* 0.95d0 h)))
       (cond
         ((< h-factor (the double-float (tref lens 0 0))) :x)
         ((< h-factor (the double-float (tref lens 1 0))) :y)
@@ -2042,11 +2042,14 @@ Calls func with only the node"
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
+
 (defmacro split-linear (dir direction dimension)
   `((eq ,dir ,direction)
     (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
           (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
-          (pos-offset (vector-zeros)))
+          (pos-offset (vector-zeros))
+          (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
+          )
       (setf (tref new-size ,dimension 0) 0.5d0)
       (setf (tref new-size-0 ,dimension 0) 0.5d0)
       (setf (tref pos-offset ,dimension 0) 0.25d0)
@@ -2059,13 +2062,19 @@ Calls func with only the node"
                       :volume (/ volume 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl:.+ pos pos-offset))
+                      :position (magicl:.+ pos pos-offset)
+                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
+                      :split-depth new-split-depth
+                       )
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl:.- pos pos-offset))))))
+                      :position (magicl:.- pos pos-offset)
+                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
+                      :split-depth new-split-depth
+                      )))))
 (defmacro split-cases (direction)
   `(cond
      ,(macroexpand-1 '(split-linear direction :x 0))

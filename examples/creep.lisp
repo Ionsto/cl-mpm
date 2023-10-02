@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(setf *block-compile-default* nil)
 (in-package :cl-mpm/examples/creep)
 ;; (pushnew :cl-mpm-pic *features*)
 (delete :cl-mpm-pic *features*)
@@ -162,7 +162,9 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline))
+                                        #'cl-mpm/shape-function:make-shape-function-bspline
+                                        'cl-mpm/damage::mpm-sim-damage
+                                        ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -172,42 +174,47 @@
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position
-              (mapcar #'+ (list (* h-x (- (+ (/ 1 (* 2 mp-scale))) 0))
-                                (* h-y (+ (/ 1d0 (* 2d0 mp-scale)))))
-                      block-offset)))
+              block-offset))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
-               'cl-mpm::make-particle
-                'cl-mpm/particle::particle-creep-damage
+                'cl-mpm/particle::particle-elastic-damage
                :E 1d8
                :nu 0.0000d0
 
                :initiation-stress 0.33d6
-               :damage-rate 1d-19
+               :damage-rate 1d-8
                :critical-damage 0.56d0
                :local-length 50d0
+               :local-length-damaged 50d0
                :gravity 0d0;-9.8d0
 
                  ;; :gravity-axis (magicl:from-list '(0.5d0 0.5d0) '(2 1))
-                 :index 0
+                 ;; :index 0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 1.0d0)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
+      ;; (setf (cl-mpm:sim-dt sim) 1d-2)
+      (setf (cl-mpm::sim-mass-scale sim) 1d4)
+      (let ((dt-scale 1d0))
+        (setf
+         (cl-mpm:sim-dt sim)
+         (* dt-scale h
+            (sqrt (cl-mpm::sim-mass-scale sim))
+            (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
              (cl-mpm:sim-mesh sim)
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
              )
             )
       (defparameter *shear-rate* 0.1d0)
@@ -234,9 +241,12 @@
          0.93d6
          0d0
          ))
-      (setf (cl-mpm::sim-bcs-force sim)
-            (cl-mpm/bc:make-bcs-from-list
-             (list *load-bc*)))
+      (setf (cl-mpm::sim-bcs-force-list sim)
+            (list
+             (cl-mpm/bc:make-bcs-from-list
+              (list
+               *load-bc*
+               ))))
 
       sim)))
 
@@ -250,7 +260,7 @@
     ;; (remove-sdf *sim* (rectangle-sdf '(250 125) '(10 10)))
     ;;Setup 1d pullout
     (defparameter *sim* (setup-test-column (list 40 mesh-size)
-                                           (list 5 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
+                                           (list 10 mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
     ;; (damage-sdf *sim* (rectangle-sdf '(2.5 0) (list
     ;;                                            1
     ;;                                            mesh-size)) 0.10d0)
@@ -395,17 +405,20 @@
   ;;   (cl-mpm::update-sim *sim*))
 
   (format t "Damage rate : ~A~%" (cl-mpm/particle::mp-damage-rate (aref (cl-mpm:sim-mps *sim*) 0)))
-  (let* ((target-time 1d0)
+  (let* ((target-time 6d3)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt)))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 200
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      ;(cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (when (= steps 1)
+                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       )
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
@@ -443,8 +456,8 @@
                                    while *run-sim*
                                    do
                                       (progn
-                                        (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
-                                              (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
+                                        ;; (incf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
+                                        ;;       (* (cl-mpm:sim-dt *sim*) *pressure-inc-rate*))
                                         ;; (setf (first (cl-mpm/buoyancy::bc-pressure-pressures *load-bc*))
                                         ;;       (* *fatigue-load* (sin (/ (* *t* 2 3.14) *fatigue-period*))))
                                         (cl-mpm::update-sim *sim*)
@@ -480,12 +493,13 @@
                      ;; (setf (cl-mpm:sim-damping-factor *sim*) (max 0.1d0 (/ (cl-mpm:sim-damping-factor *sim*) 1.1d0)))
                      ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                      (incf *sim-step*)
-                     (plot *sim*)
+                     ;; (plot *sim*)
+                     (cl-mpm/plotter:simple-plot *sim* :plot :point :colour-func #'cl-mpm/particle::mp-damage)
                      (swank.live:update-swank)
                      (sleep .01)
-                     (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
-                       (format stream "~f, ~f ~%" *t* *x*)
-                       )
+                     ;; (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
+                     ;;   (format stream "~f, ~f ~%" *t* *x*)
+                     ;;   )
 
                      ))))
   (format t "Time to failure: ~A~%" *t*)
@@ -533,6 +547,13 @@
 	             (uiop:read-file-string #P"creep.csv")))
           (max-time-data (reduce #'max (lisp-stat:column df 'time)))
           )
+      (vgplot:figure)
+      (vgplot:xlabel "True time to failure")
+      (vgplot:ylabel "Damage")
+      (vgplot:plot
+       (mapcar (lambda (x) (/ x (* 60 60))) *time*) *max-damage* "MPM"
+       (lisp-stat:column df 'time) (lisp-stat:column df 'damage) "data - 0.93"
+       )
       (vgplot:figure)
       (vgplot:xlabel "Normalised time to failure")
       (vgplot:ylabel "Damage")

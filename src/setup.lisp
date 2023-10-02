@@ -137,7 +137,6 @@
     (loop for mp across mps
           do (with-accessors ((pos cl-mpm/particle:mp-position)
                               (damage cl-mpm/particle:mp-damage)) mp
-               ;; (setf damage (funcall sdf pos))
                (when (>= 0 (funcall sdf pos))
                  (setf damage (coerce d 'double-float)))
                ))))

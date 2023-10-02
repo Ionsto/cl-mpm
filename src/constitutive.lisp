@@ -536,6 +536,7 @@
 (defun vm-yield-func (j2 rho)
   (declare (double-float j2 rho))
   (- (/ (the double-float (sqrt (* 2d0 j2))) rho) 1d0))
+
 (defun vm-derivatives (sig rho)
   (declare (double-float rho))
   (let* ((s (deviatoric-voigt sig))
