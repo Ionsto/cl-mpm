@@ -24,12 +24,6 @@
       ;; (* (expt (max 0d0 (- stress init-stress)) 3d0) rate)
       0d0))
 
-(defun damage-rate-profile-chalk (stress damage rate init-stress)
-  (declare (double-float stress damage rate init-stress))
-  "Function that controls how damage evolves with principal stresses"
-  (if (> stress init-stress)
-      (* (expt (max 0d0 (- stress init-stress)) 2d0) rate)
-      0d0))
 (defun principal-stresses (stress)
   (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
     (declare (ignore v))
@@ -529,22 +523,21 @@
                                                             (ll cl-mpm/particle::mp-true-local-length)
                                                             (p cl-mpm/particle:mp-position))
                                                mp-other
-                                             (when (and
-                                                    (< (the double-float d) 1d0)
-                                                    ;; (> (cl-mpm/particle::mp-local-damage-increment mp-other) 0d0)
-                                                    )
+                                             (when t;(< (the double-float d) 1d0)
                                                (let (
                                                      ;;Nodally averaged local funcj
                                                      ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
                                                      ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                                                      ;;
                                                      (weight
-                                                       (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
-                                                           (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
-                                                           (weight-func-mps-damaged mesh mp mp-other
-                                                                                    (cl-mpm/particle::mp-local-length mp)
-                                                                                    ;; (* 0.5d0 (+ length ll))
-                                                                                    )))
+                                                       (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                                                       ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
+                                                       ;;     (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
+                                                       ;;     (weight-func-mps-damaged mesh mp mp-other
+                                                       ;;                              (cl-mpm/particle::mp-local-length mp)
+                                                       ;;                              ;; (* 0.5d0 (+ length ll))
+                                                       ;;                              ))
+                                                       )
                                                      )
                                                  (declare (double-float weight m d mass-total damage-inc))
                                                  (incf mass-total (* weight m))
@@ -697,6 +690,7 @@
                 (progn
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
+                    (cl-mpm::check-single-mps sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                       ;; (cl-mpm::filter-grid-volume mesh 1d-8)
@@ -1116,8 +1110,8 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
-          (setf damage-inc (* dt (damage-rate-profile-chalk damage-inc damage damage-rate init-stress)))
+          ;; (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
+          (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
@@ -1150,9 +1144,10 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          (setf damage-inc (* dt
-                              ;; (expt (- 1d0 damage) 1)
-                              (damage-rate-profile-chalk damage-inc damage damage-rate init-stress)))
+          (when (< damage 1d0)
+            (setf damage-inc (* dt
+                                ;; (/ 1d0 (- 1d0 damage))
+                                (damage-rate-profile-chalk damage-inc damage damage-rate init-stress))))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
@@ -1206,11 +1201,18 @@
                        ;; (s_1 j2)
                        )
                   (when (> s_1 0d0)
-                    (setf damage-increment (* s_1 (expt (- 1d0 damage) 1d0)))
-                    ;; (setf damage-increment s_1)
+                    ;; (setf damage-increment (* s_1 (expt (- 1d0 damage) -2d0)))
+                    (setf damage-increment s_1)
                     )))))
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
           ;;Delocalisation switch
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
           ))))
+
+(defun damage-rate-profile-chalk (stress damage rate init-stress)
+  (declare (double-float stress damage rate init-stress))
+  "Function that controls how damage evolves with principal stresses"
+  (if (> stress init-stress)
+      (* (expt (max 0d0 (- stress init-stress)) 0.5d0) rate)
+      0d0))

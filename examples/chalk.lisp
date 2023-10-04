@@ -58,11 +58,11 @@
                 :initiation-stress 1d5
                 ;; :initiation-stress 0d0
                 ;; :damage-rate 1d-15
-                :damage-rate 1d-15
-                :critical-damage 1.00d0
-                :local-length 50d0
-                :local-length-damaged 50d0
-                ;; :local-length-damaged 0.01d0
+                :damage-rate 1d-6
+                :critical-damage 0.20d0
+                :local-length 10d0
+                ;; :local-length-damaged 49d0
+                :local-length-damaged 1d-5
                 ;; :damage 0.0d0
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -168,10 +168,10 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 25)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 200)
-         (soil-boundary 50)
+         (soil-boundary 00)
          (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* 1 shelf-height)))
@@ -200,6 +200,9 @@
                                                         '(2 1) :type 'double-float))
                                      1d0)
                                  )))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       do
+    ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.5d0)))
     ;; (cl-mpm/setup::damage-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -210,6 +213,22 @@
     ;;                            (list shelf-length 0d0)
     ;;                            20d0
     ;;                            )) 0.8d0)
+    ;(let ((sdf
+    ;        (lambda (p)
+    ;          (cl-mpm/setup::line-sdf (magicl:from-list (list (magicl:tref p 0 0)
+    ;                                                          (magicl:tref p 1 0))
+    ;                                                    '(2 1))
+    ;                                  (list (- shelf-length shelf-height) shelf-height)
+    ;                                  (list shelf-length 0d0)
+    ;                                  20d0
+    ;                                  ))
+    ;        ))
+    ;  (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;        do (with-accessors ((pos cl-mpm/particle:mp-position)
+    ;                            (damage cl-mpm/particle:mp-damage)) mp
+    ;             (when (>= 0 (funcall sdf pos))
+    ;               (setf damage (min 1d0 (max 0d0 (coerce (* (funcall sdf pos) -0.1d0) 'double-float)))))
+    ;             )))
 
 
     )
@@ -234,19 +253,20 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 50
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 5)
+                     (when (= steps 2)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-3 ms))
+                         (setf (cl-mpm:sim-damping-factor *sim*) (* 0d-3 ms))
                          )
 
                        )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
                       (dotimes (i substeps);)
                         (cl-mpm::update-sim *sim*)

@@ -145,7 +145,23 @@
          (with-accessors ((damage cl-mpm/particle:mp-damage)
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
-           (gimp-removal-criteria mp h)))))))
+             (gimp-removal-criteria mp h)))))))
+
+(defun check-single-mps (sim)
+  "Function to check that stresses and positions are sane"
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+  (with-accessors ((h cl-mpm/mesh::mesh-resolution))
+      mesh
+    (remove-mps-func
+       sim
+       (lambda (mp)
+         (with-accessors ((damage cl-mpm/particle:mp-damage)
+                          (def cl-mpm/particle::mp-deformation-gradient))
+             mp
+             (or (single-particle-criteria mesh mp))))))))
+
 
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
@@ -2019,6 +2035,23 @@ Calls func with only the node"
                                         ;((> 1.5d0 (tref def 0 0)) t)
         (t nil)
         ))))
+
+(defun single-particle-criteria (mesh mp)
+  (let ((alone t))
+    (iterate-over-neighbours
+      mesh mp
+      (lambda (mesh mp node svp grads fsvp fgrads)
+        (declare
+          (cl-mpm/mesh::node node)
+          (cl-mpm/particle:particle mp)
+          (type double-float svp))
+        (with-accessors ((node-svp cl-mpm/mesh::node-svp-sum)
+                         (node-active cl-mpm/mesh:node-active)
+                         ) node
+          (when node-active
+            (when (> node-svp svp)
+              (setf alone nil))))))
+    alone))
 (defun gimp-removal-criteria (mp h)
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp

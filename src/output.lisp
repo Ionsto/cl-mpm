@@ -384,8 +384,10 @@
                                             (cl-mpm/mesh::node-pressure node)))
             (save-parameter-nodes "damage"
                             (if (slot-exists-p node 'cl-mpm/mesh::damage)
-                                (cl-mpm/mesh::node-damage node)
-                                0d0))
+                                (if (= 0d0 (cl-mpm/mesh::node-svp-sum node))
+                                    0d0
+                                    (/ (cl-mpm/mesh::node-damage node)
+                                       (cl-mpm/mesh::node-svp-sum node))) 0d0))
             )
           ))))
 

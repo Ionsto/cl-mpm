@@ -1258,6 +1258,9 @@
     :accessor mp-friction-angle
     :initarg :friction-angle
     :initform 30d0)
+   (max-strain
+    :initform 0d0
+    )
    )
   (:documentation "A chalk damage model"))
 
@@ -1286,7 +1289,7 @@
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                (magicl:scale! s (max 0d-6 degredation))
+                                (magicl:scale! s (max 1d-3 degredation))
                                 ))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1302,13 +1305,13 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           ;; (setf (nth i l) (* esii (max 0d-6 degredation)))
+                           (setf (nth i l) (* sii (max 1d-3 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-                           (setf (nth i l) (* sii degredation))
+                           ;; (setf (nth i l) (* sii degredation))
                            )
                          (when (< esii 1d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l) (* (nth i l) (max 1d-1 degredation)))
+                           (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                        ;; (setf (nth i l) 0)
