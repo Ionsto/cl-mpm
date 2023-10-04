@@ -1264,6 +1264,14 @@
    )
   (:documentation "A chalk damage model"))
 
+(defclass particle-chalk-creep (particle-chalk)
+  ()
+  (:documentation "A chalk damage model"))
+
+(defclass particle-chalk-brittle (particle-chalk)
+  ()
+  (:documentation "A chalk damage model"))
+
 
 (defmethod constitutive-model ((mp particle-chalk) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
