@@ -2007,12 +2007,26 @@ Calls func with only the node"
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
            (and (>= damage 1d0)
-                ;; (or
-                (or (split-criteria mp h) instant-damage-removal)
-                ;;  (< (magicl:det def) 1d-3)
-                ;;  )
+                (or (damage-removal-criteria mp h) instant-damage-removal)
                 )))))
     ))
+
+(defun damage-removal-criteria (mp h)
+  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
+                   (lens cl-mpm/particle::mp-domain-size)
+                   (lens-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    (let ((l-factor 2.50d0))
+      (cond
+        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ((and (< (* l-factor (tref lens-0 2 0)) (tref lens 2 0))
+              (> (tref lens-0 2 0) 0d0)
+              ) :z)
+        (t nil)
+        ))))
+
 (defun split-criteria (mp h)
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
