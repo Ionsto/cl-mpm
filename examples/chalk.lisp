@@ -53,10 +53,10 @@
                 :rho 1d7
 
                 :coheasion 1d4
-                :friction-angle 40d0
+                :friction-angle 50d0
 
-                :fracture-energy 4d2
-                :initiation-stress 1d5
+                :fracture-energy 3d2
+                :initiation-stress 1d6
                 ;; :initiation-stress 0d0
                 ;; :damage-rate 1d-15
 
@@ -71,10 +71,10 @@
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (let ((ms 1d4))
@@ -176,7 +176,7 @@
   (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 10)
+         (soil-boundary 100)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* 3 shelf-height)))
@@ -207,7 +207,7 @@
                                  )))
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do
-             (setf (cl-mpm/particle:mp-damage mp) (random 0.2d0)))
+             (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
     ;; (cl-mpm/setup::damage-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -258,14 +258,15 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 1000
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 1)
+                     (when (= steps 10)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))
+                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
+                               )
                          )
 
                        )
@@ -276,6 +277,16 @@
                       (dotimes (i substeps);)
                         (cl-mpm::update-sim *sim*)
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+
+                     ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+                     ;;       do
+                     ;;          (when (>= (cl-mpm/particle:mp-damage mp) 1d0)
+                     ;;            (let ((ms 1d2))
+                     ;;              (setf (cl-mpm::sim-mass-scale *sim*) ms
+                     ;;                    ;; target-time 1d0
+                     ;;                    (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
+                     ;;                    ))))
+
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
