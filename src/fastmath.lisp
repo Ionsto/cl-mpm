@@ -214,3 +214,13 @@
     (if (> m 0d0)
       (magicl::scale a (/ 1d0 (sqrt m)))
       m)))
+
+(defun cross-product (a b)
+  "Calculate the cross product of column vectors a and b, returning a new vector"
+  (let ((as (magicl::matrix/double-float-storage a))
+        (bs (magicl::matrix/double-float-storage b))
+        )
+    (cl-mpm/utils:vector-from-list (list
+                                    (- (* (aref as 1) (aref bs 2)) (* (aref as 2) (aref bs 1)))
+                                    (- (* (aref as 2) (aref bs 0)) (* (aref as 0) (aref bs 2)))
+                                    (- (* (aref as 0) (aref bs 1)) (* (aref as 1) (aref bs 0)))))))

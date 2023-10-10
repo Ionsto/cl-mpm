@@ -2221,7 +2221,6 @@ Calls func with only the node"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
-      (print split-direction)
       (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
       (loop for mp across mps-to-split
             for direction in split-direction

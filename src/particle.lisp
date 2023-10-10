@@ -1348,7 +1348,7 @@
                            )
                          (when (< esii 1d0)
                            ;;Bounded compressive damage
-                           (setf (nth i l) (* (nth i l) (max 1d-1 degredation)))
+                           (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
                        ;; (setf (nth i l) 0)

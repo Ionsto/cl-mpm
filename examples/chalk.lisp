@@ -14,7 +14,7 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ))
@@ -53,10 +53,10 @@
                 :rho 1d7
 
                 :coheasion 1d4
-                :friction-angle 50d0
+                :friction-angle 40d0
 
-                :fracture-energy 3d2
-                :initiation-stress 1d6
+                :fracture-energy 3d10
+                :initiation-stress 1d10
                 ;; :initiation-stress 0d0
                 ;; :damage-rate 1d-15
 
@@ -71,17 +71,17 @@
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
-      (setf (cl-mpm:sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d0 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         )
 
       (dotimes (i 0)
@@ -92,12 +92,12 @@
              (when
                  (and
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     200)
+                     120)
                   (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     400 
+                     200 
                      )
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                     50
+                     10
                      )
                   )
                dir
@@ -168,18 +168,18 @@
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
     ))
 
-(defun setup ()
+(defun setup (&key (undercut 0d0))
   ;; (let ((mps-per-dim 4))
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
-         (mps-per-cell 2)
+  (let* ((mesh-size 5)
+         (mps-per-cell 4)
          (shelf-height 100)
-         (soil-boundary 100)
+         (soil-boundary 50)
          (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 3 shelf-height)))
+         (domain-length (+ shelf-length (* 1 shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -190,7 +190,7 @@
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
 
-    (let* ((undercut-angle -0d0)
+    (let* ((undercut-angle undercut)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
                                       (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1))))
@@ -205,9 +205,9 @@
                                                         '(2 1) :type 'double-float))
                                      1d0)
                                  )))
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do
-             (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       do
+    ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
     ;; (cl-mpm/setup::damage-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -258,18 +258,18 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 1000
+    (time (loop for steps from 0 to 10
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 10)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
-                               )
-                         )
+                     ;; (when (= steps 5)
+                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;;   (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                     ;;     (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
+                     ;;           )
+                     ;;     )
 
-                       )
+                     ;;   )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -331,6 +331,17 @@
          (cl-mpm::update-sim *sim*)))
   (sb-profile:report)
   )
+(defun test-undercut ()
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output_chalk/mesh.vtk")
+                               *sim*)
+  (loop for c in (list 0d0 10d0 20d0 30d0 40d0 50d0)
+        while *run-sim*
+        do
+           (progn
+             (setup :undercut (- c))
+             (run)
+             (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_chalk/chalk_~5,'0d.vtk" c)) *sim*)
+             )))
 ;; (lparallel:end-kernel)
 ;; (sb-ext::exit)
 ;; (uiop:quit)

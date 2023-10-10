@@ -625,3 +625,51 @@
           ))
       (values sig trial-elastic-strain f))))
 
+
+
+(defun mc-yield-func (stress phi c)
+  (let* ((k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
+         (sigc (* 2d0 c (sqrt k)))
+         (f (- (* k (magicl:tref stress 0 0)) (magicl:tref stress 2 0) sigc)))
+    f))
+
+(defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
+  (let* ((tol 1d-9)
+        (sig (cl-mpm/utils::voigt-copy stress))
+        )
+    (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix trial-elastic-strain))
+      )
+    (let* ((k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
+           (sigc (* 2d0 c (sqrt k)))
+           (f (mc-yield-func stress phi c)))
+      (if (> f tol)
+          (let* ((eps-e (cl-mpm/utils::voigt-copy trial-elastic-strain))
+                 (m (/ (+ 1 (sin psi)) (- 1d0 (sin psi))))
+                 (siga (magicl:scale! (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
+                                      (/ 1d0 (/ sigc (- k 1d0)))
+                                      ))
+                 (De3
+                   (magicl:scale!
+                    (magicl:from-list (list
+                                       (- 1d0 nu) nu nu
+                                       nu (- 1d0 nu) nu
+                                       nu nu (- 1d0 nu))
+                                      '(3 3) :type 'double-float)
+                    (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+                 (Ce (magicl:inv De3))
+                 (r1 (vector-from-list (list 1d0 1d0 k)))
+                 (r2 (vector-from-list (list 1d0 k k)))
+                 (rg1 (vector-from-list (list 1d0 1d0 m)))
+                 (rg2 (vector-from-list (list 1d0 m m)))
+                 (df (vector-from-list (list k 0d0 -1d0)))
+                 (dg (vector-from-list (list m 0d0 -1d0)))
+                 (rp (magicl:@ De3 dg (magicl:inv (magicl:@ dg De3 (magicl:transpose dg)))))
+                 (t1 (magicl:@ rg1 Ce (magicl:.- sig siga) (magicl:inv rg1 Ce r1)))
+                 (t2 (magicl:@ rg2 Ce (magicl:.- sig siga) (magicl:inv rg2 Ce r1)))
+                 (f12 (magicl:@ (cl-mpm/fastmath::cross-product rp r1) (magicl:.- sig siga)))
+                 (f13 (magicl:@ (cl-mpm/fastmath::cross-product rp r2) (magicl:.- sig siga)))
+                )
+            ()
+            (values sig eps-e f)
+            )
+          (values sig trial-elastic-strain f)))))
