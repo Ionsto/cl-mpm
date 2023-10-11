@@ -190,8 +190,12 @@
                 when (= max-pos (magicl:tref
                                  (cl-mpm/particle:mp-position mp)
                                  1 0))
-                  collect mp)
-          ))
+                  collect mp)))
+      (when (> (length *terminus-mps*) 2)
+        (setf *terminus-mps* (mapcar (lambda (i) (nth i *terminus-mps*))
+                                     (list (floor (length *terminus-mps*) 2)
+                                           (+ (floor (length *terminus-mps*) 2) 1)))))
+
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-bcs-from-list
              (append
@@ -281,7 +285,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 0.02)
+  (let* ((mesh-size 0.01)
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
