@@ -191,6 +191,11 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
+   (fixed-velocity
+    :accessor mp-fixed-velocity
+    :type list
+    :initarg :fixed-velocity
+    :initform nil)
    (j-fbar
     :accessor mp-j-fbar
     :initform 1d0)
@@ -198,8 +203,7 @@
     :accessor mp-split-depth
     :type integer
     :initarg :split-depth
-    :initform 0
-    )
+    :initform 0)
    )
   (:documentation "A single material point"))
 
@@ -1417,14 +1421,14 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* esii (max 1d-6 degredation)))
+                           (setf (nth i l) (* esii (max 0d-6 degredation)))
                            (setf (nth i l) (+ (nth i l) driving-pressure))
                            )
-                         (when (< esii 1d0)
-                           ;;Bounded compressive damage
-                           (setf (nth i l) (* esii (max 1d0 degredation)))
-                           (setf (nth i l) (+ (nth i l) driving-pressure))
-                           )
+                         ;; (when (< esii 1d0)
+                         ;;   ;;Bounded compressive damage
+                         ;;   (setf (nth i l) (* esii (max 1d0 degredation)))
+                         ;;   (setf (nth i l) (+ (nth i l) driving-pressure))
+                         ;;   )
                          ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
                          )
                   )

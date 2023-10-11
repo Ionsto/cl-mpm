@@ -26,8 +26,9 @@
 (defun penetration-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
-         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal))
+         (yheight (abs (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal)))
         (dist (- datum (- ypos yheight))))
+
     (the double-float dist)))
 (defun penetration-point (mp pen datum normal)
   "Get linear penetration distance"
@@ -35,6 +36,7 @@
          (domain (cl-mpm/particle::mp-domain-size mp)))
     (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
 
+(defparameter *debug-force* 0d0)
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
@@ -45,6 +47,7 @@
       (let* ((penetration-dist (penetration-distance mp datum normal)))
         (declare (double-float penetration-dist))
         (when (> penetration-dist 0d0)
+          ;; (break)
           (with-accessors ((volume cl-mpm/particle:mp-volume)
                            (pressure cl-mpm/particle::mp-pressure)
                            (mp-vel cl-mpm/particle::mp-velocity)
@@ -75,6 +78,7 @@
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               (normal-damping 0d2)
                               (damping-force (* normal-damping rel-vel)))
+                         ;; (incf *debug-force* normal-force)
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force

@@ -204,12 +204,18 @@
 
 (defun dot (a b)
   (the double-float (magicl::sum (magicl.simd::.*-simd a b))))
+
+(defun mag-squared (a)
+  "Calculate the magnitude - 2-norm"
+  (dot a a))
+
 (defun mag (a)
   "Calculate the magnitude - 2-norm"
-  (the double-float (magicl::sum (magicl.simd::.*-simd a a))))
+  (sqrt (mag-squared a)))
+
 (defun norm (a)
   "Normalise a vector"
-  (let ((m (mag a)))
+  (let ((m (mag-squared a)))
     (declare (double-float m))
     (if (> m 0d0)
       (magicl::scale a (/ 1d0 (sqrt m)))

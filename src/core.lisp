@@ -1223,6 +1223,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (strain-rate mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
                    (nc cl-mpm/particle::mp-cached-nodes)
+                   (fixed-velocity cl-mpm/particle::mp-fixed-velocity)
                    )
     mp
     (let* (
@@ -1269,14 +1270,28 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
         ;;PIC
         #+cl-mpm-pic (setf vel mapped-vel) 
+        (when fixed-velocity
+          (loop for v in fixed-velocity
+                for i from 0
+                do (when v
+                     (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
         (magicl:scale! mapped-vel dt)
         (magicl:.+ pos mapped-vel pos)
         (magicl:.+ disp mapped-vel disp)
         (magicl:.+ vel (magicl:scale acc dt) vel)
 
+        (when fixed-velocity
+          (loop for v in fixed-velocity
+                for i from 0
+                do (when v
+                     (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
+
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
         ))))
+(defgeneric pre-particle-update-hook (particle dt)
+  )
+(defmethod pre-particle-update-hook (particle dt))
 
 (declaim (notinline g2p))
 (defun g2p (mesh mps dt)
@@ -1284,6 +1299,26 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   "Map grid values to all particles"
   (lparallel:pdotimes (i (length mps))
     (g2p-mp mesh (aref mps i) dt)))
+
+(defun update-particle (mesh mp dt)
+
+  (with-accessors ((mass mp-mass)
+                   (vel mp-velocity)
+                   (pos mp-position)
+                   (disp cl-mpm/particle::mp-displacement)
+                   )
+      mp
+    (magicl:scale! vel dt)
+    (magicl:.+ pos vel pos)
+    (magicl:.+ disp vel disp)
+    (magicl:.+ vel (magicl:scale acc dt) vel))
+  )
+(declaim (notinline update-particles))
+(defun update-particles (mesh mps dt)
+  (declare (cl-mpm/mesh::mesh mesh) (array mps))
+  "Map grid values to all particles"
+  (lparallel:pdotimes (i (length mps))
+    (update-particle mesh (aref mps i) dt)))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")

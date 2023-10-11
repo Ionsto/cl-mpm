@@ -14,18 +14,27 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun plot (sim)
-  (cl-mpm/plotter:simple-plot
-   *sim*
-   :plot :deformed
-   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-   ))
+  ;; (cl-mpm/plotter:simple-plot
+  ;;  *sim*
+  ;;  :plot :deformed
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
+  ;;  :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+  ;;  )
+  ;; (vgplot:format-plot t "replot (~f*x + ~f)~%" 0d0 (+ 0.2d0 *target-displacement*))
+  (plot-load-disp)
+  )
+
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-    (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
+    (let* (
+           (pos (magicl:from-list (list
+                                        (magicl:tref pos 0 0)
+                                        (magicl:tref pos 1 0)
+                                        ) '(2 1) :type 'double-float))
+           (position (magicl:from-list position '(2 1) :type 'double-float))
            (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
                                 (magicl:from-list size '(2 1) :type 'double-float))))
 
@@ -73,9 +82,21 @@
           sum (magicl:norm (cl-mpm/particle:mp-velocity mp))) (length (cl-mpm:sim-mps *sim*))))
 
 (defun get-disp (load-mps)
+  ;; (* *t* *tip-velocity*)
   (/ (loop for mp in load-mps
            sum (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
-     (length load-mps)))
+     (length load-mps))
+  )
+
+(defun get-reaction-force (load-nodes)
+  ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
+  (/ (loop for mp in load-nodes
+           sum
+           (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
+           ;; (abs (magicl:tref (cl-mpm/mesh::node-force mp) 1 0))
+           )
+     (length load-nodes))
+  )
 
 (defparameter *target-displacement* 0d0)
 (defun apply-disp-penalty (sim load-mps)
@@ -95,6 +116,7 @@
                      ))
       )))
 
+(defparameter *tip-velocity* -0.1d-3)
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -111,27 +133,52 @@
          )
     (declare (double-float h density))
     (progn
-      (let ()
+      (let* ((impactor-size (list h-x h-x))
+            (impactors
+              (cl-mpm/setup::make-block-mps-list
+               (mapcar #'+ offset
+                       (list
+                        (- (* 0.5d0 (first block-size)) (* 0.5d0 (first impactor-size)))
+                        (+ (second block-size) h-x)
+                        ))
+               impactor-size
+               (mapcar (lambda (e) (* e e-scale mp-scale)) impactor-size)
+               density
+               'cl-mpm/particle::particle-elastic
+               :E 20d9
+               :nu 0.20d0
+               :gravity -0.0d0
+               :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+               :fixed-velocity (list 0 *tip-velocity*)
+               :index 1
+               )
+              ))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
-               (cl-mpm/setup::make-block-mps-list
-                offset
-                block-size
-                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                density
-                'cl-mpm/particle::particle-concrete
-                :E 20d9
-                :nu 0.20d0
-                :fracture-energy 90d0
-                :initiation-stress 2.4d6
-                :critical-damage 0.50d0
-                :local-length 0.02d0
-                :local-length-damaged 0.01d0
-                :gravity -0.0d0
-                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-                ))))
+               (append
+                (cl-mpm/setup::make-block-mps-list
+                 offset
+                 block-size
+                 ;; (mapcar (lambda (e) (ceiling (* e e-scale mp-scale))) block-size)
+                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                 density
+                 'cl-mpm/particle::particle-concrete
+                 :E 20d9
+                 :nu 0.20d0
+                 :fracture-energy 90d0
+                 :initiation-stress (* 2.4d6 0.1d0)
+                 :critical-damage 0.50d0
+                 :local-length 0.10d0
+                 :local-length 0.10d0
+                 ;; :local-length-damaged 0.01d0
+                 :gravity -0.0d0
+                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+                 )
+                ;; impactors
+                )
+               )))
       (setf (cl-mpm:sim-allow-mp-split sim) t)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -140,7 +187,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:si-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-4 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d0 ms))
         )
 
       (dotimes (i 0)
@@ -178,6 +225,7 @@
                (loop for mp across (cl-mpm:sim-mps sim)
                      when
                      (and
+                      (not (= (cl-mpm/particle::mp-index mp) 1))
                       (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) crack-left)
                       (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) crack-right))
                      collect mp)
@@ -196,45 +244,69 @@
                                      (list (floor (length *terminus-mps*) 2)
                                            (+ (floor (length *terminus-mps*) 2) 1)))))
 
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-bcs-from-list
-             (append
-              (cl-mpm/bc::make-outside-bc-var-list
-               (cl-mpm:sim-mesh sim)
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-               )
+      (let ((left-node-pos
               (list
-               (cl-mpm/bc::make-bc-fixed (list
-                                          (round (first offset) h-x)
-                                          (round (second offset) h-x)
-                                          0)
-                                         '(0 0 nil))
-
-               (cl-mpm/bc::make-bc-fixed (list
-                                          (round (+ (first offset) (first block-size)) h-x)
-                                          (round (second offset) h-x)
-                                          0)
-                                         '(nil 0 nil))
-                (cl-mpm/bc::make-bc-closure
-                 '(0 0 0)
-                 (lambda ()
-                   ;; (apply-disp-penalty
-                   ;;  sim
-                   ;;  *terminus-mps*
-                   ;;  )
-                   ;; (apply-pullout
-                   ;;  sim
-                   ;;  (list (nth (round (length *terminus-mps*) 2) *terminus-mps*))
-                   ;;  -1d-4)
-                   )
+               (round (first offset) h-x)
+               (round (second offset) h-x)
+               0))
+            (right-node-pos
+              (list
+               (round (+ (first offset) (first block-size)) h-x)
+               (round (second offset) h-x)
+               0)
+              ))
+        (defparameter *fixed-nodes* (mapcar (lambda (id) (cl-mpm/mesh:get-node (cl-mpm:sim-mesh sim)
+                                                                                     id))
+                                                  (list left-node-pos right-node-pos)
+                                                  ))
+        (format t "Fixed node ~A ~%" left-node-pos)
+        (format t "Roller node ~A ~%" right-node-pos)
+        (setf (cl-mpm:sim-bcs sim)
+              (cl-mpm/bc::make-bcs-from-list
+               (append
+                (cl-mpm/bc::make-outside-bc-var-list
+                 (cl-mpm:sim-mesh sim)
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
                  )
-               )
-              )))
+                (list
+                 (cl-mpm/bc::make-bc-fixed left-node-pos
+                                           '(0 0 nil))
+
+                 (cl-mpm/bc::make-bc-fixed right-node-pos
+                                           '(nil 0 nil))
+                 (cl-mpm/bc::make-bc-closure
+                  '(0 0 0)
+                  (lambda ()
+                    (with-accessors ((mesh cl-mpm:sim-mesh)
+                                     (dt cl-mpm::sim-dt)
+                                     )
+                        sim
+                      (let ((datum (* -1d0 (+ 0.20d0 *target-displacement*)))
+                            (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+                        (cl-mpm/penalty::apply-force-mps mesh (coerce *terminus-mps* 'vector )
+                                         dt
+                                         normal
+                                         datum
+                                         (* density 1d4)
+                                         0d0))
+                      )
+                    ;; (apply-disp-penalty
+                    ;;  sim
+                    ;;  *terminus-mps*
+                    ;;  )
+                    ;; (apply-pullout
+                    ;;  sim
+                    ;;  (list (nth (round (length *terminus-mps*) 2) *terminus-mps*))
+                    ;;  -1d-4)
+                    )
+                  )
+                 )
+                ))))
 
       (defparameter *floor-bc*
         (cl-mpm/penalty::make-bc-penalty-point-normal
@@ -285,7 +357,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 0.01)
+  (let* ((mesh-size 0.02)
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
@@ -293,7 +365,7 @@
          (offset (list (* 2 mesh-size) (* shelf-height 1)))
          )
     (defparameter *sim*
-      (setup-test-column (list domain-length (* shelf-height 3))
+      (setup-test-column (list domain-length (+ mesh-size (* shelf-height 3)))
                          (list shelf-length shelf-height)
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
@@ -377,44 +449,50 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (setf *target-displacement* -0.01d-3)
+    (defparameter *target-displacement* 0d0)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 5)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       )
+                     ;; (when (= steps 5)
+                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;;   )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (push
-                      (get-disp *terminus-mps*)
-                      *data-displacement*)
-                     (push
-                      *current-load*
-                      *data-load*)
                      (time
                       (dotimes (i substeps);)
+
+                        (push
+                         *target-displacement*
+                         ;; *t*
+                         ;; (get-disp *terminus-mps*)
+                         *data-displacement*)
+                        (push
+                         (get-reaction-force *fixed-nodes*)
+                         *data-load*)
+                        ;; (setf cl-mpm/penalty::*debug-force* 0d0)
                         (cl-mpm::update-sim *sim*)
+                        (incf *target-displacement* (/ -0.05d-3 substeps))
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 
+                     ;; (print cl-mpm/penalty::*debug-force*)
 
-                     (when (>= steps 5)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       (incf *current-load* -1d2)
-                       (apply-force *sim* *terminus-mps* *current-load*))
-                     (when (reduce (lambda (a b) (and a b)) (mapcar (lambda (mp) (>= (cl-mpm/particle::mp-damage mp)
-                                                            1d0)) *terminus-mps*))
-                       (setf *run-sim* nil)
-                       )
+                     ;; (when (>= steps 5)
+                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;;   (incf *current-load* -1d2)
+                     ;;   (apply-force *sim* *terminus-mps* *current-load*))
+                     ;; (when (reduce (lambda (a b) (and a b))
+                     ;;               (mapcar (lambda (mp) (>= (cl-mpm/particle::mp-damage mp) 1d0)) *terminus-mps*))
+                     ;;   (defparameter *run-sim* nil))
 
-                     ;; (format t "Target: ~f - Current: ~f Error: ~f - energy ~F~%" *target-displacement*
-                     ;;         (get-disp *terminus-mps*)
-                     ;;         (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*))
-                     ;;         (energy-norm *sim*))
-                     ;; (format t "Load: ~f~%" *current-load*)
-                     ;; (incf *target-displacement* 0.01d0)
+                     (format t "Target: ~f - Current: ~f Error: ~f - energy ~F~%"
+                             *target-displacement*
+                             (get-disp *terminus-mps*)
+                             (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*))
+                             (energy-norm *sim*))
+                     (format t "Load: ~f~%" *current-load*)
+                     ;; (incf *target-displacement* -0.001d-3)
 
                      ;; (incf *current-load* (* -1d3 1d0))
 
@@ -446,8 +524,12 @@
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
 (defun plot-load-disp ()
-  (vgplot:figure)
-  (vgplot:plot (mapcar #'- *data-displacement*) (mapcar #'- *data-load*)))
+  ;; (vgplot:figure)
+  (vgplot:xlabel "Displacement (mm)")
+  (vgplot:ylabel "Load (N)")
+  (vgplot:plot (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-load*)
+  ;; (vgplot:plot (mapcar (lambda (x) (* x 1d0)) *data-displacement*) *data-load*)
+  )
 
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;; (push (lambda ()
