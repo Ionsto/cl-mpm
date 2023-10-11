@@ -399,3 +399,18 @@
                "swank.live")
   :serial t
   :components ((:file "examples/chalk")))
+
+
+(defsystem "cl-mpm/examples/tpb"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/tpb")))

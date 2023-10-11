@@ -1268,7 +1268,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;;FLIP
         ;; #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
         ;;PIC
-        #+cl-mpm-pic (aops:copy-into (magicl::matrix/double-float-storage vel) mapped-vel)
+        #+cl-mpm-pic (setf vel mapped-vel) 
         (magicl:scale! mapped-vel dt)
         (magicl:.+ pos mapped-vel pos)
         (magicl:.+ disp mapped-vel disp)

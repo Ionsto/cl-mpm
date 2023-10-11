@@ -120,11 +120,9 @@
       (incf (aref f-s 0)
             (* (+ (* mass gravity (aref g-s 0)) (* volume (aref b-s 0))) svp))
       (incf (aref f-s 1)
-            (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp)
-            )
+            (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp))
       (incf (aref f-s 2)
-            (* (+ (* mass gravity (aref g-s 2)) (* volume (aref b-s 2))) svp)
-            )
+            (* (+ (* mass gravity (aref g-s 2)) (* volume (aref b-s 2))) svp))
 
           ;; (magicl:scale!
           ;;   ;; (magicl.simd::.+-simd (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))

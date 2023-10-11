@@ -307,10 +307,10 @@
                (cl-mpm/bc::make-bc-closure
                 '(0 0)
                 (lambda ()
-                  (apply-pullout
-                   sim
-                   *terminus-mps*
-                   *shear-rate*)
+                  ;; (apply-pullout
+                  ;;  sim
+                  ;;  *terminus-mps*
+                  ;;  *shear-rate*)
                   )
                 )))))
       (defparameter *pressure-inc-rate* 0d4)
