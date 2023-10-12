@@ -1270,21 +1270,21 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
         ;;PIC
         #+cl-mpm-pic (setf vel mapped-vel) 
-        (when fixed-velocity
-          (loop for v in fixed-velocity
-                for i from 0
-                do (when v
-                     (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
+        ;; (when fixed-velocity
+        ;;   (loop for v in fixed-velocity
+        ;;         for i from 0
+        ;;         do (when v
+        ;;              (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
         (magicl:scale! mapped-vel dt)
         (magicl:.+ pos mapped-vel pos)
         (magicl:.+ disp mapped-vel disp)
         (magicl:.+ vel (magicl:scale acc dt) vel)
 
-        (when fixed-velocity
-          (loop for v in fixed-velocity
-                for i from 0
-                do (when v
-                     (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
+        ;; (when fixed-velocity
+        ;;   (loop for v in fixed-velocity
+        ;;         for i from 0
+        ;;         do (when v
+        ;;              (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
 
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))

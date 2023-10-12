@@ -523,7 +523,7 @@
                                                             (ll cl-mpm/particle::mp-true-local-length)
                                                             (p cl-mpm/particle:mp-position))
                                                mp-other
-                                             (when t;(< (the double-float d) 1d0)
+                                             (when (< (the double-float d) 1d0)
                                                (let (
                                                      ;;Nodally averaged local funcj
                                                      ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
@@ -1020,7 +1020,7 @@
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                                          (loop for sii in l maximize sii)))
         (cl-mpm/output::save-parameter "su_1"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::mp-undamaged-stress)
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
                                            (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
                                              (loop for sii in l maximize sii))
                                            0d0
@@ -1442,6 +1442,10 @@
                 (let* ((s_1 (max 0d0 s_1)))
                   (when (> s_1 0d0)
                     (setf damage-increment s_1)
+                    ;; (setf damage-increment (sqrt
+                    ;;                         (+ (expt s_1 2)
+                    ;;                            (expt s_2 2)
+                    ;;                            (expt s_3 2))))
                     )))))
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
@@ -1494,7 +1498,7 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (brittle-chalk-d k E Gf length init-stress))))
+          (let ((new-damage (max damage (brittle-concrete-d k E Gf length init-stress))))
             (setf damage-inc (- new-damage damage)))
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
           ;;       damage-inc 0d0)

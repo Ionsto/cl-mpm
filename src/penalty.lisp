@@ -37,6 +37,8 @@
     (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
 
 (defparameter *debug-force* 0d0)
+(defparameter *debug-force-count* 0)
+(defparameter *debug-force-mp-count* 0)
 ;;Only vertical condition
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
@@ -47,6 +49,7 @@
       (let* ((penetration-dist (penetration-distance mp datum normal)))
         (declare (double-float penetration-dist))
         (when (> penetration-dist 0d0)
+          (incf *debug-force-count* 1)
           ;; (break)
           (with-accessors ((volume cl-mpm/particle:mp-volume)
                            (pressure cl-mpm/particle::mp-pressure)
@@ -78,7 +81,10 @@
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                               (normal-damping 0d2)
                               (damping-force (* normal-damping rel-vel)))
-                         ;; (incf *debug-force* normal-force)
+
+                         (incf *debug-force* (* normal-force 1d0))
+                         ;; (incf *debug-force-count* 1)
+
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
