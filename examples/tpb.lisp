@@ -8,6 +8,7 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (in-package :cl-mpm/examples/tpb)
 
+(ql:quickload :magicl)
 ;; (pushnew :cl-mpm-pic *features*)
 ;; (delete :cl-mpm-pic *features*)
 ;; (asdf:compile-system :cl-mpm :force T)

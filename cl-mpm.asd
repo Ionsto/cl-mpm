@@ -403,6 +403,7 @@
 
 (defsystem "cl-mpm/examples/tpb"
   :depends-on ("cl-mpm"
+               "magicl"
                "cl-mpm/setup"
                "cl-mpm/particle"
                "cl-mpm/output"
