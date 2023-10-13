@@ -56,15 +56,17 @@
             ))
   (let*  ((nD 3)
           (args (alexandria:remove-from-plist args :angle))
-          (spacing (mapcar #'/ size mps))
+          (spacing (mapcar (lambda (s m) (/ (coerce s 'double-float)
+                                            (coerce m 'double-float)
+                                            )) size mps))
           (offset (mapcar #'+ offset
                           (mapcar (lambda (x) (* x 0.5d0)) spacing)
                           ))
           (volume (reduce #'* (remove-if (lambda (x) (= 0d0 x)) spacing)))
-          (data (loop for x from 0 to (- (nth 0 mps) 1)
+          (data (loop for x from 0 to (- (nth 0 mps) 0)
                       append
                       (loop
-                        for y from 0 to (- (nth 1 mps) 1)
+                        for y from 0 to (- (nth 1 mps) 0)
                         append
                         (loop
                           for z from 0 to (- (nth 2 mps) 1)

@@ -1441,11 +1441,11 @@
               (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
                 (let* ((s_1 (max 0d0 s_1)))
                   (when (> s_1 0d0)
-                    (setf damage-increment s_1)
-                    ;; (setf damage-increment (sqrt
-                    ;;                         (+ (expt s_1 2)
-                    ;;                            (expt s_2 2)
-                    ;;                            (expt s_3 2))))
+                    ;; (setf damage-increment s_1)
+                    (setf damage-increment (sqrt
+                                            (+ (expt s_1 2)
+                                               (expt s_2 2)
+                                               (expt s_3 2))))
                     )))))
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
