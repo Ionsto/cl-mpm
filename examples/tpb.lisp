@@ -203,7 +203,7 @@
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
-                 :fracture-energy 9d2
+                 :fracture-energy 9d1
                  :initiation-stress (* 2.4d6 1d0)
                  :critical-damage 0.999d0
                  :local-length 1d-2
@@ -221,7 +221,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d5))
+      (let ((ms 1d6))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:si-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
@@ -230,7 +230,7 @@
         (setf (cl-mpm:sim-damping-factor sim)
               ;; 1d4
               ;; 1d0
-              (* 1d-1 density ms)
+              (* 1d-2 density ms)
               ;; 1d0
               ))
 
@@ -676,18 +676,17 @@
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Load (N)")
   (vgplot:plot
-   (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "mpm-node"
-   (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mpm-mps"
-               )
+   (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*)
+   ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*)
   ;; (vgplot:plot (mapcar (lambda (x) (* x 1d0)) *data-displacement*) *data-load*)
-  )
+  ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
 	           (uiop:read-file-string #P"load-disp.csv"))))
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "mpm-node"
+     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "mpm-node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mpm-mps"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
