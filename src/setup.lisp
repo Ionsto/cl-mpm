@@ -63,10 +63,10 @@
                           (mapcar (lambda (x) (* x 0.5d0)) spacing)
                           ))
           (volume (reduce #'* (remove-if (lambda (x) (= 0d0 x)) spacing)))
-          (data (loop for x from 0 to (- (nth 0 mps) 0)
+          (data (loop for x from 0 to (- (nth 0 mps) 1)
                       append
                       (loop
-                        for y from 0 to (- (nth 1 mps) 0)
+                        for y from 0 to (- (nth 1 mps) 1)
                         append
                         (loop
                           for z from 0 to (- (nth 2 mps) 1)

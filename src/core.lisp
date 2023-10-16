@@ -1579,7 +1579,7 @@ Calls func with only the node"
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
-    (let ((df (calculate-df mp))
+    (let ((df (calculate-df mesh mp))
           (dstrain (magicl:scale strain-rate dt)))
                    (progn
                      (setf def (magicl:@ df def))
@@ -1609,55 +1609,10 @@ Calls func with only the node"
              (type magicl:matrix/double-float
                    domain))
     (progn
-      (let ((df (calculate-df mp)))
+      (let ((df (calculate-df mesh mp)))
         (progn
           (setf def (magicl:@ df def))
           (let ((initial-strain (magicl:scale strain 1d0)))
-            ;; (let ((r1 (cl-mpm/utils:matrix-zeros))
-            ;;       (r2 (cl-mpm/utils:matrix-zeros)))
-            ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix
-            ;;                                                  strain))
-            ;;     (magicl:mult df v :target r1)
-            ;;     (magicl:mult r1
-            ;;                  (cl-mpm/utils::matrix-from-list
-            ;;                   (list
-            ;;                    (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-            ;;                    0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-            ;;                    0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-            ;;                    ))
-            ;;                  :target r2)
-            ;;     (magicl:mult r2 (magicl:transpose v) :target r1)
-            ;;     (magicl:mult r1 (magicl:transpose df) :target r2)
-            ;;     (magicl:mult r2 v :target r1 :transb :T)
-            ;;     (magicl:mult r1 df :target r2 :transb :T)
-            ;;     ;; (magicl:.+ r1 (magicl:transpose r1) r2)
-            ;;     ;; (magicl:scale! r2 0.5d0)
-            ;;     (setf r1
-            ;;           (magicl:@ df
-            ;;                     v
-            ;;                     (cl-mpm/utils::matrix-from-list
-            ;;                      (list
-            ;;                       (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-            ;;                       0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-            ;;                       0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-            ;;                       ))
-            ;;                     (magicl:transpose v)
-            ;;                     (magicl:transpose df)))
-            ;;       (multiple-value-bind (lf vf) (cl-mpm/utils::eig (magicl:scale! (magicl:.+ r1 (magicl:transpose r1)) 0.5d0))
-            ;;         (magicl:mult
-            ;;          vf
-            ;;          (cl-mpm/utils::matrix-from-list
-            ;;           (list
-            ;;            (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-            ;;            0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-            ;;            0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-            ;;            ))
-            ;;          :target r1)
-            ;;         (magicl:mult r1 vf :target r2 :transb :T)
-            ;;         (setf strain (magicl:scale! (matrix-to-voigt r2) 0.5d0))
-            ;;         )
-            ;;    ))
-
                 (multiple-value-bind (l v) (cl-mpm/utils::eig
                                             ;;Shear scaling factor halved - we are using log strain matrix
                                             (voigt-to-matrix strain))
@@ -1938,9 +1893,9 @@ Calls func with only the node"
                    (volume cl-mpm/particle:mp-volume)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* ((df (magicl.simd::.+-simd (magicl:eye 2) stretch-rate))
-           (j-inc (det df))
-           (j-n (det def)))
+    (let* ((df (magicl:.+ (magicl:eye 3) stretch-rate))
+           (j-inc (magicl:det df))
+           (j-n (magicl:det def)))
       (iterate-over-neighbours mesh mp
                                (lambda (mesh mp node svp grads fsvp fgrads)
                                  (with-accessors ((node-active cl-mpm/mesh:node-active)
@@ -1950,14 +1905,13 @@ Calls func with only the node"
                                      node
                                    (when node-active
                                      (sb-thread:with-mutex (node-lock)
-                                       (incf node-j-inc (* svp volume j-inc j-n)))
-                                     ))
-                                 )))))
+                                       (incf node-j-inc (* svp volume j-inc j-n))))))))))
 
 (declaim (inline calculate-df)
-         (ftype (function (cl-mpm/particle:particle) magicl:matrix/double-float)
+         (ftype (function (cl-mpm/mesh::mesh
+                           cl-mpm/particle:particle) magicl:matrix/double-float)
                 calculate-df))
-(defun calculate-df (mp)
+(defun calculate-df (mesh mp)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (jfbar cl-mpm/particle::mp-j-fbar)
@@ -1969,11 +1923,34 @@ Calls func with only the node"
       (magicl:.+ df stretch-tensor df)
       #+cl-mpm-fbar (progn
                       (magicl:scale! df (expt (/ jfbar (magicl:det df)) (/ 1d0 2d0))))
+      (let ((j-inc (magicl:det df))
+            (j-n (magicl:det def))
+            (j-n1 0d0)
+            )
+        (when nil
+          (iterate-over-neighbours
+           mesh mp
+           (lambda (mesh mp node svp grads f fb)
+             (with-accessors ((node-active cl-mpm/mesh:node-active)
+                              (node-j-inc cl-mpm/mesh::node-jacobian-inc)
+                              (node-volume cl-mpm/mesh::node-volume)
+                              )
+                 node
+               (when node-active
+                 (incf j-n1 (/ (* svp node-j-inc) node-volume))
+                 ))))
+          (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
+            (error "Negative volume"))
+          (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 (cl-mpm/mesh:mesh-nd mesh))))))
       df)))
 
 (defun update-stress (mesh mps dt)
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
+  ;; (lparallel:pdotimes (i (length mps))
+  ;;   (let ((mp (aref mps i)))
+  ;;     (calculate-strain-rate mesh mp dt)
+  ;;     (map-jacobian mesh mp dt)))
   (lparallel:pdotimes (i (length mps))
      (update-stress-mp mesh (aref mps i) dt))
   (values))

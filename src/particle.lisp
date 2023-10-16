@@ -254,7 +254,7 @@
                    )
       particle
     (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
-    (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
+    (setf de (cl-mpm/constitutive::linear-elastic-matrix-ps E nu))))
 
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))

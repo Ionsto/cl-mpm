@@ -28,6 +28,20 @@
                        '(6 6) :type 'double-float)
      (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
 
+(defun linear-elastic-matrix-ps (E nu)
+  "Create an isotropic linear elastic matrix"
+  (let ((inv-nu (/ 1d0 (- 1d0 (expt nu 2)))))
+    (magicl:scale!
+     (magicl:from-list (list
+                        inv-nu (* nu inv-nu) 0d0 0d0 0d0 0d0
+                        (* nu inv-nu) inv-nu 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 (/ 0.5d0 (* 2 (+ 1d0 nu))))
+                       '(6 6) :type 'double-float)
+     E)))
+
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
   (magicl:@ elastic-matrix strain))

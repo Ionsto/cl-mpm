@@ -404,6 +404,7 @@
 (defsystem "cl-mpm/examples/tpb"
   :depends-on ("cl-mpm"
                "magicl"
+               "lisp-stat"
                "cl-mpm/setup"
                "cl-mpm/particle"
                "cl-mpm/output"

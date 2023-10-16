@@ -109,8 +109,8 @@
                  (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 0 0) 'single-float)
                  (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 1 0) 'single-float)
                  (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 2 0) 'single-float)))
-        (let ((nels (floor (reduce #'* (mapcar (lambda (x) (- x 1)) size))))
-              (nen 8)
+        (let ((nels (floor (reduce #'* (mapcar (lambda (x) (max 1 (- x 1))) size))))
+              (nen 4)
               (node-order (list 1 2 4 3 5 6 8 7))
               )
           (format fs "CELLS ~D ~D~%"
@@ -129,10 +129,10 @@
                           (+ k dz)) node-map)
                 )
                (setf node-map (reverse node-map))
-             (format fs "~D " nen)
-             (loop for lid in node-order
-                   do (format fs "~D " (nth (- lid 1) node-map)))
-             (format fs "~%")))
+               (format fs "~D " nen)
+               (loop for lid in node-order
+                     do (format fs "~D " (nth (- lid 1) node-map)))
+               (format fs "~%")))
             ;; (array-operations/utilities:nested-loop
             ;;  (i j k) (mapcar (lambda (x) (- x 1)) size)
             ;;  (format fs "~D " nen)
@@ -144,24 +144,39 @@
             ;;   )
             ;;  (format fs "~%")
             ;;  )
-            ;; (loop for x from 0 to (- (first size) 2)
-            ;;       do
-            ;;          (loop for y from 0 to (- (second size) 2)
-            ;;                do
-            ;;                   (loop for z from 0 to (- (third size) 2)
-            ;;                         do
-            ;;                   (format fs "~D ~D ~D ~D ~D ~D ~D ~%"
-            ;;                           4
-            ;;                           (id x y)
-            ;;                           (id x (+ y 1))
-            ;;                           (id (+ x 1) y)
-            ;;                           (id (+ x 1) (+ y 1))
-            ;;                           ))))
-            )
-
-          (format fs "CELL_TYPES ~d~%" nels)
-          (loop repeat nels
-                do (format fs "~D~%" 12))
+            (when (= 2 (cl-mpm/mesh:mesh-nd mesh))
+              (loop for x from 0 to (- (first size) 2)
+                    do
+                       (loop for y from 0 to (- (second size) 2)
+                             do
+                                (format fs "~D ~D ~D ~D ~D~%"
+                                        4
+                                        (id x y 0)
+                                        (id x (+ y 1) 0)
+                                        (id (+ x 1) y 0)
+                                        (id (+ x 1) (+ y 1) 0)
+                                        )))
+              (format fs "CELL_TYPES ~d~%" nels)
+              (loop repeat nels
+                    do (format fs "~D~%" 8)))
+            (when (= 3 (cl-mpm/mesh:mesh-nd mesh))
+              ;; (loop for x from 0 to (- (first size) 2)
+              ;;       do
+              ;;          (loop for y from 0 to (- (second size) 2)
+              ;;                do
+              ;;                   (loop for z from 0 to (- (third size) 2)
+              ;;                         do
+              ;;                            (format fs "~D ~D ~D ~D ~D~%"
+              ;;                                    4
+              ;;                                    (id x y)
+              ;;                                    (id x (+ y 1))
+              ;;                                    (id (+ x 1) y)
+              ;;                                    (id (+ x 1) (+ y 1))
+              ;;                                    ))))
+              ;; (format fs "CELL_TYPES ~d~%" nels)
+              ;; (loop repeat nels
+              ;;       do (format fs "~D~%" 12))
+              ))
           )))))
 ;; (defun save-vtk (filename sim)
 ;;   (with-accessors ((mps cl-mpm:sim-mps)) sim

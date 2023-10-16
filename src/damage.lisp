@@ -1475,6 +1475,14 @@
   ;;   )
   )
 
+(defun brittle-concrete-linear-d (stress E Gf length init-stress)
+  (let* ((hsl (/ (expt init-stress 2) (* 2 E Gf)))
+         (hs (/ (* hsl length) (- 1 (* hsl length)))))
+    (if (> stress init-stress)
+        (* (+ 1d0 hs) (- 1d0 (/ init-stress stress)))
+        0d0
+        )))
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-concrete) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -1498,7 +1506,10 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (brittle-concrete-d k E Gf length init-stress))))
+          (let ((new-damage (max damage
+                                 ;(brittle-concrete-d k E Gf length init-stress)
+                                 (brittle-concrete-linear-d k E Gf length init-stress)
+                                 )))
             (setf damage-inc (- new-damage damage)))
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
           ;;       damage-inc 0d0)
