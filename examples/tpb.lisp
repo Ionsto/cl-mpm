@@ -113,16 +113,11 @@
 
 (defun get-reaction-force (load-nodes)
   ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
-  (* 1
-     (/ (loop for mp in load-nodes
-              sum
-              ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
-              (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0))
-              )
-        1d0
-                                        ;(length load-nodes)
+  (loop for mp in load-nodes
+        sum
+        ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
+        (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0))
         ))
-  )
 
 (defparameter *target-displacement* 0d0)
 (defun apply-disp-penalty (sim load-mps)
@@ -143,7 +138,7 @@
       )))
 
 ;(defparameter *tip-velocity* -0.02d-3)
-(defparameter *tip-velocity* -0.005d-3)
+(defparameter *tip-velocity* -0.000d-3)
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -205,7 +200,7 @@
                  :nu 0.20d0
                  :fracture-energy 9d1
                  :initiation-stress (* 2.4d6 1d0)
-                 :critical-damage 0.999d0
+                 :critical-damage 0.9d0
                  :local-length 1d-2
                  :local-length-damaged 1d-2
                  ;; :local-length-damaged 0.01d0
@@ -221,16 +216,10 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d6))
+      (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
-        ;; (setf (cl-mpm:si-damping-factor sim) (* 1d-2 density ms))
-        ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 density ms))
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         (setf (cl-mpm:sim-damping-factor sim)
-              ;; 1d4
-              ;; 1d0
-              (* 1d-2 density ms)
+              (* 5d-2 density ms)
               ;; 1d0
               ))
 
@@ -242,12 +231,10 @@
              (when
                  (and
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     120)
-                  (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     200 
+                     (+ (first offset) (* (first block-size) 0.40))
                      )
-                  (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                     10
+                  (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+                     (+ (first offset) (* (first block-size) 0.60))
                      )
                   )
                dir
@@ -298,12 +285,12 @@
 
       (let ((left-node-pos
               (list
-               (round (first offset) h-x)
+               (+ (round (first offset) h-x) 0)
                (round (second offset) h-x)
                0))
             (right-node-pos
               (list
-               (round (+ (first offset) (first block-size)) h-x)
+               (- (round (+ (first offset) (first block-size)) h-x) 0)
                (round (second offset) h-x)
                0)
               ))
@@ -327,7 +314,7 @@
                  )
                 (list
                  (cl-mpm/bc::make-bc-fixed left-node-pos
-                                           '(nil 0 nil))
+                                           '(0 0 nil))
 
                  (cl-mpm/bc::make-bc-fixed right-node-pos
                                            '(nil 0 nil)))
@@ -409,12 +396,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 2.0))
+  (let* ((mesh-size (/ 0.025 4.0))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
          ;; (shelf-length 0.225d0)
-         (domain-length (+ shelf-length (* 4 mesh-size)))
+         (domain-length (+ shelf-length (* 5 mesh-size)))
          (offset (list
                   ;; 0d0
                   (* 2 mesh-size)
@@ -436,8 +423,9 @@
               (+ (second offset) 0d0)
               )
         (list
-         ;; 3.0d-3
-         10d-3
+         ;; 10.0d-3
+         5d-3
+         ;; 10d-3
          ;; mesh-size
          cut-depth
          )))
@@ -505,8 +493,10 @@
 (defparameter *data-force* '())
 (defparameter *data-displacement* '(0d0))
 (defparameter *data-load* '(0d0))
+(defparameter *data-time* '(0d0))
 (defparameter *data-node-load* '(0d0))
 (defparameter *target-displacement* 0d0)
+(defparameter *data-averaged* t)
 
 (defun run ()
   (vgplot:close-all-plots)
@@ -517,12 +507,14 @@
   (defparameter *data-load* '(0d0))
   (defparameter *data-node-load* '(0d0))
   (defparameter *data-mp-load* '(0d0))
+  (defparameter *data-time* '(0d0))
   (defparameter *target-displacement* 0d0)
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 2d-1)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
+         (disp-step -0.01d-3)
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -533,7 +525,8 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    ;; (incf *target-displacement* -1.0d-3)
+    ;; (incf *target-displacement* -0.000d-3)
+    (incf *target-displacement* disp-step)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
@@ -551,27 +544,24 @@
                            (average-reaction 0d0))
                        (time
                         (dotimes (i substeps);)
-                          ;; (push
-                          ;;  ;; (- *t*)
-                          ;;  (get-disp *terminus-mps*)
-                          ;;  *data-displacement*)
-                          ;; ;; (push
-                          ;; ;;  (/
-                          ;; ;;   (/ cl-mpm/penalty::*debug-force*
-                          ;; ;;      (max 1 cl-mpm/penalty::*debug-force-count*))
-                          ;; ;;   substeps
-                          ;; ;;   )
-                          ;; ;;  *data-load*)
+                          ;; (unless *data-averaged*
+                          ;;   (push
+                          ;;    ;; (- *t*)
+                          ;;    (get-disp *terminus-mps*)
+                          ;;    *data-displacement*)
 
-                          ;; (push
-                          ;;  (get-reaction-force *fixed-nodes*)
-                          ;;  *data-load*)
+                          ;;   (push
+                          ;;    (get-reaction-force *fixed-nodes*)
+                          ;;    *data-load*)
 
-                          ;; (push
-                          ;;  ;; (get-force-mps *sim* *terminus-mps*)
-                          ;;  (/ cl-mpm/penalty::*debug-force*
-                          ;;     (max 1 cl-mpm/penalty::*debug-force-count*))
-                          ;;  *data-mp-load*)
+                          ;;   (push
+                          ;;    ;; (get-force-mps *sim* *terminus-mps*)
+                          ;;    (/ cl-mpm/penalty::*debug-force*
+                          ;;       (max 1 cl-mpm/penalty::*debug-force-count*))
+                          ;;    *data-mp-load*)
+                          ;;   (push
+                          ;;    *t*
+                          ;;    *data-time*))
 
                           ;; (incf average-force (/ (get-force-mps *sim* *terminus-mps*) substeps))
                           ;; (incf average-force (/ cl-mpm/penalty::*debug-force* substeps))
@@ -590,7 +580,7 @@
                           (setf cl-mpm/penalty::*debug-force* 0d0)
                           (setf cl-mpm/penalty::*debug-force-count* 0d0)
                           (cl-mpm::update-sim *sim*)
-                          (incf *target-displacement* (* dt *tip-velocity*))
+                          ;; (incf *target-displacement* (* dt *tip-velocity*))
                           ;; (push
                           ;;  cl-mpm/penalty::*debug-force*
                           ;;  *data-load*)
@@ -599,17 +589,33 @@
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
                        ;; (incf *target-displacement* -0.01d-3)
-                       (push
-                        ;; *target-displacement*
-                        average-disp
-                         ;; (get-disp *terminus-mps*)
-                        *data-displacement*)
-                       (push
-                        average-force
-                        *data-mp-load*)
-                       (push
-                        average-reaction
-                        *data-load*)
+                       ;; (push
+                       ;;  ;; *target-displacement*
+                       ;;  average-disp
+                       ;;   ;; (get-disp *terminus-mps*)
+                       ;;  *data-displacement*)
+                       ;; (push
+                       ;;  average-force
+                       ;;  *data-mp-load*)
+                       ;; (push
+                       ;;  average-reaction
+                       ;;  *data-load*)
+                       (when *data-averaged*
+                         (push
+                          ;; (- *t*)
+                          (get-disp *terminus-mps*)
+                          *data-displacement*)
+
+                         (push
+                          (get-reaction-force *fixed-nodes*)
+                          *data-load*)
+
+                         (push
+                          ;; (get-force-mps *sim* *terminus-mps*)
+                          (/ cl-mpm/penalty::*debug-force*
+                             (max 1 cl-mpm/penalty::*debug-force-count*))
+                          *data-mp-load*))
+                       (incf *target-displacement* disp-step)
 
 
                        (format t "Target load: ~f~%" (* *target-displacement* 20d9))
@@ -676,7 +682,9 @@
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Load (N)")
   (vgplot:plot
-   (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*)
+   ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*)
+   (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "nodes"
+   (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mps"
    ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*)
   ;; (vgplot:plot (mapcar (lambda (x) (* x 1d0)) *data-displacement*) *data-load*)
   ))
@@ -686,12 +694,22 @@
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "mpm-node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mpm-mps"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.1)) *data-load*) "mpm-node"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.1)) *data-mp-load*) "mpm-mps"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
-    )
 
+    ;; (vgplot:format-plot t "set xrange [~f:~f]"
+    ;;                     ;(* -1d3 (- 0.0000001d0 (reduce #'max *data-displacement*)))
+    ;;                     0d0
+    ;;                     (+ 1d-4 (* -1d3 (reduce #'min *data-displacement*)))
+    ;;                     )
+    ;; (vgplot:format-plot t "set yrange [~f:~f]"
+    ;;                     (reduce #'min (mapcar #'min *data-load* *data-mp-load*))
+    ;;                     (* 1.01 (reduce #'max (mapcar #'max *data-load* *data-mp-load*)))
+    ;;                     )
+    ;; (vgplot:axis (list nil nil nil nil))
+    )
   )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))

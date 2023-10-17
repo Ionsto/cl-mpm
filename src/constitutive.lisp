@@ -33,14 +33,14 @@
   (let ((inv-nu (/ 1d0 (- 1d0 (expt nu 2)))))
     (magicl:scale!
      (magicl:from-list (list
-                        inv-nu (* nu inv-nu) 0d0 0d0 0d0 0d0
-                        (* nu inv-nu) inv-nu 0d0 0d0 0d0 0d0
+                        1d0 nu 0d0 0d0 0d0 0d0
+                        nu 1d0 0d0 0d0 0d0 0d0
                         0d0 0d0 0d0 0d0 0d0 0d0
                         0d0 0d0 0d0 0d0 0d0 0d0
                         0d0 0d0 0d0 0d0 0d0 0d0
-                        0d0 0d0 0d0 0d0 0d0 (/ 0.5d0 (* 2 (+ 1d0 nu))))
+                        0d0 0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 nu)))
                        '(6 6) :type 'double-float)
-     E)))
+     (/ E (- 1d0 (* nu nu))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
