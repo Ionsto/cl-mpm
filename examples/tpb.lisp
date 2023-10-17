@@ -25,6 +25,7 @@
   ;;  )
   ;; (vgplot:format-plot t "replot (~f*x + ~f)~%" 0d0 (+ 0.2d0 *target-displacement*))
   (plot-load-disp)
+  ;; (plot-time-disp)
   )
 
 
@@ -198,11 +199,11 @@
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
-                 :fracture-energy 9d1
+                 :fracture-energy 9d0
                  :initiation-stress (* 2.4d6 1d0)
                  :critical-damage 0.9d0
-                 :local-length 1d-2
-                 :local-length-damaged 1d-2
+                 :local-length 5d-2
+                 :local-length-damaged 5d-2
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -219,7 +220,7 @@
       (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 5d-2 density ms)
+              (* 1d-2 density ms)
               ;; 1d0
               ))
 
@@ -285,12 +286,12 @@
 
       (let ((left-node-pos
               (list
-               (+ (round (first offset) h-x) 0)
+               (round (first offset) h-x)
                (round (second offset) h-x)
                0))
             (right-node-pos
               (list
-               (- (round (+ (first offset) (first block-size)) h-x) 0)
+               (round (+ (first offset) (first block-size)) h-x)
                (round (second offset) h-x)
                0)
               ))
@@ -396,7 +397,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 4.0))
+  (let* ((mesh-size (/ 0.025 (* 1.5)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
@@ -424,7 +425,7 @@
               )
         (list
          ;; 10.0d-3
-         5d-3
+         10d-3
          ;; 10d-3
          ;; mesh-size
          cut-depth
@@ -498,6 +499,9 @@
 (defparameter *target-displacement* 0d0)
 (defparameter *data-averaged* t)
 
+(defparameter *data-full-time* '(0d0))
+(defparameter *data-full-load* '(0d0))
+
 (defun run ()
   (vgplot:close-all-plots)
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
@@ -509,8 +513,10 @@
   (defparameter *data-mp-load* '(0d0))
   (defparameter *data-time* '(0d0))
   (defparameter *target-displacement* 0d0)
+  (defparameter *data-full-time* '(0d0))
+  (defparameter *data-full-load* '(0d0))
 
-  (let* ((target-time 2d-1)
+  (let* ((target-time 1d-1)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -544,24 +550,30 @@
                            (average-reaction 0d0))
                        (time
                         (dotimes (i substeps);)
-                          ;; (unless *data-averaged*
-                          ;;   (push
-                          ;;    ;; (- *t*)
-                          ;;    (get-disp *terminus-mps*)
-                          ;;    *data-displacement*)
+                          (unless *data-averaged*
+                            (push
+                             ;; (- *t*)
+                             (get-disp *terminus-mps*)
+                             *data-displacement*)
 
-                          ;;   (push
-                          ;;    (get-reaction-force *fixed-nodes*)
-                          ;;    *data-load*)
+                            (push
+                             (get-reaction-force *fixed-nodes*)
+                             *data-load*)
 
-                          ;;   (push
-                          ;;    ;; (get-force-mps *sim* *terminus-mps*)
-                          ;;    (/ cl-mpm/penalty::*debug-force*
-                          ;;       (max 1 cl-mpm/penalty::*debug-force-count*))
-                          ;;    *data-mp-load*)
-                          ;;   (push
-                          ;;    *t*
-                          ;;    *data-time*))
+                            (push
+                             ;; (get-force-mps *sim* *terminus-mps*)
+                             (/ cl-mpm/penalty::*debug-force*
+                                (max 1 cl-mpm/penalty::*debug-force-count*))
+                             *data-mp-load*)
+                            (push
+                             *t*
+                             *data-time*))
+                          (push
+                           (get-reaction-force *fixed-nodes*)
+                           *data-full-load*)
+                          (push
+                           *t*
+                           *data-full-time*)
 
                           ;; (incf average-force (/ (get-force-mps *sim* *terminus-mps*) substeps))
                           ;; (incf average-force (/ cl-mpm/penalty::*debug-force* substeps))
@@ -586,6 +598,7 @@
                           ;;  *data-load*)
                           ;; (incf *target-displacement* (/ -0.01d-3 substeps))
                           ;; (incf *target-displacement* (/ -0.001d-3 substeps))
+                          (incf *target-displacement* (/ disp-step substeps))
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
                        ;; (incf *target-displacement* -0.01d-3)
@@ -615,7 +628,7 @@
                           (/ cl-mpm/penalty::*debug-force*
                              (max 1 cl-mpm/penalty::*debug-force-count*))
                           *data-mp-load*))
-                       (incf *target-displacement* disp-step)
+                       ;; (incf *target-displacement* disp-step)
 
 
                        (format t "Target load: ~f~%" (* *target-displacement* 20d9))
@@ -674,8 +687,17 @@
 
                      (swank.live:update-swank)
                      ))))
+  (vgplot:figure)
   (plot-load-disp)
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
+
+(defun plot-time-disp ()
+  ;; (vgplot:figure)
+  (vgplot:xlabel "Displacement (mm)")
+  (vgplot:ylabel "Load (N)")
+  (vgplot:plot
+   (mapcar (lambda (x) (* x -1d0)) *data-full-time*) (mapcar (lambda (x) (* x 0.1)) *data-full-load*) "nodes"
+   ))
 
 (defun plot-load-disp ()
   ;; (vgplot:figure)
