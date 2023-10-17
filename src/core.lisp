@@ -1943,7 +1943,7 @@ Calls func with only the node"
             (error "Negative volume"))
           (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 (cl-mpm/mesh:mesh-nd mesh))))))
       df)))
-
+r
 (defun update-stress (mesh mps dt)
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress

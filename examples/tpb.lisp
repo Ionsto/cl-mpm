@@ -6,6 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/tpb)
 
 (ql:quickload :magicl)
@@ -217,10 +218,10 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d4))
+      (let ((ms 1d7))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d-2 density ms)
+              (* 1d-3 density ms)
               ;; 1d0
               ))
 
@@ -397,7 +398,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 (* 1.5)))
+  (let* ((mesh-size (/ 0.025 (* 4)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
@@ -516,16 +517,19 @@
   (defparameter *data-full-time* '(0d0))
   (defparameter *data-full-load* '(0d0))
 
-  (let* ((target-time 5d-1)
+  (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
+    (format stream "disp,load~%"))
+
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (disp-step -0.01d-3)
+         (disp-step -0.005d-3)
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
     (setf cl-mpm/penalty::*debug-force-count* 0d0)
-    (cl-mpm::update-sim *sim*)
+    (time (cl-mpm::update-sim *sim*))
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)
                     (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -542,7 +546,7 @@
                      ;;   )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
 
 
                      (let ((average-force 0d0)
@@ -602,32 +606,30 @@
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
                        ;; (incf *target-displacement* -0.01d-3)
-                       ;; (push
-                       ;;  ;; *target-displacement*
-                       ;;  average-disp
-                       ;;   ;; (get-disp *terminus-mps*)
-                       ;;  *data-displacement*)
-                       ;; (push
-                       ;;  average-force
-                       ;;  *data-mp-load*)
-                       ;; (push
-                       ;;  average-reaction
-                       ;;  *data-load*)
-                       (when *data-averaged*
-                         (push
-                          ;; (- *t*)
-                          (get-disp *terminus-mps*)
-                          *data-displacement*)
+                       (push
+                        average-disp
+                        *data-displacement*)
+                       (push
+                        average-force
+                        *data-mp-load*)
+                       (push
+                        average-reaction
+                        *data-load*)
+                       ;; (when *data-averaged*
+                       ;;   (push
+                       ;;    ;; (- *t*)
+                       ;;    (get-disp *terminus-mps*)
+                       ;;    *data-displacement*)
 
-                         (push
-                          (get-reaction-force *fixed-nodes*)
-                          *data-load*)
+                       ;;   (push
+                       ;;    (get-reaction-force *fixed-nodes*)
+                       ;;    *data-load*)
 
-                         (push
-                          ;; (get-force-mps *sim* *terminus-mps*)
-                          (/ cl-mpm/penalty::*debug-force*
-                             (max 1 cl-mpm/penalty::*debug-force-count*))
-                          *data-mp-load*))
+                       ;;   (push
+                       ;;    ;; (get-force-mps *sim* *terminus-mps*)
+                       ;;    (/ cl-mpm/penalty::*debug-force*
+                       ;;       (max 1 cl-mpm/penalty::*debug-force-count*))
+                       ;;    *data-mp-load*))
                        ;; (incf *target-displacement* disp-step)
 
 
@@ -635,7 +637,12 @@
                        (format t "Current load: ~f~%" (* (get-disp *terminus-mps*) 1d9))
                        (format t "Node Load: ~f~%" (get-reaction-force *fixed-nodes*))
                        (format t "Pen load: ~f~%" average-force)
-                       )
+                       
+                       (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
+                         (format stream "~f,~f~%"
+                                 average-disp
+                                 average-force
+                                 )))
 
                      ;; (setf cl-mpm/penalty::*debug-force*
                      ;;       (/ cl-mpm/penalty::*debug-force* substeps)

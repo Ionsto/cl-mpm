@@ -1407,7 +1407,7 @@
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (let ((degredation (expt (- 1d0 damage) 1d0)))
-        (setf stress (magicl:scale! stress-undamaged (max 1d-9 degredation))))
+        (setf stress (magicl:scale! stress (max 1d-9 degredation))))
       ;; (let* ((j 1d0)
       ;;        (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
       ;;        (s (cl-mpm/constitutive::deviatoric-voigt stress)))

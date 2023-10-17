@@ -1439,7 +1439,8 @@
           (when (< damage 1d0)
             (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
               (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
-                (let* ((s_1 (max 0d0 s_1)))
+                (let* (;(s_1 (max 0d0 s_1))
+                       )
                   (when (> s_1 0d0)
                     ;; (setf damage-increment s_1)
                     (setf damage-increment (sqrt
@@ -1507,8 +1508,8 @@
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (let ((new-damage (max damage
-                                 ;(brittle-concrete-d k E Gf length init-stress)
-                                 (brittle-concrete-linear-d k E Gf length init-stress)
+                                 (brittle-concrete-d k E Gf length init-stress)
+                                 ;; (brittle-concrete-linear-d k E Gf length init-stress)
                                  )))
             (setf damage-inc (- new-damage damage)))
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
