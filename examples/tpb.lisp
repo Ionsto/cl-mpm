@@ -516,7 +516,7 @@
   (defparameter *data-full-time* '(0d0))
   (defparameter *data-full-load* '(0d0))
 
-  (let* ((target-time 1d-1)
+  (let* ((target-time 5d-1)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
