@@ -1466,8 +1466,8 @@
 
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long"))
-    (if (> stress init-stress)
-        (- 1d0 (* (/ e0 k) (exp (- (/ (- k e0) (- ef e0))) )))
+    (if (> k e0)
+        (- 1d0 (* (/ e0 k) (exp (- (/ (- k e0) (- ef e0))))))
         0d0
         ))
   ;; (let* ((hs (/ (expt stress 2) (* 2 E Gf)))

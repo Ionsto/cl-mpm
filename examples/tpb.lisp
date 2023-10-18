@@ -15,6 +15,7 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(declaim (notinline plot))
 (defun plot (sim)
   ;; (cl-mpm/plotter:simple-plot
   ;;  *sim*
@@ -141,6 +142,8 @@
 
 ;(defparameter *tip-velocity* -0.02d-3)
 (defparameter *tip-velocity* -0.000d-3)
+
+(declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -200,11 +203,11 @@
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
-                 :fracture-energy 9d0
+                 :fracture-energy 20d0
                  :initiation-stress (* 2.4d6 1d0)
-                 :critical-damage 0.9d0
-                 :local-length 5d-2
-                 :local-length-damaged 5d-2
+                 :critical-damage 1.000d0
+                 :local-length 10d-3
+                 :local-length-damaged 10d-3
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -233,10 +236,10 @@
              (when
                  (and
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     (+ (first offset) (* (first block-size) 0.40))
+                     (+ (first offset) (* (first block-size) 0.45))
                      )
                   (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     (+ (first offset) (* (first block-size) 0.60))
+                     (+ (first offset) (* (first block-size) 0.55))
                      )
                   )
                dir
@@ -393,12 +396,13 @@
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
     ))
 
+(declaim (notinline setup))
 (defun setup (&key (undercut 0d0))
   ;; (let ((mps-per-dim 4))
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 (* 4)))
+  (let* ((mesh-size (/ 0.025 (* 1.5)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length 0.55d0)
@@ -520,7 +524,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 2.0d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -706,17 +710,17 @@
    (mapcar (lambda (x) (* x -1d0)) *data-full-time*) (mapcar (lambda (x) (* x 0.1)) *data-full-load*) "nodes"
    ))
 
-(defun plot-load-disp ()
-  ;; (vgplot:figure)
-  (vgplot:xlabel "Displacement (mm)")
-  (vgplot:ylabel "Load (N)")
-  (vgplot:plot
-   ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*)
-   (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "nodes"
-   (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mps"
-   ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*)
-  ;; (vgplot:plot (mapcar (lambda (x) (* x 1d0)) *data-displacement*) *data-load*)
-  ))
+;; (defun plot-load-disp ()
+;;   ;; (vgplot:figure)
+;;   (vgplot:xlabel "Displacement (mm)")
+;;   (vgplot:ylabel "Load (N)")
+;;   (vgplot:plot
+;;    ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-load*)
+;;    (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-load*) "nodes"
+;;    (mapcar (lambda (x) (* x -1d0)) *data-time*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*) "mps"
+;;    ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1.0)) *data-mp-load*)
+;;   ;; (vgplot:plot (mapcar (lambda (x) (* x 1d0)) *data-displacement*) *data-load*)
+;;   ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
 	           (uiop:read-file-string #P"load-disp.csv"))))
