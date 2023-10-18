@@ -203,11 +203,11 @@
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
-                 :fracture-energy 20d0
+                 :fracture-energy 9d0
                  :initiation-stress (* 2.4d6 1d0)
                  :critical-damage 1.000d0
-                 :local-length 10d-3
-                 :local-length-damaged 10d-3
+                 :local-length 5d-3
+                 :local-length-damaged 5d-3
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -522,9 +522,9 @@
   (defparameter *data-full-load* '(0d0))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
-    (format stream "disp,load~%"))
+    (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 2.0d0)
+  (let* ((target-time 5.0d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -571,7 +571,9 @@
                             (push
                              ;; (get-force-mps *sim* *terminus-mps*)
                              (/ cl-mpm/penalty::*debug-force*
-                                (max 1 cl-mpm/penalty::*debug-force-count*))
+                                1d0
+                                ;; (max 1 cl-mpm/penalty::*debug-force-count*)
+                                )
                              *data-mp-load*)
                             (push
                              *t*
@@ -587,7 +589,9 @@
                           ;; (incf average-force (/ cl-mpm/penalty::*debug-force* substeps))
                           (incf average-force (/
                                                (/ cl-mpm/penalty::*debug-force*
-                                                  (max 1 cl-mpm/penalty::*debug-force-count*))
+                                                  1d0
+                                                  ;; (max 1 cl-mpm/penalty::*debug-force-count*)
+                                                  )
                                                substeps
                                                ))
                           (incf average-reaction
@@ -645,6 +649,7 @@
                        (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
                          (format stream "~f,~f~%"
                                  average-disp
+                                 average-reaction
                                  average-force
                                  )))
 
