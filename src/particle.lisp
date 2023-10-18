@@ -222,6 +222,12 @@
    (elastic-matrix
     :accessor mp-elastic-matrix
     :type magicl:matrix/double-float)
+   (2d-approximation
+    :accessor mp-elastic-approximation
+    :initarg :elastic-approxmation
+    :initform :plane-strain
+    :type keyword
+    )
    )
   (:documentation "A linear-elastic material point"))
 
@@ -254,13 +260,18 @@
                    )
       particle
     (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
-    (setf de (cl-mpm/constitutive::linear-elastic-matrix-ps E nu))))
+    (if (eq (mp-elastic-approximation particle) :plane-strain)
+        (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+        (setf de (cl-mpm/constitutive::linear-elastic-matrix-ps E nu))
+        )))
 
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 (defmethod (setf mp-nu) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 (defmethod initialize-instance :after ((p particle-elastic) &key)
+  (update-elastic-matrix p))
+(defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 
 (defclass particle-fluid (particle)

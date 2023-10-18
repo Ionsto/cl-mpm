@@ -6,6 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -55,14 +56,14 @@
                 :coheasion 1d4
                 :friction-angle 40d0
 
-                :fracture-energy 1d3
+                :fracture-energy 1d6
                 :initiation-stress 1d6
                 ;; :initiation-stress 0d0
                 ;; :damage-rate 1d-15
 
-                :damage-rate 1d-6
+                :damage-rate 1d-5
                 :critical-damage 0.50d0
-                :local-length 10d0
+                :local-length 5d0
                 ;; :local-length-damaged 10d0
                 ;; :local-length-damaged 50d0
                 :local-length-damaged 1d-5
@@ -77,11 +78,11 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d4))
+      (let ((ms 1d2))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
         )
 
       (dotimes (i 0)
@@ -173,11 +174,11 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 50)
-         (shelf-aspect 2)
+         (shelf-aspect 3)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* 1 shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -205,9 +206,9 @@
                                                         '(2 1) :type 'double-float))
                                      1d0)
                                  )))
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do
-             (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       do
+    ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
     ;; (cl-mpm/setup::damage-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -247,7 +248,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d1)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)

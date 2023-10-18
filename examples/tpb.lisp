@@ -203,6 +203,7 @@
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
+                 :elastic-approxmation :plane-stress
                  :fracture-energy 9d0
                  :initiation-stress (* 2.4d6 1d0)
                  :critical-damage 1.000d0

@@ -1368,14 +1368,12 @@
   ;;     (* (expt (max 0d0 (- stress init-stress)) 0.5d0) rate) 0d0)
   (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
          (hsl (/ (* hs length) (- 1d0 (* hs length)))))
-    ;; (format t "~A~%" hs)
-    ;; (format t "~A~%" hsl)
-    ;; (format t "~A~%" length)
-    ;; (break)
-    ;; (* (+ 1d0 hsl) (- 1d0 (/ init-stress (max init-stress stress))))
-    ;; (min 1d0 (max 0d0 (* (+ 1d0 hs) (- 1d0 (/ init-stress (max init-stress stress))))))
-    (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
+    (if (> stress init-stress)
+        (min 1d0 (max 0d0 (- 1d0 (* (/ init-stress stress)
+                                    (exp (* -2d0 hsl (/ (abs (- stress init-stress)) init-stress)))))))
+        0d0)
     ))
+
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-brittle) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -1391,7 +1389,7 @@
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (pressure cl-mpm/particle::mp-pressure)
                      (def cl-mpm/particle::mp-deformation-gradient)
-                     ;; (length cl-mpm/particle::mp-true-local-length)
+                     ;; (length-t cl-mpm/particle::mp-true-local-length)
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
                      ) mp
@@ -1400,7 +1398,10 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (brittle-chalk-d k E Gf length init-stress))))
+          (let ((new-damage (max damage
+                                 (brittle-concrete-d k E Gf length init-stress)
+                                 ;(brittle-chalk-d k E Gf length init-stress)
+                                 )))
             (setf damage-inc (- new-damage damage)))
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
           ;;       damage-inc 0d0)
