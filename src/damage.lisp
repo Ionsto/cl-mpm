@@ -1095,9 +1095,15 @@
         ;;                                      0d0)))
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
+        (cl-mpm/output::save-parameter
+         "plastic_strain"
+         (if (slot-exists-p mp 'cl-mpm/particle::ps-vm)
+             (cl-mpm/particle::mp-strain-plastic-vm mp)
+             0d0)
+         )
         ;; (cl-mpm/output::save-parameter
-        ;;  "plastic_strain"
-        ;;  (cl-mpm/particle::mp-strain-plastic-vm mp))
+        ;;  "yield-func"
+        ;;  (cl-mpm/particle::mp-yield-func mp))
         )
       )))
 

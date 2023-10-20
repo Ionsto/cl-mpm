@@ -383,7 +383,9 @@
   (declare (fixnum value))
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (the fixnum (nth dim (mesh-count mesh))))))
-(declaim (ftype (function(mesh list) boolean) in-bounds))
+(declaim
+ (inline in-bounds)
+ (ftype (function(mesh list) boolean) in-bounds))
 (defun in-bounds (mesh pos)
   (declare (optimize (speed 3))
            (list pos))

@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/chalk
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -14,8 +14,8 @@
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
-   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ))
@@ -46,29 +46,25 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                'cl-mpm/particle::particle-chalk-brittle
-                ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-vm
+                'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-mc
                 :E 1d9
-                :nu 0.30d0
-                :rho 1d7
+                :nu 0.3d0
+                ;; :psi (* 40d0 (/ pi 180))
+                ;; :phi (* 00d0 (/ pi 180))
+                ;; :c 1d5
 
-                :coheasion 1d4
-                :friction-angle 40d0
-
-                :fracture-energy 1d6
-                :initiation-stress 1d6
-                ;; :initiation-stress 0d0
-                ;; :damage-rate 1d-15
-
-                :damage-rate 1d-5
-                :critical-damage 0.50d0
-                :local-length 5d0
-                ;; :local-length-damaged 10d0
-                ;; :local-length-damaged 50d0
-                :local-length-damaged 1d-5
+                ;; :rho 1d7
+                ;; :coheasion 1d4
+                ;; :friction-angle 40d0
+                ;; :fracture-energy 1d6
+                ;; :initiation-stress 1d6
+                ;; :damage-rate 1d-5
+                ;; :critical-damage 0.50d0
+                ;; :local-length 5d0
                 ;; :local-length-damaged 1d-5
-                ;; :damage 0.0d0
+
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
@@ -82,7 +78,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
         )
 
       (dotimes (i 0)
@@ -118,7 +114,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
              ;; (lambda (i) nil)
              ;; (lambda (i) nil)
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
@@ -174,13 +170,13 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 50)
-         (shelf-aspect 3)
+         (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 1 shelf-height)))
+         (domain-length (+ shelf-length (* 4 shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -263,12 +259,12 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 5)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
-                               )
-                         ))
+                     ;; (when (= steps 5)
+                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;;   (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                     ;;     (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
+                     ;;           )
+                     ;;     ))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -320,13 +316,13 @@
 
 (defun test ()
   (setup)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  ;; (sb-profile:reset)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/MESH")
+  (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  (sb-profile:reset)
   (time
-   (dotimes (i 10)
+   (dotimes (i 100)
          (cl-mpm::update-sim *sim*)))
   (sb-profile:report)
   )
@@ -341,6 +337,24 @@
              (run)
              (cl-mpm/output:save-vtk (merge-pathnames (format nil "output_chalk/chalk_~5,'0d.vtk" c)) *sim*)
              )))
+
+(defun profile ()
+  (sb-profile:unprofile)
+  (sb-profile:reset)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/MESH")
+  (loop repeat 100
+        do (progn
+             (cl-mpm::update-sim *sim*)
+             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
+             ;;                                  (cl-mpm:sim-mps *sim*)
+             ;;                                  (cl-mpm:sim-dt *sim*)
+             ;;                                  25d0)
+             ;; (cl-mpm/eigenerosion:update-fracture *sim*)
+             ))
+  (sb-profile:report))
+
 ;; (lparallel:end-kernel)
 ;; (sb-ext::exit)
 ;; (uiop:quit)
@@ -360,3 +374,13 @@
 ;;              (loop for i fixnum from 0 to 1
 ;;                    do (incf (aref a i) (aref b i))))
 ;;            )))))
+
+
+(defun test-mc (exx eyy ezz eyz ezx exy)
+  (let* ((eps (cl-mpm/utils:voigt-from-list (list exx eyy ezz eyz ezx exy)))
+         (E 1d0)
+         (nu 0.0d0)
+         (angle 0.1d0)
+         (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+         (sig (magicl:@ de eps)))
+    (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))

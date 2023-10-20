@@ -29,7 +29,7 @@
     #:iterate-over-neighbours
     #:calculate-adaptive-time
     ))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -417,7 +417,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear))
 (defun iterate-over-neighbours-point-linear (mesh position func)
-  (iterate-over-neighbours-point-linear-simd mesh position func)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (iterate-over-neighbours-point-linear-simd mesh position func)
+      (iterate-over-neighbours-point-linear-3d mesh position func))
   )
 
 (declaim (inline iterate-over-neighbours-point-linear-lisp)
@@ -477,7 +479,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (funcall func mesh node weight grads))))
                                    )))))))
 
-(declaim (notinline iterate-over-neighbours-point-linear-simd)
+(declaim (inline iterate-over-neighbours-point-linear-simd)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear-simd)
          )
@@ -505,12 +507,19 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              (pos-vec (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage position) 0))
              (pos-index (sb-simd-avx:f64.2-floor
                          (sb-simd-avx:f64.2/ pos-vec h))))
+        (declare (sb-simd-avx:f64.2 pos-vec)
+                 (double-float h))
         (loop for dx from 0 to 1
               do (loop for dy from 0 to 1
-                       do (let* ((id-vec 
+                       do (let* ((id-vec
                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
-                                 (id (mapcar (lambda (x) (truncate x))
-                                             (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
+                                 ;; (id (mapcar (lambda (x) (truncate x))
+                                 ;;             (multiple-value-list (sb-simd-avx:f64.2-values id-vec))))
+                                 (id
+                                   (append
+                                    (mapcar (lambda (x) (truncate (the double-float x)))
+                                            (multiple-value-list (sb-simd-avx:f64.2-values id-vec)))
+                                    '(0)))
                                  )
                             (declare (dynamic-extent id))
                             (when (cl-mpm/mesh:in-bounds mesh id)
@@ -633,7 +642,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 ;;                                         (declare (double-float gradx grady))
 ;;                                         (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))))))))))))))
 
-(declaim (notinline iterate-over-neighbours-shape-gimp-simd)
+(declaim (inline iterate-over-neighbours-shape-gimp-simd)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-simd))
 (defun iterate-over-neighbours-shape-gimp-simd (mesh mp func)
@@ -1587,7 +1596,7 @@ Calls func with only the node"
                      (setf volume (* volume-0 (magicl:det def)))
                      (update-domain-corner mesh mp dt)))))
 
-(declaim (notinline update-strain-kirchoff))
+(declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
                            double-float) (values))
@@ -1739,7 +1748,7 @@ Calls func with only the node"
                                       ) 0.5d0) corner)
               (loop for i from 0 to 2
                     do (setf (magicl:tref corner i 0) (max 0d0 (min (nth i mesh-size) (magicl:tref corner i 0)))))
-              (iterate-over-neighbours-point-linear-3d
+              (iterate-over-neighbours-point-linear
                mesh corner
                (lambda (mesh node svp grads)
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
@@ -1943,7 +1952,7 @@ Calls func with only the node"
             (error "Negative volume"))
           (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 (cl-mpm/mesh:mesh-nd mesh))))))
       df)))
-r
+
 (defun update-stress (mesh mps dt)
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
@@ -2043,24 +2052,26 @@ r
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
+                   (split-depth cl-mpm/particle::mp-split-depth)
                    )
       mp
-    (let ((l-factor 1.50d0)
-          (h-factor (* 0.9d0 h))
-          (s-factor 1.5d0))
-      (cond
-        ((< h-factor (tref lens 0 0)) :x)
-        ((< h-factor (tref lens 1 0)) :y)
-        ((< h-factor (tref lens 2 0)) :z)
-        ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
-        ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
-        ;; ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
-        ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
-        ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
+    (when (< split-depth 1)
+      (let ((l-factor 1.50d0)
+            (h-factor (* 0.9d0 h))
+            (s-factor 1.5d0))
+        (cond
+          ((< h-factor (tref lens 0 0)) :x)
+          ((< h-factor (tref lens 1 0)) :y)
+          ((< h-factor (tref lens 2 0)) :z)
+          ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
+          ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+          ;; ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
+          ;; ((< l-factor (/ (tref lens 0 0) (tref lens-0 0 0))) t)
+          ;; ((< l-factor (/ (tref lens 1 0) (tref lens-0 1 0))) t)
                                         ;((< 2.0d0 (tref def 1 1)) t)
                                         ;((> 1.5d0 (tref def 0 0)) t)
-        (t nil)
-        ))))
+          (t nil)
+          )))))
 
 (defun single-particle-criteria (mesh mp)
   (let ((alone t))

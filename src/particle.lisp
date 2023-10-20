@@ -226,7 +226,7 @@
     :accessor mp-elastic-approximation
     :initarg :elastic-approxmation
     :initform :plane-strain
-    :type keyword
+    :type t
     )
    )
   (:documentation "A linear-elastic material point"))
@@ -235,6 +235,35 @@
   ((rho
     :accessor mp-rho
     :initarg :rho
+    )
+   (strain-plastic-vm
+    :accessor mp-strain-plastic-vm
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (strain-plastic
+    :accessor mp-strain-plastic
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initarg :strain-plastic
+    :initform (cl-mpm/utils:voigt-zeros))
+   (yield-func
+    :accessor mp-yield-func
+    :type double-float
+    :initform 0d0)
+   )
+  (:documentation "A vm perfectly plastic material point"))
+
+(defclass particle-mc (particle-elastic)
+  ((phi
+    :accessor mp-phi
+    :initarg :phi
+    )
+   (psi
+    :accessor mp-psi
+    :initarg :psi
+    )
+   (c
+    :accessor mp-c
+    :initarg :c
     )
    (strain-plastic-vm
     :accessor mp-strain-plastic-vm
@@ -1263,6 +1292,43 @@
     stress
     ))
 
+(defmethod constitutive-model ((mp particle-mc) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (E mp-E)
+                   (nu mp-nu)
+                   (phi mp-phi)
+                   (psi mp-psi)
+                   (c mp-c)
+                   (plastic-strain mp-strain-plastic)
+                   (ps-vm mp-strain-plastic-vm)
+                   (strain mp-strain)
+                   (yield-func mp-yield-func)
+                   )
+      mp
+    ;;Train elastic strain - plus trail kirchoff stress
+    (setf stress
+          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
+      (setf stress
+            sig
+            plastic-strain (magicl:.- strain eps-e)
+            strain eps-e
+            yield-func f
+            ))
+    (incf ps-vm
+          (multiple-value-bind (l v)
+                     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                   (destructuring-bind (s1 s2 s3) l
+                     (sqrt
+                      (/ (+ (expt (- s1 s2) 2d0)
+                            (expt (- s2 s3) 2d0)
+                            (expt (- s3 s1) 2d0)
+                            ) 2d0)))))
+    stress
+    ))
+
 
 (defclass particle-chalk (particle-elastic-damage)
   (
@@ -1362,11 +1428,11 @@
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            ;; (setf (nth i l) (* sii degredation))
                            )
-                         (when (< esii 1d0)
-                           ;;Bounded compressive damage
-                           (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
-                           ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-                           )
+                         ;; (when (< esii 1d0)
+                         ;;   ;;Bounded compressive damage
+                         ;;   (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
+                         ;;   ;; (setf (nth i l) (+ (nth i l) driving-pressure))
+                         ;;   )
                        ;; (setf (nth i l) 0)
                          ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
                          )
