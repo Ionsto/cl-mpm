@@ -224,14 +224,14 @@
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
          (yheight (- (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal)))
-         (dist (- datum (- ypos yheight))))
+         (dist (- datum (+ ypos yheight))))
     (the double-float dist)))
 
 (defun disp-penetration-point (mp pen datum normal)
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
+    (magicl:.+ pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
 
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"

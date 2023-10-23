@@ -1384,9 +1384,11 @@
           (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (call-next-method)
 
-    (let ((rho-d (* rho (+ 1d0 (* 1d2 (- 1d0 damage))))))
+    (let* ((rho_0 rho)
+           (rho_1 1d5)
+           (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage)))))
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho-d)
-        (setf stress-u
+        (setf stress
               sig
               plastic-strain (magicl:.- strain eps-e)
               )
@@ -1423,13 +1425,13 @@
                      (let* ((sii (nth i l))
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
-                           ;;Tensile damage -> unbounded
+                           ;;tensile damage -> unbounded
                            (setf (nth i l) (* sii (max 1d-5 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            ;; (setf (nth i l) (* sii degredation))
                            )
                          ;; (when (< esii 1d0)
-                         ;;   ;;Bounded compressive damage
+                         ;;   ;;bounded compressive damage
                          ;;   (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
                          ;;   ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                          ;;   )

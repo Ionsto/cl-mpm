@@ -24,10 +24,11 @@
         ;; (res-s (magicl::matrix/double-float-storage res))
         )
     ;; (declare (type (simple-array double-float) a-s b-s res-s))
-    (loop for i from 0 to 1
-          do (loop for j from 0 to 3
-                   do (decf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
-                                                     (the double-float (magicl:tref b j 0)) scale))))))
+    (loop for i from 0 below 2
+          do (loop for j from 0 below 6
+                   do (decf (the double-float (magicl:tref res i 0))
+                            (* (the double-float (magicl:tref a j i))
+                               (the double-float (magicl:tref b j 0)) scale))))))
 
 (declaim
  (inline mult-force-plane-strain)
@@ -87,11 +88,12 @@
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))
       ;; (print dsvp)
-      ;(mult-force dsvp stress volume f-out)
+      (mult-force dsvp stress volume f-out)
+      ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force-plane-strain dsvp stress volume f-out)
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) (plane-strain-transform stress)) volume) f-out)
-      (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
+      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
       )
     f-out))
 
@@ -107,7 +109,7 @@
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
                    ) mp
-    (declare (type double-float mass gravity volume)
+    (declare (type double-float svp mass gravity volume)
              (type magicl:matrix/double-float body-force))
     (let* ((f-out (if f-out f-out (magicl:zeros '(3 1))))
            (f-s (magicl::matrix/double-float-storage f-out))

@@ -169,9 +169,9 @@
           (ezx (* 0.5d0 (the double-float (magicl:tref vec 4 0))))
           (exy (* 0.5d0 (the double-float (magicl:tref vec 5 0))))
           )
-    (matrix-from-list (list exx exy eyz
-                            exy eyy ezx
-                            eyz ezx ezz))))
+    (matrix-from-list (list exx exy ezx
+                            exy eyy eyz
+                            ezx eyz ezz))))
 
 (declaim (inline matrix-to-voigt)
          (ftype (function (magicl:matrix/double-float)

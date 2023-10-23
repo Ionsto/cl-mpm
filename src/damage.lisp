@@ -684,6 +684,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -696,7 +697,7 @@
                       ;; (cl-mpm::filter-grid-volume mesh 1d-8)
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    (cl-mpm::update-stress mesh mps dt)
+                    (cl-mpm::update-stress mesh mps dt fbar)
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage mesh
                                                       mps
@@ -1097,13 +1098,20 @@
                                        (cl-mpm/particle::mp-split-depth mp))
         (cl-mpm/output::save-parameter
          "plastic_strain"
-         (if (slot-exists-p mp 'cl-mpm/particle::ps-vm)
+         (if (slot-exists-p mp 'cl-mpm/particle::strain-plastic-vm)
              (cl-mpm/particle::mp-strain-plastic-vm mp)
              0d0)
          )
-        ;; (cl-mpm/output::save-parameter
-        ;;  "yield-func"
-        ;;  (cl-mpm/particle::mp-yield-func mp))
+        (cl-mpm/output::save-parameter
+         "yield-func"
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
+             (cl-mpm/particle::mp-yield-func mp)
+             0d0))
+        (cl-mpm/output::save-parameter
+         "rho"
+         (if (slot-exists-p mp 'cl-mpm/particle::rho)
+             (cl-mpm/particle::mp-rho mp)
+             0d0))
         )
       )))
 
@@ -1405,8 +1413,10 @@
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (let ((new-damage (max damage
-                                 (brittle-concrete-d k E Gf length init-stress)
+                                 ;; (brittle-concrete-d k E Gf length init-stress)
                                  ;(brittle-chalk-d k E Gf length init-stress)
+                                 (brittle-concrete-linear-d k E Gf length init-stress)
+
                                  )))
             (setf damage-inc (- new-damage damage)))
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))

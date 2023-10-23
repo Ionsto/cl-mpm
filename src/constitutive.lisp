@@ -12,7 +12,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -618,7 +618,7 @@
                          (setf sig (magicl:@ de eps-e))
                          (setf s (deviatoric-voigt sig))
                          (setf j2 (voigt-j2 s))
-                         ;; (setf f (vm-yield-func j2 rho))
+                         (setf f (vm-yield-func j2 rho))
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
@@ -663,7 +663,7 @@
              (v (magicl:block-matrix (list
                                       (magicl:column v (cdr (nth 0 l-sort)))
                                       (magicl:column v (cdr (nth 1 l-sort)))
-                                      (magicl:column v (cdr (nth 2 l-sort)))) '(3 3))))
+                                      (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
         (let* ((De3
                  (magicl:scale!
                   (magicl:from-list (list
@@ -681,9 +681,9 @@
                (sigc (* 2d0 c (sqrt k)))
                (f (mc-yield-func sig phi c)))
 
-          (format t "~%L: ~A~%" l)
-          (format t "~%V: ~A~%" v)
-          (format t "~%f: ~A~%" f)
+          ;; (format t "~%L: ~A~%" l)
+          ;; (format t "~%V: ~A~%" v)
+          ;; (format t "~%f: ~A~%" f)
           (if (> f tol)
               (let* ((m (/ (+ 1 (sin psi)) (- 1d0 (sin psi))))
                      (siga (magicl:scale! (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
@@ -749,7 +749,7 @@
                                                                          (rotate-vector (magicl:column v 0)))
                                                               (magicl:.* (magicl:column v 0)
                                                                          (rotate-vector (magicl:column v 2)))) 1d0)
-                                              ) '(6 6)))))
+                                              ) '(2 6)))))
                 (cond
                   ((and
                     (> t1 tol)
@@ -773,16 +773,17 @@
                    ;;line 2
                    )
                   (t
+                   ;; (break)
                    (setf sig (magicl:.- sig (magicl:scale! rp f)))
                    ;;main
                    )
                   )
                 (setf eps-e (magicl:@ Ce sig))
-                (format t "~%Sig P: ~A~%" sig)
+                ;; (format t "~%Sig P: ~A~%" sig)
 
                 (let ((pad-eps (magicl:block-matrix (list eps-e
                                                           (cl-mpm/utils:vector-zeros))
-                                                    '(6 1))))
+                                                    '(2 1))))
                   ;; (setf eps-e (magicl:@ (magicl:inv Q) pad-eps))
                   (setf eps-e (magicl:@ (magicl:linear-solve Q pad-eps)))
                   )
@@ -791,6 +792,9 @@
                                                                           (magicl:tref sig 1 0)
                                                                           (magicl:tref sig 2 0)
                                                                           0d0 0d0 0d0))))
+                (setf f (mc-yield-func sig phi c))
+                (when (> f tol)
+                  (break))
                 (values sig eps-e f)
                 )
               (values stress trial-elastic-strain f)))))))

@@ -1,11 +1,11 @@
 (defpackage :cl-mpm/examples/chalk
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -14,10 +14,12 @@
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
-   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ))
 
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
@@ -46,24 +48,28 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-elastic
+                'cl-mpm/particle::particle-chalk-brittle
                 ;; 'cl-mpm/particle::particle-mc
+                ;; 'cl-mpm/particle::particle-vm
                 :E 1d9
-                :nu 0.3d0
+                :nu 0.2d0
                 ;; :psi (* 40d0 (/ pi 180))
                 ;; :phi (* 00d0 (/ pi 180))
-                ;; :c 1d5
+                ;; :c 0.4d6
 
-                ;; :rho 1d7
-                ;; :coheasion 1d4
-                ;; :friction-angle 40d0
-                ;; :fracture-energy 1d6
-                ;; :initiation-stress 1d6
-                ;; :damage-rate 1d-5
-                ;; :critical-damage 0.50d0
-                ;; :local-length 5d0
-                ;; :local-length-damaged 1d-5
+                :rho 1d6
+
+                :coheasion 1d4
+                :friction-angle 40d0
+
+                :fracture-energy 1d5
+                :initiation-stress 5d5
+
+                :damage-rate 1d-5
+                :critical-damage 0.50d0
+                :local-length 10d0
+                :local-length-damaged 1d-5
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -71,10 +77,11 @@
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
-      (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d2))
+      (setf (cl-mpm::sim-mass-filter sim) 1d-15)
+      (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
@@ -114,7 +121,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
              ;; (lambda (i) nil)
              ;; (lambda (i) nil)
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
@@ -154,6 +161,16 @@
 
       sim)))
 
+(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
+  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+                   (rho cl-mpm/particle::mp-rho))
+      mp
+    ;; (let ((rho_0 1d6)
+    ;;       (rho_1 1d1)
+    ;;       (soft 5d1))
+    ;;   (setf rho (max rho_1
+    ;;                  (* rho_0 (exp (- (* soft ps)))))))
+    ))
 
 (defparameter *sim* nil)
 (defparameter *run-sim* t)
@@ -170,13 +187,13 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 50)
+         (soil-boundary 100)
          (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 4 shelf-height)))
+         (domain-length (+ shelf-length (* 2 shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -244,7 +261,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -259,12 +276,12 @@
                 while *run-sim*
                 do
                    (progn
-                     ;; (when (= steps 5)
-                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
-                     ;;   (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                     ;;     (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms)
-                     ;;           )
-                     ;;     ))
+                     (when (= steps 1)
+                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                       ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))
+                       ;;   )
+                       )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -374,6 +391,56 @@
 ;;              (loop for i fixnum from 0 to 1
 ;;                    do (incf (aref a i) (aref b i))))
 ;;            )))))
+
+
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (dotimes (i ,it)
+         ,form)
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         dt))))
+
+(defun test ()
+  (let ((data-cores '())
+        (data-dt '()))
+    (loop for k from 1 to 8
+          do
+             (progn
+               (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
+               (let* ((iterations 1000000)
+                      (start (get-internal-real-time)))
+                 (let ((a (cl-mpm/utils:vector-zeros)))
+                   (time
+                    (lparallel:pdotimes (i iterations)
+                      (magicl:@ (magicl:eye 3) (cl-mpm/utils:vector-zeros)))))
+                 (let* ((end (get-internal-real-time))
+                        (units internal-time-units-per-second)
+                        (dt (/ (- end start) (* iterations units)))
+                        )
+                   (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+                   (format t "Throughput: ~f~%" (/ 1 dt))
+                   (push (/ 1d0 dt) data-dt)
+                   (push k data-cores)
+                   ))
+
+               ;; (let ((iters 100000))
+               ;;   (let ((a (cl-mpm/utils:vector-zeros)))
+               ;;     (time
+               ;;      (lparallel:pdotimes (i iters)
+               ;;        (magicl:@ (magicl:eye 3) (cl-mpm/utils:vector-zeros))))))
+               (lparallel:end-kernel)
+               ))
+    (vgplot:close-all-plots)
+    (vgplot:plot data-cores data-dt))
+  )
 
 
 (defun test-mc (exx eyy ezz eyz ezx exy)

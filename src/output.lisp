@@ -394,6 +394,8 @@
             ;; (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
             ;; (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
             (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+            (save-parameter-nodes "jinc" (cl-mpm/mesh::node-jacobian-inc node))
+            (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
 
             (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)
                                             (cl-mpm/mesh::node-pressure node)))

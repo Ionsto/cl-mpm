@@ -11,7 +11,7 @@
 ;; (pushnew :cl-mpm-fbar *features*)
 ;; (remove :cl-mpm-fbar *features*)
 ;; (setf *features* (delete :cl-mpm-pic *features*))
-(asdf:compile-system :cl-mpm :force T)
+;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
 (defun melt-sdf (sim sdf meltrate)
