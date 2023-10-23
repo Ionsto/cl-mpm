@@ -1404,7 +1404,7 @@
                      (expt (- s3 s1) 2d0)
                      ) 2d0)))))
 
-    (setf stress (magicl:scale stress-u 1d0))
+    ;; (setf stress (magicl:scale stress-u 1d0))
     (when (> damage 0.0d0)
       (let* ((j 1d0)
              (degredation (expt (- 1d0 damage) 2d0))

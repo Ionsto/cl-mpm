@@ -85,7 +85,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
         )
 
       (dotimes (i 0)
@@ -98,7 +98,7 @@
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
                      120)
                   (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     200 
+                     200
                      )
                   (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
                      10
@@ -190,7 +190,7 @@
   (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 100)
+         (soil-boundary 000)
          (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* 2 shelf-height)))
@@ -261,7 +261,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d2)
+  (let* ((target-time 1d1)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -276,7 +276,7 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 1)
+                     (when (= steps 5)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                        ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))
