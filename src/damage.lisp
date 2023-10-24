@@ -645,6 +645,7 @@
 (defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
   ()
   (:documentation "Explicit simulation with update stress first update"))
+(defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
 (defun remove-mp-damage (sim func)
   )
@@ -1361,7 +1362,7 @@
                        (A (/ (* 6 c (cos angle))
                              (* (sqrt 3) (- 3 (sin angle)))))
                        (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
-                       (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       ;; (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
                        )

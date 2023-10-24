@@ -581,10 +581,12 @@
         (j2 (voigt-j2 s))
         (f (vm-yield-func j2 rho))
         )
+    (declare (dynamic-extent s ))
     (if (> f tol)
       (let ((eps-e (cl-mpm/utils::voigt-copy trial-elastic-strain))
             (df (cl-mpm/utils:voigt-zeros))
             (ddf (cl-mpm/utils:matrix-zeros)))
+        (declare (dynamic-extent df ddf))
         (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
           (setf df ndf
                 ddf nddf))

@@ -28,7 +28,7 @@
                (mapcar (lambda (x) (* x e-scale)) size)
                #'cl-mpm/shape-function:make-shape-function-bspline
                ;; 'cl-mpm::mpm-sim-usf
-               'cl-mpm/damage::mpm-sim-damage
+               'cl-mpm/damage::mpm-sim-damage-nd-2
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -188,13 +188,14 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 2.5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 000)
          (shelf-aspect 2)
+         (runout-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 1.5 shelf-height)))
+         (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -452,3 +453,4 @@
          (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
          (sig (magicl:@ de eps)))
     (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))
+
