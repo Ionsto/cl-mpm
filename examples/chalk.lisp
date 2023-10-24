@@ -61,14 +61,15 @@
                 :rho 1d6
 
                 :coheasion 1d4
-                :friction-angle 40d0
+                :friction-angle 30d0
 
                 :fracture-energy 1d5
                 :initiation-stress 5d5
 
                 :damage-rate 1d-5
-                :critical-damage 0.50d0
-                :local-length 10d0
+                :critical-damage 0.90d0
+                :local-length 20d0
+                ;; :local-length-damaged 20d0
                 :local-length-damaged 1d-5
 
                 :gravity -9.8d0
@@ -187,13 +188,13 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 2.5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 000)
          (shelf-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 2 shelf-height)))
+         (domain-length (+ shelf-length (* 1.5 shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -276,7 +277,7 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 5)
+                     (when (= steps 1)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                        ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))

@@ -1376,6 +1376,7 @@
                    (rho mp-rho)
                    (ps-vm mp-strain-plastic-vm)
                    (plastic-strain mp-strain-plastic)
+                   (yield-func mp-yield-func)
                    )
       mp
     (declare (function calc-pressure))
@@ -1391,6 +1392,7 @@
         (setf stress
               sig
               plastic-strain (magicl:.- strain eps-e)
+              yield-func f
               )
         (setf strain eps-e)
         ))
