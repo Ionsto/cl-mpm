@@ -1231,34 +1231,34 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values))
                 g2p-mp))
 
-(defmacro defndpath (name lambda-list body)
-  (let ((rest-list (rest lambda-list))
-        (full-list (append '(sim) (rest lambda-list)))
-        )
-    `(progn
-       (defgeneric ,name ,full-list)
-       (defmethod ,name ,full-list
-           (funcall (lambda
-                    ,lambda-list
-                    ,body) sim))
+;; (defmacro defndpath (name lambda-list body)
+;;   (let ((rest-list (rest lambda-list))
+;;         (full-list (append '(sim) (rest lambda-list)))
+;;         )
+;;     `(progn
+;;        (defgeneric ,name ,full-list)
+;;        (defmethod ,name ,full-list
+;;            (funcall (lambda
+;;                     ,lambda-list
+;;                     ,body) sim))
 
-       (defmethod ,name ((sim cl-mpm::mpm-nd-2d))
-         (flet ((cl-mpm::iterate-over-neighbours (mesh mp fun)
-                  (cl-mpm::iterate-over-neighbours-shape-gimp-2d
-                   mesh mp fun)
-                  ))
-           (funcall (lambda
-                      ,lambda-list
-                      ,body) sim)))
-       )))
+;;        (defmethod ,name ((sim cl-mpm::mpm-nd-2d))
+;;          (flet ((cl-mpm::iterate-over-neighbours (mesh mp fun)
+;;                   (cl-mpm::iterate-over-neighbours-shape-gimp-2d
+;;                    mesh mp fun)
+;;                   ))
+;;            (funcall (lambda
+;;                       ,lambda-list
+;;                       ,body) sim)))
+;;        )))
 
-(defndpath mp-test (sim a)
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps))
-      sim
-    (iterate-over-neighbours mesh (aref mps 0)
-                             (lambda (mesh mp node svp grads fsvp fgrads))))
-  )
+;; (defndpath mp-test (sim a)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps))
+;;       sim
+;;     (iterate-over-neighbours mesh (aref mps 0)
+;;                              (lambda (mesh mp node svp grads fsvp fgrads))))
+;;   )
 
 (defun g2p-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh)
