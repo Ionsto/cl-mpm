@@ -52,6 +52,11 @@
      :type integer
      :initform -1
      :initarg :index)
+   (mpi-index
+    :accessor mp-mpi-index
+    :type integer
+    :initform -1
+    :initarg :mpi-index)
    (volume
      :accessor mp-volume
      :type double-float

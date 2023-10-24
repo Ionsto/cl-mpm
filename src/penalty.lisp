@@ -34,7 +34,10 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.- pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
+    (magicl:.- pos
+               (magicl:scale normal pen)
+               ;; (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0))
+               )))
 
 (defparameter *debug-mutex* (sb-thread:make-mutex))
 (defparameter *debug-force* 0d0)
@@ -210,7 +213,7 @@
          ;(datum (cl-mpm/fastmath::dot normal point))
          (datum (- (penetration-distance-point point 0d0 normal)))
          )
-    (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
+    ;; (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
     (make-instance 'bc-penalty
                    :index '(0 0 0)
                    :sim sim
@@ -223,7 +226,7 @@
 (defun disp-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
-         (yheight (- (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal)))
+         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal))
          (dist (- datum (+ ypos yheight))))
     (the double-float dist)))
 
@@ -231,17 +234,22 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.+ pos (magicl.simd::.*-simd normal (magicl:scale domain 0.5d0)))))
+    (magicl:.- pos
+               ;; (magicl:scale normal pen)
+               (magicl:.* normal (magicl:scale domain 0.5d0))
+               )))
 
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   (lparallel:pdotimes
       (i (length mps))
     (let ((mp (aref mps i)))
+      ;; (break)
 
       (let* ((penetration-dist (disp-distance mp datum normal)))
         (declare (double-float penetration-dist))
         (when (> (abs penetration-dist) 0d0)
+          ;; (format t "Position: ~F - distance: ~F~%" (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) (disp-distance mp 1d0 normal))
           ;; (break)
           (with-accessors ((volume cl-mpm/particle:mp-volume)
                            (pressure cl-mpm/particle::mp-pressure)
@@ -251,6 +259,8 @@
               mp
             (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
                    (normal-force (* (expt penetration-dist 1d0) epsilon)))
+              ;; (format t "Position: ~F~%"  (magicl:tref pen-point 1 0))
+              ;; (break)
               (sb-thread:with-mutex (*debug-mutex*)
                 (incf *debug-force* (* normal-force 1d0))
                 (incf *debug-force-count* 1))

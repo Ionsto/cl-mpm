@@ -275,7 +275,7 @@
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
-                    (set-mp-index sim))
+                    (set-mp-mpi-index sim))
                     (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
@@ -285,7 +285,7 @@
      (cl-mpm::remove-mps-func
       sim
       (lambda (mp)
-        (not (= rank (cl-mpm/particle::mp-index mp)))
+        (not (= rank (cl-mpm/particle::mp-mpi-index mp)))
         ;; t
         ))))
 
@@ -710,11 +710,11 @@
       ;; divs
       (mapcar #'/ mc divs))))
 
-(declaim (notinline set-mp-index))
-(defun set-mp-index (sim)
+(declaim (notinline set-mp-mpi-index))
+(defun set-mp-mpi-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
     (loop for mp across (cl-mpm:sim-mps sim)
-          do (setf (cl-mpm/particle::mp-index mp)
+          do (setf (cl-mpm/particle::mp-mpi-index mp)
                    (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
                        rank
                        -1)))))
@@ -737,7 +737,7 @@
       (setf (mpm-sim-mpi-domain-bounds sim)
             (list bound-lower bound-upper))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
-      (set-mp-index sim)
+      (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
       ;; (loop for mp across (cl-mpm:sim-mps sim)
       ;;       when
@@ -745,11 +745,11 @@
       ;;        (>= (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-lower)
       ;;        (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) bound-upper)
       ;;        )
-      ;;       do (setf (cl-mpm/particle::mp-index mp) rank))
+      ;;       do (setf (cl-mpm/particle::mp-mpi-index mp) rank))
       ;; (cl-mpm::remove-mps-func
       ;;  sim
       ;;  (lambda (mp)
-      ;;    (not (= rank (cl-mpm/particle::mp-index mp)))
+      ;;    (not (= rank (cl-mpm/particle::mp-mpi-index mp)))
       ;;    ))
       )
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
