@@ -1417,9 +1417,9 @@
              (degredation (expt (- 1d0 damage) 2d0))
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                (magicl:scale! s (max 1d-5 degredation))
-                                ))
+        ;; (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+        ;;                         (magicl:scale! s (max 1d-5 degredation))
+        ;;                         ))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (let* ((tp 0d0)

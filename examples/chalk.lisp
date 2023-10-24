@@ -28,7 +28,7 @@
                (mapcar (lambda (x) (* x e-scale)) size)
                #'cl-mpm/shape-function:make-shape-function-bspline
                ;; 'cl-mpm::mpm-sim-usf
-               'cl-mpm/damage::mpm-sim-damage
+               'cl-mpm/damage::mpm-sim-damage-nd-2
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -193,8 +193,9 @@
          (shelf-height 100)
          (soil-boundary 000)
          (shelf-aspect 2)
+         (runout-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* 1.5 shelf-height)))
+         (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
          (offset (list 0 (* 0 mesh-size)))
          )
@@ -452,3 +453,4 @@
          (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
          (sig (magicl:@ de eps)))
     (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))
+

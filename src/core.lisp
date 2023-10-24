@@ -109,6 +109,10 @@
      :initarg :mass-filter
      :initform 1d-15))
   (:documentation "A self contained mpm simulation"))
+(defclass mpm-nd-2d ()())
+(defclass mpm-nd-3d ()())
+(defclass mpm-sf-mpm ()())
+(defclass mpm-sf-gimp ()())
 
 (defclass mpm-sim-usf (mpm-sim)
   ()
@@ -1227,6 +1231,35 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values))
                 g2p-mp))
 
+(defmacro defndpath (name lambda-list body)
+  (let ((rest-list (rest lambda-list))
+        (full-list (append '(sim) (rest lambda-list)))
+        )
+    `(progn
+       (defgeneric ,name ,full-list)
+       (defmethod ,name ,full-list
+           (funcall (lambda
+                    ,lambda-list
+                    ,body) sim))
+
+       (defmethod ,name ((sim cl-mpm::mpm-nd-2d))
+         (flet ((cl-mpm::iterate-over-neighbours (mesh mp fun)
+                  (cl-mpm::iterate-over-neighbours-shape-gimp-2d
+                   mesh mp fun)
+                  ))
+           (funcall (lambda
+                      ,lambda-list
+                      ,body) sim)))
+       )))
+
+(defndpath mp-test (sim a)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps))
+      sim
+    (iterate-over-neighbours mesh (aref mps 0)
+                             (lambda (mesh mp node svp grads fsvp fgrads))))
+  )
+
 (defun g2p-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
@@ -1249,6 +1282,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            ;(mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
            (mapped-vel (cl-mpm/utils:vector-zeros))
            )
+      ;; (declare (dynamic-extent mapped-vel))
       (progn
         ;; (reset-mps-g2p mp)
         (setf temp 0d0)
@@ -1259,6 +1293,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
          (declare
+          (ignore mp mesh fsvp fgrads)
           (cl-mpm/mesh::node node)
           (cl-mpm/particle:particle mp)
           (type double-float svp))
@@ -1288,21 +1323,22 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
         ;;PIC
         #+cl-mpm-pic (setf vel mapped-vel) 
-        (when fixed-velocity
-          (loop for v in fixed-velocity
-                for i from 0
-                do (when v
-                     (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
+        ;; (when fixed-velocity
+        ;;   (loop for v in fixed-velocity
+        ;;         for i from 0
+        ;;         do (when v
+        ;;              (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
         (magicl:scale! mapped-vel dt)
         (magicl:.+ pos mapped-vel pos)
         (magicl:.+ disp mapped-vel disp)
-        (magicl:.+ vel (magicl:scale acc dt) vel)
+        ;; (magicl:.+ vel (magicl:scale acc dt) vel)
+        (cl-mpm/fastmath:fast-fmacc vel acc dt)
 
-        (when fixed-velocity
-          (loop for v in fixed-velocity
-                for i from 0
-                do (when v
-                     (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
+        ;; (when fixed-velocity
+        ;;   (loop for v in fixed-velocity
+        ;;         for i from 0
+        ;;         do (when v
+        ;;              (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
 
         ;;Direct velocity damping
         ;; (magicl:scale! vel (- 1d0 1d-3))
@@ -1980,9 +2016,10 @@ Calls func with only the node"
           ;; (break)
           (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
             (error "Negative volume"))
-          (when (> (/ j-n1 (* j-n j-inc)) 1d3)
-            (break)
-            )
+          ;; (when (> (/ j-n1 (* j-n j-inc)) 1d3)
+          ;;   ()
+          ;;   ;; (break)
+          ;;   )
           ;; (format t "~A~%" (/ j-n1 (* j-n j-inc)))
           ;(magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 (cl-mpm/mesh:mesh-nd mesh))))
           (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 3d0)))
