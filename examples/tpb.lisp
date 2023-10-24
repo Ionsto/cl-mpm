@@ -201,14 +201,14 @@
                            ) block-size)
                  density
                  'cl-mpm/particle::particle-concrete
-                 :E 20d9
-                 :nu 0.20d0
-                 :elastic-approxmation :plane-stress
-                 :fracture-energy 9d0
-                 :initiation-stress (* 2.4d6 1d0)
+                 :E 15d9
+                 :nu 0.15d0
+                 ;; :elastic-approxmation :
+                 :fracture-energy 48d0
+                 :initiation-stress 3.4d6
                  :critical-damage 1.000d0
-                 :local-length 5d-3
-                 :local-length-damaged 5d-3
+                 :local-length 5d-2
+                 :local-length-damaged 5d-2
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -403,10 +403,10 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 (* 1.5)))
+  (let* ((mesh-size (/ 0.025 (* 1.0)))
          (mps-per-cell 2)
-         (shelf-height 0.100d0)
-         (shelf-length 0.55d0)
+         (shelf-height 0.50d0)
+         (shelf-length (* shelf-height 4))
          ;; (shelf-length 0.225d0)
          (domain-length (+ shelf-length (* 5 mesh-size)))
          (offset (list
@@ -419,7 +419,7 @@
                          (list shelf-length shelf-height)
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
-    (let ((cut-depth (* 0.5d0 100d-3))
+    (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width 2.5d-3))
       (cl-mpm/setup::remove-sdf
        *sim*
@@ -431,7 +431,8 @@
               )
         (list
          ;; 10.0d-3
-         10d-3
+         20d-3
+         ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
          cut-depth

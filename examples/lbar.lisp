@@ -714,7 +714,7 @@
   (let ((df (lisp-stat:read-csv
 	           (uiop:read-file-string #P"example_data/lbar/load-disp.csv"))))
     (vgplot:xlabel "Displacement (mm)")
-    (vgplot:xlabel "Load (N)")
+    (vgplot:ylabel "Load (N)")
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
