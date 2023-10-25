@@ -319,57 +319,57 @@
 
 
 (defun serialise-mps (mps)
-  ;; (if (> (length mps) 0)
-  ;;   (let* ((cl-store:*current-backend* cl-store:*default-backend*)
-  ;;          (cl-store:*check-for-circs* nil)
-  ;;          ;; (cl-store::*stored-counter* 0)
-  ;;          ;; (cl-store::*stored-values* (cl-store::get-store-hash))
-  ;;          (collect-res
-  ;;            (append
-  ;;             (list
-  ;;              (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-  ;;                (cl-store:store-backend-code cl-store:*current-backend* stream)
-  ;;                (cl-store:output-type-code cl-store::+array-code+ stream)
-  ;;                (if (and (= (array-rank mps) 1)
-  ;;                         (array-has-fill-pointer-p mps))
-  ;;                    (cl-store:store-object (fill-pointer mps) stream)
-  ;;                    (cl-store:store-object nil stream))
-  ;;                (cl-store:store-object (array-element-type mps) stream)
-  ;;                (cl-store:store-object (adjustable-array-p mps) stream)
-  ;;                (cl-store:store-object (array-dimensions mps) stream)
-  ;;                (dolist (x (multiple-value-list (array-displacement mps)))
-  ;;                  (cl-store:store-object x stream))
-  ;;                (cl-store:store-object (array-total-size mps) stream)
-  ;;                ;; (loop for x from 0 below (array-total-size mps) do
-  ;;                ;;   (cl-store:store-object (row-major-aref mps x) stream))
-  ;;                ))
-  ;;             (lparallel:pmapcar
-  ;;              (lambda (mp)
-  ;;                (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-  ;;                  (cl-store:store-object mp stream)))
-  ;;              mps)
-  ;;             ))
-  ;;          (total-length (reduce #'+ (mapcar #'length collect-res))))
-  ;;     (let ((out
-  ;;             (static-vectors:make-static-vector total-length
-  ;;                                                :element-type '(unsigned-byte 8)
-  ;;                                                ;; :initial-contents res
-  ;;                                                ))
-  ;;           (i 0))
-  ;;       (declare (fixnum i)
-  ;;                ((simple-array (unsigned-byte 8) *) out))
-  ;;       (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
-  ;;             do
-  ;;                (loop for b of-type (unsigned-byte 8) across arr
-  ;;                      do
-  ;;                         (setf (aref out i) b)
-  ;;                         (incf i)))
-  ;;       out
-  ;;       ;; (cl-store-encoder mps)
-  ;;       ))
-  ;;   (cl-store-encoder nil)
-  ;;   )
-  (cl-store-encoder mps)
+  (if (> (length mps) 0)
+    (let* ((cl-store:*current-backend* cl-store:*default-backend*)
+           (cl-store:*check-for-circs* nil)
+           ;; (cl-store::*stored-counter* 0)
+           ;; (cl-store::*stored-values* (cl-store::get-store-hash))
+           (collect-res
+             (append
+              (list
+               (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                 (cl-store:store-backend-code cl-store:*current-backend* stream)
+                 (cl-store:output-type-code cl-store::+array-code+ stream)
+                 (if (and (= (array-rank mps) 1)
+                          (array-has-fill-pointer-p mps))
+                     (cl-store:store-object (fill-pointer mps) stream)
+                     (cl-store:store-object nil stream))
+                 (cl-store:store-object (array-element-type mps) stream)
+                 (cl-store:store-object (adjustable-array-p mps) stream)
+                 (cl-store:store-object (array-dimensions mps) stream)
+                 (dolist (x (multiple-value-list (array-displacement mps)))
+                   (cl-store:store-object x stream))
+                 (cl-store:store-object (array-total-size mps) stream)
+                 ;; (loop for x from 0 below (array-total-size mps) do
+                 ;;   (cl-store:store-object (row-major-aref mps x) stream))
+                 ))
+              (lparallel:pmapcar
+               (lambda (mp)
+                 (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                   (cl-store:store-object mp stream)))
+               mps)
+              ))
+           (total-length (reduce #'+ (mapcar #'length collect-res))))
+      (let ((out
+              (static-vectors:make-static-vector total-length
+                                                 :element-type '(unsigned-byte 8)
+                                                 ;; :initial-contents res
+                                                 ))
+            (i 0))
+        (declare (fixnum i)
+                 ((simple-array (unsigned-byte 8) *) out))
+        (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
+              do
+                 (loop for b of-type (unsigned-byte 8) across arr
+                       do
+                          (setf (aref out i) b)
+                          (incf i)))
+        out
+        ;; (cl-store-encoder mps)
+        ))
+    ;; (cl-store-encoder nil)
+    )
+  ;; (cl-store-encoder mps)
 
   ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
   ;;              (cl-store:store mps stream))))
@@ -689,7 +689,7 @@
            (bound-lower (* rank slice-size))
            (bound-upper (* (+ 1 rank) slice-size))
            )
-      (print x-length)
+      ;; (print x-length)
       ;; (break)
       (setf (mpm-sim-mpi-domain-bounds sim)
             (list (list bound-lower bound-upper)

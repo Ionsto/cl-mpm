@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/tpb
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* nil)
 (in-package :cl-mpm/examples/tpb)
 
 (ql:quickload :magicl)
@@ -255,7 +255,7 @@
 
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
 
-      (let* ((crack-width 1d-2)
+      (let* ((crack-width 1d-1)
              (crack-left (- (+ (first offset)  (* 0.5d0 (first block-size))) crack-width))
              (crack-right (+ (+ (first offset) (* 0.5d0 (first block-size))) crack-width))
              ;; (crack-left 0d0)
@@ -360,6 +360,7 @@
                       sim
                     (let ((datum (* -1d0 (+ *initial-surface* *target-displacement*)))
                           (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+                      ;; (format t "Datum: ~F~%" datum)
                       (cl-mpm/penalty::apply-displacement-control-mps mesh (coerce *terminus-mps* 'vector )
                                                        dt
                                                        normal
@@ -403,9 +404,9 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 (* 1.0)))
+  (let* ((mesh-size (/ 0.010 (* 2)))
          (mps-per-cell 2)
-         (shelf-height 0.50d0)
+         (shelf-height 0.100d0)
          (shelf-length (* shelf-height 4))
          ;; (shelf-length 0.225d0)
          (domain-length (+ shelf-length (* 5 mesh-size)))
@@ -431,7 +432,7 @@
               )
         (list
          ;; 10.0d-3
-         20d-3
+         8d-3
          ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
@@ -526,11 +527,11 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 5.0d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (disp-step -0.005d-3)
+         (disp-step -0.002d-3)
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -730,12 +731,12 @@
 ;;   ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
-	           (uiop:read-file-string #P"load-disp.csv"))))
+	           (uiop:read-file-string #P"example_data/lbar/load-disp.csv"))))
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.1)) *data-load*) "mpm-node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.1)) *data-mp-load*) "mpm-mps"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
 
@@ -752,7 +753,7 @@
     )
   )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))
