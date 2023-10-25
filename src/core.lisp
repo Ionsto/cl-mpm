@@ -270,6 +270,7 @@
                (enable-damage enable-damage)
                (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
+               (fbar enable-fbar)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -300,7 +301,7 @@
                     (apply-bcs mesh bcs dt)
 
                     ;;Update stress last
-                    (update-stress mesh mps dt)
+                    (update-stress mesh mps dt fbar)
                     ;; (when enable-damage
                     ;;   (cl-mpm/damage::calculate-damage mesh
                     ;;                                    mps
@@ -1945,9 +1946,6 @@ Calls func with only the node"
           (setf def (magicl:@ df def))
           (setf volume (* volume (det df)))
           )))))
-(declaim (ftype (function (cl-mpm/mesh::mesh
-                           (array cl-mpm/particle:particle)
-                           double-float) (values)) update-stress))
 (defun map-jacobian (mesh mp dt)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (stretch-rate cl-mpm/particle::mp-stretch-tensor)
@@ -2028,6 +2026,10 @@ Calls func with only the node"
 (defgeneric post-stress-step (mesh mp dt))
 (defmethod post-stress-step (mesh mp dt))
 
+(declaim (ftype (function (cl-mpm/mesh::mesh
+                           (array cl-mpm/particle:particle)
+                           double-float
+                           &optional boolean) (values)) update-stress))
 (defun update-stress (mesh mps dt &optional (fbar nil))
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
