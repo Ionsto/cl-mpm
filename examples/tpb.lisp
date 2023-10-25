@@ -204,11 +204,11 @@
                  :E 15d9
                  :nu 0.15d0
                  ;; :elastic-approxmation :
-                 :fracture-energy 48d0
+                 :fracture-energy (* 48d0 1d0)
                  :initiation-stress 3.4d6
                  :critical-damage 1.000d0
-                 :local-length 5d-2
-                 :local-length-damaged 5d-2
+                 :local-length 5d-3
+                 :local-length-damaged 5d-3
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -326,15 +326,15 @@
                                            '(nil 0 nil)))
                 ))))
 
-      (defparameter *floor-bc*
-        (cl-mpm/penalty::make-bc-penalty-point-normal
-         sim
-         (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-         (cl-mpm/utils:vector-from-list (list 00d0 (second offset) 0d0))
-         (* density 1d3)
-         0.0d0
-         ;; 1d1
-         ))
+      ;; (defparameter *floor-bc*
+      ;;   (cl-mpm/penalty::make-bc-penalty-point-normal
+      ;;    sim
+      ;;    (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+      ;;    (cl-mpm/utils:vector-from-list (list 00d0 (second offset) 0d0))
+      ;;    (* density 1d3)
+      ;;    0.0d0
+      ;;    ;; 1d1
+      ;;    ))
       (defparameter *initial-surface*
         (loop for mp across (cl-mpm:sim-mps sim)
               when (not (= 1 (cl-mpm/particle::mp-index mp)))
@@ -404,7 +404,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.010 (* 2)))
+  (let* ((mesh-size (/ 0.010 (* 2.00)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length (* shelf-height 4))
@@ -413,10 +413,12 @@
          (offset (list
                   ;; 0d0
                   (* 2 mesh-size)
-                       (* shelf-height 1)))
+                  (* 4 mesh-size)
+                       ;(* shelf-height 1)
+                       ))
          )
     (defparameter *sim*
-      (setup-test-column (list domain-length (+ mesh-size (* shelf-height 3)))
+      (setup-test-column (list domain-length (+ (* mesh-size 8) (* shelf-height 1)))
                          (list shelf-length shelf-height)
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
@@ -432,7 +434,7 @@
               )
         (list
          ;; 10.0d-3
-         8d-3
+         5d-3
          ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
@@ -731,11 +733,11 @@
 ;;   ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
-	           (uiop:read-file-string #P"example_data/lbar/load-disp.csv"))))
+	           (uiop:read-file-string #P"example_data/tpb/load-disp.csv"))))
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
+     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
@@ -753,7 +755,7 @@
     )
   )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))

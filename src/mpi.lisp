@@ -220,7 +220,7 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
-    :initform 4d0
+    :initform 1d0
     )
    (domain-count
     :accessor mpm-sim-mpi-domain-count
@@ -316,11 +316,46 @@
 ;; (cl-store:defstore-cl-store (obj array stream)
 ;;   (store-array))
 
+(defun ser-part (mps &optional parts)
+ ; (check-type size fixnum)
+  (let ((size (length mps)))
+    (when (plusp size)
+      (let ()
+        (flet ((compute-part (part-offset part-size)
+                 (declare (type fixnum part-offset part-size))
+                 (let ((index part-offset)
+                       (end (+ part-offset part-size)))
+                   (declare (type fixnum index end))
+                   (let ((cl-store:*current-backend* cl-store:*default-backend*)
+                         (cl-store:*check-for-circs* nil))
+                     (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+                       (loop while (< index end)
+                             do (cl-store:store-object (aref mps index) stream)
+                                (incf index))))
+                   ;; (loop while (< index end)
+                   ;;       do (funcall fn index)
+                   ;;          (incf index))
+                   )))
+          (let ((parts (lparallel.cognate::get-parts-hint parts))
+                (channel (lparallel.cognate::make-channel)))
+            (lparallel.cognate::with-parts size parts
+              (loop while (lparallel.cognate::next-part)
+                    do (lparallel.cognate::submit-task
+                        channel #'compute-part
+                        (lparallel.cognate::part-offset) (lparallel.cognate::part-size)))
+              (loop repeat (lparallel.cognate::num-parts)
+                    collect (lparallel.cognate::receive-result channel))
+              ;; (lparallel.cognate::repeat (lparallel.cognate::num-parts)
+              ;;   (lparallel.cognate::receive-result channel))
+              )))))))
+
+(defun serialise-part (mps))
 
 
 (defun serialise-mps (mps)
   (if (> (length mps) 0)
     (let* ((cl-store:*current-backend* cl-store:*default-backend*)
+           (backend cl-store:*default-backend*)
            (cl-store:*check-for-circs* nil)
            ;; (cl-store::*stored-counter* 0)
            ;; (cl-store::*stored-values* (cl-store::get-store-hash))
@@ -343,11 +378,14 @@
                  ;; (loop for x from 0 below (array-total-size mps) do
                  ;;   (cl-store:store-object (row-major-aref mps x) stream))
                  ))
-              (lparallel:pmapcar
-               (lambda (mp)
-                 (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-                   (cl-store:store-object mp stream)))
-               mps)
+              (ser-part mps)
+              ;; (lparallel:pmapcar
+              ;;  (lambda (mp)
+              ;;    (let ((cl-store:*current-backend* backend)
+              ;;          (cl-store:*check-for-circs* nil))
+              ;;      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+              ;;        (cl-store:store-object mp stream))))
+              ;;  mps)
               ))
            (total-length (reduce #'+ (mapcar #'length collect-res))))
       (let ((out
@@ -370,6 +408,7 @@
     ;; (cl-store-encoder nil)
     )
   ;; (cl-store-encoder mps)
+  nil
 
   ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
   ;;              (cl-store:store mps stream))))
