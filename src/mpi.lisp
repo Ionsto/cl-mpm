@@ -440,8 +440,8 @@
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
                          (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
                          )
-                     (format t "Left neighbour:~A~%" left-neighbor)
-                     (format t "Right neighbour:~A~%" right-neighbor)
+                     ;; (format t "Left neighbour:~A~%" left-neighbor)
+                     ;; (format t "Right neighbour:~A~%" right-neighbor)
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (labels
                            ((shit-filter (test)
