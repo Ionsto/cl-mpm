@@ -16,6 +16,7 @@
 (in-package :cl-mpm/mpi)
 
 
+
 (declaim (inline calculate-strain-rate)
          (ftype (function (cl-mpm/particle:particle double-float)) calculate-strain-rate))
 (defun calculate-strain-rate (mp dt)
@@ -217,6 +218,10 @@
                 (0 0)
                 (0 0))
     )
+   (halo-depth
+    :accessor mpm-sim-mpi-halo-depth
+    :initform 4d0
+    )
    (domain-count
     :accessor mpm-sim-mpi-domain-count
     :initform '(1 1 1)
@@ -236,6 +241,7 @@
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -248,7 +254,8 @@
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt)
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    (cl-mpm::update-stress mesh mps dt)
+                    ;; (cl-mpm::update-stress mesh mps dt)
+                    (cl-mpm::update-stress mesh mps dt fbar)
                                         ;(exchange-mps sim)
                     (when enable-damage
                       (cl-mpm/damage::calculate-damage mesh
