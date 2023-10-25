@@ -429,7 +429,7 @@
                      (mesh cl-mpm:sim-mesh))
         sim
       (let ((all-mps mps)
-            (index (mpi-rank-to-index rank))
+            (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (halo-depth (* 4 (cl-mpm/mesh:mesh-resolution mesh)))
             )
