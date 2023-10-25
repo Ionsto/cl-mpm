@@ -163,10 +163,10 @@
     :type double-float
     :accessor mp-pressure-head
     :initform 0d0)
-   (pressure-func
-    :type function
-    :accessor mp-pressure-func
-    :initform (lambda (pos) (declare (ignore pos)) 0d0))
+   ;; (pressure-func
+   ;;  :type function
+   ;;  :accessor mp-pressure-func
+   ;;  :initform (lambda (pos) (declare (ignore pos)) 0d0))
 
    (boundary
     :type double-float

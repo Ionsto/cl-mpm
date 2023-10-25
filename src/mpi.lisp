@@ -402,6 +402,7 @@
 
 (defun get-mpi-index (sim))
 (defun mpi-rank-to-index (sim rank)
+  (list rank 0 0)
   )
 (defun mpi-index-to-rank (sim index)
   (if (mpi-index-in-bounds sim index)
@@ -422,7 +423,6 @@
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
          )
-
     (clear-ghost-mps sim)
 
     (with-accessors ((mps cl-mpm:sim-mps)
@@ -437,9 +437,8 @@
               do
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
-                   (let ((left-neighbor (mpi-index-to-rank (mapcar #'- index id-delta)))
-                         (right-neighbor (mpi-index-to-rank (mapcar #'+ index id-delta)))
-                         (size)
+                   (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
+                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
                          )
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (labels
@@ -510,85 +509,12 @@
                                                    (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
                                                          (cl-mpm/particle::mp-damage-position mp) nil))
                                                  (vector-push-extend mp mps)))
-                                      ))))
-                       ))))))
-
-    ;;Real halo exchange
-    ;; (let ((all-mps (cl-mpm:sim-mps sim)))
-    ;;   (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
-    ;;     (with-accessors ((mps cl-mpm:sim-mps)
-    ;;                      (mesh cl-mpm:sim-mesh))
-    ;;         sim
-    ;;       (let ((halo-depth (* 4 (cl-mpm/mesh:mesh-resolution mesh))))
-    ;;         (labels ((halo-filter (test)
-    ;;                    (let ((res
-    ;;                            (lparallel:premove-if-not
-    ;;                             (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-    ;;                             all-mps)))
-    ;;                      res)
-    ;;                    )
-    ;;                  (left-filter ()
-    ;;                    (halo-filter (lambda (pos)
-    ;;                                   (and
-    ;;                                    ;; (> pos bl)
-    ;;                                    (< pos (+ bl halo-depth)))
-    ;;                                   ))
-    ;;                    )
-    ;;                  (right-filter ()
-    ;;                    (halo-filter (lambda (pos)
-    ;;                                   (and
-    ;;                                    ;; (< pos bu)
-    ;;                                    (> pos (- bu halo-depth)))
-    ;;                                   ))
-    ;;                    ))
-    ;;           ;(setf cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
-    ;;           (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
-    ;;                 (recv
-    ;;                   (cond
-    ;;                     ((and (>= left-neighbor 0)
-    ;;                           (< right-neighbor size)
-    ;;                           )
-    ;;                      (cl-mpi-extensions:mpi-waitall-anything
-    ;;                       (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-    ;;                       (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-    ;;                       (cl-mpi-extensions:mpi-isend-anything
-    ;;                        (left-filter)
-    ;;                        left-neighbor :tag 1)
-    ;;                       (cl-mpi-extensions:mpi-isend-anything
-    ;;                        (right-filter)
-    ;;                        right-neighbor :tag 2)
-    ;;                       ))
-    ;;                     ((< left-neighbor 0)
-    ;;                      (cl-mpi-extensions:mpi-waitall-anything
-    ;;                       (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-    ;;                       (cl-mpi-extensions:mpi-isend-anything
-    ;;                        (right-filter)
-    ;;                        right-neighbor :tag 2)
-    ;;                       ))
-    ;;                     ((>= right-neighbor size)
-    ;;                      (cl-mpi-extensions:mpi-waitall-anything
-    ;;                       (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-    ;;                       (cl-mpi-extensions:mpi-isend-anything
-    ;;                        (left-filter)
-    ;;                        left-neighbor :tag 1)
-    ;;                       ))
-    ;;                     (t nil)))
-    ;;                 )
-    ;;             (loop for packet in recv
-    ;;                   do
-    ;;                      (destructuring-bind (rank tag object) packet
-    ;;                        (when object
-    ;;                          ;; (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes object)) 0
-    ;;                          ;;       (cl-mpm/particle::mp-damage-position object) nil)
-    ;;                          ;; (vector-push-extend object mps))
-    ;;                          ;; (print (type-of object))
-    ;;                          (loop for mp across object
-    ;;                                do (progn
-    ;;                                     (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-    ;;                                           (cl-mpm/particle::mp-damage-position mp) nil))
-    ;;                                   (vector-push-extend mp mps)))
-    ;;                          ;(setf mps (concatenate '(vector t) mps object))
-    ;;                          ))))))))
+                                      )))
+                         )
+                       )
+                     )
+                   ))
+        ))
     ))
   ;; (cl-mpi:mpi-barrier)
 ;  )
@@ -700,11 +626,22 @@
                             t))))
 
 (defun in-computational-domain (sim pos)
-  (destructuring-bind (bl bu) (mpm-sim-mpi-domain-bounds sim)
-    (and
-     (> (coerce bu 'double-float) (magicl:tref pos 0 0))
-     (<= (coerce bl 'double-float) (magicl:tref pos 0 0))
-     )))
+  (let ((in-bounds t))
+    (loop for i from 0 to 2
+          do
+             (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
+               (setf in-bounds
+                     (and
+                      in-bounds
+                      (or
+                       (and
+                        (> (coerce bu 'double-float) (magicl:tref pos i 0))
+                        (<= (coerce bl 'double-float) (magicl:tref pos i 0)))
+                       (= bu bl)
+                       )
+                      ))))
+    in-bounds
+    ))
 (defun calculate-domain-sizes (sim &optional size)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (divs mpm-sim-mpi-domain-count))
@@ -726,6 +663,10 @@
                        rank
                        -1)))))
 
+;; (defun cl-mpi:mpi-comm-rank ()
+;;   0)
+;; (defun cl-mpi:mpi-comm-size ()
+;;   4)
 (defun domain-decompose (sim)
   "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
 
@@ -736,14 +677,20 @@
     (let* ((rank (cl-mpi:mpi-comm-rank))
            (count (cl-mpi:mpi-comm-size))
            (x-length (first mesh-size))
-           (slice-size (floor x-length count))
+           (slice-size (/ x-length count))
            (slice-count count)
            (bound-lower (* rank slice-size))
            (bound-upper (* (+ 1 rank) slice-size))
            )
+      (print x-length)
+      ;; (break)
       (setf (mpm-sim-mpi-domain-bounds sim)
-            (list bound-lower bound-upper))
+            (list (list bound-lower bound-upper)
+                  (list 0d0 (nth 1 mesh-size))
+                  (list 0d0 (nth 2 mesh-size))
+                  ))
       (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
+      ;; (break)
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
       ;; (loop for mp across (cl-mpm:sim-mps sim)
@@ -760,8 +707,7 @@
       ;;    ))
       )
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
-    )
-)
+    ))
 
 (defun kill-servers ()
     (dolist (server *open-servers*)
