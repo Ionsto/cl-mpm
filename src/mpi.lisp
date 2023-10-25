@@ -440,6 +440,8 @@
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
                          (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
                          )
+                     (format t "Left neighbour:~A~%" left-neighbor)
+                     (format t "Right neighbour:~A~%" right-neighbor)
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (labels
                            ((shit-filter (test)
@@ -479,20 +481,25 @@
                                       (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
                                       (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
                                       (cl-mpi-extensions:mpi-isend-anything
-                                       (left-filter)
+                                      (left-filter)
                                        left-neighbor :tag 1)
                                       (cl-mpi-extensions:mpi-isend-anything
                                        (right-filter)
                                        right-neighbor :tag 2)
                                       ))
-                                    ((= left-neighbor -1)
+                                    ((and
+                                      (= left-neighbor -1)
+                                      (not (= right-neighbor -1))
+                                      )
                                      (cl-mpi-extensions:mpi-waitall-anything
                                       (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
                                       (cl-mpi-extensions:mpi-isend-anything
                                        (right-filter)
                                        right-neighbor :tag 2)
                                       ))
-                                    ((= right-neighbor -1)
+                                    ((and
+                                      (not (= left-neighbor -1))
+                                      (= right-neighbor -1))
                                      (cl-mpi-extensions:mpi-waitall-anything
                                       (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
                                       (cl-mpi-extensions:mpi-isend-anything
