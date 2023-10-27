@@ -989,7 +989,7 @@
         ;; (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
         (cl-mpm/output::save-parameter "damage-inc-average"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::mp-time-averaged-damage-inc)
+                                       (if (slot-exists-p mp 'cl-mpm/particle::time-averaged-damage-inc)
                                            (let ((v (/ (cl-mpm/particle::mp-time-averaged-damage-inc mp)
                                                        (max 1d0
                                                             (cl-mpm/particle::mp-time-averaged-counter mp)))))
@@ -998,7 +998,7 @@
                                            0d0
                                            ))
         (cl-mpm/output::save-parameter "damage-ybar-average"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::mp-time-averaged-damage-inc)
+                                       (if (slot-exists-p mp 'cl-mpm/particle::time-averaged-damage-inc)
                                            (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
                                                        (max 1d0
                                                             (cl-mpm/particle::mp-time-averaged-counter mp)))))
