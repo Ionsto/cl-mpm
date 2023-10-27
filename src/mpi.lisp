@@ -51,7 +51,7 @@
             (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (h (cl-mpm/mesh:mesh-resolution mesh))
-            (halo-depth 2))
+            (halo-depth 4))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
@@ -74,13 +74,13 @@
                             (left-filter ()
                               (halo-filter (lambda (pos)
                                              (and
-                                              (< pos (+ (/ bl h) halo-depth)))
+                                              (<= pos (+ (/ bl h) halo-depth)))
                                              ))
                               )
                             (right-filter ()
                               (halo-filter (lambda (pos)
                                              (and
-                                              (> pos (- (/ bu h) halo-depth)))
+                                              (>= pos (- (/ bu h) halo-depth)))
                                              ))
                               )
 
@@ -175,7 +175,7 @@
                             )
                (apply #'aref (cl-mpm/mesh:mesh-nodes mesh) index)
              ;; (setf active t)
-             (magicl:.+ force (mpi-node-force mpi-node))
+             (magicl:.+ force (mpi-node-force mpi-node) force)
              )))))))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
@@ -216,10 +216,10 @@
                                                        ))
                                         ;(exchange-mps sim)
                     (cl-mpm::p2g-force mesh mps)
-                    (mpi-sync-force sim)
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
+                    (mpi-sync-force sim)
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
                     (cl-mpm::apply-bcs mesh bcs dt)
                                         ;Also updates mps inline
