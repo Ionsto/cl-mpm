@@ -389,7 +389,7 @@
   (let ((bytes-per-int 2))
     `(push-bytes ,output (cl-intbytes:int->octets ,value ,bytes-per-int) ,inc)))
 
-(defmacro push-position (output value inc)
+(defmacro push-index (output value inc)
   `(progn
      (push-int ,output (nth 0 ,value) ,inc)
      (push-int ,output (nth 1 ,value) ,inc)
@@ -408,61 +408,64 @@
 (defun serialise-length (type)
   (ecase type
       (int 2)
+      (index (* 2 3))
+      (float 8)
+      (vector (* 8 3))
       (t 0)))
 
 ;; (defmacro make-mpi-ser (name mapping-list)
 ;;   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
 ;;   (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
-;;         (deser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
+;;         (deser-name (intern (format nil "DESERIALISE-~:@(~A~)" name)))
 ;;         (packet-size (loop for map in mapping-list
 ;;                            sum (serialise-length (first map)))))
 ;;     (format t "~A~%" packet-size)
 ;;     `(progn
 ;;        (defun ,ser-name (objects)
 ;;          (let* ((node-count (length objects))
-;;                 (packet-size 1)
+;;                 (packet-size ,packet-size)
 ;;                 (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8))))
-;;            (loop for obj across objects
-;;                  do
-;;                     (with-accessors ,(mapcar (lambda (slot-entry)
-;;                                                (with-current-source-form (slot-entry mapping-list)
-;;                                                  (unless (sb-int::proper-list-of-length-p slot-entry 3)
-;;                                                    (error "Malformed slot entry: ~s, should ~
+;;            (declare ((simple-array (unsigned-byte 8) *) output))
+;;            (lparallel:pdotimes (i node-count)
+;;              (let* ((inc (* i packet-size))
+;;                     (obj (aref nodes i)))
+;;                (with-accessors ,(mapcar (lambda (slot-entry)
+;;                                           (with-current-source-form (slot-entry mapping-list)
+;;                                             (unless (sb-int::proper-list-of-length-p slot-entry 3)
+;;                                               (error "Malformed slot entry: ~s, should ~
 ;;                                   be (type variable-name accessor-name)"
-;;                                                           slot-entry))
-;;                                                  (destructuring-bind (type var-name accessor-name)
-;;                                                      slot-entry
-;;                                                    `(,var-name ,accessor-name))
-;;                                                  ))
-;;                                       mapping-list)
-;;                         obj
-;;                       ,@(mapcar (lambda (slot-entry)
-;;                                   (destructuring-bind (type var-name accessor-name)
-;;                                       slot-entry
-;;                                     (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
-;;                                       `(,push-name output ,var-name inc)
-;;                                         ;`(format t "Type:~A name: ~A~%" ,type ,var-name)
-;;                                       ))
-;;                                   ) mapping-list)
-;;                                         ;(push-int output (nth 0 node-index) inc)
-;;                                         ;(push-int output (nth 1 node-index) inc)
-;;                                         ;(push-int output (nth 2 node-index) inc)
-;;                                         ;(push-float output node-mass inc)
-;;                                         ;(push-float output node-pmod inc)
-;;                                         ;(push-float output node-svp inc)
-;;                                         ;(push-float output node-vol inc)
-;;                                         ;(push-vector output node-vel inc)
-;;                                         ;(push-vector output node-force inc)
-;;                       )
-;;                  ))
+;;                                                      slot-entry))
+;;                                             (destructuring-bind (type var-name accessor-name)
+;;                                                 slot-entry
+;;                                               `(,var-name ,accessor-name))
+;;                                             ))
+;;                                  mapping-list)
+;;                    obj
+;;                  ,@(mapcar (lambda (slot-entry)
+;;                              (destructuring-bind (type var-name accessor-name)
+;;                                  slot-entry
+;;                                (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
+;;                                  `(,push-name output ,var-name inc)
+;;                                  ))
+;;                              ) mapping-list)
+;;                  )
+;;                )))
 ;;          )
-;;        (defun ,deser-name (array)
-;;          )
+;;        ;; (defun ,deser-name (array)
+;;        ;;   )
 ;;        ))
 ;;   )
 ;; (make-mpi-ser
 ;;  test
-;;  ((int volume cl-mpm/particle:mp-volume)))
+;;  (
+;;   (index index cl-mpm/mesh::node-index)
+;;   (float mass cl-mpm/mesh:node-mass)
+;;   (float pmod cl-mpm/mesh::node-pwave)
+;;   (float svp cl-mpm/mesh::node-svp)
+;;   (float volume cl-mpm/mesh::node-volume)
+;;   (vector velocity cl-mpm/mesh::node-velocity)
+;;   (vector force cl-mpm/mesh::node-force)
+;;   ))
 
 (defun serialise-nodes (nodes)
   ;;We need to exchange nodes
