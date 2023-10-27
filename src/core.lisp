@@ -1355,25 +1355,25 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (lparallel:pdotimes (i (length mps))
     (g2p-mp mesh (aref mps i) dt)))
 
-(defun update-particle (mesh mp dt)
+;; (defun update-particle (mesh mp dt)
 
-  (with-accessors ((mass mp-mass)
-                   (vel mp-velocity)
-                   (pos mp-position)
-                   (disp cl-mpm/particle::mp-displacement)
-                   )
-      mp
-    (magicl:scale! vel dt)
-    (magicl:.+ pos vel pos)
-    (magicl:.+ disp vel disp)
-    (magicl:.+ vel (magicl:scale acc dt) vel))
-  )
-(declaim (notinline update-particles))
-(defun update-particles (mesh mps dt)
-  (declare (cl-mpm/mesh::mesh mesh) (array mps))
-  "Map grid values to all particles"
-  (lparallel:pdotimes (i (length mps))
-    (update-particle mesh (aref mps i) dt)))
+;;   (with-accessors ((mass mp-mass)
+;;                    (vel mp-velocity)
+;;                    (pos mp-position)
+;;                    (disp cl-mpm/particle::mp-displacement)
+;;                    )
+;;       mp
+;;     (magicl:scale! vel dt)
+;;     (magicl:.+ pos vel pos)
+;;     (magicl:.+ disp vel disp)
+;;     (magicl:.+ vel (magicl:scale acc dt) vel))
+;;   )
+;; (declaim (notinline update-particles))
+;; (defun update-particles (mesh mps dt)
+;;   (declare (cl-mpm/mesh::mesh mesh) (array mps))
+;;   "Map grid values to all particles"
+;;   (lparallel:pdotimes (i (length mps))
+;;     (update-particle mesh (aref mps i) dt)))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
@@ -2333,7 +2333,7 @@ Calls func with only the node"
 
 (defgeneric calculate-min-dt (sim)
   (:documentation "A function for calculating an approximate stable timestep"))
-(defmethod calculate-min-dt ((sim mpm-sim ))
+(defmethod calculate-min-dt ((sim mpm-sim))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
