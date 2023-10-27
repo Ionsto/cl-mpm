@@ -207,13 +207,13 @@
                     ;; (cl-mpm::update-stress mesh mps dt)
                     (cl-mpm::update-stress mesh mps dt fbar)
                                         ;(exchange-mps sim)
-                    ;; (when enable-damage
-                    ;;   (cl-mpm/damage::calculate-damage mesh
-                    ;;                                    mps
-                    ;;                                    dt
-                    ;;                                    50d0
-                    ;;                                    nonlocal-damage
-                    ;;                                    ))
+                    (when enable-damage
+                      (cl-mpm/damage::calculate-damage mesh
+                                                       mps
+                                                       dt
+                                                       50d0
+                                                       nonlocal-damage
+                                                       ))
                                         ;(exchange-mps sim)
                     (cl-mpm::p2g-force mesh mps)
                     (mpi-sync-force sim)
