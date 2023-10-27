@@ -2331,7 +2331,9 @@ Calls func with only the node"
                      do (vector-push-extend new-mp mps)))
       )))
 
-(defun calculate-min-dt (sim)
+(defgeneric calculate-min-dt (sim)
+  (:documentation "A function for calculating an approximate stable timestep"))
+(defmethod calculate-min-dt ((sim mpm-sim ))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
@@ -2341,7 +2343,7 @@ Calls func with only the node"
        (lambda (node)
          (with-accessors ((node-active  cl-mpm/mesh:node-active)
                           (pmod cl-mpm/mesh::node-pwave)
-                          (mass cl-mpm/mesh::node-mass)
+                         (mass cl-mpm/mesh::node-mass)
                           (svp-sum cl-mpm/mesh::node-svp-sum)
                           (vol cl-mpm/mesh::node-volume)
                           ) node

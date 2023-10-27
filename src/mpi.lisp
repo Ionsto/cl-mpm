@@ -15,198 +15,6 @@
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
-
-
-(declaim (inline calculate-strain-rate)
-         (ftype (function (cl-mpm/particle:particle double-float)) calculate-strain-rate))
-(defun calculate-strain-rate (mp dt)
-  (declare (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
-                   (vorticity cl-mpm/particle:mp-vorticity)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (jfbar cl-mpm/particle::mp-j-fbar)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
-                   ) mp
-        (progn
-          (magicl:scale! strain-rate 0d0)
-          (magicl:scale! vorticity 0d0)
-          (magicl:scale! stretch-tensor 0d0)
-          (let (;(stretch-dsvp (magicl:zeros '(4 2)))
-                #+cl-mpm-fbar (stretch-tensor-fbar (magicl:zeros '(2 2) :type 'double-float))
-                ;(v-s (magicl:zeros '(2 2)))
-                (v-s (matrix-zeros))
-                (stretch-dsvp (stretch-dsvp-zeros))
-                )
-            (declare (magicl:matrix/double-float stretch-dsvp v-s)
-                     (dynamic-extent stretch-dsvp v-s))
-            (cl-mpm::iterate-over-neighbours-cached
-             nil mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                (node-active cl-mpm/mesh:node-active))
-                   node
-                 (declare (double-float))
-                 (when node-active
-                   (magicl.simd::.+-simd
-                    stretch-tensor
-                    (cl-mpm/utils::voight-to-stretch-prealloc
-                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                grads stretch-dsvp) node-vel) v-s)
-                    stretch-tensor)
-                   #+cl-mpm-fbar (magicl.simd::.+-simd
-                                  stretch-tensor-fbar
-                                  (cl-mpm/utils::voight-to-stretch-prealloc
-                                   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                              fgrads stretch-dsvp) node-vel) v-s)
-                                  stretch-tensor-fbar)
-                   ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
-                   ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
-                   ))))
-            #+cl-mpm-fbar (setf jfbar (magicl:det (magicl.simd::.+-simd (magicl:eye 2) stretch-tensor-fbar)))
-            )
-          #+cl-mpm-fbar (when (<= jfbar 0d0)
-            (error "FBAR volume non-positive"))
-            (cl-mpm/fastmath::stretch-to-sym stretch-tensor strain-rate)
-            (cl-mpm/fastmath::stretch-to-skew stretch-tensor vorticity)
-            (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
-            ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
-            (magicl:scale! stretch-tensor dt)
-            (magicl:scale! strain-rate dt)
-            (magicl:scale! vorticity dt)
-            )))
-
-(declaim (inline update-strain-kirchoff))
-(declaim (ftype (function (cl-mpm/particle:particle
-                           double-float) (values))
-               update-strain-kirchoff))
-(defun update-strain-kirchoff (mp dt)
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain
-                   ))
-    (progn
-      (let ((df (cl-mpm::calculate-df mp)))
-        (progn
-          ;; (magicl:mult df def :target def)
-          (setf def (magicl:@ df def))
-          (let ((initial-strain (magicl:scale strain 1d0))
-                )
-            (multiple-value-bind (l v) (cl-mpm/utils::eig (voigt-to-matrix strain))
-              (let (;(trail-lgs (cl-mpm/utils::matrix-zeros))
-                    (trial-lgs (magicl:@ df
-                                         v
-                                         (cl-mpm/utils::matrix-from-list
-                                          (list
-                                           (the double-float (exp (* 2d0 (the double-float (nth 0 l)))))
-                                           0d0 0d0
-                                           (the double-float (exp (* 2d0 (the double-float (nth 1 l)))))))
-                                         (magicl:transpose v)
-                                         (magicl:transpose df)))
-                    )
-                (multiple-value-bind (lf vf) (cl-mpm/utils::eig
-                                              (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
-                  (setf strain (magicl:scale!
-                                (matrix-to-voigt
-                                 (magicl:@
-                                  vf
-                                  (cl-mpm/utils::matrix-from-list
-                                   (list
-                                    (the double-float (log (the double-float (nth 0 lf))))
-                                    0d0 0d0
-                                    (the double-float (log (the double-float (nth 1 lf))))))
-                                  (magicl:transpose vf)))
-                                0.5d0))
-                  ;; (print strain)
-                  ;; (setf (magicl:tref strain 2 0) (* 2d0 (the double-float (magicl:tref strain 2 0))))
-                  )
-                ))
-            (magicl:.- initial-strain strain initial-strain)
-            (setf eng-strain-rate initial-strain)
-            (magicl:scale! eng-strain-rate (/ 1d0 dt))
-
-            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
-            )
-
-          ;;Post multiply to turn to eng strain
-          ;; (setf volume (* volume (magicl:det df)))
-          (setf volume (* volume-0 (magicl:det def)))
-          (when (<= volume 0d0)
-            (error "Negative volume"))
-          ;;Stretch rate update
-          (let ((F (cl-mpm/utils::matrix-zeros)))
-            (magicl:mult def def :target F :transb :t)
-            (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-              (let ((stretch
-                      (magicl:@
-                       v
-                       (cl-mpm/utils::matrix-from-list
-                        (list (the double-float (sqrt (the double-float (nth 0 l))))
-                              0d0 0d0
-                              (the double-float (sqrt (the double-float (nth 1 l))))))
-                       (magicl:transpose v)))
-                    )
-                (declare (type magicl:matrix/double-float stretch))
-                (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                                           (the double-float (tref stretch 0 0))))
-                (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                                           (the double-float (tref stretch 1 1))))
-                )))
-          ;; (update-domain-corner mp dt)
-          ;; (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-          ;;                             (the double-float (tref df 0 0))))
-          ;; (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-          ;;                             (the double-float (tref df 1 1))))
-          )
-          )))
-  (values))
-
-
-(declaim (inline update-stress-mp)
-         (ftype (function (cl-mpm/particle:particle double-float) (values)) update-stress-mp))
-(defun update-stress-mp (mp dt)
-  ;; (declare ((cl-mpm/particle::particle mp)
-  ;;           (double-float dt)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                     (volume cl-mpm/particle:mp-volume)
-                     (strain cl-mpm/particle:mp-strain)
-                     (def    cl-mpm/particle:mp-deformation-gradient)
-                     (strain-rate cl-mpm/particle:mp-strain-rate)
-                        ) mp
-      (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-      (progn
-      ;;   ;;For no FBAR we need to update our strains
-          (progn
-            (calculate-strain-rate mp dt)
-
-            ;;; Turn cauchy stress to kirchoff
-            (setf stress stress-kirchoff)
-
-            ;;; Update our strains
-            (update-strain-kirchoff mp dt)
-
-            ;;;Update our kirchoff stress with constitutive model
-            (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-
-            ;; Check volume constraint!
-            (when (<= volume 0d0)
-              (error "Negative volume"))
-            ;; Turn kirchoff stress to cauchy
-            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
-            ))))
-
 (defclass mpm-sim-mpi-stress (cl-mpm/damage::mpm-sim-damage)
   ((neighbour-node-list
     )
@@ -228,6 +36,211 @@
     )
    )
   (:documentation "Damage sim with only stress update on mpi"))
+
+(defclass mpm-sim-mpi-nodes (mpm-sim-mpi-stress)
+  ())
+
+(defun exchange-nodes (sim func)
+  (declare (function func))
+  (let* ((rank (cl-mpi:mpi-comm-rank))
+         (size (cl-mpi:mpi-comm-size)))
+    (with-accessors ((mesh cl-mpm:sim-mesh))
+        sim
+      (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
+            (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes :displaced-index-offset 0))
+            (index (mpi-rank-to-index sim rank))
+            (bounds-list (mpm-sim-mpi-domain-bounds sim))
+            (h (cl-mpm/mesh:mesh-resolution mesh))
+            (halo-depth 2))
+        (loop for i from 0 to 2
+              do
+                 (let ((id-delta (list 0 0 0)))
+                   (setf (nth i id-delta) 1)
+                   (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
+                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
+                         )
+                     (destructuring-bind (bl bu) (nth i bounds-list)
+                       (labels
+                           (
+                            (halo-filter (test)
+                              (let ((res
+                                      (lparallel:premove-if-not
+                                       (lambda (mp)
+                                         (and
+                                          (cl-mpm/mesh:node-active mp)
+                                          (funcall test (nth i (cl-mpm/mesh:node-index mp)))))
+                                       all-nodes)))
+                                res))
+                            (left-filter ()
+                              (halo-filter (lambda (pos)
+                                             (and
+                                              (< pos (+ (/ bl h) halo-depth)))
+                                             ))
+                              )
+                            (right-filter ()
+                              (halo-filter (lambda (pos)
+                                             (and
+                                              (> pos (- (/ bu h) halo-depth)))
+                                             ))
+                              )
+
+                            )
+                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-nodes)
+                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-nodes)
+                                (recv
+                                  (cond
+                                    ((and (not (= left-neighbor -1))
+                                          (not (= right-neighbor -1))
+                                          )
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                      (left-filter)
+                                       left-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (right-filter)
+                                       right-neighbor :tag 2)
+                                      ))
+                                    ((and
+                                      (= left-neighbor -1)
+                                      (not (= right-neighbor -1))
+                                      )
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (right-filter)
+                                       right-neighbor :tag 2)
+                                      ))
+                                    ((and
+                                      (not (= left-neighbor -1))
+                                      (= right-neighbor -1))
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (left-filter)
+                                       left-neighbor :tag 1)
+                                      ))
+                                    (t nil))))
+                           (loop for packet in recv
+                                 do
+                                    (destructuring-bind (rank tag object) packet
+                                      (when object
+                                        (funcall func object)
+                                        ;; (loop for mp across object
+                                        ;;       do (progn
+                                        ;;            (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                                        ;;                  (cl-mpm/particle::mp-damage-position mp) nil))
+                                        ;;          (vector-push-extend mp mps))
+                                        )))))))))))))
+
+(defun mpi-sync-momentum (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+      (exchange-nodes
+       sim
+       (lambda (node-list)
+         (lparallel:pdotimes (i (length node-list))
+           (let* ((mpi-node (aref node-list i))
+                  (index (mpi-node-index mpi-node)))
+             (with-accessors ((active cl-mpm/mesh:node-active)
+                              (mass cl-mpm/mesh:node-mass)
+                              (velocity cl-mpm/mesh:node-velocity)
+                              (pmod cl-mpm/mesh::node-pwave)
+                              (vol cl-mpm/mesh::node-volume)
+                              (svp cl-mpm/mesh::node-svp-sum)
+                              )
+                 (apply #'aref (cl-mpm/mesh:mesh-nodes mesh) index)
+               (setf active t)
+               (incf mass (mpi-node-mass mpi-node))
+               (incf svp (mpi-node-svp mpi-node))
+               (incf vol (mpi-node-vol mpi-node))
+               (incf pmod (mpi-node-pmod mpi-node))
+               (magicl:.+ velocity (mpi-node-velocity mpi-node) velocity)
+               )))
+         ))))
+
+(defun mpi-sync-force (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (exchange-nodes
+     sim
+     (lambda (node-list)
+       (lparallel:pdotimes (i (length node-list))
+         (let* ((mpi-node (aref node-list i))
+                (index (mpi-node-index mpi-node)))
+           (with-accessors ((active cl-mpm/mesh:node-active)
+                            (mass cl-mpm/mesh:node-mass)
+                            (force cl-mpm/mesh:node-force)
+                            )
+               (apply #'aref (cl-mpm/mesh:mesh-nodes mesh) index)
+             ;; (setf active t)
+             (magicl:.+ force (mpi-node-force mpi-node))
+             )))))))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps  cl-mpm::mps)
+               (bcs  cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               )
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    ;; (exchange-mps sim)
+                  (when t;(> (length mps) 0)
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (mpi-sync-momentum sim)
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt)
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    ;; (cl-mpm::update-stress mesh mps dt)
+                    (cl-mpm::update-stress mesh mps dt fbar)
+                                        ;(exchange-mps sim)
+                    ;; (when enable-damage
+                    ;;   (cl-mpm/damage::calculate-damage mesh
+                    ;;                                    mps
+                    ;;                                    dt
+                    ;;                                    50d0
+                    ;;                                    nonlocal-damage
+                    ;;                                    ))
+                                        ;(exchange-mps sim)
+                    (cl-mpm::p2g-force mesh mps)
+                    (mpi-sync-force sim)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                                        ;Also updates mps inline
+                    (cl-mpm::g2p mesh mps dt)
+                    ;;MPI reduce new velocities
+                                        ;(exchange-mps sim)
+                    ;;Get new MPS
+
+                    (when remove-damage
+                      (cl-mpm::remove-material-damaged sim))
+                    (when split
+                      (cl-mpm::split-mps sim))
+                    (cl-mpm::check-mps sim)
+                    (set-mp-mpi-index sim))
+                  ;; (format t "Got to exchagne~%")
+                  (exchange-mps sim 0d0)
+                  (clear-ghost-mps sim)
+                  ;; (format t "Got past exchagne~%")
+                  ;; (clear-ghost-mps sim)
+                    ;;Update mp list between processors
+                    )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
   (with-slots ((mesh cl-mpm::mesh)
@@ -331,6 +344,7 @@
                      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
                        (loop while (< index end)
                              do (cl-store:store-object (aref mps index) stream)
+                                ;(hu.dwim.serializer:serialize (aref mps index) :output stream)
                                 (incf index))))
                    ;; (loop while (< index end)
                    ;;       do (funcall fn index)
@@ -349,66 +363,206 @@
               ;;   (lparallel.cognate::receive-result channel))
               )))))))
 
+(defmacro push-bytes (array bytes index)
+  `(progn
+    ;(declare ((simple-array (unsigned-byte 8) *) array bytes))
+     (loop for b across (the (simple-array (unsigned-byte 8) *) ,bytes)
+          do
+             (progn
+               (setf (aref (the (simple-array (unsigned-byte 8) *) ,array) ,index) b)
+               (incf ,index)))))
+
+(defmacro pull-bytes (array index length)
+  `(progn
+                                        ;(declare ((simple-array (unsigned-byte 8) *) array bytes))
+     (let ((o (make-array ,length :element-type '(unsigned-byte 8) :displaced-to ,array :displaced-index-offset ,index)))
+       (declare (dynamic-extent o))
+       (incf ,index ,length)
+       o
+       )))
+
+
+(defmacro push-int (output value inc)
+  (let ((bytes-per-int 2))
+    `(push-bytes ,output (cl-intbytes:int->octets ,value ,bytes-per-int) ,inc)))
+(defmacro push-float (output value inc)
+  `(push-bytes ,output (cl-intbytes:int64->octets (ieee-floats:encode-float64 ,value)) ,inc))
+(defmacro push-vector (output vec inc)
+  `(let ((v-s (magicl::matrix/double-float-storage ,vec)))
+     (push-float ,output (aref v-s 0) ,inc)
+     (push-float ,output (aref v-s 1) ,inc)
+     (push-float ,output (aref v-s 2) ,inc)))
+
+(defun serialise-nodes (nodes)
+  ;;We need to exchange nodes
+  (let* ((node-count (length nodes))
+         (position-data 3)
+         (bytes-per-position 2)
+         (bytes-per-double 8)
+         (mass-length 1)
+         (pmod-length 1)
+         (svp-length 1)
+         (vol-length 1)
+         (force-length 3)
+         (velocity-length 3)
+         (data-length (+ mass-length pmod-length svp-length vol-length velocity-length force-length))
+         (packet-size (+ (* position-data bytes-per-position) (* bytes-per-double data-length)))
+         (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8)))
+        )
+    (declare ((simple-array (unsigned-byte 8) *) output))
+    (let ((inc 0))
+      (loop for node across nodes
+            do
+        (with-accessors ((node-index cl-mpm/mesh::node-index)
+                         (node-mass cl-mpm/mesh::node-mass)
+                         (node-pmod cl-mpm/mesh::node-pwave)
+                         (node-svp cl-mpm/mesh::node-svp-sum)
+                         (node-vol cl-mpm/mesh::node-volume)
+                         (node-vel cl-mpm/mesh::node-velocity)
+                         (node-force cl-mpm/mesh::node-force))
+            node
+          (push-int output (nth 0 node-index) inc)
+          (push-int output (nth 1 node-index) inc)
+          (push-int output (nth 2 node-index) inc)
+          (push-float output node-mass inc)
+          (push-float output node-pmod inc)
+          (push-float output node-svp inc)
+          (push-float output node-vol inc)
+          (push-vector output node-vel inc)
+          (push-vector output node-force inc))))
+    output
+    )
+  )
+
+;; (let ((nodes (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*))))
+;;  (defparameter *node-list* (loop for node across (make-array (array-total-size nodes) :displaced-to nodes) collect node)))
+(defstruct mpi-node
+  index
+   velocity
+   mass
+   force
+   pmod
+   svp
+   vol
+   )
+
+(defmacro pull-int (array inc)
+  (let ((bytes-per-int 2))
+    `(cl-intbytes:octets->int (pull-bytes ,array ,inc ,bytes-per-int) ,bytes-per-int)))
+
+(defmacro pull-float (array inc)
+  (let ((bytes-per-float 8))
+    `(ieee-floats:decode-float64 (cl-intbytes:octets->uint64 (pull-bytes ,array ,inc ,bytes-per-float)))))
+
+(defmacro pull-vector (array inc)
+  `(cl-mpm/utils:vector-from-list
+    (list (pull-float ,array ,inc)
+          (pull-float ,array ,inc)
+          (pull-float ,array ,inc))))
+(defun deserialise-nodes (array)
+  (let* ((position-data 3)
+         (bytes-per-position 2)
+         (bytes-per-double 8)
+         (mass-length 1)
+         (pmod-length 1)
+         (svp-length 1)
+         (vol-length 1)
+         (force-length 3)
+         (velocity-length 3)
+         (data-length (+ mass-length pmod-length svp-length vol-length velocity-length force-length))
+         (packet-size (+ (* position-data bytes-per-position) (* bytes-per-double data-length)))
+         (node-count (/ (length array) packet-size))
+         (output (make-array node-count :element-type 'mpi-node))
+        (inc 0)
+        )
+    (declare (fixnum inc bytes-per-position))
+    (loop for i from 0 below node-count
+          do
+             (let ((ix (pull-int array inc))
+                   (iy (pull-int array inc))
+                   (iz (pull-int array inc))
+                   ;; (vel nil)
+                   (mass (pull-float array inc))
+                   (pmod (pull-float array inc))
+                   (svp (pull-float array inc))
+                   (vol (pull-float array inc))
+                   (vel (pull-vector array inc))
+                   (force (pull-vector array inc))
+                   )
+               ;; (format t "~A~%" ix)
+               ;; (format t "~A~%" iy)
+               ;; (format t "~A~%" iz)
+               (setf (aref output i)
+                     (make-mpi-node
+                      :index (list ix iy iz)
+                      :mass mass
+                      :velocity vel
+                      :force force
+                      :svp svp
+                      :vol vol
+                      :pmod pmod))))
+    output))
+
 (defun serialise-part (mps))
 
 
 (defun serialise-mps (mps)
-  (if (> (length mps) 0)
-    (let* ((cl-store:*current-backend* cl-store:*default-backend*)
-           (backend cl-store:*default-backend*)
-           (cl-store:*check-for-circs* nil)
-           ;; (cl-store::*stored-counter* 0)
-           ;; (cl-store::*stored-values* (cl-store::get-store-hash))
-           (collect-res
-             (append
-              (list
-               (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-                 (cl-store:store-backend-code cl-store:*current-backend* stream)
-                 (cl-store:output-type-code cl-store::+array-code+ stream)
-                 (if (and (= (array-rank mps) 1)
-                          (array-has-fill-pointer-p mps))
-                     (cl-store:store-object (fill-pointer mps) stream)
-                     (cl-store:store-object nil stream))
-                 (cl-store:store-object (array-element-type mps) stream)
-                 (cl-store:store-object (adjustable-array-p mps) stream)
-                 (cl-store:store-object (array-dimensions mps) stream)
-                 (dolist (x (multiple-value-list (array-displacement mps)))
-                   (cl-store:store-object x stream))
-                 (cl-store:store-object (array-total-size mps) stream)
-                 ;; (loop for x from 0 below (array-total-size mps) do
-                 ;;   (cl-store:store-object (row-major-aref mps x) stream))
-                 ))
-              (ser-part mps)
-              ;; (lparallel:pmapcar
-              ;;  (lambda (mp)
-              ;;    (let ((cl-store:*current-backend* backend)
-              ;;          (cl-store:*check-for-circs* nil))
-              ;;      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
-              ;;        (cl-store:store-object mp stream))))
-              ;;  mps)
-              ))
-           (total-length (reduce #'+ (mapcar #'length collect-res))))
-      (let ((out
-              (static-vectors:make-static-vector total-length
-                                                 :element-type '(unsigned-byte 8)
-                                                 ;; :initial-contents res
-                                                 ))
-            (i 0))
-        (declare (fixnum i)
-                 ((simple-array (unsigned-byte 8) *) out))
-        (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
-              do
-                 (loop for b of-type (unsigned-byte 8) across arr
-                       do
-                          (setf (aref out i) b)
-                          (incf i)))
-        out
-        ;; (cl-store-encoder mps)
-        ))
-    ;; (cl-store-encoder nil)
-    )
-  ;; (cl-store-encoder mps)
-  nil
+  ;; (if (> (length mps) 0)
+  ;;   (let* ((cl-store:*current-backend* cl-store:*default-backend*)
+  ;;          (backend cl-store:*default-backend*)
+  ;;          (cl-store:*check-for-circs* nil)
+  ;;          ;; (cl-store::*stored-counter* 0)
+  ;;          ;; (cl-store::*stored-values* (cl-store::get-store-hash))
+  ;;          (collect-res
+  ;;            (append
+  ;;             (list
+  ;;              (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+  ;;                (cl-store:store-backend-code cl-store:*current-backend* stream)
+  ;;                (cl-store:output-type-code cl-store::+array-code+ stream)
+  ;;                (if (and (= (array-rank mps) 1)
+  ;;                         (array-has-fill-pointer-p mps))
+  ;;                    (cl-store:store-object (fill-pointer mps) stream)
+  ;;                    (cl-store:store-object nil stream))
+  ;;                (cl-store:store-object (array-element-type mps) stream)
+  ;;                (cl-store:store-object (adjustable-array-p mps) stream)
+  ;;                (cl-store:store-object (array-dimensions mps) stream)
+  ;;                (dolist (x (multiple-value-list (array-displacement mps)))
+  ;;                  (cl-store:store-object x stream))
+  ;;                (cl-store:store-object (array-total-size mps) stream)
+  ;;                ;; (loop for x from 0 below (array-total-size mps) do
+  ;;                ;;   (cl-store:store-object (row-major-aref mps x) stream))
+  ;;                ))
+  ;;             (ser-part mps)
+  ;;             ;; (lparallel:pmapcar
+  ;;             ;;  (lambda (mp)
+  ;;             ;;    (let ((cl-store:*current-backend* backend)
+  ;;             ;;          (cl-store:*check-for-circs* nil))
+  ;;             ;;      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
+  ;;             ;;        (cl-store:store-object mp stream))))
+  ;;             ;;  mps)
+  ;;             ))
+  ;;          (total-length (reduce #'+ (mapcar #'length collect-res))))
+  ;;     (let ((out
+  ;;             (static-vectors:make-static-vector total-length
+  ;;                                                :element-type '(unsigned-byte 8)
+  ;;                                                ;; :initial-contents res
+  ;;                                                ))
+  ;;           (i 0))
+  ;;       (declare (fixnum i)
+  ;;                ((simple-array (unsigned-byte 8) *) out))
+  ;;       (loop for arr of-type (vector (unsigned-byte 8) *) in collect-res
+  ;;             do
+  ;;                (loop for b of-type (unsigned-byte 8) across arr
+  ;;                      do
+  ;;                         (setf (aref out i) b)
+  ;;                         (incf i)))
+  ;;       out
+  ;;       ;; (cl-store-encoder mps)
+  ;;       ))
+  ;;   ;; (cl-store-encoder nil)
+  ;;   )
+  (cl-store-encoder mps)
+  ;; nil
 
   ;; (let ((res (flexi-streams:with-output-to-sequence (stream)
   ;;              (cl-store:store mps stream))))
@@ -458,11 +612,11 @@
      (and (>= (nth 1 index) 0) (< (nth 1 index) (nth 1 size)))
      (and (>= (nth 2 index) 0) (< (nth 2 index) (nth 2 size))))))
 
-(defun exchange-mps (sim)
+(defun exchange-mps (sim &optional halo-depth)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
          )
-    (clear-ghost-mps sim)
+    ;; (clear-ghost-mps sim)
 
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
@@ -470,7 +624,9 @@
       (let ((all-mps mps)
             (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
-            (halo-depth (* 4 (cl-mpm/mesh:mesh-resolution mesh)))
+            (halo-depth (if halo-depth
+                            halo-depth
+                            (* 4 (cl-mpm/mesh:mesh-resolution mesh))))
             )
         (loop for i from 0 to 2
               do
@@ -510,7 +666,7 @@
                               )
 
                             )
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-mps)
+                         (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
                                 (recv
                                   (cond
                                     ((and (not (= left-neighbor -1))
@@ -754,17 +910,16 @@
       )
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
     ))
+;; (defun kill-servers ()
+;;     (dolist (server *open-servers*)
+;;       (lfarm-admin:end-server (first server) (second server)))
+;;   (setf *open-servers* nil))
 
-(defun kill-servers ()
-    (dolist (server *open-servers*)
-      (lfarm-admin:end-server (first server) (second server)))
-  (setf *open-servers* nil))
-
-(defparameter *global-dt* 1d0)
-(lfarm:deftask uls (mp)
-  (update-stress-mp mp *global-dt*)
-  (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
-  mp)
+;; (defparameter *global-dt* 1d0)
+;; (lfarm:deftask uls (mp)
+;;   (update-stress-mp mp *global-dt*)
+;;   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
+;;   mp)
 
 (setf cl-mpi-extensions::*standard-encode-function*
       (lambda (x)
@@ -781,7 +936,7 @@
           (cl-store:restore stream))))
 
 
-(defun calculate-min-dt (sim)
+(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/mpi::mpm-sim-mpi-stress))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim

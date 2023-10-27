@@ -213,7 +213,7 @@
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
   (make-instance 'node
-                 :index (mapcar (lambda (x) (coerce x 'double-float)) index)
+                 :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
                  :position pos
                  ))
 

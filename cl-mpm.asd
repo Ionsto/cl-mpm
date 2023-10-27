@@ -146,6 +146,8 @@
                "alexandria"
                "array-operations"
                "lparallel"
+               "cl-intbytes"
+               "ieee-floats"
                "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"

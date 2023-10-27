@@ -217,7 +217,7 @@
                 )
                )))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -835,3 +835,39 @@
 ;;              (loop for i fixnum from 0 to 1
 ;;                    do (incf (aref a i) (aref b i))))
 ;;            )))))
+
+(defun vec-test ()
+  (let ((iters 10000000))
+    (time
+     (dotimes (i iters)
+       (let ((a (make-array 3 :element-type 'double-float :initial-element 0d0))
+             (b (make-array 3 :element-type 'double-float :initial-element 0d0))
+             )
+         (loop for i fixnum from 0 to 2
+               do (incf (aref a i) (aref b i))))
+       ))
+    (time
+     (dotimes (i iters)
+       (let ((a (static-vectors:make-static-vector 3 :element-type 'double-float :initial-element 0d0))
+             (b (static-vectors:make-static-vector 3 :element-type 'double-float :initial-element 0d0))
+             )
+         (loop for i fixnum from 0 to 2
+               do (incf (aref a i) (aref b i))))
+       ))
+    )
+  )
+
+
+(defun test ()
+  (let ((iters 1000))
+    (setf magicl:*default-allocator* #'magicl::c-allocator)
+    (setup)
+    (time
+     (dotimes (i iters)
+       (cl-mpm::update-sim *sim*)))
+    (setf magicl:*default-allocator* #'magicl::lisp-allocator)
+    (setup)
+    (time
+     (dotimes (i iters)
+       (cl-mpm::update-sim *sim*))))
+  )
