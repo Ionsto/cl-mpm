@@ -157,6 +157,7 @@
                "cl-mpm/damage"
                "cl-mpi"
                "cl-mpi-extensions"
+               "trivial-with-current-source-form"
                )
   :description ""
   :components (

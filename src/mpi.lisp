@@ -10,6 +10,9 @@
   (:import-from
    :magicl tref .+ .-
    )
+  (:import-from
+   :trivial-with-current-source-form with-current-source-form
+   )
   )
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
                                         ;    #:make-shape-function
@@ -51,7 +54,7 @@
             (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (h (cl-mpm/mesh:mesh-resolution mesh))
-            (halo-depth 4))
+            (halo-depth 2))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
@@ -85,8 +88,8 @@
                               )
 
                             )
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-nodes)
-                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-nodes)
+                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-nodes-par)
+                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-nodes-par)
                                 (recv
                                   (cond
                                     ((and (not (= left-neighbor -1))
@@ -385,6 +388,14 @@
 (defmacro push-int (output value inc)
   (let ((bytes-per-int 2))
     `(push-bytes ,output (cl-intbytes:int->octets ,value ,bytes-per-int) ,inc)))
+
+(defmacro push-position (output value inc)
+  `(progn
+     (push-int ,output (nth 0 ,value) ,inc)
+     (push-int ,output (nth 1 ,value) ,inc)
+     (push-int ,output (nth 2 ,value) ,inc)
+     ))
+
 (defmacro push-float (output value inc)
   `(push-bytes ,output (cl-intbytes:int64->octets (ieee-floats:encode-float64 ,value)) ,inc))
 (defmacro push-vector (output vec inc)
@@ -392,6 +403,66 @@
      (push-float ,output (aref v-s 0) ,inc)
      (push-float ,output (aref v-s 1) ,inc)
      (push-float ,output (aref v-s 2) ,inc)))
+
+
+(defun serialise-length (type)
+  (ecase type
+      (int 2)
+      (t 0)))
+
+;; (defmacro make-mpi-ser (name mapping-list)
+;;   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
+;;   (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
+;;         (deser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
+;;         (packet-size (loop for map in mapping-list
+;;                            sum (serialise-length (first map)))))
+;;     (format t "~A~%" packet-size)
+;;     `(progn
+;;        (defun ,ser-name (objects)
+;;          (let* ((node-count (length objects))
+;;                 (packet-size 1)
+;;                 (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8))))
+;;            (loop for obj across objects
+;;                  do
+;;                     (with-accessors ,(mapcar (lambda (slot-entry)
+;;                                                (with-current-source-form (slot-entry mapping-list)
+;;                                                  (unless (sb-int::proper-list-of-length-p slot-entry 3)
+;;                                                    (error "Malformed slot entry: ~s, should ~
+;;                                   be (type variable-name accessor-name)"
+;;                                                           slot-entry))
+;;                                                  (destructuring-bind (type var-name accessor-name)
+;;                                                      slot-entry
+;;                                                    `(,var-name ,accessor-name))
+;;                                                  ))
+;;                                       mapping-list)
+;;                         obj
+;;                       ,@(mapcar (lambda (slot-entry)
+;;                                   (destructuring-bind (type var-name accessor-name)
+;;                                       slot-entry
+;;                                     (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
+;;                                       `(,push-name output ,var-name inc)
+;;                                         ;`(format t "Type:~A name: ~A~%" ,type ,var-name)
+;;                                       ))
+;;                                   ) mapping-list)
+;;                                         ;(push-int output (nth 0 node-index) inc)
+;;                                         ;(push-int output (nth 1 node-index) inc)
+;;                                         ;(push-int output (nth 2 node-index) inc)
+;;                                         ;(push-float output node-mass inc)
+;;                                         ;(push-float output node-pmod inc)
+;;                                         ;(push-float output node-svp inc)
+;;                                         ;(push-float output node-vol inc)
+;;                                         ;(push-vector output node-vel inc)
+;;                                         ;(push-vector output node-force inc)
+;;                       )
+;;                  ))
+;;          )
+;;        (defun ,deser-name (array)
+;;          )
+;;        ))
+;;   )
+;; (make-mpi-ser
+;;  test
+;;  ((int volume cl-mpm/particle:mp-volume)))
 
 (defun serialise-nodes (nodes)
   ;;We need to exchange nodes
@@ -433,18 +504,62 @@
     output
     )
   )
+(defun serialise-nodes-par (nodes)
+  ;;We need to exchange nodes
+  (let* ((node-count (length nodes))
+         (position-data 3)
+         (bytes-per-position 2)
+         (bytes-per-double 8)
+         (mass-length 1)
+         (pmod-length 1)
+         (svp-length 1)
+         (vol-length 1)
+         (force-length 3)
+         (velocity-length 3)
+         (data-length (+ mass-length pmod-length svp-length vol-length velocity-length force-length))
+         (packet-size (+ (* position-data bytes-per-position) (* bytes-per-double data-length)))
+         (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8)))
+        )
+    (declare ((simple-array (unsigned-byte 8) *) output))
+    (lparallel:pdotimes (i node-count);((inc 0))
+      (let* ((inc (* i packet-size))
+             (node (aref nodes i)))
+        (with-accessors ((node-index cl-mpm/mesh::node-index)
+                         (node-mass cl-mpm/mesh::node-mass)
+                         (node-pmod cl-mpm/mesh::node-pwave)
+                         (node-svp cl-mpm/mesh::node-svp-sum)
+                         (node-vol cl-mpm/mesh::node-volume)
+                         (node-vel cl-mpm/mesh::node-velocity)
+                         (node-force cl-mpm/mesh::node-force))
+            node
+          (push-int output (nth 0 node-index) inc)
+          (push-int output (nth 1 node-index) inc)
+          (push-int output (nth 2 node-index) inc)
+          (push-float output node-mass inc)
+          (push-float output node-pmod inc)
+          (push-float output node-svp inc)
+          (push-float output node-vol inc)
+          (push-vector output node-vel inc)
+          (push-vector output node-force inc))))
+    output
+    )
+  )
 
 ;; (let ((nodes (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*))))
 ;;  (defparameter *node-list* (loop for node across (make-array (array-total-size nodes) :displaced-to nodes) collect node)))
+
+;; (let ((nodes (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*))))
+;;   (defparameter *node-list* (make-array (array-total-size nodes) :displaced-to nodes)))
 (defstruct mpi-node
-  index
-   velocity
-   mass
-   force
-   pmod
-   svp
-   vol
+  (index nil :type list)
+  (mass 0d0 :type double-float)
+  (pmod 0d0 :type double-float)
+  (svp  0d0 :type double-float)
+  (vol  0d0 :type double-float)
+  (velocity (vector-zeros) :type magicl:matrix/double-float)
+  (force  (vector-zeros) :type magicl:matrix/double-float)
    )
+(declaim (inline make-mpi-node))
 
 (defmacro pull-int (array inc)
   (let ((bytes-per-int 2))
@@ -489,9 +604,6 @@
                    (vel (pull-vector array inc))
                    (force (pull-vector array inc))
                    )
-               ;; (format t "~A~%" ix)
-               ;; (format t "~A~%" iy)
-               ;; (format t "~A~%" iz)
                (setf (aref output i)
                      (make-mpi-node
                       :index (list ix iy iz)
@@ -500,7 +612,49 @@
                       :force force
                       :svp svp
                       :vol vol
-                      :pmod pmod))))
+                      :pmod pmod))
+               ))
+    output))
+(defun deserialise-nodes-par (array)
+  (let* ((position-data 3)
+         (bytes-per-position 2)
+         (bytes-per-double 8)
+         (mass-length 1)
+         (pmod-length 1)
+         (svp-length 1)
+         (vol-length 1)
+         (force-length 3)
+         (velocity-length 3)
+         (data-length (+ mass-length pmod-length svp-length vol-length velocity-length force-length))
+         (packet-size (+ (* position-data bytes-per-position) (* bytes-per-double data-length)))
+         (node-count (/ (length array) packet-size))
+         (output (make-array node-count :element-type 'mpi-node))
+         (inc 0)
+        )
+    (declare (fixnum inc bytes-per-position))
+    (lparallel:pdotimes (i node-count)
+      (let ((inc (* i packet-size)))
+        (let ((ix (pull-int array inc))
+              (iy (pull-int array inc))
+              (iz (pull-int array inc))
+              ;; (vel nil)
+              (mass (pull-float array inc))
+              (pmod (pull-float array inc))
+              (svp (pull-float array inc))
+              (vol (pull-float array inc))
+              (vel (pull-vector array inc))
+              (force (pull-vector array inc))
+              )
+          (setf (aref output i)
+                (make-mpi-node
+                 :index (list ix iy iz)
+                 :mass mass
+                 :velocity vel
+                 :force force
+                 :svp svp
+                 :vol vol
+                 :pmod pmod))
+          )))
     output))
 
 (defun serialise-part (mps))
