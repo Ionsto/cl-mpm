@@ -1465,6 +1465,14 @@
    )
   (:documentation "A concrete damage model"))
 
+(defclass particle-limestone (particle-concrete)
+  (
+   (compression-ratio
+    :accessor mp-compression-ratio
+    :initform 1d0)
+   )
+  (:documentation "A concrete damage model"))
+
 (defmethod constitutive-model ((mp particle-concrete) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((E E)

@@ -1,11 +1,11 @@
 (defpackage :cl-mpm/examples/chalk
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -49,28 +49,28 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
                 ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-chalk-brittle
-                'cl-mpm/particle::particle-mc
+                'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-mc
                 ;; 'cl-mpm/particle::particle-vm
                 :E 1d9
                 :nu 0.2d0
-                :psi (* 40d0 (/ pi 180))
-                :phi (* 00d0 (/ pi 180))
-                :c 0.4d6
+                ;; :psi (* 40d0 (/ pi 180))
+                ;; :phi (* 00d0 (/ pi 180))
+                ;; :c 0.4d6
 
-                ;; :rho 1d6
+                :rho 1d6
 
-                ;; :coheasion 1d4
-                ;; :friction-angle 30d0
+                :coheasion 1d4
+                :friction-angle 30d0
 
-                ;; :fracture-energy 1d5
-                ;; :initiation-stress 5d5
+                :fracture-energy 1d4
+                :initiation-stress 2d5
 
-                ;; :damage-rate 1d-5
-                ;; :critical-damage 0.90d0
-                ;; :local-length 20d0
-                ;; ;; :local-length-damaged 20d0
-                ;; :local-length-damaged 1d-5
+                :damage-rate 1d-5
+                :critical-damage 0.90d0
+                :local-length 10d0
+                ;; :local-length-damaged 20d0
+                :local-length-damaged 1d-5
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -220,39 +220,7 @@
                                       (magicl:from-list (list shelf-length soil-boundary)
                                                         '(2 1) :type 'double-float))
                                      1d0)
-                                 )))
-    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;       do
-    ;;          (setf (cl-mpm/particle:mp-damage mp) (random 0.1d0)))
-    ;; (cl-mpm/setup::damage-sdf
-    ;;  *sim*
-    ;;  (lambda (p)
-    ;;    (cl-mpm/setup::line-sdf (magicl:from-list (list (magicl:tref p 0 0)
-    ;;                                                    (magicl:tref p 1 0))
-    ;;                                              '(2 1))
-    ;;                            (list (- shelf-length shelf-height) shelf-height)
-    ;;                            (list shelf-length soil-boundary)
-    ;;                            10d0
-    ;;                            )) 0.8d0)
-    ;(let ((sdf
-    ;        (lambda (p)
-    ;          (cl-mpm/setup::line-sdf (magicl:from-list (list (magicl:tref p 0 0)
-    ;                                                          (magicl:tref p 1 0))
-    ;                                                    '(2 1))
-    ;                                  (list (- shelf-length shelf-height) shelf-height)
-    ;                                  (list shelf-length 0d0)
-    ;                                  20d0
-    ;                                  ))
-    ;        ))
-    ;  (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;        do (with-accessors ((pos cl-mpm/particle:mp-position)
-    ;                            (damage cl-mpm/particle:mp-damage)) mp
-    ;             (when (>= 0 (funcall sdf pos))
-    ;               (setf damage (min 1d0 (max 0d0 (coerce (* (funcall sdf pos) -0.1d0) 'double-float)))))
-    ;             )))
-
-
-    )
+                                 ))))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (defparameter *run-sim* t)
@@ -417,12 +385,14 @@
           do
              (progn
                (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
-               (let* ((iterations 1000000)
+               (format t "Kernel: ~D~%" k)
+               (let* ((iterations 100000)
                       (start (get-internal-real-time)))
                  (let ((a (cl-mpm/utils:vector-zeros)))
                    (time
                     (lparallel:pdotimes (i iterations)
-                      (magicl:@ (magicl:eye 3) (cl-mpm/utils:vector-zeros)))))
+                      (cl-mpm::update-strain-kirchoff (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) 0d0 nil)
+                      )))
                  (let* ((end (get-internal-real-time))
                         (units internal-time-units-per-second)
                         (dt (/ (- end start) (* iterations units)))
@@ -453,4 +423,5 @@
          (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
          (sig (magicl:@ de eps)))
     (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))
+
 

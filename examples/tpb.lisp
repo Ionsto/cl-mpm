@@ -404,7 +404,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.010 (* 2.00)))
+  (let* ((mesh-size (/ 0.010 (* 4.00)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length (* shelf-height 4))

@@ -413,48 +413,48 @@
       (vector (* 8 3))
       (t 0)))
 
-;; (defmacro make-mpi-ser (name mapping-list)
-;;   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
-;;   (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
-;;         (deser-name (intern (format nil "DESERIALISE-~:@(~A~)" name)))
-;;         (packet-size (loop for map in mapping-list
-;;                            sum (serialise-length (first map)))))
-;;     (format t "~A~%" packet-size)
-;;     `(progn
-;;        (defun ,ser-name (objects)
-;;          (let* ((node-count (length objects))
-;;                 (packet-size ,packet-size)
-;;                 (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8))))
-;;            (declare ((simple-array (unsigned-byte 8) *) output))
-;;            (lparallel:pdotimes (i node-count)
-;;              (let* ((inc (* i packet-size))
-;;                     (obj (aref nodes i)))
-;;                (with-accessors ,(mapcar (lambda (slot-entry)
-;;                                           (with-current-source-form (slot-entry mapping-list)
-;;                                             (unless (sb-int::proper-list-of-length-p slot-entry 3)
-;;                                               (error "Malformed slot entry: ~s, should ~
-;;                                   be (type variable-name accessor-name)"
-;;                                                      slot-entry))
-;;                                             (destructuring-bind (type var-name accessor-name)
-;;                                                 slot-entry
-;;                                               `(,var-name ,accessor-name))
-;;                                             ))
-;;                                  mapping-list)
-;;                    obj
-;;                  ,@(mapcar (lambda (slot-entry)
-;;                              (destructuring-bind (type var-name accessor-name)
-;;                                  slot-entry
-;;                                (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
-;;                                  `(,push-name output ,var-name inc)
-;;                                  ))
-;;                              ) mapping-list)
-;;                  )
-;;                )))
-;;          )
-;;        ;; (defun ,deser-name (array)
-;;        ;;   )
-;;        ))
-;;   )
+(defmacro make-mpi-ser (name mapping-list)
+  "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
+  (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
+        (deser-name (intern (format nil "DESERIALISE-~:@(~A~)" name)))
+        (packet-size (loop for map in mapping-list
+                           sum (serialise-length (first map)))))
+    (format t "~A~%" packet-size)
+    `(progn
+       (defun ,ser-name (objects)
+         (let* ((node-count (length objects))
+                (packet-size ,packet-size)
+                (output (static-vectors:make-static-vector (* node-count packet-size) :element-type '(unsigned-byte 8))))
+           (declare ((simple-array (unsigned-byte 8) *) output))
+           (lparallel:pdotimes (i node-count)
+             (let* ((inc (* i packet-size))
+                    (obj (aref nodes i)))
+               (with-accessors ,(mapcar (lambda (slot-entry)
+                                          (with-current-source-form (slot-entry mapping-list)
+                                            (unless (sb-int::proper-list-of-length-p slot-entry 3)
+                                              (error "Malformed slot entry: ~s, should ~
+                                  be (type variable-name accessor-name)"
+                                                     slot-entry))
+                                            (destructuring-bind (type var-name accessor-name)
+                                                slot-entry
+                                              `(,var-name ,accessor-name))
+                                            ))
+                                 mapping-list)
+                   obj
+                 ,@(mapcar (lambda (slot-entry)
+                             (destructuring-bind (type var-name accessor-name)
+                                 slot-entry
+                               (let ((push-name (intern (format nil "PUSH-~:@(~A~)" type))))
+                                 `(,push-name output ,var-name inc)
+                                 ))
+                             ) mapping-list)
+                 )
+               )))
+         )
+       ;; (defun ,deser-name (array)
+       ;;   )
+       ))
+  )
 ;; (make-mpi-ser
 ;;  test
 ;;  (
