@@ -1357,6 +1357,11 @@
 
 (defclass particle-chalk-brittle (particle-chalk particle-vm)
   (
+   (enable-plasticity
+    :accessor mp-enable-plasticity
+    :initarg :enable-plasticity
+    :initform t
+    )
    (fracture-energy
     :accessor mp-gf
     :initarg :fracture-energy
@@ -1382,6 +1387,7 @@
                    (ps-vm mp-strain-plastic-vm)
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
+                   (enable-plasticity mp-enable-plasticity)
                    )
       mp
     (declare (function calc-pressure))
@@ -1390,30 +1396,30 @@
           (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (call-next-method)
 
-    (let* ((rho_0 rho)
-           (rho_1 1d5)
-           ;(rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
-           (rho-d rho_0)
-           )
-      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho-d)
-        (setf stress
-              sig
-              plastic-strain (magicl:.- strain eps-e)
-              yield-func f
-              )
-        (setf strain eps-e)
-        ))
-    (incf ps-vm
-          (multiple-value-bind (l v)
-              (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-            (destructuring-bind (s1 s2 s3) l
-              (sqrt
-               (/ (+ (expt (- s1 s2) 2d0)
-                     (expt (- s2 s3) 2d0)
-                     (expt (- s3 s1) 2d0)
-                     ) 2d0)))))
-
-    ;; (setf stress (magicl:scale stress-u 1d0))
+    (if enable-plasticity
+        (let* ((rho_0 rho)
+               (rho_1 1d5)
+                                        ;(rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
+               (rho-d rho_0)
+               )
+          (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho-d)
+            (setf stress
+                  sig
+                  plastic-strain (magicl:.- strain eps-e)
+                  yield-func f
+                  )
+            (setf strain eps-e)
+            )
+          (incf ps-vm
+                (multiple-value-bind (l v)
+                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                  (destructuring-bind (s1 s2 s3) l
+                    (sqrt
+                     (/ (+ (expt (- s1 s2) 2d0)
+                           (expt (- s2 s3) 2d0)
+                           (expt (- s3 s1) 2d0)
+                           ) 2d0))))))
+        (setf stress (magicl:scale stress-u 1d0)))
     (when (> damage 0.0d0)
       (let* ((j 1d0)
              (degredation (expt (- 1d0 damage) 2d0))
