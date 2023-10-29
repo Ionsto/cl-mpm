@@ -7,7 +7,7 @@
    ))
 
 (in-package :cl-mpm/output)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun save-sim (sim)
   "Save a simulation such that it can be restarted from that point")

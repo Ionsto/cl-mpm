@@ -58,12 +58,13 @@
                 ;; :phi (* 00d0 (/ pi 180))
                 ;; :c 0.4d6
 
-                :rho 1d6
+                :rho 1d5
+                :enable-plasticity t
 
-                :coheasion 1d4
-                :friction-angle 30d0
+                ;; :coheasion 1d4
+                ;; :friction-angle 30d0
 
-                :fracture-energy (* 10000d0 1d0)
+                :fracture-energy 254d0
                 :initiation-stress 1d5
 
                 :damage-rate 1d-5
@@ -86,7 +87,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
         )
 
       (dotimes (i 0)
@@ -188,7 +189,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 2.5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 000)
@@ -221,6 +222,8 @@
                                                         '(2 1) :type 'double-float))
                                      1d0)
                                  ))))
+  ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;       do (setf (cl-mpm/particle::mp-damage mp) (random 0.1d0)))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (defparameter *run-sim* t)
@@ -436,7 +439,7 @@
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (length cl-mpm/particle::mp-local-length)
                      ) mp
-      (let* ((stress (loop for x from 1d4 to 1d6 by 1d4
+      (let* ((stress (loop for x from 1d6 to 1d7 by 1d4
                            collect x))
              (damage (mapcar (lambda (stress)
                                         ;(cl-mpm/damage::brittle-concrete-d stress E Gf length init-stress)

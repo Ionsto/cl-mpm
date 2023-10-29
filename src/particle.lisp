@@ -1399,8 +1399,8 @@
     (if enable-plasticity
         (let* ((rho_0 rho)
                (rho_1 1d5)
-                                        ;(rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
-               (rho-d rho_0)
+               (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
+               ;; (rho-d rho_0)
                )
           (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho-d)
             (setf stress
@@ -1426,7 +1426,7 @@
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                (magicl:scale! s (max 1d-5 degredation))
+                                (magicl:scale! s (max 0d-5 degredation))
                                 ))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1441,7 +1441,7 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;tensile damage -> unbounded
-                           (setf (nth i l) (* sii (max 1d-5 degredation)))
+                           (setf (nth i l) (* sii (max 0d-5 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            ;; (setf (nth i l) (* sii degredation))
                            )

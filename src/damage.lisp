@@ -10,7 +10,7 @@
 ;; (defconstant +stress-exp+ 2d0)
 
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim
  ;(inline damage-rate-profile)
  (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
