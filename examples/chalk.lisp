@@ -63,8 +63,8 @@
                 :coheasion 1d4
                 :friction-angle 30d0
 
-                :fracture-energy 1d4
-                :initiation-stress 2d5
+                :fracture-energy (* 10000d0 1d0)
+                :initiation-stress 1d5
 
                 :damage-rate 1d-5
                 :critical-damage 0.90d0
@@ -86,7 +86,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
         )
 
       (dotimes (i 0)
@@ -188,7 +188,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 2.5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 000)
@@ -246,7 +246,7 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 1)
+                     (when (= steps 10)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                        ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))
@@ -425,3 +425,22 @@
     (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))
 
 
+
+
+(defun plot-stress-damage ()
+  (vgplot:close-all-plots)
+  (let* ((mp (aref (cl-mpm:sim-mps *sim*))))
+    (with-accessors ((damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (length cl-mpm/particle::mp-local-length)
+                     ) mp
+      (let* ((stress (loop for x from 1d4 to 1d6 by 1d4
+                           collect x))
+             (damage (mapcar (lambda (stress)
+                                        ;(cl-mpm/damage::brittle-concrete-d stress E Gf length init-stress)
+                               (cl-mpm/damage::brittle-chalk-d stress E Gf length init-stress)
+                               )
+                             stress)))
+        (vgplot:plot stress damage)))))

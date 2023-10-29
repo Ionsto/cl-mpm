@@ -1392,7 +1392,9 @@
 
     (let* ((rho_0 rho)
            (rho_1 1d5)
-           (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage)))))
+           ;(rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
+           (rho-d rho_0)
+           )
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho-d)
         (setf stress
               sig
@@ -1417,9 +1419,9 @@
              (degredation (expt (- 1d0 damage) 2d0))
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        ;; (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-        ;;                         (magicl:scale! s (max 1d-5 degredation))
-        ;;                         ))
+        (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+                                (magicl:scale! s (max 1d-5 degredation))
+                                ))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (let* ((tp 0d0)
@@ -1469,6 +1471,7 @@
   (
    (compression-ratio
     :accessor mp-compression-ratio
+    :initarg :compression-ratio
     :initform 1d0)
    )
   (:documentation "A concrete damage model"))

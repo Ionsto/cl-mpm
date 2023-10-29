@@ -1355,13 +1355,17 @@
                        (s_2 (- s_2 pressure-effective))
                        (s_3 (- s_3 pressure-effective))
                        (s_1 (max 0d0 s_1))
-                       (s_2 (max 0d0 s_2))
-                       (s_3 (max 0d0 s_3))
-                       (angle (* angle (/ pi 180d0)))
-                       ;; (c 1d4)
-                       (A (/ (* 6 c (cos angle))
-                             (* (sqrt 3) (- 3 (sin angle)))))
-                       (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (s_2 (max 0d0 s_2))
+                       ;; (s_3 (max 0d0 s_3))
+                       ;; (angle (* angle (/ pi 180d0)))
+                       ;; ;; (c 1d4)
+                       ;; (A (/ (* 6 c (cos angle))
+                       ;;       (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (s_1 (sqrt
+                       ;;       (+ (expt s_1 2)
+                       ;;          (expt s_2 2)
+                       ;;          (expt s_3 2))))
                        ;; (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
@@ -1381,11 +1385,19 @@
   "Function that controls how damage evolves with principal stresses"
   ;; (if (> stress init-stress)
   ;;     (* (expt (max 0d0 (- stress init-stress)) 0.5d0) rate) 0d0)
-  (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
+  (when (> length (/ (* 2 Gf E) (expt init-stress 2)))
+    (error "Length scale is too long"))
+  (let* ((hs (/ (expt init-stress 2) (* 2d0 E Gf)))
          (hsl (/ (* hs length) (- 1d0 (* hs length)))))
     (if (> stress init-stress)
-        (min 1d0 (max 0d0 (- 1d0 (* (/ init-stress stress)
-                                    (exp (* -2d0 hsl (/ (abs (- stress init-stress)) init-stress)))))))
+        (min 1d0 (max 0d0
+                      ;; (* (+ 1d0 hsl)
+                      ;;    (- 1d0 (/ init-stress stress)
+                      ;;       ))
+                      (- 1d0 (* (/ init-stress stress) (exp (* -2d0 hsl (/ (- stress init-stress) stress)))))
+                      ;; ()
+                      ;; (exp (* -2d0 hs (/ (abs (- stress init-stress)) init-stress)))
+                      ))
         0d0)
     ))
 
@@ -1415,8 +1427,8 @@
           (setf k (max k ybar))
           (let ((new-damage (max damage
                                  ;; (brittle-concrete-d k E Gf length init-stress)
-                                 ;(brittle-chalk-d k E Gf length init-stress)
-                                 (brittle-concrete-linear-d k E Gf length init-stress)
+                                 (brittle-chalk-d k E Gf length init-stress)
+                                 ;; (brittle-concrete-linear-d k E Gf length init-stress)
 
                                  )))
             (setf damage-inc (- new-damage damage)))
@@ -1580,6 +1592,29 @@
         )))
 
 
+(defun damage-response-exponential (stress E Gf length init-stress)
+  (declare (double-float stress E Gf length init-stress))
+  "Function that controls how damage evolves with principal stresses"
+  (let* (
+         (ft init-stress)
+         (e0 (/ ft E))
+         (ef (+ (/ e0 2) (/ Gf (* length ft))))
+         (k (/ stress E))
+         (beta (/ (* E e0 length) Gf))
+         )
+
+    (when (> length (/ (* 2 Gf E) (expt ft 2)))
+      (error "Length scale is too long"))
+    (if (> k e0)
+        (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
+        0d0
+        ))
+  ;; (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
+  ;;        (hsl (/ (* hs length) (- 1d0 (* hs length)))))
+  ;;   (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
+  ;;   )
+  )
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-limestone) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -1602,7 +1637,7 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (brittle-concrete-linear-d k E Gf length init-stress))))
+          (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress))))
             (setf damage-inc (- new-damage damage)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
@@ -1623,7 +1658,7 @@
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors ((stress cl-mpm/particle::mp-strain)
                      (strain cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -1638,14 +1673,14 @@
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            (multiple-value-bind (ls v) (cl-mpm/utils:eig stress)
-              (multiple-value-bind (le v) (cl-mpm/utils:eig strain)
-                (let* ((eps+ (/ (sqrt (loop for ps in ls
-                                          for pe in le
-                                          sum (* ps pe))) E))
-                      (eps- (/ (sqrt (loop for ps in ls
+            (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix stress))
+              (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voight-to-matrix strain))
+                (let* ((eps+ (sqrt (/ (loop for ps in ls
+                                             for pe in le
+                                             sum (* ps pe)) E)))
+                       (eps- (sqrt (/ (loop for ps in ls
                                            for pe in le
-                                           sum (* ps pe))) E))
+                                           sum (* ps pe)) E)))
                       (eps-eq (/ (+ (* k eps+) eps-) (* (+ k 1))))
                       )
                   (setf damage-increment (* eps-eq E))

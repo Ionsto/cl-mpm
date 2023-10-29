@@ -200,15 +200,18 @@
                            ;;            )
                            ) block-size)
                  density
-                 'cl-mpm/particle::particle-concrete
+                 ;; 'cl-mpm/particle::particle-concrete
+                 'cl-mpm/particle::particle-limestone
                  :E 15d9
                  :nu 0.15d0
                  ;; :elastic-approxmation :
-                 :fracture-energy (* 48d0 1d0)
+                 :fracture-energy 48d0
                  :initiation-stress 3.4d6
-                 :critical-damage 1.000d0
                  :local-length 5d-3
                  :local-length-damaged 5d-3
+                 :compression-ratio 8d0
+
+                 :critical-damage 1.000d0
                  ;; :local-length-damaged 0.01d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -217,7 +220,7 @@
                 )
                )))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -404,7 +407,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.010 (* 4.00)))
+  (let* ((mesh-size (/ 0.010 (* 1.00)))
          (mps-per-cell 2)
          (shelf-height 0.100d0)
          (shelf-length (* shelf-height 4))
@@ -433,8 +436,8 @@
               (+ (second offset) 0d0)
               )
         (list
-         ;; 10.0d-3
-         5d-3
+         10.0d-3
+         ;;5d-3
          ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
