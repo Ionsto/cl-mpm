@@ -1441,7 +1441,7 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;tensile damage -> unbounded
-                           (setf (nth i l) (* sii (max 0d-5 degredation)))
+                           (setf (nth i l) (* sii (max 1d-6 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            ;; (setf (nth i l) (* sii degredation))
                            )

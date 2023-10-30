@@ -194,7 +194,7 @@
          (shelf-height 100)
          (soil-boundary 000)
          (shelf-aspect 2)
-         (runout-aspect 4)
+         (runout-aspect 10)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -234,7 +234,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d1)
+  (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -249,7 +249,7 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 10)
+                     (when (= steps 1)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                        ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))

@@ -455,17 +455,17 @@
        ;;   )
        ))
   )
-;; (make-mpi-ser
-;;  test
-;;  (
-;;   (index index cl-mpm/mesh::node-index)
-;;   (float mass cl-mpm/mesh:node-mass)
-;;   (float pmod cl-mpm/mesh::node-pwave)
-;;   (float svp cl-mpm/mesh::node-svp)
-;;   (float volume cl-mpm/mesh::node-volume)
-;;   (vector velocity cl-mpm/mesh::node-velocity)
-;;   (vector force cl-mpm/mesh::node-force)
-;;   ))
+(make-mpi-ser
+ test
+ (
+  (index index cl-mpm/mesh::node-index)
+  (float mass cl-mpm/mesh:node-mass)
+  (float pmod cl-mpm/mesh::node-pwave)
+  (float svp cl-mpm/mesh::node-svp)
+  (float volume cl-mpm/mesh::node-volume)
+  (vector velocity cl-mpm/mesh::node-velocity)
+  (vector force cl-mpm/mesh::node-force)
+  ))
 
 (defun serialise-nodes (nodes)
   ;;We need to exchange nodes
