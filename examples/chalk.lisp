@@ -58,20 +58,20 @@
                 ;; :phi (* 00d0 (/ pi 180))
                 ;; :c 0.4d6
 
-                :rho 1d5
+                :rho 1d6
                 :enable-plasticity t
 
-                ;; :coheasion 1d4
-                ;; :friction-angle 30d0
+                :coheasion 1d5
+                :friction-angle 40d0
 
-                :fracture-energy 254d0
-                :initiation-stress 1d5
+                :fracture-energy 2540d0
+                :initiation-stress 500d3
 
                 :damage-rate 1d-5
                 :critical-damage 0.90d0
                 :local-length 10d0
-                ;; :local-length-damaged 20d0
-                :local-length-damaged 1d-5
+                :local-length-damaged 10d0
+                ;; :local-length-damaged 1d-5
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -83,7 +83,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
-      (let ((ms 1d4))
+      (let ((ms 1d2))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
@@ -191,7 +191,7 @@
 
   (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 100)
+         (shelf-height 150)
          (soil-boundary 000)
          (shelf-aspect 2)
          (runout-aspect 4)
@@ -439,11 +439,11 @@
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (length cl-mpm/particle::mp-local-length)
                      ) mp
-      (let* ((stress (loop for x from 1d6 to 1d7 by 1d4
+      (let* ((stress (loop for x from 1d5 to 1d6 by 1d4
                            collect x))
              (damage (mapcar (lambda (stress)
                                         ;(cl-mpm/damage::brittle-concrete-d stress E Gf length init-stress)
-                               (cl-mpm/damage::brittle-chalk-d stress E Gf length init-stress)
+                               (cl-mpm/damage::damage-response-exponential stress E Gf length init-stress)
                                )
                              stress)))
         (vgplot:plot stress damage)))))
