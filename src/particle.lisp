@@ -426,6 +426,10 @@
     :accessor mp-damage-ybar
     :type DOUBLE-FLOAT
     :initform 0d0)
+   (damage-y-local
+    :accessor mp-damage-y-local
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar
     :initform 1d0)
@@ -1398,7 +1402,7 @@
 
     (if enable-plasticity
         (let* ((rho_0 rho)
-               (rho_1 1d5)
+               (rho_1 rho_0)
                (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
                ;; (rho-d rho_0)
                )
@@ -1419,15 +1423,17 @@
                            (expt (- s2 s3) 2d0)
                            (expt (- s3 s1) 2d0)
                            ) 2d0))))))
-        (setf stress (magicl:scale stress-u 1d0)))
+        (setf stress (magicl:scale stress-u 1d0))
+        )
     (when (> damage 0.0d0)
       (let* ((j 1d0)
              (degredation (expt (- 1d0 damage) 2d0))
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                (magicl:scale! s (max 0d-5 degredation))
+                                (magicl:scale! s (max 1d-9 degredation))
                                 ))
+        ;; (setf stress (magicl:scale stress (max 1d-9 degredation)))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (let* ((tp 0d0)
@@ -1441,10 +1447,11 @@
                               (esii (- sii driving-pressure)))
                          (when (> esii 0d0)
                            ;;tensile damage -> unbounded
-                           (setf (nth i l) (* sii (max 1d-6 degredation)))
+                           (setf (nth i l) (* sii (max 1d-9 degredation)))
                            ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                            ;; (setf (nth i l) (* sii degredation))
                            )
+                       ;; (setf (nth i l) (* sii (max 1d-5 degredation)))
                          ;; (when (< esii 1d0)
                          ;;   ;;bounded compressive damage
                          ;;   (setf (nth i l) (* (nth i l) (max 1d0 degredation)))

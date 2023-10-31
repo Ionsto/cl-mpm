@@ -530,13 +530,13 @@
                                                      ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                                                      ;;
                                                      (weight
-                                                       (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                                                       ;; (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
                                                        ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
                                                        ;;     (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
-                                                       ;;     (weight-func-mps-damaged mesh mp mp-other
-                                                       ;;                              (cl-mpm/particle::mp-local-length mp)
-                                                       ;;                              ;; (* 0.5d0 (+ length ll))
-                                                       ;;                              ))
+                                                           (weight-func-mps-damaged mesh mp mp-other
+                                                                                    (cl-mpm/particle::mp-local-length mp)
+                                                                                    ;; (* 0.5d0 (+ length ll))
+                                                                                    )
                                                        )
                                                      )
                                                  (declare (double-float weight m d mass-total damage-inc))
@@ -1072,6 +1072,10 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                                            (cl-mpm/particle::mp-damage-ybar mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "damage-y"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
+                                           (cl-mpm/particle::mp-damage-y-local mp)
+                                           0d0))
         (cl-mpm/output::save-parameter "local-length"
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
@@ -1329,6 +1333,13 @@
 
 ;;Chalk brittle
 
+(defun drucker-prager-criterion (stress angle)
+  (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress))))
+    (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+  )
+
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -1354,23 +1365,26 @@
                        (s_1 (- s_1 pressure-effective))
                        (s_2 (- s_2 pressure-effective))
                        (s_3 (- s_3 pressure-effective))
-                       (s_1 (max 0d0 s_1))
-                       (s_2 (max 0d0 s_2))
-                       (s_3 (max 0d0 s_3))
-                       (s_1 (sqrt
-                             (+ (expt s_1 2)
-                                (expt s_2 2)
-                                (expt s_3 2))))
-                       ;; (angle (* angle (/ pi 180d0)))
-                       ;; ;; (c 1d4)
-                       ;; (A (/ (* 6 c (cos angle))
-                       ;;       (* (sqrt 3) (- 3 (sin angle)))))
-                       ;; (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (s_1 (max 0d0 s_1))
+                       ;; (s_2 (max 0d0 s_2))
+                       ;; (s_3 (max 0d0 s_3))
                        ;; (s_1 (sqrt
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       ;; (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       ;; (angle (* angle (/ pi 180d0)))
+                       (ft 200d3)
+                       (fc 500d3)
+                       (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
+                       ;; ;; (c 1d4)
+                       (A (/ (* 6 c (cos angle))
+                             (* (sqrt 3) (- 3 (sin angle)))))
+                       (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (s_1 (sqrt
+                       ;;       (+ (expt s_1 2)
+                       ;;          (expt s_2 2)
+                       ;;          (expt s_3 2))))
+                       (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
                        )
@@ -1381,6 +1395,7 @@
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
           ;;Delocalisation switch
+          (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
           ))))
 
@@ -1431,7 +1446,8 @@
           (setf k (max k ybar))
           (let ((new-damage (max damage
                                  ;; (brittle-concrete-d k E Gf length init-stress)
-                                 (brittle-chalk-d k E Gf length init-stress)
+                                 ;(brittle-chalk-d k E Gf length init-stress)
+                                 (damage-response-exponential k E Gf length init-stress)
                                  ;; (brittle-concrete-linear-d k E Gf length init-stress)
 
                                  )))

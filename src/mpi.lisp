@@ -417,10 +417,19 @@
   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
   (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
         (deser-name (intern (format nil "DESERIALISE-~:@(~A~)" name)))
+        (mpi-object-name (intern (format nil "MPI-OBJECT-~:@(~A~)" name)))
+        (mpi-object-constructor (intern (format nil "MAKE-MPI-OBJECT-~:@(~A~)" name)))
         (packet-size (loop for map in mapping-list
                            sum (serialise-length (first map)))))
     (format t "~A~%" packet-size)
     `(progn
+       (defstruct ,mpi-object-name
+         ,@(mapcar (lambda (slot-entry)
+                     (destructuring-bind (type var-name accessor-name)
+                         slot-entry
+                       var-name)
+                     ) mapping-list)
+         )
        (defun ,ser-name (objects)
          (let* ((node-count (length objects))
                 (packet-size ,packet-size)
@@ -451,10 +460,38 @@
                  )
                )))
          )
-       ;; (defun ,deser-name (array)
-       ;;   )
+       (defun ,deser-name (array)
+         ((node-count (/ (length array) ,packet-size))
+          (output (make-array node-count :element-type 'mpi-object))
+          (inc 0)
+           )
+          (declare (fixnum inc bytes-per-position))
+          (lparallel:pdotimes (i node-count)
+            (let ((inc (* i packet-size)))
+              (let ((ix (pull-int array inc))
+                    (iy (pull-int array inc))
+                    (iz (pull-int array inc))
+                    ;; (vel nil)
+                    (mass (pull-float array inc))
+                    (pmod (pull-float array inc))
+                    (svp (pull-float array inc))
+                    (vol (pull-float array inc))
+                    (vel (pull-vector array inc))
+                    (force (pull-vector array inc))
+                    )
+                (setf (aref output i)
+                      (make-mpi-node
+                       :index (list ix iy iz)
+                       :mass mass
+                       :velocity vel
+                       :force force
+                       :svp svp
+                       :vol vol
+                       :pmod pmod))
+                )))
+          output)
+         )
        ))
-  )
 (make-mpi-ser
  test
  (

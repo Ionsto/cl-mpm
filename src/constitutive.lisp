@@ -605,7 +605,6 @@
                                   (list
                                    (magicl:.+ (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
-                                   ;; (magicl:transpose df)
                                    df
                                    (magicl:@ (magicl:transpose df) de)
                                    (magicl:zeros '(1 1))
