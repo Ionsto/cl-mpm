@@ -59,19 +59,19 @@
                 ;; :c 0.4d6
 
                 :rho 1d6
-                :enable-plasticity t
+                :enable-plasticity nil 
 
                 :coheasion 1d5
                 :friction-angle 40d0
 
-                :fracture-energy 2540d0
-                :initiation-stress 500d3
+                :fracture-energy 25400d0
+                :initiation-stress 1d6;5000d3
 
                 :damage-rate 1d-5
                 :critical-damage 0.90d0
                 :local-length 10d0
-                :local-length-damaged 10d0
-                ;; :local-length-damaged 1d-5
+                ;; :local-length-damaged 1d0
+                :local-length-damaged 1d-5
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -83,11 +83,11 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
-      (let ((ms 1d2))
+      (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         )
 
       (dotimes (i 0)
@@ -191,7 +191,7 @@
 
   (let* ((mesh-size 10)
          (mps-per-cell 2)
-         (shelf-height 150)
+         (shelf-height 100)
          (soil-boundary 000)
          (shelf-aspect 2)
          (runout-aspect 10)
@@ -234,7 +234,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d2)
+  (let* ((target-time 1d1)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -249,11 +249,17 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 1)
+                     (when (= steps 5)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                       ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-8 ms))
-                       ;;   )
+                       ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d0
+                       ;;       target-time 1d0)
+                       (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                         ;; (setf (cl-mpm:sim-damping-factor *sim*) (* 0d-8 ms))
+                         )
+                       ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                       ;;   (format t "CFL dt estimate: ~f~%" dt-e)
+                       ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
+                       ;;   (setf substeps substeps-e))
                        )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -442,8 +448,9 @@
       (let* ((stress (loop for x from 1d5 to 1d6 by 1d4
                            collect x))
              (damage (mapcar (lambda (stress)
-                                        ;(cl-mpm/damage::brittle-concrete-d stress E Gf length init-stress)
-                               (cl-mpm/damage::damage-response-exponential stress E Gf length init-stress)
+                               ;(cl-mpm/damage::brittle-concrete-linear-d stress E Gf length init-stress)
+                               (cl-mpm/damage::test-damage stress 2d5 1d5)
+                               ;; (cl-mpm/damage::damage-response-exponential stress E Gf length init-stress)
                                )
                              stress)))
         (vgplot:plot stress damage)))))

@@ -530,13 +530,13 @@
                                                      ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                                                      ;;
                                                      (weight
-                                                       ;; (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                                                       (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
                                                        ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
                                                        ;;     (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
-                                                           (weight-func-mps-damaged mesh mp mp-other
-                                                                                    (cl-mpm/particle::mp-local-length mp)
-                                                                                    ;; (* 0.5d0 (+ length ll))
-                                                                                    )
+                                                           ;; (weight-func-mps-damaged mesh mp mp-other
+                                                           ;;                          (cl-mpm/particle::mp-local-length mp)
+                                                           ;;                          ;; (* 0.5d0 (+ length ll))
+                                                           ;;                          )
                                                        )
                                                      )
                                                  (declare (double-float weight m d mass-total damage-inc))
@@ -1365,7 +1365,7 @@
                        (s_1 (- s_1 pressure-effective))
                        (s_2 (- s_2 pressure-effective))
                        (s_3 (- s_3 pressure-effective))
-                       ;; (s_1 (max 0d0 s_1))
+                       (s_1 (max 0d0 s_1))
                        ;; (s_2 (max 0d0 s_2))
                        ;; (s_3 (max 0d0 s_3))
                        ;; (s_1 (sqrt
@@ -1377,21 +1377,27 @@
                        (fc 500d3)
                        (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
                        ;; ;; (c 1d4)
-                       (A (/ (* 6 c (cos angle))
-                             (* (sqrt 3) (- 3 (sin angle)))))
-                       (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
+                       ;;Another dp
+                       (alpha (/ (- (/ fc ft) 1) (+ (/ fc ft) 1)))
+                       (s_1 (/ (+ (sqrt (* 3 j2)) (* alpha p)) (+ 1 alpha)))
+
+                       ;; (A (/ (* 6 c (cos angle))
+                       ;;       (* (sqrt 3) (- 3 (sin angle)))))
+                       ;; (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
                        ;; (s_1 (sqrt
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       ;; (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
                        )
+                  ;; (setf damage-increment s_1)
                   (when (> s_1 0d0)
                     ;; (setf damage-increment (* s_1 (expt (- 1d0 damage) -2d0)))
                     (setf damage-increment s_1)
-                    )))))
+                    )
+                  ))))
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
           ;;Delocalisation switch
@@ -1404,8 +1410,8 @@
   "Function that controls how damage evolves with principal stresses"
   ;; (if (> stress init-stress)
   ;;     (* (expt (max 0d0 (- stress init-stress)) 0.5d0) rate) 0d0)
-  (when (> length (/ (* 2 Gf E) (expt init-stress 2)))
-    (error "Length scale is too long"))
+  ;; (when (> length (/ (* 2 Gf E) (expt init-stress 2)))
+  ;;   (error "Length scale is too long"))
   (let* ((hs (/ (expt init-stress 2) (* 2d0 E Gf)))
          (hsl (/ (* hs length) (- 1d0 (* hs length)))))
     (if (> stress init-stress)
@@ -1413,7 +1419,7 @@
                       ;; (* (+ 1d0 hsl)
                       ;;    (- 1d0 (/ init-stress stress)
                       ;;       ))
-                      (- 1d0 (* (/ init-stress stress) (exp (* -2d0 hsl (/ (- stress init-stress) stress)))))
+                      (- 1d0 (* (/ init-stress stress) (exp (* -2d0 hs (/ (- stress init-stress) stress)))))
                       ;; ()
                       ;; (exp (* -2d0 hs (/ (abs (- stress init-stress)) init-stress)))
                       ))
@@ -1444,14 +1450,13 @@
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf k (max k ybar))
+          (setf damage-inc 0d0)
           (let ((new-damage (max damage
-                                 ;; (brittle-concrete-d k E Gf length init-stress)
-                                 ;(brittle-chalk-d k E Gf length init-stress)
+                                 ;; (test-damage k 1d7 init-stress)
                                  (damage-response-exponential k E Gf length init-stress)
-                                 ;; (brittle-concrete-linear-d k E Gf length init-stress)
-
                                  )))
-            (setf damage-inc (- new-damage damage)))
+            (setf damage-inc (- new-damage damage))
+            )
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
           ;;       damage-inc 0d0)
           (when (>= damage 1d0)
@@ -1525,6 +1530,12 @@
   ;;   (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
   ;;   )
   )
+
+(defun test-damage (stress ef init-stress)
+  (if (> stress init-stress)
+        (* (/ ef (- ef init-stress)) (- 1d0 (/ init-stress stress)))
+        0d0
+        ))
 
 (defun brittle-concrete-linear-d (stress E Gf length init-stress)
   (let* ((hsl (/ (expt init-stress 2) (* 2 E Gf)))
