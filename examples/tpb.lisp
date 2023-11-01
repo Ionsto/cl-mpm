@@ -6,7 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* nil)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/tpb)
 
 (ql:quickload :magicl)
@@ -208,7 +208,7 @@
                  :fracture-energy (* 1d0 48d0)
                  :initiation-stress 3.4d6
                  ;;Material parameter
-                 :internal-length (/ 5.4d-3 1d0)
+                 :internal-length (* 5.4d-3 1d0)
                  ;;Interaction radius
                  :local-length (* 5.4d-3 1d0)
                  :local-length-damaged (* 5.4d-3 1d0)
@@ -228,7 +228,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d6))
+      (let ((ms 1d7))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 1d-3 density ms)
@@ -410,7 +410,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 (* 1)))
+  (let* ((mesh-size (/ 0.0102 1))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 4))
@@ -439,8 +439,9 @@
               (+ (second offset) 0d0)
               )
         (list
-         10.0d-3
-         ;; 2.5d-3
+         mesh-size
+         ;; 10.0d-3
+         ;2.5d-3
          ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
@@ -535,7 +536,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 1d0)
+  (let* ((target-time 0.2d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -556,8 +557,8 @@
                 while *run-sim*
                 do
                    (progn
-                     ;; (when (= steps 5)
-                     ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;; (when (= steps 10)
+                     ;;   (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
                      ;;   )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -887,6 +888,8 @@
 (defun plot-interaction ()
   (vgplot:close-all-plots)
   (let* ((length 0.1d0)
-         (x (loop for x from -0.5d0 to 0.5d0 by 0.01d0 collect x)))
+         (scaler 4d0)
+         (bounds (* scaler length))
+         (x (loop for x from (- bounds) to bounds by 0.01d0 collect x)))
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (* x x) length)) x))
     ))

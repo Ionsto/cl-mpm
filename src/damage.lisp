@@ -196,7 +196,8 @@
   (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (when (typep mp 'cl-mpm/particle:particle-damage)
-        (find-nodal-local-length mesh mp)
+        ;(find-nodal-local-length mesh mp)
+        (setf (cl-mpm/particle::mp-true-local-length mp) (cl-mpm/particle::mp-local-length mp))
         ;; (calculate-damage-increment (aref mps i) dt)
         (damage-model-calculate-y mp dt)
         )))
@@ -1702,41 +1703,88 @@
                      (pressure cl-mpm/particle::mp-pressure)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (def cl-mpm/particle::mp-deformation-gradient)
+                     (de cl-mpm/particle::mp-elastic-matrix)
                      (E cl-mpm/particle::mp-e)
+                     (nu cl-mpm/particle::mp-nu)
                      (k cl-mpm/particle::mp-compression-ratio)
                      ) mp
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix stress))
-              (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix strain))
-                (let* ((eps+ (sqrt (/ (loop for ps in ls
-                                             for pe in le
-                                            sum (* (max 0d0 ps) (max 0d0 pe))) E)))
-                       (eps- (sqrt (/ (loop for ps in ls
-                                           for pe in le
-                                            sum (* (min 0d0 ps) (min 0d0 pe))) E)))
-                      (eps-eq (/ (+ (* k eps+) eps-) (* (+ k 1))))
-                      )
-                  (setf damage-increment (* eps-eq E))
+            (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (* 1d0;(- 1d0 damage)
+                                                                   (magicl:det def))))))
+              (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
+                (let* (
+                       (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt
+                                                                  cauchy-undamaged)))
+                       (i1 (+ s_1 s_2 s_3))
+                       (k-factor (/ (- k 1d0)
+                                    (- 1d0 (* 2d0 nu))))
+                       (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                               (* (/ 1d0 (* 2d0 k))
+                                  (sqrt (+ (expt (* k-factor i1) 2)
+                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                                           )))))
+                       )
+                  (when (> s_1 0d0)
+                    (setf damage-increment s_1)
+                    )))))
 
-                  )
-                ))
-            ;; (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
-            ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
-            ;;     (let* (;(s_1 (max 0d0 s_1))
-            ;;            )
-            ;;       (when (> s_1 0d0)
-            ;;         ;; (setf damage-increment s_1)
-            ;;         (setf damage-increment (sqrt
-            ;;                                 (+ (expt s_1 2)
-            ;;                                    (expt s_2 2)
-            ;;                                    (expt s_3 2))))
-            ;;         ))))
-            )
-          (when (>= damage 1d0)
-            (setf damage-increment 0d0))
-          ;;Delocalisation switch
-          (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
-          (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-          ))))
+
+            ;; (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix stress))
+            ;;   (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix strain))
+            ;;     (let* ((eps+ (sqrt (/ (loop for ps in ls
+            ;;                                  for pe in le
+            ;;                                 sum (* (max 0d0 ps) (max 0d0 pe))) E)))
+            ;;            (eps- (sqrt (/ (loop for ps in ls
+            ;;                                for pe in le
+            ;;                                 sum (* (min 0d0 ps) (min 0d0 pe))) E)))
+            ;;           (eps-eq (/ (+ (* k eps+) eps-) (* (+ k 1))))
+            ;;           )
+            ;;       (setf damage-increment (* eps-eq E))
+
+            ;;       )
+            ;;     ))
+
+            ;; (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix strain))
+            ;;   (let ((strain+
+            ;;           (magicl:@ v
+            ;;                     (magicl:from-diag (mapcar (lambda (x) (max 0d0 x)) le) :type 'double-float)
+            ;;                     (magicl:transpose v)))
+            ;;         (strain-
+            ;;           (magicl:@ v
+            ;;                     (magicl:from-diag (mapcar (lambda (x) (min 0d0 x)) le) :type 'double-float)
+            ;;                     (magicl:transpose v)))
+            ;;           );))
+            ;;   (let* ((eps+ (sqrt (/ (magicl:tref (magicl:@ (magicl:transpose! (matrix-to-voigt strain+))
+            ;;                                                de
+            ;;                                                (matrix-to-voight strain+)
+            ;;                                                )0 0) E)))
+            ;;          (eps- (sqrt (/ (magicl:tref (magicl:@ (magicl:transpose! (matrix-to-voigt strain-))
+            ;;                                                de
+            ;;                                                (matrix-to-voight strain-)
+            ;;                                                )0 0) E)))
+            ;;          (eps-eq (/ (+ (* k eps+) eps-) (* (+ k 1))))
+            ;;          )
+            ;;     (setf damage-increment (* eps-eq E))))))
+
+                ;;       )
+                ;;     ))
+                ;; (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
+                ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
+                ;;     (let* (;(s_1 (max 0d0 s_1))
+                ;;            )
+                ;;       (when (> s_1 0d0)
+                ;;         ;; (setf damage-increment s_1)
+                ;;         (setf damage-increment (sqrt
+                ;;                                 (+ (expt s_1 2)
+                ;;                                    (expt s_2 2)
+                ;;                                    (expt s_3 2))))
+                ;;         ))))
+                )
+              (when (>= damage 1d0)
+                (setf damage-increment 0d0))
+              ;;Delocalisation switch
+              (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+              (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+              )))
