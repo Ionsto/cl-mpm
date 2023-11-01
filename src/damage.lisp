@@ -1660,12 +1660,13 @@
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (pressure cl-mpm/particle::mp-pressure)
                      (def cl-mpm/particle::mp-deformation-gradient)
-                     (length cl-mpm/particle::mp-local-length)
+                     (length cl-mpm/particle::mp-internal-length)
                      (k cl-mpm/particle::mp-history-stress)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
           ;;Damage increment holds the delocalised driving factor
+
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress))))
@@ -1682,7 +1683,8 @@
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
             (setf damage 1d0)
-            (setf damage-inc 0d0)))
+            (setf damage-inc 0d0))
+          )
   (values)
   ))
 
@@ -1733,5 +1735,6 @@
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
           ;;Delocalisation switch
+          (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
           ))))

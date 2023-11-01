@@ -1488,6 +1488,11 @@
     :accessor mp-compression-ratio
     :initarg :compression-ratio
     :initform 1d0)
+   (interal-length
+    :accessor mp-internal-length
+    :type DOUBLE-FLOAT
+    :initarg :internal-length
+    :initform 1d0)
    )
   (:documentation "A concrete damage model"))
 

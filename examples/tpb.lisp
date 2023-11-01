@@ -140,7 +140,7 @@
                      ))
       )))
 
-;(defparameter *tip-velocity* -0.02d-3)
+                                        ;(defparameter *tip-velocity* -0.02d-3)
 (defparameter *tip-velocity* -0.000d-3)
 
 (declaim (notinline setup-test-column))
@@ -207,8 +207,11 @@
                  ;; :elastic-approxmation :
                  :fracture-energy 48d0
                  :initiation-stress 3.4d6
-                 :local-length 5d-3
-                 :local-length-damaged 5d-3
+                 ;;Material parameter
+                 :internal-length 2.5d-3
+                 ;;Interaction radius
+                 :local-length 1d-2
+                 :local-length-damaged 1d-2
                  :compression-ratio 8d0
 
                  :critical-damage 1.000d0
@@ -532,7 +535,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 2d0)
+  (let* ((target-time 0.2d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
