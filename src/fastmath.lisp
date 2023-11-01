@@ -44,17 +44,18 @@
    (inline simd-fmacc)
    (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
   (defun simd-fmacc (a b scale)
-    ;; (declare (type sb-simd:f64vec a b)
-    ;;          (type double-float scale))
-    ;; (setf (sb-simd-avx:f64.2-aref a 0)
-    ;;       (sb-simd-avx:f64.2+
-    ;;        (sb-simd-avx:f64.2-aref a 0)
-    ;;        (sb-simd-avx:f64.2*
-    ;;         (sb-simd-avx:f64.2-aref b 0)
-    ;;         (sb-simd-avx:f64.2 scale))
-    ;;        ))
-    (loop for i from 0 to 2
-          do (incf (aref a i) (* scale (aref b i))))
+    (declare (type sb-simd:f64vec a b)
+             (type double-float scale))
+    (setf (sb-simd-avx:f64.2-aref a 0)
+          (sb-simd-avx:f64.2+
+           (sb-simd-avx:f64.2-aref a 0)
+           (sb-simd-avx:f64.2*
+            (sb-simd-avx:f64.2-aref b 0)
+            (sb-simd-avx:f64.2 scale))
+           ))
+    ;(loop for i from 0 to 2
+    ;      do (incf (aref a i) (* scale (aref b i))))
+    (incf (aref a 2) (* scale (aref b 2)))
     (values))
   (declaim
    (inline simd-add)
