@@ -984,7 +984,7 @@
 
         (cl-mpm/output::save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
         (cl-mpm/output::save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
-        (cl-mpm/output::save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
+        (cl-mpm/output::save-parameter "e_zz" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
 
         ;; (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
@@ -1080,25 +1080,25 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
                                            0d0))
-        ;; (cl-mpm/output::save-parameter "j2"
-        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
-        ;;                                                 (stress cl-mpm/particle::mp-stress)
-        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
-        ;;                                                 )
-        ;;                                    mp
-        ;;                                  (if (< damage 1d0)
-        ;;                                      (sqrt (cl-mpm/constitutive::voigt-j2
-        ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
-        ;;                                      0d0)))
-        ;; (cl-mpm/output::save-parameter "i1"
-        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
-        ;;                                                 (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
-        ;;                                                 )
-        ;;                                    mp
-        ;;                                  (if (< damage 1d0)
-        ;;                                      (cl-mpm/utils::trace-voigt stress)
-        ;;                                      0d0)))
+        (cl-mpm/output::save-parameter "j2"
+                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                                        (stress cl-mpm/particle::mp-undamaged-stress)
+                                                        (def cl-mpm/particle::mp-deformation-gradient)
+                                                        )
+                                           mp
+                                         (if (< damage 1d0)
+                                             (sqrt (cl-mpm/constitutive::voigt-j2
+                                                    (cl-mpm/utils::deviatoric-voigt stress)))
+                                             0d0)))
+        (cl-mpm/output::save-parameter "i1"
+                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                                        (stress cl-mpm/particle::mp-undamaged-stress)
+                                                        (def cl-mpm/particle::mp-deformation-gradient)
+                                                        )
+                                           mp
+                                         (if (< damage 1d0)
+                                             (cl-mpm/utils::trace-voigt stress)
+                                             0d0)))
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
         (cl-mpm/output::save-parameter
@@ -1378,8 +1378,8 @@
                        (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
                        ;; ;; (c 1d4)
                        ;;Another dp
-                       (alpha (/ (- (/ fc ft) 1) (+ (/ fc ft) 1)))
-                       (s_1 (/ (+ (sqrt (* 3 j2)) (* alpha p)) (+ 1 alpha)))
+                       ;; (alpha (/ (- (/ fc ft) 1) (+ (/ fc ft) 1)))
+                       ;; (s_1 (/ (+ (sqrt (* 3 j2)) (* alpha p)) (+ 1 alpha)))
 
                        ;; (A (/ (* 6 c (cos angle))
                        ;;       (* (sqrt 3) (- 3 (sin angle)))))
@@ -1388,7 +1388,7 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       ;; (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
                        )
@@ -1689,8 +1689,8 @@
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-strain)
-                     (strain cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors ((strain cl-mpm/particle::mp-strain)
+                     (stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -1708,10 +1708,10 @@
               (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voight-to-matrix strain))
                 (let* ((eps+ (sqrt (/ (loop for ps in ls
                                              for pe in le
-                                             sum (* ps pe)) E)))
+                                            sum (* (max 0d0 ps) (max 0d0 pe))) E)))
                        (eps- (sqrt (/ (loop for ps in ls
                                            for pe in le
-                                           sum (* ps pe)) E)))
+                                            sum (* (min 0d0 ps) (min 0d0 pe))) E)))
                       (eps-eq (/ (+ (* k eps+) eps-) (* (+ k 1))))
                       )
                   (setf damage-increment (* eps-eq E))

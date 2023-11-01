@@ -294,10 +294,12 @@
                    )
       particle
     (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
-    (if (eq (mp-elastic-approximation particle) :plane-strain)
-        (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))
-        (setf de (cl-mpm/constitutive::linear-elastic-matrix-ps E nu))
-        )))
+    (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+    ;; (if (eq (mp-elastic-approximation particle) :plane-strain)
+    ;;     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+    ;;     (setf de (cl-mpm/constitutive::linear-elastic-matrix-ps E nu))
+    ;;     )
+    ))
 
 (defmethod (setf mp-E) :after (value (p particle-elastic))
   (update-elastic-matrix p))
@@ -1433,38 +1435,38 @@
         ;; (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
         ;;                         (magicl:scale! s (max 1d-9 degredation))
         ;;                         ))
-        (setf stress (magicl:scale stress (max 1d-9 degredation)))
-        ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
-        ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-        ;;   (let* ((tp 0d0)
-        ;;          ;(tp (funcall calc-pressure pos))
-        ;;          (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
-        ;;          )
-        ;;     (setf pressure tp)
-        ;;     (loop for i from 0 to 2
-        ;;           do
-        ;;              (let* ((sii (nth i l))
-        ;;                       (esii (- sii driving-pressure)))
-        ;;                  (when (> esii 0d0)
-        ;;                    ;;tensile damage -> unbounded
-        ;;                    (setf (nth i l) (* sii (max 1d-9 degredation)))
-        ;;                    ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-        ;;                    ;; (setf (nth i l) (* sii degredation))
-        ;;                    )
-        ;;                ;; (setf (nth i l) (* sii (max 1d-5 degredation)))
-        ;;                  ;; (when (< esii 1d0)
-        ;;                  ;;   ;;bounded compressive damage
-        ;;                  ;;   (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
-        ;;                  ;;   ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-        ;;                  ;;   )
-        ;;                ;; (setf (nth i l) 0)
-        ;;                  ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
-        ;;                  )
-        ;;           )
-        ;;       (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
-        ;;                                                               (magicl:from-diag l :type 'double-float)
-        ;;                                                               (magicl:transpose v))) j))
-        ;;       ))
+        ;; (setf stress (magicl:scale stress (max 1d-9 degredation)))
+        (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+          (let* ((tp 0d0)
+                 ;(tp (funcall calc-pressure pos))
+                 (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
+                 )
+            (setf pressure tp)
+            (loop for i from 0 to 2
+                  do
+                     (let* ((sii (nth i l))
+                              (esii (- sii driving-pressure)))
+                         (when (> esii 0d0)
+                           ;;tensile damage -> unbounded
+                           (setf (nth i l) (* sii (max 1d-9 degredation)))
+                           ;; (setf (nth i l) (+ (nth i l) driving-pressure))
+                           ;; (setf (nth i l) (* sii degredation))
+                           )
+                       ;; (setf (nth i l) (* sii (max 1d-5 degredation)))
+                       ;;   (when (< esii 1d0)
+                       ;;     ;;bounded compressive damage
+                       ;;     (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
+                       ;;     ;; (setf (nth i l) (+ (nth i l) driving-pressure))
+                       ;;     )
+                       ;; (setf (nth i l) 0)
+                         ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
+                         )
+                  )
+              (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+                                                                      (magicl:from-diag l :type 'double-float)
+                                                                      (magicl:transpose v))) j))
+              ))
         ))
     stress
     ))
