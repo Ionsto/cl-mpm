@@ -30,14 +30,15 @@
                      (simple-array double-float)) (values)) simd-accumulate))
   (defun simd-accumulate (a b)
     ;; (declare (type (simple-array double-float 3) a b))
-    ;; (declare (type sb-simd:f64vec a b))
-    ;; (setf (sb-simd-avx:f64.2-aref a 0)
-    ;;       (sb-simd-avx:f64.2+
-    ;;        (sb-simd-avx:f64.2-aref a 0)
-    ;;        (sb-simd-avx:f64.2-aref b 0)
-    ;;        ))
-    (loop for i from 0 to 2
-          do (incf (aref a i) (aref b i)))
+    (declare (type sb-simd:f64vec a b))
+    (setf (sb-simd-avx:f64.2-aref a 0)
+          (sb-simd-avx:f64.2+
+           (sb-simd-avx:f64.2-aref a 0)
+           (sb-simd-avx:f64.2-aref b 0)
+           ))
+    (incf (aref a 2) (aref b 2))
+    ;; (loop for i from 0 to 2
+    ;;       do (incf (aref a i) (aref b i)))
     (values))
 
   (declaim
