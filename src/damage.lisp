@@ -445,7 +445,9 @@
         weight-func
         ))
 (defun weight-func (dist-squared length)
-  (values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared)))))))
+  ;(values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared))))))
+  (values (the double-float (exp (the double-float (/ (- dist-squared) (* 2d0 (* length length)))))))
+  )
 (declaim
  (inline weight-func-mps)
  (ftype (function (cl-mpm/mesh::mesh
@@ -475,7 +477,7 @@
       (iterate-over-damage-bounds-3d mesh mp length func)))
 (defun iterate-over-damage-bounds-2d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
@@ -488,7 +490,7 @@
                             (funcall func mesh mp node))))))))
 (defun iterate-over-damage-bounds-3d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach

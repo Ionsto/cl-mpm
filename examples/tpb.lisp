@@ -202,16 +202,16 @@
                  density
                  ;; 'cl-mpm/particle::particle-concrete
                  'cl-mpm/particle::particle-limestone
-                 :E 15d9
+                 :E 18d9
                  :nu 0.15d0
                  ;; :elastic-approxmation :
                  :fracture-energy 48d0
                  :initiation-stress 3.4d6
                  ;;Material parameter
-                 :internal-length 2.5d-3
+                 :internal-length 5.4d-3
                  ;;Interaction radius
-                 :local-length 1d-2
-                 :local-length-damaged 1d-2
+                 :local-length (* 5.4d-3 1d0)
+                 :local-length-damaged (* 5.4d-3 1d0)
                  :compression-ratio 8d0
 
                  :critical-damage 1.000d0
@@ -535,7 +535,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.2d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -877,3 +877,11 @@
      (dotimes (i iters)
        (cl-mpm::update-sim *sim*))))
   )
+
+
+(defun plot-interaction ()
+  (vgplot:close-all-plots)
+  (let* ((length 1d0)
+         (x (loop for x from -5d0 to 5d0 by 0.01d0 collect x)))
+    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (* x x) length)) x))
+    ))

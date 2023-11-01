@@ -454,3 +454,11 @@
                                )
                              stress)))
         (vgplot:plot stress damage)))))
+
+
+(defun plot-interaction ()
+  (vgplot:close-all-plots)
+  (let* ((length 1d0)
+         (x (loop for x from -5 to 5 by 0.1d0 collect x)))
+    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func x length)) x))
+    ))

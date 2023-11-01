@@ -405,13 +405,17 @@
      (push-float ,output (aref v-s 2) ,inc)))
 
 
-(defun serialise-length (type)
-  (ecase type
+(eval-when
+    (:compile-toplevel
+     :load-toplevel
+     :execute)
+  (defun serialise-length (type)
+    (ecase type
       (int 2)
       (index (* 2 3))
       (float 8)
       (vector (* 8 3))
-      (t 0)))
+      (t 0))))
 
 (defmacro make-mpi-ser (name mapping-list)
   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
