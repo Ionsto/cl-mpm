@@ -410,9 +410,9 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.010 (* 1.00)))
+  (let* ((mesh-size (/ 0.0102 (* 0.50)))
          (mps-per-cell 2)
-         (shelf-height 0.100d0)
+         (shelf-height 0.102d0)
          (shelf-length (* shelf-height 4))
          ;; (shelf-length 0.225d0)
          (domain-length (+ shelf-length (* 5 mesh-size)))
@@ -440,7 +440,7 @@
               )
         (list
          10.0d-3
-         ;;5d-3
+         ;; 2.5d-3
          ;; 1.33d-3
          ;; 10d-3
          ;; mesh-size
@@ -781,11 +781,11 @@
 
 (defun test ()
   (setup)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  ;; (sb-profile:reset)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/MESH")
+  (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  (sb-profile:reset)
   (time
    (dotimes (i 10)
          (cl-mpm::update-sim *sim*)))
