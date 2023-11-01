@@ -1495,6 +1495,37 @@
     :initform 1d0)
    )
   (:documentation "A concrete damage model"))
+(defmethod constitutive-model ((mp particle-limestone) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((E E)
+               (nu nu)
+               (de elastic-matrix)
+               (stress stress)
+               (stress-undamaged undamaged-stress)
+               (strain-rate strain-rate)
+               (D stretch-tensor)
+               (velocity-rate velocity-rate)
+               (vorticity vorticity)
+               (def deformation-gradient)
+               (damage damage)
+               (pressure pressure)
+               ;; (datum pressure-datum)
+               ;; (rho pressure-head)
+               (pos position)
+               (calc-pressure pressure-func)
+               )
+      mp
+    (declare (double-float pressure damage)
+             (function calc-pressure))
+    ;; Non-objective stress intergration
+    (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+
+    (setf stress (magicl:scale stress-undamaged 1d0))
+    (when (> damage 0.0d0)
+      (let ((degredation (expt (- 1d0 damage) 1d0)))
+        (magicl:scale! stress degredation)))
+    stress
+    ))
 
 (defmethod constitutive-model ((mp particle-concrete) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -1524,7 +1555,7 @@
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
       (let ((degredation (expt (- 1d0 damage) 1d0)))
-        (setf stress (magicl:scale! stress (max 1d-9 degredation))))
+        (magicl:scale! stress (max 0d-9 degredation)))
       ;; (let* ((j 1d0)
       ;;        (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
       ;;        (s (cl-mpm/constitutive::deviatoric-voigt stress)))

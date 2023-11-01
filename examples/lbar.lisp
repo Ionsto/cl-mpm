@@ -420,8 +420,10 @@
          )
     (defparameter *sim*
       (setup-test-column (list domain-length
-                               domain-length)
-                         (list shelf-length shelf-height)
+                               domain-length
+                               (* 2 mesh-size))
+                         (list shelf-length shelf-height
+                               mesh-size)
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
     ;; (let ((cut-size 0.25d0))

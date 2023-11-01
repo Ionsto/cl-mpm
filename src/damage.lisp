@@ -1639,7 +1639,7 @@
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long"))
     (if (> k e0)
-        (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
+        (- 1d0 (* (/ e0 k) (+ 0d0 (exp (- (* beta (- k e0)))))))
         0d0
         ))
   ;; (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
@@ -1709,7 +1709,7 @@
         (progn
           (when (< damage 1d0)
             (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix stress))
-              (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voight-to-matrix strain))
+              (multiple-value-bind (le v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix strain))
                 (let* ((eps+ (sqrt (/ (loop for ps in ls
                                              for pe in le
                                             sum (* (max 0d0 ps) (max 0d0 pe))) E)))
