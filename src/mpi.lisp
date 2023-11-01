@@ -338,10 +338,9 @@
     (when (plusp size)
       (let ()
         (flet ((compute-part (part-offset part-size)
-                 (declare (type fixnum part-offset part-size))
                  (let ((index part-offset)
                        (end (+ part-offset part-size)))
-                   (declare (type fixnum index end))
+                   (declare (type fixnum index end part-offset part-size))
                    (let ((cl-store:*current-backend* cl-store:*default-backend*)
                          (cl-store:*check-for-circs* nil))
                      (flexi-streams:with-output-to-sequence (stream :element-type '(unsigned-byte 8))
@@ -496,17 +495,17 @@
           output)
          )
        ))
-(make-mpi-ser
- test
- (
-  (index index cl-mpm/mesh::node-index)
-  (float mass cl-mpm/mesh:node-mass)
-  (float pmod cl-mpm/mesh::node-pwave)
-  (float svp cl-mpm/mesh::node-svp)
-  (float volume cl-mpm/mesh::node-volume)
-  (vector velocity cl-mpm/mesh::node-velocity)
-  (vector force cl-mpm/mesh::node-force)
-  ))
+;; (make-mpi-ser
+;;  test
+;;  (
+;;   (index index cl-mpm/mesh::node-index)
+;;   (float mass cl-mpm/mesh:node-mass)
+;;   (float pmod cl-mpm/mesh::node-pwave)
+;;   (float svp cl-mpm/mesh::node-svp)
+;;   (float volume cl-mpm/mesh::node-volume)
+;;   (vector velocity cl-mpm/mesh::node-velocity)
+;;   (vector force cl-mpm/mesh::node-force)
+;;   ))
 
 (defun serialise-nodes (nodes)
   ;;We need to exchange nodes
