@@ -447,7 +447,7 @@
         ))
 (defun weight-func (dist-squared length)
   ;(values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared))))))
-  (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length)))))))
+  (values (the double-float (exp (the double-float (* 2d0 (/ (- dist-squared) (* 1d0 length length)))))))
   )
 (declaim
  (inline weight-func-mps)
