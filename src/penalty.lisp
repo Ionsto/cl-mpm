@@ -64,7 +64,7 @@
             (let* ((pen-point (penetration-point mp penetration-dist datum normal))
                    (normal-force (* (expt penetration-dist 1d0) epsilon)))
               (incf *debug-force* (* normal-force 1d0))
-              ;; (format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
+              ;; (format t "Contact point ~A : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours-point-linear-3d
                mesh pen-point
@@ -226,8 +226,8 @@
 (defun disp-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
-         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) normal))
-         (dist (- datum (+ ypos yheight))))
+         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) (cl-mpm/fastmath::norm (magicl:.* normal normal))))
+         (dist (- datum (- ypos yheight))))
     (the double-float dist)))
 
 (defun disp-penetration-point (mp pen datum normal)
@@ -264,7 +264,7 @@
               (sb-thread:with-mutex (*debug-mutex*)
                 (incf *debug-force* (* normal-force 1d0))
                 (incf *debug-force-count* 1))
-              ;; (format t "Contact point ~F : dist ~F~%" (magicl::storage pen-point) penetration-dist)
+              ;; (format t "Contact point ~A : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours-point-linear-3d
                mesh pen-point

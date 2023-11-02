@@ -25,8 +25,8 @@
           collect (magicl:tref (cl-mpm::mp-position mp) 2 0) into y
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into z
           collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
-          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
-          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0) into lz
+          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0) into ly
+          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into lz
           collect (funcall colour-func mp) into c
           finally (return (values x y z lx ly lz c)))
     (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1d-30 (apply #'max c)))
