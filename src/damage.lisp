@@ -1629,14 +1629,11 @@
 (defun damage-response-exponential (stress E Gf length init-stress)
   (declare (double-float stress E Gf length init-stress))
   "Function that controls how damage evolves with principal stresses"
-  (let* (
-         (ft init-stress)
+  (let* ((ft init-stress)
          (e0 (/ ft E))
          (ef (+ (/ e0 2) (/ Gf (* length ft))))
          (k (/ stress E))
-         (beta (/ (* E e0 length) Gf))
-         )
-
+         (beta (/ (* E e0 length) Gf)))
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long"))
     (if (> k e0)
