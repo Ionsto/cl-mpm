@@ -6,7 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/lbar)
 
 (ql:quickload :magicl)
@@ -17,28 +17,26 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (cl-mpm/plotter:simple-plot
-  ;;  *sim*
-  ;;  :plot :deformed
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))
-  ;;  :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-  ;;  )
+  (cl-mpm/plotter:simple-plot-3d
+   *sim*
+   :plot :point
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+   )
   ;; (vgplot:format-plot t "replot (~f*x + ~f)~%" 0d0 (+ 0.2d0 *target-displacement*))
-  (plot-load-disp)
-  ;; (plot-time-disp)
+  ;; (plot-load-disp)
   )
 
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-    (let* (
-           (pos (magicl:from-list (list
+    (let* ((pos (magicl:from-list (list
                                         (magicl:tref pos 0 0)
-                                        (magicl:tref pos 1 0)
-                                        ) '(2 1) :type 'double-float))
+                                        (magicl:tref pos 1 0)) '(2 1) :type 'double-float))
            (position (magicl:from-list position '(2 1) :type 'double-float))
            (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
                                 (magicl:from-list size '(2 1) :type 'double-float))))
@@ -190,21 +188,14 @@
                 (cl-mpm/setup::make-block-mps-list
                  offset
                  block-size
-                 ;; (mapcar (lambda (e) (ceiling (* e e-scale mp-scale))) block-size)
                  (mapcar (lambda (e)
                            (round  (* e mp-scale) h-x)
-                           ;; (*
-                           ;;            ;; e e-scale mp-scale
-                           ;;            (ceiling (* e e-scale mp-scale)
-                           ;;                     (* e-scale mp-scale))
-                           ;;            (* e-scale mp-scale)
-                           ;;            )
                            ) block-size)
                  density
                  'cl-mpm/particle::particle-concrete
                  :E 20d9
                  :nu 0.20d0
-                 :elastic-approxmation :plane-stress
+                 ;; :elastic-approxmation :plane-stress
                  :fracture-energy 90d0
                  :initiation-stress (* 2.4d6 1d0)
                  :critical-damage 1.000d0
@@ -330,16 +321,6 @@
                  (cl-mpm/bc::make-bc-fixed right-node-pos
                                            '(nil 0 nil)))
                 ))))
-
-      (defparameter *floor-bc*
-        (cl-mpm/penalty::make-bc-penalty-point-normal
-         sim
-         (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-         (cl-mpm/utils:vector-from-list (list 00d0 (second offset) 0d0))
-         (* density 1d3)
-         0.0d0
-         ;; 1d1
-         ))
       (defparameter *initial-surface*
         (loop for mp in *terminus-mps*
               when (= 1 (cl-mpm/particle::mp-index mp))
@@ -367,7 +348,7 @@
                                                        dt
                                                        normal
                                                        datum
-                                                       (* density 1d6)
+                                                       (* density 1d5)
                                                        0d0)
                       )
                     )))
@@ -406,7 +387,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 1d0))
+  (let* ((mesh-size (/ 0.025 0.5d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
@@ -414,6 +395,7 @@
          (domain-length (+ shelf-length (* 8 mesh-size)))
          (offset (list
                   (* 2 mesh-size)
+                  0d0
                   0d0))
 
 
@@ -510,7 +492,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 1.0d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -526,7 +508,7 @@
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
-    (incf *target-displacement* disp-step)
+    ;; (incf *target-displacement* disp-step)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
@@ -717,12 +699,15 @@
 	           (uiop:read-file-string #P"example_data/lbar/load-disp.csv"))))
     (vgplot:xlabel "Displacement (mm)")
     (vgplot:ylabel "Load (N)")
-    (vgplot:plot
-     (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
-     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     (mapcar (lambda (x) (* x 1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.1)) *data-mp-load*) "mpm-mps"
-     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
-     )
+    (let* ((x-model (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+           (x-experiment 0.1d0)
+           (x-scale (/ x-experiment x-model)))
+      (vgplot:plot
+       (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
+       ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
+       (mapcar (lambda (x) (* x 1d3)) *data-displacement*) (mapcar (lambda (x) (* x x-scale)) *data-mp-load*) "mpm-mps"
+       ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
+       ))
 
     ;; (vgplot:format-plot t "set xrange [~f:~f]"
     ;;                     ;(* -1d3 (- 0.0000001d0 (reduce #'max *data-displacement*)))
@@ -737,7 +722,7 @@
     )
   )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 2 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))

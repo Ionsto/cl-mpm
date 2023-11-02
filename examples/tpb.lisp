@@ -13,7 +13,7 @@
 ;; (pushnew :cl-mpm-pic *features*)
 ;; (delete :cl-mpm-pic *features*)
 ;; (asdf:compile-system :cl-mpm :force T)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (declaim (notinline plot))
 (defun plot (sim)
@@ -119,7 +119,7 @@
   (loop for mp in load-nodes
         sum
         ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
-        (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0))
+        (/ (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0)) 2)
         ))
 
 (defparameter *target-displacement* 0d0)
@@ -183,47 +183,48 @@
                :index 1
                )
               ))
-        (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-mps-from-list
-               (append
-                (cl-mpm/setup::make-block-mps-list
-                 offset
-                 block-size
-                 ;; (mapcar (lambda (e) (ceiling (* e e-scale mp-scale))) block-size)
-                 (mapcar (lambda (e)
-                           (round  (* e mp-scale) h-x)
-                           ;; (*
-                           ;;            ;; e e-scale mp-scale
-                           ;;            (ceiling (* e e-scale mp-scale)
-                           ;;                     (* e-scale mp-scale))
-                           ;;            (* e-scale mp-scale)
-                           ;;            )
-                           ) block-size)
-                 density
-                 ;; 'cl-mpm/particle::particle-concrete
-                 'cl-mpm/particle::particle-limestone
-                 :E 18d9
-                 :nu 0.15d0
-                 ;; :elastic-approxmation :
-                 :fracture-energy (* 1d0 48d0)
-                 :initiation-stress 3.4d6
-                 ;;Material parameter
-                 :internal-length (* 5.4d-3 1d0)
-                 ;;Interaction radius
-                 :local-length (* 5.4d-3 1d0)
-                 :local-length-damaged (* 5.4d-3 1d0)
-                 :compression-ratio 8d0
+        (let ((crack-scale 1d0))
+          (setf (cl-mpm:sim-mps sim)
+                (cl-mpm/setup::make-mps-from-list
+                 (append
+                  (cl-mpm/setup::make-block-mps-list
+                   offset
+                   block-size
+                   ;; (mapcar (lambda (e) (ceiling (* e e-scale mp-scale))) block-size)
+                   (mapcar (lambda (e)
+                             (round  (* e mp-scale) h-x)
+                             ;; (*
+                             ;;            ;; e e-scale mp-scale
+                             ;;            (ceiling (* e e-scale mp-scale)
+                             ;;                     (* e-scale mp-scale))
+                             ;;            (* e-scale mp-scale)
+                             ;;            )
+                             ) block-size)
+                   density
+                   ;; 'cl-mpm/particle::particle-concrete
+                   'cl-mpm/particle::particle-limestone
+                   :E 15.3d9
+                   :nu 0.15d0
+                   ;; :elastic-approxmation :
+                   :fracture-energy (/ 30d0 1d0)
+                   :initiation-stress 3.4d6
+                   ;;Material parameter
+                   :internal-length 2.1d-3
+                   ;;Interaction radius
+                   :local-length 2.1d-3
+                   :local-length-damaged 2.1d-3
+                   :compression-ratio 8d0
 
-                 :critical-damage 1.000d0
-                 ;; :local-length-damaged 0.01d0
-                 :gravity -0.0d0
-                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-                 )
-                ;; impactors
-                )
-               )))
+                   :critical-damage 1.000d0
+                   ;; :local-length-damaged 0.01d0
+                   :gravity -0.0d0
+                   :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+                   )
+                  ;; impactors
+                  )
+                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -410,9 +411,9 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 1))
+  (let* ((mesh-size (/ 0.0025 0.5))
          (mps-per-cell 2)
-         (shelf-height 0.102d0)
+         (shelf-height 0.025d0)
          (shelf-length (* shelf-height 4))
          ;; (shelf-length 0.225d0)
          (domain-length (+ shelf-length (* 5 mesh-size)))
@@ -429,7 +430,8 @@
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
-          (cut-width 2.5d-3))
+          (cut-width mesh-size))
+      (format t "Crack width:~F~%" (* 2d0 cut-width))
       (cl-mpm/setup::remove-sdf
        *sim*
        (rectangle-sdf
@@ -439,7 +441,7 @@
               (+ (second offset) 0d0)
               )
         (list
-         mesh-size
+         cut-width
          ;; 10.0d-3
          ;2.5d-3
          ;; 1.33d-3
@@ -540,7 +542,8 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (disp-step -0.002d-3)
+         (disp-step -0.001d-3
+                    )
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -552,14 +555,14 @@
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
-    (incf *target-displacement* disp-step)
+    ;; (incf *target-displacement* disp-step)
     (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
-                     ;; (when (= steps 10)
-                     ;;   (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
-                     ;;   )
+                     ;; (when (> *target-displacement* 0.05d-3)
+                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       ;; )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -740,15 +743,15 @@
 ;;   ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
-	           (uiop:read-file-string #P"example_data/tpb/load-disp.csv")))
-        (fem (lisp-stat:read-csv
-	           (uiop:read-file-string #P"example_data/tpb/load-disp-standard.csv")))
+	           (uiop:read-file-string #P"example_data/tpb/load-disp-small.csv")))
+        ;; (fem (lisp-stat:read-csv
+	      ;;      (uiop:read-file-string #P"example_data/tpb/load-disp-standard.csv")))
         )
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Experimental"
-     (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
+     ;; (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
@@ -766,7 +769,7 @@
     )
   )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))
@@ -888,7 +891,7 @@
 (defun plot-interaction ()
   (vgplot:close-all-plots)
   (let* ((length 0.1d0)
-         (scaler 4d0)
+         (scaler 2d0)
          (bounds (* scaler length))
          (x (loop for x from (- bounds) to bounds by 0.01d0 collect x)))
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (* x x) length)) x))
