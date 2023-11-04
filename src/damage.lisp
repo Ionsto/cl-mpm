@@ -481,7 +481,7 @@
       (iterate-over-damage-bounds-3d mesh mp length func)))
 (defun iterate-over-damage-bounds-2d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
