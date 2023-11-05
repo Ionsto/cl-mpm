@@ -183,7 +183,10 @@
                :index 1
                )
               ))
-        (let ((crack-scale 1d0))
+        (let* ((crack-scale 4d0)
+               (length-scale 5.4d-3))
+          (format t "Actual local length ~F~%" (* crack-scale length-scale))
+          (format t "Mesh res ~F~%" (/ (* crack-scale length-scale) h-x))
           (setf (cl-mpm:sim-mps sim)
                 (cl-mpm/setup::make-mps-from-list
                  (append
@@ -203,16 +206,16 @@
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
-                   :E 15.3d9
+                   :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (/ 30d0 1d0)
+                   :fracture-energy (/ 48d0 crack-scale)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   :internal-length 2.1d-3
+                   :internal-length length-scale
                    ;;Interaction radius
-                   :local-length 2.1d-3
-                   :local-length-damaged 2.1d-3
+                   :local-length length-scale
+                   :local-length-damaged length-scale
                    :compression-ratio 8d0
 
                    :critical-damage 1.000d0
@@ -411,9 +414,9 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0025 0.5))
+  (let* ((mesh-size (/ 0.0102 1.0))
          (mps-per-cell 2)
-         (shelf-height 0.025d0)
+         (shelf-height 0.102d0)
          (shelf-length (* shelf-height 4))
          ;; (shelf-length 0.225d0)
          (domain-length (+ shelf-length (* 5 mesh-size)))
@@ -538,11 +541,11 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.2d0)
+  (let* ((target-time 1.0d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (disp-step -0.001d-3
+         (disp-step -0.002d-3
                     )
          )
 
@@ -743,13 +746,13 @@
 ;;   ))
 (defun plot-load-disp ()
   (let ((df (lisp-stat:read-csv
-	           (uiop:read-file-string #P"example_data/tpb/load-disp-small.csv")))
-        ;; (fem (lisp-stat:read-csv
-	      ;;      (uiop:read-file-string #P"example_data/tpb/load-disp-standard.csv")))
+	           (uiop:read-file-string #P"example_data/tpb/load-disp.csv")))
+        (fem (lisp-stat:read-csv
+	           (uiop:read-file-string #P"example_data/tpb/load-disp-standard.csv")))
         )
     (vgplot:plot
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Experimental"
-     ;; (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
+     (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
@@ -896,3 +899,5 @@
          (x (loop for x from (- bounds) to bounds by 0.01d0 collect x)))
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (* x x) length)) x))
     ))
+
+
