@@ -209,10 +209,10 @@
                    :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (/ 48d0 1d0)
+                   :fracture-energy (/ 48d0 2d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   :internal-length (* length-scale 1d0)
+                   :internal-length (* length-scale 2d0)
                    ;;Interaction radius
                    :local-length (* length-scale 4d0)
                    :local-length-damaged (* length-scale 4d0)
@@ -541,7 +541,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 1.0d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)

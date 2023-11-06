@@ -450,7 +450,7 @@
   ;; (if (< dist-squared (* 2 length length))
   ;;     (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 1d0 length length)))))))
   ;;     0d0)
-  (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 4d0 length length)))))))
+  (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 1d0 length length)))))))
   )
 (declaim
  (inline weight-func-mps)
