@@ -450,7 +450,7 @@
   ;; (if (< dist-squared (* 2 length length))
   ;;     (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 1d0 length length)))))))
   ;;     0d0)
-  (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 1d0 length length)))))))
+  (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 0.25d0 length length)))))))
   )
 (declaim
  (inline weight-func-mps)
@@ -481,7 +481,7 @@
       (iterate-over-damage-bounds-3d mesh mp length func)))
 (defun iterate-over-damage-bounds-2d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 1 (truncate (ceiling (* length 8d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
@@ -1513,6 +1513,7 @@
             (setf damage-increment 0d0))
           ;;Delocalisation switch
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+          (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
           ))))
 
 (defun brittle-concrete-d (stress E Gf length init-stress)
@@ -1607,7 +1608,7 @@
          (k (/ stress E))
          (beta (/ (* E e0 length) Gf)))
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
-      (error "Length scale is too long"))
+      (error "Length scale is too long, e0 ~F, Ef ~F, beta: ~F" e0 ef beta))
     (if (> k e0)
         (- 1d0 (* (/ e0 k) (+ 0d0 (exp (- (* beta (- k e0)))))))
         0d0
