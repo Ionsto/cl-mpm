@@ -211,7 +211,7 @@
                    :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (/ 48d0 0.5d0)
+                   :fracture-energy (* 48d0 1.0d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
                    :internal-length (* length-scale crack-scale)

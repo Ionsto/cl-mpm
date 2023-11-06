@@ -52,7 +52,6 @@
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
-            (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes :displaced-index-offset 0))
             (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (h (cl-mpm/mesh:mesh-resolution mesh))
@@ -110,11 +109,6 @@
                                     (destructuring-bind (rank tag object) packet
                                       (when object
                                         (funcall func object)
-                                        ;; (loop for mp across object
-                                        ;;       do (progn
-                                        ;;            (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                        ;;                  (cl-mpm/particle::mp-damage-position mp) nil))
-                                        ;;          (vector-push-extend mp mps))
                                         )))))))))))))
 (defun exchange-nodes-slow (sim func)
   (declare (function func))
@@ -1187,8 +1181,7 @@
                          (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta))))
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (labels
-                           (
-                            (halo-filter (test)
+                           ((halo-filter (test)
                               (let ((res
                                       (lparallel:premove-if-not
                                        (lambda (mp)
@@ -1201,24 +1194,19 @@
                               (halo-filter (lambda (pos)
                                              (and
                                               (<= pos (+ (/ bl h) halo-depth)))
-                                             ))
-                              )
+                                             )))
                             (right-filter ()
                               (halo-filter (lambda (pos)
                                              (and
                                               (>= pos (- (/ bu h) halo-depth)))
-                                             ))
-                              )
-
-                            )
+                                             ))))
                          (when (not (= left-neighbor -1))
                            (setf (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim)))
                                  (left-filter)))
+
                          (when (not (= right-neighbor -1))
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
-                                 (right-filter))
-
-                           ))))))))))
+                                 (right-filter))))))))))))
 
 ;; (defun kill-servers ()
 ;;     (dolist (server *open-servers*)
