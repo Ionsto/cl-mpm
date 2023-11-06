@@ -183,10 +183,10 @@
                :index 1
                )
               ))
-        (let* ((crack-scale 4d0)
+        (let* ((crack-scale 2d0)
                (length-scale 5.4d-3))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
-          (format t "Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
+          (format t "Mesh res ~F~%" (/ (* crack-scale length-scale) h-x))
           (setf (cl-mpm:sim-mps sim)
                 (cl-mpm/setup::make-mps-from-list
                  (append
@@ -209,13 +209,13 @@
                    :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (/ 48d0 1d0)
+                   :fracture-energy (/ 48d0 crack-scale)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   :internal-length (* length-scale 1d0)
+                   :internal-length length-scale
                    ;;Interaction radius
-                   :local-length (* length-scale 4d0)
-                   :local-length-damaged (* length-scale 4d0)
+                   :local-length (* length-scale 2)
+                   :local-length-damaged (* length-scale 2)
                    :compression-ratio 8d0
 
                    :critical-damage 1.000d0
@@ -414,7 +414,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 1.0))
+  (let* ((mesh-size (/ 0.0102 1.00))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 4))
