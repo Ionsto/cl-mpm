@@ -463,6 +463,13 @@
         ))
 (defun weight-func-mps (mesh mp-a mp-b length)
   (weight-func (diff-squared mp-a mp-b) length))
+
+(defun weight-func-pos (mesh pos-a pos-b length)
+  (let ((ps-a (magicl::matrix/double-float-storage pos-a))
+        (ps-b (magicl::matrix/double-float-storage pos-b))
+        )
+    (weight-func (the double-float (simd-accumulate ps-a ps-b)) length))
+  )
 (declaim
  (inline weight-func-mps-damaged)
  (ftype (function (cl-mpm/mesh::mesh
@@ -508,6 +515,8 @@
                                    (let ((node (cl-mpm/mesh:get-node mesh idx)))
                                      (funcall func mesh mp node)))))))))
 
+(defparameter *enable-reflect-x* nil)
+
 (declaim
  (notinline calculate-delocalised-damage)
  (ftype (function (cl-mpm/mesh::mesh
@@ -539,17 +548,32 @@
                                                        (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
                                                        ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
                                                        ;;     (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
-                                                           ;; (weight-func-mps-damaged mesh mp mp-other
-                                                           ;;                          (cl-mpm/particle::mp-local-length mp)
-                                                           ;;                          ;; (* 0.5d0 (+ length ll))
-                                                           ;;                          )
+                                                       ;; (weight-func-mps-damaged mesh mp mp-other
+                                                       ;;                          (cl-mpm/particle::mp-local-length mp)
+                                                       ;;                          ;; (* 0.5d0 (+ length ll))
+                                                       ;;                          )
                                                        )
                                                      )
                                                  (declare (double-float weight m d mass-total damage-inc))
                                                  (incf mass-total (* weight m))
                                                  (incf damage-inc
                                                        (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-                                                          weight m))))))))
+                                                          weight m)))
+                                               (when (and *enable-reflect-x*
+                                                      (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 4 length)))
+                                                 (let ((weight (weight-func-pos mesh
+                                                                                (cl-mpm/particle::mp-position mp)
+                                                                                (magicl:.* (cl-mpm/particle:mp-position mp-other)
+                                                                                           (cl-mpm/utils::vector-from-list (list -1d0 0d0 0d0)))
+                                                                                (sqrt (* length ll)))))
+                                                 (declare (double-float weight m d mass-total damage-inc))
+                                                 (incf mass-total (* weight m))
+                                                 (incf damage-inc
+                                                       (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                                                          weight m)))
+
+                                                 ))
+                                             ))))
     (when (> mass-total 0d0)
       (setf damage-inc (/ damage-inc mass-total)))
     damage-inc
