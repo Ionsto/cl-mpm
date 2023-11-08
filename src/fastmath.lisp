@@ -54,9 +54,9 @@
             (sb-simd-avx:f64.2-aref b 0)
             (sb-simd-avx:f64.2 scale))
            ))
-    ;(loop for i from 0 to 2
-    ;      do (incf (aref a i) (* scale (aref b i))))
     (incf (aref a 2) (* scale (aref b 2)))
+                                        ;(loop for i from 0 to 2
+                                        ;      do (incf (aref a i) (* scale (aref b i))))
     (values))
   (declaim
    (inline simd-add)

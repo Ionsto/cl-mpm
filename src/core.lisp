@@ -1304,10 +1304,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-active cl-mpm/mesh:node-active)
                           ) node
            (when node-active
-               ;; (cl-mpm/fastmath::simd-fmacc mapped-vel (magicl::matrix/double-float-storage node-vel) svp)
-               ;; (cl-mpm/fastmath::simd-fmacc mapped-acc (magicl::matrix/double-float-storage node-acc) svp)
-             (magicl:.+ mapped-vel (magicl:scale node-vel svp) mapped-vel)
-             (magicl:.+ acc (magicl:scale node-acc svp) acc)
+             (cl-mpm/fastmath::fast-fmacc mapped-vel node-vel svp)
+             (cl-mpm/fastmath::fast-fmacc acc node-acc svp)
+             ;(magicl:.+ mapped-vel (magicl:scale node-vel svp) mapped-vel)
+             ;(magicl:.+ acc (magicl:scale node-acc svp) acc)
              (incf temp (* svp node-scalar))
              #+cl-mpm-special (special-g2p mesh mp node svp grads)
              )

@@ -185,10 +185,11 @@
                :index 1
                )
               ))
-        (let* ((crack-scale 7d0)
+        (let* (;(crack-scale 7d0)
+               (crack-scale 4d0)
                (length-scale 5.4d-3))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
-          (format t "Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
+          (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
                 (cl-mpm/setup::make-mps-from-list
                  (append
@@ -211,13 +212,13 @@
                    :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (* 48d0 crack-scale 0.25d0)
+                   :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
                    :internal-length (* length-scale crack-scale)
                    ;;Interaction radius
-                   :local-length (* length-scale crack-scale)
-                   :local-length-damaged (* length-scale crack-scale)
+                   :local-length (* length-scale crack-scale 0.8d0)
+                   :local-length-damaged (* length-scale crack-scale 0.8d0)
                    :compression-ratio 8d0
 
                    :critical-damage 1.000d0
@@ -460,6 +461,7 @@
          ;; mesh-size
          cut-depth
          )))
+
       ;; (cl-mpm/setup::damage-sdf
       ;;  *sim*
       ;;  (rectangle-sdf
@@ -512,6 +514,34 @@
     ;             )))
 
 
+      (let* ((crack-width 1d-1)
+             (crack-left 0d0)
+             (crack-right crack-width)
+             (crack-left-pos
+               (loop for mp across (cl-mpm:sim-mps *sim*)
+                     minimize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+             (crack-height-pos
+               (loop for mp across (cl-mpm:sim-mps *sim*)
+                     when
+                     (= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) crack-left-pos)
+                     minimize (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
+             (bottom-crack
+               (nth 0
+                    (loop for mp across (cl-mpm:sim-mps *sim*)
+                          when
+                          (and(= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) crack-left-pos)
+                              (= (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) crack-height-pos))
+                          collect mp)))
+             (slice-crack
+               (loop for mp across (cl-mpm:sim-mps *sim*)
+                     when
+                     (= (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) (magicl:tref (cl-mpm/particle:mp-position bottom-crack) 1 0))
+                     collect mp))
+             )
+        (defparameter *mps-slice*
+          slice-crack
+          ))
+
     )
   (defparameter *target-displacement* 0d0)
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
@@ -551,7 +581,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 0.2d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -561,6 +591,7 @@
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
     (setf cl-mpm/penalty::*debug-force-count* 0d0)
+    (setf cl-mpm/damage::*enable-reflect-x* t)
     (time (cl-mpm::update-sim *sim*))
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)
@@ -916,14 +947,42 @@
        (cl-mpm::update-sim *sim*))))
   )
 
+(defun plot-crack-inter ()
+  (vgplot:close-all-plots)
+  (let* ((mesh (cl-mpm:sim-mesh *sim*))
+         (mps-taken *mps-slice*)
+         (x (loop for mp in mps-taken collect (magicl:tref (cl-mpm/particle::mp-position mp) 0 0)))
+         (damage (loop for mp in mps-taken collect  (cl-mpm/particle::mp-damage mp)))
+         )
+    (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func-mps mesh (nth 0 mps-taken) x (cl-mpm/particle::mp-local-length x))) mps-taken) ";;with points")
+    ))
+(defun plot-crack-damage ()
+  (vgplot:close-all-plots)
+  (let* ((mesh (cl-mpm:sim-mesh *sim*))
+         (mps-taken *mps-slice*)
+         (x (loop for mp in mps-taken collect (magicl:tref (cl-mpm/particle::mp-position mp) 0 0)))
+         (damage (loop for mp in mps-taken collect  (cl-mpm/particle::mp-damage mp)))
+         )
+    (vgplot:plot x damage ";;with points")
+    ))
 
 (defun plot-interaction ()
   (vgplot:close-all-plots)
   (let* ((length 1d0)
-         (scaler 4d0)
+         (scaler 2d0)
          (bounds (* scaler length))
          (x (loop for x from (- bounds) to bounds by 0.01d0 collect x)))
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (* x x) length)) x))
     ))
 
 
+
+(defun test-alloc ()
+  (time
+   (sb-vm:with-arena ((sb-vm:new-arena 10000000000))
+     (lparallel:pdotimes (i 10000000)
+       (cl-mpm/utils:eig (magicl:eye 3)))))
+  (time
+   (lparallel:pdotimes (i 10000000)
+     (cl-mpm/utils:eig (magicl:eye 3))))
+  )
