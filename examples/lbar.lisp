@@ -192,16 +192,17 @@
                            (round  (* e mp-scale) h-x)
                            ) block-size)
                  density
-                 'cl-mpm/particle::particle-concrete
-                 :E 20d9
-                 :nu 0.20d0
+                 'cl-mpm/particle::particle-limestone
+                 :E 25.85d9
+                 :nu 0.18d0
                  ;; :elastic-approxmation :plane-stress
-                 :fracture-energy 90d0
-                 :initiation-stress (* 2.4d6 1d0)
+                 :fracture-energy 95d0
+                 :initiation-stress (* 2.7d6 1d0)
                  :critical-damage 1.000d0
-                 :local-length 5d-2
-                 :local-length-damaged 5d-2
-                 ;; :local-length-damaged 0.01d0
+                 :internal-length 25d-3
+                 :local-length 25d-3
+                 :local-length-damaged 25d-3
+                 :compression-ratio 10d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                  )
@@ -387,7 +388,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 0.5d0))
+  (let* ((mesh-size (/ 0.05 1.0d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
@@ -722,7 +723,7 @@
     )
   )
 
-(setf lparallel:*kernel* (lparallel:make-kernel 2 :name "custom-kernel"))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 2 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))

@@ -185,7 +185,7 @@
                :index 1
                )
               ))
-        (let* ((crack-scale 4d0)
+        (let* ((crack-scale 7d0)
                (length-scale 5.4d-3))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
@@ -211,7 +211,7 @@
                    :E 18d9;15.3d9
                    :nu 0.15d0
                    ;; :elastic-approxmation :
-                   :fracture-energy (* 48d0 1.0d0)
+                   :fracture-energy (* 48d0 crack-scale 0.25d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
                    :internal-length (* length-scale crack-scale)
@@ -248,12 +248,15 @@
            (lambda (mp h)
              (when
                  (and
-                  (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     (+ (first offset) (* (first block-size) 0.45))
-                     )
                   (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                     (+ (first offset) (* (first block-size) 0.55))
+                     (* (first block-size) 0.10)
                      )
+                  ;; (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+                  ;;    (+ (first offset) (* (first block-size) 0.45))
+                  ;;    )
+                  ;; (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+                  ;;    (+ (first offset) (* (first block-size) 0.55))
+                  ;;    )
                   )
                dir
                )))))
@@ -542,6 +545,8 @@
   (defparameter *target-displacement* 0d0)
   (defparameter *data-full-time* '(0d0))
   (defparameter *data-full-load* '(0d0))
+  (defparameter *data-y* '(0d0))
+  (defparameter *data-ybar* '(0d0))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
@@ -646,6 +651,20 @@
                        (push
                         average-reaction
                         *data-load*)
+                       (let ((ymax
+                               (loop for mp across (cl-mpm:sim-mps *sim*)
+                                     maximize (cl-mpm/particle::mp-damage-y-local mp)))
+                             (ybarmax
+                               (loop for mp across (cl-mpm:sim-mps *sim*)
+                                     maximize (cl-mpm/particle::mp-damage-ybar mp)))
+                             )
+                         (format t "Ybar ratio: ~F~%" (/ ybarmax (max ymax 1d0)))
+                         (push
+                          ymax
+                          *data-y*)
+                         (push
+                          ybarmax
+                          *data-ybar*))
                        ;; (when *data-averaged*
                        ;;   (push
                        ;;    ;; (- *t*)
@@ -761,6 +780,8 @@
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
      (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
+     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-y*) "mpm-y"
+     ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-ybar*) "mpm-ybar"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
      )
 
