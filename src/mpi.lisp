@@ -197,11 +197,6 @@
                                     (destructuring-bind (rank tag object) packet
                                       (when object
                                         (funcall func object)
-                                        ;; (loop for mp across object
-                                        ;;       do (progn
-                                        ;;            (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                        ;;                  (cl-mpm/particle::mp-damage-position mp) nil))
-                                        ;;          (vector-push-extend mp mps))
                                         )))))))))))))
 
 (defun mpi-sync-momentum (sim)
@@ -1123,11 +1118,13 @@
 (declaim (notinline set-mp-mpi-index))
 (defun set-mp-mpi-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
-    (loop for mp across (cl-mpm:sim-mps sim)
-          do (setf (cl-mpm/particle::mp-mpi-index mp)
-                   (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
-                       rank
-                       -1)))))
+    (let ((mps (cl-mpm:sim-mps sim)))
+      (lparallel:pdotimes (i (length mps))
+                          (let ((mp (aref mps i)))
+                            (setf (cl-mpm/particle::mp-mpi-index mp)
+                                  (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
+                                      rank
+                                      -1)))))))
 
 ;; (defun cl-mpi:mpi-comm-rank ()
 ;;   0)
