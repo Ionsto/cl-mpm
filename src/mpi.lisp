@@ -45,7 +45,7 @@
     :accessor mpm-sim-mpi-halo-node-list
     :initform (loop for i from 0 to 2
                     collect (loop for i from 0 to 1 collect (make-array 0))))))
-(defun exchange-nodes (sim func)
+(defun exchange-nodes-broken (sim func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -110,7 +110,7 @@
                                       (when object
                                         (funcall func object)
                                         )))))))))))))
-(defun exchange-nodes-slow (sim func)
+(defun exchange-nodes (sim func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -283,7 +283,7 @@
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
-                    ;; (mpi-sync-force sim)
+                    (mpi-sync-force sim)
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::g2p mesh mps dt)
@@ -295,7 +295,7 @@
                     (set-mp-mpi-index sim)
                     )
                     (exchange-mps sim 0d0)
-                    (clear-ghost-mps sim)
+                    ;; (clear-ghost-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
@@ -905,7 +905,7 @@
                             (left-filter ()
                               (halo-filter (lambda (pos)
                                              (and
-                                              (< pos (+ bl halo-depth)))
+                                              (<= pos (+ bl halo-depth)))
                                              ))
                               )
                             (right-filter ()
