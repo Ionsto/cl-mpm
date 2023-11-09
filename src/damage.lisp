@@ -1005,7 +1005,7 @@
         (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
-        (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-index mp))
+        (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-mpi-index mp))
         (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
         ;; (cl-mpm/output::save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))

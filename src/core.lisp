@@ -1649,97 +1649,10 @@ Calls func with only the node"
                            double-float
                            boolean) (values))
                update-strain-kirchoff))
-(defun update-strain-kirchoff (mesh mp dt fbar)
-  (declare (optimize (speed 3) (debug 0) (space 0) (safety 0))
-           (cl-mpm/particle::particle mp)
-           )
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   )
-      (the cl-mpm/particle::particle mp)
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain
-                   def))
-    (progn
-      (let (;(df (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
-            ;                                         0d0 1d0 0d0
-            ;                                         0d0 0d0 1d0)))
-            (df (calculate-df mesh mp fbar))
-            )
-        (when nil;progn
-          ;; (setf def (magicl:@ df def))
-          ;; (magicl:scale def 1d0)
-          (magicl:mult df (cl-mpm/utils::matrix-copy def) :target def)
-          (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
-                )
-            (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-                            (magicl::matrix/double-float-storage strain))
-                (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                            ;;Shear scaling factor halved - we are using log strain matrix
-                                            (voigt-to-matrix strain))
-                  (let ((t0 (cl-mpm/utils:matrix-zeros))
-                        (t1 (cl-mpm/utils:matrix-zeros))
-                        )
-                    (declare (dynamic-extent t0 t1))
-                    (magicl:mult df v :target t0)
-                    (magicl:mult t0 (cl-mpm/utils::matrix-from-list
-                                     (list
-                                      (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-                                      0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-                                      0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-                                      ))
-                                 :target t1)
-                    (magicl:mult t1 v :target t0 :transb :t)
-                    (magicl:mult t0 df :target t1 :transb :t)
-                    (magicl:.+ t1 (magicl:transpose! (cl-mpm/utils::matrix-copy t1)) t1)
-                    (magicl:scale! t1 0.5d0)
-                    (multiple-value-bind (lf vf)
-                      (cl-mpm/utils::eig t1)
-                      (magicl:mult vf (cl-mpm/utils::matrix-from-list
-                                       (list
-                                        (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-                                        0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-                                        0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-                                        )
-                                       ) :target t0)
-                      (magicl:mult t0 v :target t1 :transb :t)
-                      (magicl:scale! t1 0.5d0)
-                      (cl-mpm/utils::matrix-to-voigt-inplace t1 strain)
-                      ))
-                )
-
-            ;; Not sure about this engineering strain calculation
-            (magicl:.- eng-strain-rate strain eng-strain-rate)
-            ;; (setf eng-strain-rate initial-strain)
-            (magicl:scale! eng-strain-rate (/ 1d0 dt))
-
-            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
-            )
-
-          ;;Post multiply to turn to eng strain
-          ;; (setf volume (* volume (magicl:det df)))
-          (setf volume (* (the double-float volume-0) (the double-float (magicl:det def))))
-          (when (<= volume 0d0)
-            (error "Negative volume"))
-          ;;Stretch rate update
-          (update-domain-stretch-rate df domain)
-          ;; (update-domain-stretch def domain domain-0)
-          ;; (update-domain-corner mesh mp dt)
-          )
-          )))
-  (values));)
-
 ;; (defun update-strain-kirchoff (mesh mp dt fbar)
+;;   (declare (optimize (speed 3) (debug 0) (space 0) (safety 0))
+;;            (cl-mpm/particle::particle mp)
+;;            )
 ;;   (with-accessors ((volume cl-mpm/particle:mp-volume)
 ;;                    (volume-0 cl-mpm/particle::mp-volume-0)
 ;;                    (strain cl-mpm/particle:mp-strain)
@@ -1751,14 +1664,22 @@ Calls func with only the node"
 ;;                    (domain cl-mpm/particle::mp-domain-size)
 ;;                    (domain-0 cl-mpm/particle::mp-domain-size-0)
 ;;                    (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-;;                    ) mp
+;;                    )
+;;       (the cl-mpm/particle::particle mp)
 ;;     (declare (type double-float volume)
 ;;              (type magicl:matrix/double-float
-;;                    domain))
+;;                    domain
+;;                    def))
 ;;     (progn
-;;       (let ((df (calculate-df mesh mp fbar)))
+;;       (let (;(df (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
+;;             ;                                         0d0 1d0 0d0
+;;             ;                                         0d0 0d0 1d0)))
+;;             (df (calculate-df mesh mp fbar))
+;;             )
 ;;         (progn
-;;           (setf def (magicl:@ df def))
+;;           ;; (setf def (magicl:@ df def))
+;;           ;; (magicl:scale def 1d0)
+;;           (magicl:mult df (cl-mpm/utils::matrix-copy def) :target def)
 ;;           (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
 ;;                 )
 ;;             (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
@@ -1766,34 +1687,38 @@ Calls func with only the node"
 ;;                 (multiple-value-bind (l v) (cl-mpm/utils::eig
 ;;                                             ;;Shear scaling factor halved - we are using log strain matrix
 ;;                                             (voigt-to-matrix strain))
-;;                 (let ((trial-lgs (magicl:@ df
-;;                                            v
-;;                                            (cl-mpm/utils::matrix-from-list
-;;                                             (list
-;;                                              (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-;;                                              0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-;;                                              0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-;;                                              ))
-;;                                            (magicl:transpose v)
-;;                                            (magicl:transpose df))))
-;;                   (multiple-value-bind (lf vf)
-;;                       (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
-;;                     (setf strain (magicl:scale!
-;;                                   ;;Note that this is taking care of the shear scaling factor
-;;                                   (matrix-to-voigt
-;;                                    (magicl:@
-;;                                     vf
-;;                                     (cl-mpm/utils::matrix-from-list
+;;                   (let ((t0 (cl-mpm/utils:matrix-zeros))
+;;                         (t1 (cl-mpm/utils:matrix-zeros))
+;;                         )
+;;                     (declare (dynamic-extent t0 t1))
+;;                     (magicl:mult df v :target t0)
+;;                     (magicl:mult t0 (cl-mpm/utils::matrix-from-list
 ;;                                      (list
-;;                                       (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-;;                                       0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-;;                                       0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-;;                                       )
-;;                                      )
-;;                                     (magicl:transpose vf)))
-;;                                   0.5d0)))))
+;;                                       (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+;;                                       0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+;;                                       0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+;;                                       ))
+;;                                  :target t1)
+;;                     (magicl:mult t1 v :target t0 :transb :t)
+;;                     (magicl:mult t0 df :target t1 :transb :t)
+;;                     (magicl:.+ t1 (magicl:transpose! (cl-mpm/utils::matrix-copy t1)) t1)
+;;                     (magicl:scale! t1 0.5d0)
+;;                     (multiple-value-bind (lf vf)
+;;                       (cl-mpm/utils::eig t1)
+;;                       (magicl:mult vf (cl-mpm/utils::matrix-from-list
+;;                                        (list
+;;                                         (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+;;                                         0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+;;                                         0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+;;                                         )
+;;                                        ) :target t0)
+;;                       (magicl:mult t0 v :target t1 :transb :t)
+;;                       (magicl:scale! t1 0.5d0)
+;;                       (cl-mpm/utils::matrix-to-voigt-inplace t1 strain)
+;;                       ))
+;;                 )
 
-;;             ;;Not sure about this engineering strain calculation
+;;             ;; Not sure about this engineering strain calculation
 ;;             (magicl:.- eng-strain-rate strain eng-strain-rate)
 ;;             ;; (setf eng-strain-rate initial-strain)
 ;;             (magicl:scale! eng-strain-rate (/ 1d0 dt))
@@ -1803,7 +1728,7 @@ Calls func with only the node"
 
 ;;           ;;Post multiply to turn to eng strain
 ;;           ;; (setf volume (* volume (magicl:det df)))
-;;           (setf volume (* volume-0 (magicl:det def)))
+;;           (setf volume (* (the double-float volume-0) (the double-float (magicl:det def))))
 ;;           (when (<= volume 0d0)
 ;;             (error "Negative volume"))
 ;;           ;;Stretch rate update
@@ -1813,6 +1738,82 @@ Calls func with only the node"
 ;;           )
 ;;           )))
 ;;   (values))
+                                        ;)
+
+(defun update-strain-kirchoff (mesh mp dt fbar)
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
+                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
+                   ) mp
+    (declare (type double-float volume)
+             (type magicl:matrix/double-float
+                   domain))
+    (progn
+      (let ((df (calculate-df mesh mp fbar)))
+        (progn
+          (setf def (magicl:@ df def))
+          (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
+                )
+            (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
+                            (magicl::matrix/double-float-storage strain))
+                (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                            ;;Shear scaling factor halved - we are using log strain matrix
+                                            (voigt-to-matrix strain))
+                (let ((trial-lgs (magicl:@ df
+                                           v
+                                           (cl-mpm/utils::matrix-from-list
+                                            (list
+                                             (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                                             0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                                             0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                                             ))
+                                           (magicl:transpose v)
+                                           (magicl:transpose df))))
+                  (multiple-value-bind (lf vf)
+                      (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+                    (setf strain (magicl:scale!
+                                  ;;Note that this is taking care of the shear scaling factor
+                                  (matrix-to-voigt
+                                   (magicl:@
+                                    vf
+                                    (cl-mpm/utils::matrix-from-list
+                                     (list
+                                      (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                                      0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                                      0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                                      )
+                                     )
+                                    (magicl:transpose vf)))
+                                  0.5d0)))))
+
+            ;;Not sure about this engineering strain calculation
+            (magicl:.- eng-strain-rate strain eng-strain-rate)
+            ;; (setf eng-strain-rate initial-strain)
+            (magicl:scale! eng-strain-rate (/ 1d0 dt))
+
+            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
+            )
+
+          ;;Post multiply to turn to eng strain
+          ;; (setf volume (* volume (magicl:det df)))
+          (setf volume (* volume-0 (magicl:det def)))
+          (when (<= volume 0d0)
+            (error "Negative volume"))
+          ;;Stretch rate update
+          (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch def domain domain-0)
+          ;; (update-domain-corner mesh mp dt)
+          )
+          )))
+  (values))
 
 (defun update-domain-deformation-rate (domain df)
   "Update the domain length based on the increment of defomation rate"
@@ -2000,23 +2001,23 @@ Calls func with only the node"
       (progn
       ;;   ;;For no FBAR we need to update our strains
           (progn
-            ;; (unless fbar
-            ;;   (calculate-strain-rate mesh mp dt))
+            (unless fbar
+              (calculate-strain-rate mesh mp dt))
 
-            ;;; Turn cauchy stress to kirchoff
-            ;; (setf stress stress-kirchoff)
+            ;; Turn cauchy stress to kirchoff
+            (setf stress stress-kirchoff)
 
-            ;;; Update our strains
+            ;; Update our strains
             (update-strain-kirchoff mesh mp dt fbar)
 
-            ;;;Update our kirchoff stress with constitutive model
-            ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+            ;; Update our kirchoff stress with constitutive model
+            (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
-            ;; ;; Check volume constraint!
-            ;; (when (<= volume 0d0)
-            ;;   (error "Negative volume"))
-            ;; ;; Turn kirchoff stress to cauchy
-            ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+            ;; Check volume constraint!
+            (when (<= volume 0d0)
+              (error "Negative volume"))
+            ;; Turn kirchoff stress to cauchy
+            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
             ))))
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
