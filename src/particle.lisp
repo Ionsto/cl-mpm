@@ -134,7 +134,7 @@
    (eng-strain-rate
     :accessor mp-eng-strain-rate
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(6 1)))
+    :initform (cl-mpm/utils:voigt-zeros))
    (vorticity
     :accessor mp-vorticity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -215,6 +215,15 @@
     :initform 0)
    )
   (:documentation "A single material point"))
+
+;; (defun mp-mass (mp)
+;;   (sb-mop:standard-instance-access mp 0))
+;; (defun mp-volume (mp)
+;;   (sb-mop:standard-instance-access mp 4))
+;; (defun mp-volume-0 (mp)
+;;   (sb-mop:standard-instance-access mp 5))
+;; (defun mp-deformation-gradient (mp)
+;;   (sb-mop:standard-instance-access mp 22))
 
 (defclass particle-elastic (particle)
   ((E

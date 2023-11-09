@@ -740,17 +740,22 @@
                                                       nonlocal-damage
                                                       ))
                     ;Map forces onto nodes
+                    ;;13.5
                     (cl-mpm::p2g-force mesh mps)
-                    ;(cl-mpm::apply-bcs mesh bcs-force dt)
+                    ;;15
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
+                    ;;15
                     (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
                     ;Reapply velocity BCs
+                    ;;15
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;Also updates mps inline
+                    ;;15
                     (cl-mpm::g2p mesh mps dt)
 
+                    ;;18
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
