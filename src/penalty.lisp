@@ -84,7 +84,7 @@
                        (let* ((force (cl-mpm/utils:vector-zeros))
                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
-                              (normal-damping 0d2)
+                              (normal-damping 1d2)
                               (damping-force (* normal-damping rel-vel)))
 
 

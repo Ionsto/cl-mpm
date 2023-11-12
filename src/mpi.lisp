@@ -45,7 +45,7 @@
     :accessor mpm-sim-mpi-halo-node-list
     :initform (loop for i from 0 to 2
                     collect (loop for i from 0 to 1 collect (make-array 0))))))
-(defun exchange-nodes-broken (sim func)
+(defun exchange-nodes (sim func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -64,53 +64,62 @@
                          (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
                          )
                      (destructuring-bind (bl bu) (nth i bounds-list)
-                       (let ((left-filter (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim))))
-                             (right-filter (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))
-                             )
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-nodes-par)
-                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-nodes-par)
-                                (recv
-                                  (cond
-                                    ((and (not (= left-neighbor -1))
-                                          (not (= right-neighbor -1))
-                                          )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       left-filter
-                                       left-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       right-filter
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (= left-neighbor -1)
-                                      (not (= right-neighbor -1))
-                                      )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       right-filter
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (not (= left-neighbor -1))
-                                      (= right-neighbor -1))
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       left-filter
-                                       left-neighbor :tag 1)
-                                      ))
-                                    (t nil))))
-                           (loop for packet in recv
-                                 do
-                                    (destructuring-bind (rank tag object) packet
-                                      (when object
-                                        (funcall func object)
-                                        )))))))))))))
-(defun exchange-nodes (sim func)
+                       (labels
+                           ((active-filter (nodes)
+                              (let ((res
+                                      (lparallel:premove-if-not
+                                       (lambda (mp)
+                                         (and
+                                          (cl-mpm/mesh:node-active mp)))
+                                       nodes)))
+                                (make-array (length res) :initial-contents res))))
+                         (let ((left-filter (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim))))
+                               (right-filter (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))
+                               )
+                           (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-nodes-par)
+                                  (cl-mpi-extensions::*standard-decode-function* #'deserialise-nodes-par)
+                                  (recv
+                                    (cond
+                                      ((and (not (= left-neighbor -1))
+                                            (not (= right-neighbor -1))
+                                            )
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (active-filter left-filter)
+                                         left-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (active-filter right-filter)
+                                         right-neighbor :tag 2)
+                                        ))
+                                      ((and
+                                        (= left-neighbor -1)
+                                        (not (= right-neighbor -1))
+                                        )
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (active-filter right-filter)
+                                         right-neighbor :tag 2)
+                                        ))
+                                      ((and
+                                        (not (= left-neighbor -1))
+                                        (= right-neighbor -1))
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (active-filter left-filter)
+                                         left-neighbor :tag 1)
+                                        ))
+                                      (t nil))))
+                             (loop for packet in recv
+                                   do
+                                      (destructuring-bind (rank tag object) packet
+                                        (when object
+                                          (funcall func object)
+                                          ))))))))))))))
+(defun exchange-nodes-old (sim func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -264,14 +273,12 @@
                   (when t;(> (length mps) 0)
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
-
                     (mpi-sync-momentum sim)
-
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt)
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    (cl-mpm::update-stress mesh mps dt fbar)
+                    (cl-mpm::update-stress mesh mps dt nil)
                     (when enable-damage
                       (cl-mpm/damage::calculate-damage mesh
                                                        mps
@@ -1150,7 +1157,7 @@
       (clear-ghost-mps sim))
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
     ))
-(defmethod domain-decompose ((sim mpm-sim-mpi-nodes))
+(defmethod domain-decompose :after ((sim mpm-sim-mpi-nodes))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
     (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -1174,19 +1181,22 @@
                                       (lparallel:premove-if-not
                                        (lambda (mp)
                                          (and
-                                          (cl-mpm/mesh:node-active mp)
+                                          ;; (cl-mpm/mesh:node-active mp)
                                           (funcall test (nth i (cl-mpm/mesh:node-index mp)))))
                                        all-nodes)))
                                 (make-array (length res) :initial-contents res)))
                             (left-filter ()
                               (halo-filter (lambda (pos)
                                              (and
-                                              (<= pos (+ (/ bl h) halo-depth)))
+                                              (>= pos (- (/ bl h) halo-depth))
+                                              (<= pos (+ (/ bl h) halo-depth))
+                                              )
                                              )))
                             (right-filter ()
                               (halo-filter (lambda (pos)
                                              (and
-                                              (>= pos (- (/ bu h) halo-depth)))
+                                              (>= pos (- (/ bu h) halo-depth))
+                                              (<= pos (+ (/ bu h) halo-depth)))
                                              ))))
                          (when (not (= left-neighbor -1))
                            (setf (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim)))
@@ -1194,8 +1204,10 @@
 
                          (when (not (= right-neighbor -1))
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
-                                 (right-filter)))))))))))
-  (call-next-method)
+                                 (right-filter))))))))))
+
+    (format t "rank ~D : Left filter node count: ~D~%"  rank (length (nth 0 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
+    (format t "rank ~D : Right filter node count: ~D~%" rank (length (nth 1 (nth 0 (mpm-sim-mpi-halo-node-list sim))))))
   )
 
 ;; (defun kill-servers ()

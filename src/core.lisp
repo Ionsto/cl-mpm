@@ -2210,7 +2210,7 @@ Calls func with only the node"
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
            (and (>= damage 1d0)
-                (or (damage-removal-criteria mp h) instant-damage-removal)
+                (or instant-damage-removal (damage-removal-criteria mp h) )
                 )))))
     ))
 

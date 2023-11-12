@@ -197,7 +197,11 @@
     (let ((mp (aref mps i)))
       (when (typep mp 'cl-mpm/particle:particle-damage)
         ;(find-nodal-local-length mesh mp)
-        (setf (cl-mpm/particle::mp-true-local-length mp) (cl-mpm/particle::mp-local-length mp))
+        ;(setf (cl-mpm/particle::mp-true-local-length mp) (cl-mpm/particle::mp-local-length mp))
+        (setf (cl-mpm/particle::mp-true-local-length mp)
+              (length-localisation (cl-mpm/particle::mp-local-length mp)
+                                   (cl-mpm/particle::mp-local-length-damaged mp)
+                                   (cl-mpm/particle::mp-damage mp)))
         ;; (calculate-damage-increment (aref mps i) dt)
         (damage-model-calculate-y mp dt)
         )))
@@ -628,7 +632,10 @@
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage)))
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
+  )
 (declaim
  (ftype
   (function (cl-mpm/mesh::mesh
@@ -1689,7 +1696,8 @@
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
             (setf damage 1d0)
-            (setf damage-inc 0d0))
+            ;(setf damage-inc 0d0)
+            )
           )
   (values)
   ))

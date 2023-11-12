@@ -1491,6 +1491,9 @@
    )
   (:documentation "A concrete damage model"))
 
+;; (defclass particle-elastic-damage-ideal (particle-concrete)
+;;   )
+
 (defclass particle-limestone (particle-concrete)
   (
    (compression-ratio
@@ -1531,7 +1534,7 @@
 
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
-      (let ((degredation (expt (- 1d0 damage) 1d0)))
+      (let ((degredation (max 1d-6 (expt (- 1d0 damage) 1d0))))
         (magicl:scale! stress degredation)))
     stress
     ))
