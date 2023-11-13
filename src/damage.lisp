@@ -1122,6 +1122,14 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
                                            (cl-mpm/particle::mp-damage-y-local mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "damage-eng"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::dissipated-energy)
+                                           (cl-mpm/particle::mp-dissipated-energy mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-eng-inc"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::dissipated-energy)
+                                           (cl-mpm/particle::mp-dissipated-energy-inc mp)
+                                           0d0))
         (cl-mpm/output::save-parameter "local-length"
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
@@ -1662,6 +1670,7 @@
 (defmethod update-damage ((mp cl-mpm/particle::particle-limestone) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
@@ -1672,9 +1681,12 @@
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (pressure cl-mpm/particle::mp-pressure)
+                     (volume cl-mpm/particle::mp-volume)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      (length cl-mpm/particle::mp-internal-length)
                      (k cl-mpm/particle::mp-history-stress)
+                     (eng-inc cl-mpm/particle::mp-dissipated-energy-inc)
+                     (eng-int cl-mpm/particle::mp-dissipated-energy)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1698,6 +1710,15 @@
             (setf damage 1d0)
             ;(setf damage-inc 0d0)
             )
+          (incf eng-inc
+                (* damage-inc
+                   ;volume
+                   0.5d0 (magicl:tref
+                          (magicl:@
+                           (magicl:transpose strain)
+                           undamaged-stress
+                           ) 0 0)))
+          (incf eng-int eng-inc)
           )
   (values)
   ))
@@ -1731,11 +1752,11 @@
                        (i1 (+ s_1 s_2 s_3))
                        (k-factor (/ (- k 1d0)
                                     (- 1d0 (* 2d0 nu))))
-                       (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                               (* (/ 1d0 (* 2d0 k))
-                                  (sqrt (+ (expt (* k-factor i1) 2)
-                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                                           )))))
+                       ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                       ;;         (* (/ 1d0 (* 2d0 k))
+                       ;;            (sqrt (+ (expt (* k-factor i1) 2)
+                       ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                       ;;                     )))))
                        )
                   (setf damage-increment s_1)
                   ;; (when (> s_1 0d0)

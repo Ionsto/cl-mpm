@@ -139,8 +139,7 @@
             do
                (setf (magicl:tref (cl-mpm/particle:mp-body-force mp) 1 0)
                      (* force (/ 1d0 (* (cl-mpm/particle:mp-volume mp) (length load-mps))))
-                     ))
-      )))
+                     )))))
 
                                         ;(defparameter *tip-velocity* -0.02d-3)
 (defparameter *tip-velocity* -0.000d-3)
@@ -173,8 +172,7 @@
                         (+ (second block-size) (* h-x 0.5))
                         ))
                impactor-size
-               (mapcar (lambda (e)
-                         (round  (* e mp-scale) h-x)) impactor-size)
+               (mapcar (lambda (e) (round (* e mp-scale) h-x)) impactor-size)
                density
                'cl-mpm/particle::particle-elastic
                :E 20d9
@@ -417,12 +415,12 @@
     ))
 
 (declaim (notinline setup))
-(defun setup (&key (undercut 0d0))
+(defun setup (&key (undercut 0d0) (refine 1d0))
   ;; (let ((mps-per-dim 4))
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 2.0))
+  (let* ((mesh-size (/ 0.0102 8.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -441,7 +439,10 @@
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
-          (cut-width mesh-size))
+          (cut-width
+            (/ 0.0102 0.5d0)
+                                        ;mesh-size
+                     ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
       (cl-mpm/setup::remove-sdf
        *sim*
@@ -545,6 +546,7 @@
     )
   (defparameter *target-displacement* 0d0)
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (format t "DOFs: ~D~%" (* 2d0 (array-total-size (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*)))))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (defparameter *run-sim* t)
   (defparameter *t* 0)
@@ -581,7 +583,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.2d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -843,17 +845,24 @@
 ;;                           (cl-mpm:sim-mps *sim*)
 ;;                           (cl-mpm:sim-dt *sim*))))
 
-(defun test ()
+(defun simple-test ()
   (setup)
-  (sb-profile:profile "CL-MPM")
-  (sb-profile:profile "CL-MPM/PARTICLE")
-  (sb-profile:profile "CL-MPM/MESH")
-  (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  (sb-profile:reset)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  ;; (sb-profile:reset)
   (time
-   (dotimes (i 10)
+   (dotimes (i 100)
          (cl-mpm::update-sim *sim*)))
-  (sb-profile:report)
+  ;; (sb-profile:report)
+  )
+
+(defun simple-test ()
+  (setup)
+  (time
+   (dotimes (i 100)
+     (cl-mpm::update-stress (cl-mpm:sim-mesh *sim*) (cl-mpm:sim-mps *sim*) 1d0 nil)))
   )
 (defun test-undercut ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output_chalk/mesh.vtk")
@@ -986,3 +995,90 @@
    (lparallel:pdotimes (i 10000000)
      (cl-mpm/utils:eig (magicl:eye 3))))
   )
+
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+
+;; (defclass sealable-standard-class
+;;     (sealable-metaobjects:sealable-class standard-class)
+;;   ())
+
+;; (defmethod closer-mop:validate-superclass
+;;     ((class sealable-standard-class)
+;;      (superclass standard-class))
+;;   t)
+
+;; (defclass ordered-class (standard-class)
+;;   ((slot-order :initform ()
+;;                :initarg :slot-order
+;;                :reader class-slot-order)))
+
+;; (defclass foo ()
+;;   ((x :accessor x :initarg :x)
+;;    (y :initform 0d0)))
+;; (defclass bar (foo)
+;;   ()
+;;   (:metaclass sealable-standard-class)
+;;   )
+
+;; (defmethod make-load-form ((foo foo) &optional env)
+;;   (make-load-form-saving-slots foo :slot-names '(x) :environment env))
+
+;; (defmethod make-load-form ((bar bar) &optional env)
+;;   (make-load-form-saving-slots bar :slot-names '(x) :environment env))
+
+;; (defgeneric op (foo)
+;;   (:generic-function-class fast-generic-functions:fast-generic-function))
+
+;; (defmethod op ((foo foo))
+;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
+;;   (* 2 2))
+
+;; (defmethod op ((foo bar))
+;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
+;;   (* 2 (x foo)))
+
+;; (defgeneric op2 (foo)
+;;   (:generic-function-class fast-generic-functions:fast-generic-function))
+
+;; (defmethod op2 ((foo foo))
+;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
+;;   (* 2 2))
+
+;; (defmethod op2 ((foo bar))
+;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
+;;   (* 2 (x foo)))
+
+;; (sealable-metaobjects:seal-domain #'op '(foo))
+;; (sealable-metaobjects:seal-domain #'op '(bar))
+
+;; ;; (sealable-metaobjects:seal-domain #'op2 '(t))
+;; ;; (sealable-metaobjects:seal-domain #'x '(foo))
+
+(defun test-slot ()
+  (declare (optimize (debug 0) (safety 0) (speed 3) (space 0)))
+  (let ((mp (make-instance 'cl-mpm/particle::particle :nd 2))
+        (iters 1000000000)
+        (y 0d0))
+    (time
+     (dotimes (i iters)
+       (with-accessors ((volume cl-mpm/particle::mp-volume))
+           mp
+           (setf y volume))
+       ))
+    (time
+     (dotimes (i iters)
+       (with-accessors ((volume cl-mpm/particle::mp-mass))
+           mp
+         (setf y volume))
+       ))
+    ;; (time
+    ;;  (dotimes (i iters)
+    ;;    (with-slots ((volume cl-mpm/particle::volume))
+    ;;        mp
+    ;;      (setf volume 0))
+    ;;    ))
+    ;; (time
+    ;;  (dotimes (i iters)
+    ;;    (setf (sb-mop:standard-instance-access mp 0) 0)
+    ;;    ))
+    ))

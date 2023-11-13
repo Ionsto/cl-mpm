@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/notch
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)

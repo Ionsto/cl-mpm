@@ -1488,6 +1488,12 @@
    (history-stress
     :accessor mp-history-stress
     :initform 0d0)
+   (dissipated-energy
+    :accessor mp-dissipated-energy
+    :initform 0d0)
+   (dissipated-energy-inc
+    :accessor mp-dissipated-energy-inc
+    :initform 0d0)
    )
   (:documentation "A concrete damage model"))
 
@@ -1534,7 +1540,7 @@
 
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
-      (let ((degredation (max 1d-6 (expt (- 1d0 damage) 1d0))))
+      (let ((degredation (max 1d-9 (expt (- 1d0 damage) 1d0))))
         (magicl:scale! stress degredation)))
     stress
     ))
