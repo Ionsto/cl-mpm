@@ -344,6 +344,24 @@
   :serial t
   :components ((:file "examples/pullout")))
 
+(defsystem "cl-mpm/examples/split-test"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/damage"
+               "cl-mpm/penalty"
+               "cl-mpm/plotter"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "lisp-stat"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/split-test")))
+
+
 (defsystem "cl-mpm/examples/creep"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"

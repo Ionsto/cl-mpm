@@ -86,14 +86,15 @@
   )
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (cl-mpm/plotter:simple-plot *sim* :plot :point
-  ;;                                   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp)
-  ;;                                                  ;; (if
-  ;;                                                                 ;; 1d0
-  ;;                                                                 ;; 0d0)
-  ;;                                                        )))
-  (vgplot:close-all-plots)
-  (plot-load-energy))
+  (cl-mpm/plotter:simple-plot *sim* :plot :point
+                                    :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp)
+                                                   ;; (if
+                                                                  ;; 1d0
+                                                                  ;; 0d0)
+                                                         ))
+  ;; (vgplot:close-all-plots)
+  ;; (plot-load-energy)
+  )
 ;; (defun plot (sim &optional (plot :damage))
 ;;   (declare (optimize (speed 0) (debug 3) (safety 3)))
 ;;   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
@@ -280,7 +281,7 @@
                 :E 1d9
                 :nu 0.15d0
                 :critical-damage 0.999d0
-                :fracture-energy 1d3
+                :fracture-energy 5d2
                 :initiation-stress 1.0d6
                 ;;Material parameter
                 :internal-length (* local-length 1d0)
@@ -291,7 +292,7 @@
                 :compression-ratio 100d0
                  :index 0
                )))
-      (let ((mass-scale 1d2))
+      (let ((mass-scale 1d0))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         ;; (setf (cl-mpm:sim-damping-factor sim)
         ;;       ;; (* 0.01d0 mass-scale)
@@ -391,18 +392,19 @@
 
       sim)))
 
+(defparameter *bar-length* 5d0)
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
   (let ((mesh-size 0.1000)
         ;;At 2x2 we get 5630J
         ;;At 4x4 we get ??
-        (mps-per-cell 4)
-        (bar-length 5))
-    (defparameter *sim* (setup-test-column (list 10 mesh-size)
+        (mps-per-cell 2)
+        (bar-length *bar-length*))
+    (defparameter *sim* (setup-test-column (list 15 mesh-size)
                                            (list bar-length mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
     (damage-sdf *sim* (cl-mpm/setup::rectangle-sdf (list (/ bar-length 2) 0) (list
-                                               0.1
+                                               0.2
                                                mesh-size)) 0.10d0)
     )
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
@@ -531,9 +533,9 @@
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
 
-  (let* ((target-time 0.100d0)
+  (let* ((target-time 0.01d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.1d0)
+         (dt-scale 0.5d0)
          (substeps (floor target-time dt))
          (disp-step 0.2d-3)
          )
@@ -626,7 +628,7 @@
                                                                      ) mp
                                                       (if (> inc 0d0)
                                                         (* inc
-                                                           volume
+                                                           (/ volume mass)
                                                            0.5d0 (magicl:tref
                                                                   (magicl:@
                                                                    (magicl:transpose strain)
@@ -646,6 +648,7 @@
                          (push average-force *data-load*)
                          (push average-disp *data-disp*)
                          (push (/ intergral-energy (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))) *energy-dissipation*)
+                         ;; 
                          )
                        )
 
@@ -758,7 +761,7 @@
         ))
 
 (defun estimate-gf ()
-  (let* ((strain (mapcar (lambda (x) (/ x 5d0)) *data-disp*))
+  (let* ((strain (mapcar (lambda (x) (/ x *bar-length*)) *data-disp*))
         (stress (mapcar (lambda (x) (/ x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))) *data-load*))
          (dstrain (mapcar #'- (butlast strain) (cdr strain)))
          (av-stress (mapcar #'+ (butlast stress) (cdr stress)))
@@ -818,7 +821,7 @@
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
     (let* ()
-      ;; (vgplot:figure)
+      (vgplot:figure)
       (vgplot:xlabel "Displacement")
       (vgplot:ylabel "Normalised load-energy")
       (vgplot:plot
@@ -827,22 +830,22 @@
                                         ;(mapcar (lambda (x) (/ x 1d0)) *time*) *max-damage* "MPM"
        ;; (mapcar (lambda (x) (/ x 1d0)) *time*) *max-damage* "MPM"
        )
-      ;; (vgplot:figure)
-      ;; (vgplot:title "Load-disp")
-      ;; (vgplot:xlabel "Displacement")
-      ;; (vgplot:ylabel "Load")
-      ;; (vgplot:plot (mapcar (lambda (x) (* 1d0 x)) *data-disp*) *data-load* "load")
-      ;; (vgplot:figure)
-      ;; (vgplot:title "Load-energy")
-      ;; (vgplot:xlabel "Displacement")
-      ;; (vgplot:ylabel "Energy")
-      ;; (vgplot:plot (mapcar (lambda (x) (* 1d0 x)) *data-disp*) *energy-dissipation* "energy")
-      ;; (vgplot:figure)
-      ;; (vgplot:title "Stress-strain")
-      ;; (vgplot:xlabel "Strain")
-      ;; (vgplot:ylabel "Stress Pa")
-      ;; (vgplot:plot (mapcar (lambda (x) (/ x 5d0)) *data-disp*)
-      ;;              (mapcar (lambda (x) (/ x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))) *data-load*) "Load")
+      (vgplot:figure)
+      (vgplot:title "Load-disp")
+      (vgplot:xlabel "Displacement")
+      (vgplot:ylabel "Load")
+      (vgplot:plot (mapcar (lambda (x) (* 1d0 x)) *data-disp*) *data-load* "load")
+      (vgplot:figure)
+      (vgplot:title "Load-energy")
+      (vgplot:xlabel "Displacement")
+      (vgplot:ylabel "Energy")
+      (vgplot:plot (mapcar (lambda (x) (* 1d0 x)) *data-disp*) *energy-dissipation* "energy")
+      (vgplot:figure)
+      (vgplot:title "Stress-strain")
+      (vgplot:xlabel "Strain")
+      (vgplot:ylabel "Stress Pa")
+      (vgplot:plot (mapcar (lambda (x) (/ x 5d0)) *data-disp*)
+                   (mapcar (lambda (x) (/ x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))) *data-load*) "Load")
       )
     ))
 
@@ -919,7 +922,7 @@
   (vgplot:title "CFL over time")
   (vgplot:plot *time* *cfl-max*))
 
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+(setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
 
 (defun profile ()
   (sb-profile:unprofile)

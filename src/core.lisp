@@ -1803,14 +1803,14 @@ Calls func with only the node"
             )
 
           ;;Post multiply to turn to eng strain
-          ;; (setf volume (* volume (magicl:det df)))
-          (setf volume (* volume-0 (magicl:det def)))
+          (setf volume (* volume (magicl:det df)))
+          ;; (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch-rate df domain)
           ;; (update-domain-stretch def domain domain-0)
-          ;; (update-domain-corner mesh mp dt)
+          (update-domain-corner mesh mp dt)
           )
           )))
   (values))
@@ -2239,7 +2239,7 @@ Calls func with only the node"
       mp
     (when (< split-depth 3)
       (let ((l-factor 1.50d0)
-            (h-factor (* 0.9d0 h))
+            (h-factor (* 0.5d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (tref lens 0 0)) :x)
@@ -2344,7 +2344,7 @@ Calls func with only the node"
                    ;; (volume cl-mpm/particle::mp-volume-0)
                    )
       mp
-    (let ((l-factor 1.20d0)
+    (let ((l-factor 1.50d0)
           (h-factor (* 0.8d0 h)))
 
       (split-cases direction)
