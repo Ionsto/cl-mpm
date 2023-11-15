@@ -185,7 +185,8 @@
               ))
         (let* (;(crack-scale 7d0)
                (crack-scale 4d0)
-               (length-scale 5.4d-3))
+               (length-scale 5.4d-3)
+               (kappa 0.5d0))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
@@ -215,8 +216,8 @@
                    ;;Material parameter
                    :internal-length (* length-scale crack-scale)
                    ;;Interaction radius
-                   :local-length (* length-scale crack-scale 0.8d0)
-                   :local-length-damaged (* length-scale crack-scale 0.8d0)
+                   :local-length (* length-scale crack-scale kappa)
+                   :local-length-damaged (* length-scale crack-scale kappa)
                    :compression-ratio 8d0
 
                    :critical-damage 1.000d0
@@ -420,7 +421,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 8.0))
+  (let* ((mesh-size (/ 0.0102 4.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
