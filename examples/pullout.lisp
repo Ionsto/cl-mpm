@@ -269,8 +269,8 @@
     (progn
       (let ((block-position
               block-offset)
-            (local-length 0.2d0)
-            (kappa 0.8d0))
+            (local-length 0.1d0)
+            (kappa 1.0d0))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
@@ -281,7 +281,7 @@
                 :E 1d9
                 :nu 0.15d0
                 :critical-damage 0.999d0
-                :fracture-energy 1d3
+                :fracture-energy 2d2
                 :initiation-stress 1.0d6
                 ;;Material parameter
                 :internal-length (* local-length 1d0)
