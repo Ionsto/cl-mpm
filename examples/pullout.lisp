@@ -269,7 +269,7 @@
     (progn
       (let ((block-position
               block-offset)
-            (local-length 0.1d0)
+            (local-length 0.5d0)
             (kappa 1.0d0))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
@@ -281,7 +281,7 @@
                 :E 1d9
                 :nu 0.15d0
                 :critical-damage 0.999d0
-                :fracture-energy 2d2
+                :fracture-energy 2d3
                 :initiation-stress 1.0d6
                 ;;Material parameter
                 :internal-length (* local-length 1d0)
@@ -303,8 +303,8 @@
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-4)
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var
@@ -410,11 +410,11 @@
   (let ((mesh-size 0.100)
         ;;At 2x2 we get 5630J
         ;;At 4x4 we get ??
-        (mps-per-cell 4)
+        (mps-per-cell 2)
         (bar-length *bar-length*))
     (defparameter *sim* (setup-test-column (list 15 mesh-size)
                                            (list bar-length mesh-size) '(000 0) (/ 1 mesh-size) mps-per-cell))
-    (damage-sdf *sim* (cl-mpm/setup::rectangle-sdf (list (/ bar-length 2) 0) (list
+    (damage-sdf *sim* (cl-mpm/setup::rectangle-sdf (list 0 0) (list
                                                0.2
                                                mesh-size)) 0.10d0)
     )
@@ -543,14 +543,21 @@
   ;;         do (format stream "~f, ~f ~%" tim x)))
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
+  (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
+    (format stream "disp,nload,load~%"
+            average-disp
+            average-reaction
+            average-force
+            ))
 
-  (let* ((target-time 0.01d0)
+  (let* ((target-time 0.05d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 1d0)
          (substeps (floor target-time dt))
          (disp-step 0.2d-3)
          )
     (cl-mpm::update-sim *sim*)
+    (setf cl-mpm/damage::*enable-reflect-x* t)
 
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e)))
@@ -595,9 +602,9 @@
                                  sum (cl-mpm/particle::mp-damage mp))
                            (length mps))
                         *max-damage*)
-                       (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
-                         (when (>= m-d 1d0)
-                           (setf *run-sim* nil)))
+                       ;; (let ((m-d (loop for mp across mps maximize (cl-mpm/particle::mp-damage mp))))
+                       ;;   (when (>= m-d 1d0)
+                       ;;     (setf *run-sim* nil)))
                        )
 
                      (format t "Core loop~%")
@@ -628,24 +635,26 @@
                                                substeps
                                                )
                                               )
-                                        ;; (incf intergral-energy
-                                        ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
-                                        ;;             sum
-                                        ;;             (with-accessors ((inc cl-mpm/particle::mp-damage-increment)
-                                        ;;                              (stress cl-mpm/particle::mp-undamaged-stress)
-                                        ;;                              (strain cl-mpm/particle::mp-strain)
-                                        ;;                              (volume cl-mpm/particle::mp-volume)
-                                        ;;                              (mass cl-mpm/particle::mp-mass)
-                                        ;;                              ) mp
-                                        ;;               (if (> inc 0d0)
-                                        ;;                 (* inc
-                                        ;;                    (/ volume mass)
-                                        ;;                    0.5d0 (magicl:tref
-                                        ;;                           (magicl:@
-                                        ;;                            (magicl:transpose strain)
-                                        ;;                            stress
-                                        ;;                            ) 0 0))
-                                        ;;                 0d0))))
+                                        (incf intergral-energy
+                                              (reduce
+                                               #'+
+                                                 (lparallel:pmapcar
+                                                  (lambda (mp)
+                                                    (with-accessors ((inc cl-mpm/particle::mp-damage-increment)
+                                                                     (stress cl-mpm/particle::mp-undamaged-stress)
+                                                                     (strain cl-mpm/particle::mp-strain)
+                                                                     (volume cl-mpm/particle::mp-volume)
+                                                                     (mass cl-mpm/particle::mp-mass)
+                                                                     ) mp
+                                                      (if (> inc 0d0)
+                                                          (* inc
+                                                             (/ volume mass)
+                                                             0.5d0 (magicl:tref
+                                                                    (magicl:@
+                                                                     (magicl:transpose strain)
+                                                                     stress
+                                                                     ) 0 0))
+                                                          0d0))) (cl-mpm:sim-mps *sim*))))
 
                                         (incf *target-displacement* (/ disp-step substeps))
                                         ;; (with-accessors ((mps cl-mpm:sim-mps))
@@ -660,14 +669,22 @@
                          (push average-disp *data-disp*)
                          (push (/ intergral-energy (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))) *energy-dissipation*)
                          ;; 
+                         (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
+                           (format stream "~f,~f,~f~%"
+                                   average-disp
+                                   average-reaction
+                                   average-force
+                                   ))
+
                          )
+
                        )
 
                      (format t "Target: ~f - Current: ~f Error: ~f~%"
                              *target-displacement*
                              (get-disp *terminus-mps*)
                              (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*)))
-                     (format t "Total energy dissipated: ~F~%" (reduce #'+ *energy-dissipation*))
+                                          (format t "Total energy dissipated: ~F~%" (reduce #'+ *energy-dissipation*))
 
                        (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                               (substeps-e (floor target-time dt-e)))
@@ -785,7 +802,7 @@
     (vgplot:xlabel "Strain")
     (vgplot:ylabel "Stress (Pa)")
     (vgplot:plot strain stress)
-    (format t "Estimated fracture energy G_f:~F~%" energy)
+    (format t "Estimated fracture energy G_f:~F~%" (* energy 1d0))
   ))
 (defun plot-velocity ()
   (let ((x (loop for mp in *bottom-mps*
@@ -804,12 +821,14 @@
      x v "velocity"
      )))
 (defun plot-damage ()
-    (let ((x (loop for mp in *slice-mps*
+    (let* ((x (loop for mp in *slice-mps*
                    collect (magicl:tref
                             (cl-mpm/particle:mp-position mp)
                             0 0)))
           (d (loop for mp in *slice-mps*
                    collect (cl-mpm/particle:mp-damage mp)))
+          (x (append (mapcar (lambda (z) (* z -1)) (reverse x)) x))
+          (d (append (reverse d) d))
           )
       (vgplot:figure)
       (vgplot:axis '(t t 0 1))
