@@ -111,6 +111,15 @@
 ;  :serial t
 ;  :components ((:file "src/mesh")))
 ;
+(defsystem "cl-mpm/ext"
+  :depends-on ("magicl"
+               "cffi"
+               "cl-mpm/utils"
+               "array-operations")
+  :description "External libraries"
+  :serial t
+  :components ((:file "src/cpp"))
+  )
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("magicl"
@@ -125,6 +134,7 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
+               "cl-mpm/ext"
                ;"cl-mpm/damage"
                )
   :description ""

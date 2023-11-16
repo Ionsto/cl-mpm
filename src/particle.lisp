@@ -1540,7 +1540,7 @@
 
     (setf stress (magicl:scale stress-undamaged 1d0))
     (when (> damage 0.0d0)
-      (let ((degredation (max 1d-9 (expt (- 1d0 damage) 1d0))))
+      (let ((degredation (max 0d-9 (expt (- 1d0 damage) 1d0))))
         (magicl:scale! stress degredation)))
     stress
     ))

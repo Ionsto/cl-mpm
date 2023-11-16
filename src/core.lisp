@@ -1764,35 +1764,36 @@ Calls func with only the node"
                 )
             (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
                             (magicl::matrix/double-float-storage strain))
-                (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                            ;;Shear scaling factor halved - we are using log strain matrix
-                                            (voigt-to-matrix strain))
-                (let ((trial-lgs (magicl:@ df
-                                           v
-                                           (cl-mpm/utils::matrix-from-list
-                                            (list
-                                             (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-                                             0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-                                             0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-                                             ))
-                                           (magicl:transpose v)
-                                           (magicl:transpose df))))
-                  (multiple-value-bind (lf vf)
-                      (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
-                    (setf strain (magicl:scale!
-                                  ;;Note that this is taking care of the shear scaling factor
-                                  (matrix-to-voigt
-                                   (magicl:@
-                                    vf
-                                    (cl-mpm/utils::matrix-from-list
-                                     (list
-                                      (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-                                      0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-                                      0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-                                      )
-                                     )
-                                    (magicl:transpose vf)))
-                                  0.5d0)))))
+            (cl-mpm/ext:kirchoff-expt-step strain df)
+                ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
+                ;;                             ;;Shear scaling factor halved - we are using log strain matrix
+                ;;                             (voigt-to-matrix strain))
+                ;; (let ((trial-lgs (magicl:@ df
+                ;;                            v
+                ;;                            (cl-mpm/utils::matrix-from-list
+                ;;                             (list
+                ;;                              (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                ;;                              0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                ;;                              0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                ;;                              ))
+                ;;                            (magicl:transpose v)
+                ;;                            (magicl:transpose df))))
+                ;;   (multiple-value-bind (lf vf)
+                ;;       (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+                ;;     (setf strain (magicl:scale!
+                ;;                   ;;Note that this is taking care of the shear scaling factor
+                ;;                   (matrix-to-voigt
+                ;;                    (magicl:@
+                ;;                     vf
+                ;;                     (cl-mpm/utils::matrix-from-list
+                ;;                      (list
+                ;;                       (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                ;;                       0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                ;;                       0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                ;;                       )
+                ;;                      )
+                ;;                     (magicl:transpose vf)))
+                ;;                   0.5d0)))))
 
             ;;Not sure about this engineering strain calculation
             (magicl:.- eng-strain-rate strain eng-strain-rate)
