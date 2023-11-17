@@ -7,7 +7,7 @@
 Eigen::Matrix<double,6,1> matrix_to_voigt(Eigen::Matrix<double,3,3> mat) {
   return (Eigen::Matrix<double,6,1>() <<
           mat(0,0), mat(1,1),mat(2,2),
-          2.0*mat(1,2), 2.0*mat(0,2),2.0*mat(1,2)
+          2.0*mat(1,2), 2.0*mat(0,2),2.0*mat(0,1)
           ).finished();
 }
 

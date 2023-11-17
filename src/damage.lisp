@@ -1687,6 +1687,8 @@
                      (k cl-mpm/particle::mp-history-stress)
                      (eng-inc cl-mpm/particle::mp-dissipated-energy-inc)
                      (eng-int cl-mpm/particle::mp-dissipated-energy)
+                     (p cl-mpm/particle::mp-p-modulus)
+                     (nu cl-mpm/particle::mp-nu)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1710,6 +1712,7 @@
             (setf damage 1d0)
             ;(setf damage-inc 0d0)
             )
+          (setf p (/ (* (- 1d0 damage) E) (* (+ 1d0 nu) (- 1d0 nu))))
           (incf eng-inc
                 (* damage-inc
                    ;volume

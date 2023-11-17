@@ -5,10 +5,12 @@
   (:import-from
    :magicl tref .+ .-)
   (:export
+   #:kirchoff-update
    #:kirchoff-expt-step
+   #:kirchoff-expt-step-lisp
    ))
 (in-package :cl-mpm/ext)
-
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (define-foreign-library cl-mpm-cpp
   (:unix (:or "./libs/kirchoff.so"))
@@ -22,39 +24,60 @@
   (df-ptr :pointer))
 (defcfun "test" :void
   (flags :pointer))
-(let ((strain (make-array 6 :element-type 'double-float :initial-element 0d0))
-      (df (make-array 9 :element-type 'double-float :initial-contents (list 1d0 0d0 0d0
-                                                                            0d0 1d0 0d0
-                                                                            0d0 0d0 3d0))))
-  (format t "strain: ~A ~%" strain)
-  (magicl.cffi-types:with-array-pointers ((sp strain)
-                                          (dfp df))
+
+
+(defun kirchoff-update (strain df)
+  (kirchoff-expt-step strain df))
+(declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
+                          (values))
+                kirchoff-expt-step)
+         (inline kirchoff-expt-step)
+         )
+(defun kirchoff-expt-step (strain-matrix df-matrix)
+  (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage strain-matrix))
+                                          (dfp (magicl::matrix/double-float-storage df-matrix)))
     (kirchoff-strain-update sp dfp)
     )
-  (format t "strain: ~A ~%" strain)
-  )
-(let ((strain (magicl:zeros '(6 1)))
-      (df (cl-mpm/utils:matrix-from-list (list 2d0 0d0 0d0
-                                               0d0 1d0 0d0
-                                               0d0 0d0 1d0))))
-
-
-  (kirchoff-expt-step strain df)
-  (format t "strain:~A~%" strain)
-  )
-
-
-(defun kirchoff-expt-step (strain-matrix df-matrix)
-  (let ((sm-s (magicl::storage strain-matrix))
-        (dfm-s (magicl::storage df-matrix)))
-    ;; (declare ((simple-array double-float *) sm-s dfm-s))
-    (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage strain-matrix))
-                                            (dfp (magicl::matrix/double-float-storage df-matrix)))
-      ;; (format t "~A ~%" (type-of ))
-      ;; (format t "~A ~%" (type-of ))
-      ;; (test sp)
-      ;; (format t "~A~%" strain-matrix)
-      (kirchoff-strain-update sp dfp)
-      ))
   (values)
   )
+(defun kirchoff-expt-step-lisp (strain df)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                  (cl-mpm/utils:voigt-to-matrix strain))
+        (let ((trial-lgs (magicl:@ df
+                                   v
+                                   (cl-mpm/utils::matrix-from-list
+                                    (list
+                                     (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                                     0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                                     0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                                     ))
+                                   (magicl:transpose v)
+                                   (magicl:transpose df))))
+          (multiple-value-bind (lf vf)
+              (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+            (aops:copy-into (magicl::matrix/double-float-storage strain)
+                            (magicl::matrix/double-float-storage
+                             (magicl:scale!
+                              ;;Note that this is taking care of the shear scaling factor
+                              (cl-mpm/utils:matrix-to-voigt
+                               (magicl:@
+                                vf
+                                (cl-mpm/utils::matrix-from-list
+                                 (list
+                                  (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                                  0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                                  0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                                  )
+                                 )
+                                (magicl:transpose vf)))
+                              0.5d0)))))))
+
+
+
+
+
+
+
+
+
+
