@@ -14,7 +14,8 @@
    :trivial-with-current-source-form with-current-source-form
    )
   )
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
@@ -301,7 +302,7 @@
                     (cl-mpm::check-mps sim)
                     (set-mp-mpi-index sim)
                     )
-                    (exchange-mps sim 0d0)
+                    ;(exchange-mps sim 0d0)
                     ;; (clear-ghost-mps sim)
                     )))
 
@@ -802,7 +803,7 @@
   ;;     (let ((out
   ;;             (static-vectors:make-static-vector total-length
   ;;                                                :element-type '(unsigned-byte 8)
-  ;;                                                ;; :initial-contents res
+inc  ;;                                                ;; :initial-contents res
   ;;                                                ))
   ;;           (i 0))
   ;;       (declare (fixnum i)
@@ -828,14 +829,18 @@
   ;;                                      :initial-contents res
   ;;                                      ))
   )
+
+(defun cl-store-decoder ()
+    (flexi-streams:with-input-from-sequence (stream x)
+      (cl-store:restore stream)))
+
 (defun cl-store-encoder (x)
   (let ((res (flexi-streams:with-output-to-sequence (stream)
                (cl-store:store x stream))))
     (static-vectors:make-static-vector (length res)
                                        :element-type '(unsigned-byte 8)
                                        :initial-contents res
-                                       ))
-  )
+                                       )))
 (defun deserialise-mps (x)
   (when x
     (flexi-streams:with-input-from-sequence (stream x)
@@ -923,7 +928,9 @@
                               )
 
                             )
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+                         (format t "rank ~D Sending~%" rank)
+                         (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder) 
+                                (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder) 
                                 (recv
                                   (cond
                                     ((and (not (= left-neighbor -1))
@@ -1167,7 +1174,7 @@
              (index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
-             (halo-depth 2))
+             (halo-depth 4))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
