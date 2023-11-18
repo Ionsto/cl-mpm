@@ -1572,6 +1572,7 @@ Calls func with only the node"
                 (v-s (matrix-zeros))
                 (stretch-dsvp (stretch-dsvp-3d-zeros))
                 (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+                (temp-add (cl-mpm/utils::matrix-zeros))
                 )
             (declare (magicl:matrix/double-float stretch-dsvp v-s)
                      (dynamic-extent stretch-dsvp v-s))
@@ -1586,9 +1587,10 @@ Calls func with only the node"
                  (when node-active
                    (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
                    (magicl:mult stretch-dsvp node-vel :target temp-mult)
-                   (magicl:.+
+                   (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+                   (magicl.simd::.+-simd
                     stretch-tensor
-                    (cl-mpm/utils::voight-to-stretch-3d temp-mult)
+                    temp-add
                     stretch-tensor)
 
                    ;; (magicl:.+
