@@ -12,8 +12,10 @@
 (in-package :cl-mpm/ext)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+
+(pushnew (asdf:system-relative-pathname 'cl-mpm "./libs/")  *foreign-library-directories* :test #'equal)
 (define-foreign-library cl-mpm-cpp
-  (:unix (:or "./libs/kirchoff.so"))
+    (:unix "kirchoff.so")
   (t (:default "kirchoff")))
 
 (use-foreign-library cl-mpm-cpp)
