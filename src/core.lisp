@@ -1571,6 +1571,7 @@ Calls func with only the node"
           (let (#+cl-mpm-fbar (stretch-tensor-fbar (magicl:zeros '(2 2) :type 'double-float))
                 (v-s (matrix-zeros))
                 (stretch-dsvp (stretch-dsvp-3d-zeros))
+                (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
                 )
             (declare (magicl:matrix/double-float stretch-dsvp v-s)
                      (dynamic-extent stretch-dsvp v-s))
@@ -1583,11 +1584,19 @@ Calls func with only the node"
 
                  ;; (declare (double-float))
                  (when node-active
+                   (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
+                   (magicl:mult stretch-dsvp node-vel :target temp-mult)
                    (magicl:.+
                     stretch-tensor
-                    (cl-mpm/utils::voight-to-stretch-3d
-                     (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d grads) node-vel))
+                    (cl-mpm/utils::voight-to-stretch-3d temp-mult)
                     stretch-tensor)
+
+                   ;; (magicl:.+
+                   ;;  stretch-tensor
+                   ;;  (cl-mpm/utils::voight-to-stretch-3d
+                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d grads) node-vel))
+                   ;;  stretch-tensor)
+
                    ;; (magicl:scale! stretch-dsvp 0d0)
                    ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
                    ;; (magicl.simd::.+-simd
@@ -1605,10 +1614,7 @@ Calls func with only the node"
                    ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
                    ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
                    ))))
-            #+cl-mpm-fbar (setf jfbar (magicl:det (magicl.simd::.+-simd (magicl:eye 2) stretch-tensor-fbar)))
             )
-          #+cl-mpm-fbar (when (<= jfbar 0d0)
-            (error "FBAR volume non-positive"))
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
             (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))

@@ -95,6 +95,8 @@
 (defun stretch-dsvp-3d-zeros ()
   (magicl::make-matrix/double-float 9 3 27 :column-major (make-array 27 :element-type 'double-float)))
 
+(defun stretch-dsvp-voigt-zeros ()
+  (magicl::make-matrix/double-float 9 1 9 :column-major (make-array 9 :element-type 'double-float)))
 
 (declaim (inline dsvp-2d-zeros)
          (ftype (function ()
