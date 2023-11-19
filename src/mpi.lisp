@@ -268,7 +268,9 @@
       (let ((all-mps mps)
             (index (mpi-rank-to-index sim rank))
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
-            (halo-depth 10d-3)
+            (halo-depth (if halo-depth
+                            halo-depth
+                            1d0))
             )
         (loop for i from 0 to 2
               do
