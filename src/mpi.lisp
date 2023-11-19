@@ -428,8 +428,10 @@
                     (cl-mpm::check-mps sim)
                     (set-mp-mpi-index sim)
                     )
-                    (exchange-mps sim 0d0)
-                    (clear-ghost-mps sim)
+                  ;(exchange-mps sim (* 0.1d0 (cl-mpm/mesh:mesh-resolution mesh)))
+                  (exchange-mps sim 0d0)
+                  (set-mp-mpi-index sim)
+                  (clear-ghost-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
@@ -486,7 +488,7 @@
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
                     (set-mp-mpi-index sim))
-                    (clear-ghost-mps sim)
+                    ;; (clear-ghost-mps sim)
                     ;;Update mp list between processors
                     )))
 
@@ -495,9 +497,7 @@
      (cl-mpm::remove-mps-func
       sim
       (lambda (mp)
-        (not (= rank (cl-mpm/particle::mp-mpi-index mp)))
-        ;; t
-        ))))
+        (not (= rank (cl-mpm/particle::mp-mpi-index mp)))))))
 
 ;; (defun store-array (obj stream)
 ;;   (declare (optimize speed (safety 0) (debug 0))
@@ -1046,13 +1046,13 @@ inc  ;;                                                ;; :initial-contents res
                               (left-filter ()
                                 (halo-filter (lambda (pos)
                                                (and
-                                                (<= pos (+ bl halo-depth)))
+                                                (< pos (+ bl halo-depth)))
                                                ))
                                 )
                               (right-filter ()
                                 (halo-filter (lambda (pos)
                                                (and
-                                                (> pos (- bu halo-depth)))
+                                                (>= pos (- bu halo-depth)))
                                                ))
                                 )
 
@@ -1227,16 +1227,14 @@ inc  ;;                                                ;; :initial-contents res
     (loop for i from 0 to 2
           do
              (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
-               (setf in-bounds
-                     (and
-                      in-bounds
-                      (or
+               (when (not (= bu bl))
+                 (setf in-bounds
                        (and
-                        (> (coerce bu 'double-float) (magicl:tref pos i 0))
-                        (<= (coerce bl 'double-float) (magicl:tref pos i 0)))
-                       (= bu bl)
-                       )
-                      ))))
+                        in-bounds
+                        (and
+                         (> bu (magicl:tref pos i 0))
+                         (<= bl (magicl:tref pos i 0)))
+                        )))))
     in-bounds
     ))
 (defun calculate-domain-sizes (sim &optional size)
