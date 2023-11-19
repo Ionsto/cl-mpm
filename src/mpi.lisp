@@ -38,6 +38,9 @@
     :accessor mpm-sim-mpi-domain-count
     :initform '(1 1 1)
     )
+   (halo-damage-size
+    :accessor mpm-sim-mpi-halo-damage-size
+    :initform 1d0)
    )
   (:documentation "Damage sim with only stress update on mpi"))
 
@@ -45,7 +48,10 @@
   ((halo-node-list
     :accessor mpm-sim-mpi-halo-node-list
     :initform (loop for i from 0 to 2
-                    collect (loop for i from 0 to 1 collect (make-array 0))))))
+                    collect (loop for i from 0 to 1 collect (make-array 0))))
+   )
+  )
+
 (defun exchange-nodes (sim func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
@@ -253,6 +259,120 @@
              (magicl:.+ force (mpi-node-force mpi-node) force)
              )))))))
 
+(defun mpi-sync-damage-mps (sim &optional halo-depth)
+  (let* ((rank (cl-mpi:mpi-comm-rank))
+         (size (cl-mpi:mpi-comm-size)))
+    (with-accessors ((mps cl-mpm:sim-mps)
+                     (mesh cl-mpm:sim-mesh))
+        sim
+      (let ((all-mps mps)
+            (index (mpi-rank-to-index sim rank))
+            (bounds-list (mpm-sim-mpi-domain-bounds sim))
+            (halo-depth 10d-3)
+            )
+        (loop for i from 0 to 2
+              do
+                 (let ((id-delta (list 0 0 0)))
+                   (setf (nth i id-delta) 1)
+                   (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
+                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
+                         )
+                     (destructuring-bind (bl bu) (nth i bounds-list)
+                       (labels
+                           ((halo-filter (test)
+                              (let ((res
+                                      (lparallel:premove-if-not
+                                       (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
+                                       all-mps)))
+                                res))
+                            (left-filter ()
+                              (halo-filter (lambda (pos)
+                                             (and
+                                              (<= pos (+ bl halo-depth)))
+                                             ))
+                              )
+                            (right-filter ()
+                              (halo-filter (lambda (pos)
+                                             (and
+                                              (> pos (- bu halo-depth)))
+                                             ))
+                              )
+
+                            )
+                         (format t "rank ~D Sending~%" rank)
+                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-damage-mp)
+                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-damage-mp)
+                                (recv
+                                  (cond
+                                    ((and (not (= left-neighbor -1))
+                                          (not (= right-neighbor -1))
+                                          )
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                      (left-filter)
+                                       left-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (right-filter)
+                                       right-neighbor :tag 2)
+                                      ))
+                                    ((and
+                                      (= left-neighbor -1)
+                                      (not (= right-neighbor -1))
+                                      )
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (right-filter)
+                                       right-neighbor :tag 2)
+                                      ))
+                                    ((and
+                                      (not (= left-neighbor -1))
+                                      (= right-neighbor -1))
+                                     (cl-mpi-extensions:mpi-waitall-anything
+                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                      (cl-mpi-extensions:mpi-isend-anything
+                                       (left-filter)
+                                       left-neighbor :tag 1)
+                                      ))
+                                    (t nil))))
+                           (let ((damage-mps (make-array 0 :element-type 'cl-mpm::mp-damage :adjustable t)))
+                             (loop for packet in recv
+                                   do
+                                      (destructuring-bind (rank tag object) packet
+                                        (when object
+                                          (loop for mp across object
+                                                do (progn
+                                                     (vector-push-extend
+                                                      (make-instance 'cl-mpm/particle::mp-damage
+                                                                     :nd 2
+                                                                     :volume (mpi-object-damage-mp-volume mp)
+                                                                     :position (mpi-object-damage-mp-position mp)
+                                                                     :damage-y (mpi-object-damage-mp-position mp)
+                                                                     :local-length-t (mpi-object-damage-mp-local-length mp))
+                                                      damage-mps))))
+                                        ))
+                             damage-mps)))))))))))
+
+(defun mpi-sync-damage-mps (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (exchange-nodes
+     sim
+     (lambda (node-list)
+       (lparallel:pdotimes (i (length node-list))
+         (let* ((mpi-node (aref node-list i))
+                (index (mpi-node-index mpi-node)))
+           (with-accessors ((active cl-mpm/mesh:node-active)
+                            (mass cl-mpm/mesh:node-mass)
+                            (force cl-mpm/mesh:node-force)
+                            )
+               (apply #'aref (cl-mpm/mesh:mesh-nodes mesh) index)
+             ;; (setf active t)
+             (magicl:.+ force (mpi-node-force mpi-node) force)
+             )))))))
+
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)
@@ -281,12 +401,18 @@
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::update-stress mesh mps dt nil)
                     (when enable-damage
-                      (cl-mpm/damage::calculate-damage mesh
-                                                       mps
-                                                       dt
-                                                       50d0
-                                                       nonlocal-damage
-                                                       ))
+                      (let ((damage-mps (mpi-sync-damage-mps sim (mpm-sim-mpi-halo-damage-size sim))))
+                        (lparallel:pdotimes (i (length damage-mps))
+                          (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
+                        (cl-mpm/damage::calculate-damage mesh
+                                                         mps
+                                                         dt
+                                                         50d0
+                                                         nonlocal-damage
+                                                         )
+                        (lparallel:pdotimes (i (length damage-mps))
+                          (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
+                        ))
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do
@@ -302,8 +428,8 @@
                     (cl-mpm::check-mps sim)
                     (set-mp-mpi-index sim)
                     )
-                    ;(exchange-mps sim 0d0)
-                    ;; (clear-ghost-mps sim)
+                    (exchange-mps sim 0d0)
+                    (clear-ghost-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
@@ -525,48 +651,49 @@
                )))
          )
        (defun ,deser-name (array)
-         ((node-count (/ (length array) ,packet-size))
-          (output (make-array node-count :element-type 'mpi-object))
-          (inc 0)
-           )
-          (declare (fixnum inc bytes-per-position))
-          (lparallel:pdotimes (i node-count)
-            (let ((inc (* i packet-size)))
-              (let ((ix (pull-int array inc))
-                    (iy (pull-int array inc))
-                    (iz (pull-int array inc))
-                    ;; (vel nil)
-                    (mass (pull-float array inc))
-                    (pmod (pull-float array inc))
-                    (svp (pull-float array inc))
-                    (vol (pull-float array inc))
-                    (vel (pull-vector array inc))
-                    (force (pull-vector array inc))
-                    )
-                (setf (aref output i)
-                      (make-mpi-node
-                       :index (list ix iy iz)
-                       :mass mass
-                       :velocity vel
-                       :force force
-                       :svp svp
-                       :vol vol
-                       :pmod pmod))
-                )))
+         (let ((node-count (/ (length array) ,packet-size))
+               (output (make-array node-count :element-type ,mpi-object-name))
+               (inc 0)
+               )
+           (declare (fixnum inc bytes-per-position)
+                    ((simple-array (unsigned-byte 8) *) array))
+           (lparallel:pdotimes (i node-count)
+             (let ((inc (* i packet-size)))
+               (setf (aref output i)
+                     (,mpi-object-constructor
+                      ,@(apply #'append
+                               (mapcar (lambda (slot-entry)
+                                         (destructuring-bind (type var-name accessor-name)
+                                             slot-entry
+                                           (let ((pull-name (intern (format nil "PULL-~:@(~A~)" type)))
+                                                 (var-keyword (intern (format nil "~:@(~A~)" var-name) "KEYWORD")))
+                                             (format t "~A~%" var-name)
+                                             `(,var-keyword (,pull-name array inc))))) mapping-list))
+                      ))
+               )))
           output)
          )
        ))
-;; (make-mpi-ser
-;;  test
-;;  (
-;;   (index index cl-mpm/mesh::node-index)
-;;   (float mass cl-mpm/mesh:node-mass)
-;;   (float pmod cl-mpm/mesh::node-pwave)
-;;   (float svp cl-mpm/mesh::node-svp)
-;;   (float volume cl-mpm/mesh::node-volume)
-;;   (vector velocity cl-mpm/mesh::node-velocity)
-;;   (vector force cl-mpm/mesh::node-force)
-;;   ))
+(make-mpi-ser
+ test
+ (
+  (index index cl-mpm/mesh::node-index)
+  (float mass cl-mpm/mesh:node-mass)
+  (float pmod cl-mpm/mesh::node-pwave)
+  (float svp cl-mpm/mesh::node-svp)
+  (float volume cl-mpm/mesh::node-volume)
+  (vector velocity cl-mpm/mesh::node-velocity)
+  (vector force cl-mpm/mesh::node-force)
+  ))
+
+(make-mpi-ser
+ damage-mp
+ (
+  (vector position cl-mpm/particle::mp-position)
+  (float volume cl-mpm/particle:mp-volume)
+  (float y cl-mpm/particle::mp-damage-y-local)
+  (float local-length cl-mpm/particle::mp-true-local-length)
+  ))
 
 (defun serialise-nodes (nodes)
   ;;We need to exchange nodes
@@ -830,7 +957,7 @@ inc  ;;                                                ;; :initial-contents res
   ;;                                      ))
   )
 
-(defun cl-store-decoder ()
+(defun cl-store-decoder (x)
     (flexi-streams:with-input-from-sequence (stream x)
       (cl-store:restore stream)))
 
@@ -890,6 +1017,7 @@ inc  ;;                                                ;; :initial-contents res
                             halo-depth
                             (* 4 (cl-mpm/mesh:mesh-resolution mesh))))
             )
+        ;; (format t "MPs:~A~%" (length mps))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
@@ -900,83 +1028,85 @@ inc  ;;                                                ;; :initial-contents res
                      ;; (format t "Left neighbour:~A~%" left-neighbor)
                      ;; (format t "Right neighbour:~A~%" right-neighbor)
                      (destructuring-bind (bl bu) (nth i bounds-list)
-                       (labels
-                           ((shit-filter (test)
-                              (let ((res
-                                      (lparallel:premove-if-not
-                                       (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-                                       all-mps)))
-                                res)
-                              )
-                            (halo-filter (test)
-                              (let ((res
-                                      (lparallel:premove-if-not
-                                       (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
-                                       all-mps)))
-                                res))
-                            (left-filter ()
-                              (halo-filter (lambda (pos)
-                                             (and
-                                              (<= pos (+ bl halo-depth)))
-                                             ))
-                              )
-                            (right-filter ()
-                              (halo-filter (lambda (pos)
-                                             (and
-                                              (> pos (- bu halo-depth)))
-                                             ))
-                              )
+                       (when (not (= bl bu))
+                         (labels
+                             ((shit-filter (test)
+                                (let ((res
+                                        (lparallel:premove-if-not
+                                         (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+                                         all-mps)))
+                                  res)
+                                )
+                              (halo-filter (test)
+                                (let ((res
+                                        (lparallel:premove-if-not
+                                         (lambda (mp) (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
+                                         all-mps)))
+                                  res))
+                              (left-filter ()
+                                (halo-filter (lambda (pos)
+                                               (and
+                                                (<= pos (+ bl halo-depth)))
+                                               ))
+                                )
+                              (right-filter ()
+                                (halo-filter (lambda (pos)
+                                               (and
+                                                (> pos (- bu halo-depth)))
+                                               ))
+                                )
 
-                            )
-                         (format t "rank ~D Sending~%" rank)
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder) 
-                                (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder) 
-                                (recv
-                                  (cond
-                                    ((and (not (= left-neighbor -1))
-                                          (not (= right-neighbor -1))
-                                          )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                      (left-filter)
-                                       left-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (right-filter)
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (= left-neighbor -1)
-                                      (not (= right-neighbor -1))
-                                      )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (right-filter)
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (not (= left-neighbor -1))
-                                      (= right-neighbor -1))
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (left-filter)
-                                       left-neighbor :tag 1)
-                                      ))
-                                    (t nil))))
-                           (loop for packet in recv
-                                 do
-                                    (destructuring-bind (rank tag object) packet
-                                      (when object
-                                        (loop for mp across object
-                                              do (progn
-                                                   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                                         (cl-mpm/particle::mp-damage-position mp) nil))
-                                                 (vector-push-extend mp mps)))
-                                      )))
-                         )
+                              )
+                           (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
+                                  (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder)
+                                  (recv
+                                    (cond
+                                      ((and (not (= left-neighbor -1))
+                                            (not (= right-neighbor -1))
+                                            )
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (left-filter)
+                                         left-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (right-filter)
+                                         right-neighbor :tag 2)
+                                        ))
+                                      ((and
+                                        (= left-neighbor -1)
+                                        (not (= right-neighbor -1))
+                                        )
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (right-filter)
+                                         right-neighbor :tag 2)
+                                        ))
+                                      ((and
+                                        (not (= left-neighbor -1))
+                                        (= right-neighbor -1))
+                                       (cl-mpi-extensions:mpi-waitall-anything
+                                        (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                        (cl-mpi-extensions:mpi-isend-anything
+                                         (left-filter)
+                                         left-neighbor :tag 1)
+                                        ))
+                                      (t nil))))
+                             (loop for packet in recv
+                                   do
+                                      (destructuring-bind (rank tag object) packet
+                                        (when object
+                                          (loop for mp across object
+                                                do (progn
+                                                     (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
+                                                           (cl-mpm/particle::mp-damage-position mp) nil)
+                                                     (vector-push-extend mp mps)
+                                                     )))
+                                        ))
+                             )
+                           ))
                        )
                      )
                    ))
@@ -1046,6 +1176,7 @@ inc  ;;                                                ;; :initial-contents res
               nil)
              (t
               (cl-store:store-object (sb-mop:slot-value-using-class 'cl-mpm/mesh::node obj slot) stream)))))
+
 (cl-store:defrestore-cl-store (cl-mpm/mesh::node stream)
   (let ((obj (make-instance 'cl-mpm/mesh::node)))
     (loop for slot in (cl-store:serializable-slots obj)
@@ -1228,19 +1359,19 @@ inc  ;;                                                ;; :initial-contents res
 ;;   (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
 ;;   mp)
 
-(setf cl-mpi-extensions::*standard-encode-function*
-      (lambda (x)
-        (let ((res (flexi-streams:with-output-to-sequence (stream)
-                     (cl-store:store x stream))))
-          (static-vectors:make-static-vector (length res)
-                      :element-type '(unsigned-byte 8)
-                      :initial-contents res
-                      ))))
+;; (setf cl-mpi-extensions::*standard-encode-function*
+;;       (lambda (x)
+;;         (let ((res (flexi-streams:with-output-to-sequence (stream)
+;;                      (cl-store:store x stream))))
+;;           (static-vectors:make-static-vector (length res)
+;;                       :element-type '(unsigned-byte 8)
+;;                       :initial-contents res
+;;                       ))))
 
-(setf cl-mpi-extensions::*standard-decode-function*
-      (lambda (x)
-        (flexi-streams:with-input-from-sequence (stream x)
-          (cl-store:restore stream))))
+;; (setf cl-mpi-extensions::*standard-decode-function*
+;;       (lambda (x)
+;;         (flexi-streams:with-input-from-sequence (stream x)
+;;           (cl-store:restore stream))))
 
 
 (defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/mpi::mpm-sim-mpi-stress))

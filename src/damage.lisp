@@ -184,7 +184,7 @@
       )))
 
 (defparameter *delocal-counter* 0)
-(defparameter *delocal-counter-max* 8)
+(defparameter *delocal-counter-max* 2)
 (defun calculate-damage (mesh mps dt len non-local-damage)
   (when non-local-damage
     (when (<= *delocal-counter* 0)
@@ -236,6 +236,7 @@
           (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
 
 (defun local-list-add-particle (mesh mp)
+  "A function for putting an MP into the nodal MP lookup table"
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
     (when (cl-mpm/mesh:in-bounds mesh node-id)
       (let ((node (cl-mpm/mesh:get-node mesh node-id)))
@@ -244,6 +245,7 @@
           (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))
 
 (defun local-list-remove-particle (mesh mp)
+  "A function for removing an MP into the nodal MP lookup table"
   (flet ((remove-mp-ll (node)
            (with-accessors ((ll cl-mpm/mesh::node-local-list)
                             (lock cl-mpm/mesh:node-lock)
@@ -266,11 +268,6 @@
                  (lambda (node)
                    (remove-mp-ll node))))))))))
 
-(defun update-particle (mesh mp)
-  (wh)
-
-  )
-
 (defun update-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                    (h cl-mpm/mesh:mesh-resolution))
@@ -288,6 +285,7 @@
               (let* ((delta (diff-squared-mat (cl-mpm/particle:mp-position mp)
                                               (cl-mpm/particle::mp-damage-position mp)
                                              )))
+                (declare (double-float delta h))
                 (when (> delta (/ h 4d0))
                   (when (not (eq
                               (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
@@ -299,6 +297,12 @@
       (let ((node (row-major-aref nodes i)))
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
           (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
+
+;; (defgeneric update-delocalisation-list (sim))
+;; (defmethod update-delocalisation-list ((sim cl-mpm::mpm-sim))
+;;   (update-delocalisation-list-mps (cl-mpm:sim-mesh *sim*)
+;;                                   (cl-mpm:sim-mps *sim*)))
+
 
 #- :sb-simd
 (progn

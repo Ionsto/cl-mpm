@@ -436,11 +436,15 @@
    (damage-ybar
     :accessor mp-damage-ybar
     :type DOUBLE-FLOAT
-    :initform 0d0)
+    :initform 0d0
+    :initarg :damage-ybar
+    )
    (damage-y-local
     :accessor mp-damage-y-local
     :type DOUBLE-FLOAT
-    :initform 0d0)
+    :initform 0d0
+    :initarg :damage-y
+    )
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar
     :initform 1d0)
@@ -463,6 +467,7 @@
    (true-local-length
     :accessor mp-true-local-length
     :type DOUBLE-FLOAT
+    :initarg :local-length-t
     :initform 1d0)
    (damage-position
     :accessor mp-damage-position
