@@ -261,6 +261,7 @@
 
 
 (defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0)
+                               (kappa-scale 1d0)
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
@@ -277,8 +278,8 @@
     (progn
       (let ((block-position
               block-offset)
-            (local-length 0.1d0)
-            (kappa 1.0d0))
+            (local-length 1.0d0)
+            (kappa (* kappa-scale 1.0d0)))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
@@ -289,7 +290,7 @@
                 :E 1d9
                 :nu 0.30d0
                 :critical-damage 0.999d0
-                :fracture-energy (* 1d3 1d0)
+                :fracture-energy (* 1d3 2d0)
                 :initiation-stress 1.0d6
                 ;;Material parameter
                 :internal-length (* local-length 1d0)
@@ -376,14 +377,14 @@
                     )))))))
       sim)))
 
-(defparameter *bar-length* 5d0)
+(defparameter *bar-length* 10d0)
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
   (let* ((mesh-size 0.2500)
          ;;At 2x2 we get 5630J
          ;;At 4x4 we get ??
-         (mps-per-cell 4)
+         (mps-per-cell 2)
          (bar-length *bar-length*)
          (height *bar-length*)
          (elements 20)
@@ -454,6 +455,81 @@
   ;; (increase-load *sim* *load-mps* 1)
   ;; (increase-load *sim* *load-mps* 100)
   )
+(defun setup-bar (&optional (kappa 1d0))
+  (defparameter *bar-length* 10d0)
+  (defparameter *run-sim* nil)
+  (let* ((mesh-size 0.2500)
+         ;;At 2x2 we get 5630J
+         ;;At 4x4 we get ??
+         (mps-per-cell 2)
+         (bar-length *bar-length*)
+         (elements (* 10 6))
+         (mesh-size (/ bar-length elements))
+         (height (* 1 mesh-size))
+         (offset (* 4 mesh-size))
+         )
+    (format t "Mesh size ~F~%" mesh-size)
+    (defparameter *sim* (setup-test-column (list (+ bar-length 5) height)
+                                           (list bar-length height) (list 0 0) (/ 1 mesh-size) mps-per-cell
+                                           kappa
+                                           ))
+    (damage-sdf *sim* (cl-mpm/setup::rectangle-sdf (list (/ bar-length 2) 0)
+                                                   (list
+                                                    0.25d0
+                                                    mesh-size
+                                                    )) 0.2d0)
+    )
+  (format t "MP count ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
+  (print (cl-mpm:sim-dt *sim*))
+  (defparameter *velocity* '())
+  (defparameter *time* '())
+  (defparameter *t* 0)
+  (defparameter *x* 0d0)
+  (defparameter *x-pos* '())
+
+  (defparameter *data-time* '())
+  (defparameter *data-load* '())
+  (defparameter *data-disp* '())
+  (defparameter *max-stress* '())
+  (defparameter *max-damage* '())
+  (defparameter *max-x* '())
+  (defparameter *energy-dissipation* '())
+
+  (defparameter *cfl-max* '())
+  (defparameter *sim-step* 0)
+                                        ;(defparameter *run-sim* t)
+  (defparameter *load-mps*
+    (let* ((mps (cl-mpm:sim-mps *sim*))
+           (least-pos
+             (apply #'max (loop for mp across mps
+                                collect (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))))
+      (loop for mp across mps when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- least-pos 0.001))
+            collect mp)))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let ((x-min (loop for mp across mps
+                       minimize (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 0 0))))
+      (defparameter *far-field-mps*
+        (loop for mp across mps
+              when (= x-min (magicl:tref
+                             (cl-mpm/particle:mp-position mp)
+                             0 0))
+                collect mp)))
+    (let ((y-min (loop for mp across mps
+                       minimize (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 1 0))))
+      (defparameter *bottom-mps*
+        (loop for mp across mps
+              when (= y-min (magicl:tref
+                             (cl-mpm/particle:mp-position mp)
+                             1 0))
+                collect mp)))
+    )
+  )
 
 
 (defparameter *run-sim* nil)
@@ -502,9 +578,10 @@
                       )
                     )))))))
 
-(defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
-                          *sim*)
+(defun run (&optional (output-folder "output/"))
+  (ensure-directories-exist (merge-pathnames output-folder))
+  ;; (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+  ;;                         *sim*)
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
@@ -526,14 +603,14 @@
   ;;         do (format stream "~f, ~f ~%" tim x)))
   ;; (dotimes (i 1000)
   ;;   (cl-mpm::update-sim *sim*))
-  (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
+  (with-open-file (stream (merge-pathnames output-folder "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,nload,load~%"))
 
-  (let* ((target-time 0.01d0)
+  (let* ((target-time 0.050d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 0.5d0)
          (substeps (floor target-time dt))
-         (disp-step 0.1d-3)
+         (disp-step 0.040d-3)
          )
     (cl-mpm::update-sim *sim*)
     (setf cl-mpm/damage::*enable-reflect-x* nil)
@@ -550,7 +627,7 @@
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
-                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-vtk (merge-pathnames output-folder (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      ;(cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.vtk" *sim-step*)) *sim*)
 
                      (push *t* *time*)
@@ -662,7 +739,7 @@
                          (push average-disp *data-disp*)
                          (push (/ intergral-energy 1d0 ) *energy-dissipation*)
                          ;;
-                         (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
+                         (with-open-file (stream (merge-pathnames output-folder "disp.csv") :direction :output :if-exists :append)
                            (format stream "~f,~f,~f~%"
                                    average-disp
                                    average-reaction
@@ -677,13 +754,15 @@
                              *target-displacement*
                              (get-disp *terminus-mps*)
                              (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*)))
-                                          (format t "Total energy dissipated: ~F~%"
-                                                  (/
-                                                   (reduce #'+ *energy-dissipation*)
-                                                   (* (loop for mp across (cl-mpm:sim-mps *sim*) sum (* (cl-mpm/particle:mp-volume mp) (cl-mpm/particle::mp-damage mp)))
-                                                      (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                                                   )
-                                                  )
+                     (format t "Total energy dissipated: ~F~%"
+                             (/
+                              (reduce #'+ *energy-dissipation*)
+                              (* (loop for mp across (cl-mpm:sim-mps *sim*) sum (* (cl-mpm/particle:mp-volume mp) (cl-mpm/particle::mp-damage mp)))
+                                 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                              )
+                             )
+                     (format t "Estimated energy dissipated: ~F~%"
+                             (estimate-gf-no-plot))
 
                        (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                               (substeps-e (floor target-time dt-e)))
@@ -698,9 +777,9 @@
                      ))))
   (format t "Finished~%")
   (format t "Total energy dissipated: ~F~%" (reduce #'+ *energy-dissipation*))
-  (plot-load-energy)
-  (estimate-gf)
-  (plot-damage)
+  ;; (plot-load-energy)
+  ;; (estimate-gf)
+  ;; (plot-damage)
   ;; (vgplot:figure)
   ;; (vgplot:plot *time* *energy-dissipation* "Energy dissipation")
   ;; (plot-stress-damage-time)
@@ -789,19 +868,32 @@
            (vgplot:plot *elements* *energy* "Energy to failure")
         ))
 
-(defun estimate-gf ()
-  (let* ((strain (mapcar (lambda (x) (/ x *bar-length*)) *data-disp*))
-         (stress (mapcar (lambda (x) (/ x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))) *data-load*))
+(defun estimate-gf-no-plot ()
+  (let* ((strain (mapcar (lambda (x) x) *data-disp*))
+         (stress (mapcar (lambda (x) x) *data-load*))
          (dstrain (mapcar #'- (butlast strain) (cdr strain)))
          (av-stress (mapcar #'+ (butlast stress) (cdr stress)))
-         (energy (* 0.5d0 (reduce #'+ (mapcar #'* dstrain av-stress))))
-        )
+         (energy (* 0.5d0 (reduce #'+ (mapcar #'* dstrain av-stress)))))
+    (* energy (/ 1d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))))
+
+(defun estimate-gf ()
+  (let* (
+         ;; (strain (mapcar (lambda (x) (/ x *bar-length*)) *data-disp*))
+         ;; (stress (mapcar (lambda (x) (/ x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))) *data-load*))
+         (strain (mapcar (lambda (x) x) *data-disp*))
+         (stress (mapcar (lambda (x) x) *data-load*))
+         (dstrain (mapcar #'- (butlast strain) (cdr strain)))
+         (av-stress (mapcar #'+ (butlast stress) (cdr stress)))
+         (energy (* 0.5d0 (reduce #'+ (mapcar #'* dstrain av-stress)))))
     (vgplot:figure)
     (vgplot:title "Stress-strain")
     (vgplot:xlabel "Strain")
     (vgplot:ylabel "Stress (Pa)")
     (vgplot:plot strain stress)
-    (format t "Estimated fracture energy G_f:~F~%" (* energy (/ *bar-length* 2)))
+    (format t "Estimated fracture energy G_f:~F~%" (* energy
+                                                      (/ 1d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                                                      ;; (/ *bar-length* 1)
+                                                      ))
   ))
 (defun plot-velocity ()
   (let ((x (loop for mp in *bottom-mps*
@@ -1083,6 +1175,20 @@
 ;;       (zpng:write-png png file)
 ;;       )))
 
+(defun test-vary-kappa ()
+  ;; (list )
+  (loop for kappa in (list 0.5d0 0.75d0 1d0 1.5d0 2d0 4d0)
+        do (progn
+             (format t "Testing kappa: ~F~%" kappa)
+             (setup-bar kappa)
+             (let ((output-folder  (format nil "output_vary_kappa/output_~D/" kappa)))
+               (run output-folder)
+               (with-open-file (stream (merge-pathnames output-folder "data.csv") :direction :output :if-exists :supersede)
+                 (format stream "kappa,gf~%~f,~f~%"
+                         kappa (estimate-gf-no-plot))))
+             ))
+  )
+
 (defun test-kirchoff ()
   (let ((iters 1000000))
     (time
@@ -1101,11 +1207,3 @@
                                                       0d0 1d0 0d0
                                                       0d0 0d0 1d0))))
          (cl-mpm/ext:kirchoff-expt-step strain df))))))
-
-(let ((strain (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 0d0 0d0 1d0)))
-      (df (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
-                                               0d0 1d0 0d0
-                                               0d0 0d0 1d0))))
-  (cl-mpm/ext:kirchoff-expt-step strain df)
-  (format t "Strain: ~A~%" (magicl::storage strain))
-  )
