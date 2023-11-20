@@ -1059,10 +1059,6 @@ inc  ;;                                                ;; :initial-contents res
 
                               )
 
-                           (when (> (length (left-filter)) 0)
-                             (format t "Transfering ~D~%" (length (left-filter))))
-                           (when (> (length (right-filter)) 0)
-                             (format t "Transfering ~D~%" (length (right-filter))))
 
                            (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
                                   (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder)
@@ -1105,7 +1101,6 @@ inc  ;;                                                ;; :initial-contents res
                                    do
                                       (destructuring-bind (rank tag object) packet
                                         (when (> (length object) 0)
-                                          (format t "Recieved ~A~%" object)
                                           (when object
                                             (loop for mp across object
                                                   do (progn
@@ -1297,7 +1292,7 @@ inc  ;;                                                ;; :initial-contents res
                                         ;(list bound-lower bound-upper)
                                         ;(list 0d0 (nth 1 mesh-size))
                                         ;(list 0d0 (nth 2 mesh-size))
-      (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
+      ;; (format t "Taking mps between ~F - ~F ~%" bound-lower bound-upper)
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim))
     (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
@@ -1319,7 +1314,7 @@ inc  ;;                                                ;; :initial-contents res
                    (setf (nth i id-delta) 1)
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
                          (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta))))
-                     (format t "Rank: ~D - index: ~A DIM: ~D - left neighbor ~A - right neighbor ~A~%" rank index i left-neighbor right-neighbor)
+                     ;; (format t "Rank: ~D - index: ~A DIM: ~D - left neighbor ~A - right neighbor ~A~%" rank index i left-neighbor right-neighbor)
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (labels
                            ((halo-filter (test)
@@ -1352,11 +1347,11 @@ inc  ;;                                                ;; :initial-contents res
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
                                  (right-filter))))))))))
 
-    (format t "rank ~D : Left filter node count: ~D~%"  rank (length (nth 0 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
-    (format t "rank ~D : Right filter node count: ~D~%" rank (length (nth 1 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
-    (loop for i from 0 to 2
-          do
-             (format t "Rank: ~D - X: ~D ~D~%" rank (length (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim)))) (length (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))))
+    ;; (format t "rank ~D : Left filter node count: ~D~%"  rank (length (nth 0 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
+    ;; (format t "rank ~D : Right filter node count: ~D~%" rank (length (nth 1 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
+    ;; (loop for i from 0 to 2
+    ;;       do
+    ;;          (format t "Rank: ~D - X: ~D ~D~%" rank (length (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim)))) (length (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))))
 
     )
   
