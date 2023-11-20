@@ -276,30 +276,29 @@
          ;; (mass (/ (* 900 h-x h-y) (expt mp-scale 2)))
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
-      (let ((block-position
-              block-offset)
-            (local-length 1.0d0)
-            (kappa (* kappa-scale 1.0d0)))
+      (let ((block-position block-offset)
+            (local-length 0.25d0)
+            (kappa (* kappa-scale 4.0d0)))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
                block-size
                (mapcar (lambda (e) (round (* e mp-scale) h-x)) block-size)
                density
-                'cl-mpm/particle::particle-limestone
-                :E 1d9
-                :nu 0.30d0
-                :critical-damage 0.999d0
-                :fracture-energy (* 1d3 2d0)
-                :initiation-stress 1.0d6
-                ;;Material parameter
-                :internal-length (* local-length 1d0)
-                ;;Interaction radius
-                :local-length (* local-length kappa)
-                :local-length-damaged (* local-length kappa)
-                ;; :local-length-damaged 1d-8
-                :compression-ratio 100d0
-                 :index 0
+               'cl-mpm/particle::particle-limestone
+               :E 1d9
+               :nu 0.30d0
+               :critical-damage 0.999d0
+               :fracture-energy (* 1d3 1d0)
+               :initiation-stress 1.0d6
+               ;;Material parameter
+               :internal-length (* local-length 1d0)
+               ;;Interaction radius
+               :local-length (* local-length kappa)
+               :local-length-damaged (* local-length kappa)
+               ;; :local-length-damaged 1d-8
+               :compression-ratio 100d0
+               :index 0
                )))
 
       (let ((mass-scale 1d0))
@@ -379,7 +378,7 @@
 
 (defparameter *bar-length* 10d0)
 ;Setup
-(defun setup ()
+(defun setup (&optional (kappa 1d0))
   (defparameter *run-sim* nil)
   (let* ((mesh-size 0.2500)
          ;;At 2x2 we get 5630J
@@ -392,8 +391,11 @@
          (offset (* 4 mesh-size))
         )
     (format t "Mesh size ~F~%" mesh-size)
-    (defparameter *sim* (setup-test-column (list 15 15)
-                                           (list bar-length height) (list 0 offset) (/ 1 mesh-size) mps-per-cell))
+    (defparameter *sim* (setup-test-column (list (+ bar-length 10) (+ bar-length 20))
+                                           (list bar-length height)
+                                           (list 0 offset) (/ 1 mesh-size) mps-per-cell
+                                           kappa
+                                           ))
     (remove-sdf *sim* (cl-mpm/setup::rectangle-sdf (list (/ bar-length 2) offset)
                                                    (list
                                                     mesh-size
@@ -606,11 +608,11 @@
   (with-open-file (stream (merge-pathnames output-folder "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,nload,load~%"))
 
-  (let* ((target-time 0.050d0)
+  (let* ((target-time 0.010d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.5d0)
          (substeps (floor target-time dt))
-         (disp-step 0.040d-3)
+         (disp-step 0.080d-3)
          )
     (cl-mpm::update-sim *sim*)
     (setf cl-mpm/damage::*enable-reflect-x* nil)
@@ -762,7 +764,7 @@
                               )
                              )
                      (format t "Estimated energy dissipated: ~F~%"
-                             (estimate-gf-no-plot))
+                             (/ (estimate-gf-no-plot) (/ *bar-length* 2)))
 
                        (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                               (substeps-e (floor target-time dt-e)))
@@ -874,7 +876,11 @@
          (dstrain (mapcar #'- (butlast strain) (cdr strain)))
          (av-stress (mapcar #'+ (butlast stress) (cdr stress)))
          (energy (* 0.5d0 (reduce #'+ (mapcar #'* dstrain av-stress)))))
-    (* energy (/ 1d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))))
+    (* energy (/ 1d0
+
+                 ;; (/ *bar-length* 2)
+                 ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))
+                 ))))
 
 (defun estimate-gf ()
   (let* (
