@@ -281,6 +281,7 @@
             (halo-depth (if halo-depth
                             halo-depth
                             1d0))
+            (damage-mps (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
             )
         (loop for i from 0 to 2
               do
@@ -309,8 +310,9 @@
                                               (> pos (- bu halo-depth)))
                                              ))
                               )
-
                             )
+                         ;; (format t "Rank ~D - Sending ~D damage mps left~%" rank (length (left-filter)))
+                         ;; (format t "Rank ~D - Sending ~D damage mps right~%" rank (length (right-filter)))
                          (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-damage-mp)
                                 (cl-mpi-extensions::*standard-decode-function* #'deserialise-damage-mp)
                                 (recv
@@ -348,25 +350,24 @@
                                        left-neighbor :tag 1)
                                       ))
                                     (t nil))))
-                           (let ((damage-mps (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0)))
-                             (loop for packet in recv
-                                   do
-                                      (destructuring-bind (rank tag object) packet
-                                        (when object
-                                          (loop for mp across object
-                                                do (progn
-                                                     (vector-push-extend
-                                                      (make-instance 'cl-mpm/particle::particle-damage
-                                                                     :nd 2
-                                                                     :volume (mpi-object-damage-mp-volume mp)
-                                                                     :position (mpi-object-damage-mp-position mp)
-                                                                     :damage-y (mpi-object-damage-mp-position mp)
-                                                                     :local-length-t (mpi-object-damage-mp-local-length mp))
-                                                      damage-mps)
-                                                     )))
-                                        ))
-                             damage-mps)
-                           ))))))))))
+                           (loop for packet in recv
+                                 do
+                                    (destructuring-bind (rank tag object) packet
+                                      (when object
+                                        (loop for mp across object
+                                              do (progn
+                                                   (vector-push-extend
+                                                    (make-instance 'cl-mpm/particle::particle-damage
+                                                                   :nd 2
+                                                                   :volume (mpi-object-damage-mp-volume mp)
+                                                                   :position (mpi-object-damage-mp-position mp)
+                                                                   :damage-y (mpi-object-damage-mp-y mp)
+                                                                   :local-length-t (mpi-object-damage-mp-local-length mp))
+                                                    damage-mps)
+                                                   )))
+                                      ))
+                           ))))))
+        damage-mps))))
 
 
 
@@ -399,6 +400,7 @@
                     (cl-mpm::update-stress mesh mps dt nil)
                     (when enable-damage
                       (let ((damage-mps (mpi-sync-damage-mps sim (mpm-sim-mpi-halo-damage-size sim))))
+                        ;; (format t "Recived ~D damage mps~%" (length damage-mps))
                         (lparallel:pdotimes (i (length damage-mps))
                           (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
                         (cl-mpm/damage::calculate-damage mesh
