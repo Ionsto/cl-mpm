@@ -49,8 +49,8 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
                 ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-chalk-brittle
-                'cl-mpm/particle::particle-limestone
+                'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-limestone
                 ;; 'cl-mpm/particle::particle-mc
                 ;; 'cl-mpm/particle::particle-vm
                 :E 1d9
@@ -59,18 +59,18 @@
                 ;; :phi (* 00d0 (/ pi 180))
                 ;; :c 0.4d6
 
-                ;; :rho 1d6
-                ;; :enable-plasticity nil
+                :rho 1d6
+                :enable-plasticity nil
 
-                ;; :coheasion 1d5
-                ;; :friction-angle 40d0
+                :coheasion 1d5
+                :friction-angle 40d0
 
-                :fracture-energy 500000d0
-                :initiation-stress 500d3
-                :compression-ratio 8d0
+                :fracture-energy 10000d0
+                :initiation-stress 200d3
+                ;; :compression-ratio 8d0
 
-                :critical-damage 0.90d0
-                :local-length 5d0
+                :critical-damage 0.9999d0
+                :local-length 40d0
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 1d-5
 
@@ -80,15 +80,15 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
       (let ((ms 1d4))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
         )
 
       (dotimes (i 0)
@@ -190,12 +190,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 010)
+         (soil-boundary 00)
          (shelf-aspect 3)
-         (runout-aspect 5)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -235,7 +235,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d1)
+  (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -266,9 +266,29 @@
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
-                      (dotimes (i substeps);)
-                        (cl-mpm::update-sim *sim*)
-                        (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                      (let ((current-damage (cl-mpm::sim-enable-damage *sim*)))
+                        (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                        (dotimes (i substeps);)
+                          (cl-mpm::update-sim *sim*)
+                          (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
+                        ;; (setf (cl-mpm::sim-enable-damage *sim*) current-damage)
+                        (when current-damage
+                          (setf (cl-mpm::sim-enable-damage *sim*) t)
+                          (cl-mpm::update-sim *sim*)
+                          ;; (with-accessors ((mesh cl-mpm:sim-mesh)
+                          ;;                  (mps cl-mpm:sim-mps)
+                          ;;                  (dt cl-mpm:sim-dt)
+                          ;;                  (nonlocal-damage cl-mpm::sim-nonlocal-damage)
+                          ;;                  ) *sim*
+                          ;;   (cl-mpm/damage::calculate-damage mesh
+                          ;;                                    mps
+                          ;;                                    dt
+                          ;;                                    50d0
+                          ;;                                    nonlocal-damage
+                          ;;                                    ))
+                          )
+
+                        ))
 
                      ;; (loop for mp across (cl-mpm:sim-mps *sim*)
                      ;;       do
@@ -463,3 +483,18 @@
          (x (loop for x from -5 to 5 by 0.1d0 collect x)))
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func x length)) x))
     ))
+
+(let* ((s (cl-mpm/utils::stress-from-list (list 500d3 0d0 0d0 0d0 0d0 0d0)))
+       (j2 (cl-mpm/constitutive::voigt-j2
+            (cl-mpm/utils::deviatoric-voigt s)))
+       (p (cl-mpm/constitutive::voight-trace s))
+       (ft 300d3)
+       (fc 500d3)
+       (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
+       (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
+       (s_1 (-
+             (* (/ 3d0 (+ 3 (tan angle)))
+                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
+             k
+             )))
+  (format t "~A~%" s_1))
