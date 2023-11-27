@@ -277,8 +277,8 @@
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size)))
     (progn
       (let ((block-position block-offset)
-            (local-length 0.25d0)
-            (kappa (* kappa-scale 4.0d0)))
+            (local-length 1d0)
+            (kappa (* kappa-scale 1.00d0)))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                block-position
@@ -289,7 +289,7 @@
                :E 1d9
                :nu 0.30d0
                :critical-damage 0.999d0
-               :fracture-energy (* 1d3 1d0)
+               :fracture-energy (* 1d3 4d0)
                :initiation-stress 1.0d6
                ;;Material parameter
                :internal-length (* local-length 1d0)
@@ -377,6 +377,7 @@
       sim)))
 
 (defparameter *bar-length* 10d0)
+(defparameter *crack-length* 1d0)
 ;Setup
 (defun setup (&optional (kappa 1d0))
   (defparameter *run-sim* nil)
@@ -386,10 +387,11 @@
          (mps-per-cell 2)
          (bar-length *bar-length*)
          (height *bar-length*)
-         (elements 20)
+         (elements 40)
          (mesh-size (/ bar-length elements))
          (offset (* 4 mesh-size))
         )
+    (setf *crack-length* (/ *bar-length* 2d0))
     (format t "Mesh size ~F~%" mesh-size)
     (defparameter *sim* (setup-test-column (list (+ bar-length 10) (+ bar-length 20))
                                            (list bar-length height)
@@ -612,7 +614,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.5d0)
          (substeps (floor target-time dt))
-         (disp-step 0.080d-3)
+         (disp-step 0.2d-3)
          )
     (cl-mpm::update-sim *sim*)
     (setf cl-mpm/damage::*enable-reflect-x* nil)
@@ -924,11 +926,11 @@
                             0 0)))
           (d (loop for mp in *slice-mps*
                    collect (cl-mpm/particle:mp-damage mp)))
-          (x (append (mapcar (lambda (z) (* z -1)) (reverse x)) x))
-          (d (append (reverse d) d))
+          ;; (x (append (mapcar (lambda (z) (* z -1)) (reverse x)) x))
+          ;; (d (append (reverse d) d))
           )
       (vgplot:figure)
-      (vgplot:axis '(t t 0 1))
+      ;; (vgplot:axis '(t t 0 1))
       (vgplot:plot
        x d "damage"
        )

@@ -1509,6 +1509,7 @@
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (setf damage-inc 0d0)
+
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
                                  (damage-response-exponential k E Gf length init-stress)

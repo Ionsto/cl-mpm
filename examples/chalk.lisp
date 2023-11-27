@@ -49,34 +49,35 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
                 ;; 'cl-mpm/particle::particle-elastic
-                'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-chalk-brittle
+                'cl-mpm/particle::particle-limestone
                 ;; 'cl-mpm/particle::particle-mc
                 ;; 'cl-mpm/particle::particle-vm
                 :E 1d9
-                :nu 0.2d0
+                :nu 0.35d0
                 ;; :psi (* 40d0 (/ pi 180))
                 ;; :phi (* 00d0 (/ pi 180))
                 ;; :c 0.4d6
 
-                :rho 1d6
-                :enable-plasticity nil 
+                ;; :rho 1d6
+                ;; :enable-plasticity nil
 
-                :coheasion 1d5
-                :friction-angle 40d0
+                ;; :coheasion 1d5
+                ;; :friction-angle 40d0
 
-                :fracture-energy 25400d0
-                :initiation-stress 1d6;5000d3
+                :fracture-energy 500000d0
+                :initiation-stress 500d3
+                :compression-ratio 8d0
 
-                :damage-rate 1d-5
                 :critical-damage 0.90d0
-                :local-length 10d0
+                :local-length 5d0
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 1d-5
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
@@ -87,7 +88,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-3 ms))
         )
 
       (dotimes (i 0)
@@ -192,9 +193,9 @@
   (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 000)
-         (shelf-aspect 2)
-         (runout-aspect 10)
+         (soil-boundary 010)
+         (shelf-aspect 3)
+         (runout-aspect 5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))

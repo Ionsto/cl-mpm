@@ -210,7 +210,6 @@
                    'cl-mpm/particle::particle-limestone
                    :E 18d9;15.3d9
                    :nu 0.15d0
-                   ;; :elastic-approxmation :
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
