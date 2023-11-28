@@ -1410,6 +1410,7 @@
                      (def cl-mpm/particle::mp-deformation-gradient)
                      (angle cl-mpm/particle::mp-friction-angle)
                      (c cl-mpm/particle::mp-coheasion)
+                     (nu cl-mpm/particle::mp-nu)
                      ) mp
       (declare (double-float pressure damage))
         (progn
@@ -1424,16 +1425,17 @@
                        (s_2 (- s_2 pressure-effective))
                        (s_3 (- s_3 pressure-effective))
                        (s_1 (max 0d0 s_1))
-                       ;; (s_2 (max 0d0 s_2))
-                       ;; (s_3 (max 0d0 s_3))
-                       ;; (s_1 (sqrt
-                       ;;       (+ (expt s_1 2)
-                       ;;          (expt s_2 2)
-                       ;;          (expt s_3 2))))
+                       (s_2 (max 0d0 s_2))
+                       (s_3 (max 0d0 s_3))
+                       (s_1 (sqrt
+                             (+ (expt s_1 2)
+                                (expt s_2 2)
+                                (expt s_3 2))))
                        ;; (angle (* angle (/ pi 180d0)))
-                       (ft 200d3)
+                       (ft 300d3)
                        (fc 500d3)
                        (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
+                       (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
                        ;; ;; (c 1d4)
                        ;;Another dp
                        ;; (alpha (/ (- (/ fc ft) 1) (+ (/ fc ft) 1)))
@@ -1446,15 +1448,28 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       (s_1 (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       ;; (s_1 (-
+                       ;;       (* (/ 3d0 (+ 3 (tan angle)))
+                       ;;          (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
+                       ;;       k
+                       ;;       ))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
+
+                       (i1 (+ s_1 s_2 s_3))
+                       (k-factor (/ (- k 1d0)
+                                    (- 1d0 (* 2d0 nu))))
+                       (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                               (* (/ 1d0 (* 2d0 k))
+                                  (sqrt (+ (expt (* k-factor i1) 2)
+                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                                           )))))
                        )
                   ;; (setf damage-increment s_1)
-                  (when (> s_1 0d0)
+                  ;; (when (> s_1 0d0)
                     ;; (setf damage-increment (* s_1 (expt (- 1d0 damage) -2d0)))
                     (setf damage-increment s_1)
-                    )
+                    ;; )
                   ))))
           (when (>= damage 1d0)
             (setf damage-increment 0d0))
@@ -1509,6 +1524,7 @@
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (setf damage-inc 0d0)
+
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
                                  (damage-response-exponential k E Gf length init-stress)
