@@ -404,6 +404,7 @@
    (local-damage-increment
     :accessor mp-local-damage-increment
     :type DOUBLE-FLOAT
+    :initarg :damage-y
     :initform 0d0)
    (damage-increment
     :accessor mp-damage-increment
@@ -443,7 +444,7 @@
     :accessor mp-damage-y-local
     :type DOUBLE-FLOAT
     :initform 0d0
-    :initarg :damage-y
+    ;; :initarg :damage-y
     )
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar
