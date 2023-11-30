@@ -636,9 +636,9 @@
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
   ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  local-length
+  ;; local-length
   )
 (declaim
  (ftype
@@ -1424,13 +1424,13 @@
                        (s_1 (- s_1 pressure-effective))
                        (s_2 (- s_2 pressure-effective))
                        (s_3 (- s_3 pressure-effective))
-                       (s_1 (max 0d0 s_1))
-                       (s_2 (max 0d0 s_2))
-                       (s_3 (max 0d0 s_3))
-                       (s_1 (sqrt
-                             (+ (expt s_1 2)
-                                (expt s_2 2)
-                                (expt s_3 2))))
+                       ;; (s_1 (max 0d0 s_1))
+                       ;; (s_2 (max 0d0 s_2))
+                       ;; (s_3 (max 0d0 s_3))
+                       ;; (s_1 (sqrt
+                       ;;       (+ (expt s_1 2)
+                       ;;          (expt s_2 2)
+                       ;;          (expt s_3 2))))
                        ;; (angle (* angle (/ pi 180d0)))
                        (ft 300d3)
                        (fc 500d3)
@@ -1456,6 +1456,7 @@
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
 
+                       (k 4d0)
                        (i1 (+ s_1 s_2 s_3))
                        (k-factor (/ (- k 1d0)
                                     (- 1d0 (* 2d0 nu))))

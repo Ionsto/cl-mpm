@@ -65,14 +65,14 @@
                 :coheasion 1d5
                 :friction-angle 40d0
 
-                :fracture-energy 10000d0
+                :fracture-energy 5000d0
                 :initiation-stress 200d3
                 ;; :compression-ratio 8d0
 
                 :critical-damage 0.9999d0
-                :local-length 40d0
+                :local-length 10d0
                 ;; :local-length-damaged 1d0
-                :local-length-damaged 1d-5
+                :local-length-damaged 1d-1
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -190,12 +190,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 00)
-         (shelf-aspect 3)
-         (runout-aspect 2)
+         (soil-boundary 20)
+         (shelf-aspect 2)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -246,12 +246,13 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
                      (when (= steps 5)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       (setf target-time 1d3)
                        ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d0
                        ;;       target-time 1d0)
                        (let ((ms (cl-mpm::sim-mass-scale *sim*)))

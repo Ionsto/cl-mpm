@@ -184,7 +184,7 @@
                )
               ))
         (let* (;(crack-scale 7d0)
-               (crack-scale 4d0)
+               (crack-scale 5d0)
                (length-scale 5.4d-3)
                (kappa 0.5d0))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
@@ -195,16 +195,7 @@
                   (cl-mpm/setup::make-block-mps-list
                    offset
                    block-size
-                   ;; (mapcar (lambda (e) (ceiling (* e e-scale mp-scale))) block-size)
-                   (mapcar (lambda (e)
-                             (round  (* e mp-scale) h-x)
-                             ;; (*
-                             ;;            ;; e e-scale mp-scale
-                             ;;            (ceiling (* e e-scale mp-scale)
-                             ;;                     (* e-scale mp-scale))
-                             ;;            (* e-scale mp-scale)
-                             ;;            )
-                             ) block-size)
+                   (mapcar (lambda (e) (round (* e mp-scale) h-x)) block-size)
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
@@ -233,7 +224,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d7))
+      (let ((ms 1d6))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 1d-3 density ms)
@@ -420,7 +411,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 4.0))
+  (let* ((mesh-size (/ 0.0102 1.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -440,8 +431,8 @@
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width
-            (/ 0.0102 0.5d0)
-                                        ;mesh-size
+            ;; (/ 0.0102 0.5d0)
+            mesh-size
                      ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
       (cl-mpm/setup::remove-sdf
@@ -583,7 +574,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 0.25d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -664,6 +655,11 @@
                           (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
                           (setf cl-mpm/penalty::*debug-force* 0d0)
                           (setf cl-mpm/penalty::*debug-force-count* 0d0)
+
+                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                          (setf cl-mpm/damage::*delocal-counter-max* 0)
+                          (when (= i (- substeps 1))
+                            (setf (cl-mpm::sim-enable-damage *sim*) t))
                           (cl-mpm::update-sim *sim*)
                           ;; (incf *target-displacement* (* dt *tip-velocity*))
                           ;; (push
@@ -778,6 +774,7 @@
 
                      (swank.live:update-swank)
                      ))))
+  (format t "Estimated GF: ~F~%" (estimate-gf-no-plot))
   (vgplot:figure)
   (plot-load-disp)
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
@@ -986,73 +983,20 @@
 
 
 
-(defun test-alloc ()
-  (time
-   (sb-vm:with-arena ((sb-vm:new-arena 10000000000))
-     (lparallel:pdotimes (i 10000000)
-       (cl-mpm/utils:eig (magicl:eye 3)))))
-  (time
-   (lparallel:pdotimes (i 10000000)
-     (cl-mpm/utils:eig (magicl:eye 3))))
-  )
-
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-
-;; (defclass sealable-standard-class
-;;     (sealable-metaobjects:sealable-class standard-class)
-;;   ())
-
-;; (defmethod closer-mop:validate-superclass
-;;     ((class sealable-standard-class)
-;;      (superclass standard-class))
-;;   t)
-
-;; (defclass ordered-class (standard-class)
-;;   ((slot-order :initform ()
-;;                :initarg :slot-order
-;;                :reader class-slot-order)))
-
-;; (defclass foo ()
-;;   ((x :accessor x :initarg :x)
-;;    (y :initform 0d0)))
-;; (defclass bar (foo)
-;;   ()
-;;   (:metaclass sealable-standard-class)
-;;   )
-
-;; (defmethod make-load-form ((foo foo) &optional env)
-;;   (make-load-form-saving-slots foo :slot-names '(x) :environment env))
-
-;; (defmethod make-load-form ((bar bar) &optional env)
-;;   (make-load-form-saving-slots bar :slot-names '(x) :environment env))
-
-;; (defgeneric op (foo)
-;;   (:generic-function-class fast-generic-functions:fast-generic-function))
-
-;; (defmethod op ((foo foo))
-;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
-;;   (* 2 2))
-
-;; (defmethod op ((foo bar))
-;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
-;;   (* 2 (x foo)))
-
-;; (defgeneric op2 (foo)
-;;   (:generic-function-class fast-generic-functions:fast-generic-function))
-
-;; (defmethod op2 ((foo foo))
-;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
-;;   (* 2 2))
-
-;; (defmethod op2 ((foo bar))
-;;   (declare (fast-generic-functions:method-properties fast-generic-functions:inlineable))
-;;   (* 2 (x foo)))
-
-;; (sealable-metaobjects:seal-domain #'op '(foo))
-;; (sealable-metaobjects:seal-domain #'op '(bar))
-
-;; ;; (sealable-metaobjects:seal-domain #'op2 '(t))
-;; ;; (sealable-metaobjects:seal-domain #'x '(foo))
+(defun estimate-gf-no-plot ()
+  (let* (
+         (strain (mapcar (lambda (x) (* x -1d0)) *data-displacement*))
+         (stress (mapcar (lambda (x) (* x 0.013)) *data-load*))
+         ;; (strain (mapcar (lambda (x) x) *data-disp*))
+         ;; (stress (mapcar (lambda (x) x) *data-load*))
+         (dstrain (mapcar #'- (butlast strain) (cdr strain)))
+         (av-stress (mapcar #'+ (butlast stress) (cdr stress)))
+         (energy (* 0.5d0 (reduce #'+ (mapcar #'* dstrain av-stress)))))
+    (* energy (/ 1d0
+                 (* (* 0.102d0 0.6d0) 0.013)
+                 ;; (/ *bar-length* 2)
+                 ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))
+                 ))))
 
 (defun test-slot ()
   (declare (optimize (debug 0) (safety 0) (speed 3) (space 0)))
