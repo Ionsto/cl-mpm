@@ -66,7 +66,7 @@
                 :friction-angle 40d0
 
                 :fracture-energy 5000d0
-                :initiation-stress 200d3
+                :initiation-stress 500d3
                 ;; :compression-ratio 8d0
 
                 :critical-damage 0.9999d0
@@ -190,7 +190,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)

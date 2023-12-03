@@ -16,6 +16,17 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (declaim (notinline plot))
+(defun plot-domain (sim)
+  (cl-mpm/plotter:simple-plot
+   *sim*
+   :plot :deformed
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   )
+  ;; (vgplot:format-plot t "replot (~f*x + ~f)~%" 0d0 (+ 0.2d0 *target-displacement*))
+  )
 (defun plot (sim)
   ;; (cl-mpm/plotter:simple-plot
   ;;  *sim*
@@ -184,7 +195,7 @@
                )
               ))
         (let* (;(crack-scale 7d0)
-               (crack-scale 5d0)
+               (crack-scale 1d0)
                (length-scale 5.4d-3)
                (kappa 0.5d0))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
@@ -411,7 +422,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 1.0))
+  (let* ((mesh-size (/ 0.0102 2.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -1026,3 +1037,7 @@
     ;;    (setf (sb-mop:standard-instance-access mp 0) 0)
     ;;    ))
     ))
+(defun estimate-damage-zone (sim)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        when (>= (cl-mpm/particle::mp-damage mp) 0.90d0)
+        maximize (magicl:tref (cl-mpm/particle::mp-position mp) 0 0)))
