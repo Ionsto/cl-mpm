@@ -196,8 +196,11 @@
               ))
         (let* (;(crack-scale 7d0)
                (crack-scale 1d0)
-               (length-scale 5.4d-3)
-               (kappa 0.5d0))
+               ;; (length-scale 5.3d-3)
+               ;; (length-scale 20d-3) ;;65.15
+               ;; (length-scale 10d-3) ;;47.56
+               (length-scale 16d-3) ;; 
+               (kappa 1.0d0))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
@@ -210,15 +213,19 @@
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
-                   :E 18d9;15.3d9
+                   ;; :E 15.3d9
+                   :E 18d9
                    :nu 0.15d0
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   :internal-length (* length-scale crack-scale)
+                   ;;1.2 - 
+                   ;;1d0 - 53.56
+                   ;;0.8 - 60.03
+                   :internal-length (* length-scale crack-scale 1.00d0)
                    ;;Interaction radius
                    :local-length (* length-scale crack-scale kappa)
-                   :local-length-damaged (* length-scale crack-scale kappa)
+                   :local-length-damaged (* length-scale crack-scale kappa 1d0 1d-2)
                    :compression-ratio 8d0
 
                    :critical-damage 1.000d0
@@ -422,7 +429,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 2.0))
+  (let* ((mesh-size (/ 0.0102 1.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -442,7 +449,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width
-            ;; (/ 0.0102 0.5d0)
+            ;; (/ 0.0102 1.0d0)
             mesh-size
                      ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
