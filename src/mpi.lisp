@@ -609,6 +609,33 @@
       (vector (* 8 3))
       (t 0))))
 
+
+;; (defmacro define-constitutive (name lambda-list  &rest body)
+;;   (let ((actual-name (intern (format nil "CONSTITUTIVE-~:@(~A~)" name)))
+;;         (const-name (intern (format nil "MAKE-~:@(~A~)-DATA" name)))
+;;         (iter 0)
+;;         (new-ll (append (list 'constitutive-array) lambda-list))
+;;         )
+;;     `(progn
+;;        (defun ,actual-name ,new-ll
+;;          ,@(subst `(aref constitutive-array ,iter) 'give_me_zeros  body))
+;;        (defun ,const-name ()
+;;          (make-array ,iter)
+;;          )
+;;        )))
+
+;; (defun give_me_zeros ())
+
+;; (define-constitutive my-consitutive (strain)
+;;   (let ((a (give_me_zeros))
+;;         (b (give_me_zeros))
+;;         )
+;;     ;(magicl:@ strain a b)
+;;     b
+;;     ))
+
+
+
 (defmacro make-mpi-ser (name mapping-list)
   "Creates an MPI structure, with a list of variables and a mapping set to a CLOS object "
   (let ((ser-name (intern (format nil "SERIALISE-~:@(~A~)" name)))
@@ -680,17 +707,6 @@
            output))
          )
        ))
-(make-mpi-ser
- test
- (
-  (index index cl-mpm/mesh::node-index)
-  (float mass cl-mpm/mesh:node-mass)
-  (float pmod cl-mpm/mesh::node-pwave)
-  (float svp cl-mpm/mesh::node-svp)
-  (float volume cl-mpm/mesh::node-volume)
-  (vector velocity cl-mpm/mesh::node-velocity)
-  (vector force cl-mpm/mesh::node-force)
-  ))
 
 (make-mpi-ser
  damage-mp

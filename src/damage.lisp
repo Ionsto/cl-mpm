@@ -1407,7 +1407,7 @@
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress))))
-    (* (/ 3d0 (+ 3 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+    (* (/ 3d0 (+ 3d0 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
   )
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
@@ -1475,11 +1475,8 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       (s_1 (-
-                             (* (/ 3d0 (+ 3 (tan angle)))
-                                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
-                             k
-                             ))
+                       (s_1 (* (/ 3d0 (+ 3 (tan angle)))
+                               (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
 
@@ -1862,11 +1859,10 @@
   (let* ((ft init-stress)
          (e0 (/ ft E))
          (ef (+ (/ e0 2) (/ Gf (* length ft))))
-         (k (/ stress E)))
+         (k (/ stress E))
          ;; (beta (/ (* E e0 length) Gf))
          ;; (beta (/ 1d0 (- ef e0)))
-         (beta (/ (* E e0 length) Gf))
-         )
+         (beta (/ (* E e0 length) Gf)))
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long, e0 ~F, Ef ~F, beta: ~F" e0 ef beta))
     (if (> k e0)
