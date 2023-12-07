@@ -2218,7 +2218,7 @@ Calls func with only the node"
       mp
     (when (< split-depth 3)
       (let ((l-factor 1.50d0)
-            (h-factor (* 0.5d0 h))
+            (h-factor (* 0.75d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (tref lens 0 0)) :x)

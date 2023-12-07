@@ -197,7 +197,7 @@
         (let* (;(crack-scale 7d0)
                (crack-scale 1d0)
                (length-scale 5.4d-3)
-               (kappa 0.5d0))
+               (kappa 1.0d0))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
@@ -210,12 +210,12 @@
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
-                   :E 18d9;15.3d9
+                   :E 15.3d9
                    :nu 0.15d0
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   :internal-length (* length-scale crack-scale)
+                   :internal-length (* length-scale crack-scale 3d0)
                    ;;Interaction radius
                    :local-length (* length-scale crack-scale kappa)
                    :local-length-damaged (* length-scale crack-scale kappa)

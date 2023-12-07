@@ -10,7 +10,7 @@
 ;; (defconstant +stress-exp+ 2d0)
 
 (in-package :cl-mpm/damage)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim
  ;(inline damage-rate-profile)
  (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
@@ -184,7 +184,7 @@
       )))
 
 (defparameter *delocal-counter* 0)
-(defparameter *delocal-counter-max* 2)
+(defparameter *delocal-counter-max* 10)
 (defun calculate-damage (mesh mps dt len non-local-damage)
   (when non-local-damage
     (when (<= *delocal-counter* 0)
@@ -1126,13 +1126,25 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
                                            (cl-mpm/particle::mp-damage-y-local mp)
                                            0d0))
-        (cl-mpm/output::save-parameter "damage-eng"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::dissipated-energy)
-                                           (cl-mpm/particle::mp-dissipated-energy mp)
+        (cl-mpm/output::save-parameter "damage-xx"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 0 0)
                                            0d0))
-        (cl-mpm/output::save-parameter "damage-eng-inc"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::dissipated-energy)
-                                           (cl-mpm/particle::mp-dissipated-energy-inc mp)
+        (cl-mpm/output::save-parameter "damage-yy"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 1 1)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-y-xx"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 0 0)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-y-yy"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 1 1)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-k"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::history-stress)
+                                           (cl-mpm/particle::mp-history-stress mp)
                                            0d0))
         (cl-mpm/output::save-parameter "local-length"
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
@@ -1412,6 +1424,7 @@
            )
       s_1
       )))
+
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -1462,23 +1475,23 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
-                       ;; (s_1 (-
-                       ;;       (* (/ 3d0 (+ 3 (tan angle)))
-                       ;;          (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
-                       ;;       k
-                       ;;       ))
+                       (s_1 (-
+                             (* (/ 3d0 (+ 3 (tan angle)))
+                                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
+                             k
+                             ))
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
 
-                       (k 2d0)
-                       (i1 (+ s_1 s_2 s_3))
-                       (k-factor (/ (- k 1d0)
-                                    (- 1d0 (* 2d0 nu))))
-                       (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                               (* (/ 1d0 (* 2d0 k))
-                                  (sqrt (+ (expt (* k-factor i1) 2)
-                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                                           )))))
+                       ;; (k (/ fc ft))
+                       ;; (i1 (+ s_1 s_2 s_3))
+                       ;; (k-factor (/ (- k 1d0)
+                       ;;              (- 1d0 (* 2d0 nu))))
+                       ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                       ;;         (* (/ 1d0 (* 2d0 k))
+                       ;;            (sqrt (+ (expt (* k-factor i1) 2)
+                       ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                       ;;                     )))))
                        )
                   ;; (setf damage-increment s_1)
                   ;; (when (> s_1 0d0)
@@ -1514,7 +1527,22 @@
         0d0)
     ))
 
-
+(defun delayed-damage-y (stress E Gf length init-stress)
+  (declare (double-float stress E Gf length init-stress))
+  "Function that controls how damage evolves with principal stresses"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (+ (/ e0 2) (/ Gf (* length ft))))
+         (k (/ stress E)))
+    (if (> k e0)
+        (/ (- stress init-stress) (- (* ef E) init-stress))
+        0d0
+        ))
+  ;; (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
+  ;;        (hsl (/ (* hs length) (- 1d0 (* hs length)))))
+  ;;   (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
+  ;;   )
+  )
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-brittle) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -1532,6 +1560,7 @@
                      ;; (length-t cl-mpm/particle::mp-true-local-length)
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1539,12 +1568,60 @@
           (setf ybar damage-inc)
           (setf k (max k ybar))
           (setf damage-inc 0d0)
+          (let ((new-damage (max damage
+                                 (damage-response-exponential k E Gf length init-stress)
+                                 )))
+            (setf damage-inc (- new-damage damage)))
+          (when (>= damage 1d0)
+            (setf damage-inc 0d0)
+            (setf ybar 0d0))
+          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+          ;;Transform to log damage
+          (incf damage damage-inc)
+          ;;Transform to linear damage
+          (setf damage (max 0d0 (min 1d0 damage)))
+          (when (> damage critical-damage)
+            (setf damage 1d0)
+            (setf damage-inc 0d0)))
+  (values)
+  ))
+(defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;; (length-t cl-mpm/particle::mp-true-local-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage))
+        (progn
+          ;;Damage increment holds the delocalised driving factor
+          (setf ybar damage-inc)
+          ;; (setf k (max k ybar))
+          (setf damage-inc 0d0)
+
+          ;; (incf k (* dt (/ (max 0d0 (- ybar k)) tau)))
 
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
-                                 (damage-response-exponential k E Gf length init-stress)
+                                 ;; (delayed-damage-y ybar E Gf length init-stress)
+                                 (damage-response-exponential ybar E Gf length init-stress)
                                  )))
-            (setf damage-inc (- new-damage damage))
+            ;; (setf damage-inc (- new-damage damage))
+            (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
             )
           ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
           ;;       damage-inc 0d0)
@@ -1561,6 +1638,103 @@
           (when (> damage critical-damage)
             (setf damage 1d0)
             (setf damage-inc 0d0)))
+  (values)
+  ))
+(defmethod update-damage ((mp cl-mpm/particle::particle-chalk-anisotropic) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (damage-tensor cl-mpm/particle::mp-damage-tensor)
+                     (ybar-tensor cl-mpm/particle::mp-damage-ybar-tensor)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;; (length-t cl-mpm/particle::mp-true-local-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage))
+        (progn
+          (setf ybar damage-inc)
+          (magicl:scale! ybar-tensor 0d0)
+          (when (< damage 1d0)
+            (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
+                  (cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
+              (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix cauchy-undamaged))
+                (loop for i from 0 to 2
+                      do
+                         (let* ((sii (nth i ls))
+                                (vii (magicl::column v i))
+                                (vsi (magicl:@ vii (magicl:transpose vii)))
+                                (dii (magicl::trace (magicl:@ damage-tensor vsi)))
+                                )
+                           (when (< sii 0d0)
+                             (setf sii 0d0))
+                           (when (> sii 0d0)
+                             (setf sii damage-inc))
+                           (let* ((new-damage (damage-response-exponential sii E Gf length init-stress))
+                                  (damage-increment ;(- (max dii new-damage) dii)
+                                                    (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii))))))))
+                                  )
+                             (magicl:.+ ybar-tensor
+                                        (magicl:scale vsi sii)
+                                        ybar-tensor)
+                             (magicl:.+ damage-inc-mat
+                                        (magicl:scale vsi damage-increment)
+                                        damage-inc-mat)))))
+              ;; (break)
+              (magicl:.+ damage-tensor
+                         damage-inc-mat
+                         damage-tensor)))
+          ;;Damage increment holds the delocalised driving factor
+          ;; (setf ybar damage-inc)
+          ;; (setf k (max k ybar))
+          ;; (setf damage-inc 0d0)
+
+          ;; (incf k (* dt (/ (max 0d0 (- ybar k)) tau)))
+
+          ;; (let ((new-damage (max damage
+          ;;                        ;; (test-damage k 1d7 init-stress)
+          ;;                        ;; (delayed-damage-y ybar E Gf length init-stress)
+          ;;                        (damage-response-exponential k E Gf length init-stress)
+          ;;                        )))
+          ;;   (setf damage-inc (- new-damage damage))
+          ;;   ;; (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
+          ;;   )
+          ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
+          ;;       damage-inc 0d0)
+          ;; (when (>= damage 1d0)
+          ;;   (setf damage-inc 0d0)
+          ;;   (setf ybar 0d0))
+          ;; (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+          ;; (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+          ;; (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+          ;;Transform to log damage
+          ;; (incf damage damage-inc)
+          ;;Transform to linear damage
+          (multiple-value-bind (ls v) (cl-mpm/utils:eig damage-tensor)
+            (loop for i from 0 to 2
+                  do
+                     (let* ()
+                       (setf (nth i ls) (max 0d0 (min 1d0 (nth i ls))))
+                       (when (> (nth i ls) critical-damage)
+                         (setf (nth i ls) 1d0))
+                       (setf damage (max damage (nth i ls)))
+                       )
+                  )
+            (setf damage-tensor (magicl:@ v
+                                          (magicl:from-diag ls :type 'double-float)
+                                          (magicl:transpose v)))
+            )
+          )
   (values)
   ))
 
@@ -1689,7 +1863,7 @@
          (e0 (/ ft E))
          (ef (+ (/ e0 2) (/ Gf (* length ft))))
          (k (/ stress E))
-         (beta (/ (* E e0 2d0 length) Gf)))
+         (beta (/ (* E e0 length) Gf)))
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long, e0 ~F, Ef ~F, beta: ~F" e0 ef beta))
     (if (> k e0)
@@ -1701,6 +1875,7 @@
   ;;   (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
   ;;   )
   )
+
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-limestone) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)

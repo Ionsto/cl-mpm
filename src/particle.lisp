@@ -479,12 +479,12 @@
    (damage-tensor
     :accessor mp-damage-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1))
+    :initform (magicl:zeros '(3 3))
     )
    (damage-ybar-tensor
     :accessor mp-damage-ybar-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1)))
+    :initform (magicl:zeros '(3 3)))
    (damage-model
     :accessor mp-damage-model
     :initarg :damage-model
@@ -1390,7 +1390,25 @@
    (history-stress
     :accessor mp-history-stress
     :initform 0d0)
+   (delay-time
+    :accessor mp-delay-time
+    :initform 1d0
+    :initarg :delay-time
+    )
    )
+  (:documentation "A chalk damage model"))
+
+(defclass particle-chalk-delayed (particle-chalk-brittle)
+  (
+   (delay-time
+    :accessor mp-delay-time
+    :initform 1d0
+    :initarg :delay-time
+    )
+   )
+  (:documentation "A chalk damage model"))
+(defclass particle-chalk-anisotropic (particle-chalk-delayed)
+  ()
   (:documentation "A chalk damage model"))
 
 
@@ -1471,7 +1489,7 @@
                        ;; (setf (nth i l) (* sii (max 1d-5 degredation)))
                          ;; (when (< esii 1d0)
                          ;;   ;;bounded compressive damage
-                         ;;   (setf (nth i l) (* (nth i l) (max 1d0 degredation)))
+                         ;;   (setf (nth i l) (* (nth i l) (max 1d-1 degredation)))
                          ;;   ;; (setf (nth i l) (+ (nth i l) driving-pressure))
                          ;;   )
                        ;; (setf (nth i l) 0)
@@ -1481,11 +1499,93 @@
               (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
                                                                       (magicl:from-diag l :type 'double-float)
                                                                       (magicl:transpose v))) j))
-            ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-            ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-            ;;                           (magicl:scale! s (max 1d-3 degredation))
-            ;;                           )))
+              ))
+        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+                                  (magicl:scale! s (max 1d-3 degredation))
+                                  )))
+        ))
+    stress
+    ))
+(defmethod constitutive-model ((mp particle-chalk-anisotropic) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (stress-u mp-undamaged-stress)
+                   (strain mp-strain)
+                   (damage mp-damage)
+                   (pressure mp-pressure)
+                   (def mp-deformation-gradient)
+                   (pos mp-position)
+                   (calc-pressure mp-pressure-func)
+                   (rho mp-rho)
+                   (ps-vm mp-strain-plastic-vm)
+                   (plastic-strain mp-strain-plastic)
+                   (yield-func mp-yield-func)
+                   (enable-plasticity mp-enable-plasticity)
+                   (damage-tensor mp-damage-tensor)
+                   )
+      mp
+    (declare (function calc-pressure))
+    ;;Train elastic strain - plus trail kirchoff stress
+    (setf stress-u
+          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (call-next-method)
+
+    (if enable-plasticity
+        (let* ((rho_0 rho)
+               (rho_1 rho_0)
+               (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
+               ;; (rho-d rho_0)
+               )
+          (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho)
+            (setf stress
+                  sig
+                  plastic-strain (magicl:.- strain eps-e)
+                  yield-func f
+                  )
+            (setf strain eps-e)
+            )
+          (incf ps-vm
+                (multiple-value-bind (l v)
+                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                  (destructuring-bind (s1 s2 s3) l
+                    (sqrt
+                     (/ (+ (expt (- s1 s2) 2d0)
+                           (expt (- s2 s3) 2d0)
+                           (expt (- s3 s1) 2d0)
+                           ) 2d0))))))
+        (setf stress (magicl:scale stress-u 1d0))
+        )
+    (when (> damage 0.0d0)
+      (let* ((j (magicl:det def))
+             (degredation (expt (- 1d0 damage) 1d0))
+             )
+        ;; (magicl:scale! stress degredation)
+        (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+          (let* ()
+            (loop for i from 0 to 2
+                  do
+                     (let* ((sii (nth i l))
+                              (esii sii)
+                            (vii (magicl::column v i))
+                            )
+                         (when t;(> esii 0d0)
+                           ;;tensile damage -> unbounded
+                           (let* (
+                                  (vsi (magicl:@ vii (magicl:transpose vii)))
+                                  (dii (magicl::trace (magicl:@ damage-tensor vsi)))
+                                  (degredation (expt (- 1d0 dii) 2d0)))
+                             (setf (nth i l) (* sii (max 1d-12) degredation)))
+                           ;; (setf (nth i l) (* sii (max 1d-8 (- 1d0 damage))))
+                           )
+                         )
+                  )
+              (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+                                                                      (magicl:from-diag l :type 'double-float)
+                                                                      (magicl:transpose v))) j))
               ))
         ))
     stress
