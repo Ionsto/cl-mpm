@@ -388,7 +388,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.05 1.0d0))
+  (let* ((mesh-size (/ 0.025 1.0d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
@@ -570,6 +570,12 @@
                                 (/ (get-disp *terminus-mps*) substeps)
                                 )
                           (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
+
+                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                          (setf cl-mpm/damage::*delocal-counter-max* 0)
+                          (when (= i (- substeps 1))
+                            (setf (cl-mpm::sim-enable-damage *sim*) t))
+
                           (setf cl-mpm/penalty::*debug-force* 0d0)
                           (setf cl-mpm/penalty::*debug-force-count* 0d0)
                           (cl-mpm::update-sim *sim*)

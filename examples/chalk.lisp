@@ -66,9 +66,9 @@
                 :coheasion 1d5
                 :friction-angle 40d0
 
-                :fracture-energy 1000d0
-                :initiation-stress 100d3
-                :delay-time 1d4
+                :fracture-energy 5000d0
+                :initiation-stress 700d3
+                :delay-time 1d3
                 ;; :compression-ratio 8d0
 
 
@@ -91,7 +91,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 ms))
         )
 
       (dotimes (i 0)
@@ -193,10 +193,10 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 50)
+         (soil-boundary 40)
          (shelf-aspect 2)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
@@ -249,7 +249,7 @@
   (let* ((target-time 1d3)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 1d0)
+         (dt-scale 1.0d0)
          )
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
