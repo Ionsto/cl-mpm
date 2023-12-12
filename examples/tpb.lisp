@@ -195,12 +195,12 @@
                )
               ))
         (let* (;(crack-scale 7d0)
-               (crack-scale 1d0)
+               (crack-scale 1.0d0)
                ;; (length-scale 5.3d-3)
                ;; (length-scale 20d-3) ;;65.15
                ;; (length-scale 10d-3) ;;47.56
-               (length-scale 16d-3) ;; 
-               (kappa 1.0d0))
+               (length-scale 5.3d-3) ;; 
+               (kappa (sqrt 7)))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
@@ -225,8 +225,9 @@
                    :internal-length (* length-scale crack-scale 1.00d0)
                    ;;Interaction radius
                    :local-length (* length-scale crack-scale kappa)
-                   :local-length-damaged (* length-scale crack-scale kappa 1d0 1d-2)
+                   :local-length-damaged (* length-scale crack-scale kappa)
                    :compression-ratio 8d0
+                   :ductility 4.5d0
 
                    :critical-damage 1.000d0
                    ;; :local-length-damaged 0.01d0
@@ -1048,3 +1049,73 @@
   (loop for mp across (cl-mpm:sim-mps sim)
         when (>= (cl-mpm/particle::mp-damage mp) 0.90d0)
         maximize (magicl:tref (cl-mpm/particle::mp-position mp) 0 0)))
+
+
+
+(defparameter *calibration-ductility* 
+  (list
+   1.978798586572438
+   2.2614840989399294
+   2.8268551236749104
+   4.452296819787984
+   5.653710247349823
+   7.067137809187278
+   8.90459363957597
+   12.296819787985866
+   14.699646643109537
+   18.727915194346288
+   22.473498233215544
+   28.197879858657245
+   33.14487632508834
+   40.07067137809187
+   48.763250883392224
+   59.081272084805654))
+
+
+(defparameter *calibration-relative-disspiation-length* 
+  (list
+   3.0059828171551306
+   3.1265849095822076
+   3.391318506201067
+   3.7031628905979357
+   3.841457077530659
+   3.976820480842514
+   4.079851728677337
+   4.212370955449318
+   4.288959329314765
+   4.37739208757708
+   4.436399224000555
+   4.498444536825331
+   4.548687036652117
+   4.587261830527264
+   4.634746760895171
+   4.685252546248181))
+
+(defun interp (x-search x-list y-list)
+  (let ((np (position x-search x-list :test #'<=))
+        (n (position x-search x-list :test #'> :from-end t)))
+    (+ (nth n y-list) (* (- (nth np y-list) (nth n y-list)) (/ (- x-search (nth n x-list))
+                                                               (- (nth np x-list) (nth n x-list))
+                                                               )))))
+
+
+
+
+(defun calculate-ductility-param (E Gf l-c f-t)
+  (let* ((ductility-limit 5)
+         (eta 1d0)
+         (dissipation-ratio ductility-limit)
+         (g-p (/ (* f-t f-t) (* 2 E))))
+     (dotimes (i 10)
+       (let* (
+              (dissipation-length (* dissipation-ratio l-c))
+              (local-disp (/ Gf dissipation-length)))
+         (let ((new-ductility (/ local-disp g-p)))
+           (format t "Iter: ~D - ductility ~F - disp-length ~F - local-disp: ~F~%" i eta dissipation-length local-disp)
+           (format t "E_f ~F ~%" (/ (* f-t (+ eta 1)) (* 2 E)))
+           (setf eta new-ductility)
+           (setf dissipation-ratio (interp eta *calibration-ductility* *calibration-relative-disspiation-length*))
+           )
+         )))
+
+  )

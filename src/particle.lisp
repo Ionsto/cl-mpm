@@ -1687,6 +1687,10 @@
     :accessor mp-gf
     :initarg :fracture-energy
     :initform 1d0)
+   (ductility
+    :accessor mp-ductility
+    :initarg :ductility
+    :initform 0d0)
    (history-stress
     :accessor mp-history-stress
     :initform 0d0)

@@ -456,7 +456,7 @@
 (defun weight-func (dist-squared length)
   ;(values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared))))))
   (if (< dist-squared (* 4d0 length length))
-      (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 1d0 length length)))))))
+      (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length)))))))
       0d0)
   ;; (values (the double-float (exp (the double-float (* 4d0 (/ (- dist-squared) (* 1.00d0 length length)))))))
   ;; (if (= dist-squared 0d0)
@@ -1853,16 +1853,18 @@
   ))
 
 
-(defun damage-response-exponential (stress E Gf length init-stress)
+(defun damage-response-exponential (stress E Gf length init-stress ductility)
   (declare (double-float stress E Gf length init-stress))
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
          (e0 (/ ft E))
-         (ef (+ (/ e0 2) (/ Gf (* length ft))))
+         ;; (ef (+ (/ e0 2) (/ Gf (* length ft))))
+         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
          (k (/ stress E))
          ;; (beta (/ (* E e0 length) Gf))
-         ;; (beta (/ 1d0 (- ef e0)))
-         (beta (/ (* E e0 length) Gf)))
+         (beta (/ 1d0 (- ef e0)))
+         ;(beta (/ (* E e0 length) Gf))
+         )
     (when (> length (/ (* 2 Gf E) (expt ft 2)))
       (error "Length scale is too long, e0 ~F, Ef ~F, beta: ~F" e0 ef beta))
     (if (> k e0)
@@ -1898,6 +1900,7 @@
                      (eng-int cl-mpm/particle::mp-dissipated-energy)
                      (p cl-mpm/particle::mp-p-modulus)
                      (nu cl-mpm/particle::mp-nu)
+                     (ductility cl-mpm/particle::mp-ductility)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1905,7 +1908,7 @@
 
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress))))
+          (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress ductility))))
             (setf damage-inc (- new-damage damage)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
