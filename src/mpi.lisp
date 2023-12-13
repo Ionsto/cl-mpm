@@ -1428,6 +1428,9 @@ inc  ;;                                                ;; :initial-contents res
                           ) node
            (when (and node-active
                       ;(in-computational-domain sim node-pos)
+                      (> vol 0d0)
+                      (> pmod 0d0)
+                      (> svp-sum 0d0)
                       )
              (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
                  (when (< nf inner-factor)
@@ -1438,10 +1441,10 @@ inc  ;;                                                ;; :initial-contents res
         (static-vectors:with-static-vector (source 1 :element-type 'double-float :initial-element inner-factor)
           (static-vectors:with-static-vector (dest 1 :element-type 'double-float :initial-element 0d0)
             (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-min+)
+            (setf inner-factor (aref dest 0))
             (if (< inner-factor most-positive-double-float)
                 (progn
                   ;; (format t "Rank ~D: dt - ~F~%" rank (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
-                  (setf inner-factor (aref dest 0))
                   ;; (format t "global : dt - ~F~%" (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
                   (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh)))
                 (cl-mpm::sim-dt sim))))))))
