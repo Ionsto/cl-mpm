@@ -31,6 +31,9 @@ After installing quicklisp (https://www.quicklisp.org/beta/#installation) you ca
  - https://github.com/Ionsto/magicl.git
  - https://github.com/Ionsto/vgplot.git
 
+To include the accelerated c++ kirchoff strain update; run build.sh in the libs/ folder
+This will require gcc & an install of eigen3.
+
 Then to get started you can quickload cl-mpm and other packages
 ```
 (ql:quickload :cl-mpm)
