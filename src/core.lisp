@@ -1776,6 +1776,7 @@ Calls func with only the node"
             ;;Not sure about this engineering strain calculation
             (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
+
             (magicl:scale! eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
@@ -1790,6 +1791,7 @@ Calls func with only the node"
           (update-domain-stretch-rate df domain)
           ;; (update-domain-stretch def domain domain-0)
           ;; (update-domain-corner mesh mp dt)
+
           )
           )))
   (values))
