@@ -7,6 +7,7 @@
    ))
 
 (in-package :cl-mpm/output)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun save-sim (sim)
   "Save a simulation such that it can be restarted from that point")
@@ -100,40 +101,82 @@
                        (size cl-mpm/mesh::mesh-count)
                        (h cl-mpm/mesh::mesh-resolution)
                        (border cl-mpm/mesh::mesh-boundary-order)) mesh
-        (format fs "POINTS ~d double~%" (floor (apply #'* size)))
-        (loop for x from 0 to (- (first size) 1)
-              do
-                 (loop for y from 0 to (- (second size) 1)
-                       do
-                          (format fs "~E ~E ~E ~%"
-                                  (coerce (* h (- x border)) 'single-float)
-                                  (coerce (* h (- y border)) 'single-float)
-                                  0e0)))
-        (let ((nels (floor (* (- (first size) 1) (- (second size) 1)))))
+        ;; (format fs "POINTS ~d double~%" (floor (apply #'* size)))
+        (format fs "POINTS ~d double~%" (array-total-size nodes))
+        (array-operations/utilities:nested-loop
+         (i j k) size
+         (format fs "~E ~E ~E ~%"
+                 (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 0 0) 'single-float)
+                 (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 1 0) 'single-float)
+                 (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 2 0) 'single-float)))
+        (let ((nels (floor (reduce #'* (mapcar (lambda (x) (max 1 (- x 1))) size))))
+              (nen 4)
+              (node-order (list 1 2 4 3 5 6 8 7))
+              )
           (format fs "CELLS ~D ~D~%"
                   nels
-                  (floor (* 5 nels)))
-          (flet ((id (x y) (floor (+ y (* x (second size))))))
-            (loop for x from 0 to (- (first size) 2)
-                  do
-                     (loop for y from 0 to (- (second size) 2)
-                           do
-                              (format fs "~D ~D ~D ~D ~D ~%"
-                                      4
-                                      (id x y)
-                                      (id x (+ y 1))
-                                      (id (+ x 1) y)
-                                      (id (+ x 1) (+ y 1))
-                                      ))))
-
-          (format fs "CELL_TYPES ~d~%" nels)
-          (loop repeat nels
-                do (format fs "~D~%" 8))
-          ;; (loop for x from 0 to (- (first size) 1)
-          ;;       do
-          ;;          (loop for y from 0 to (- (second size) 1)
-          ;;                do
-          ;;                   (format fs "~D~%" 8)))
+                  (floor (* (+ nen 1) nels)))
+          (flet ((id (x y z) (floor (+ z (* (+ y (* x (second size))) (third size)))))
+                 ;; (local-id (x y z) (floor (+ z (* (+ y (* x 2)) 2))))
+                 )
+            (array-operations/utilities:nested-loop
+             (i j k) (mapcar (lambda (x) (- x 1)) size)
+             (let ((node-map '()))
+               (array-operations/utilities:nested-loop
+                (dx dy dz) '(2 2 2)
+                (push (id (+ i dx)
+                          (+ j dy)
+                          (+ k dz)) node-map)
+                )
+               (setf node-map (reverse node-map))
+               (format fs "~D " nen)
+               (loop for lid in node-order
+                     do (format fs "~D " (nth (- lid 1) node-map)))
+               (format fs "~%")))
+            ;; (array-operations/utilities:nested-loop
+            ;;  (i j k) (mapcar (lambda (x) (- x 1)) size)
+            ;;  (format fs "~D " nen)
+            ;;  (array-operations/utilities:nested-loop
+            ;;   (dx dy dz) '(2 2 2)
+            ;;   (format fs "~D " (id (+ i dx)
+            ;;                        (+ j dy)
+            ;;                        (+ k dz)))
+            ;;   )
+            ;;  (format fs "~%")
+            ;;  )
+            (when (= 2 (cl-mpm/mesh:mesh-nd mesh))
+              (loop for x from 0 to (- (first size) 2)
+                    do
+                       (loop for y from 0 to (- (second size) 2)
+                             do
+                                (format fs "~D ~D ~D ~D ~D~%"
+                                        4
+                                        (id x y 0)
+                                        (id x (+ y 1) 0)
+                                        (id (+ x 1) y 0)
+                                        (id (+ x 1) (+ y 1) 0)
+                                        )))
+              (format fs "CELL_TYPES ~d~%" nels)
+              (loop repeat nels
+                    do (format fs "~D~%" 8)))
+            (when (= 3 (cl-mpm/mesh:mesh-nd mesh))
+              ;; (loop for x from 0 to (- (first size) 2)
+              ;;       do
+              ;;          (loop for y from 0 to (- (second size) 2)
+              ;;                do
+              ;;                   (loop for z from 0 to (- (third size) 2)
+              ;;                         do
+              ;;                            (format fs "~D ~D ~D ~D ~D~%"
+              ;;                                    4
+              ;;                                    (id x y)
+              ;;                                    (id x (+ y 1))
+              ;;                                    (id (+ x 1) y)
+              ;;                                    (id (+ x 1) (+ y 1))
+              ;;                                    ))))
+              ;; (format fs "CELL_TYPES ~d~%" nels)
+              ;; (loop repeat nels
+              ;;       do (format fs "~D~%" 12))
+              ))
           )))))
 ;; (defun save-vtk (filename sim)
 ;;   (with-accessors ((mps cl-mpm:sim-mps)) sim
@@ -293,34 +336,38 @@
 (defun format-scalar-node (stream name id nodes accessor)
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
-  (destructuring-bind (n m) (array-dimensions nodes)
+  (destructuring-bind (n m l) (array-dimensions nodes)
     (loop for i from 0 below n do
       (loop for j from 0 below m
-        do (format stream "~E ~%"
-                   (coerce (funcall accessor (aref nodes i j)) 'single-float)))))
+        do (loop for k from 0 below l
+                 do
+                    (format stream "~E ~%"
+                            (coerce (funcall accessor (aref nodes i j k)) 'single-float))))))
   (format stream "~%")
   )
 (defmacro save-parameter-nodes (name accessor)
   `(progn
      (format-scalar-node fs ,name id nodes (lambda (node) ,accessor))
      (incf id)))
+
 (defun save-vtk-nodes (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-accessors ((nodes cl-mpm/mesh::mesh-nodes))
         mesh
         (with-open-file (fs filename :direction :output :if-exists :supersede)
           (format fs "# vtk DataFile Version 2.0~%")
-          (format fs "Lisp generated vtk file, WMC~%")
+          (format fs "Lisp generated vtk file, SJVS~%")
           (format fs "ASCII~%")
           (format fs "DATASET UNSTRUCTURED_GRID~%")
           (format fs "POINTS ~d double~%" (array-total-size nodes))
-          (destructuring-bind (n m) (array-dimensions nodes)
+          (destructuring-bind (n m l) (array-dimensions nodes)
             (loop for i from 0 below n do
-              (loop for j from 0 below m
+              (loop for j from 0 below m do
+                (loop for k from 0 below l
                 do (format fs "~E ~E ~E ~%"
-                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j)) 0 0) 'single-float)
-                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j)) 1 0) 'single-float)
-                           0e0))))
+                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 0 0) 'single-float)
+                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 1 0) 'single-float)
+                           (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 2 0) 'single-float))))))
           (format fs "~%")
           (let ((id 1))
             (declare (special id))
@@ -330,11 +377,14 @@
 
             (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
             (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
+            (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
 
             (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
             (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
+            (save-parameter-nodes "force_z" (magicl:tref (cl-mpm/mesh:node-force node) 2 0))
             (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
             (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
+            (save-parameter-nodes "force_buoy_z" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 2 0))
             (save-parameter-nodes "buoyancy_node" (if
                                                    (cl-mpm/mesh::node-boundary-node node) 1 0))
             ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
@@ -344,13 +394,17 @@
             ;; (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
             ;; (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
             (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+            (save-parameter-nodes "jinc" (cl-mpm/mesh::node-jacobian-inc node))
+            (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
 
             (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)
                                             (cl-mpm/mesh::node-pressure node)))
             (save-parameter-nodes "damage"
                             (if (slot-exists-p node 'cl-mpm/mesh::damage)
-                                (cl-mpm/mesh::node-damage node)
-                                0d0))
+                                (if (= 0d0 (cl-mpm/mesh::node-svp-sum node))
+                                    0d0
+                                    (/ (cl-mpm/mesh::node-damage node)
+                                       (cl-mpm/mesh::node-svp-sum node))) 0d0))
             )
           ))))
 
@@ -359,7 +413,8 @@
    (:method (f s)))
 
 (defmethod save-vtk (filename (sim cl-mpm::mpm-sim-usf))
-  (with-accessors ((mps cl-mpm:sim-mps)) sim
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
       (format fs "# vtk DataFile Version 2.0~%")
       (format fs "Lisp generated vtk file, WMC~%")
@@ -370,8 +425,12 @@
             do (format fs "~E ~E ~E ~%"
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
                        (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                       0e0))
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)))
       (format fs "~%")
+
+      ;; (with-parameter-list fs mps
+      ;;   ("mass" (lambda (mp) (cl-mpm/particle:mp-mass mp))))
+
       (let ((id 1))
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
@@ -390,10 +449,7 @@
 
         (save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
         (save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
-        (save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
-        (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
 
         (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
         (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
@@ -402,20 +458,61 @@
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+        (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
+        (when (= (cl-mpm/mesh:mesh-nd mesh) 3)
+          (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+          (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0))
+          (save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
+          (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
+          )
         (save-parameter
          "plastic_strain"
-         (multiple-value-bind (l v)
-             (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-           (destructuring-bind (s1 s2 s3) l
-             (sqrt
-              (/ (+ (expt (- s1 s2) 2d0)
-                    (expt (- s2 s3) 2d0)
-                    (expt (- s3 s1) 2d0)
-                    ) 2d0)))))
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
+             (cl-mpm/particle::mp-strain-plastic-vm mp)
+             0d0
+             )
+         )
+
+        (cl-mpm/output::save-parameter
+         "rho"
+         (if (slot-exists-p mp 'cl-mpm/particle::c)
+             (cl-mpm/particle::mp-c mp)
+             0d0))
+         ;; (multiple-value-bind (l v)
+         ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+         ;;   (destructuring-bind (s1 s2 s3) l
+         ;;     (sqrt
+         ;;      (/ (+ (expt (- s1 s2) 2d0)
+         ;;            (expt (- s2 s3) 2d0)
+         ;;            (expt (- s3 s1) 2d0)
+         ;;            ) 2d0)))))
         (save-parameter
          "f"
-         (cl-mpm/particle::mp-yield-func mp)))
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
+             (cl-mpm/particle::mp-yield-func mp)
+             0d0)
+         )
+        )
       )))
+
+(defmacro with-parameter-list (file-stream mps &rest body)
+  `(let ((id 1))
+     (declare (special id))
+     (format ,file-stream "POINT_DATA ~d~%" (length ,mps))
+     ,(append
+       (list 'progn)
+       (loop for params in body
+                   collect 
+                   (destructuring-bind (name lamb) params
+                     `(progn
+                        (format-scalar ,file-stream ,name id ,mps
+                                       ,lamb)
+                        (incf id))
+                     ))))
+
+  )
+
+
 ;; (defmacro save-point-data (mp mps)
 ;;   (loop for )
 

@@ -111,6 +111,15 @@
 ;  :serial t
 ;  :components ((:file "src/mesh")))
 ;
+(defsystem "cl-mpm/ext"
+  :depends-on ("magicl"
+               "cffi"
+               "cl-mpm/utils"
+               "array-operations")
+  :description "External libraries"
+  :serial t
+  :components ((:file "src/cpp"))
+  )
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("magicl"
@@ -125,6 +134,7 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
+               "cl-mpm/ext"
                ;"cl-mpm/damage"
                )
   :description ""
@@ -146,6 +156,8 @@
                "alexandria"
                "array-operations"
                "lparallel"
+               "cl-intbytes"
+               "ieee-floats"
                "symbolic-derivation"
                "cl-mpm/constitutive"
                "cl-mpm/particle"
@@ -155,6 +167,7 @@
                "cl-mpm/damage"
                "cl-mpi"
                "cl-mpi-extensions"
+               "trivial-with-current-source-form"
                )
   :description ""
   :components (
@@ -330,6 +343,9 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/damage"
+               "cl-mpm/penalty"
+               "cl-mpm/plotter"
                "cl-mpm/eigenerosion"
                "vgplot"
                "lisp-stat"
@@ -338,12 +354,32 @@
   :serial t
   :components ((:file "examples/pullout")))
 
+(defsystem "cl-mpm/examples/split-test"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/damage"
+               "cl-mpm/penalty"
+               "cl-mpm/plotter"
+               "cl-mpm/eigenerosion"
+               "vgplot"
+               "lisp-stat"
+               "swank.live"
+               "magicl")
+  :serial t
+  :components ((:file "examples/split-test")))
+
+
 (defsystem "cl-mpm/examples/creep"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/plotter"
+               "cl-mpm/damage"
                "cl-mpm/eigenerosion"
                "vgplot"
                "lisp-stat"
@@ -367,3 +403,66 @@
                "magicl")
   :serial t
   :components ((:file "examples/sliding")))
+
+(defsystem "cl-mpm/examples/collapse"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/collapse")))
+
+
+
+(defsystem "cl-mpm/examples/chalk"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/chalk")))
+
+
+(defsystem "cl-mpm/examples/tpb"
+  :depends-on ("cl-mpm"
+               "magicl"
+               "lisp-stat"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/tpb")))
+
+(defsystem "cl-mpm/examples/lbar"
+  :depends-on ("cl-mpm"
+               "magicl"
+               "lisp-stat"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/lbar")))

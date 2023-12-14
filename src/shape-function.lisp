@@ -537,13 +537,64 @@
           (magicl:tref s 3 0) 0
           (magicl:tref s 3 1) dx
           ))
-    ;(magicl:from-array (make-array 8 :initial-contents (list dx 0d0
-    ;                                                         0d0 dy
-    ;                                                         dy 0d0
-    ;                                                         0d0 dx
-    ;                                                         ))
-                       ;; '(4 2) :type 'double-float))
   result)
+
+(defun assemble-dstretch-3d (dsvp)
+  (assemble-dstretch-3d-prealloc dsvp (cl-mpm/utils::stretch-dsvp-3d-zeros)))
+
+(defun assemble-dstretch-3d-prealloc (dsvp result)
+  "Assemble d/di to the strain-displacement matrix"
+  (let* ((dx (nth 0 dsvp))
+         (dy (nth 1 dsvp))
+         (dz (nth 2 dsvp))
+         (s result)
+         )
+    (declare (double-float dx dy dy))
+    (setf
+                                        ;dx/dx
+     (magicl:tref s 0 0) dx
+     ;; (magicl:tref s 0 1) 0d0
+     ;; (magicl:tref s 0 2) 0d0
+                                        ;dy/dy
+     ;; (magicl:tref s 1 0) 0d0
+     (magicl:tref s 1 1) dy
+     ;; (magicl:tref s 1 2) 0d0
+                                        ;dz/dz
+     ;; (magicl:tref s 2 0) 0d0
+     ;; (magicl:tref s 2 1) 0d0
+     (magicl:tref s 2 2) dz
+
+                                        ;Dy/dx
+     (magicl:tref s 3 0) dy
+     ;; (magicl:tref s 3 1) 0
+     ;; (magicl:tref s 3 2) 0
+
+                                        ;Dx/dy
+     ;; (magicl:tref s 4 0) 0
+     (magicl:tref s 4 1) dx
+     ;; (magicl:tref s 4 2) 0
+
+                                        ;dz/dx
+     (magicl:tref s 5 0) dz 
+     ;; (magicl:tref s 5 1) 0
+     ;; (magicl:tref s 5 2) 0
+
+                                        ;dz/dx
+     ;; (magicl:tref s 6 0) 0 
+     ;; (magicl:tref s 6 1) 0
+     (magicl:tref s 6 2) dx
+
+                                        ;Dz/dy
+     ;; (magicl:tref s 7 0) 0
+     (magicl:tref s 7 1) dz
+     ;; (magicl:tref s 7 2) 0
+
+                                        ;Dy/dz
+     ;; (magicl:tref s 8 0) 0
+     ;; (magicl:tref s 8 1) 0
+     (magicl:tref s 8 2) dy
+     )
+    result))
 
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
@@ -586,14 +637,49 @@
   "Assemble d/di to the strain-displacement matrix"
   (let ((dx (nth 0 dsvp))
         (dy (nth 1 dsvp))
-        (dz (nth 2 dsvp)))
+        (dz (nth 2 dsvp))
+        )
     (magicl:from-list (list dx  0d0 0d0;xx
                             0d0 dy  0d0;yy
                             0d0 0d0  dz;zz
+                            0d0 dz  dy ;zy
+                            dz  0d0 dx ;zx
                             dy  dx  0d0;yx
-                            0d0 dz  dy ;yz
-                            dz  0d0 dx ;xy
                             ) '(6 3) :type 'double-float)))
+
+(defun assemble-dsvp-plane-strain (dsvp)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp))
+        (dz (nth 2 dsvp))
+        )
+    (magicl:from-list (list dx  0d0 0d0;xx
+                            0d0 dy  0d0;yy
+                            0d0 0d0  dz;zz
+                            0d0 0d0  0d0 ;zy
+                            0d0 0d0 0d0 ;zx
+                            dy  dx  0d0;yx
+                            ) '(6 3) :type 'double-float)))
+
+(defun assemble-dsvp-3d-prealloc (dsvp mat)
+  "Assemble d/di to the strain-displacement matrix"
+  (let ((dx (nth 0 dsvp))
+        (dy (nth 1 dsvp))
+        (dz (nth 2 dsvp)))
+    (setf
+     (magicl:tref mat 0 0) dx
+     (magicl:tref mat 1 1) dy
+     (magicl:tref mat 2 2) dz
+     (magicl:tref mat 3 1) dz
+     (magicl:tref mat 3 2) dy
+     (magicl:tref mat 4 0) dz
+     (magicl:tref mat 4 2) dx
+     (magicl:tref mat 5 0) dy
+     (magicl:tref mat 5 1) dx)
+    mat
+    ))
+
+
 
 (defun assemble-dsvp (nD dsvp)
   (case nD
@@ -601,4 +687,14 @@
     (2 (assemble-dsvp-2d dsvp))
     (3 (assemble-dsvp-3d dsvp))))
 
+(defun grads-3d (weights linear-grads)
+  "Take weights and gradients of weights and assemble them into"
+  (mapcar #'* linear-grads
+          (list
+           (* (nth 1 weights) (nth 2 weights))
+           (* (nth 0 weights) (nth 2 weights))
+           (* (nth 0 weights) (nth 1 weights)))))
+(defun grads-2d (weights linear-grads)
+  (mapcar #'* linear-grads (nreverse weights))
+  )
 

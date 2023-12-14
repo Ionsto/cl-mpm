@@ -12,6 +12,7 @@
     )
   )
 (in-package :cl-mpm/constitutive)
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
@@ -27,6 +28,20 @@
                         0d0 0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))))
                        '(6 6) :type 'double-float)
      (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
+
+(defun linear-elastic-matrix-ps (E nu)
+  "Create an isotropic linear elastic matrix"
+  (let ((inv-nu (/ 1d0 (- 1d0 (expt nu 2)))))
+    (magicl:scale!
+     (magicl:from-list (list
+                        1d0 nu 0d0 0d0 0d0 0d0
+                        nu 1d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 0d0
+                        0d0 0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 nu)))
+                       '(6 6) :type 'double-float)
+     (/ E (- 1d0 (* nu nu))))))
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
@@ -52,7 +67,10 @@
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
-  (magicl.simd::.+-simd stress (magicl:@ (linear-elastic-matrix elasticity 0d0) strain-increment)))
+  (magicl.simd::.+-simd
+   stress
+   (magicl:@
+    (linear-elastic-matrix elasticity 0d0) strain-increment)))
 
 
 (defun maxwell (strain-increment stress elasticity poisson-ratio de viscosity dt)
@@ -321,6 +339,7 @@
                            double-float
                            )) maxwell-exp))
 (defun maxwell-exp (strain-increment stress elasticity nu de viscosity dt)
+  ;; (declare (optimize (safety 3) (speed 0)))
   "A stress increment form of a viscoelastic maxwell material"
   (let* (
          (stress-matrix (voight-to-matrix stress))
@@ -330,19 +349,18 @@
          (rho (/ (* 2 (- 1 nu) viscosity) elasticity))
          (exp-rho (exp (- (/ dt rho))))
          (lam (* (- 1 exp-rho) (/ rho dt)))
+         ;; (exp-rho 1d0)
+         ;; (lam 1d0)
          (stress-inc (voight-to-matrix (magicl:@ de strain-increment)))
          (stress-inc-pressure (magicl:eye 3 :value (/ (magicl:trace stress-inc) 3d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
-    (magicl:.+
-     (matrix-to-voight (magicl:.+ pressure-matrix stress-inc-pressure))
-     (magicl:.+ (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
-                (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))
-    ;; (magicl.simd::.+-simd
-    ;;  (matrix-to-voight (magicl.simd::.+-simd pressure-matrix stress-inc-pressure))
-    ;;            (magicl.simd::.+-simd (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
-    ;;                       (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))
-    ))
+    (magicl.simd::.+-simd
+     (matrix-to-voight (magicl.simd::.+-simd pressure-matrix stress-inc-pressure))
+               (magicl.simd::.+-simd
+                (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
+                (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
+
 
 (defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
   "A stress increment form of a viscoelastic maxwell material"
@@ -539,6 +557,7 @@
 (defun vm-yield-func (j2 rho)
   (declare (double-float j2 rho))
   (- (/ (the double-float (sqrt (* 2d0 j2))) rho) 1d0))
+
 (defun vm-derivatives (sig rho)
   (declare (double-float rho))
   (let* ((s (deviatoric-voigt sig))
@@ -569,10 +588,12 @@
         (j2 (voigt-j2 s))
         (f (vm-yield-func j2 rho))
         )
+    (declare (dynamic-extent s ))
     (if (> f tol)
       (let ((eps-e (cl-mpm/utils::voigt-copy trial-elastic-strain))
             (df (cl-mpm/utils:voigt-zeros))
             (ddf (cl-mpm/utils:matrix-zeros)))
+        (declare (dynamic-extent df ddf))
         (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
           (setf df ndf
                 ddf nddf))
@@ -591,7 +612,6 @@
                                   (list
                                    (magicl:.+ (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
-                                   ;; (magicl:transpose df)
                                    df
                                    (magicl:@ (magicl:transpose df) de)
                                    (magicl:zeros '(1 1))
@@ -606,7 +626,7 @@
                          (setf sig (magicl:@ de eps-e))
                          (setf s (deviatoric-voigt sig))
                          (setf j2 (voigt-j2 s))
-                         ;; (setf f (vm-yield-func j2 rho))
+                         (setf f (vm-yield-func j2 rho))
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
@@ -626,3 +646,192 @@
           (values sig eps-e f)
           ))
       (values sig trial-elastic-strain f))))
+
+
+
+(defun mc-yield-func (stress phi c)
+  (let* ((k (/ (+ 1d0 (sin phi)) (- 1d0 (sin phi))))
+         (sigc (* 2d0 c (sqrt k)))
+         (f (- (* k (magicl:tref stress 0 0)) (magicl:tref stress 2 0) sigc)))
+    f))
+
+(defun rotate-vector (vec)
+  (vector-from-list (list (magicl:tref vec 1 0)
+                          (magicl:tref vec 2 0)
+                          (magicl:tref vec 0 0))))
+(defun swizzle-voigt->coombs (vec)
+  (voigt-from-list (list
+                    (magicl:tref vec 0 0)
+                    (magicl:tref vec 1 0)
+                    (magicl:tref vec 2 0)
+                    (magicl:tref vec 4 0)
+                    (magicl:tref vec 5 0)
+                    (magicl:tref vec 3 0)
+                    )))
+(defun swizzle-coombs->voigt (vec)
+  (voigt-from-list (list
+                    (magicl:tref vec 0 0)
+                    (magicl:tref vec 1 0)
+                    (magicl:tref vec 2 0)
+                    (magicl:tref vec 4 0)
+                    (magicl:tref vec 5 0)
+                    (magicl:tref vec 3 0)
+                    )))
+
+(declaim (notinline  mc-plastic))
+(defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
+  (declare (optimize (speed 0) (safety 3) (debug 3)))
+  (let* ((tol 1d-9)
+         (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
+         (eps-e (cl-mpm/utils:vector-zeros))
+        )
+    (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
+      (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
+             (l (mapcar #'car l-sort))
+             (v (magicl:block-matrix (list
+                                      (magicl:column v (cdr (nth 0 l-sort)))
+                                      (magicl:column v (cdr (nth 1 l-sort)))
+                                      (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
+        (let* ((De3
+                 (magicl:scale!
+                  (magicl:from-list (list
+                                     (- 1d0 nu) nu nu
+                                     nu (- 1d0 nu) nu
+                                     nu nu (- 1d0 nu))
+                                    '(3 3) :type 'double-float)
+                  (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+               (epsTr (cl-mpm/utils:vector-from-list l))
+               (Ce (magicl:inv De3))
+               (sig (magicl:@ De3 epsTr))
+               (eps-e (cl-mpm/utils::vector-copy epsTr))
+
+               (k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
+               (sigc (* 2d0 c (sqrt k)))
+               (f (mc-yield-func sig phi c)))
+
+          (if (> f tol)
+              (let* ((m (/ (+ 1 (sin psi)) (- 1d0 (sin psi))))
+                     (siga (magicl:scale! (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
+                                          (/ sigc (- k 1d0))
+                                          ))
+                     (r1 (vector-from-list (list 1d0 1d0 k)))
+                     (r2 (vector-from-list (list 1d0 k k)))
+                     (rg1 (vector-from-list (list 1d0 1d0 m)))
+                     (rg2 (vector-from-list (list 1d0 m m)))
+                     (df (vector-from-list (list k 0d0 -1d0)))
+                     (dg (vector-from-list (list m 0d0 -1d0)))
+                     (rp (magicl:scale! (magicl:@ De3 dg)
+                                        (/ 1d0 (magicl:tref (magicl:@ (magicl:transpose dg) De3 df) 0 0))))
+                     (t1 (/ (magicl:tref (magicl:@ (magicl:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
+                            (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
+                     (t2 (/ (magicl:tref (magicl:@ (magicl:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
+                            (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
+                     (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r1))
+                                                 (magicl:.- sig siga)) 0 0))
+                     (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r2))
+                                                 (magicl:.- sig siga)) 0 0))
+                     (path :no-return)
+                     (Q
+                       (magicl:transpose!
+                        (magicl:block-matrix (list
+                                              (magicl:.* (magicl:column v 0)
+                                                         (magicl:column v 0))
+
+                                              (magicl:.* (magicl:column v 1)
+                                                         (magicl:column v 1))
+                                              (magicl:.* (magicl:column v 2)
+                                                         (magicl:column v 2))
+
+                                              (magicl:scale!
+                                               (magicl:.* (magicl:column v 0)
+                                                          (magicl:column v 1)) 2d0)
+                                              (magicl:scale!
+                                               (magicl:.* (magicl:column v 1)
+                                                          (magicl:column v 2)) 2d0)
+                                              (magicl:scale!
+                                               (magicl:.* (magicl:column v 2)
+                                                          (magicl:column v 0)) 2d0)
+
+                                              (magicl:.* (magicl:column v 0)
+                                                         (rotate-vector (magicl:column v 0)))
+                                              (magicl:.* (magicl:column v 1)
+                                                         (rotate-vector (magicl:column v 1)))
+                                              (magicl:.* (magicl:column v 2)
+                                                         (rotate-vector (magicl:column v 2)))
+
+                                              (magicl:scale! (magicl:.+
+                                                             (magicl:.* (magicl:column v 0)
+                                                                        (rotate-vector (magicl:column v 1)))
+                                                             (magicl:.* (magicl:column v 1)
+                                                                        (rotate-vector (magicl:column v 0)))) 1d0)
+
+                                              (magicl:scale! (magicl:.+
+                                                              (magicl:.* (magicl:column v 1)
+                                                                         (rotate-vector (magicl:column v 2)))
+                                                              (magicl:.* (magicl:column v 2)
+                                                                         (rotate-vector (magicl:column v 1)))) 1d0)
+                                              (magicl:scale! (magicl:.+
+                                                              (magicl:.* (magicl:column v 2)
+                                                                         (rotate-vector (magicl:column v 0)))
+                                                              (magicl:.* (magicl:column v 0)
+                                                                         (rotate-vector (magicl:column v 2)))) 1d0)
+                                              ) '(2 6)))))
+                (cond
+                  ((and
+                    (> t1 tol)
+                    (> t2 tol)
+                    )
+                   ;;Apex stress return
+                   (setf sig siga)
+                   (setf path :apex)
+                   )
+                  ((and
+                    (< f12 tol)
+                    (< f13 tol)
+                    )
+                   (setf sig (magicl:.+ siga (magicl:scale! r1 t1)))
+                   (setf path :line-1)
+                   ;;line 1
+                   )
+                  ((and
+                    (> f12 tol)
+                    (> f13 tol)
+                    )
+                   (setf sig (magicl:.+ siga (magicl:scale! r2 t2)))
+                   ;;line 2
+                   (setf path :line-2)
+                   )
+                  (t
+                   ;(break)
+                   (setf sig (magicl:.- sig (magicl:scale! rp f)))
+                   (setf path :main)
+                   ;main
+                   )
+                  )
+                (setf eps-e (magicl:@ Ce sig))
+
+                (setf f (mc-yield-func sig phi c))
+                ;; (when (> f (* 2 tol))
+                ;;   (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
+
+                (let ((pad-eps (magicl:block-matrix (list eps-e
+                                                          (cl-mpm/utils:vector-zeros))
+                                                    '(2 1))))
+                  ;; (setf eps-e (magicl:@ (magicl:inv Q) pad-eps))
+                  (setf eps-e (magicl:@ (magicl:linear-solve Q pad-eps)))
+                  )
+
+                (setf sig (magicl:@ (magicl:transpose! Q)
+                                    (cl-mpm/utils:voigt-from-list
+                                     (list
+                                      (magicl:tref sig 0 0)
+                                      (magicl:tref sig 1 0)
+                                      (magicl:tref sig 2 0)
+                                      0d0 0d0 0d0))))
+                (values
+                 sig
+                        (swizzle-coombs->voigt eps-e) f)
+                )
+              (values stress
+                      trial-elastic-strain f)))))))
+

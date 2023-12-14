@@ -26,14 +26,19 @@
   ;(require 'sb-simd)
   (declaim
    (inline simd-accumulate)
-   (ftype (function ((simple-array double-float) (simple-array double-float)) (values)) simd-accumulate))
+   (ftype (function ((simple-array double-float)
+                     (simple-array double-float)) (values)) simd-accumulate))
   (defun simd-accumulate (a b)
+    ;; (declare (type (simple-array double-float 3) a b))
     (declare (type sb-simd:f64vec a b))
     (setf (sb-simd-avx:f64.2-aref a 0)
           (sb-simd-avx:f64.2+
            (sb-simd-avx:f64.2-aref a 0)
            (sb-simd-avx:f64.2-aref b 0)
            ))
+    (incf (aref a 2) (aref b 2))
+    ;; (loop for i from 0 to 2
+    ;;       do (incf (aref a i) (aref b i)))
     (values))
 
   (declaim
@@ -49,12 +54,16 @@
             (sb-simd-avx:f64.2-aref b 0)
             (sb-simd-avx:f64.2 scale))
            ))
+    (incf (aref a 2) (* scale (aref b 2)))
+                                        ;(loop for i from 0 to 2
+                                        ;      do (incf (aref a i) (* scale (aref b i))))
     (values))
   (declaim
    (inline simd-add)
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) simd-add))
   (defun simd-add (a b)
-    (simd-accumulate (magicl::matrix/double-float-storage a) (magicl::matrix/double-float-storage b))
+    (simd-accumulate (magicl::matrix/double-float-storage a)
+                     (magicl::matrix/double-float-storage b))
     (values)))
 
 ;; (declaim
@@ -104,7 +113,9 @@
   #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
                           (magicl::matrix/double-float-storage b)
                           d)
-  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a))
+  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a)
+  ;; (magicl.simd::.+-simd a (magicl:scale b d) a)
+  )
 
 (declaim
    (inline fast-add)
@@ -195,13 +206,29 @@
 
 (defun dot (a b)
   (the double-float (magicl::sum (magicl.simd::.*-simd a b))))
+
+(defun mag-squared (a)
+  "Calculate the magnitude - 2-norm"
+  (dot a a))
+
 (defun mag (a)
   "Calculate the magnitude - 2-norm"
-  (the double-float (magicl::sum (magicl.simd::.*-simd a a))))
+  (sqrt (mag-squared a)))
+
 (defun norm (a)
   "Normalise a vector"
-  (let ((m (mag a)))
+  (let ((m (mag-squared a)))
     (declare (double-float m))
     (if (> m 0d0)
       (magicl::scale a (/ 1d0 (sqrt m)))
       m)))
+
+(defun cross-product (a b)
+  "Calculate the cross product of column vectors a and b, returning a new vector"
+  (let ((as (magicl::matrix/double-float-storage a))
+        (bs (magicl::matrix/double-float-storage b))
+        )
+    (cl-mpm/utils:vector-from-list (list
+                                    (- (* (aref as 1) (aref bs 2)) (* (aref as 2) (aref bs 1)))
+                                    (- (* (aref as 2) (aref bs 0)) (* (aref as 0) (aref bs 2)))
+                                    (- (* (aref as 0) (aref bs 1)) (* (aref as 1) (aref bs 0)))))))

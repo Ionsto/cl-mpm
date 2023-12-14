@@ -55,27 +55,28 @@
     :accessor node-position
     :initarg :position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (acceleration
     :accessor node-acceleration
     :initarg :acceleration
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float)
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros)
     )
   (force
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros)
+    )
    (buoyancy-force
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (velocity
     :accessor node-velocity
     :initarg :velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(2 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
   (local-list
    :accessor node-local-list
    :initform (make-array 0 :fill-pointer 0 :adjustable t))
@@ -144,11 +145,11 @@
     :accessor cell-centroid
     :initarg :centroid
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(1 1) :type 'double-float))
+    :initform (cl-mpm/utils:vector-zeros))
    (deformation-gradient
        :accessor cell-deformation-gradient
        :type MAGICL:MATRIX/DOUBLE-FLOAT
-       :initform (magicl:zeros '(2 2) :type 'double-float))
+       :initform (cl-mpm/utils:matrix-zeros))
    (boundary
     :accessor cell-boundary
     :type boolean
@@ -212,43 +213,40 @@
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
   (make-instance 'node
-                 ;; :force (magicl:zeros (list 2 1) :type 'double-float)
-                 ;; :velocity (magicl:zeros (list 2 1) :type 'double-float)
-                 ;; :acceleration (magicl:zeros (list 2 1) :type 'double-float)
-                 :index (mapcar (lambda (x) (coerce x 'double-float))
-                                 index)
+                 :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
                  :position pos
                  ))
 
 (defun make-nodes (mesh size h)
   "Make a 2d mesh of specific size"
-  (make-array size :initial-contents 
+  (make-array size :initial-contents
       (loop for x from 0 to (- (nth 0 size) 1)
-            collect (loop for y from 0 to (- (nth 1 size) 1)
-                          collect (make-node (list x y)
-                                             (magicl:from-list (index-to-position mesh (list x y)) '(2 1))
-                                             h
-                                             )))))
+            collect
+            (loop for y from 0 to (- (nth 1 size) 1)
+                          collect
+                          (loop for z from 0 to (- (nth 2 size) 1)
+                                collect
+                                (make-node (list x y z)
+                                           (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
+                                           h))))))
 
 (defun cell-calculate-centroid (nodes)
-  (let ((centroid (magicl:zeros '(2 1))))
+  (let ((centroid (cl-mpm/utils:vector-zeros)))
     (loop for node in nodes
           do
              (magicl.simd::.+-simd centroid (node-position node) centroid))
     (magicl:scale centroid (/ 1d0 (length nodes)))))
 (defun make-cell (mesh index h)
   ;;Get local nodes
-  (let* ((nodes (loop for x from 0 to 1
-                      append
-                      (loop for y from 0 to 1
-                            collect
-                            (get-node mesh (mapcar #'+
-                                                   index
-                                                   (list x y))))))
-         (volume (expt h 2))
-         (centroid (cell-calculate-centroid nodes))
-         (centroid (magicl.simd::.+-simd (magicl:from-list (index-to-position mesh index) '(2 1) :type 'double-float)
-                              (magicl:scale! (magicl:from-list (list h h) '(2 1) :type 'double-float) 0.5d0)))
+  (let* ((nodes
+           (let ((res nil))
+             (array-operations/utilities:nested-loop (x y z) '(2 2 2)
+               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
+             res))
+         (volume (expt h (mesh-nd mesh)))
+         ;; (centroid (cell-calculate-centroid nodes))
+         (centroid (magicl.simd::.+-simd (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+                                         (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
          )
     (loop for n in nodes
           do (incf (node-volume-true n) (/ volume (length nodes))))
@@ -258,56 +256,124 @@
                    :centroid centroid
                    :volume volume
                    )))
+(defun make-cell-2d (mesh index h)
+  ;;Get local nodes
+  (let* ((nodes
+           (let ((res nil))
+             (array-operations/utilities:nested-loop (x y z) '(2 2 1)
+               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
+             res))
+         (volume (expt h 2))
+         ;; (centroid (cell-calculate-centroid nodes))
+         (centroid (magicl.simd::.+-simd (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+                                         (magicl:scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
+         )
+    (loop for n in nodes
+          do (incf (node-volume-true n) (/ volume (length nodes))))
+    (make-instance 'cell
+                    :index index
+                    :nodes nodes
+                    :centroid centroid
+                    :volume volume
+                    )))
+
 (defun make-cells (mesh size h)
-  "Make a 2d mesh of specific size"
-  (let ((cells (make-array (mapcar #'- size '(1 1)) :initial-contents
-                          (loop for x from 0 to (- (nth 0 size) 2)
-                                collect (loop for y from 0 to (- (nth 1 size) 2)
-                                              collect (make-cell
-                                                       mesh
-                                                       (list x y)
-                                                       h))))))
-    (array-operations/utilities:nested-loop (i j) (array-dimensions cells)
-      (let* ((cell (aref cells i j)))
+  "Make a 3d mesh of specific size"
+  (let ((cells
+          (make-array
+           (mapcar (lambda (x) (- x 1)) size) :initial-contents
+           (loop
+             for x from 0 below (- (nth 0 size) 1)
+             collect
+             (loop
+               for y from 0 below (- (nth 1 size) 1)
+               collect
+               (loop
+                 for z from 0 below (- (nth 2 size) 1)
+                 collect (make-cell mesh (list x y z) h)))))))
+    (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
+      (let* ((cell (aref cells i j k)))
         (with-accessors ((neighbours cell-neighbours))
             cell
           (setf neighbours (list))
-          (loop for dx from -1 to 1
-                do
-                   (loop for dy from -1 to 1
-                         do
-                            (unless (and (= dx 0) (= dy 0))
-                              (let ((di (mapcar #'+ (list i j) (list dx dy))))
-                                (when (in-bounds-cell mesh di)
-                                  (push (apply #'aref cells di) neighbours)))))))))
+
+          (array-operations/utilities:nested-loop (dxx dyy dzz) (list 3 3 3)
+            (let ((dx (- dxx 1))
+                  (dy (- dyy 1))
+                  (dz (- dzz 1)))
+              (unless (and (= dx 0)
+                           (= dy 0)
+                           (= dz 0))
+                (let ((di (mapcar #'+ (list i j k) (list dx dy dz))))
+                  (when (in-bounds-cell mesh di)
+                    (push (apply #'aref cells di) neighbours)))))))))
+    cells))
+(defun make-cells-2d (mesh size h)
+  "Make a 3d mesh of specific size"
+  (let ((cells
+          (make-array
+           (list (- (nth 0 size) 1)
+                 (- (nth 1 size) 1)
+                 1
+                 ) :initial-contents
+           (loop
+             for x from 0 below (- (nth 0 size) 1)
+             collect
+             (loop
+               for y from 0 below (- (nth 1 size) 1)
+               collect
+               (loop
+                 for z from 0 below 1
+                 collect (make-cell-2d mesh (list x y 0) h)))))))
+    (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
+      (let* ((cell (aref cells i j k)))
+        (with-accessors ((neighbours cell-neighbours))
+            cell
+          (setf neighbours (list))
+          (array-operations/utilities:nested-loop (dxx dyy) (list 3 3)
+            (let ((dx (- dxx 1))
+                  (dy (- dyy 1))
+                  (dz 0))
+              (unless (and (= dx 0)
+                           (= dy 0)
+                           (= dz 0))
+                (let ((di (mapcar #'+ (list i j k) (list dx dy dz))))
+                  (when (in-bounds-cell mesh di)
+                    (push (apply #'aref cells di) neighbours)))))))))
     cells))
 
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
-  (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
-         (resolution (coerce resolution 'double-float))
-         (boundary-order 0;(* 2 (- (cl-mpm/shape-function::order shape-function) 1))
-           )
-         (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
-         (nodes '()))
-    (let ((mesh (make-instance 'mesh
-                              :nD 2 
-                              :mesh-size size
-                              :mesh-count meshcount
-                              :mesh-res resolution
-                              :nodes nodes
-                              :shape-func shape-function
-                              :boundary-order boundary-order
-                              )))
-      (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
-      (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
-      mesh)))
+  (let ((nD (length size)))
+    (if (= nD 2)
+        (setf size (append  size '(0))))
+    (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
+           (resolution (coerce resolution 'double-float))
+           (boundary-order 0)
+           (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
+           (nodes '()))
+      (let ((mesh (make-instance 'mesh
+                                  :nD nD
+                                  :mesh-size size
+                                  :mesh-count meshcount
+                                  :mesh-res resolution
+                                  :nodes nodes
+                                  :shape-func shape-function
+                                  :boundary-order boundary-order
+                                  )))
+        (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
+        (if (= nD 2)
+            (setf (mesh-cells mesh) (make-cells-2d mesh meshcount resolution))
+            (setf (mesh-cells mesh) (make-cells mesh meshcount resolution)))
+        mesh))))
 
 (defun in-bounds-cell (mesh index)
-  (destructuring-bind (x y) index
+  (destructuring-bind (x y z) index
     (and
-     (and (>= x 0) (< x (- (nth 0 (mesh-count mesh)) 1)))
-     (and (>= y 0) (< y (- (nth 1 (mesh-count mesh)) 1))))))
+     (and (>= x 0) (< x (max 1 (- (nth 0 (mesh-count mesh)) 1))))
+     (and (>= y 0) (< y (max 1 (- (nth 1 (mesh-count mesh)) 1))))
+     (and (>= z 0) (< z (max 1 (- (nth 2 (mesh-count mesh)) 1))))
+     )))
 
 (defun query-boundary-shapes (mesh index)
   (not (member index (mesh-boundary-shapes mesh) :test #'equal)))
@@ -317,18 +383,23 @@
   (declare (fixnum value))
   "Check a single dimension is inside a mesh"
   (and (>= value 0) (< value (the fixnum (nth dim (mesh-count mesh))))))
-(declaim (ftype (function(mesh list) boolean) in-bounds))
+(declaim
+ (inline in-bounds)
+ (ftype (function(mesh list) boolean) in-bounds))
 (defun in-bounds (mesh pos)
   (declare (optimize (speed 3))
            (list pos))
   "Check a position (list) is inside a mesh"
-  (let ((x (first pos))
-        (y (second pos))
+  (let ((x (nth 0 pos))
+        (y (nth 1 pos))
+        (z (nth 2 pos))
         (mc (mesh-count mesh)))
     (declare (fixnum x y)
              (list mc))
-    (and (>= x 0) (< x (the fixnum (first mc)))
-         (>= y 0) (< y (the fixnum (second mc)))))
+    (and (>= x 0) (< x (the fixnum (nth 0 mc)))
+         (>= y 0) (< y (the fixnum (nth 1 mc)))
+         (>= z 0) (< z (the fixnum (nth 2 mc)))
+         ))
   ;; (and (in-bounds-1d mesh (first pos) 0)
   ;;      (in-bounds-1d mesh (second pos) 1)
   ;;      )
@@ -381,7 +452,7 @@
   (mapcar (lambda (x) (funcall round-operator (/
                                                   (the double-float (magicl:tref pos x 0))
                                                   (the double-float (mesh-resolution mesh))))
-                         ) '(0 1)))
+                         ) '(0 1 2)))
 
 (defun index-to-position-array (mesh index)
   "Turn a vector position into a list of indexes with rounding"
@@ -470,9 +541,9 @@
     (setf damage 0d0)
     (setf svp-sum 0d0)
     (setf j 0d0)
+    (setf j-inc 0d0)
     (setf boundary-scalar 0d0)
     (setf pressure 0d0)
-    (setf j-inc 0d0)
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)
     (magicl:scale! force 0d0)
@@ -584,7 +655,14 @@
                                 weight
                                 grads)))))))))
 
+
 (defun cell-iterate-over-neighbours (mesh cell func)
+  (if (= (mesh-nd mesh) 2)
+      (cell-iterate-over-neighbours-2d mesh cell func)
+      (cell-iterate-over-neighbours-3d mesh cell func)
+      )
+  )
+(defun cell-iterate-over-neighbours-2d (mesh cell func)
   (declare (function func))
   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
     (with-accessors ((nodes cell-nodes)
@@ -599,8 +677,46 @@
                         (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
                         (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                         (weight (reduce #'* weights))
-                        (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
-                                       dist (nreverse weights)))
+                        ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                        ;;                dist (nreverse weights)))
+                        (lin-grads
+                          (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                           dist))
+                        (grads (cl-mpm/shape-function::grads-2d weights lin-grads))
+                        )
+                   (when (< 0d0 weight)
+                     (funcall func
+                              mesh
+                              cell
+                              centroid
+                              volume
+                              node
+                              weight
+                              (list (nth 0 grads)
+                                    (nth 1 grads)
+                                    0d0
+                                    )))))))))
+(defun cell-iterate-over-neighbours-3d (mesh cell func)
+  (declare (function func))
+  (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+    (with-accessors ((nodes cell-nodes)
+                     (centroid cell-centroid)
+                     (volume cell-volume))
+        cell
+      (loop for node in nodes
+            do
+               (with-accessors ((n-pos node-position))
+                   node
+                 (let* ((dist-vec (magicl:.- centroid n-pos))
+                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0) (magicl:tref dist-vec 2 0)))
+                        (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                        (weight (reduce #'* weights))
+                        ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
+                        ;;                dist (nreverse weights)))
+                        (lin-grads
+                          (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                           dist))
+                        (grads (cl-mpm/shape-function::grads-3d weights lin-grads))
                         )
                    (when (< 0d0 weight)
                      (funcall func

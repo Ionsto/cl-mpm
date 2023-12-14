@@ -114,7 +114,7 @@
   "Fixed velocity BC over some dimensions"
   (with-slots ((value value))
     bc
-    (loop for d from 0 to (length value)
+    (loop for d from 0 below (length value)
             do (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
                  (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
@@ -310,21 +310,30 @@
 (defun make-bcs-from-list (bc-list)
   (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list)))
 
-(defun make-outside-bc (mesh-count)
+(defun make-outside-bc (mesh)
   ;; (with-accessors ((mesh-count cl-mpm/mesh::mesh-count))
   ;;     mesh)
   "Construct fixed bcs over the outside of a mesh"
-  (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
-    (make-bcs-from-list
-     (append
-      (loop for x from 0 to xsize
-            append
-            (list (make-bc-fixed (list x 0)     '(0d0 0d0))
-                  (make-bc-fixed (list x ysize) '(0d0 0d0))))
-      (loop for y from 0 to ysize
-            append
-            (list (make-bc-fixed (list 0     y) '(0d0 0d0))
-                  (make-bc-fixed (list xsize y) '(0d0 0d0))))))))
+  (make-outside-bc-var 
+   mesh
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
+   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0))))
+  ;; (destructuring-bind (xsize ysize zsize) (mapcar (lambda (x) (- x 1)) mesh-count)
+  ;;   (make-bcs-from-list
+  ;;    (append
+  ;;     (loop for x from 0 to xsize
+  ;;           append
+  ;;           (list (make-bc-fixed (list x 0)     '(0d0 0d0))
+  ;;                 (make-bc-fixed (list x ysize) '(0d0 0d0))))
+  ;;     (loop for y from 0 to ysize
+  ;;           append
+  ;;           (list (make-bc-fixed (list 0     y) '(0d0 0d0))
+  ;;                 (make-bc-fixed (list xsize y) '(0d0 0d0)))))))
+  )
 
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"
@@ -357,28 +366,38 @@
                           (list (make-bc-fixed (list order     y) '(0d0 nil))
                                 (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))))
 
-(defun make-outside-bc-var-list (mesh left right top bottom)
+(defun make-outside-bc-var-list (mesh left right top bottom front back)
   "Construct fixed bcs over the outside of a mesh"
-  (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
-                   (order cl-mpm/mesh::mesh-boundary-order))
+  (with-accessors ((mesh-count cl-mpm/mesh:mesh-count))
       mesh
-    (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1 order)) mesh-count)
-      (remove nil
-              (loop for o from 0 to order
-                    append
-                    (append
-                     (loop for x from 0 to xsize
-                           append
-                           (list (when bottom (funcall bottom (list x o)))
-                                 (when top (funcall top (list x (- ysize o))))))
-                     (loop for y from 0 to ysize
-                           append
-                           (list (when left (funcall left (list o y)))
-                                 (when right (funcall right (list (- xsize o) y)))))))))))
-(defun make-outside-bc-var (mesh left right top bottom)
+      (let ((bounds (mapcar (lambda (x) (- x 1)) mesh-count))
+            (outlist '()))
+        (destructuring-bind (xsize ysize zsize) bounds
+          (array-operations/utilities:nested-loop
+           (x y z) mesh-count
+           (when (= x 0)
+             (push (funcall left (list x y z)) outlist))
+           (when (= x xsize)
+             (push (funcall right (list x y z)) outlist))
+           (when (= y 0)
+             (push (funcall bottom (list x y z)) outlist))
+           (when (= y ysize)
+             (push (funcall top (list x y z)) outlist))
+           (when (= z 0)
+             (push (funcall front (list x y z)) outlist))
+           (when (= z zsize)
+             (push (funcall back (list x y z)) outlist)))
+
+          (delete nil outlist)))))
+(defun make-outside-bc-var (mesh left right top bottom
+                            ;; front back
+                            &optional
+                              (front (lambda (i) nil))
+                              (back (lambda (i) nil))
+                              )
   "Construct fixed bcs over the outside of a mesh"
       (make-bcs-from-list
-       (make-outside-bc-var-list mesh left right top bottom)))
+       (make-outside-bc-var-list mesh left right top bottom front back)))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
