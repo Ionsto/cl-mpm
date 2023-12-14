@@ -51,7 +51,7 @@ For live plotting gnuplot is used:
 Lets run a quasi-static elastic 2D problem where a square of material loaded under gravity squishes a little.
 We start by loading the cl-mpm and setup package.
 This can either be done in an interactive REPL, or putting this in a file and loading it with sbcl --load.
-```
+```lisp
 (ql:quickload :cl-mpm)
 (ql:quickload :cl-mpm/setup)
 ;;Create a simulation of 10x10 nodes 1x1 meter wide
@@ -82,13 +82,13 @@ This can either be done in an interactive REPL, or putting this in a file and lo
 
 ```
 You can then visulise the domain with gnuplot (if installed)
-```
+```lisp
 (ql:quickload :cl-mpm/plotter)
 (cl-mpm/plotter:simple-plot *sim*)
 ```
 We need to set a kernel count for the parallel implementation (I have a 4 core machine).
 We can then run through 500 steps to let the system settle
-```
+```lisp
 ;;Set the kernel thread count
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;;Do 500 updates
@@ -97,7 +97,7 @@ We can then run through 500 steps to let the system settle
   (cl-mpm:update-sim *sim*))
 ```
 We can then check the displacement of the system, using a lambda function to extract the x displacement from the (3x1) sized vector
-```
+```lisp
 (cl-mpm/plotter:simple-plot
  *sim*
  :plot :deformed
@@ -107,7 +107,7 @@ We get a displacement variation as expected:
 ![tutorial](https://github.com/Ionsto/cl-mpm/assets/117826225/95163c5a-35a8-4312-a71c-c9a4941ee388)
 
 To change consitutitve model to a von-mises perfectly plastic model, we just change our setup code from 
-```
+```lisp
 ...
 'cl-mpm/particle::particle-elastic
 :E 1d5 ;; Young's modulus 1GPa
@@ -115,7 +115,7 @@ To change consitutitve model to a von-mises perfectly plastic model, we just cha
 ...
 ```
 To a von-mises particle with an extra rho field.
-```
+```lisp
 ...
 'cl-mpm/particle::particle-vm
 :E 1d5 ;; Young's modulus 1GPa
