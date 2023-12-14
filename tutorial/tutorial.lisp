@@ -13,9 +13,11 @@
        (list 0.5d0 0.5d0) ;; Size
        (list 20 20);; Mp count
        1000d0 ;Density 1kg/m^3
-       'cl-mpm/particle::particle-elastic
+       ;; 'cl-mpm/particle::particle-elastic
+       'cl-mpm/particle::particle-vm
        :E 1d5 ;; Young's modulus 1GPa
        :nu 0.35d0 ;; Poission's ratio
+       :rho 1d4
        :gravity -9.8d0 ;;Gravity acting in the y direction
        ))
 
@@ -23,7 +25,7 @@
 (setf (cl-mpm:sim-damping-factor *sim*) 10d0)
 ;;Estimate a dt value from the p wave modulus
 (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
-(format t "Estimated dt ~f~%" (cl-mpm:sim-dt *sim*))
+(format t "~&Estimated dt ~f~%" (cl-mpm:sim-dt *sim*))
 
 (ql:quickload :cl-mpm/plotter)
 (cl-mpm/plotter:simple-plot *sim* :plot :deformed)
@@ -31,16 +33,17 @@
 ;;Setup how many threads
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 
-(dotimes (i 500)
-  (format t "Steps ~D~%" i)
-  (cl-mpm:update-sim *sim*)
-  (format t "Velocity norm : ~F~%"
-          (/
-           (loop for mp across (cl-mpm:sim-mps *sim*)
+(time
+ (dotimes (i 500)
+   (format t "Steps ~D~%" i)
+   (cl-mpm:update-sim *sim*)
+   (format t "Velocity norm : ~F~%"
+           (/
+            (loop for mp across (cl-mpm:sim-mps *sim*)
                   sum (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp)))
-           (length (cl-mpm:sim-mps *sim*))))
+            (length (cl-mpm:sim-mps *sim*))))
 
-  )
+   ))
 
 ;;Replot the xx stress
 (cl-mpm/plotter:simple-plot
