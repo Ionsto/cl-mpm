@@ -36,10 +36,9 @@
          (ftype (function (magicl:matrix/double-float)
                           (values list magicl:matrix/double-float)) eig))
 (defun eig (mat)
-  (magicl:self-adjoint-eig mat)
-  ;; (multiple-value-bind (l v) (magicl:eig mat)
-  ;;   (values l (magicl:.realpart v)))
-  )
+  "Real eigen-decomposition"
+  (magicl:self-adjoint-eig mat))
+
 (let ((stress-components '(:xx :yy :zz
                            :yz :xz :xy)))
   (defun get-stress (stress component)
@@ -50,18 +49,21 @@
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))
 (defun vector-zeros ()
+  "Make a vector of 3x1 zeros"
   (magicl::make-matrix/double-float 3 1 3 :column-major (make-array 3 :element-type 'double-float)))
 
 (declaim (inline voigt-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) voigt-zeros))
 (defun voigt-zeros ()
+  "Make a stress-like vector 6x1 of zeros"
   (magicl::make-matrix/double-float 6 1 6 :column-major (make-array 6 :element-type 'double-float)))
 
 (declaim (inline matrix-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) matrix-zeros))
 (defun matrix-zeros ()
+  "Make a stress matrix 3x3 of zeros"
   (magicl::make-matrix/double-float 3 3 9 :column-major (make-array 9 :element-type 'double-float)))
 
 (declaim (inline matrix-copy)

@@ -9,6 +9,7 @@
     #:ellipse-sdf
     #:circle-sdf
     #:rectangle-sdf
+    #:estimate-elastic-dt
   ))
 
 (in-package :cl-mpm/setup)
@@ -20,15 +21,10 @@
                                           (sim-type 'cl-mpm::mpm-sim-usf)
                                        )
   "Make a 2D column of heigh size, and width 1 - filled with elements"
-  ;; (if (= nd 1)
-  ;;     (push 1 element-count)
-  ;;     )
   (let ((nd (length element-count)))
-    ;; (if (= nd 2)
-    ;;     (setf element-count (append  element-count '(0))))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x res)) element-count))
-           (sim (cl-mpm:make-mpm-sim size res 1e-3 (funcall shape-maker nD res) :sim-type sim-type)))
+           (sim (cl-mpm:make-mpm-sim size res 1d-3 (funcall shape-maker nD res) :sim-type sim-type)))
       (progn
         (setf (cl-mpm:sim-mps sim) #())
         (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
@@ -240,3 +236,19 @@
                                               ))))
                             ))))))
     data))
+
+(defun estimate-elastic-dt-mp (sim p-modulus density &key (dt-scale 1d0))
+  (* dt-scale
+     (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
+     (sqrt (cl-mpm::sim-mass-scale sim))
+     (sqrt (/ density p-modulus))))
+
+(defun estimate-elastic-dt (sim &key (dt-scale 1d0))
+  (loop for mp across (cl-mpm:sim-mps sim)
+        minimize
+        (estimate-elastic-dt-mp
+         sim
+         (cl-mpm/particle::mp-p-modulus mp)
+         (/ (cl-mpm/particle:mp-mass mp)
+            (cl-mpm/particle:mp-volume mp))
+         :dt-scale dt-scale)))
