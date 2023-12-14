@@ -42,7 +42,7 @@ Then to get started you can quickload cl-mpm and other packages
 # Tutorial - quick start
 Lets run a quasi-static elastic 2D problem where a square of material loaded under gravity squishes a little.
 We start by loading the cl-mpm and setup package.
-This can either be done in an interactive REPL, or
+This can either be done in an interactive REPL, or putting this in a file and loading it with sbcl --load.
 ```
 (ql:quickload :cl-mpm)
 (ql:quickload :cl-mpm/setup)
