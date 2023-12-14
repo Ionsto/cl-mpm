@@ -22,25 +22,36 @@ Output
 
 # Installation
 cl-mpm only runs with SBCL due to its use of SIMD intrinsics, install sbcl from https://www.sbcl.org/
+
+```sudo apt install sbcl```
+
 In the console we can start a lisp REPL with:
 ```sbcl --dynamic-space-size 4000```
 
 Most of the dependancies are on quicklisp but some need to be installed manually:
-After installing quicklisp (https://www.quicklisp.org/beta/#installation) you can install cl-mpm by cloneing the following repositories to ~/quicklisp/local-projects/
+After installing quicklisp (https://www.quicklisp.org/beta/#installation) you can install cl-mpm by cloning the following repositories to ~/quicklisp/local-projects/
  - https://github.com/Ionsto/cl-mpm.git
  - https://github.com/Ionsto/magicl.git
  - https://github.com/Ionsto/vgplot.git
+
+To include the accelerated c++ kirchoff strain update; run build.sh in the libs/ folder
+This will require gcc & an install of eigen3.
+
+```sudo apt install build-essential libeigen3-dev```
 
 Then to get started you can quickload cl-mpm and other packages
 ```
 (ql:quickload :cl-mpm)
 ```
 
+For live plotting gnuplot is used:
+```sudo apt install gnuplot```
+
 # Tutorial - quick start
 Lets run a quasi-static elastic 2D problem where a square of material loaded under gravity squishes a little.
 We start by loading the cl-mpm and setup package.
-This can either be done in an interactive REPL, or
-```
+This can either be done in an interactive REPL, or putting this in a file and loading it with sbcl --load.
+```lisp
 (ql:quickload :cl-mpm)
 (ql:quickload :cl-mpm/setup)
 ;;Create a simulation of 10x10 nodes 1x1 meter wide
@@ -71,13 +82,13 @@ This can either be done in an interactive REPL, or
 
 ```
 You can then visulise the domain with gnuplot (if installed)
-```
+```lisp
 (ql:quickload :cl-mpm/plotter)
 (cl-mpm/plotter:simple-plot *sim*)
 ```
 We need to set a kernel count for the parallel implementation (I have a 4 core machine).
 We can then run through 500 steps to let the system settle
-```
+```lisp
 ;;Set the kernel thread count
 (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;;Do 500 updates
@@ -86,7 +97,7 @@ We can then run through 500 steps to let the system settle
   (cl-mpm:update-sim *sim*))
 ```
 We can then check the displacement of the system, using a lambda function to extract the x displacement from the (3x1) sized vector
-```
+```lisp
 (cl-mpm/plotter:simple-plot
  *sim*
  :plot :deformed
@@ -94,6 +105,26 @@ We can then check the displacement of the system, using a lambda function to ext
 ```
 We get a displacement variation as expected:
 ![tutorial](https://github.com/Ionsto/cl-mpm/assets/117826225/95163c5a-35a8-4312-a71c-c9a4941ee388)
+
+To change consitutitve model to a von-mises perfectly plastic model, we just change our setup code from 
+```lisp
+...
+'cl-mpm/particle::particle-elastic
+:E 1d5 ;; Young's modulus 1GPa
+:nu 0.35d0 ;; Poission's ratio
+...
+```
+To a von-mises particle with an extra rho field.
+```lisp
+...
+'cl-mpm/particle::particle-vm
+:E 1d5 ;; Young's modulus 1GPa
+:nu 0.35d0 ;; Poission's ratio
+:rho 1.5d3 ;; Yield stress
+...
+```
+This results in a much greater displacement under plastic deformation
+![tutorial](https://github.com/Ionsto/cl-mpm/assets/117826225/e3b55ef9-f5aa-419f-8abf-84be209ab2c0)
 
 # MPI
 To use mpi you need to compile an image worker - check the ham-mpi repo 
