@@ -19,7 +19,7 @@
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
-(defclass mpm-sim-mpi (cl-mpm/damage::mpm-sim-usf)
+(defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
   ((neighbour-node-list)
    (neighbour-ranks
     :initform '())
@@ -49,7 +49,7 @@
    )
   )
 
-(defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes mpm-sim-damage)
+(defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
   (
    (halo-node-list
      :accessor mpm-sim-mpi-halo-node-list
@@ -376,8 +376,58 @@
         damage-mps))))
 
 
-
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps  cl-mpm::mps)
+               (bcs  cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               )
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    ;; (exchange-mps sim)
+                  (when t;(> (length mps) 0)
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (mpi-sync-momentum sim)
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt)
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    (cl-mpm::update-stress mesh mps dt nil)
+                    (cl-mpm::p2g-force mesh mps)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                    (mpi-sync-force sim)
+                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    (cl-mpm::g2p mesh mps dt)
+                    (when remove-damage
+                      (cl-mpm::remove-material-damaged sim))
+                    (when split
+                      (cl-mpm::split-mps sim))
+                    (cl-mpm::check-mps sim)
+                    (set-mp-mpi-index sim)
+                    )
+                  ;; (exchange-mps sim (* 0.1d0 (cl-mpm/mesh:mesh-resolution mesh)))
+                  ;; (set-mp-mpi-index sim)
+                  (exchange-mps sim 0d0)
+                  (set-mp-mpi-index sim)
+                  (clear-ghost-mps sim)
+                    )))
+
+
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes-damage))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
