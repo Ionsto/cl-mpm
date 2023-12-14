@@ -22,6 +22,9 @@ Output
 
 # Installation
 cl-mpm only runs with SBCL due to its use of SIMD intrinsics, install sbcl from https://www.sbcl.org/
+
+```sudo apt install sbcl```
+
 In the console we can start a lisp REPL with:
 ```sbcl --dynamic-space-size 4000```
 
