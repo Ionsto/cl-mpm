@@ -465,20 +465,33 @@
           (save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
           (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
           )
-        ;; (save-parameter
-        ;;  "plastic_strain"
-        ;;  (cl-mpm/particle::mp-strain-plastic-vm mp))
-        ;;  (multiple-value-bind (l v)
-        ;;      (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-        ;;    (destructuring-bind (s1 s2 s3) l
-        ;;      (sqrt
-        ;;       (/ (+ (expt (- s1 s2) 2d0)
-        ;;             (expt (- s2 s3) 2d0)
-        ;;             (expt (- s3 s1) 2d0)
-        ;;             ) 2d0)))))
-        ;; (save-parameter
-        ;;  "f"
-        ;;  (cl-mpm/particle::mp-yield-func mp))
+        (save-parameter
+         "plastic_strain"
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
+             (cl-mpm/particle::mp-strain-plastic-vm mp)
+             0d0
+             )
+         )
+
+        (cl-mpm/output::save-parameter
+         "rho"
+         (if (slot-exists-p mp 'cl-mpm/particle::c)
+             (cl-mpm/particle::mp-c mp)
+             0d0))
+         ;; (multiple-value-bind (l v)
+         ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+         ;;   (destructuring-bind (s1 s2 s3) l
+         ;;     (sqrt
+         ;;      (/ (+ (expt (- s1 s2) 2d0)
+         ;;            (expt (- s2 s3) 2d0)
+         ;;            (expt (- s3 s1) 2d0)
+         ;;            ) 2d0)))))
+        (save-parameter
+         "f"
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
+             (cl-mpm/particle::mp-yield-func mp)
+             0d0)
+         )
         )
       )))
 

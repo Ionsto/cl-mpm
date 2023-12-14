@@ -15,10 +15,10 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ))
 
@@ -27,8 +27,8 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                #'cl-mpm/shape-function:make-shape-function-bspline
-               ;; 'cl-mpm::mpm-sim-usf
-               'cl-mpm/damage::mpm-sim-damage-nd-2
+               'cl-mpm::mpm-sim-usf
+               ;; 'cl-mpm/damage::mpm-sim-damage-nd-2
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -48,35 +48,43 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-chalk-brittle
-                'cl-mpm/particle::particle-chalk-delayed
-                ;; 'cl-mpm/particle::particle-limestone
-                ;; 'cl-mpm/particle::particle-mc
-                ;; 'cl-mpm/particle::particle-vm
+                ;; ;; ;; 'cl-mpm/particle::particle-chalk-brittle
+                ;; 'cl-mpm/particle::particle-chalk-delayed
+                ;; ;; ;; 'cl-mpm/particle::particle-limestone
+                ;; :E 1d9
+                ;; :nu 0.35d0
+                ;; ;; :psi (* 40d0 (/ pi 180))
+                ;; ;; :phi (* 00d0 (/ pi 180))
+                ;; ;; :c 0.4d6
+
+                ;; ;; :rho 1d6
+                ;; :enable-plasticity t
+
+                ;; ;; :coheasion 400d5
+                ;; ;; :friction-angle 30d0
+
+                ;; :fracture-energy 5000d0
+                ;; :initiation-stress 500d3
+                ;; :delay-time 1d2
+                ;; :ductility 4d0
+                ;; ;; :compression-ratio 8d0
+
+
+                ;; :critical-damage 1d0;0.999d0
+                ;; :local-length 10d0
+                ;; ;; :local-length-damaged 1d0
+                ;; :local-length-damaged 1d0
+
+                'cl-mpm/particle::particle-mc
                 :E 1d9
                 :nu 0.35d0
-                ;; :psi (* 40d0 (/ pi 180))
-                ;; :phi (* 00d0 (/ pi 180))
-                ;; :c 0.4d6
-
-                :rho 1d6
-                :enable-plasticity nil
-
-                :coheasion 1d5
-                :friction-angle 40d0
-
-                :fracture-energy 5000d0
-                :initiation-stress 700d3
-                :delay-time 1d3
-                ;; :compression-ratio 8d0
-
-
-                :critical-damage 1d0;0.999d0
-                :local-length 10d0
-                ;; :local-length-damaged 1d0
-                :local-length-damaged 1d0
-
+                :psi (* 30d0 (/ pi 180))
+                :phi (* 30d0 (/ pi 180))
+                :c 0.10d6
+                ;; 'cl-mpm/particle::particle-vm
+                ;; :E 1d9
+                ;; :nu 0.35d0
+                ;; :rho 1d6
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
@@ -167,16 +175,29 @@
 
       sim)))
 
+(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
+  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+                   (c cl-mpm/particle::mp-c))
+      mp
+    (let ((rho_0 0.2d6)
+          (rho_1 0.0020d6)
+          (soft 5d0))
+      (setf c (max rho_1
+                     (* rho_0 (exp (- (* soft ps)))))))
+    )
+  )
+
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
   (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-                   (rho cl-mpm/particle::mp-rho))
+                   (c cl-mpm/particle::mp-rho))
       mp
-    ;; (let ((rho_0 1d6)
-    ;;       (rho_1 1d1)
-    ;;       (soft 5d1))
-    ;;   (setf rho (max rho_1
-    ;;                  (* rho_0 (exp (- (* soft ps)))))))
-    ))
+    (let ((rho_0 1d5)
+          (rho_1 0.0100d6)
+          (soft 5d1))
+      (setf c (max rho_1
+                   (* rho_0 (exp (- (* soft ps)))))))
+    )
+  )
 
 (defparameter *sim* nil)
 (defparameter *run-sim* t)
@@ -193,12 +214,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 2.5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 40)
+         (soil-boundary 20)
          (shelf-aspect 2)
-         (runout-aspect 2)
+         (runout-aspect 5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -246,7 +267,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d3)
+  (let* ((target-time 1d2)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1.0d0)
@@ -261,41 +282,41 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 1)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     (when (= steps 5)
+                       ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; (setf target-time 1d2)
                        ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d2
                        ;;       target-time 1d1)
                        ;; (setf target-time 1d1
                        ;;       dt-scale 0.5d0)
-                       ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                       ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 0d-8 ms))
-                       ;;   )
+                       (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                         (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-5 ms))
+                         )
                        (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                          (format t "CFL dt estimate: ~f~%" dt-e)
                          (format t "CFL step count estimate: ~D~%" substeps-e)
                          (setf substeps substeps-e))
                        )
 
-                     (let ((new-target-time 1d2))
-                       (when (not (= target-time new-target-time))
-                         (loop for mp across (cl-mpm:sim-mps *sim*)
-                               do
-                                  (when (>= (cl-mpm/particle:mp-damage mp) 0.99d0)
-                                    (setf target-time new-target-time
-                                          dt-scale 1.0d0
-                                          (cl-mpm::sim-mass-scale *sim*) 1d4
-                                          )
+                     ;; (let ((new-target-time 1d2))
+                     ;;   (when (not (= target-time new-target-time))
+                     ;;     (loop for mp across (cl-mpm:sim-mps *sim*)
+                     ;;           do
+                     ;;              (when (>= (cl-mpm/particle:mp-damage mp) 0.99d0)
+                     ;;                (setf target-time new-target-time
+                     ;;                      dt-scale 1.0d0
+                     ;;                      (cl-mpm::sim-mass-scale *sim*) 1d4
+                     ;;                      )
 
-                                    (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                                      (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-4 ms)))
-                                    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                                      (format t "CFL dt estimate: ~f~%" dt-e)
-                                      (format t "CFL step count estimate: ~D~%" substeps-e)
-                                      (setf substeps substeps-e))
-                                    (loop-finish)
+                     ;;                (let ((ms (cl-mpm::sim-mass-scale *sim*)))
+                     ;;                  (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-4 ms)))
+                     ;;                (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                     ;;                  (format t "CFL dt estimate: ~f~%" dt-e)
+                     ;;                  (format t "CFL step count estimate: ~D~%" substeps-e)
+                     ;;                  (setf substeps substeps-e))
+                     ;;                (loop-finish)
 
-                                    ))))
+                     ;;                ))))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -344,7 +365,7 @@
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
 
-;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 ;; (push (lambda ()
 ;;         (format t "Closing kernel~%")
 ;;         (lparallel:end-kernel))
@@ -477,9 +498,10 @@
          (E 1d0)
          (nu 0.0d0)
          (angle 0.1d0)
+         (c 1d0)
          (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
          (sig (magicl:@ de eps)))
-    (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle 0d0)))
+    (pprint (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c))))
 
 
 

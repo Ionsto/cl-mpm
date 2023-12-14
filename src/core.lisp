@@ -2121,7 +2121,7 @@ Calls func with only the node"
         (map-jacobian mesh mp dt))))
   (lparallel:pdotimes (i (length mps))
     (update-stress-mp mesh (aref mps i) dt fbar)
-    ;; (post-stress-step mesh (aref mps i) dt)
+    (post-stress-step mesh (aref mps i) dt)
     )
   (values))
 
@@ -2216,7 +2216,7 @@ Calls func with only the node"
                    (split-depth cl-mpm/particle::mp-split-depth)
                    )
       mp
-    (when (< split-depth 3)
+    (when (< split-depth 6)
       (let ((l-factor 1.50d0)
             (h-factor (* 0.75d0 h))
             (s-factor 1.5d0))

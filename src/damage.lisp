@@ -558,7 +558,7 @@
                                                      (weight
                                                        (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
                                                        ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
-                                                       ;;     (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
+                                                       ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                                                        ;; (weight-func-mps-damaged mesh mp mp-other
                                                        ;;                          (cl-mpm/particle::mp-local-length mp)
                                                        ;;                          ;; (* 0.5d0 (+ length ll))
@@ -576,7 +576,9 @@
                                                                                 (cl-mpm/particle::mp-position mp)
                                                                                 (magicl:.* (cl-mpm/particle:mp-position mp-other)
                                                                                            (cl-mpm/utils::vector-from-list (list -1d0 0d0 0d0)))
-                                                                                (sqrt (* length ll)))))
+                                                                                (sqrt (* length ll))
+                                                                                ;; (* 0.5d0 (+ length ll))
+                                                                                )))
                                                  (declare (double-float weight m d mass-total damage-inc))
                                                  (incf mass-total (* weight m))
                                                  (incf damage-inc
@@ -1173,7 +1175,7 @@
                                        (cl-mpm/particle::mp-split-depth mp))
         (cl-mpm/output::save-parameter
          "plastic_strain"
-         (if (slot-exists-p mp 'cl-mpm/particle::strain-plastic-vm)
+         (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
              (cl-mpm/particle::mp-strain-plastic-vm mp)
              0d0)
          )
@@ -1184,8 +1186,8 @@
              0d0))
         (cl-mpm/output::save-parameter
          "rho"
-         (if (slot-exists-p mp 'cl-mpm/particle::rho)
-             (cl-mpm/particle::mp-rho mp)
+         (if (slot-exists-p mp 'cl-mpm/particle::c)
+             (cl-mpm/particle::mp-c mp)
              0d0))
         )
       )))
@@ -1558,6 +1560,7 @@
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
                      (tau cl-mpm/particle::mp-delay-time)
+                     (ductility cl-mpm/particle::mp-ductility)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1566,7 +1569,7 @@
           (setf k (max k ybar))
           (setf damage-inc 0d0)
           (let ((new-damage (max damage
-                                 (damage-response-exponential k E Gf length init-stress)
+                                 (damage-response-exponential k E Gf length init-stress ductility)
                                  )))
             (setf damage-inc (- new-damage damage)))
           (when (>= damage 1d0)
@@ -1602,6 +1605,7 @@
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
                      (tau cl-mpm/particle::mp-delay-time)
+                     (ductility cl-mpm/particle::mp-ductility)
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
@@ -1615,7 +1619,7 @@
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
                                  ;; (delayed-damage-y ybar E Gf length init-stress)
-                                 (damage-response-exponential ybar E Gf length init-stress)
+                                 (damage-response-exponential ybar E Gf length init-stress ductility)
                                  )))
             ;; (setf damage-inc (- new-damage damage))
             (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))

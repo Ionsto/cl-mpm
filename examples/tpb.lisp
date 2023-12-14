@@ -225,9 +225,9 @@
                    :internal-length (* length-scale crack-scale 1.00d0)
                    ;;Interaction radius
                    :local-length (* length-scale crack-scale kappa)
-                   :local-length-damaged (* length-scale crack-scale kappa)
+                   :local-length-damaged (* length-scale crack-scale kappa 1d-9)
                    :compression-ratio 8d0
-                   :ductility 4.5d0
+                   :ductility 8.9d0
 
                    :critical-damage 1.000d0
                    ;; :local-length-damaged 0.01d0
@@ -243,7 +243,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d6))
+      (let ((ms 1d7))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 1d-3 density ms)
@@ -430,7 +430,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 1.0))
+  (let* ((mesh-size (/ 0.0102 2.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -593,7 +593,7 @@
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.25d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
@@ -827,8 +827,8 @@
      (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Experimental"
      (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-node"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-mps"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-reaction"
+     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-force"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-y*) "mpm-y"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-ybar*) "mpm-ybar"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
@@ -844,6 +844,8 @@
     ;;                     (* 1.01 (reduce #'max (mapcar #'max *data-load* *data-mp-load*)))
     ;;                     )
     ;; (vgplot:axis (list nil nil nil nil))
+    (vgplot:xlabel "Displacement (mm)")
+    (vgplot:ylabel "Load (N)")
     )
   )
 
