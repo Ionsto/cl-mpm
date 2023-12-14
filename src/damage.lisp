@@ -69,6 +69,7 @@
         (progn
           (progn
                                         ;multiple-value-bind (l v) (cl-mpm/utils::eig (magicl:scale (voight-to-matrix stress) (/ 1d0 (magicl:det def))))
+
             (when (< damage 1d0)
               (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (* 1d0;(- 1d0 damage)
                                                                      (magicl:det def))))))
@@ -94,6 +95,7 @@
 
                          ;; (s_1 (- s_1 s_3))
                          ;; (s_1 vm)
+
                                         ;(damage-inv (- 1d0 damage))
                          )
                     (when (> s_1 0d0)

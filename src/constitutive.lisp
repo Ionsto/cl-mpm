@@ -361,6 +361,7 @@
                 (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
                 (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
+
 (defun maxwell-exp-v (strain-increment stress elasticity nu de viscosity dt &key (result-stress))
   "A stress increment form of a viscoelastic maxwell material"
   (let* (
@@ -485,9 +486,11 @@
         (magicl:scale dev-strain 0d0))))
 
 (defun deviatoric (voigt)
-  (let* ((mat (voight-to-matrix voigt))
-         (trace (/ (magicl:trace mat) 3d0)))
-    (matrix-to-voight (magicl:.- mat (magicl:eye 3 :value (the double-float trace))))))
+  (deviatoric-voigt voigt)
+  ;; (let* ((mat (voight-to-matrix voigt))
+  ;;        (trace (/ (magicl:trace mat) 3d0)))
+  ;;   (matrix-to-voight (magicl:.- mat (magicl:eye 3 :value (the double-float trace)))))
+  )
 
 (defun deviatoric-mat (mat)
   (let* ((trace (/ (magicl:trace mat) 3d0)))
@@ -506,7 +509,10 @@
         (/ 1d0 (* 2d0 visc-factor (expt effective-stress (* 0.5d0 (- visc-power 1)))))
         0d0)))
 (defun effective-strain-rate (strain)
-  (sqrt (* 0.5d0 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain)))))
+  (sqrt
+   (* 0.5d0
+      (cl-mpm/fastmath::voigt-tensor-reduce-simd
+       (deviatoric strain)))))
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity-strain))
 (defun glen-viscosity-strain (strain visc-factor visc-power)
