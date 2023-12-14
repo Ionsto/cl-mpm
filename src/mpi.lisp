@@ -19,9 +19,8 @@
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
-(defclass mpm-sim-mpi-stress (cl-mpm/damage::mpm-sim-damage)
-  ((neighbour-node-list
-    )
+(defclass mpm-sim-mpi (cl-mpm/damage::mpm-sim-usf)
+  ((neighbour-node-list)
    (neighbour-ranks
     :initform '())
    (domain-bounds
@@ -39,19 +38,26 @@
     :initform '(1 1 1)
     :initarg :domain-count
     )
-   (halo-damage-size
-    :accessor mpm-sim-mpi-halo-damage-size
-    :initform 1d0)
    )
   (:documentation "Damage sim with only stress update on mpi"))
 
-(defclass mpm-sim-mpi-nodes (mpm-sim-mpi-stress)
+(defclass mpm-sim-mpi-nodes (mpm-sim-mpi)
   ((halo-node-list
     :accessor mpm-sim-mpi-halo-node-list
     :initform (loop for i from 0 to 2
                     collect (loop for i from 0 to 1 collect (make-array 0 :element-type t))))
    )
   )
+
+(defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes mpm-sim-damage)
+  (
+   (halo-node-list
+     :accessor mpm-sim-mpi-halo-node-list
+     :initform (loop for i from 0 to 2
+                     collect (loop for i from 0 to 1 collect (make-array 0 :element-type t))))
+    )
+  )
+
 
 (defun exchange-nodes (sim func)
   (declare (function func))
@@ -440,7 +446,7 @@
                   (clear-ghost-mps sim)
                     )))
 
-(defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-stress))
+(defmethod cl-mpm::update-sim ((sim mpm-sim-mpi))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
@@ -1407,7 +1413,7 @@ inc  ;;                                                ;; :initial-contents res
 ;;           (cl-store:restore stream))))
 
 
-(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/mpi::mpm-sim-mpi-stress))
+(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/mpi::mpm-sim-mpi))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim

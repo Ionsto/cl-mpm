@@ -311,41 +311,28 @@
   (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list)))
 
 (defun make-outside-bc (mesh)
-  ;; (with-accessors ((mesh-count cl-mpm/mesh::mesh-count))
-  ;;     mesh)
-  "Construct fixed bcs over the outside of a mesh"
-  (make-outside-bc-var 
+  "Construct reflection bcs over the outside of a mesh"
+  (make-outside-bc-var
    mesh
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0)))
-   (lambda (i) (make-bc-fixed i '(0d0 0d0 0d0))))
-  ;; (destructuring-bind (xsize ysize zsize) (mapcar (lambda (x) (- x 1)) mesh-count)
-  ;;   (make-bcs-from-list
-  ;;    (append
-  ;;     (loop for x from 0 to xsize
-  ;;           append
-  ;;           (list (make-bc-fixed (list x 0)     '(0d0 0d0))
-  ;;                 (make-bc-fixed (list x ysize) '(0d0 0d0))))
-  ;;     (loop for y from 0 to ysize
-  ;;           append
-  ;;           (list (make-bc-fixed (list 0     y) '(0d0 0d0))
-  ;;                 (make-bc-fixed (list xsize y) '(0d0 0d0)))))))
+   (lambda (i) (make-bc-fixed i '(0 nil nil)))
+   (lambda (i) (make-bc-fixed i '(0 nil nil)))
+   (lambda (i) (make-bc-fixed i '(nil 0 nil)))
+   (lambda (i) (make-bc-fixed i '(nil 0 nil)))
+   (lambda (i) (make-bc-fixed i '(nil nil 0)))
+   (lambda (i) (make-bc-fixed i '(nil nil 0))))
   )
 
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"
     (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
       (make-bcs-from-list
-       (append 
-        (loop for x from 0 to xsize 
-              append 
+       (append
+        (loop for x from 0 to xsize
+              append
               (list (make-bc-surface (list x 0)     (magicl:from-list '(0d0  1d0) '(2 1)))
                     (make-bc-surface (list x ysize) (magicl:from-list '(0d0 -1d0) '(2 1)))))
-        (loop for y from 0 to ysize 
-              append 
+        (loop for y from 0 to ysize
+              append
               (list (make-bc-surface (list 0     y) (magicl:from-list '( 1d0 0d0) '(2 1)))
                     (make-bc-surface (list xsize y) (magicl:from-list '(-1d0 0d0) '(2 1)))))))))
 
