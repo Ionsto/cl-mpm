@@ -21,13 +21,25 @@ Output
  - CSV format to conform with cb-geo
 
 # Installation
-Most of the dependancies are on quicklisp but many need to be installed manually:
-After installing quicklisp you can install cl-mpm by cloning the following repositories to ~/quicklisp/local-projects/
+cl-mpm only runs with SBCL due to its use of SIMD intrinsics, install sbcl from https://www.sbcl.org/
+In the console we can start a lisp REPL with:
+```sbcl --dynamic-space-size 4000```
+
+Most of the dependancies are on quicklisp but some need to be installed manually:
+After installing quicklisp (https://www.quicklisp.org/beta/#installation) you can install cl-mpm by cloneing the following repositories to ~/quicklisp/local-projects/
  - https://github.com/Ionsto/cl-mpm.git
  - https://github.com/Ionsto/magicl.git
  - https://github.com/Ionsto/vgplot.git
 
-Then to get started you can quickload cl-mpm
+Then to get started you can quickload cl-mpm and other packages
+```
+(ql:quickload :cl-mpm)
+```
+
+# Tutorial - quick start
+Lets run a quasi-static elastic 2D problem where a square of material loaded under gravity squishes a little.
+We start by loading the cl-mpm and setup package.
+This can either be done in an interactive REPL, or
 ```
 (ql:quickload :cl-mpm)
 (ql:quickload :cl-mpm/setup)
