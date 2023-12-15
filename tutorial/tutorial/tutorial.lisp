@@ -17,7 +17,7 @@
        'cl-mpm/particle::particle-vm
        :E 1d5 ;; Young's modulus 1GPa
        :nu 0.35d0 ;; Poission's ratio
-       :rho 1d4
+       :rho 1.5d3
        :gravity -9.8d0 ;;Gravity acting in the y direction
        ))
 
@@ -42,6 +42,11 @@
             (loop for mp across (cl-mpm:sim-mps *sim*)
                   sum (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp)))
             (length (cl-mpm:sim-mps *sim*))))
+
+   (cl-mpm/plotter:simple-plot
+    *sim*
+    :plot :deformed
+    :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0)))
 
    ))
 
