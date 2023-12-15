@@ -471,31 +471,29 @@
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
                     (mpi-sync-momentum sim)
-                    ;; (when (> mass-filter 0d0)
-                    ;;   (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                    ;; (cl-mpm::update-node-kinematics mesh dt)
-                    ;; (cl-mpm::apply-bcs mesh bcs dt)
-                    ;; (cl-mpm::update-stress mesh mps dt nil)
-                    ;; (cl-mpm::p2g-force mesh mps)
-                  ;;   (loop for bcs-f in bcs-force-list
-                  ;;         do
-                  ;;            (cl-mpm::apply-bcs mesh bcs-f dt))
-                  ;;   (mpi-sync-force sim)
-                  ;;   (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
-                  ;;   (cl-mpm::apply-bcs mesh bcs dt)
-                  ;;   (cl-mpm::g2p mesh mps dt)
-                  ;;   (when remove-damage
-                  ;;     (cl-mpm::remove-material-damaged sim))
-                  ;;   (when split
-                  ;;     (cl-mpm::split-mps sim))
-                  ;;   (cl-mpm::check-mps sim)
-                  ;;   (set-mp-mpi-index sim)
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt)
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    (cl-mpm::update-stress mesh mps dt nil)
+                    (cl-mpm::p2g-force mesh mps)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                    (mpi-sync-force sim)
+                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    (cl-mpm::g2p mesh mps dt)
+                    (when remove-damage
+                      (cl-mpm::remove-material-damaged sim))
+                    (when split
+                      (cl-mpm::split-mps sim))
+                    (cl-mpm::check-mps sim)
+                    (set-mp-mpi-index sim)
                     )
-                  ;; ;; (exchange-mps sim (* 0.1d0 (cl-mpm/mesh:mesh-resolution mesh)))
-                  ;; ;; (set-mp-mpi-index sim)
-                  ;; (exchange-mps sim 0d0)
-                  ;; (set-mp-mpi-index sim)
-                  ;; (clear-ghost-mps sim)
+                  (exchange-mps sim 0d0)
+                  (set-mp-mpi-index sim)
+                  (clear-ghost-mps sim)
                     )))
 
 
