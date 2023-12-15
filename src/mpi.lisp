@@ -856,8 +856,9 @@
                                           (when object
                                             (loop for mp across object
                                                   do (progn
-                                                       (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0
-                                                             (cl-mpm/particle::mp-damage-position mp) nil)
+                                                       (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)
+                                                       (when (slot-exists-p mp 'cl-mpm/particle::damage-position)
+                                                         (setf (cl-mpm/particle::mp-damage-position mp) nil))
                                                        (vector-push-extend mp mps)
                                                        )))))))))))))))))
   ;; (cl-mpi:mpi-barrier)
