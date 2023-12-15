@@ -38,6 +38,9 @@
     :initform '(1 1 1)
     :initarg :domain-count
     )
+   (halo-damage-size
+    :accessor mpm-sim-mpi-halo-damage-size
+    :initform 1d0)
    )
   (:documentation "Damage sim with only stress update on mpi"))
 
@@ -50,13 +53,7 @@
   )
 
 (defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
-  (
-   (halo-node-list
-     :accessor mpm-sim-mpi-halo-node-list
-     :initform (loop for i from 0 to 2
-                     collect (loop for i from 0 to 1 collect (make-array 0 :element-type t))))
-    )
-  )
+  ())
 
 
 (defun exchange-nodes (sim func)
