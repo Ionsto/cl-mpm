@@ -13,7 +13,15 @@
   (:import-from
    :trivial-with-current-source-form with-current-source-form
    )
-  )
+  (:export
+   :mpm-sim-mpi
+   :mpm-sim-mpi-nodes
+   :mpm-sim-mpi-nodes-damage
+   #:domain-decompose
+   #:mpi-average
+   #:mpi-sum
+   ))
+
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
                                         ;    #:make-shape-function
@@ -134,7 +142,7 @@
         (mpi-object-constructor (intern (format nil "MAKE-MPI-OBJECT-~:@(~A~)" name)))
         (packet-size (loop for map in mapping-list
                            sum (serialise-length (first map)))))
-    (format t "~A~%" packet-size)
+    ;; (format t "~A~%" packet-size)
     `(progn
        (defstruct ,mpi-object-name
          ,@(mapcar (lambda (slot-entry)
@@ -1203,3 +1211,21 @@
 ;;     ;(magicl:@ strain a b)
 ;;     b
 ;;     ))
+
+
+
+(defun mpi-average (value mp-count)
+  "Average a single pre-reduced value which represents the reduction of N local samples"
+  (let ((sum (mpi-sum value))
+        (total-mp-count (mpi-sum mp-count)))
+    ;;Don't care about zero sums
+    (setf sum (/ sum (max 1d0 total-mp-count)))
+    sum))
+
+(defun mpi-sum (value)
+  "Sum a scalar over all mpi nodes"
+  (cffi:with-foreign-objects ((in :double)
+                              (out :double))
+    (setf (cffi:mem-ref in :double) (coerce value 'double-float))
+    (mpi::%mpi-allreduce in out 1 mpi:+mpi-double+ mpi:+mpi-sum+ mpi:*standard-communicator*)
+    (cffi:mem-ref out :double)))

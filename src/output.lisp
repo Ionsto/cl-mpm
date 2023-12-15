@@ -438,6 +438,7 @@
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
+        (save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
 
@@ -458,7 +459,7 @@
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
+        ;; (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         (when (= (cl-mpm/mesh:mesh-nd mesh) 3)
           (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
           (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0))

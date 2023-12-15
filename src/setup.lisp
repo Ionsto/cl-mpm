@@ -17,10 +17,10 @@
 
 
 
-(defun make-block (res element-count &optional (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
+(defun make-block (res element-count &key (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
                                           (sim-type 'cl-mpm::mpm-sim-usf)
                                        )
-  "Make a 2D column of heigh size, and width 1 - filled with elements"
+  "Make a 2D column of height size, and width 1 - filled with elements"
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x res)) element-count))
