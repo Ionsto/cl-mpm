@@ -1,19 +1,23 @@
 # CL-MPM
- MPM/GIMP/B-Spline MPM implementation in common lisp, only SBCL conforming.
+ Fast and extensible material point method (MPM) code implementation in common lisp, only SBCL conforming.
  Uses an explicit dynamic formulation with mass scaling, and adaptive timestepping.
+ Uses threading and MPI for large scale simulations.
+ Nonlocal intergral continuum damage working within the MPI framework for effective damage simulations.
+ An extensible constitutive model system for easy development.
+ 
  Used for simulating viscoelastic glacier dynamics.
  
  
 # Features
  - GIMP shape functions
  - Extensible design using CLOS
- - Non-local continuum damage model
+ - Non-local continuum damage model for quasi-static and dynamic damage
  - Nonconforming boundary conditions (virtual stress method)
  - Releasing arbrbitary penalty boundary conditions
  - Particle addition and deletion
- - Eigen errosion post-process step
  - MPI capabilities
  - Multithreaded with lparallel
+ - Common plastic models: Von-Mises, Mohr-Coloumb
  
 Output
  - VTK mesh & mp output
