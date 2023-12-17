@@ -247,8 +247,6 @@
       (let* ((penetration-dist (disp-distance mp datum normal)))
         (declare (double-float penetration-dist))
         (when t;(> (abs penetration-dist) 0d0)
-          ;; (format t "Position: ~F - distance: ~F~%" (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) (disp-distance mp 1d0 normal))
-          ;; (break)
           (with-accessors ((volume cl-mpm/particle:mp-volume)
                            (pressure cl-mpm/particle::mp-pressure)
                            (mp-vel cl-mpm/particle::mp-velocity)
@@ -257,17 +255,15 @@
               mp
             (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
                    (normal-force (* (expt penetration-dist 1d0) epsilon)))
-              ;; (format t "Position: ~F~%"  (magicl:tref pen-point 1 0))
-              ;; (break)
               (sb-thread:with-mutex (*debug-mutex*)
                 (incf *debug-force* (* normal-force 1d0))
                 (incf *debug-force-count* 1))
-              ;; (format t "Contact point ~A : dist ~F~%" (magicl::storage pen-point) penetration-dist)
               ;;Iterate over neighbour nodes
               (cl-mpm::iterate-over-neighbours-point-linear-3d
                mesh pen-point
                (lambda (mesh node svp grads)
                  (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                  (node-ext-force cl-mpm/mesh::node-external-force)
                                   (node-lock  cl-mpm/mesh:node-lock)
                                   (node-vel  cl-mpm/mesh:node-velocity)
                                   (node-mass  cl-mpm/mesh:node-mass)
@@ -285,27 +281,14 @@
                               (normal-damping 1d4)
                               (damping-force (* normal-damping rel-vel)))
 
-                         ;; (incf *debug-force-count* 1)
-
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal
                                                       (- normal-force
                                                          damping-force))
-                         ;; (when (> (cl-mpm/fastmath:dot tang-vel tang-vel) 0d0)
-                         ;;   (let ((tang-normal (cl-mpm/fastmath:norm tang-vel))
-                         ;;         (force-friction (cl-mpm/utils:vector-zeros)))
-                         ;;     (cl-mpm/fastmath::fast-fmacc force-friction
-                         ;;                                  tang-normal
-                         ;;                                  (* -1d0
-                         ;;                                     friction
-                         ;;                                     (coerce (abs normal-force) 'double-float)
-                         ;;                                     ))
-                         ;;     ;; (break)
-                         ;;     (magicl:.+ force force-friction force))
-                         ;; )
                          (cl-mpm/fastmath::fast-fmacc node-force
                                                       force
-                                                      svp
-                                                      ;; (* svp volume)
-                                                      )
+                                                      svp)
+                         (cl-mpm/fastmath::fast-fmacc node-ext-force
+                                                      force
+                                                      svp)
                          )))))))))))))

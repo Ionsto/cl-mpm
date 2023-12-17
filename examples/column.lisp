@@ -68,8 +68,7 @@
 
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block (/ 1d0 e-scale)
-                                        (list (* 1 (first size)) (* e-scale (second size)))
-                                        #'cl-mpm/shape-function::make-shape-function-linear)) 
+                                        (list (* 1 (first size)) (* e-scale (second size))))) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))

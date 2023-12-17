@@ -66,8 +66,16 @@
     :accessor node-force
     :initarg :force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:vector-zeros)
-    )
+    :initform (cl-mpm/utils:vector-zeros))
+   (internal-force
+    :accessor node-internal-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (external-force
+    :accessor node-external-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+
    (buoyancy-force
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -530,6 +538,8 @@
                (boundary-scalar boundary-scalar)
                (pressure pressure)
                (force force)
+               (int-force internal-force)
+               (ext-force external-force)
                (buoyancy-force buoyancy-force)
                )
                 node
@@ -547,6 +557,8 @@
     (magicl:scale! vel 0d0)
     (magicl:scale! acc 0d0)
     (magicl:scale! force 0d0)
+    (magicl:scale! int-force 0d0)
+    (magicl:scale! ext-force 0d0)
     (magicl:scale! buoyancy-force 0d0)
     ))
 

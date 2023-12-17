@@ -242,10 +242,10 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d0))
+      (let ((ms 1d7))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d1 density ms)
+              (* 5d-2 density ms)
               ;; 1d0
               ))
 
@@ -574,11 +574,11 @@
 (defparameter *data-full-load* '(0d0))
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim)
+
   (let* ((fnorm 0d0)
         (oobf 0d0)
-        ;; (estimated-t 0.5d0)
-        ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
-         (substeps 40)
+        (estimated-t 0.1d0)
+        (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     (loop for i from 0 to 100
@@ -587,20 +587,20 @@
           do
              (progn
                (dotimes (i substeps)
-                 ;; (push
-                 ;;  ;; (get-reaction-force *fixed-nodes*)
-                 ;;  cl-mpm/penalty::*debug-force*
-                 ;;  *data-full-load*)
-                 ;; (push
-                 ;;  (get-reaction-force *fixed-nodes*)
-                 ;;  ;; cl-mpm/penalty::*debug-force*
-                 ;;  *data-full-reaction*)
-                 ;; (push
-                 ;;  *t*
-                 ;;  *data-full-time*)
+                 (push
+                  ;; (get-reaction-force *fixed-nodes*)
+                  cl-mpm/penalty::*debug-force*
+                  *data-full-load*)
+                 (push
+                  (get-reaction-force *fixed-nodes*)
+                  ;; cl-mpm/penalty::*debug-force*
+                  *data-full-reaction*)
+                 (push
+                  *t*
+                  *data-full-time*)
                  (setf cl-mpm/penalty::*debug-force* 0d0)
                  (cl-mpm:update-sim sim)
-                 ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                 (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                  )
                (setf fnorm (/ (loop for mp across (cl-mpm:sim-mps *sim*)
                                     sum (* (cl-mpm/particle:mp-mass mp)
@@ -610,8 +610,6 @@
                (setf oobf 0d0)
                (let ((nmax 0d0)
                      (dmax 0d0)
-                     (reaction (get-reaction-force *fixed-nodes*))
-                     (penalty cl-mpm/penalty::*debug-force*)
                      (imax 0)
                      (iter 0))
                  (cl-mpm::iterate-over-nodes-serial
@@ -624,8 +622,8 @@
                       (when active
                         (setf imax iter)
                         (setf nmax (+ nmax
-                                      (cl-mpm/fastmath::mag-squared
-                                       (magicl:.- f-ext f-int)))
+                                        (cl-mpm/fastmath::mag-squared
+                                         (magicl:.- f-ext f-int)))
                               dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
                       )
                     (incf iter)
@@ -633,13 +631,19 @@
                  (when (> dmax 0d0)
                    ;; (pprint (row-major-aref (cl-mpm/mesh::mesh-nodes (cl-mpm:sim-mesh *sim*)) imax))
                    ;; (break)
-                   (setf oobf (/ nmax dmax)))
-                 (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - P: ~E R: ~E~%" i fnorm oobf penalty reaction)
-                 (when (and ;(< fnorm 1d-6) (< oobf 5d0)
-                            (< (abs (- penalty reaction)) 100d0)
-                            )
-                   (setf converged t)))
-               (swank.live:update-swank)))))
+                   (setf oobf (/ nmax dmax))))
+               (format t "Conv step ~D - KE norm: ~E - OOBF: ~E~%" i fnorm oobf)
+               (when (and (< fnorm 1d-6) (< oobf 5d0)
+                          (< (abs (- cl-mpm/penalty::*debug-force* (get-reaction-force *fixed-nodes*))) 10d0)
+                          )
+                 (setf converged t))
+               (plot-time-disp)
+               ;; (plot sim)
+               ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
+               (swank.live:update-swank)
+               )
+          ))
+  )
 
 (defun quasi-test ()
   (setup)

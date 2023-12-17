@@ -164,13 +164,13 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    (remove-mps-func
+    (lparallel:pdotimes (i (length mps))
+        (setf (cl-mpm/particle::mp-single-particle (aref mps i))
+              (single-particle-criteria mesh (aref mps i)))
+        )
+      (remove-mps-func
        sim
-       (lambda (mp)
-         (with-accessors ((damage cl-mpm/particle:mp-damage)
-                          (def cl-mpm/particle::mp-deformation-gradient))
-             mp
-             (or (single-particle-criteria mesh mp))))))))
+       #'cl-mpm/particle::mp-single-particle))))
 
 
 (defgeneric update-sim (sim)
@@ -1134,16 +1134,21 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-active  cl-mpm/mesh:node-active)
                           (node-mass  cl-mpm/mesh:node-mass)
                           (node-force cl-mpm/mesh:node-force)
+                          (node-int-force cl-mpm/mesh::node-internal-force)
+                          (node-ext-force cl-mpm/mesh::node-external-force)
                           (node-lock  cl-mpm/mesh:node-lock)) node
            (declare (type double-float node-mass)
                     (type sb-thread:mutex node-lock))
            (when node-active
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp node-force)
+               (det-ext-force mp node svp node-ext-force)
                (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-               (det-int-force mp dsvp node-force)
-               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-plane-strain grads) node-force)
-               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-3d grads) node-force)
+               (det-int-force mp dsvp node-int-force)
+
+               ;; (det-ext-force mp node svp node-force)
+               ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+               ;; (det-int-force mp dsvp node-force)
+               (magicl:.+ node-int-force node-ext-force node-force)
                ))
            )
          ))))
@@ -1168,17 +1173,18 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-active  cl-mpm/mesh:node-active)
                           (node-mass  cl-mpm/mesh:node-mass)
                           (node-force cl-mpm/mesh:node-force)
+                          (node-int-force cl-mpm/mesh::node-internal-force)
+                          (node-ext-force cl-mpm/mesh::node-external-force)
                           (node-lock  cl-mpm/mesh:node-lock)) node
            (declare (type double-float node-mass)
                     (type sb-thread:mutex node-lock))
            (when node-active
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp node-force)
-               ;; (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-               ;; (det-int-force mp dsvp node-force)
+               (det-ext-force mp node svp node-ext-force)
                (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-               (det-int-force mp dsvp node-force)
-               ;; (det-int-force mp (cl-mpm/shape-function::assemble-dsvp-3d grads) node-force)
+               (det-int-force mp dsvp node-int-force)
+               (magicl.simd::.+-simd node-force node-ext-force node-force)
+               (magicl.simd::.+-simd node-force node-int-force node-force)
                ))
            )
          ))))
@@ -1788,9 +1794,9 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch-rate df domain)
           ;; (update-domain-stretch def domain domain-0)
-          ;; (update-domain-corner mesh mp dt)
+          (update-domain-corner mesh mp dt)
 
           )
           )))
@@ -1893,13 +1899,13 @@ Calls func with only the node"
           (when (= 3 (the fixnum (cl-mpm/mesh:mesh-nd mesh)))
             (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2)))))
 
-          ;; (let* ((jf (magicl:det def))
-          ;;        (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-          ;;        (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-          ;;        (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
-          ;;   (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-          ;;         (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-          ;;         ))
+          (let* ((jf (magicl:det def))
+                 (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+                 (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                 (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
+            (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                  (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                  ))
           ))
 
     )

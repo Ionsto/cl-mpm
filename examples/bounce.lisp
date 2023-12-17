@@ -25,7 +25,7 @@
     (vgplot:plot x y ";;with points pt 7"))
   (vgplot:replot))
 (defun setup-test-column (size &optional (e-scale 1))
-  (let* ((sim (cl-mpm/setup::make-column 1 size #'cl-mpm/shape-function::make-shape-function-linear)) 
+  (let* ((sim (cl-mpm/setup::make-column 1 size)) 
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x h)
