@@ -127,4 +127,6 @@ This results in a much greater displacement under plastic deformation
 ![tutorial](https://github.com/Ionsto/cl-mpm/assets/117826225/e3b55ef9-f5aa-419f-8abf-84be209ab2c0)
 
 # MPI
-To use mpi you need to compile an image worker - check the ham-mpi repo 
+To use mpi you need to compile an image worker with a guide here: https://github.com/samjvsutcliffe/cl-mpm-worker
+You can then use an MPI-ready ```mpm-sim``` class like ```mpm-sim-mpi-nodes```.
+[MPI tutorial file](./tutorial/tutorial-mpi/tutorial-mpi.lisp)
