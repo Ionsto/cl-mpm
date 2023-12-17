@@ -1683,7 +1683,7 @@
                              (setf sii 0d0))
                            (when (> sii 0d0)
                              (setf sii damage-inc))
-                           (let* ((new-damage (damage-response-exponential sii E Gf length init-stress))
+                           (let* ((new-damage (damage-response-exponential sii E Gf length init-stress 1d0))
                                   (damage-increment ;(- (max dii new-damage) dii)
                                                     (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii))))))))
                                   )
