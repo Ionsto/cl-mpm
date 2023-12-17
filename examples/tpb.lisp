@@ -581,6 +581,7 @@
          (substeps 40)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
+    (format t "dt ~D~%" )
     (loop for i from 0 to 100
           while (and *run-sim*
                      (not converged))
@@ -602,6 +603,10 @@
                  (cl-mpm:update-sim sim)
                  ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                  )
+               (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                 (format t "CFL dt estimate: ~f~%" dt-e)
+                 (format t "CFL step count estimate: ~D~%" substeps-e)
+                 (setf substeps substeps-e))
                (setf fnorm (/ (loop for mp across (cl-mpm:sim-mps *sim*)
                                     sum (* (cl-mpm/particle:mp-mass mp)
                                            (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
