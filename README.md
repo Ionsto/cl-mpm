@@ -130,3 +130,10 @@ This results in a much greater displacement under plastic deformation
 To use mpi you need to compile an image worker with a guide here: https://github.com/samjvsutcliffe/cl-mpm-worker
 You can then use an MPI-ready ```mpm-sim``` class like ```mpm-sim-mpi-nodes```.
 [MPI tutorial file](./tutorial/tutorial-mpi/tutorial-mpi.lisp)
+
+When we use MPI domain decomposition, we end up with multiple part-files that may be visualised in paraview.
+
+The material points get distributed across the mpi domains spacially - here with the mpi index of the domains being shown:
+
+![image](https://github.com/Ionsto/cl-mpm/assets/117826225/35ef92d6-4eae-4e29-9ce8-22105ad86136)
+
