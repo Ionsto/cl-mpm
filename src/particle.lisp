@@ -215,7 +215,7 @@
     :initform 0)
    (single-particle
     :accessor mp-single-particle
-    :type bool
+    :type boolean
     :initform nil)
    )
   (:documentation "A single material point"))
