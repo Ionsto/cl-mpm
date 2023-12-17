@@ -141,3 +141,7 @@ The material points get distributed across the mpi domains spacially - here with
 
 ![image](https://github.com/Ionsto/cl-mpm/assets/117826225/35ef92d6-4eae-4e29-9ce8-22105ad86136)
 
+In a larger example many domains are used, however the occupancy of each sub domain is not well distributed.
+
+![image](https://github.com/Ionsto/cl-mpm/assets/117826225/a9488de4-d5bc-411e-90aa-9dda1524d773)
+
