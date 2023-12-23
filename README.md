@@ -6,6 +6,9 @@
  An extensible constitutive model system for easy development.
  
  Used for simulating viscoelastic glacier dynamics.
+
+Tested on Ubuntu & WSL.
+Theoretically should work on windows however cffi, and BLAS are a bit iffy.
  
  
 # Features
