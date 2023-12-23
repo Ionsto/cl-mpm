@@ -1151,33 +1151,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          ))
       ;;Update particle
       (progn
+        ;;Invalidate shapefunction/gradient cache
         (setf (fill-pointer nc) 0)
-        ;; (cl-mpm/fastmath::fast-fmacc-array (magicl::matrix/double-float-storage pos) mapped-vel dt)
-        ;; (cl-mpm/fastmath::fast-fmacc-array (magicl::matrix/double-float-storage disp) mapped-vel dt)
-        ;; (aops:copy-into (magicl::matrix/double-float-storage acc) mapped-acc)
+
         ;;FLIP
-        ;; #-cl-mpm-pic (cl-mpm/fastmath::simd-fmacc (magicl::matrix/double-float-storage vel)  mapped-acc dt)
-        ;;PIC
-        #+cl-mpm-pic (setf vel mapped-vel) 
-        ;; (when fixed-velocity
-        ;;   (loop for v in fixed-velocity
-        ;;         for i from 0
-        ;;         do (when v
-        ;;              (setf (magicl:tref mapped-vel i 0) (nth i fixed-velocity)))))
         (magicl:scale! mapped-vel dt)
         (magicl:.+ pos mapped-vel pos)
         (magicl:.+ disp mapped-vel disp)
-        ;; (magicl:.+ vel (magicl:scale acc dt) vel)
         (cl-mpm/fastmath:fast-fmacc vel acc dt)
-
-        ;; (when fixed-velocity
-        ;;   (loop for v in fixed-velocity
-        ;;         for i from 0
-        ;;         do (when v
-        ;;              (setf (magicl:tref vel i 0) (nth i fixed-velocity)))))
-
-        ;;Direct velocity damping
-        ;; (magicl:scale! vel (- 1d0 1d-3))
         ))))
 (defgeneric pre-particle-update-hook (particle dt)
   )
@@ -1190,29 +1171,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (lparallel:pdotimes (i (length mps))
     (g2p-mp mesh (aref mps i) dt)))
 
-;; (defun update-particle (mesh mp dt)
-
-;;   (with-accessors ((mass mp-mass)
-;;                    (vel mp-velocity)
-;;                    (pos mp-position)
-;;                    (disp cl-mpm/particle::mp-displacement)
-;;                    )
-;;       mp
-;;     (magicl:scale! vel dt)
-;;     (magicl:.+ pos vel pos)
-;;     (magicl:.+ disp vel disp)
-;;     (magicl:.+ vel (magicl:scale acc dt) vel))
-;;   )
-;; (declaim (notinline update-particles))
-;; (defun update-particles (mesh mps dt)
-;;   (declare (cl-mpm/mesh::mesh mesh) (array mps))
-;;   "Map grid values to all particles"
-;;   (lparallel:pdotimes (i (length mps))
-;;     (update-particle mesh (aref mps i) dt)))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
   (:method (mesh dt node damping)))
+
 (defmethod special-update-node (mesh dt (node cl-mpm/mesh::node-thermal) damping)
   (with-accessors ((mass  node-mass)
                    (temp node-temperature)
@@ -1223,7 +1186,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       )))
 
 (defun calculate-kinematics (node)
-  "Calculate velocity from momentum on a single nod"
+  "Calculate velocity from momentum on a single node"
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity))
@@ -1300,32 +1263,6 @@ Calls func with only the node"
 ;;   (values))
 
 
-(defun update-node (mesh dt node damping)
-    (when (cl-mpm/mesh:node-active node)
-      (with-accessors ( (mass  node-mass)
-                        (vel   node-velocity)
-                        (force node-force)
-                        (temp node-temperature)
-                        (dtemp node-dtemp)
-                        (acc   node-acceleration))
-        node
-        (progn
-          (magicl:scale! vel (/ 1.0 mass))
-          (setf acc (magicl:scale
-                     (magicl:.- force
-                                (magicl:scale vel damping))
-                                (/ 1.0 mass)))
-          (setf vel (magicl.simd::.+-simd vel (magicl:scale acc dt)))
-          (special-update-node mesh dt node damping)
-          ))))
-
-(defun update-nodes (mesh dt damping)
-  "Explicitly integrate nodes"
-  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-  (lparallel:pdotimes (i (array-total-size nodes))
-    (let ((node (row-major-aref nodes i)))
-      (update-node mesh dt node damping)))))
-
 (defun update-node-kinematics (mesh dt)
   (iterate-over-nodes mesh
                       (lambda (node)
@@ -1335,20 +1272,9 @@ Calls func with only the node"
                       (lambda (node)
                         (calculate-forces node damping dt mass-scale))))
 
-(defun apply-bcs-old (mesh bcs dt)
-  (declare (cl-mpm/mesh::mesh mesh))
-  (with-accessors ( (nodes  mesh-nodes)
-                    (nD     mesh-nD)
-                    (mc     mesh-count)) mesh
-    ;each bc is a list (pos value)
-    (lparallel:pdotimes (i (length bcs))
-      (let ((bc (nth i bcs)))
-        (when bc
-          (let ((index (cl-mpm/bc:bc-index bc)))
-            (when (cl-mpm/mesh:in-bounds mesh index);Potentially throw here
-              (cl-mpm/bc:apply-bc bc (cl-mpm/mesh:get-node mesh index) mesh dt))))))))
 
 (defun apply-bcs (mesh bcs dt)
+  "Apply all normal bcs onto the mesh"
   (declare (cl-mpm/mesh::mesh mesh))
   (with-accessors ( (nodes  mesh-nodes)
                    (nD     mesh-nD)
@@ -1363,34 +1289,14 @@ Calls func with only the node"
               (cl-mpm/bc:apply-bc bc node mesh dt)
               (progn
                 (setf node (cl-mpm/mesh:get-node mesh index))
-                (cl-mpm/bc:apply-bc bc node mesh dt)
-                )))))))
+                (cl-mpm/bc:apply-bc bc node mesh dt))))))))
 
-
-(declaim (notinline update-particle-mp))
-(defun update-particle-mp (mp dt)
-  (declare (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((vel cl-mpm/particle:mp-velocity)
-                   (pos cl-mpm/particle:mp-position)
-                   (disp cl-mpm/particle::mp-displacement)
-                   (nc cl-mpm/particle::mp-cached-nodes)
-                   ) mp
-      (progn
-        (setf pos (magicl.simd::.+-simd pos (magicl:scale vel dt)))
-        (setf disp (magicl.simd::.+-simd disp (magicl:scale vel dt)))
-        (setf (fill-pointer nc) 0)
-        ;; (magicl.simd::.+-simd disp (magicl:scale vel dt) disp)
-        )))
-
-;; (defun update-particle (mps dt)
-;;   (declare (array mps) (double-float dt))
-;;   (lparallel:pdotimes (i (length mps))
-;;      (update-particle-mp (aref mps i) dt)))
 
 ;Could include this in p2g but idk
 (declaim (notinline calculate-strain-rate)
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt)
+  "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
@@ -1427,28 +1333,12 @@ Calls func with only the node"
                     temp-add
                     stretch-tensor)
 
-                   ;; (magicl:.+
-                   ;;  stretch-tensor
-                   ;;  (cl-mpm/utils::voight-to-stretch-3d
-                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d grads) node-vel))
-                   ;;  stretch-tensor)
-
-                   ;; (magicl:scale! stretch-dsvp 0d0)
-                   ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
-                   ;; (magicl.simd::.+-simd
-                   ;;  stretch-tensor
-                   ;;  (cl-mpm/utils::voight-to-stretch-prealloc
-                   ;;   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d-prealloc
-                   ;;              grads stretch-dsvp) node-vel) v-s)
-                   ;;  stretch-tensor)
                    #+cl-mpm-fbar (magicl.simd::.+-simd
                                   stretch-tensor-fbar
                                   (cl-mpm/utils::voight-to-stretch-prealloc
                                    (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
                                               fgrads stretch-dsvp) node-vel) v-s)
                                   stretch-tensor-fbar)
-                   ;; (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel strain-rate)
-                   ;; (mult (cl-mpm/shape-function::assemble-vorticity-2d grads) node-vel vorticity)
                    ))))
             )
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
@@ -1469,6 +1359,7 @@ Calls func with only the node"
                       :type 'double-float
                       )))
 (defun update-strain-linear (mesh mp dt fbar)
+  "Linear small strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
@@ -1491,98 +1382,9 @@ Calls func with only the node"
                            double-float
                            boolean) (values))
                update-strain-kirchoff))
-;; (defun update-strain-kirchoff (mesh mp dt fbar)
-;;   (declare (optimize (speed 3) (debug 0) (space 0) (safety 0))
-;;            (cl-mpm/particle::particle mp)
-;;            )
-;;   (with-accessors ((volume cl-mpm/particle:mp-volume)
-;;                    (volume-0 cl-mpm/particle::mp-volume-0)
-;;                    (strain cl-mpm/particle:mp-strain)
-;;                    (def    cl-mpm/particle:mp-deformation-gradient)
-;;                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-;;                    (strain-rate cl-mpm/particle:mp-strain-rate)
-;;                    (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
-;;                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
-;;                    (domain cl-mpm/particle::mp-domain-size)
-;;                    (domain-0 cl-mpm/particle::mp-domain-size-0)
-;;                    (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-;;                    )
-;;       (the cl-mpm/particle::particle mp)
-;;     (declare (type double-float volume)
-;;              (type magicl:matrix/double-float
-;;                    domain
-;;                    def))
-;;     (progn
-;;       (let (;(df (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
-;;             ;                                         0d0 1d0 0d0
-;;             ;                                         0d0 0d0 1d0)))
-;;             (df (calculate-df mesh mp fbar))
-;;             )
-;;         (progn
-;;           ;; (setf def (magicl:@ df def))
-;;           ;; (magicl:scale def 1d0)
-;;           (magicl:mult df (cl-mpm/utils::matrix-copy def) :target def)
-;;           (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
-;;                 )
-;;             (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-;;                             (magicl::matrix/double-float-storage strain))
-;;                 (multiple-value-bind (l v) (cl-mpm/utils::eig
-;;                                             ;;Shear scaling factor halved - we are using log strain matrix
-;;                                             (voigt-to-matrix strain))
-;;                   (let ((t0 (cl-mpm/utils:matrix-zeros))
-;;                         (t1 (cl-mpm/utils:matrix-zeros))
-;;                         )
-;;                     (declare (dynamic-extent t0 t1))
-;;                     (magicl:mult df v :target t0)
-;;                     (magicl:mult t0 (cl-mpm/utils::matrix-from-list
-;;                                      (list
-;;                                       (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-;;                                       0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-;;                                       0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-;;                                       ))
-;;                                  :target t1)
-;;                     (magicl:mult t1 v :target t0 :transb :t)
-;;                     (magicl:mult t0 df :target t1 :transb :t)
-;;                     (magicl:.+ t1 (magicl:transpose! (cl-mpm/utils::matrix-copy t1)) t1)
-;;                     (magicl:scale! t1 0.5d0)
-;;                     (multiple-value-bind (lf vf)
-;;                       (cl-mpm/utils::eig t1)
-;;                       (magicl:mult vf (cl-mpm/utils::matrix-from-list
-;;                                        (list
-;;                                         (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-;;                                         0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-;;                                         0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-;;                                         )
-;;                                        ) :target t0)
-;;                       (magicl:mult t0 v :target t1 :transb :t)
-;;                       (magicl:scale! t1 0.5d0)
-;;                       (cl-mpm/utils::matrix-to-voigt-inplace t1 strain)
-;;                       ))
-;;                 )
-
-;;             ;; Not sure about this engineering strain calculation
-;;             (magicl:.- eng-strain-rate strain eng-strain-rate)
-;;             ;; (setf eng-strain-rate initial-strain)
-;;             (magicl:scale! eng-strain-rate (/ 1d0 dt))
-
-;;             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
-;;             )
-
-;;           ;;Post multiply to turn to eng strain
-;;           ;; (setf volume (* volume (magicl:det df)))
-;;           (setf volume (* (the double-float volume-0) (the double-float (magicl:det def))))
-;;           (when (<= volume 0d0)
-;;             (error "Negative volume"))
-;;           ;;Stretch rate update
-;;           (update-domain-stretch-rate df domain)
-;;           ;; (update-domain-stretch def domain domain-0)
-;;           ;; (update-domain-corner mesh mp dt)
-;;           )
-;;           )))
-;;   (values))
-                                        ;)
 
 (defun update-strain-kirchoff (mesh mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
@@ -1606,6 +1408,7 @@ Calls func with only the node"
                 )
             (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
                             (magicl::matrix/double-float-storage strain))
+            ;;This can may be in lisp or accelerated
             (cl-mpm/ext:kirchoff-update strain df)
             ;;Not sure about this engineering strain calculation
             (magicl:.- eng-strain-rate strain eng-strain-rate)
@@ -1661,7 +1464,7 @@ Calls func with only the node"
         ))))
 
 (defun update-domain-stretch (def domain domain-0)
-  "Update the domain length based on the increment of the stretch rate"
+  "Update the domain length based on the total stretch rate"
   (let ((F (cl-mpm/utils::matrix-zeros)))
     (magicl:mult def def :target F :transb :t)
     (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -1734,76 +1537,13 @@ Calls func with only the node"
             (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
                   (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
                   ))
-          ))
-
-    )
-  )
-;; (defun update-domain-corner (mesh mp dt)
-;;   "Use a corner tracking scheme to update domain lengths"
-;;   (with-accessors ((position cl-mpm/particle::mp-position)
-;;                    (def cl-mpm/particle::mp-deformation-gradient)
-;;                    (domain cl-mpm/particle::mp-domain-size)
-;;                    (domain-0 cl-mpm/particle::mp-domain-size-0)
-;;                    )
-;;       mp
-;;     (let ((points (list '(-0.5d0 -0.5d0) '(0.5d0 -0.5d0) '(0.5d0 0.5d0) '(-0.5d0 0.5d0)))
-;;           (dim '(0 0 1 1))
-;;           ;(disp (make-array 4 :element-type 'double-float :initial-element 0d0))
-;;           (disp (make-array 4 :initial-element (cl-mpm/utils:vector-zeros)))
-;;           (domain-storage (magicl::matrix/double-float-storage domain))
-;;           )
-;;       (loop for point in points
-;;             for d in dim
-;;             for i from 0 below 4
-;;             do
-;;                (let ((corner (cl-mpm/utils:vector-zeros)))
-;;                  (magicl.simd::.+-simd position
-;;                                        (magicl.simd::.*-simd
-;;                                         (magicl:from-list point '(2 1)
-;;                                                           :type 'double-float)
-;;                                         domain
-;;                                         ) corner)
-;;                  (iterate-over-neighbours-point-linear
-;;                   mesh corner
-;;                   (lambda (mesh node svp grads)
-;;                     (with-accessors ((vel cl-mpm/mesh:node-velocity))
-;;                         node
-;;                       ;; (incf (aref disp i)
-;;                       ;;       (* svp dt (magicl:tref vel d 0)))
-;;                       (setf (aref disp i)
-;;                             (magicl.simd::.+-simd (aref disp i)
-;;                                        (magicl:scale vel (* dt svp)))))))))
-;;       (incf (aref domain-storage 0) (* 0.5
-;;                                         (-
-;;                                          (+ (magicl:tref (aref disp 1) 0 0)
-;;                                             (magicl:tref (aref disp 2) 0 0))
-;;                                          (+ (magicl:tref (aref disp 0) 0 0)
-;;                                             (magicl:tref (aref disp 3) 0 0))
-;;                                          )))
-;;       (incf (aref domain-storage 1) (* 0.5
-;;                                         (-
-;;                                          (+ (magicl:tref (aref disp 3) 1 0)
-;;                                             (magicl:tref (aref disp 2) 1 0))
-;;                                          (+ (magicl:tref (aref disp 0) 1 0)
-;;                                             (magicl:tref (aref disp 1) 1 0))
-;;                                          )))
-;;       (let* ((jf (magicl:det def))
-;;              (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-;;              (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-;;              (scaling (expt (/ (* jf jl0) jl) 0.5d0)))
-;;         (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-;;               (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-;;               ))
-;;       )
-
-;;     )
-;;   )
-
+          ))))
 
 
 (declaim (inline update-stress-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-mp))
 (defun update-stress-mp (mesh mp dt fbar)
+  "Update stress for a single mp"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
@@ -1948,6 +1688,7 @@ Calls func with only the node"
                            double-float
                            &optional boolean) (values)) update-stress))
 (defun update-stress (mesh mps dt &optional (fbar nil))
+  "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
   (when fbar
@@ -1963,6 +1704,7 @@ Calls func with only the node"
 
 (declaim (notinline reset-grid))
 (defun reset-grid (mesh)
+  "Reset all nodes on the grid"
   (declare (cl-mpm/mesh::mesh mesh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (lparallel:pdotimes (i (array-total-size nodes))
@@ -1971,6 +1713,7 @@ Calls func with only the node"
           (cl-mpm/mesh:reset-node node))))))
 
 (defun filter-grid (mesh mass-thresh)
+  "Filter out nodes with very small massess"
   (declare (cl-mpm/mesh::mesh mesh) (double-float mass-thresh))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   (dotimes (i (array-total-size nodes))
@@ -1992,11 +1735,6 @@ Calls func with only the node"
           (cl-mpm/mesh:reset-node node)
           )))))
 
-;; (defun remove-mp (sim mp)
-;;   (setf mps
-;;         (lparallel:premove-if (lambda (m)
-;;                                 (= m mp)) mps)))
-
 (defgeneric remove-mps-func (sim func)
   (:documentation "A function for removing mps from a sim"))
 
@@ -2005,6 +1743,7 @@ Calls func with only the node"
       sim
     (declare ((vector cl-mpm/particle::particle) mps))
     (setf mps
+          ;;We cant do this in parallel apparently
           (delete-if func mps)
           ;(lparallel:premove-if func mps)
           ))
@@ -2030,6 +1769,7 @@ Calls func with only the node"
     ))
 
 (defun damage-removal-criteria (mp h)
+  "Some criteria for when we should remove fully damaged MPs"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
@@ -2046,6 +1786,7 @@ Calls func with only the node"
         ))))
 
 (defun split-criteria (mp h)
+  "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
@@ -2071,6 +1812,7 @@ Calls func with only the node"
           )))))
 
 (defun single-particle-criteria (mesh mp)
+  "Criteria for checking if material point is unconnected to another MP"
   (let ((alone t))
     (iterate-over-neighbours
       mesh mp
@@ -2087,6 +1829,7 @@ Calls func with only the node"
               (setf alone nil))))))
     alone))
 (defun gimp-removal-criteria (mp h)
+  "Criteria for removal of gimp mps based on domain length"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
@@ -2098,6 +1841,7 @@ Calls func with only the node"
         (t nil)
         ))))
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
+  "Function for copying a particle, allowing for re-initialising members"
   (let* ((class (class-of original))
          (copy (allocate-instance class)))
     (dolist (slot (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots class)))
@@ -2111,6 +1855,7 @@ Calls func with only the node"
     (apply #'reinitialize-instance copy initargs)))
 
 (defmacro split-linear (dir direction dimension)
+  "Helper macro for single splitting along cartesian directions "
   `((eq ,dir ,direction)
     (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
           (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
@@ -2143,6 +1888,7 @@ Calls func with only the node"
                       :split-depth new-split-depth
                       )))))
 (defmacro split-cases (direction)
+  "Another helper macro for splitting mps"
   `(cond
      ,(macroexpand-1 '(split-linear direction :x 0))
      ,(macroexpand-1 '(split-linear direction :y 1))
@@ -2150,6 +1896,8 @@ Calls func with only the node"
      (t nil)
      ))
 (defun split-mp (mp h direction)
+  "Function to split an mp across a direction
+   Directions should be :x,:y,:z "
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
@@ -2161,65 +1909,9 @@ Calls func with only the node"
       mp
     (let ((l-factor 1.50d0)
           (h-factor (* 0.8d0 h)))
-
-      (split-cases direction)
-      ;; (cond
-      ;;   (macroexpand-1 '(linear-split :x 0))
-      ;;   ;; ((eq direction :x)
-      ;;   ;;  (let ((new-size (magicl.simd::.*-simd lens (vector-from-list '(0.5d0 1d0 1d0))))
-      ;;   ;;        (new-size-0 (magicl.simd::.*-simd lens-0 (vector-from-list '(0.5d0 1d0 1d0))))
-      ;;   ;;        (pos-offset (magicl.simd::.*-simd lens (vector-from-list '(0.25d0 0d0 0d0)))))
-      ;;   ;;    (list
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 2)
-      ;;   ;;                    :volume (/ volume 2)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl.simd::.+-simd pos pos-offset))
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 2)
-      ;;   ;;                    :volume (/ volume 2)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl:.- pos pos-offset)))))
-
-      ;;   ;; ((eq direction :xy)
-      ;;   ;;  (let ((new-size (magicl.simd::.*-simd lens (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-      ;;   ;;        (new-size-0 (magicl.simd::.*-simd lens-0 (magicl:from-list '(0.5d0 0.5d0) '(2 1))))
-      ;;   ;;        (pos-offset (magicl.simd::.*-simd lens (magicl:from-list '(0.25d0 0.25d0) '(2 1)))))
-      ;;   ;;    (list
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 4d0)
-      ;;   ;;                    :volume (/ volume 4d0)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 1d0) '(2 1)))))
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 4d0)
-      ;;   ;;                    :volume (/ volume 4d0)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 1d0) '(2 1)))))
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 4d0)
-      ;;   ;;                    :volume (/ volume 4d0)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(-1d0 -1d0) '(2 1)))))
-      ;;   ;;     (copy-particle mp
-      ;;   ;;                    :mass (/ mass 4d0)
-      ;;   ;;                    :volume (/ volume 4d0)
-      ;;   ;;                    :size new-size
-      ;;   ;;                    :size-0 new-size-0
-      ;;   ;;                    :position (magicl.simd::.+-simd pos (magicl.simd::.*-simd pos-offset (magicl:from-list '(1d0 -1d0) '(2 1)))))
-      ;;   ;;     )
-      ;;   ;; )
-      ;;   ;; )
-      ;;   (t nil)
-      ;;   )
-      )))
+      (split-cases direction))))
 (defun split-mps (sim)
-  "Remove material points that have strain energy density exceeding fracture toughness"
+  "Split mps that match the split-criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
@@ -2234,7 +1926,7 @@ Calls func with only the node"
       )))
 
 (defun split-mps-criteria (sim criteria)
-  "Remove material points that have strain energy density exceeding fracture toughness"
+  "Split mps that fail an arbritary criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
@@ -2251,6 +1943,7 @@ Calls func with only the node"
 (defgeneric calculate-min-dt (sim)
   (:documentation "A function for calculating an approximate stable timestep"))
 (defmethod calculate-min-dt ((sim mpm-sim))
+  "Estimate minimum p-wave modulus"
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
