@@ -439,6 +439,7 @@
         (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
         (save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
+        (save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
 
