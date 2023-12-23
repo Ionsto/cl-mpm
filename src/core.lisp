@@ -123,12 +123,13 @@
   (:documentation "Explicit simulation with update stress last update"))
 
 (defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
+  "Constructs an mp with critical infomation like mesh and number of dimentions"
   (make-instance sim-type
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps '()))
 (defun check-mps (sim)
-  "Function to check that stresses and positions are sane"
+  "Function to check that stresses and positions are sane, deleting mps moving very fast"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
@@ -158,7 +159,7 @@
              (gimp-removal-criteria mp h)))))))
 
 (defun check-single-mps (sim)
-  "Function to check that stresses and positions are sane"
+  "Function to check and remove single material points"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
@@ -221,6 +222,7 @@
                     (check-mps sim)
                     )))
 (defmethod update-sim ((sim mpm-sim-usf))
+  "Update stress first algorithm"
   (declare (cl-mpm::mpm-sim-usf sim))
   (with-slots ((mesh mesh)
                (mps mps)
@@ -260,6 +262,7 @@
                     (check-mps sim)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
+  "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
   (with-slots ((mesh mesh)
                (mps mps)
@@ -288,12 +291,12 @@
                     (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
                     (update-node-forces mesh (sim-damping-factor sim) dt(sim-mass-scale sim))
-                    ;Apply velocity bcs
+                    ;;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
                     (g2p mesh mps dt)
 
-                    ;; ;;2nd round of momentum mapping
+                    ;;2nd round of momentum mapping
                     (reset-grid mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
@@ -303,17 +306,6 @@
 
                     ;;Update stress last
                     (update-stress mesh mps dt fbar)
-                    ;; (when enable-damage
-                    ;;   (cl-mpm/damage::calculate-damage mesh
-                    ;;                                    mps
-                    ;;                                    dt
-                    ;;                                    50d0
-                    ;;                                    nonlocal-damage
-                    ;;                                    ))
-                    ;; (cl-mpm/damage::calculate-damage mesh
-                    ;;                                  mps
-                    ;;                                  dt
-                    ;;                                  25d0)
 
                     (when remove-damage
                       (remove-material-damaged sim))
@@ -336,6 +328,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
       (iterate-over-neighbours-cached mesh mp func)
       (create-node-cache mesh mp func))
+  ;;Ideally we should be dispatching over simulation shape function type but its faster to hard code
   ;; (iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
   ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
@@ -344,9 +337,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (declaim (inline create-node-cache))
 (defun create-node-cache (mesh mp func)
+  "A function iterating over neighbours executing function, while also caching the relevent node, gradients and weights"
   (declare (function func))
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
+    ;;Simple if statement - we take the hit
     (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
         (iterate-over-neighbours-shape-gimp-simd
          mesh mp
@@ -382,8 +377,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
-  (declare (function func))
   "If a node iteration cache has been generated we loop over the data list"
+  (declare (function func))
   (loop for nc across (the (vector cl-mpm/particle::node-cache *) (cl-mpm/particle::mp-cached-nodes mp))
         do
          (funcall func mesh mp
@@ -394,6 +389,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                   (cl-mpm/particle::node-cache-grads-fbar nc)
                   )))
 
+;;This is one method of dispatching over different types of shape functions
 (defmethod iterate-over-neighbours-shape (mesh (shape-func cl-mpm/shape-function:shape-function-linear) mp func)
   (iterate-over-neighbours-shape-linear mesh mp func))
 
@@ -404,6 +400,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear (mesh mp func)
+  "The simplest shape function implementation - linear"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   (progn
@@ -429,16 +426,17 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear))
 (defun iterate-over-neighbours-point-linear (mesh position func)
+  "Iterate over neighbours of an arbitrary point - using FEM linear basis"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (iterate-over-neighbours-point-linear-simd mesh position func)
-      (iterate-over-neighbours-point-linear-3d mesh position func))
-  )
+      (iterate-over-neighbours-point-linear-3d mesh position func)))
 
 (declaim (inline iterate-over-neighbours-point-linear-lisp)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
-                iterate-over-neighbours-point-linear-lisp)
-         )
+                iterate-over-neighbours-point-linear-lisp))
+
 (defun iterate-over-neighbours-point-linear-lisp (mesh position func)
+  "Iterating over basis functions in 2D"
   (declare (cl-mpm/mesh::mesh mesh))
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -464,6 +462,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                 (funcall func mesh node weight grads))))
                           ))))))
 (defun iterate-over-neighbours-point-linear-3d (mesh position func)
+  "Iterating over basis functions in 3D"
   (declare (cl-mpm/mesh::mesh mesh))
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -496,6 +495,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                 iterate-over-neighbours-point-linear-simd)
          )
 (defun iterate-over-neighbours-point-linear-simd (mesh position func)
+  "A fast implemenntation of 2D linear basis function iteration"
   (declare (cl-mpm/mesh::mesh mesh)
            (magicl:matrix/double-float position)
            (function func))
@@ -553,112 +553,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                             )))))))
 
 
-(declaim ;(inline iterate-over-neighbours-shape-gimp)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
-                iterate-over-neighbours-shape-gimp))
-;; (defun iterate-over-neighbours-shape-gimp (mesh mp func)
-;;   (declare (type cl-mpm/mesh::mesh mesh)
-;;            (cl-mpm/particle:particle mp)
-;;            (function func)
-;;            (optimize (speed 3) (safety 0) (debug 0))
-;;            )
-;;   (progn
-;;     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
-;;                      (d0 cl-mpm/particle::mp-domain-size))
-;;         mp
-;;       (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
-;;         (flet ((center-diff (x)
-;;                  (declare (double-float x h))
-;;                  (- x (the double-float
-;;                            (* h
-;;                               (the double-float
-;;                                    (fround (the double-float (/ x h))))))))
-;;                (center-id (x)
-;;                  (round x h))
-;;                )
-;;           (let* ((pa (magicl::matrix/double-float-storage pos-vec))
-;;                  (da (magicl::matrix/double-float-storage d0))
-;;                  (px (the double-float (aref pa 0)))
-;;                  (py (the double-float (aref pa 1)))
-;;                  (ix (the fixnum (truncate (center-id px))))
-;;                  (iy (the fixnum (truncate (center-id py))))
-;;                  ;; (cx (center-diff px))
-;;                  ;; (cy (center-diff py))
-;;                  (cx (- px (* h ix)))
-;;                  (cy (- py (* h iy)))
-;;                  (dox (* 0.5d0 (the double-float (aref da 0))))
-;;                  (doy (* 0.5d0 (the double-float (aref da 1))))
-;;                  (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
-;;                  (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
-;;                  (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
-;;                  (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
-;;                  )
-;;             (declare ((simple-array double-float *) pa))
-;;             ;; (declare (dynamic-extent pa))
-;;             (declare (type double-float h cx cy dox doy px py)
-;;                      (type integer dxf dxc dyf dyc ix iy)
-;;                      ;; (type list pos pos-index)
-;;                      )
-;;             (loop for dx from dxf
-;;                     to dxc
-;;                   do (loop for dy from dyf
-;;                              to dyc
-;;                            do
-;;                               (let* ((id (list (the fixnum (+ ix dx))
-;;                                                (the fixnum (+ iy dy)))))
-;;                                 (declare (dynamic-extent id))
-;;                                 (when (cl-mpm/mesh:in-bounds mesh id)
-;;                                   (let* ((distx (- cx (* h dx)))
-;;                                          (disty (- cy (* h dy)))
-;;                                          (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
-;;                                          (weightsy (cl-mpm/shape-function::shape-gimp-fast disty doy h))
-;;                                          (weight (* weightsx weightsy))
-
-;;                                          ;; (dist (list (- cx (* h dx))
-;;                                          ;;             (- cy (* h dy))))
-;;                                          ;; (domain (list dox doy))
-;;                                          ;; (weights (mapcar (lambda (x l)
-;;                                          ;;                    (cl-mpm/shape-function::shape-gimp x l h))
-;;                                          ;;                  dist domain))
-;;                                          ;; (weight (* (the double-float (first weights))
-;;                                          ;;            (the double-float (second weights))))
-
-;;                                          #+cl-mpm-fbar (weights-fbar (mapcar (lambda (x l)
-;;                                                                  (cl-mpm/shape-function::shape-gimp-fbar x l h))
-;;                                                                dist domain))
-;;                                          #+cl-mpm-fbar (weight-fbar (* (the double-float (first weights-fbar))
-;;                                                          (the double-float (second weights-fbar))))
-;;                                          #-cl-mpm-fbar (weight-fbar 0d0)
-;;                                          )
-;;                                     ;; (declare (sb-int::truly-dynamic-extent domain dist))
-;;                                     (declare ;(type double-float h)
-;;                                      (double-float weight weightsx weightsy distx disty)
-;;                                      ;; (type list domain dist)
-;;                                      ;(dynamic-extent domain dist)
-;;                                      )
-;;                                     (when (< 0d0 weight)
-;;                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
-;;                                              ;; (grads (mapcar (lambda (d l w)
-;;                                              ;;                  (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
-;;                                              ;;                     (the double-float w)))
-;;                                              ;;                dist domain (nreverse weights)))
-;;                                              (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
-;;                                                        (the double-float weightsy)))
-;;                                              (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
-;;                                                        (the double-float weightsx)))
-;;                                              #+cl-mpm-fbar (grads-fbar (mapcar (lambda (d l w)
-;;                                                               (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
-;;                                                                  (the double-float w)))
-;;                                                             dist domain (nreverse weights-fbar)))
-;;                                              #-cl-mpm-fbar (grads-fbar nil)
-;;                                              )
-;;                                         (declare (double-float gradx grady))
-;;                                         (funcall func mesh mp node weight (list gradx grady) weight-fbar grads-fbar))))))))))))))
-
 (declaim (inline iterate-over-neighbours-shape-gimp-simd)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-simd))
 (defun iterate-over-neighbours-shape-gimp-simd (mesh mp func)
+  "Iterate over a gimp domains neighbours in 2D using SIMD constructs"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
@@ -758,6 +657,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                       )))))))))))
 ;;This is more consise but half as fast
 (defun iterate-over-neighbours-shape-gimp (mesh mp func)
+  "Iterate over a gimp domains neighbours in 3D using simple lisp constructs"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func))
@@ -798,6 +698,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                              (funcall func mesh mp node weight grads 0d0 nil)))))))))))))
 
 (defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)
+  "Iterate over a gimp domains neighbours in 2D unrolled, this version is more performant but worse than SIMD"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
@@ -871,6 +772,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-3d))
 (defun iterate-over-neighbours-shape-gimp-3d (mesh mp func)
+  "Iterate over gimp neighbours in 3D, unrolled for speed"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
@@ -955,19 +857,17 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 
 (defun make-knot-list (mesh pos)
+  "Function for maybe being able to make a bspline knot list"
   (list
-   ;; (loop for dy from -1 to 1
-   ;;       collect)
    (let ((dy 0))
      (loop for dx from -4 to 4
            collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos (list dx dy)))))
-   ;; (loop for dx from -1 to 1
-   ;;       collect)
    (let ((dx 0))
      (loop for dy from -4 to 4
            collect (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos (list dx dy)))))))
 (declaim (inline iterate-over-neighbours-shape-bspline))
 (defun iterate-over-neighbours-shape-bspline (mesh mp func)
+  "Iterate over 2D bsplines, however boundary adjustment doesn't work"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   (progn
@@ -1056,6 +956,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 p2g-mp))
 (defun p2g-mp (mesh mp)
+  "P2G transfer for one MP"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
@@ -1099,14 +1000,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (incf node-svp-sum svp)
            (fast-fmacc node-vel mp-vel (* mp-mass svp))
            )
+         ;;Ideally we include these generic functions for special mapping operations, however they are slow
          ;; (special-p2g mp node svp dsvp)
-          )
-        ;(p2g-mp-node mp node svp grads)
-        )))
+          ))))
   (values))
 
 (declaim (notinline p2g))
 (defun p2g (mesh mps)
+  "Map particle momentum to the grid"
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
     (p2g-mp mesh (aref mps i))))
@@ -1115,6 +1016,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
          )
 (defun p2g-force-mp (mesh mp)
+  "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
   (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
@@ -1153,57 +1055,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            )
          ))))
   (values))
-(defun p2g-force-mp-3d (mesh mp)
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp))
-  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
-                   (mp-mass cl-mpm/particle:mp-mass)
-                   ) mp
-    (declare (type double-float mp-mass))
-    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-      (iterate-over-neighbours
-       mesh mp
-       (lambda (mesh mp node svp grads fsvp fgrads)
-         (declare
-          (cl-mpm/particle:particle mp)
-          (cl-mpm/mesh::node node)
-          (double-float svp)
-          )
-         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                          (node-active  cl-mpm/mesh:node-active)
-                          (node-mass  cl-mpm/mesh:node-mass)
-                          (node-force cl-mpm/mesh:node-force)
-                          (node-int-force cl-mpm/mesh::node-internal-force)
-                          (node-ext-force cl-mpm/mesh::node-external-force)
-                          (node-lock  cl-mpm/mesh:node-lock)) node
-           (declare (type double-float node-mass)
-                    (type sb-thread:mutex node-lock))
-           (when node-active
-             (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp node-ext-force)
-               (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-               (det-int-force mp dsvp node-int-force)
-               (magicl.simd::.+-simd node-force node-ext-force node-force)
-               (magicl.simd::.+-simd node-force node-int-force node-force)
-               ))
-           )
-         ))))
-  (values))
 
 (declaim (inline p2g-force))
 (defun p2g-force (mesh mps)
+  "Map particle forces to the grid"
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (lparallel:pdotimes (i (length mps))
-    (p2g-force-mp mesh (aref mps i)))
-  ;; (cond
-  ;;   ((= 3 (cl-mpm/mesh:mesh-nd mesh))
-  ;;    (lparallel:pdotimes (i (length mps))
-  ;;      (p2g-force-mp-3d mesh (aref mps i))))
-  ;;   ((= 2 (cl-mpm/mesh:mesh-nd mesh))
-  ;;    (lparallel:pdotimes (i (length mps))
-  ;;      (p2g-force-mp mesh (aref mps i))))
-  ;;   )
-  )
+    (p2g-force-mp mesh (aref mps i))))
 
 (defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
@@ -1215,8 +1073,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
       (progn
-        (setf temp (+ temp (* node-temp svp)))
-        ))))
+        (setf temp (+ temp (* node-temp svp)))))))
 
 (defmethod special-g2p (mesh (mp cl-mpm/particle::particle-damage) node svp grads)
   (declare (ignore mesh))
@@ -1231,6 +1088,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (defgeneric reset-mps-g2p (mp)
   (:method (mp)))
+
 (defmethod reset-mps-g2p ((mp cl-mpm/particle::particle-thermal))
   (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
       (setf temp 0d0)))
@@ -1239,34 +1097,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values))
                 g2p-mp))
 
-;; (defmacro defndpath (name lambda-list body)
-;;   (let ((rest-list (rest lambda-list))
-;;         (full-list (append '(sim) (rest lambda-list)))
-;;         )
-;;     `(progn
-;;        (defgeneric ,name ,full-list)
-;;        (defmethod ,name ,full-list
-;;            (funcall (lambda
-;;                     ,lambda-list
-;;                     ,body) sim))
-
-;;        (defmethod ,name ((sim cl-mpm::mpm-nd-2d))
-;;          (flet ((cl-mpm::iterate-over-neighbours (mesh mp fun)
-;;                   (cl-mpm::iterate-over-neighbours-shape-gimp-2d
-;;                    mesh mp fun)
-;;                   ))
-;;            (funcall (lambda
-;;                       ,lambda-list
-;;                       ,body) sim)))
-;;        )))
-
-;; (defndpath mp-test (sim a)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                    (mps cl-mpm:sim-mps))
-;;       sim
-;;     (iterate-over-neighbours mesh (aref mps 0)
-;;                              (lambda (mesh mp node svp grads fsvp fgrads))))
-;;   )
 
 (defun g2p-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh)
@@ -1286,12 +1116,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    )
     mp
     (let* (
-           ;(mapped-vel (make-array 2 :initial-element 0d0 :element-type 'double-float))
-           ;(mapped-acc (make-array 2 :initial-element 0d0 :element-type 'double-float))
            (mapped-vel (cl-mpm/utils:vector-zeros))
            )
       ;; (declare (dynamic-extent mapped-vel))
       (progn
+        ;;With special operations we need to reset some params for g2p
         ;; (reset-mps-g2p mp)
         (setf temp 0d0)
         )
@@ -1313,9 +1142,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (when node-active
              (cl-mpm/fastmath::fast-fmacc mapped-vel node-vel svp)
              (cl-mpm/fastmath::fast-fmacc acc node-acc svp)
-             ;(magicl:.+ mapped-vel (magicl:scale node-vel svp) mapped-vel)
-             ;(magicl:.+ acc (magicl:scale node-acc svp) acc)
              (incf temp (* svp node-scalar))
+             ;;With special operations we want to include this operation
              #+cl-mpm-special (special-g2p mesh mp node svp grads)
              )
            )
