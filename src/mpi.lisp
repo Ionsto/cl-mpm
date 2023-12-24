@@ -566,6 +566,7 @@
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
+                    (cl-mpm::check-single-mps sim)
                     (set-mp-mpi-index sim)
                     )
                   ;; (exchange-mps sim (* 0.1d0 (cl-mpm/mesh:mesh-resolution mesh)))
