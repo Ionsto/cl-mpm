@@ -1410,7 +1410,7 @@
    (ductility
     :accessor mp-ductility
     :initarg :ductility
-    :initform 0d0)
+    :initform 1d0)
    )
   (:documentation "A chalk damage model"))
 
