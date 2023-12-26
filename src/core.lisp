@@ -48,6 +48,18 @@
   ((dt
      :accessor sim-dt
      :initarg :dt)
+   (time
+    :accessor sim-time
+    :initform 0d0
+    :initarg :time)
+   (stats-mps-removed
+    :accessor sim-stats-mps-removed
+    :initform 0d0
+    :initarg :time)
+   (stats-mps-added
+    :accessor sim-stats-mps-added
+    :initform 0d0
+    :initarg :time)
    (mesh
      :accessor sim-mesh
      :initarg :mesh)
@@ -236,9 +248,10 @@
                (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
+               (time time)
                )
                 sim
-    (declare (type double-float mass-filter))
+    (declare (double-float mass-filter dt time))
                 (progn
                     (reset-grid mesh)
                     (p2g mesh mps)
@@ -260,6 +273,7 @@
                     (when split
                       (split-mps sim))
                     (check-mps sim)
+                    (incf time dt)
                     )))
 (defmethod update-sim ((sim mpm-sim-usl))
   "Update stress last algorithm"
@@ -1833,11 +1847,18 @@ Calls func with only the node"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
-    (let ((h-factor (* 0.95d0 h)))
+    (let ((h-factor (* 0.95d0 h))
+          (aspect 0.01d0))
       (cond
         ((< h-factor (the double-float (tref lens 0 0))) :x)
         ((< h-factor (the double-float (tref lens 1 0))) :y)
         ((< h-factor (the double-float (tref lens 2 0))) :z)
+        ((> aspect (/ (the double-float (tref lens 0 0))
+                      (the double-float (tref lens 1 0))
+                      )) :x)
+        ((> aspect (/ (the double-float (tref lens 1 0))
+                      (the double-float (tref lens 0 0))
+                      )) :x)
         (t nil)
         ))))
 (defun copy-particle (original &rest initargs &key &allow-other-keys)

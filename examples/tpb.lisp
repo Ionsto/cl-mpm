@@ -218,16 +218,12 @@
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
                    ;;Material parameter
-                   ;;1.2 - 
-                   ;;1d0 - 53.56
-                   ;;0.8 - 60.03
                    :internal-length (* length-scale crack-scale 1.00d0)
                    ;;Interaction radius
                    :local-length (* length-scale crack-scale kappa)
                    :local-length-damaged (* length-scale crack-scale kappa 1d0)
                    :compression-ratio 8d0
                    :ductility 7.1d0
-
                    :critical-damage 1.000d0
                    ;; :local-length-damaged 0.01d0
                    :gravity -0.0d0
@@ -1293,6 +1289,7 @@
 
 
 (defun calculate-ductility-param (E Gf l-c f-t)
+  (declare (optimize (debug 3) (speed 0)))
   (let* ((ductility-limit 5)
          (eta 1d0)
          (dissipation-ratio ductility-limit)

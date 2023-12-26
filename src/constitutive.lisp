@@ -680,7 +680,7 @@
 
 (declaim (notinline  mc-plastic))
 (defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
-  (declare (optimize (speed 0) (safety 3) (debug 3)))
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
   (let* ((tol 1d-9)
          (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
          (eps-e (cl-mpm/utils:vector-zeros))
