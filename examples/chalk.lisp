@@ -60,16 +60,16 @@
                 :ft 200d3
                 :friction-angle 40d0
 
-                :fracture-energy 5000d0
+                :fracture-energy 100d0
                 :initiation-stress 200d3
-                :delay-time 1d3
+                :delay-time 1d2
                 :ductility 6d0
                 ;; :compression-ratio 8d0
 
 
                 :critical-damage 1.0d0;0.999d0
-                :local-length 5d0
-                :local-length-damaged 5d0
+                :local-length 10d0
+                :local-length-damaged 10d-10
                 ;; :local-length-damaged 1d0
                 ;; :local-length-damaged 1d-10
 
@@ -93,7 +93,7 @@
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
       (let ((ms 1d5))
         (setf (cl-mpm::sim-mass-scale sim) ms)
@@ -215,21 +215,28 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 20)
-         (shelf-aspect 1)
-         (runout-aspect 1)
+         (soil-boundary 40)
+         (shelf-aspect 2)
+         (runout-aspect 5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
-         (offset (list 0 (* 0 mesh-size)))
+         (depth 400)
+         (offset (list 0 (* 0 mesh-size)
+                       ;; 0
+                       ))
          )
     (defparameter *sim*
       (setup-test-column (list domain-length
-                               (+ shelf-height 100))
-                         (list domain-length shelf-height)
+                               (+ shelf-height 100)
+                               ;; depth
+                               )
+                         (list domain-length shelf-height
+                               ;; depth
+                               )
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
 
@@ -268,18 +275,34 @@
                                                         '(2 1) :type 'double-float))
                                      1d0)
                                  )))
-    
-    ;; (let ((ratio 0.5d0))
+
+    (let ((notch-height 20d0))
+      (cl-mpm/setup:remove-sdf *sim*
+                               (lambda (p)
+                                 (if (< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+                                     (funcall
+                                      (cl-mpm/setup::rectangle-sdf
+                                       (list shelf-length (+ notch-height soil-boundary))
+                                       (list 20d0 notch-height)
+                                       ) p)
+                                     1d0)
+                                 )))
+
+    ;; (let ((ratio 0.3d0))
     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
     ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
     ;;                                                                        (magicl:tref p 1 0)) '(2 1))
     ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
     ;;                                                (list shelf-length soil-boundary)
-    ;;                                                20d0
+    ;;                                                5d0
     ;;                                                )) 1.0d0))
     )
-  ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-  ;;       do (setf (cl-mpm/particle::mp-damage mp) (random 0.1d0)))
+  ;; (let ((upper-random-bound 0.8d0))
+  ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;         do (setf (cl-mpm/particle::mp-damage mp)
+  ;;                  (reduce #'*
+  ;;                          (loop for i from 0 to 2
+  ;;                                collect (random upper-random-bound))))))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -350,7 +373,7 @@
   (let* ((target-time 1d2)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 1d1)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -437,10 +460,10 @@
                          (defparameter *oobf* oobf)
                          (defparameter *energy* energy-estimate)
                          (if (and 
-                              (> oobf 6d0)
+                              ;; (> oobf 6d0)
                               ;; t
                               ;; (> energy-estimate 1d0)
-                              ;; (> energy-estimate 1d0)
+                              (> energy-estimate 1d0)
                               ;; nil
                               )
                              ;; nil

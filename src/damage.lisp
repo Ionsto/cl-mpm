@@ -1629,6 +1629,7 @@
           (incf k (* dt (/ (max 0d0 (- ybar k)) tau)))
           ;; (when (> ybar init-stress)
           ;;   (setf k (max k init-stress)))
+          ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
 
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
@@ -1653,7 +1654,9 @@
           (setf damage (max 0d0 (min 1d0 damage)))
           (when (> damage critical-damage)
             (setf damage 1d0)
-            (setf damage-inc 0d0)))
+            (setf damage-inc 0d0))
+          ;; (setf (cl-mpm/particle::mp-mass mp) (* (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
+          )
   (values)
   ))
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-anisotropic) dt)

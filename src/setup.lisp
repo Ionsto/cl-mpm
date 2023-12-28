@@ -141,8 +141,7 @@
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-    (let* (
-           (pos (magicl:from-list (list
+    (let* ((pos (magicl:from-list (list
                                    (magicl:tref pos 0 0)
                                    (magicl:tref pos 1 0)
                                    ) '(2 1) :type 'double-float))
