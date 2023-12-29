@@ -543,25 +543,7 @@
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::update-stress mesh mps dt nil)
                     (when enable-damage
-                      (let ((damage-mps (mpi-sync-damage-mps sim (mpm-sim-mpi-halo-damage-size sim))))
-                       (lparallel:pdotimes (i (length damage-mps))
-                         (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
-                       (cl-mpm/damage::calculate-damage mesh
-                                                        mps
-                                                        dt
-                                                        50d0
-                                                        nonlocal-damage
-                                                        )
-                       (lparallel:pdotimes (i (length damage-mps))
-                         (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i)))
-                       )
-                        ;; (cl-mpm/damage::calculate-damage mesh
-                        ;;                                  mps
-                        ;;                                  dt
-                        ;;                                  50d0
-                        ;;                                  nonlocal-damage
-                        ;;                                  )
-                      )
+                      (cl-mpm/damage::calculate-damage sim))
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do
@@ -614,12 +596,7 @@
                     (cl-mpm::update-stress mesh mps dt fbar)
                                         ;(exchange-mps sim)
                     (when enable-damage
-                      (cl-mpm/damage::calculate-damage mesh
-                                                       mps
-                                                       dt
-                                                       50d0
-                                                       nonlocal-damage
-                                                       ))
+                      (cl-mpm/damage::calculate-damage sim))
                                         ;(exchange-mps sim)
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
@@ -1239,3 +1216,40 @@
     (setf (cffi:mem-ref in :double) (coerce value 'double-float))
     (mpi::%mpi-allreduce in out 1 mpi:+mpi-double+ mpi:+mpi-sum+ mpi:*standard-communicator*)
     (cffi:mem-ref out :double)))
+
+(defun save-damage-vtk (filename mps)
+  (with-open-file (fs filename :direction :output :if-exists :supersede)
+    (format fs "# vtk DataFile Version 2.0~%")
+    (format fs "Lisp generated vtk file, SJVS~%")
+    (format fs "ASCII~%")
+    (format fs "DATASET UNSTRUCTURED_GRID~%")
+    (format fs "POINTS ~d double~%" (length mps))
+    (loop for mp across mps
+          do (format fs "~E ~E ~E ~%"
+                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
+                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
+                     (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
+                     ))
+    (format fs "~%")
+
+    ;; (cl-mpm/output::with-parameter-list fs mps
+    ;;   ("mass" 'cl-mpm/particle:mp-mass)
+    ;;   ("density" (lambda (mp) (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp))))
+    ;;   )
+    (let ((id 1))
+      (declare (special id))
+      (format fs "POINT_DATA ~d~%" (length mps))
+      (cl-mpm/output::save-parameter "damage-y"
+                                     (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
+                                         (cl-mpm/particle::mp-damage-y-local mp)
+                                         0d0))
+      )))
+(defmethod cl-mpm/damage::delocalise-damage ((sim cl-mpm/mpi::mpm-sim-mpi-nodes-damage))
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps sim (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))))
+      (lparallel:pdotimes (i (length damage-mps))
+        (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
+      (call-next-method)
+      (lparallel:pdotimes (i (length damage-mps))
+        (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i))))
+    (values)))
