@@ -62,15 +62,15 @@
 
                 :fracture-energy 100d0
                 :initiation-stress 200d3
-                :delay-time 1d2
+                :delay-time 1d3
                 :ductility 6d0
                 ;; :compression-ratio 8d0
 
 
                 :critical-damage 1.0d0;0.999d0
                 :local-length 10d0
-                :local-length-damaged 10d-10
-                ;; :local-length-damaged 1d0
+                ;; :local-length-damaged 10d-10
+                :local-length-damaged 10d0
                 ;; :local-length-damaged 1d-10
 
                 ;; 'cl-mpm/particle::particle-mc
@@ -313,6 +313,7 @@
   (defparameter *sim-step* 0))
 
 (defgeneric estimate-energy-crit (sim))
+
 (defmethod estimate-energy-crit ((sim cl-mpm::mpm-sim))
    (loop for mp across (cl-mpm:sim-mps sim)
          sum (* (cl-mpm/particle::mp-mass mp)
@@ -324,15 +325,20 @@
    ;;    )
    )
 (defmethod estimate-energy-crit ((sim cl-mpm/mpi::mpm-sim-mpi))
-  (/
-   (cl-mpm/mpi::mpi-sum
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-                             summing (* (cl-mpm/particle::mp-mass mp)
-                                        (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
-   (* (cl-mpm/mpi:mpi-sum
-       (loop for mp across (cl-mpm:sim-mps *sim*)
-             summing (cl-mpm/particle::mp-mass mp)))
-      (cl-mpm::sim-mass-scale sim))))
+  (cl-mpm/mpi::mpi-sum
+   (loop for mp across (cl-mpm:sim-mps sim)
+         sum (* (cl-mpm/particle::mp-mass mp)
+                (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+  ;; (/
+  ;;  (cl-mpm/mpi::mpi-sum
+  ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;                            summing (* (cl-mpm/particle::mp-mass mp)
+  ;;                                       (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+  ;;  (* (cl-mpm/mpi:mpi-sum
+  ;;      (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;            summing (cl-mpm/particle::mp-mass mp)))
+  ;;     (cl-mpm::sim-mass-scale sim)))
+  )
 
 (defun estimate-oobf (sim)
   (let ((oobf 0d0)
@@ -445,7 +451,6 @@
                             ;; (when current-damage
                             ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
                             ;;   (cl-mpm::update-sim *sim*)
-                            
                             (incf energy-estimate (estimate-energy-crit *sim*))
                             (incf oobf (estimate-oobf *sim*))
                             )
@@ -455,7 +460,6 @@
                              oobf (/ oobf substeps)
                              )
                        (when (>= steps 5)
-                         
                          (format t "Energy estimate: ~E~%" energy-estimate)
                          (defparameter *oobf* oobf)
                          (defparameter *energy* energy-estimate)

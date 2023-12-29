@@ -425,7 +425,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 1.0))
+  (let* ((mesh-size (/ 0.0102 6.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -574,10 +574,12 @@
         (oobf 0d0)
         ;; (estimated-t 0.5d0)
         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (target-time 1d-4)
+         (dt-scale 1d0)
          (substeps 40)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
-    (format t "dt ~D~%" )
+    ;; (format t "dt ~D~%" dt)
     (loop for i from 0 to 100
           while (and *run-sim*
                      (not converged))
@@ -911,7 +913,7 @@
                     (format t "CFL dt estimate: ~f~%" dt-e)
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
-    (format t "Substeps ~D~%" substeps)
+    ;; (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
     ;; (incf *target-displacement* disp-step)
     (time (loop for steps from 0 to 100
