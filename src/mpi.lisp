@@ -391,7 +391,9 @@
                                          (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
                                        damage-mps))
                                     )
-                                (concatenate `(vector ,(array-element-type res)) res res-corners)))
+                                res
+                                ;; (concatenate `(vector ,(array-element-type res)) res res-corners)
+                                ))
                             (left-filter ()
                               (halo-filter (lambda (pos)
                                              (and
