@@ -11,6 +11,12 @@
 
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+
+(defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
+  ()
+  (:documentation "Explicit simulation with update stress first update"))
+(defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
+
 (declaim
  ;(inline damage-rate-profile)
  (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
@@ -662,7 +668,7 @@
 
 (defgeneric delocalise-damage (sim))
 
-(defmethod delocalise-damage ((sim mpm-sim-damage))
+(defmethod delocalise-damage ((sim cl-mpm/damage::mpm-sim-damage))
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
@@ -702,10 +708,6 @@
                             (setf damage-inc damage-inc-local)))))
   (values))
 
-(defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
-  ()
-  (:documentation "Explicit simulation with update stress first update"))
-(defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
 (defun remove-mp-damage (sim func)
   )
@@ -721,7 +723,7 @@
             do (local-list-remove-particle mesh mp)))
   (call-next-method))
 
-(defmethod (setf cl-mpm::sim-mps) (mps (sim mpm-sim-damage))
+(defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
   ;; (format t "Resetting mps~%")
   ;; (with-accessors ((mesh cl-mpm::sim-mesh))
   ;;     sim
