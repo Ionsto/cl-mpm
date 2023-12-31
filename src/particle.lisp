@@ -448,7 +448,7 @@
     :accessor mp-damage-y-local
     :type DOUBLE-FLOAT
     :initform 0d0
-    ;; :initarg :damage-y
+    :initarg :damage-y
     )
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar

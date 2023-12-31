@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/chalk
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
@@ -604,41 +604,41 @@
          (format t "Throughput: ~f~%" (/ 1 dt))
          dt))))
 
-(defun test ()
-  (let ((data-cores '())
-        (data-dt '()))
-    (loop for k from 1 to 8
-          do
-             (progn
-               (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
-               (format t "Kernel: ~D~%" k)
-               (let* ((iterations 100000)
-                      (start (get-internal-real-time)))
-                 (let ((a (cl-mpm/utils:vector-zeros)))
-                   (time
-                    (lparallel:pdotimes (i iterations)
-                      (cl-mpm::update-strain-kirchoff (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) 0d0 nil)
-                      )))
-                 (let* ((end (get-internal-real-time))
-                        (units internal-time-units-per-second)
-                        (dt (/ (- end start) (* iterations units)))
-                        )
-                   (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
-                   (format t "Throughput: ~f~%" (/ 1 dt))
-                   (push (/ 1d0 dt) data-dt)
-                   (push k data-cores)
-                   ))
+;; (defun test ()
+;;   (let ((data-cores '())
+;;         (data-dt '()))
+;;     (loop for k from 1 to 8
+;;           do
+;;              (progn
+;;                (setf lparallel:*kernel* (lparallel:make-kernel k :name "custom-kernel"))
+;;                (format t "Kernel: ~D~%" k)
+;;                (let* ((iterations 100000)
+;;                       (start (get-internal-real-time)))
+;;                  (let ((a (cl-mpm/utils:vector-zeros)))
+;;                    (time
+;;                     (lparallel:pdotimes (i iterations)
+;;                       (cl-mpm::update-strain-kirchoff (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) 0d0 nil)
+;;                       )))
+;;                  (let* ((end (get-internal-real-time))
+;;                         (units internal-time-units-per-second)
+;;                         (dt (/ (- end start) (* iterations units)))
+;;                         )
+;;                    (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+;;                    (format t "Throughput: ~f~%" (/ 1 dt))
+;;                    (push (/ 1d0 dt) data-dt)
+;;                    (push k data-cores)
+;;                    ))
 
-               ;; (let ((iters 100000))
-               ;;   (let ((a (cl-mpm/utils:vector-zeros)))
-               ;;     (time
-               ;;      (lparallel:pdotimes (i iters)
-               ;;        (magicl:@ (magicl:eye 3) (cl-mpm/utils:vector-zeros))))))
-               (lparallel:end-kernel)
-               ))
-    (vgplot:close-all-plots)
-    (vgplot:plot data-cores data-dt))
-  )
+;;                ;; (let ((iters 100000))
+;;                ;;   (let ((a (cl-mpm/utils:vector-zeros)))
+;;                ;;     (time
+;;                ;;      (lparallel:pdotimes (i iters)
+;;                ;;        (magicl:@ (magicl:eye 3) (cl-mpm/utils:vector-zeros))))))
+;;                (lparallel:end-kernel)
+;;                ))
+;;     (vgplot:close-all-plots)
+;;     (vgplot:plot data-cores data-dt))
+;;   )
 
 
 (defun test-mc (exx eyy ezz eyz ezx exy)
@@ -696,46 +696,46 @@
              )))
   (format t "~A~%" s_1))
 
-(defun test (s1 s2 s3)
-  (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
-        (damage-tensor (cl-mpm/utils:voight-to-matrix (cl-mpm/utils:voigt-from-list (list 0.1d0 0.5d0 0d0 0d0 0d0 0d0))))
-        (ybar-tensor (cl-mpm/utils:matrix-zeros))
-        (E 1d9)
-        (length 10d0)
-        (Gf 1000d0)
-        (init-stress 100d3)
-        (cauchy-undamaged (cl-mpm/utils:voight-to-matrix (cl-mpm/utils:voigt-from-list (list s1 s2 s3 0d0 0d0 0d0)))))
-    (multiple-value-bind (ls v) (cl-mpm/utils:eig cauchy-undamaged)
-      (loop for i from 0 to 2
-            do
-               (let* ((sii (nth i ls))
-                      (vii (magicl::column v i))
-                      (vsi (magicl:@ vii (magicl:transpose vii)))
-                      (dii (magicl::trace (magicl:@ damage-tensor vsi)))
-                      ;; (dii 0d0)
-                      (new-damage (cl-mpm/damage::damage-response-exponential sii E Gf length init-stress))
-                      (damage-increment (- (max dii new-damage) dii))
-                      )
-                 ;; (when (> damage-increment 0d0)
-                 ;;   (break))
-                 (format t "Sii ~F : new-damage ~F ~%" sii new-damage)
-                 (format t "Damage  dim ~D tensor ~A~%" i (magicl:@ damage-tensor vsi))
-                 (format t "Damage  dim ~D vsi ~A~%" i vsi)
-                 ;; (magicl:.+ ybar-tensor
-                 ;;            (magicl:scale! vsi sii)
-                 ;;            ybar-tensor)
-                 (magicl:.+ damage-inc-mat
-                            (magicl:scale! vsi damage-increment)
-                            ;; (magicl:scale! vsi (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii))))))))
-                            damage-inc-mat))))
-    (format t "Damage inc ~A~%" damage-inc-mat)
-    (magicl:.+ damage-tensor
-               damage-inc-mat
-               damage-tensor)
+;; (defun test (s1 s2 s3)
+;;   (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
+;;         (damage-tensor (cl-mpm/utils:voight-to-matrix (cl-mpm/utils:voigt-from-list (list 0.1d0 0.5d0 0d0 0d0 0d0 0d0))))
+;;         (ybar-tensor (cl-mpm/utils:matrix-zeros))
+;;         (E 1d9)
+;;         (length 10d0)
+;;         (Gf 1000d0)
+;;         (init-stress 100d3)
+;;         (cauchy-undamaged (cl-mpm/utils:voight-to-matrix (cl-mpm/utils:voigt-from-list (list s1 s2 s3 0d0 0d0 0d0)))))
+;;     (multiple-value-bind (ls v) (cl-mpm/utils:eig cauchy-undamaged)
+;;       (loop for i from 0 to 2
+;;             do
+;;                (let* ((sii (nth i ls))
+;;                       (vii (magicl::column v i))
+;;                       (vsi (magicl:@ vii (magicl:transpose vii)))
+;;                       (dii (magicl::trace (magicl:@ damage-tensor vsi)))
+;;                       ;; (dii 0d0)
+;;                       (new-damage (cl-mpm/damage::damage-response-exponential sii E Gf length init-stress))
+;;                       (damage-increment (- (max dii new-damage) dii))
+;;                       )
+;;                  ;; (when (> damage-increment 0d0)
+;;                  ;;   (break))
+;;                  (format t "Sii ~F : new-damage ~F ~%" sii new-damage)
+;;                  (format t "Damage  dim ~D tensor ~A~%" i (magicl:@ damage-tensor vsi))
+;;                  (format t "Damage  dim ~D vsi ~A~%" i vsi)
+;;                  ;; (magicl:.+ ybar-tensor
+;;                  ;;            (magicl:scale! vsi sii)
+;;                  ;;            ybar-tensor)
+;;                  (magicl:.+ damage-inc-mat
+;;                             (magicl:scale! vsi damage-increment)
+;;                             ;; (magicl:scale! vsi (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii))))))))
+;;                             damage-inc-mat))))
+;;     (format t "Damage inc ~A~%" damage-inc-mat)
+;;     (magicl:.+ damage-tensor
+;;                damage-inc-mat
+;;                damage-tensor)
 
-    (format t "Damage tensor ~A~%" damage-tensor)
-    )
-  )
+;;     (format t "Damage tensor ~A~%" damage-tensor)
+;;     )
+;;   )
 
 
 

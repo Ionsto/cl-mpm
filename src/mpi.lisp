@@ -465,6 +465,23 @@
                            ))))))
         damage-mps))))
 
+;; (defun test-mpi-mp-sync (sim)
+;;   (let ((mpi-objects (cl-mpm/mpi::deserialise-damage-mp
+;;                       (cl-mpm/mpi::serialise-damage-mp
+;;                        (remove-if (lambda (mp) (= 0d0 (cl-mpm/particle::mp-damage mp))) (cl-mpm:sim-mps sim)))))
+;;         (output (make-array 0 :adjustable t :fill-pointer 0)))
+;;     (loop for mp across mpi-objects
+;;           do (progn
+;;                (vector-push-extend
+;;                 (make-instance 'cl-mpm/particle::particle-damage
+;;                                :nd 2
+;;                                :volume (mpi-object-damage-mp-volume mp)
+;;                                :position (mpi-object-damage-mp-position mp)
+;;                                :damage-y (mpi-object-damage-mp-y mp)
+;;                                :local-length-t (mpi-object-damage-mp-local-length mp))
+;;                 output)
+;;                ))
+;;     output))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
   (with-slots ((mesh cl-mpm::mesh)

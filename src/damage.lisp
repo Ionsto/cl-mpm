@@ -218,8 +218,11 @@
           ;; (calculate-damage-increment (aref mps i) dt)
           (damage-model-calculate-y mp dt)
           )))
+    ;; (format t "Ran damage~%")
     (if non-local-damage
-        (delocalise-damage sim)
+        (progn
+          ;; (format t "Ran delocalise~%")
+          (delocalise-damage sim))
         (localise-damage mesh mps dt))
     (lparallel:pdotimes (i (length mps))
       (let ((mp (aref mps i)))
