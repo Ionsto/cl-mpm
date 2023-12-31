@@ -656,15 +656,15 @@
   ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; local-length
   )
-(declaim
- (ftype
-  (function (cl-mpm/mesh::mesh
-             (array cl-mpm/particle::particle)
-             double-float
-             double-float
-             )
-            (values))
-  delocalise-damage))
+;; (declaim
+;;  (ftype
+;;   (function (cl-mpm/mesh::mesh
+;;              (array cl-mpm/particle::particle)
+;;              double-float
+;;              double-float
+;;              )
+;;             (values))
+;;   delocalise-damage))
 
 (defgeneric delocalise-damage (sim))
 
