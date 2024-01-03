@@ -49,6 +49,9 @@
    (halo-damage-size
     :accessor mpm-sim-mpi-halo-damage-size
     :initform 1d0)
+   (damage-mps-cache
+    :accessor mpm-sim-mpi-damage-mps-cache
+    :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
    )
   (:documentation "Damage sim with only stress update on mpi"))
 
@@ -368,8 +371,10 @@
             (halo-depth (if halo-depth
                             halo-depth
                             1d0))
-            (damage-mps (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
+            (damage-mps (mpm-sim-mpi-damage-mps-cache sim))
+            ;; (damage-mps (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
             )
+        (setf (fill-pointer damage-mps) 0)
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))

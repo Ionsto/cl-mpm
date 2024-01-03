@@ -257,7 +257,7 @@
     (when (cl-mpm/mesh:in-bounds mesh node-id)
       (let ((node (cl-mpm/mesh:get-node mesh node-id)))
         (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-          (setf (cl-mpm/particle::mp-damage-position mp) (magicl:copy-tensor (cl-mpm/particle:mp-position mp)))
+          (setf (cl-mpm/particle::mp-damage-position mp) (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp)))
           (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))
 
 (defun local-list-remove-particle (mesh mp)

@@ -97,7 +97,7 @@
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :stress
-     :initform (magicl:zeros '(6 1) :type 'double-float))
+     :initform (cl-mpm/utils::voigt-zeros))
    (stress-kirchoff
     :accessor mp-stress-kirchoff
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -115,11 +115,11 @@
    (stretch-tensor
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 3) :type 'double-float))
+    :initform (cl-mpm/utils::matrix-zeros))
    (strain-rate-tensor
     :accessor mp-strain-rate-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 3)))
+    :initform (cl-mpm/utils::matrix-zeros))
    (strain-rate
      :accessor mp-strain-rate
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -130,7 +130,7 @@
     :accessor mp-velocity-rate
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :accessor mp-velocity-rate
-    :initform (magicl:zeros '(6 1)))
+    :initform (cl-mpm/utils::voigt-zeros))
    (eng-strain-rate
     :accessor mp-eng-strain-rate
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -138,7 +138,7 @@
    (vorticity
     :accessor mp-vorticity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(6 1)))
+    :initform (cl-mpm/utils::voigt-zeros))
    (deformation-gradient
      :accessor mp-deformation-gradient
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -182,11 +182,11 @@
      :accessor mp-body-force
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :body-force
-     :initform (magicl:zeros '(3 1)))
+     :initform (cl-mpm/utils::vector-zeros))
    (displacement
     :accessor mp-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 1)))
+    :initform (cl-mpm/utils::vector-zeros))
    (cached-nodes
     :accessor mp-cached-nodes
     :initarg :nc
@@ -478,17 +478,17 @@
     :accessor mp-damage-position
     ;:type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform nil
-    ;:initform (magicl:zeros '(3 1))
+    ;:initform (cl-mpm/utils::vector-zeros)
     )
    (damage-tensor
     :accessor mp-damage-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 3))
+    :initform (cl-mpm/utils::matrix-zeros)
     )
    (damage-ybar-tensor
     :accessor mp-damage-ybar-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (magicl:zeros '(3 3)))
+    :initform (cl-mpm/utils::matrix-zeros))
    (damage-model
     :accessor mp-damage-model
     :initarg :damage-model
@@ -1044,7 +1044,7 @@
            (visc-u viscosity)
            (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 2))))
            )
-      (setf true-visc viscosity)
+      ;; (setf true-visc viscosity)
       ;; (setf p
       ;;       (/ (/ E (* (+ 1 nu) (- 1 nu)))
       ;;          (expt (max 1d-2 (- 1d0 damage)) 2)
