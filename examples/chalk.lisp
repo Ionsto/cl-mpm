@@ -215,7 +215,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
@@ -241,7 +241,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
 
     ;;Refine around tip
-    (dotimes (i 1)
+    (dotimes (i 0)
       (dolist (dir (list :x
                          :y
                          ))
@@ -336,7 +336,7 @@
 (defmethod estimate-energy-crit ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
    (loop for mp across (cl-mpm:sim-mps sim)
-         sum (* (cl-mpm/particle::mp-mass mp)
+         maximizing (* (cl-mpm/particle::mp-mass mp)
                 (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   ;; (/
   ;;  (cl-mpm/mpi::mpi-sum
