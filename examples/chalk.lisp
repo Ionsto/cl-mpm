@@ -93,13 +93,13 @@
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
-      (let ((ms 1d3))
+      (let ((ms 1d5))
         (setf (cl-mpm::sim-mass-scale sim) ms)
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
-        ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
         (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
+        ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
+        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         )
 
       ;; (dotimes (i 2)
@@ -215,12 +215,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 40)
+         (soil-boundary 20)
          (shelf-aspect 2)
-         (runout-aspect 4)
+         (runout-aspect 6)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -241,7 +241,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
 
     ;;Refine around tip
-    (dotimes (i 0)
+    (dotimes (i 1)
       (dolist (dir (list :x
                          :y
                          ))
@@ -261,6 +261,8 @@
                 )
              dir
              )))))
+    (loop for mp across (cl-mpm::sim-mps *sim*)
+          do (setf (cl-mpm/particle::mp-split-depth mp) 0))
 
     (let* ((undercut-angle undercut)
            (normal (magicl:from-list (list
@@ -290,6 +292,8 @@
                                      1d0)
                                  )))
 
+    (setf cl-mpm::*max-split-depth* 6)
+
     ;; (let ((ratio 0.3d0))
     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
     ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
@@ -317,14 +321,17 @@
 (defgeneric estimate-energy-crit (sim))
 
 (defmethod estimate-energy-crit ((sim cl-mpm::mpm-sim))
-   (loop for mp across (cl-mpm:sim-mps sim)
-         sum (* (cl-mpm/particle::mp-mass mp)
-                     ;; (cl-mpm/particle::mp-damage mp)
-                      (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
-   ;; (* (loop for mp across (cl-mpm:sim-mps *sim*)
-   ;;          summing (cl-mpm/particle::mp-mass mp))
-   ;;    (cl-mpm::sim-mass-scale sim)
-   ;;    )
+  ;; (/)
+  (loop for mp across (cl-mpm:sim-mps sim)
+            maximizing (* (cl-mpm/particle::mp-mass mp)
+                   ;; (cl-mpm/particle::mp-damage mp)
+                   (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
+  ;; (cl-mpm::sim-mass-scale sim)
+  ;; (* (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;          summing (cl-mpm/particle::mp-mass mp))
+  ;;    ;; (cl-mpm::sim-mass-scale sim)
+  ;;    )
+  
    )
 (defmethod estimate-energy-crit ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
@@ -378,7 +385,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d1)
+  (let* ((target-time 1d2)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
          (collapse-target-time 1d0)
@@ -386,6 +393,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1.0d0)
+         (settle-steps 10)
          )
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -397,62 +405,24 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (= steps 5)
+                     (when (= steps settle-steps)
                        (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       ;; (setf target-time 1d2)
-                       ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d2
-                       ;;       target-time 1d1)
-                       ;; (setf target-time 1d1
-                       ;;       dt-scale 0.5d0)
-                       ;; (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                       ;;   (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-4 ms)))
                        (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                          (format t "CFL dt estimate: ~f~%" dt-e)
                          (format t "CFL step count estimate: ~D~%" substeps-e)
                          (setf substeps substeps-e))
                        )
-
-                     ;; (let ((new-target-time 1d2))
-                     ;;   (when t;(not (= target-time new-target-time))
-                     ;;     (loop for mp across (cl-mpm:sim-mps *sim*)
-                     ;;           do
-                     ;;              (when ;(>= (cl-mpm/particle::mp-strain-plastic-vm mp) 0.20d0)
-                     ;;                    ;; (>= (cl-mpm/particle:mp-damage mp) 0.99d0)
-                     ;;                  nil
-                     ;;                (setf target-time new-target-time
-                     ;;                      dt-scale 1.0d0
-                     ;;                      (cl-mpm::sim-mass-scale *sim*) 1d3
-                     ;;                      )
-
-                     ;;                (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                     ;;                  (setf (cl-mpm:sim-damping-factor *sim*) (* 0d-4 ms)))
-                     ;;                (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                     ;;                  (format t "CFL dt estimate: ~f~%" dt-e)
-                     ;;                  (format t "CFL step count estimate: ~D~%" substeps-e)
-                     ;;                  (setf substeps substeps-e))
-                     ;;                (loop-finish)
-
-                     ;;                ))))
                      (format t "Step ~d ~%" steps)
+                     (format t "MPs ~d ~%" (length (cl-mpm:sim-mps *sim*)))
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((energy-estimate 0d0)
                            (oobf 0d0)
                            )
                        (time
                         (let ((current-damage (cl-mpm::sim-enable-damage *sim*)))
-                          ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
                           (dotimes (i substeps)
-                            ;; (if (= i (- substeps 1))
-                            ;;     (setf (cl-mpm::sim-enable-damage *sim*) current-damage)
-                            ;;     (setf cl-mpm/damage::*delocal-counter-max* 0)
-                            ;;     )
                             (cl-mpm::update-sim *sim*)
                             (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)));)
-                            ;; (setf (cl-mpm::sim-enable-damage *sim*) current-damage)
-                            ;; (when current-damage
-                            ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
-                            ;;   (cl-mpm::update-sim *sim*)
                             (incf energy-estimate (estimate-energy-crit *sim*))
                             (incf oobf (estimate-oobf *sim*))
                             )
@@ -461,18 +431,13 @@
                        (setf energy-estimate (/ energy-estimate substeps)
                              oobf (/ oobf substeps)
                              )
-                       (when (>= steps 5)
-                         (format t "Energy estimate: ~E~%" energy-estimate)
-                         (defparameter *oobf* oobf)
-                         (defparameter *energy* energy-estimate)
+                       (format t "Energy estimate: ~E~%" energy-estimate)
+                       (defparameter *oobf* oobf)
+                       (defparameter *energy* energy-estimate)
+                       (when (>= steps settle-steps)
                          (if (and 
-                              ;; (> oobf 6d0)
-                              ;; t
-                              ;; (> energy-estimate 1d0)
                               (> energy-estimate 1d0)
-                              ;; nil
                               )
-                             ;; nil
                              (progn
                                (format t "Collapse timestep~%")
                                (setf
@@ -490,11 +455,12 @@
                                ))
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 1d-1
+                                 1d0
                                         ;(* 1d-8 ms)
                                  ))
 
-                         ))
+                         )
+                       )
 
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
