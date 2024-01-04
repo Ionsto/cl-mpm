@@ -60,14 +60,14 @@
                 :ft 200d3
                 :friction-angle 40d0
 
-                :fracture-energy 100d0
+                :fracture-energy 5000d0
                 :initiation-stress 200d3
-                :delay-time 1d3
+                :delay-time 1d2
                 :ductility 6d0
                 ;; :compression-ratio 8d0
 
 
-                :critical-damage 1.0d0;0.999d0
+                :critical-damage 0.5d0;0.999d0
                 :local-length 10d0
                 ;; :local-length-damaged 10d-10
                 :local-length-damaged 10d0
@@ -95,7 +95,7 @@
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
-      (let ((ms 1d5))
+      (let ((ms 1d3))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
@@ -215,12 +215,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 40)
          (shelf-aspect 2)
-         (runout-aspect 5)
+         (runout-aspect 4)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -242,7 +242,9 @@
 
     ;;Refine around tip
     (dotimes (i 0)
-      (dolist (dir (list :x :y))
+      (dolist (dir (list :x
+                         :y
+                         ))
         (cl-mpm::split-mps-criteria
          *sim*
          (lambda (mp h)
@@ -376,7 +378,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d2)
+  (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
          (collapse-target-time 1d0)

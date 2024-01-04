@@ -1799,6 +1799,7 @@ Calls func with only the node"
         (t nil)
         ))))
 
+(defparameter *max-split-depth* 3)
 (defun split-criteria (mp h)
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
@@ -1807,7 +1808,7 @@ Calls func with only the node"
                    (split-depth cl-mpm/particle::mp-split-depth)
                    )
       mp
-    (when (< split-depth 6)
+    (when (< split-depth *max-split-depth*)
       (let ((l-factor 1.50d0)
             (h-factor (* 0.75d0 h))
             (s-factor 1.5d0))
