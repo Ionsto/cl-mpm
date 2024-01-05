@@ -1258,14 +1258,14 @@ Calls func with only the node"
         (funcall func node))))
   (values))
 ;; 
-;; (defun iterate-over-mps (mps func)
-;;   "Helper function for iterating over all nodes in a mesh
-;;    Calls func with only the node"
-;;   (declare (type function func)
-;;            (type (array cl-mpm/particle:particle) mps))
-;;   (lparallel:pdotimes (i (length mps))
-;;                       (funcall func (aref mps i)))
-;;   (values))
+(defun iterate-over-mps (mps func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (array cl-mpm/particle:particle) mps))
+  (lparallel:pdotimes (i (length mps))
+                      (funcall func (aref mps i)))
+  (values))
 ;; 
 ;; (defun iterate-over-mps-serial (mps func)
 ;;   "Helper function for iterating over all nodes in a mesh
@@ -1434,14 +1434,18 @@ Calls func with only the node"
             )
 
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume (magicl:det df)))
+          (setf volume (* volume (the double-float (magicl:det df))))
           ;; (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          ;; (update-domain-stretch-rate df domain)
-          ;; (update-domain-stretch def domain domain-0)
-          (update-domain-corner mesh mp dt)
+
+          ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
+          ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
+            (update-domain-stretch-rate df domain)
+          ;;   ;; (update-domain-stretch def domain domain-0)
+            ;; (update-domain-corner mesh mp dt)
+          ;;   )
 
           )
           )))
@@ -1476,6 +1480,35 @@ Calls func with only the node"
         (setf (tref domain 2 0) (* (the double-float (tref domain 2 0))
                                    (the double-float (tref stretch 2 2))))
         ))))
+
+
+(defun update-domain-stretch-rate-damage (stretch-rate damage domain)
+  "Update the domain length based on the increment of the stretch rate"
+  (declare (double-float damage))
+  (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                              0d0 1d0 0d0
+                                              0d0 0d0 1d0))))
+    (magicl:.+ df (magicl:scale stretch-rate (- 1d0 (* (- 1d0 0.1d0) damage))) df)
+    (let ((F (cl-mpm/utils::matrix-zeros)))
+      (magicl:mult df df :target F :transb :t)
+      (multiple-value-bind (l v) (cl-mpm/utils::eig F)
+        (let* ((stretch
+                 (magicl:@
+                  v
+                  (cl-mpm/utils::matrix-from-list
+                   (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                         0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                         0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+                  (magicl:transpose v)))
+               )
+          (declare (type magicl:matrix/double-float stretch))
+          (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
+                                     (the double-float (tref stretch 0 0))))
+          (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
+                                     (the double-float (tref stretch 1 1))))
+          (setf (tref domain 2 0) (* (the double-float (tref domain 2 0))
+                                     (the double-float (tref stretch 2 2))))
+          )))))
 
 (defun update-domain-stretch (def domain domain-0)
   "Update the domain length based on the total stretch rate"

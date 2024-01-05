@@ -192,8 +192,9 @@
       )))
 
 (defparameter *delocal-counter* 0)
-(defparameter *delocal-counter-max* 10)
+(defparameter *delocal-counter-max* 50)
 (defun calculate-damage (sim)
+  (declare (fixnum *delocal-counter* *delocal-counter-max*))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt)
