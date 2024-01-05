@@ -656,8 +656,8 @@
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; local-length
   )
 ;; (declaim

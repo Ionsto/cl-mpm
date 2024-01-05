@@ -1442,9 +1442,9 @@ Calls func with only the node"
 
           ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
-            (update-domain-stretch-rate df domain)
+            ;; (update-domain-stretch-rate df domain)
           ;;   ;; (update-domain-stretch def domain domain-0)
-            ;; (update-domain-corner mesh mp dt)
+            (update-domain-corner mesh mp dt)
           ;;   )
 
           )
