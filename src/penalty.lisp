@@ -278,7 +278,7 @@
                        (let* ((force (cl-mpm/utils:vector-zeros))
                               (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
-                              (normal-damping 1d4)
+                              (normal-damping 0d0)
                               (damping-force (* normal-damping rel-vel)))
 
                          (cl-mpm/fastmath::fast-fmacc force
