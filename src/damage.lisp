@@ -510,26 +510,44 @@
 (defun weight-func-mps-damaged (mesh mp-a mp-b length)
   (weight-func (diff-damaged mesh mp-a mp-b) length))
 
+(defun patch-in-bounds-2d (mesh pos bound)
+  (destructuring-bind (x y z) pos
+    (declare (fixnum x y z bound))
+    (and
+     (cl-mpm/mesh:in-bounds mesh (list (+ x bound) (+ y bound) z))
+     (cl-mpm/mesh:in-bounds mesh (list (- x bound) (- y bound) z)))))
+(defun patch-in-bounds-3d (mesh pos bound)
+  (destructuring-bind (x y z) pos
+    (declare (fixnum x y z bound))
+    (and
+     (cl-mpm/mesh:in-bounds mesh (list (+ x bound) (+ y bound) (+ z bound)))
+     (cl-mpm/mesh:in-bounds mesh (list (- x bound) (- y bound) (- z bound))))))
+
 (defun iterate-over-damage-bounds (mesh mp length func)
   (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
       (iterate-over-damage-bounds-2d mesh mp length func)
       (iterate-over-damage-bounds-3d mesh mp length func)))
 (defun iterate-over-damage-bounds-2d (mesh mp length func)
-  (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
-                                                        (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
+  (let* ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+                                                        (the double-float (cl-mpm/mesh:mesh-resolution mesh)))))))
+         (potentially-in-bounds (patch-in-bounds-2d mesh node-id node-reach))
+         )
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
           do (loop for dy fixnum from (- node-reach) to node-reach
                    do
                       (let ((idx (mapcar #'+ node-id (list dx dy 0))))
                         (declare (dynamic-extent idx))
-                        (when (cl-mpm/mesh:in-bounds mesh idx)
+                        (when (or
+                               potentially-in-bounds
+                               (cl-mpm/mesh:in-bounds mesh idx))
                           (let ((node (cl-mpm/mesh:get-node mesh idx)))
                             (funcall func mesh mp node))))))))
+
 (defun iterate-over-damage-bounds-3d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 4d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
