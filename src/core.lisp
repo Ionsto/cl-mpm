@@ -2012,7 +2012,11 @@ Calls func with only the node"
                           (svp-sum cl-mpm/mesh::node-svp-sum)
                           (vol cl-mpm/mesh::node-volume)
                           ) node
-           (when node-active
+           (when (and node-active
+                      (> vol 0d0)
+                      (> pmod 0d0)
+                      (> svp-sum 0d0)
+                  )
              (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
                  (when (< nf inner-factor)
                    ;; (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol (/ pmod svp-sum))
