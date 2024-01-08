@@ -104,6 +104,15 @@
  :description "MPM shape function definitions"
  :serial t
  :components ((:file "src/shape-function")))
+
+(defsystem "cl-mpm/dynamic-relaxation"
+  :depends-on ("cl-mpm"
+               "cl-mpm/penalty"
+               "swank.live"
+               "cl-mpm/utils")
+  :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"
+  :serial t
+  :components ((:file "src/dynamic-relaxation")))
 ;
 ;(defsystem "cl-mpm/mesh"
 ;  :depends-on ("magicl")
@@ -463,6 +472,7 @@
                "cl-mpm/penalty"
                "cl-mpm/damage"
                "cl-mpm/plotter"
+               "cl-mpm/dynamic-relaxation"
                "vgplot"
                "swank.live")
   :serial t
