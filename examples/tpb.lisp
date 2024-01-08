@@ -220,7 +220,8 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d1 density ms)
+              (* 6d0 density ms)
+              ;; (* 1d1 density)
               ;; 1d0
               ))
 
@@ -540,6 +541,20 @@
   (defparameter *t* 0)
   (defparameter *sim-step* 0))
 
+(defgeneric estimate-energy-crit (sim))
+(defmethod estimate-energy-crit ((sim cl-mpm::mpm-sim))
+  ;; (/)
+  (loop for mp across (cl-mpm:sim-mps sim)
+        summing (* (cl-mpm/particle::mp-mass mp)
+                      ;; (cl-mpm/particle::mp-damage mp)
+                      (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
+  ;; (cl-mpm::sim-mass-scale sim)
+  ;; (* (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;          summing (cl-mpm/particle::mp-mass mp))
+  ;;    ;; (cl-mpm::sim-mass-scale sim)
+  ;;    )
+  
+  )
 
 (defparameter *data-force* '())
 (defparameter *data-displacement* '(0d0))
@@ -549,6 +564,7 @@
 (defparameter *target-displacement* 0d0)
 (defparameter *data-averaged* t)
 
+(defparameter *data-full-energy* '(0d0))
 (defparameter *data-full-time* '(0d0))
 (defparameter *data-full-load* '(0d0))
 (declaim (notinline converge-quasi-static))
@@ -562,36 +578,45 @@
          ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
          (estimated-t 1d-5)
          (dt-scale 1.0d0)
-         (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (substeps 50)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
+    (setf *data-full-load* (list)
+          *data-full-reaction* (list)
+          *data-full-time* (list)
+          *data-full-energy* (list)
+          )
     (loop for i from 0 to 100
           while (and *run-sim*
                      (not converged))
           do
              (progn
                (dotimes (i substeps)
-                 ;; (push
-                 ;;  ;; (get-reaction-force *fixed-nodes*)
-                 ;;  cl-mpm/penalty::*debug-force*
-                 ;;  *data-full-load*)
-                 ;; (push
-                 ;;  (get-reaction-force *fixed-nodes*)
-                 ;;  ;; cl-mpm/penalty::*debug-force*
-                 ;;  *data-full-reaction*)
-                 ;; (push
-                 ;;  *t*
-                 ;;  *data-full-time*)
-                 ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                 (push
+                  ;; (get-reaction-force *fixed-nodes*)
+                  cl-mpm/penalty::*debug-force*
+                  *data-full-load*)
+                 (push
+                  (get-reaction-force *fixed-nodes*)
+                  ;; cl-mpm/penalty::*debug-force*
+                  *data-full-reaction*)
+                 (push
+                  (estimate-energy-crit *sim*)
+                  *data-full-energy*)
+                 (push
+                  *t*
+                  *data-full-time*)
+                 (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                  (setf cl-mpm/penalty::*debug-force* 0d0)
                  (cl-mpm:update-sim sim)
                  )
-               ;; (plot-time-disp)
+               (plot-time-disp)
                (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                  (format t "CFL dt estimate: ~f~%" dt-e)
                  (format t "CFL step count estimate: ~D~%" substeps-e)
-                 (setf substeps substeps-e)
+                 ;; (setf substeps substeps-e)
                  )
                (setf fnorm (/ (loop for mp across (cl-mpm:sim-mps *sim*)
                                     sum (* (cl-mpm/particle:mp-mass mp)
@@ -636,14 +661,15 @@
 (defun quasi-test ()
   (setup)
   (setf *run-sim* t)
-  (incf *target-displacement* -0.002d-3)
+  (incf *target-displacement* (* -0.002d-3 4))
   (setf cl-mpm/penalty::*debug-force* 0d0)
   (setf cl-mpm/penalty::*debug-force-count* 0d0)
   (setf cl-mpm/damage::*enable-reflect-x* t)
   (defparameter *data-full-time* '(0d0))
   (defparameter *data-full-load* '(0d0))
   (defparameter *data-full-reaction* '(0d0))
-  (converge-quasi-static *sim*)
+  (time
+   (converge-quasi-static *sim*))
   )
 (defun run ()
   (vgplot:close-all-plots)
@@ -683,7 +709,7 @@
     (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
     ;; (incf *target-displacement* disp-step)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 20
                 while *run-sim*
                 do
                    (progn
@@ -887,12 +913,14 @@
     (format stream "disp,load,load-mps~%"))
 
   (let* ((dt (cl-mpm:sim-dt *sim*))
-         (disp-step -0.002d-3
+         (load-steps 50)
+         (disp-step (/ -0.2d-3 load-steps)
                     )
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
     (setf cl-mpm/penalty::*debug-force-count* 0d0)
+    (setf cl-mpm/damage::*delocal-counter-max* 0)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     ;; (time (cl-mpm::update-sim *sim*))
     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -902,7 +930,7 @@
     ;; (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
     ;; (incf *target-displacement* disp-step)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to load-steps
                 while *run-sim*
                 do
                    (progn
@@ -973,6 +1001,7 @@
   (plot-load-disp)
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
+(declaim (notinline plot-time-disp))
 (defun plot-time-disp ()
   ;; (vgplot:figure)
   (vgplot:xlabel "Displacement (mm)")
@@ -980,6 +1009,7 @@
   (vgplot:plot
    (mapcar (lambda (x) (* x -1d0)) *data-full-time*) (mapcar (lambda (x) (* x 0.1)) *data-full-load*) "mps"
    (mapcar (lambda (x) (* x -1d0)) *data-full-time*) (mapcar (lambda (x) (* x 0.1)) *data-full-reaction*) "nodes"
+   (mapcar (lambda (x) (* x -1d0)) *data-full-time*) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d6)) *data-full-energy*)) "energy"
    ))
 
 ;; (defun plot-load-disp ()
