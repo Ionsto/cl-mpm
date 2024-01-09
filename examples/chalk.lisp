@@ -57,7 +57,7 @@
                 ;; :rho 1d6
                 :enable-plasticity nil
 
-                :ft 200d3
+                :ft 20d3
                 :friction-angle 50d0
 
                 :fracture-energy 3000d0
@@ -67,8 +67,8 @@
                 ;; :compression-ratio 8d0
 
 
-                :critical-damage 1.0d0;0.999d0
-                :local-length (* 1d0 (sqrt 7))
+                :critical-damage 0.5d0;0.999d0
+                :local-length (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 10d-10
 
@@ -224,9 +224,9 @@
   (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 20)
-         (shelf-aspect 2.5)
-         (runout-aspect 2.0)
+         (soil-boundary 10)
+         (shelf-aspect 1.5)
+         (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -283,21 +283,22 @@
                                       (magicl:from-list (list shelf-length soil-boundary)
                                                         '(2 1) :type 'double-float))
                                      1d0)
-                                 )))
+                                 ))
+      )
 
-    (let ((notch-height 20d0))
-      (cl-mpm/setup:remove-sdf *sim*
-                               (lambda (p)
-                                 (if (< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
-                                     (funcall
-                                      (cl-mpm/setup::rectangle-sdf
-                                       (list shelf-length (+ notch-height soil-boundary))
-                                       (list 20d0 notch-height)
-                                       ) p)
-                                     1d0)
-                                 )))
+    ;; (let ((notch-height 5d0))
+    ;;   (cl-mpm/setup:remove-sdf *sim*
+    ;;                            (lambda (p)
+    ;;                              (if t;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+    ;;                                  (funcall
+    ;;                                   (cl-mpm/setup::rectangle-sdf
+    ;;                                    (list shelf-length (+ notch-height soil-boundary))
+    ;;                                    (list 5d0 notch-height)
+    ;;                                    ) p)
+    ;;                                  1d0)
+    ;;                              )))
 
-    (setf cl-mpm::*max-split-depth* 5)
+    (setf cl-mpm::*max-split-depth* 2)
 
     ;; (let ((ratio 0.3d0))
     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
@@ -390,10 +391,10 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 1d2)
+  (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 1d0)
+         (collapse-target-time 0.1d0)
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -401,6 +402,9 @@
          (settle-steps 10)
          (damp-steps 5)
          )
+    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
+                                               *sim*
+                                               (list :dt target-time))
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)

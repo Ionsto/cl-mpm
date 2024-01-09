@@ -17,11 +17,11 @@
    (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d4)) full-energy)) "energy"
    )
   )
-(plot-time-disp *full-step* *full-load* *full-energy*)
+;; (plot-time-disp *full-step* *full-load* *full-energy*)
 
-(defparameter *full-load* nil)
-(defparameter *full-step* nil)
-(defparameter *full-energy* nil)
+;; (defparameter *full-load* nil)
+;; (defparameter *full-step* nil)
+;; (defparameter *full-energy* nil)
 (defparameter *run-convergance* t)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key

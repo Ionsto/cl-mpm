@@ -674,8 +674,8 @@
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; local-length
   )
 ;; (declaim
@@ -1650,14 +1650,15 @@
                      (tau cl-mpm/particle::mp-delay-time)
                      (ductility cl-mpm/particle::mp-ductility)
                      ) mp
-      (declare (double-float damage damage-inc critical-damage))
+      (declare (double-float damage damage-inc critical-damage k ybar tau dt))
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           ;; (setf k (max k ybar))
           (setf damage-inc 0d0)
 
-          (incf k (* dt (/ (max 0d0 (- ybar k)) tau)))
+          (incf k (the double-float (* dt
+                                       (/ (the double-float (max 0d0 (- ybar k))) tau))))
           ;; (when (> ybar init-stress)
           ;;   (setf k (max k init-stress)))
           ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
@@ -1666,8 +1667,9 @@
                                  ;; (test-damage k 1d7 init-stress)
                                  ;; (delayed-damage-y ybar E Gf length init-stress)
                                  ;; (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility)
-                                 (damage-response-exponential k E Gf (/ length (sqrt 7)) init-stress ductility)
+                                 (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                                  )))
+            (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))
             ;; (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
             )
@@ -1676,9 +1678,9 @@
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
-          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
-          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) damage-inc)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
           ;;Transform to log damage
           (incf damage damage-inc)
           ;;Transform to linear damage
@@ -1912,8 +1914,11 @@
   ))
 
 
+(declaim (ftype (function (double-float double-float double-float double-float double-float double-float )
+                          double-float 
+                          ) damage-response-exponential))
 (defun damage-response-exponential (stress E Gf length init-stress ductility)
-  (declare (double-float stress E Gf length init-stress))
+  (declare (double-float stress E Gf length init-stress ductility))
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
          (e0 (/ ft E))
