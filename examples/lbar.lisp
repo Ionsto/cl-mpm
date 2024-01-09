@@ -3,10 +3,10 @@
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/lbar)
 
 (ql:quickload :magicl)
@@ -159,37 +159,19 @@
     (declare (double-float h density))
     (progn
       (let* ((impactor-size (list 10d-3
-                                  (* 0.99 h-x)))
-            (impactors
-              (cl-mpm/setup::make-block-mps-list
-               (mapcar #'+ offset
-                       (list
-                        ;; 0d0
-                        (- (* 0.5d0 (first block-size)) (* 0.5d0 (first impactor-size)))
-                        (+ (second block-size) (* h-x 0.5))
-                        ))
-               impactor-size
-               (mapcar (lambda (e)
-                         (round  (* e mp-scale) h-x)) impactor-size)
-               density
-               'cl-mpm/particle::particle-elastic
-               :E 20d9
-               :nu 0.20d0
-               :gravity -0.0d0
-               :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-               :fixed-velocity (list 0 *tip-velocity*)
-               :index 1
-               )
-              ))
+                                  (* 0.99 h-x))))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (append
                 (cl-mpm/setup::make-block-mps-list
                  offset
                  block-size
-                 (mapcar (lambda (e)
+                 (mapcar (lambda (e mp-scale)
                            (round  (* e mp-scale) h-x)
-                           ) block-size)
+                           ) block-size
+                             (list mp-scale
+                                   mp-scale
+                                   2))
                  density
                  'cl-mpm/particle::particle-limestone
                  :E 25.85d9
@@ -213,11 +195,12 @@
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
-      (setf (cl-mpm::sim-mass-filter sim) 0d0)
-      (let ((ms 1d6))
+      (setf (cl-mpm::sim-mass-filter sim) 1d-10)
+      (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d-3 density ms)
+              ;; (* 1d-2 density ms)
+              (* 7d0 density)
               ;; 1d0
               ))
 
@@ -680,6 +663,96 @@
   (vgplot:figure)
   (plot-load-disp)
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
+(defun run-static ()
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+                          *sim*)
+  (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes.vtk")) *sim*)
+                       
+  (defparameter *data-force* '())
+  (defparameter *data-displacement* '(0d0))
+  (defparameter *data-load* '(0d0))
+  (defparameter *data-node-load* '(0d0))
+  (defparameter *data-mp-load* '(0d0))
+  (defparameter *data-time* '(0d0))
+  (defparameter *target-displacement* 0d0)
+  (defparameter *data-full-time* '(0d0))
+  (defparameter *data-full-load* '(0d0))
+
+  (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
+    (format stream "disp,load,reaction~%")
+    (format stream "~f,~f~%" 0d0 0d0 0d0)
+    )
+
+  (let* ((target-time 0.5d0)
+         (dt (cl-mpm:sim-dt *sim*))
+         (substeps (floor target-time dt))
+         (dt-scale 1d0)
+         (load-steps 50)
+         (disp-step (/ 0.8d-3 load-steps))
+         )
+
+    (setf cl-mpm/penalty::*debug-force* 0d0)
+    (setf cl-mpm/penalty::*debug-force-count* 0d0)
+    (time (cl-mpm::update-sim *sim*))
+
+    (format t "Calculating dt~%")
+    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                    (format t "CFL dt estimate: ~f~%" dt-e)
+                    (format t "CFL step count estimate: ~D~%" substeps-e)
+                    (setf substeps substeps-e))
+    (format t "Substeps ~D~%" substeps)
+    (setf *target-displacement* 0d0)
+    (time (loop for steps from 0 to load-steps
+                while *run-sim*
+                do
+                   (progn
+                     (format t "Step ~d ~%" steps)
+                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (let ((average-force 0d0)
+                           (average-disp 0d0)
+                           (average-reaction 0d0))
+
+                       (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                       (incf *target-displacement* disp-step)
+                       (time
+                        (progn
+                          (cl-mpm/dynamic-relaxation::converge-quasi-static *sim*
+                                                                            :energy-crit 5d-2
+                                                                            :dt-scale 1d0
+                                                                            )
+                          (cl-mpm/damage::calculate-damage *sim*)))
+                       (incf average-disp (get-disp *terminus-mps*))
+                       (incf average-force cl-mpm/penalty::*debug-force*)
+                       (push
+                        average-disp
+                        *data-displacement*)
+                       (push
+                        average-force
+                        *data-load*)
+
+                       (plot-load-disp)
+                       (let ((mesh-size (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))))
+                         (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
+                           (format stream "~f,~f,~f~%"
+                                   average-disp
+                                   (/ average-force mesh-size)
+                                   (/ average-reaction mesh-size)
+                                   ))))
+
+
+                     (format t "Target: ~f - Current: ~f Error: ~f - energy ~F~%"
+                             *target-displacement*
+                             (get-disp *terminus-mps*)
+                             (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*))
+                             (energy-norm *sim*))
+                     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf substeps substeps-e))
+                     (incf *sim-step*)
+                     (swank.live:update-swank)
+                     ))))
+  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
 (defun plot-time-disp ()
   ;; (vgplot:figure)
@@ -711,7 +784,7 @@
       (vgplot:plot
        (lisp-stat:column df 'disp) (lisp-stat:column df 'load) "Data"
        ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
-       (mapcar (lambda (x) (* x 1d3)) *data-displacement*) (mapcar (lambda (x) (* x x-scale)) *data-mp-load*) "mpm-mps"
+       (mapcar (lambda (x) (* x 1d3)) *data-displacement*) (mapcar (lambda (x) (* x x-scale)) *data-load*) "mpm-mps"
        ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
        ))
 

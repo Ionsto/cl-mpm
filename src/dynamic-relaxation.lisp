@@ -10,40 +10,44 @@
 
 (declaim (notinline plot-time-disp))
 (defun plot-time-disp (full-time full-load full-energy)
-  ;; (vgplot:xlabel "Displacement (mm)")
-  ;; (vgplot:ylabel "Load (N)")
-  ;; (vgplot:plot
-  ;;  (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) full-load) "mps"
-  ;;  (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d6)) full-energy)) "energy"
-  ;;  )
+  (vgplot:xlabel "Displacement (mm)")
+  (vgplot:ylabel "Load (N)")
+  (vgplot:plot
+   (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) full-load) "mps"
+   (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d4)) full-energy)) "energy"
+   )
   )
+(plot-time-disp *full-step* *full-load* *full-energy*)
 
+(defparameter *full-load* nil)
+(defparameter *full-step* nil)
+(defparameter *full-energy* nil)
 (defparameter *run-convergance* t)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key
                                     (energy-crit 1d-8)
-                                    (oobf-crit 1d-8))
+                                    (oobf-crit 1d-8)
+                                    (live-plot nil)
+                                    (dt-scale 0.5d0)
+                                    )
   (setf *run-convergance* t)
   (let* ((fnorm 0d0)
         (oobf 0d0)
         ;; (estimated-t 0.5d0)
          (target-time 1d-4)
-         (dt-scale 1d0)
          ;; (substeps 40)
          ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
          (estimated-t 1d-5)
-         (dt-scale 0.5d0)
          ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
          (substeps 50)
          (total-step 0)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
-    ;; (setf *data-full-load* (list)
-    ;;       *data-full-reaction* (list)
-    ;;       *data-full-time* (list)
-    ;;       *data-full-energy* (list)
-    ;;       )
+    (setf *full-load* (list)
+          *full-step* (list)
+          *full-energy* (list)
+          )
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
@@ -56,13 +60,13 @@
                    (push
                     ;; (get-reaction-force *fixed-nodes*)
                     cl-mpm/penalty::*debug-force*
-                    full-load)
+                    *full-load*)
                    (push
                     (estimate-energy-norm sim)
-                    full-energy)
+                    *full-energy*)
                    (push
                     total-step
-                    full-step)
+                    *full-step*)
                    (incf total-step)
 
                    ;; (push
@@ -79,7 +83,8 @@
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
                    )
-                 ;; (plot-time-disp full-step full-load full-energy)
+                 ;; (when t;live-plot
+                 ;;   (plot-time-disp full-step full-load full-energy))
                  ;; (plot-time-disp)
                  (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
                    (format t "CFL dt estimate: ~f~%" dt-e)
@@ -111,7 +116,8 @@
                    ;;    ))
                    (when (> dmax 0d0)
                      (setf oobf (/ nmax dmax)))
-                   (format t "Conv step ~D - KE norm: ~E - OOBF: ~E~%" i fnorm oobf)
+                   (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
+                           cl-mpm/penalty::*debug-force*)
                    (when (and (< fnorm energy-crit) (< oobf oobf-crit))
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t)))

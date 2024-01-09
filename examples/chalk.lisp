@@ -297,7 +297,7 @@
                                      1d0)
                                  )))
 
-    (setf cl-mpm::*max-split-depth* 3)
+    (setf cl-mpm::*max-split-depth* 5)
 
     ;; (let ((ratio 0.3d0))
     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
