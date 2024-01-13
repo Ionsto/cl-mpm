@@ -116,6 +116,10 @@
     :accessor mp-stretch-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::matrix-zeros))
+   (stretch-tensor-fbar
+    :accessor mp-stretch-tensor-fbar
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::matrix-zeros))
    (strain-rate-tensor
     :accessor mp-strain-rate-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -217,6 +221,14 @@
     :accessor mp-single-particle
     :type boolean
     :initform nil)
+   (fbar-j
+    :accessor mp-debug-j
+    :type double-float
+    :initform 0d0)
+   (fbar-j-gather
+    :accessor mp-debug-j-gather
+    :type double-float
+    :initform 0d0)
    )
   (:documentation "A single material point"))
 
@@ -1620,12 +1632,13 @@
         ;;                         (magicl:scale! s (max 1d-9 degredation))
         ;;                         ))
         ;; (let ((p (cl-mpm/utils::trace-voigt stress)))
-        ;;   (magicl:scale! stress (max 1d-8 degredation)))
+        ;;   (magicl:scale! stress
+        ;;                  (- 1d0 (* (- 1d0 1d-6) damage))))
 
         (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 0d-9) damage)))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-3) damage)))
                                   )))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1634,7 +1647,10 @@
                    (let* ((sii (nth i l)))
                      (when (> sii 0d0)
                        ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (- 1d0 (* (- 1d0 0d-9) damage)))))
+                       (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-6) damage)))))
+                     ;; (when (< sii 0d0)
+                     ;;   ;;tensile damage -> unbounded
+                     ;;   (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-2) damage)))))
                      ;; (when (< sii 1d0)
                      ;;   ;;bounded compressive damage
                      ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))

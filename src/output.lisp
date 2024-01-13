@@ -385,6 +385,10 @@
             (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
             (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
             (save-parameter-nodes "force_buoy_z" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 2 0))
+            (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
+                                              1d0
+                                              (cl-mpm/mesh::node-jacobian-inc node)
+                                              ))
             (save-parameter-nodes "buoyancy_node" (if
                                                    (cl-mpm/mesh::node-boundary-node node) 1 0))
             ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
@@ -394,7 +398,6 @@
             ;; (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
             ;; (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
             (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
-            (save-parameter-nodes "jinc" (cl-mpm/mesh::node-jacobian-inc node))
             (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
 
             (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)

@@ -13,7 +13,16 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
-  ()
+  ((delocal-counter
+    :accessor sim-damage-delocal-counter
+    :type fixnum
+    :initarg :delocal-counter
+    :initform 0)
+   (delocal-counter-max
+    :accessor sim-damage-delocal-counter-max
+    :type fixnum
+    :initarg :delocal-counter-max
+    :initform 50))
   (:documentation "Explicit simulation with update stress first update"))
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
@@ -198,15 +207,17 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt)
+                   (delocal-counter sim-damage-delocal-counter)
+                   (delocal-counter-max sim-damage-delocal-counter-max)
                    (non-local-damage cl-mpm::sim-nonlocal-damage))
       sim
     (when non-local-damage
-      (when (<= *delocal-counter* 0)
+      (when (<= delocal-counter 0)
         ;; (create-delocalisation-list mesh mps)
         ;;Ensure they have a home
         (update-delocalisation-list mesh mps)
-        (setf *delocal-counter* *delocal-counter-max*))
-      (decf *delocal-counter*))
+        (setf delocal-counter delocal-counter-max))
+      (decf delocal-counter))
     (lparallel:pdotimes (i (length mps))
       (let ((mp (aref mps i)))
         (when (typep mp 'cl-mpm/particle:particle-damage)
@@ -593,11 +604,9 @@
                           ;;
                           (weight
                             (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
-                            ;; (if (and (<= d 0) (<= (cl-mpm/particle::mp-damage mp-other) 0))
                             ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                             ;; (weight-func-mps-damaged mesh mp mp-other
                             ;;                          (cl-mpm/particle::mp-local-length mp)
-                            ;;                          ;; (* 0.5d0 (+ length ll))
                             ;;                          )
                             )
                           )
@@ -674,8 +683,8 @@
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; local-length
   )
 ;; (declaim
@@ -1227,6 +1236,22 @@
          (* (cl-mpm/particle::mp-mass mp)
             (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))
          )
+        (cl-mpm/output::save-parameter
+         "fbar-j"
+         (cl-mpm/particle::mp-debug-j mp)
+         )
+        (cl-mpm/output::save-parameter
+         "fbar-j-gather"
+         (cl-mpm/particle::mp-debug-j-gather mp)
+         )
+        (cl-mpm/output::save-parameter
+         "fbar-j-diff"
+         (if (> (cl-mpm/particle::mp-debug-j mp) 0d0) 
+           (/ (- (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/particle::mp-debug-j mp)) 
+              (cl-mpm/particle::mp-debug-j mp)
+              )
+           0d0)
+         )
         )
       )))
 
@@ -1520,8 +1545,10 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
+                       ;;Good drucker-prager
                        (s_1 (* (/ 3d0 (+ 3 (tan angle)))
                                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
 
@@ -1658,7 +1685,8 @@
           (setf damage-inc 0d0)
 
           (incf k (the double-float (* dt
-                                       (/ (the double-float (max 0d0 (- ybar k))) tau))))
+                                       (/ (the double-float (max 0d0 (- ybar k))) tau)
+                                        )))
           ;; (when (> ybar init-stress)
           ;;   (setf k (max k init-stress)))
           ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))

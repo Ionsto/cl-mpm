@@ -91,7 +91,7 @@
 ;; (let* ((h 1.0d0)
 ;;        (x (loop for x from -2d0 upto 2d0 by 0.01d0 collect (* h x)))
 ;;        (node 0)
-;;        (l 0.1d0)
+;;        (l 0.5d0)
 ;;        )
 ;;   (vgplot:figure)
 ;;   (vgplot:plot
@@ -99,6 +99,9 @@
 ;;    ;; (mapcar (lambda (y) (shape-gimp y l h)) x) "0"
 ;;    x
 ;;    (mapcar (lambda (y) (shape-gimp-fast y l h)) x) "0"
+;;    x
+;;    (mapcar (lambda (y) (shape-gimp-fbar y l h)) x) "fbar"
+
 ;;    ))
 
 (declaim (inline shape-gimp-dsvp)

@@ -202,6 +202,7 @@
                    :local-length (* length-scale crack-scale kappa)
                    :local-length-damaged (* length-scale crack-scale kappa 1d0)
                    :compression-ratio 8d0
+                   ;:ductility 7.1d0
                    :ductility 7.1d0
                    :critical-damage 1.000d0
                    ;; :local-length-damaged 0.01d0

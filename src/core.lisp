@@ -575,7 +575,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 1) (safety 0) (debug 0))
+           (optimize (speed 3) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -640,16 +640,16 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                            h))))
                                               (multiple-value-bind (distx disty) (sb-simd-avx:f64.2-values dist)
                                                 (declare (type double-float distx disty))
-                                                  (let* (
-                                                         (weightsx (the double-float (cl-mpm/shape-function::shape-gimp-fast distx (* 0.5d0 dox) h)))
+                                                  (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp-fast distx (* 0.5d0 dox) h)))
                                                          (weightsy (the double-float (cl-mpm/shape-function::shape-gimp-fast disty (* 0.5d0 doy) h)))
-                                                        (weight (* weightsx weightsy))
-                                                        #+cl-mpm-fbar (weights-fbar (mapcar (lambda (x l)
-                                                                                              (cl-mpm/shape-function::shape-gimp-fbar x l h))
-                                                                                            dist domain))
-                                                        #+cl-mpm-fbar (weight-fbar (* (the double-float (first weights-fbar))
-                                                                                      (the double-float (second weights-fbar))))
-                                                        #-cl-mpm-fbar (weight-fbar 0d0)
+                                                         (weight (* weightsx weightsy))
+                                                         ;; #+cl-mpm-fbar
+                                                         (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                                         ;; #+cl-mpm-fbar
+                                                         (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                                         ;; #+cl-mpm-fbar (weight-fbar (* weights-fbar-x weights-fbar-y))
+                                                        ;; #-cl-mpm-fbar (weight-fbar 0d0)
+                                                        (weight-fbar 0d0)
                                                         )
                                                     (when (< 0d0 weight)
                                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
@@ -658,14 +658,17 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                              (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
                                                                        (the double-float weightsx)))
                                                              (gradz 0d0)
-                                                             #+cl-mpm-fbar (grads-fbar (mapcar (lambda (d l w)
-                                                                                                 (* (cl-mpm/shape-function::shape-gimp-dsvp d l h)
-                                                                                                    (the double-float w)))
-                                                                                               dist domain (nreverse weights-fbar)))
-                                                             #-cl-mpm-fbar (grads-fbar nil)
+                                                             ;; #+cl-mpm-fbar
+                                                             (grads-fbar
+                                                               (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
+                                                                     (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
+                                                                     0d0
+                                                                     ))
+                                                             ;; #-cl-mpm-fbar (grads-fbar nil)
                                                              )
                                                         (declare (double-float gradx grady))
-                                                        (funcall func mesh mp node weight (list gradx grady gradz) weight-fbar grads-fbar))
+                                                        (funcall func mesh mp node weight (list gradx grady gradz)
+                                                                 weight-fbar grads-fbar))
                                                       )))
                                               )))))
                       )))))))))))
@@ -1315,6 +1318,7 @@ Calls func with only the node"
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
                    (jfbar cl-mpm/particle::mp-j-fbar)
                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    ) mp
@@ -1322,14 +1326,13 @@ Calls func with only the node"
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
           (magicl:scale! stretch-tensor 0d0)
-          (let (#+cl-mpm-fbar (stretch-tensor-fbar (magicl:zeros '(2 2) :type 'double-float))
-                (v-s (matrix-zeros))
-                (stretch-dsvp (stretch-dsvp-3d-zeros))
+          #+cl-mpm-fbar (magicl:scale! stretch-tensor-fbar 0d0)
+          (let ((stretch-dsvp (stretch-dsvp-3d-zeros))
                 (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
                 (temp-add (cl-mpm/utils::matrix-zeros))
                 )
-            (declare (magicl:matrix/double-float stretch-dsvp v-s)
-                     (dynamic-extent stretch-dsvp v-s))
+            (declare (magicl:matrix/double-float stretch-dsvp)
+                     (dynamic-extent stretch-dsvp))
             (iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1347,19 +1350,65 @@ Calls func with only the node"
                     temp-add
                     stretch-tensor)
 
-                   #+cl-mpm-fbar (magicl.simd::.+-simd
-                                  stretch-tensor-fbar
-                                  (cl-mpm/utils::voight-to-stretch-prealloc
-                                   (magicl:@ (cl-mpm/shape-function::assemble-dstretch-2d-prealloc
-                                              fgrads stretch-dsvp) node-vel) v-s)
-                                  stretch-tensor-fbar)
+                   (cl-mpm/shape-function::assemble-dstretch-3d-prealloc fgrads stretch-dsvp)
+                   (magicl:mult stretch-dsvp node-vel :target temp-mult)
+                   (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+                   (magicl.simd::.+-simd
+                    stretch-tensor-fbar
+                    temp-add
+                    stretch-tensor-fbar)
+
+                   ;; #+cl-mpm-fbar
+                   ;; (magicl:.+ stretch-tensor-fbar
+                   ;;            (cl-mpm/utils::voight-to-stretch-3d
+                   ;;             (magicl:@
+                   ;;              (cl-mpm/shape-function::assemble-dstretch-3d fgrads)
+                   ;;              node-vel)
+                   ;;             stretch-tensor-fbar))
                    ))))
             )
+
+          ;; #+cl-mpm-fbar
+          ;; (progn
+          ;;   (let ((cell (cl-mpm/mesh::get-cell mesh (cl-mpm/mesh::position-to-index mesh (cl-mpm/particle:mp-position mp) #'floor))))
+          ;;     (magicl:scale! stretch-tensor-fbar 0d0)
+          ;;     (iterate-over-neighbours-point-linear-3d
+          ;;      mesh
+          ;;      (cl-mpm/mesh::cell-centroid cell)
+          ;;      (lambda (mesh node svp grads)
+          ;;        (declare (double-float dt svp))
+          ;;        (when (cl-mpm/mesh:node-active node)
+          ;;          (magicl:.+ stretch-tensor-fbar
+          ;;                     (cl-mpm/utils::voight-to-stretch-3d
+          ;;                      (magicl:@
+          ;;                       (cl-mpm/shape-function::assemble-dstretch-3d grads)
+          ;;                       (cl-mpm/mesh:node-velocity node))
+          ;;                      stretch-tensor-fbar)
+          ;;                     ))
+          ;;        ))
+          ;;     ;; (cl-mpm/mesh::cell-iterate-over-neighbours
+          ;;     ;;  mesh
+          ;;     ;;  cell
+          ;;     ;;  (lambda (m c centroid volume node weight grads)
+          ;;     ;;    (magicl:.+ stretch-tensor-fbar
+          ;;     ;;               (cl-mpm/utils::voight-to-stretch-3d
+          ;;     ;;                (magicl:@
+          ;;     ;;                 (cl-mpm/shape-function::assemble-dstretch-3d grads)
+          ;;     ;;                 (cl-mpm/mesh:node-velocity node))
+          ;;     ;;                stretch-tensor-fbar)
+          ;;     ;;               )
+          ;;     ;;    )
+          ;;     ;;  )
+          ;;     )
+          ;;   )
+
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
             (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (magicl:scale! stretch-tensor dt)
+            ;; #+cl-mpm-fbar
+            (magicl:scale! stretch-tensor-fbar dt)
             (magicl:scale! strain-rate dt)
             (magicl:scale! vorticity dt)
             )))
@@ -1442,9 +1491,9 @@ Calls func with only the node"
 
           ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
-            ;; (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch-rate df domain)
           ;;   ;; (update-domain-stretch def domain domain-0)
-            (update-domain-corner mesh mp dt)
+            ;; (update-domain-corner mesh mp dt)
           ;;   )
 
           )
@@ -1645,29 +1694,29 @@ Calls func with only the node"
           )))))
 (defun map-jacobian (mesh mp dt)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
-                   (stretch-rate cl-mpm/particle::mp-stretch-tensor)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (volume cl-mpm/particle:mp-volume)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
-    (let* (;(df (magicl:.+ (magicl:eye 3) stretch-rate))
-
-           (df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
-      (magicl:.+ df stretch-rate df)
+      (magicl:.+ df stretch-tensor df)
       (let ((j-inc (magicl:det df))
             (j-n (magicl:det def)))
-        (iterate-over-neighbours mesh mp
-                                 (lambda (mesh mp node svp grads fsvp fgrads)
-                                   (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                                    (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                                                    (node-volume cl-mpm/mesh::node-volume)
-                                                    (node-lock cl-mpm/mesh::node-lock)
-                                                    )
-                                       node
-                                     (when node-active
-                                       (sb-thread:with-mutex (node-lock)
-                                         (incf node-j-inc (/ (* svp volume j-inc j-n) node-volume)))))))))))
+        (iterate-over-neighbours
+         mesh mp
+         (lambda (mesh mp node svp grads fsvp fgrads)
+           (with-accessors ((node-active cl-mpm/mesh:node-active)
+                            (node-j-inc cl-mpm/mesh::node-jacobian-inc)
+                            (node-volume cl-mpm/mesh::node-volume)
+                            (node-lock cl-mpm/mesh::node-lock)
+                            )
+               node
+             (declare (double-float node-j-inc svp volume j-inc j-n node-volume))
+             (when node-active
+               (sb-thread:with-mutex (node-lock)
+                 (incf node-j-inc (/ (* svp volume j-inc j-n) node-volume)))))))))))
 
 (declaim (inline calculate-df)
          (ftype (function (cl-mpm/mesh::mesh
@@ -1677,52 +1726,70 @@ Calls func with only the node"
 (defun calculate-df (mesh mp fbar)
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
                    (jfbar cl-mpm/particle::mp-j-fbar)
-                   (def cl-mpm/particle:mp-deformation-gradient))
+                   (def cl-mpm/particle:mp-deformation-gradient)
+                   (pos cl-mpm/particle:mp-position)
+                   )
       mp
-    (let* (
-           (df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
-                                                 0d0 0d0 1d0)))
-           ;; (df (magicl:.+ (magicl:eye 3) stretch-tensor))
-           )
+                                                 0d0 0d0 1d0))))
       (magicl:.+ df stretch-tensor df)
-      ;#+cl-mpm-fbar (progn
-      ;                (magicl:scale! df (expt (/ jfbar (magicl:det df)) (/ 1d0 2d0))))
-      (let ((j-inc (magicl:det df))
-            (j-n (magicl:det def))
-            (j-n1 0d0)
-            )
+      ;; #+cl-mpm-fbar
+      (progn
         (when fbar
-          (iterate-over-neighbours
-           mesh mp
-           (lambda (mesh mp node svp grads f fb)
-             (with-accessors ((node-active cl-mpm/mesh:node-active)
-                              (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                              (node-volume cl-mpm/mesh::node-volume)
-                              ;; (node-lock cl-mpm/mesh::node-lock)
-                              )
-                 node
-               (when node-active
-                 ;; (sb-thread:with-mutex (node-lock))
-                 ;; (incf j-n1 (/ (* svp node-j-inc) node-volume))
-                 (incf j-n1 (* svp node-j-inc))
-                 ))))
-          ;; (break)
-          (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
-            (error "Negative volume"))
-          ;; (when (> (/ j-n1 (* j-n j-inc)) 1d3)
-          ;;   ()
-          ;;   ;; (break)
-          ;;   )
-          ;; (format t "~A~%" (/ j-n1 (* j-n j-inc)))
-          (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
-            (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 nd)))
+          (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                                            0d0 1d0 0d0
+                                                            0d0 0d0 1d0)))
+                 (nd (cl-mpm/mesh::mesh-nd mesh)))
+            (magicl:.+ df-fbar stretch-tensor-fbar df-fbar)
+            (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
+                  (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
+            (magicl:scale! df (expt
+                               (the double-float (/ (magicl:det df-fbar)
+                                                    (magicl:det df)))
+                               (the double-float (/ 1d0 (float nd)))))
             (when (= nd 2)
               (setf (magicl:tref df 2 2) 1d0))
-            )
-          ;; (magicl:scale! df (expt (/ j-n1 (* j-n j-inc)) (/ 1d0 3d0)))
-          ))
+            )))
+      ;; #-cl-mpm-fbar
+      ;; (when fbar
+      ;;   (let ((j-inc (magicl:det df))
+      ;;         (j-n (magicl:det def))
+      ;;         (j-n1 0d0)
+      ;;         (wsum 0d0)
+      ;;         )
+      ;;     (declare (double-float j-inc j-n j-n1))
+      ;;     (iterate-over-neighbours
+      ;;      mesh mp
+      ;;      (lambda (mesh mp node svp grads f fb)
+      ;;        (declare (ignore mesh mp  grads f fb))
+      ;;        (with-accessors ((node-active cl-mpm/mesh:node-active)
+      ;;                         (node-j-inc cl-mpm/mesh::node-jacobian-inc))
+      ;;            node
+      ;;          (declare (double-float svp node-j-inc))
+      ;;          (when node-active
+      ;;            (incf j-n1 (* svp node-j-inc))
+      ;;            (incf wsum svp)
+      ;;            ))))
+      ;;     (setf j-n1 (/ j-n1 wsum))
+      ;;     (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
+      ;;       (error "Negative volume"))
+      ;;     (let ((nd (cl-mpm/mesh:mesh-nd mesh))
+      ;;           (interp 1.0d0))
+      ;;       (magicl:scale! df
+      ;;                      (+ (- 1d0 interp) 
+      ;;                         (* interp
+      ;;                            (expt
+      ;;                             (the double-float (/ j-n1 (* j-n j-inc)))
+      ;;                             (the double-float (/ 1d0 (float nd)))))))
+      ;;       (when (= nd 2)
+      ;;         (setf (magicl:tref df 2 2) 1d0))
+      ;;       )
+      ;;     (setf (cl-mpm/particle::mp-debug-j mp) j-inc
+      ;;           (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df))
+      ;;     ))
       df)))
 (defgeneric post-stress-step (mesh mp dt))
 (defmethod post-stress-step (mesh mp dt)

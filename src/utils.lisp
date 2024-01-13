@@ -219,20 +219,7 @@
                       '(4 1) :type 'double-float)))
 
 (defun voight-to-stretch-3d (vec)
-  (let* ((exx (magicl:tref vec 0 0))
-         (eyy (magicl:tref vec 1 0))
-         (ezz (magicl:tref vec 2 0))
-         (exy (magicl:tref vec 3 0))
-         (eyx (magicl:tref vec 4 0))
-         (exz (magicl:tref vec 5 0))
-         (ezx (magicl:tref vec 6 0))
-         (ezy (magicl:tref vec 7 0))
-         (eyz (magicl:tref vec 8 0))
-         )
-    (magicl:from-list (list exx exy exz
-                            eyx eyy eyz
-                            ezx ezy ezz)
-                      '(3 3) :type 'double-float)))
+  (voight-to-stretch-prealloc vec (stretch-dsvp-3d-zeros)))
 
 (declaim
  (inline voight-to-stretch-prealloc)
