@@ -15,10 +15,10 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ))
 
@@ -78,8 +78,8 @@
                 ;; :E 1d9
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
-                :phi (* 30d0 (/ pi 180))
-                :c 1000d3
+                :phi (* 40d0 (/ pi 180))
+                :c 500d3
                 ;; :c 1d6
 
                 ;; 'cl-mpm/particle::particle-vm
@@ -99,7 +99,7 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d0)
@@ -188,11 +188,14 @@
                    (c cl-mpm/particle::mp-c))
       mp
     ;; (break)
-    (let ((rho_0 500d3)
-          (rho_1 0.02d3)
-          (soft 5d0))
-      (setf c (max rho_1
-                     (* rho_0 (exp (- (* soft ps)))))))
+    (let ((rho_0 200d3)
+          (rho_1 0.0002d3)
+          (soft 1d0))
+      (setf c (+ rho_1
+                 (* (- rho_0 rho_1) (exp (- (* soft ps))))))
+      ;; (setf c (max rho_1
+      ;;                (* rho_0 (exp (- (* soft ps))))))
+      )
     )
   )
 
@@ -223,11 +226,11 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
-         (shelf-aspect 2.0)
+         (shelf-aspect 1.0)
          (runout-aspect 1.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
