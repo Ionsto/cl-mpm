@@ -10,18 +10,20 @@
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(declaim (notinline plot))
 (defun plot (sim)
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ))
 
+(declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -58,28 +60,29 @@
                 ;; :rho 1d6
                 :enable-plasticity nil
 
-                :ft 200d3
-                :friction-angle 50d0
+                :ft 50d3
+                :fc 600d3
+                :friction-angle 40d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 2000d3
+                :initiation-stress 200d3
                 :delay-time 1d1
-                :ductility 5d0
+                :ductility 2d0
                 ;; :compression-ratio 8d0
 
 
                 :critical-damage 1.0d0;0.999d0
-                :local-length (* 0.1d0 (sqrt 7))
-                :local-length-damaged (* 0.1d0 (sqrt 7))
+                :local-length (* 1d0 (sqrt 7))
+                ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
-                ;; :local-length-damaged 10d-10
+                :local-length-damaged 10d-10
 
                 ;; 'cl-mpm/particle::particle-mc
                 ;; :E 1d9
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
                 :phi (* 40d0 (/ pi 180))
-                :c 500d3
+                :c 5000d3
                 ;; :c 1d6
 
                 ;; 'cl-mpm/particle::particle-vm
@@ -99,7 +102,7 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d0)
@@ -226,12 +229,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
-         (shelf-aspect 1.0)
-         (runout-aspect 1.00)
+         (shelf-aspect 2.0)
+         (runout-aspect 4.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -291,7 +294,7 @@
                                  ))
       )
 
-    (let ((notch-height 5d0))
+    (let ((notch-height 10d0))
       (cl-mpm/setup:remove-sdf *sim*
                                (lambda (p)
                                  (if t;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)

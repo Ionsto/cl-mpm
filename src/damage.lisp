@@ -1503,6 +1503,8 @@
                      (angle cl-mpm/particle::mp-friction-angle)
                      (c cl-mpm/particle::mp-coheasion)
                      (nu cl-mpm/particle::mp-nu)
+                     (ft cl-mpm/particle::mp-ft)
+                     (fc cl-mpm/particle::mp-fc)
                      ) mp
       (declare (double-float pressure damage))
         (progn
@@ -1513,9 +1515,9 @@
                        (j2 (cl-mpm/constitutive::voigt-j2
                                    (cl-mpm/utils::deviatoric-voigt cauchy-undamaged)))
                        (p (+ s_1 s_2 s_3))
-                       (s_1 (- s_1 pressure-effective))
-                       (s_2 (- s_2 pressure-effective))
-                       (s_3 (- s_3 pressure-effective))
+                       ;; (s_1 (- s_1 pressure-effective))
+                       ;; (s_2 (- s_2 pressure-effective))
+                       ;; (s_3 (- s_3 pressure-effective))
                        ;; (s_1 (max 0d0 s_1))
                        ;; (s_2 (max 0d0 s_2))
                        ;; (s_3 (max 0d0 s_3))
@@ -1524,7 +1526,8 @@
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
                        (angle (* angle (/ pi 180d0)))
-                       (ft 200d3)
+                       ;; (ft 200d3)
+                       ;; (fc 600d3)
                        ;; (fc 500d3)
                        ;; (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
                        ;; (fc (*
@@ -1545,6 +1548,7 @@
                        ;;       (+ (expt s_1 2)
                        ;;          (expt s_2 2)
                        ;;          (expt s_3 2))))
+
                        ;;Good drucker-prager
                        (s_1 (* (/ 3d0 (+ 3 (tan angle)))
                                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))

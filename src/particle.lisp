@@ -1453,6 +1453,10 @@
     :accessor mp-ft
     :initform 200d3
     :initarg :ft)
+   (fc
+    :accessor mp-fc
+    :initform 200d3
+    :initarg :fc)
    )
   (:documentation "A chalk damage model"))
 
@@ -1638,7 +1642,7 @@
         (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-3) damage)))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-6) damage)))
                                   )))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
