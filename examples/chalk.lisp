@@ -58,20 +58,20 @@
                 ;:nu 0.35d0
                 :nu 0.35d0
                 ;; :rho 1d6
-                :enable-plasticity nil
+                :enable-plasticity t
 
-                :ft 50d3
-                :fc 600d3
+                :ft 200d3
+                :fc 400d3
                 :friction-angle 50d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 100d3
+                :initiation-stress 200d3
                 :delay-time 1d1
-                :ductility 10d0
+                :ductility 100d0
                 ;; :compression-ratio 8d0
 
 
-                :critical-damage 1.0d0;0.999d0
+                :critical-damage 0.5d0;0.999d0
                 :local-length (* 1d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
@@ -81,8 +81,8 @@
                 ;; :E 1d9
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
-                :phi (* 20d0 (/ pi 180))
-                :c 10000d3
+                :phi (* 40d0 (/ pi 180))
+                :c 1000d3
                 ;; :c 1d6
 
                 ;; 'cl-mpm/particle::particle-vm
@@ -206,11 +206,11 @@
   (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
                    (c cl-mpm/particle::mp-rho))
       mp
-    (let ((rho_0 1d5)
-          (rho_1 0.0100d6)
-          (soft 5d1))
-      (setf c (max rho_1
-                   (* rho_0 (exp (- (* soft ps)))))))
+    ;; (let ((rho_0 1d5)
+    ;;       (rho_1 0.0100d6)
+    ;;       (soft 5d1))
+    ;;   (setf c (max rho_1
+    ;;                (* rho_0 (exp (- (* soft ps)))))))
     )
   )
 
@@ -229,12 +229,12 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 10)
-         (mps-per-cell 4)
-         (shelf-height 60)
-         (soil-boundary 20)
-         (shelf-aspect 1.0)
-         (runout-aspect 5.00)
+  (let* ((mesh-size 5)
+         (mps-per-cell 2)
+         (shelf-height 100)
+         (soil-boundary 10)
+         (shelf-aspect 2)
+         (runout-aspect 2.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -294,7 +294,8 @@
                                  ))
       )
 
-    ((let ((notch-height 0d0))
+   
+     (let ((notch-height 0d0))
        (cl-mpm/setup:remove-sdf *sim*
                                 (lambda (p)
                                   (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
@@ -308,7 +309,7 @@
 
      (setf cl-mpm::*max-split-depth* 2)
 
-     ;; (let ((ratio 0.5d0))
+     ;; (let ((ratio 1.0d0))
      ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
      ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
      ;;                                                                        (magicl:tref p 1 0)) '(2 1))
@@ -402,13 +403,13 @@
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 1d0)
+         (collapse-target-time 0.1d0)
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (settle-steps 1)
-         (damp-steps 1)
+         (settle-steps 10)
+         (damp-steps 5)
          )
     (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
                                                *sim*
@@ -456,12 +457,12 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 (* 0d-3 ms))))
+                                 (* 1d-3 ms))))
                        (when (>= steps settle-steps)
                            (setf (cl-mpm::sim-enable-damage *sim*) t)
                            (cl-mpm::iterate-over-mps
                             (cl-mpm:sim-mps *sim*)
-                            (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
+                            (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
 
                          (if (and
                               ;; t

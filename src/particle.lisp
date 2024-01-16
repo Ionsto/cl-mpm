@@ -1604,16 +1604,7 @@
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-<<<<<<< HEAD
               (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
-
-=======
-
-              (cl-mpm/constitutive::vm-plastic stress-u
-                                               de
-                                               strain
-                                               coheasion)
->>>>>>> 53b1b1fed35d9da09be220dd72b39fcfb09426a8
               ;; (cl-mpm/constitutive::mc-plastic stress-u de strain
               ;;                                  E
               ;;                                  nu
@@ -1651,7 +1642,7 @@
         (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 0d-3) damage)))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-6) damage)))
                                   )))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1682,12 +1673,12 @@
         ;; ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
         ;; ;;                           (magicl:scale! s (max 1d-6 degredation))
         ;; ;;                           )))
-        (magicl:.+
-         stress
-         (magicl:scale! (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle::mp-eng-strain-rate mp))
-                        (* damage -1d6))
-         stress
-         )
+        ;; (magicl:.+
+        ;;  stress
+        ;;  (magicl:scale! (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle::mp-eng-strain-rate mp))
+        ;;                 (* damage -1d6))
+        ;;  stress
+        ;;  )
       ))
     ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
     ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
