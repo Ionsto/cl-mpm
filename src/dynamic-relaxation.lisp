@@ -44,10 +44,10 @@
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
-    (setf *full-load* (list)
-          *full-step* (list)
-          *full-energy* (list)
-          )
+    ;; (setf *full-load* (list)
+    ;;       *full-step* (list)
+    ;;       *full-energy* (list)
+    ;;       )
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
@@ -57,17 +57,17 @@
             do
                (progn
                  (dotimes (j substeps)
-                   (push
-                    ;; (get-reaction-force *fixed-nodes*)
-                    cl-mpm/penalty::*debug-force*
-                    *full-load*)
-                   (push
-                    (estimate-energy-norm sim)
-                    *full-energy*)
-                   (push
-                    total-step
-                    *full-step*)
-                   (incf total-step)
+                   ;; (push
+                   ;;  ;; (get-reaction-force *fixed-nodes*)
+                   ;;  cl-mpm/penalty::*debug-force*
+                   ;;  *full-load*)
+                   ;; (push
+                   ;;  (estimate-energy-norm sim)
+                   ;;  *full-energy*)
+                   ;; (push
+                   ;;  total-step
+                   ;;  *full-step*)
+                   ;; (incf total-step)
 
                    ;; (push
                    ;;  (get-reaction-force *fixed-nodes*)

@@ -473,6 +473,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/dynamic-relaxation"
+               "parse-float"
                "vgplot"
                "swank.live")
   :serial t

@@ -1583,7 +1583,6 @@
                    (pos mp-position)
                    (calc-pressure mp-pressure-func)
                    (coheasion mp-c)
-                   (friction-angle mp-phi)
                    (ps-vm mp-strain-plastic-vm)
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
@@ -1605,12 +1604,14 @@
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-              (cl-mpm/constitutive::mc-plastic stress-u de strain
-                                               E
-                                               nu
-                                               phi
-                                               psi
-                                               coheasion)
+              (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
+
+              ;; (cl-mpm/constitutive::mc-plastic stress-u de strain
+              ;;                                  E
+              ;;                                  nu
+              ;;                                  phi
+              ;;                                  psi
+              ;;                                  coheasion)
             (setf stress
                   sig
                   plastic-strain (magicl:.- strain eps-e)
@@ -1642,7 +1643,7 @@
         (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-6) damage)))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 0d-3) damage)))
                                   )))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1668,12 +1669,23 @@
                    (magicl:from-diag l :type 'double-float)
                    (magicl:transpose v)))
                  j)))
-        ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-        ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-        ;;                           (magicl:scale! s (max 1d-6 degredation))
-        ;;                           )))
-        ))
+        ;; ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+        ;; ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        ;; ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+        ;; ;;                           (magicl:scale! s (max 1d-6 degredation))
+        ;; ;;                           )))
+        (magicl:.+
+         stress
+         (magicl:scale! (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle::mp-eng-strain-rate mp))
+                        (* damage -1d6))
+         stress
+         )
+      ))
+    ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+    ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+    ;;   (setf stress (cl-mpm/constitutive::voight-eye p)))
+
+    
     ;; (magicl:.+
     ;;  stress
     ;;  (objectify-stress-logspin
