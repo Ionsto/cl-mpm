@@ -294,43 +294,43 @@
                                  ))
       )
 
-    (let ((notch-height 00d0))
-      (cl-mpm/setup:remove-sdf *sim*
-                               (lambda (p)
-                                 (if t;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
-                                     (funcall
-                                      (cl-mpm/setup::rectangle-sdf
-                                       (list shelf-length (+ notch-height soil-boundary))
-                                       (list (* 2d0 notch-height) notch-height)
-                                       ) p)
-                                     1d0)
-                                 )))
+    ((let ((notch-height 0d0))
+       (cl-mpm/setup:remove-sdf *sim*
+                                (lambda (p)
+                                  (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+                                      (funcall
+                                       (cl-mpm/setup::rectangle-sdf
+                                        (list shelf-length (+ notch-height soil-boundary))
+                                        (list (* 2d0 notch-height) notch-height)
+                                        ) p)
+                                      1d0)
+                                  )))
 
-    (setf cl-mpm::*max-split-depth* 2)
+     (setf cl-mpm::*max-split-depth* 2)
 
-    ;; (let ((ratio 0.5d0))
-    ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
-    ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
-    ;;                                                                        (magicl:tref p 1 0)) '(2 1))
-    ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
-    ;;                                                (list shelf-length soil-boundary)
-    ;;                                                10d0
-    ;;                                                )) 1.0d0))
-    )
-  ;; (let ((upper-random-bound 0.8d0))
-  ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
-  ;;         do (setf (cl-mpm/particle::mp-damage mp)
-  ;;                  (reduce #'*
-  ;;                          (loop for i from 0 to 2
-  ;;                                collect (random upper-random-bound))))))
-  (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
-  (defparameter *run-sim* t)
-  (defparameter *t* 0)
-  (defparameter *oobf* 0)
-  (defparameter *energy* 0)
-  (defparameter *sim-step* 0))
+     ;; (let ((ratio 0.5d0))
+     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
+     ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
+     ;;                                                                        (magicl:tref p 1 0)) '(2 1))
+     ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
+     ;;                                                (list shelf-length soil-boundary)
+     ;;                                                10d0
+     ;;                                                )) 1.0d0))
+     )
+    ;; (let ((upper-random-bound 0.8d0))
+    ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;         do (setf (cl-mpm/particle::mp-damage mp)
+    ;;                  (reduce #'*
+    ;;                          (loop for i from 0 to 2
+    ;;                                collect (random upper-random-bound))))))
+    (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
+    (defparameter *run-sim* t)
+    (defparameter *t* 0)
+    (defparameter *oobf* 0)
+    (defparameter *energy* 0)
+    (defparameter *sim-step* 0))
 
 (defgeneric estimate-energy-crit (sim))
 
