@@ -65,9 +65,9 @@
                 :friction-angle 40d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 200d3
-                :delay-time 1d1
-                :ductility 2d0
+                :initiation-stress 500d3
+                :delay-time 1d0
+                :ductility 100d0
                 ;; :compression-ratio 8d0
 
 
@@ -81,8 +81,8 @@
                 ;; :E 1d9
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
-                :phi (* 40d0 (/ pi 180))
-                :c 5000d3
+                :phi (* 60d0 (/ pi 180))
+                :c 500000d3
                 ;; :c 1d6
 
                 ;; 'cl-mpm/particle::particle-vm
@@ -102,7 +102,7 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d0)
@@ -294,7 +294,7 @@
                                  ))
       )
 
-    (let ((notch-height 10d0))
+    (let ((notch-height 0d0))
       (cl-mpm/setup:remove-sdf *sim*
                                (lambda (p)
                                  (if t;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
@@ -461,7 +461,7 @@
                            (setf (cl-mpm::sim-enable-damage *sim*) t)
                            (cl-mpm::iterate-over-mps
                             (cl-mpm:sim-mps *sim*)
-                            (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+                            (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
                          (if (and
                               ;; t

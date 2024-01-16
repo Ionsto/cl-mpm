@@ -811,8 +811,8 @@
                 (setf eps-e (magicl:@ Ce sig))
 
                 (setf f (mc-yield-func sig phi c))
-                ;; (when (> f (* 2 tol))
-                ;;   (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
+                (when (> f (* 2 tol))
+                  (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
 
                 (let ((pad-eps (magicl:block-matrix (list eps-e
                                                           (cl-mpm/utils:vector-zeros))

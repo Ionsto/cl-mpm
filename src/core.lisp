@@ -1326,7 +1326,7 @@ Calls func with only the node"
           (magicl:scale! strain-rate 0d0)
           (magicl:scale! vorticity 0d0)
           (magicl:scale! stretch-tensor 0d0)
-          #+cl-mpm-fbar (magicl:scale! stretch-tensor-fbar 0d0)
+          (magicl:scale! stretch-tensor-fbar 0d0)
           (let ((stretch-dsvp (stretch-dsvp-3d-zeros))
                 (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
                 (temp-add (cl-mpm/utils::matrix-zeros))
@@ -1491,7 +1491,7 @@ Calls func with only the node"
 
           ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
-          ;; (update-domain-stretch-rate df domain)
+          (update-domain-stretch-rate df domain)
           ;;   ;; (update-domain-stretch def domain domain-0)
             ;; (update-domain-corner mesh mp dt)
           ;;   )
