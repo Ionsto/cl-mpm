@@ -1652,10 +1652,10 @@
                    (let* ((sii (nth i l)))
                      (when (> sii 0d0)
                        ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-3) damage)) 2))))
-                     (when (< sii 0d0)
-                       ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-1) damage)))))
+                       (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-6) damage)) 2))))
+                     ;; (when (< sii 0d0)
+                     ;;   ;;tensile damage -> unbounded
+                     ;;   (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-1) damage)))))
                      ;; (when (< sii 1d0)
                      ;;   ;;bounded compressive damage
                      ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))

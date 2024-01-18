@@ -65,7 +65,7 @@
 
                 :ft 200d3
                 :fc 500d3
-                :friction-angle 50d0
+                :friction-angle 60d0
 
                 :fracture-energy 3000d0
                 :initiation-stress 200d3
@@ -236,7 +236,7 @@
          (shelf-height 100)
          (soil-boundary 20)
          (shelf-aspect 2)
-         (runout-aspect 2.00)
+         (runout-aspect 8.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))
@@ -405,7 +405,7 @@
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 0.1d0)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -685,7 +685,6 @@
       )))
 
 
-(test-mc 0.691d0 -0.809d0 0.771d0 0.671d0 0.932d0 0.206d0)
 
 
 (defun plot-stress-damage ()
