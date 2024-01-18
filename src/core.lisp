@@ -1489,7 +1489,7 @@ Calls func with only the node"
 
           ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
-          ;; (update-domain-stretch-rate df domain)
+          (update-domain-stretch-rate df domain)
           ;;   ;; (update-domain-stretch def domain domain-0)
             ;; (update-domain-corner mesh mp dt)
           ;;   )
@@ -1893,7 +1893,7 @@ Calls func with only the node"
         (t nil)
         ))))
 
-(defparameter *max-split-depth* 3)
+(defparameter *max-split-depth* 1)
 (defun split-criteria (mp h)
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)

@@ -1636,39 +1636,39 @@
         ;;                         (magicl:scale! s (max 1d-9 degredation))
         ;;                         ))
         ;; (let ((p (cl-mpm/utils::trace-voigt stress)))
-          ;; (magicl:scale! stress
-          ;;                (expt (- 1d0 (* (- 1d0 1d-6) damage)) 2d0))
+          (magicl:scale! stress
+                         (expt (- 1d0 (* (- 1d0 1d-6) damage)) 2d0))
         ;)
 
-        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-6) damage)))
-                                  )))
-        (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-          (loop for i from 0 to 2
-                do
-                   (let* ((sii (nth i l)))
-                     (when (> sii 0d0)
-                       ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-3) damage)) 2))))
-                     (when (< sii 0d0)
-                       ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-1) damage)))))
-                     ;; (when (< sii 1d0)
-                     ;;   ;;bounded compressive damage
-                     ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
-                     )
-                )
-          (setf stress
-                (magicl:scale!
-                 (matrix-to-voight
-                  (magicl:@
-                   v
-                   (magicl:from-diag l :type 'double-float)
-                   (magicl:transpose v)))
-                 j)))
+        ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+        ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+        ;;                           (magicl:scale! s (- 1d0 (* (- 1d0 1d-3) damage)))
+        ;;                           )))
+        ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
+        ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+        ;;   (loop for i from 0 to 2
+        ;;         do
+        ;;            (let* ((sii (nth i l)))
+        ;;              (when (> sii 0d0)
+        ;;                ;;tensile damage -> unbounded
+        ;;                (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-3) damage)) 2))))
+        ;;              (when (< sii 0d0)
+        ;;                ;;tensile damage -> unbounded
+        ;;                (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-1) damage)))))
+        ;;              ;; (when (< sii 1d0)
+        ;;              ;;   ;;bounded compressive damage
+        ;;              ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
+        ;;              )
+        ;;         )
+        ;;   (setf stress
+        ;;         (magicl:scale!
+        ;;          (matrix-to-voight
+        ;;           (magicl:@
+        ;;            v
+        ;;            (magicl:from-diag l :type 'double-float)
+        ;;            (magicl:transpose v)))
+        ;;          j)))
         ;; ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
         ;; ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         ;; ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
@@ -1734,11 +1734,6 @@
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
                    (damage-tensor mp-damage-tensor)
-                   (E mp-E)
-                   (nu mp-nu)
-                   (coheasion mp-c)
-                   (phi mp-phi)
-                   (psi mp-psi)
                    )
       mp
     (declare (function calc-pressure))
@@ -1748,15 +1743,12 @@
     ;; (call-next-method)
 
     (if enable-plasticity
-        (progn
-          (multiple-value-bind (sig eps-e f)
-              ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
-            (cl-mpm/constitutive::mc-plastic stress-u de strain
-                                             E
-                                             nu
-                                             phi
-                                             psi
-                                             coheasion)
+        (let* ((rho_0 rho)
+               (rho_1 rho_0)
+               (rho-d (+ rho_1 (* (- rho_0 rho_1) (- 1d0 damage))))
+               ;; (rho-d rho_0)
+               )
+          (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress-u de strain rho)
             (setf stress
                   sig
                   plastic-strain (magicl:.- strain eps-e)
@@ -1775,50 +1767,25 @@
                            ) 2d0))))))
         (setf stress (magicl:scale stress-u 1d0))
         )
-    ;; (setf stress (magicl:scale stress-u 1d0))
     (when (> damage 0.0d0)
       (let* ((j (magicl:det def))
              (degredation (expt (- 1d0 damage) 1d0))
              (min-strength 1d-6)
              )
 
-        (let* ((min-damage (- 1d0 0d-6))
-               (d1 (* min-damage (magicl:tref damage-tensor 0 0)))
-               (d2 (* min-damage (magicl:tref damage-tensor 1 1)))
-               (d3 (* min-damage (magicl:tref damage-tensor 2 2)))
+        (let* ((d1 (magicl:tref damage-tensor 0 0))
+               (d2 (magicl:tref damage-tensor 1 1))
+               (d3 (magicl:tref damage-tensor 2 2))
                (d11 (- 1d0 d1))
                (d22 (- 1d0 d2))
                (d33 (- 1d0 d3))
-               (d12 (sqrt (* d11 d22)))
-               (d13 (sqrt (* d11 d33)))
-               (d23 (sqrt (* d22 d33)))
-               (g12 d12)
-               (g13 d13)
-               (g23 d23)
-               (damage-effect (cl-mpm/utils:tensor-voigt-4th-from-list
-                               (list
-                                d11 d12 d13 0d0 0d0 0d0
-                                d12 d22 d23 0d0 0d0 0d0
-                                d13 d23 d33 0d0 0d0 0d0
-                                0d0 0d0 0d0 g23 0d0 0d0
-                                0d0 0d0 0d0 0d0 g13 0d0
-                                0d0 0d0 0d0 0d0 0d0 g12
-                                )))
-               (new-de (magicl:.* damage-effect de))
-               )
-          ;; (pprint de)
-          ;; (pprint new-de)
-          ;; (pprint stress)
-          (setf stress (magicl:@ new-de strain))
-          ;; (pprint stress)
-          ;; (break)
-          )
+               ))
 
-        ;; (let* ((b (magicl:.-
-        ;;            (magicl:from-diag (list 1d0 1d0 1d0) '(3 3))
-        ;;           damage-tensor))
-        ;;        (bsqrt (matrix-sqrt b)))
-        ;;   )
+        (let* ((b (magicl:.-
+                   (magicl:from-diag (list 1d0 1d0 1d0) '(3 3))
+                  damage-tensor))
+               (bsqrt (matrix-sqrt b)))
+          )
         ;; (multiple-value-bind (l v)
         ;;     (cl-mpm/utils:eig damage-tensor)
         ;;   (let* ((d1 (- 1d0 (nth 0 l)))

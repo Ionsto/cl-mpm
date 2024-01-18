@@ -1170,22 +1170,22 @@
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
                                            (cl-mpm/particle::mp-damage-y-local mp)
                                            0d0))
-        ;; (cl-mpm/output::save-parameter "damage-xx"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 0 0)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-yy"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 1 1)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-y-xx"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 0 0)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-y-yy"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 1 1)
-        ;;                                    0d0))
+        (cl-mpm/output::save-parameter "damage-xx"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 0 0)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-yy"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 1 1)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-y-xx"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 0 0)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-y-yy"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
+                                           (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 1 1)
+                                           0d0))
         (cl-mpm/output::save-parameter "damage-k"
                                        (if (slot-exists-p mp 'cl-mpm/particle::history-stress)
                                            (cl-mpm/particle::mp-history-stress mp)
@@ -1550,21 +1550,21 @@
                        ;;          (expt s_3 2))))
 
                        ;;Good drucker-prager
-                       ;; (s_1 (* (/ 3d0 (+ 3 (tan angle)))
-                       ;;         (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                       (s_1 (* (/ 3d0 (+ 3 (tan angle)))
+                               (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
 
                        ;; (s_1 (+ (sqrt j2) (- (* B p) A)))
                        ;; (s_1 j2)
 
-                       (k (/ fc ft))
-                       (i1 (+ s_1 s_2 s_3))
-                       (k-factor (/ (- k 1d0)
-                                    (- 1d0 (* 2d0 nu))))
-                       (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                               (* (/ 1d0 (* 2d0 k))
-                                  (sqrt (+ (expt (* k-factor i1) 2)
-                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                                           )))))
+                       ;; (k (/ fc ft))
+                       ;; (i1 (+ s_1 s_2 s_3))
+                       ;; (k-factor (/ (- k 1d0)
+                       ;;              (- 1d0 (* 2d0 nu))))
+                       ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                       ;;         (* (/ 1d0 (* 2d0 k))
+                       ;;            (sqrt (+ (expt (* k-factor i1) 2)
+                       ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                       ;;                     )))))
                        )
                   ;; (setf damage-increment s_1)
                   (when (> s_1 0d0)
@@ -1753,29 +1753,35 @@
           (magicl:scale! ybar-tensor 0d0)
           (when (< damage 1d0)
             (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
-                  (cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
+                  (cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def))))
+                  (anisotropicity 0.0d0)
+                  )
               (multiple-value-bind (ls v) (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix cauchy-undamaged))
-                (loop for i from 0 to 2
-                      do
-                         (let* ((sii (nth i ls))
-                                (vii (magicl::column v i))
-                                (vsi (magicl:@ vii (magicl:transpose vii)))
-                                (dii (magicl::trace (magicl:@ damage-tensor vsi)))
-                                )
-                           (when (< sii 0d0)
-                             (setf sii 0d0))
-                           ;; (when (> sii 0d0)
-                           ;;   (setf sii damage-inc))
-                           (let* ((new-damage (damage-response-exponential sii E Gf length init-stress ductility))
-                                  (damage-increment ;(- (max dii new-damage) dii)
-                                                    (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii))))))))
+                (let ((l-y (mapcar (lambda (sii) (if (> sii 0d0)
+                                                     damage-inc
+                                                     0d0)) ls)))
+                  (loop for i from 0 to 2
+                        do
+                           (let* ((sii (+ (* (- 1d0 anisotropicity) (nth i l-y))
+                                          (reduce #'+ (mapcar (lambda (z) (* z anisotropicity (/ 1d0 3d0))) l-y))))
+                                  (vii (magicl::column v i))
+                                  (vsi (magicl:@ vii (magicl:transpose vii)))
+                                  (dii (magicl::trace (magicl:@ damage-tensor vsi)))
                                   )
-                             (magicl:.+ ybar-tensor
-                                        (magicl:scale vsi sii)
-                                        ybar-tensor)
-                             (magicl:.+ damage-inc-mat
-                                        (magicl:scale vsi damage-increment)
-                                        damage-inc-mat)))))
+                             ;; (setf sii ybar)
+                             ;; (when (< sii 0d0)
+                             ;;   (setf sii 0d0))
+                             ;; (when (> sii 0d0)
+                             ;;   (setf sii damage-inc))
+                             (let* ((new-damage (damage-response-exponential sii E Gf length init-stress ductility))
+                                    (damage-increment ;(- (max dii new-damage) dii)
+                                      (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii)))))))))
+                               (magicl:.+ ybar-tensor
+                                          (magicl:scale vsi sii)
+                                          ybar-tensor)
+                               (magicl:.+ damage-inc-mat
+                                          (magicl:scale vsi damage-increment)
+                                          damage-inc-mat))))))
               ;; (break)
               (let ((omega (magicl:scale! (magicl:.- D (magicl:transpose D)) 0.5d0))
                     )

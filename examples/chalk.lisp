@@ -3,8 +3,7 @@
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'speed  3 3) (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
@@ -58,21 +57,20 @@
                 ;:nu 0.35d0
                 :nu 0.35d0
                 ;; :rho 1d6
-                :enable-plasticity t
+                :enable-plasticity nil
 
                 :ft 200d3
-                :fc 400d3
-                :friction-angle 50d0
+                :fc 500d3
+                :friction-angle 40d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 200d3
+                :initiation-stress 100d3
                 :delay-time 1d1
-                :ductility 100d0
+                :ductility 500d0
                 ;; :compression-ratio 8d0
 
-
-                :critical-damage 0.5d0;0.999d0
-                :local-length (* 1d0 (sqrt 7))
+                :critical-damage 1.0d0;0.999d0
+                :local-length (* 3d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 10d-10
@@ -102,8 +100,8 @@
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
       (let ((ms 1d4))
@@ -232,7 +230,7 @@
   (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
-         (soil-boundary 10)
+         (soil-boundary 20)
          (shelf-aspect 2)
          (runout-aspect 2.00)
          (shelf-length (* shelf-height shelf-aspect))
@@ -295,7 +293,7 @@
       )
 
    
-     (let ((notch-height 0d0))
+     (let ((notch-height 5d0))
        (cl-mpm/setup:remove-sdf *sim*
                                 (lambda (p)
                                   (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
@@ -307,7 +305,7 @@
                                       1d0)
                                   )))
 
-     (setf cl-mpm::*max-split-depth* 2)
+     (setf cl-mpm::*max-split-depth* 0)
 
      ;; (let ((ratio 1.0d0))
      ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
@@ -407,13 +405,15 @@
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 1d0)
+         (dt-scale 0.5d0)
          (settle-steps 10)
          (damp-steps 5)
          )
     (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
                                                *sim*
-                                               (list :dt target-time))
+                               
+
+                (list :dt target-time))
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)
@@ -457,7 +457,7 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 (* 1d-3 ms))))
+                                 (* 0d-3 ms))))
                        (when (>= steps settle-steps)
                            (setf (cl-mpm::sim-enable-damage *sim*) t)
                            (cl-mpm::iterate-over-mps

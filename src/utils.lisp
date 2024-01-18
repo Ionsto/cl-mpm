@@ -3,10 +3,12 @@
   (:export
    #:voigt-zeros
    #:matrix-zeros
+   #:tensor-voigt-4th-zeros
    #:stretch-dsvp-zeros
    #:stretch-dsvp-3d-zeros
    #:voigt-from-list
    #:matrix-from-list
+   #:tensor-voigt-4th-from-list
    #:matrix-to-voight
    #:voight-to-matrix
    #:voight-to-stretch
@@ -65,6 +67,13 @@
 (defun matrix-zeros ()
   "Make a stress matrix 3x3 of zeros"
   (magicl::make-matrix/double-float 3 3 9 :column-major (make-array 9 :element-type 'double-float)))
+
+(declaim (inline matrix-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) matrix-zeros))
+(defun tensor-voigt-4th-zeros ()
+  "Make a stress matrix 3x3 of zeros"
+  (magicl::make-matrix/double-float 6 6 36 :column-major (make-array 36 :element-type 'double-float)))
 
 (declaim (inline matrix-copy)
          (ftype (function (magicl:matrix/double-float)
@@ -130,6 +139,15 @@
 (defun matrix-from-list (elements)
   (magicl::make-matrix/double-float 3 3 9 :column-major
                                     (make-array 9 :element-type 'double-float :initial-contents elements)))
+
+(declaim (inline tensor-voigt-4th-zeros)
+         (ftype (function (list)
+                          magicl:matrix/double-float) tensor-voigt-4th-from-list))
+(defun tensor-voigt-4th-from-list (elements)
+  "Make a stress matrix 3x3 of zeros"
+  (magicl::make-matrix/double-float 6 6 36 :column-major (make-array 36 :element-type 'double-float
+                                                                        :initial-contents elements
+                                                                     )))
 
 
 (declaim (inline matrix-to-voight)
