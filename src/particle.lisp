@@ -1604,13 +1604,13 @@
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-              (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
-              ;; (cl-mpm/constitutive::mc-plastic stress-u de strain
-              ;;                                  E
-              ;;                                  nu
-              ;;                                  phi
-              ;;                                  psi
-              ;;                                  coheasion)
+              ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
+              (cl-mpm/constitutive::mc-plastic stress-u de strain
+                                               E
+                                               nu
+                                               phi
+                                               psi
+                                               coheasion)
             (setf stress
                   sig
                   plastic-strain (magicl:.- strain eps-e)

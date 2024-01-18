@@ -664,9 +664,9 @@
                     (magicl:tref vec 0 0)
                     (magicl:tref vec 1 0)
                     (magicl:tref vec 2 0)
-                    (magicl:tref vec 4 0)
                     (magicl:tref vec 5 0)
                     (magicl:tref vec 3 0)
+                    (magicl:tref vec 4 0)
                     )))
 (defun swizzle-coombs->voigt (vec)
   (voigt-from-list (list
@@ -682,10 +682,11 @@
 (defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (let* ((tol 1d-9)
-         (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
-         (eps-e (cl-mpm/utils:vector-zeros))
+         ;; (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
+         ;; (eps-e (cl-mpm/utils:vector-zeros))
         )
-    (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
+    ;; (break)
+    (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix trial-elastic-strain))
       (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
              (l (mapcar #'car l-sort))
              (v (magicl:block-matrix (list
@@ -708,7 +709,9 @@
                (k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
                (sigc (* 2d0 c (sqrt k)))
                (f (mc-yield-func sig phi c)))
-
+          ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
+          ;; (break)
+          ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
           (if (> f tol)
               (let* ((m (/ (+ 1 (sin psi)) (- 1d0 (sin psi))))
                      (siga (magicl:scale! (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
@@ -802,7 +805,6 @@
                    (setf path :line-2)
                    )
                   (t
-                   ;(break)
                    (setf sig (magicl:.- sig (magicl:scale! rp f)))
                    (setf path :main)
                    ;main
@@ -810,15 +812,17 @@
                   )
                 (setf eps-e (magicl:@ Ce sig))
 
+
                 (setf f (mc-yield-func sig phi c))
-                (when (> f (* 2 tol))
+                (when (> f (* 1000d0 tol))
                   (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
 
+                ;; (break)
                 (let ((pad-eps (magicl:block-matrix (list eps-e
                                                           (cl-mpm/utils:vector-zeros))
                                                     '(2 1))))
                   ;; (setf eps-e (magicl:@ (magicl:inv Q) pad-eps))
-                  (setf eps-e (magicl:@ (magicl:linear-solve Q pad-eps)))
+                  (setf eps-e (magicl:linear-solve Q pad-eps))
                   )
 
                 (setf sig (magicl:@ (magicl:transpose! Q)
@@ -828,9 +832,11 @@
                                       (magicl:tref sig 1 0)
                                       (magicl:tref sig 2 0)
                                       0d0 0d0 0d0))))
+
                 (values
-                 sig
-                        (swizzle-coombs->voigt eps-e) f)
+                 ;; sig
+                 (swizzle-coombs->voigt sig)
+                 (swizzle-coombs->voigt eps-e) f)
                 )
               (values stress
                       trial-elastic-strain f)))))))

@@ -1,13 +1,17 @@
 (defpackage :cl-mpm/examples/chalk
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3) (sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
+
+;; (defmethod print-object ((object magicl:matrix) stream)
+;;   (pprint object stream))
 
 (declaim (notinline plot))
 (defun plot (sim)
@@ -61,10 +65,10 @@
 
                 :ft 200d3
                 :fc 500d3
-                :friction-angle 40d0
+                :friction-angle 50d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 100d3
+                :initiation-stress 200d3
                 :delay-time 1d1
                 :ductility 500d0
                 ;; :compression-ratio 8d0
@@ -80,7 +84,7 @@
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
                 :phi (* 40d0 (/ pi 180))
-                :c 1000d3
+                :c 500d3
                 ;; :c 1d6
 
                 ;; 'cl-mpm/particle::particle-vm
@@ -227,7 +231,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
@@ -405,7 +409,7 @@
          (collapse-mass-scale 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 1.0d0)
          (settle-steps 10)
          (damp-steps 5)
          )
@@ -636,16 +640,52 @@
 
 
 (defun test-mc (exx eyy ezz eyz ezx exy)
-  (let* ((eps (cl-mpm/utils:voigt-from-list (list exx eyy ezz eyz ezx exy)))
+  (let* ((eps (cl-mpm/constitutive::swizzle-coombs->voigt
+               (cl-mpm/utils:voigt-from-list (list exx eyy ezz eyz ezx exy))))
          (E 1d0)
          (nu 0.0d0)
-         (angle 0.1d0)
-         (c 1d0)
+         (angle 0.0d0)
+         (c 0d0)
          (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
          (sig (magicl:@ de eps)))
-    (pprint (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c))))
+    (multiple-value-bind (sig eps f) (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c)
+      (pprint (cl-mpm/constitutive::swizzle-voigt->coombs sig))
+      (pprint (cl-mpm/constitutive::swizzle-voigt->coombs eps))
+      (pprint (cl-mpm/utils:vector-from-list (multiple-value-list (cl-mpm/damage::principal-stresses-3d sig))))
+      (format t "Recalculated f ~E~%" (cl-mpm/constitutive::mc-yield-func (cl-mpm/utils:vector-from-list (multiple-value-list (cl-mpm/damage::principal-stresses-3d sig))) angle c))
+      )
+    ))
+
+(defun test-mc-random ()
+  (dotimes (i 1000)
+    (let* ((eps (cl-mpm/utils:voigt-from-list (loop for i from 0 to 5
+                                                    collect (- (random 2d0) 1d0))))
+           (E 1d0)
+           (nu 0d0;; (random 0.0d0)
+               )
+           (angle 0d0
+                  ;; (random 0d0)
+                  )
+           (c 0d0;; (random 0.5d0)
+              )
+           (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+           (sig (magicl:@ de eps)))
+      (format t "Iter ~D~%" i)
+      (pprint eps)
+      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c)
+        (let ((actual-f (cl-mpm/constitutive::mc-yield-func (cl-mpm/utils:vector-from-list (multiple-value-list (cl-mpm/damage::principal-stresses-3d sig))) angle c)))
+            (when (> actual-f 1d-6)
+              (format t "MC f: ~E - actual f: ~E ~%" f actual-f)
+              ;; (pprint )
+              ;; (break)
+              (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c)
+              ))
+          )
+      ;; (pprint (cl-mpm/constitutive::mc-plastic sig de eps E nu angle angle c))
+      )))
 
 
+(test-mc 0.691d0 -0.809d0 0.771d0 0.671d0 0.932d0 0.206d0)
 
 
 (defun plot-stress-damage ()
