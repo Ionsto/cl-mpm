@@ -1490,7 +1490,7 @@ Calls func with only the node"
           (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
           ;; (update-domain-stretch-rate df domain)
-          ;;   ;; (update-domain-stretch def domain domain-0)
+            ;; (update-domain-stretch def domain domain-0)
             ;; (update-domain-corner mesh mp dt)
           ;;   )
 
@@ -1534,8 +1534,10 @@ Calls func with only the node"
   (declare (double-float damage))
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                               0d0 1d0 0d0
-                                              0d0 0d0 1d0))))
-    (magicl:.+ df (magicl:scale stretch-rate (- 1d0 (* (- 1d0 0.1d0) damage))) df)
+                                              0d0 0d0 1d0)))
+        (degredation (- 1d0 (* (- 1d0 0.5d0) damage)))
+        )
+    (magicl:.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -1750,7 +1752,6 @@ Calls func with only the node"
             (when (= nd 2)
               (setf (magicl:tref df 2 2) 1d0))
             )))
-      ;; #-cl-mpm-fbar
       ;; (when fbar
       ;;   (let ((j-inc (magicl:det df))
       ;;         (j-n (magicl:det def))
@@ -1770,7 +1771,7 @@ Calls func with only the node"
       ;;            (incf j-n1 (* svp node-j-inc))
       ;;            (incf wsum svp)
       ;;            ))))
-      ;;     ;; (setf j-n1 (/ j-n1 wsum))
+      ;;     (setf j-n1 (/ j-n1 wsum))
       ;;     (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
       ;;       (error "Negative volume"))
       ;;     (let ((nd (cl-mpm/mesh:mesh-nd mesh)))

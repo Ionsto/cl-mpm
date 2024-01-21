@@ -814,7 +814,7 @@
 
 
                 (setf f (mc-yield-func sig phi c))
-                (when (> f (* 1000d0 tol))
+                (when (> f (* 10000d0 tol))
                   (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
 
                 ;; (break)

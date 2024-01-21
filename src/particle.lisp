@@ -1630,45 +1630,46 @@
         (setf stress (magicl:scale stress-u 1d0))
     (when (> damage 0.0d0)
       (let* ((j (magicl:det def))
-             (degredation (expt (- 1d0 damage) 2d0))
+             (exponential 2)
+             (degredation (expt (- 1d0 damage) 1d0))
              )
         ;; (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
         ;;                         (magicl:scale! s (max 1d-9 degredation))
         ;;                         ))
         ;; (let ((p (cl-mpm/utils::trace-voigt stress)))
-          ;; (magicl:scale! stress
-          ;;                (expt (- 1d0 (* (- 1d0 1d-6) damage)) 2d0))
+          (magicl:scale! stress
+                         (expt (- 1d0 (* (- 1d0 1d-3) damage)) 2d0))
         ;)
 
-        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-6) damage)))
-                                  )))
-        (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-          (loop for i from 0 to 2
-                do
-                   (let* ((sii (nth i l)))
-                     (when (> sii 0d0)
-                       ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-6) damage)) 2))))
-                     ;; (when (< sii 0d0)
-                     ;;   ;;tensile damage -> unbounded
-                     ;;   (setf (nth i l) (* sii (- 1d0 (* (- 1d0 1d-1) damage)))))
-                     ;; (when (< sii 1d0)
-                     ;;   ;;bounded compressive damage
-                     ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
-                     )
-                )
-          (setf stress
-                (magicl:scale!
-                 (matrix-to-voight
-                  (magicl:@
-                   v
-                   (magicl:from-diag l :type 'double-float)
-                   (magicl:transpose v)))
-                 j)))
+        ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+        ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+        ;;                           (magicl:scale! s (expt (- 1d0 (* (- 1d0 1d-2) damage)) exponential))
+        ;;                           )))
+        ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
+        ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+        ;;   (loop for i from 0 to 2
+        ;;         do
+        ;;            (let* ((sii (nth i l)))
+        ;;              (when (> sii 0d0)
+        ;;                ;;tensile damage -> unbounded
+        ;;                (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-9) damage)) exponential))))
+        ;;              (when (< sii 0d0)
+        ;;                ;;tensile damage -> unbounded
+        ;;                (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-1) damage)) exponential))))
+        ;;              ;; (when (< sii 1d0)
+        ;;              ;;   ;;bounded compressive damage
+        ;;              ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
+        ;;              )
+        ;;         )
+        ;;   (setf stress
+        ;;         (magicl:scale!
+        ;;          (matrix-to-voight
+        ;;           (magicl:@
+        ;;            v
+        ;;            (magicl:from-diag l :type 'double-float)
+        ;;            (magicl:transpose v)))
+        ;;          j)))
         ;; ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
         ;; ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         ;; ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
