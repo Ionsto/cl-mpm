@@ -67,13 +67,13 @@
                 :friction-angle 50d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 300d3
-                :delay-time 1d1
-                :ductility 10d0
+                :initiation-stress 200d3
+                :delay-time 1d0
+                :ductility 50d0
                 ;; :compression-ratio 8d0
 
                 :critical-damage 1.0d0;0.999d0
-                :local-length (* 3d0 (sqrt 7))
+                :local-length (* 1d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 10d-10
@@ -232,7 +232,7 @@
     ))
 
 (defun setup (&key (undercut 0d0))
-  (let* ((mesh-size 10)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
@@ -321,12 +321,12 @@
      ;;                                                10d0
      ;;                                                )) 1.0d0))
      )
-    (let ((upper-random-bound 0.5d0))
-      (loop for mp across (cl-mpm:sim-mps *sim*)
-            do (setf (cl-mpm/particle::mp-damage mp)
-                     (reduce #'*
-                             (loop for i from 0 to 2
-                                   collect (random upper-random-bound))))))
+    ;; (let ((upper-random-bound 0.5d0))
+    ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;         do (setf (cl-mpm/particle::mp-damage mp)
+    ;;                  (reduce #'*
+    ;;                          (loop for i from 0 to 2
+    ;;                                collect (random upper-random-bound))))))
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -406,7 +406,7 @@
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 1d1)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
@@ -467,7 +467,7 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 0d0
+                                 0d-2
                                  ;; 0d0
                                  ;(* 1d-1 ms)
                                  )))
@@ -479,8 +479,8 @@
 
                          (if (and
                               ;; t
-                              ;; (> energy-estimate 1d-1)
-                              nil
+                              (> energy-estimate 1d-1)
+                              ;; nil
                               )
                              (progn
                                (format t "Collapse timestep~%")

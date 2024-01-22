@@ -1652,8 +1652,8 @@ Calls func with only the node"
       (progn
       ;;   ;;For no FBAR we need to update our strains
           (progn
-            (unless fbar
-              (calculate-strain-rate mesh mp dt))
+            ;; (unless fbar)
+            (calculate-strain-rate mesh mp dt)
 
             ;; Turn cauchy stress to kirchoff
             (setf stress stress-kirchoff)
@@ -1800,11 +1800,11 @@ Calls func with only the node"
   "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
-  (when fbar
-    (lparallel:pdotimes (i (length mps))
-      (let ((mp (aref mps i)))
-        (calculate-strain-rate mesh mp dt)
-        (map-jacobian mesh mp dt))))
+  ;; (when fbar
+  ;;   (lparallel:pdotimes (i (length mps))
+  ;;     (let ((mp (aref mps i)))
+  ;;       (calculate-strain-rate mesh mp dt)
+  ;;       (map-jacobian mesh mp dt))))
   (lparallel:pdotimes (i (length mps))
     (update-stress-mp mesh (aref mps i) dt fbar)
     (post-stress-step mesh (aref mps i) dt)

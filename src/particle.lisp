@@ -1647,7 +1647,7 @@
         ;;                         ))
         ;; (let ((p (cl-mpm/utils::trace-voigt stress)))
           ;; (magicl:scale! stress
-          ;;                (expt (- 1d0 (* (- 1d0 1d-3) damage)) 2d0))
+          ;;                (expt (- 1d0 (* (- 1d0 1d-4) damage)) 1d0))
         ;)
 
         ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
@@ -1662,12 +1662,18 @@
                    (let* ((sii (nth i l)))
                      (when (> sii 0d0)
                        ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 1d-9) damage)) exponential))))
+                       (setf
+                        (nth i l)
+                        (* sii
+                           (- 1d0
+                              (* (- 1d0 1d-4) damage)))))
                      (when (< sii 0d0)
                        ;;tensile damage -> unbounded
-                       (setf (nth i l) (* sii (expt
-                                               (- 1d0 (* (- 1d0 1d-2)
-                                                              (expt damage 1))) exponential))))
+                       (setf
+                        (nth i l)
+                        (* sii
+                           (- 1d0 (* (- 1d0 1d-3)
+                                     (expt damage 1))))))
                      ;; (when (< sii 1d0)
                      ;;   ;;bounded compressive damage
                      ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
