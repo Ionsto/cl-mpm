@@ -232,11 +232,11 @@
     ))
 
 (defun setup (&key (undercut 0d0))
-  (let* ((mesh-size 2.5)
+  (let* ((mesh-size 5)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
-         (shelf-aspect 0.5)
+         (shelf-aspect 1.5)
          (runout-aspect 1.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
@@ -467,7 +467,7 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 1d1
+                                 1d0
                                  ;; 0d0
                                  ;(* 1d-1 ms)
                                  )))
