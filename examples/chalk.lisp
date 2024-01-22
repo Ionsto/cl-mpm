@@ -68,12 +68,12 @@
 
                 :fracture-energy 3000d0
                 :initiation-stress 300d3
-                :delay-time 1d2
-                :ductility 500d0
+                :delay-time 1d1
+                :ductility 10d0
                 ;; :compression-ratio 8d0
 
                 :critical-damage 1.0d0;0.999d0
-                :local-length (* 1d0 (sqrt 7))
+                :local-length (* 3d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 10d-10
@@ -232,7 +232,7 @@
     ))
 
 (defun setup (&key (undercut 0d0))
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
@@ -467,7 +467,7 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 1d0
+                                 0d0
                                  ;; 0d0
                                  ;(* 1d-1 ms)
                                  )))
