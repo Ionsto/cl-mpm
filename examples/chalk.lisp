@@ -24,7 +24,42 @@
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+   ;; :colour-func #'cl-mpm/particle::mp-boundary
    ))
+
+(defclass bc-weathering (cl-mpm/buoyancy::bc-scalar)
+  ((weathering-rate
+    :initform 1d0
+    )))
+(defun make-bc-weathering (sim datum)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+        mesh
+      (make-instance 'bc-weathering
+                     :index '(0 0 0)
+                     :sim sim))))
+(defmethod cl-mpm/bc::apply-bc ((bc bc-weathering) node mesh dt)
+  (call-next-method)
+  (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
+      bc
+    (when (cl-mpm::sim-enable-damage sim)
+      (loop for mp across (cl-mpm:sim-mps sim)
+            do
+               (let ((weathering 0d0))
+                 (cl-mpm:iterate-over-neighbours
+                  mesh
+                  mp
+                  (lambda (mesh mp node svp grads fsvp fgrads)
+                    (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
+                 (setf (cl-mpm/particle::mp-boundary mp)
+                       weathering)
+                 (incf
+                  (cl-mpm/particle::mp-history-stress mp)
+                  (abs (*
+                        10d0
+                        weathering dt))))
+            ))))
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
@@ -64,16 +99,16 @@
 
                 :ft 200d3
                 :fc 500d3
-                :friction-angle 50d0
+                :friction-angle 40d0
 
                 :fracture-energy 3000d0
-                :initiation-stress 200d3
+                :initiation-stress 500d3
                 :delay-time 1d0
                 :ductility 50d0
                 ;; :compression-ratio 8d0
 
                 :critical-damage 1.0d0;0.999d0
-                :local-length (* 1d0 (sqrt 7))
+                :local-length (* 3d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
                 ;; :local-length-damaged 1d0
                 :local-length-damaged 10d-10
@@ -164,12 +199,13 @@
          ;; 1d1
          ))
 
-      ;; (setf (cl-mpm::sim-bcs-force-list sim)
-      ;;       (list
-      ;;        (cl-mpm/bc:make-bcs-from-list
-      ;;         (list
-      ;;          *floor-bc*
-      ;;          ))))
+      (setf (cl-mpm::sim-bcs-force-list sim)
+            (list
+             (cl-mpm/bc:make-bcs-from-list
+              (list
+               (make-bc-weathering sim 0d0)
+               ;; *floor-bc*
+               ))))
 
       ;; (let* ((terminus-size (second block-size))
       ;;        (ocean-y (* terminus-size 1.0d0)))
@@ -232,11 +268,11 @@
     ))
 
 (defun setup (&key (undercut 0d0))
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (shelf-height 100)
          (soil-boundary 20)
-         (shelf-aspect 1.5)
+         (shelf-aspect 1.0)
          (runout-aspect 1.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
@@ -479,8 +515,8 @@
 
                          (if (and
                               ;; t
-                              (> energy-estimate 1d-1)
-                              ;; nil
+                              (> energy-estimate 1d0)
+                              nil
                               )
                              (progn
                                (format t "Collapse timestep~%")

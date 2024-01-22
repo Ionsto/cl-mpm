@@ -1055,8 +1055,8 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
-      (populate-nodes-volume-damage mesh clip-function)
+      (populate-nodes-volume mesh clip-function)
+      ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
 
       (apply-scalar-mps-3d mesh mps
@@ -1136,4 +1136,4 @@
                             (funcall clip-func pos)
                             )
                    (sb-thread:with-mutex (node-lock)
-                     (incf node-boundary-scalar (* volume svp (calculate-val-mp mp func-scalar))))))))))))))
+                     (incf node-boundary-scalar (* volume svp (funcall func-scalar mp))))))))))))))
