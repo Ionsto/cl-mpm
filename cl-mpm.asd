@@ -443,6 +443,7 @@
                "swank.live")
   :serial t
   :components ((:file "examples/chalk")))
+
 (defsystem "cl-mpm/examples/joss"
   :depends-on ("cl-mpm"
                "cl-mpm/examples/chalk")
