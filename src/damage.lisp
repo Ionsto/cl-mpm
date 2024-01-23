@@ -535,6 +535,8 @@
      (cl-mpm/mesh:in-bounds mesh (list (- x bound) (- y bound) (- z bound))))))
 
 (defun iterate-over-damage-bounds (mesh mp length func)
+  "Function for calling a function over every node that could contain mps within 2*length
+Calls the function with the mesh mp and node"
   (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
       (iterate-over-damage-bounds-2d mesh mp length func)
       (iterate-over-damage-bounds-3d mesh mp length func)))
@@ -576,6 +578,28 @@
                                      (funcall func mesh mp node)))))))))
 
 (defparameter *enable-reflect-x* nil)
+
+(defun iterate-over-neighour-mps (mesh mp length func)
+  "Search for mps in a patch sized 2*length, then return the "
+  (declare (double-float length)
+           (function func))
+  (let ((len-squared (* length length)))
+    (declare (double-float length len-squared))
+    (iterate-over-damage-bounds
+     mesh mp length
+     (lambda (mesh mp node)
+       (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+             do
+                (with-accessors ((d cl-mpm/particle::mp-damage)
+                                 (m cl-mpm/particle:mp-volume)
+                                 (ll cl-mpm/particle::mp-true-local-length)
+                                 (p cl-mpm/particle:mp-position))
+                    mp-other
+                  (let ((distance (diff-squared mp mp-other)))
+                    (when (< distance len-squared)
+                      (funcall func mesh mp mp-other (sqrt distance)))))))))
+  (values))
+
 
 (declaim
  (notinline calculate-delocalised-damage)

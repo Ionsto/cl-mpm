@@ -28,6 +28,7 @@
     #:iterate-over-nodes-serial
     #:iterate-over-neighbours
     #:calculate-adaptive-time
+    #:iterate-over-mps
     ))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -1260,7 +1261,12 @@ Calls func with only the node"
       (let ((node (row-major-aref nodes i)))
         (funcall func node))))
   (values))
-;; 
+
+(declaim (ftype (function
+                 ((vector cl-mpm/particle:particle *)
+                  function)
+                 (values))
+                iterate-over-mps))
 (defun iterate-over-mps (mps func)
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"
@@ -1354,51 +1360,7 @@ Calls func with only the node"
                    (magicl.simd::.+-simd
                     stretch-tensor-fbar
                     temp-add
-                    stretch-tensor-fbar)
-
-                   ;; #+cl-mpm-fbar
-                   ;; (magicl:.+ stretch-tensor-fbar
-                   ;;            (cl-mpm/utils::voight-to-stretch-3d
-                   ;;             (magicl:@
-                   ;;              (cl-mpm/shape-function::assemble-dstretch-3d fgrads)
-                   ;;              node-vel)
-                   ;;             stretch-tensor-fbar))
-                   ))))
-            )
-
-          ;; #+cl-mpm-fbar
-          ;; (progn
-          ;;   (let ((cell (cl-mpm/mesh::get-cell mesh (cl-mpm/mesh::position-to-index mesh (cl-mpm/particle:mp-position mp) #'floor))))
-          ;;     (magicl:scale! stretch-tensor-fbar 0d0)
-          ;;     (iterate-over-neighbours-point-linear-3d
-          ;;      mesh
-          ;;      (cl-mpm/mesh::cell-centroid cell)
-          ;;      (lambda (mesh node svp grads)
-          ;;        (declare (double-float dt svp))
-          ;;        (when (cl-mpm/mesh:node-active node)
-          ;;          (magicl:.+ stretch-tensor-fbar
-          ;;                     (cl-mpm/utils::voight-to-stretch-3d
-          ;;                      (magicl:@
-          ;;                       (cl-mpm/shape-function::assemble-dstretch-3d grads)
-          ;;                       (cl-mpm/mesh:node-velocity node))
-          ;;                      stretch-tensor-fbar)
-          ;;                     ))
-          ;;        ))
-          ;;     ;; (cl-mpm/mesh::cell-iterate-over-neighbours
-          ;;     ;;  mesh
-          ;;     ;;  cell
-          ;;     ;;  (lambda (m c centroid volume node weight grads)
-          ;;     ;;    (magicl:.+ stretch-tensor-fbar
-          ;;     ;;               (cl-mpm/utils::voight-to-stretch-3d
-          ;;     ;;                (magicl:@
-          ;;     ;;                 (cl-mpm/shape-function::assemble-dstretch-3d grads)
-          ;;     ;;                 (cl-mpm/mesh:node-velocity node))
-          ;;     ;;                stretch-tensor-fbar)
-          ;;     ;;               )
-          ;;     ;;    )
-          ;;     ;;  )
-          ;;     )
-          ;;   )
+                    stretch-tensor-fbar))))))
 
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
@@ -1487,7 +1449,8 @@ Calls func with only the node"
             (error "Negative volume"))
           ;;Stretch rate update
 
-          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain)
+          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
+                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
           ;; (update-domain-stretch-rate df domain)
             ;; (update-domain-stretch def domain domain-0)
@@ -1529,13 +1492,15 @@ Calls func with only the node"
         ))))
 
 
-(defun update-domain-stretch-rate-damage (stretch-rate damage domain)
+(defun update-domain-stretch-rate-damage (stretch-rate damage domain
+                                          damage-domain-rate
+                                          )
   "Update the domain length based on the increment of the stretch rate"
-  (declare (double-float damage))
+  (declare (double-float damage damage-domain-rate))
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                               0d0 1d0 0d0
                                               0d0 0d0 1d0)))
-        (degredation (- 1d0 (* (- 1d0 0.5d0) damage)))
+        (degredation (- 1d0 (* damage-domain-rate damage)))
         )
     (magicl:.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))

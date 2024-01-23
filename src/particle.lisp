@@ -505,7 +505,10 @@
     :accessor mp-damage-model
     :initarg :damage-model
     )
-   )
+   (damage-domain-update-rate
+    :accessor mp-damage-domain-update-rate
+    :initarg :damage-domain-rate
+    :initform 0d0))
   (:documentation "A material point with a damage tensor"))
 (defclass particle-thermal (particle)
   (
@@ -1653,7 +1656,7 @@
         ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
         ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-        ;;                           (magicl:scale! s (expt (- 1d0 (* (- 1d0 5d-1) damage)) exponential))
+        ;;                           (magicl:scale! s (expt (- 1d0 (* (- 1d0 1d-1) damage)) exponential))
         ;;                           )))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1666,14 +1669,14 @@
                         (nth i l)
                         (* sii
                            (- 1d0
-                              (* (- 1d0 1d-4) damage)))))
+                              (* (- 1d0 1d-6) damage)))))
                      (when (< sii 0d0)
                        ;;tensile damage -> unbounded
                        (setf
                         (nth i l)
                         (* sii
-                           (- 1d0 (* (- 1d0 1d-3)
-                                     (expt damage 1))))))
+                           (- 1d0 (* (- 1d0 1d-2)
+                                     (expt damage 1.2d0))))))
                      ;; (when (< sii 1d0)
                      ;;   ;;bounded compressive damage
                      ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
