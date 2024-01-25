@@ -1705,6 +1705,8 @@ Calls the function with the mesh mp and node"
                      (k cl-mpm/particle::mp-history-stress)
                      (tau cl-mpm/particle::mp-delay-time)
                      (ductility cl-mpm/particle::mp-ductility)
+                     (nu cl-mpm/particle::mp-nu)
+                     (p cl-mpm/particle::mp-p-modulus)
                      ) mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
         (progn
@@ -1719,6 +1721,8 @@ Calls the function with the mesh mp and node"
           ;; (when (> ybar init-stress)
           ;;   (setf k (max k init-stress)))
           ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
+
+          (setf p (/ (* (- 1d0 (expt damage 2)) E) (* (+ 1d0 nu) (- 1d0 nu))))
 
           (let ((new-damage (max damage
                                  ;; (test-damage k 1d7 init-stress)
