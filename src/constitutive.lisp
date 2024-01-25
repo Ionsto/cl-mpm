@@ -46,6 +46,10 @@
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
   (magicl:@ elastic-matrix strain))
+
+(declaim (ftype (function (magicl:matrix/double-float double-float double-float)
+                          magicl:matrix/double-float
+                          ) linear-elastic))
 (defun linear-elastic (strain E nu)
   "Isotropic linear-elastic constitutive model"
    (magicl:@ (linear-elastic-matrix E nu) strain))

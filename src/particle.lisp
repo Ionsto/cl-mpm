@@ -1676,7 +1676,7 @@
                         (nth i l)
                         (* sii
                            (- 1d0 (* (- 1d0 1d-2)
-                                     (expt damage 1.2d0))))))
+                                     (expt damage 2.0d0))))))
                      ;; (when (< sii 1d0)
                      ;;   ;;bounded compressive damage
                      ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))

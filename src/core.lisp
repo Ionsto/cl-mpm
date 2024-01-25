@@ -169,7 +169,11 @@
          (with-accessors ((damage cl-mpm/particle:mp-damage)
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
-             (gimp-removal-criteria mp h)))))))
+           (or
+            (gimp-removal-criteria mp h)
+            ;; (cl-mpm/mesh::in-bounds-array mesh (magicl::matrix/double-float-storage
+            ;;                                     (cl-mpm/particle::mp-position mp)))
+            )))))))
 
 (defun check-single-mps (sim)
   "Function to check and remove single material points"
@@ -1888,7 +1892,8 @@ Calls func with only the node"
 
 (defun single-particle-criteria (mesh mp)
   "Criteria for checking if material point is unconnected to another MP"
-  (let ((alone t))
+  (let ((svp-sum 0d0)
+        (alone t))
     (iterate-over-neighbours
       mesh mp
       (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1900,9 +1905,16 @@ Calls func with only the node"
                          (node-active cl-mpm/mesh:node-active)
                          ) node
           (when node-active
-            (when (> node-svp svp)
-              (setf alone nil))))))
-    alone))
+            (incf svp-sum node-svp)
+            ;; (when (> node-svp svp)
+            ;;   (setf alone nil))
+            )
+          )))
+    (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
+    ;; (setf alone t)
+    
+    ;; alone
+    ))
 (defun gimp-removal-criteria (mp h)
   "Criteria for removal of gimp mps based on domain length"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))

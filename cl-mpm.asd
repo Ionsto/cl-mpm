@@ -446,6 +446,14 @@
 
 (defsystem "cl-mpm/examples/joss"
   :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "cl-mpm/mpi"
                "cl-mpm/examples/chalk")
   :serial t
   :components ((:file "examples/joss")))

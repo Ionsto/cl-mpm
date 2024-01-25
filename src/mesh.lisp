@@ -420,8 +420,10 @@
 (defun in-bounds-array (mesh pos)
   (declare (type (simple-array fixnum) pos))
   "Check a position (list) is inside a mesh"
-  (and (in-bounds-1d mesh (aref pos 0) 0)
-       (in-bounds-1d mesh (aref pos 1) 1)))
+  (in-bounds mesh (list (aref pos 0)
+                        (aref pos 1)
+                        (aref pos 2)))
+  )
 
 (declaim
  (inline position-to-index-array)
