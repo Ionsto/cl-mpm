@@ -875,7 +875,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                        ))
                                              )
                                         (declare (double-float gradx grady gradz))
-                                        (funcall func mesh mp node weight (list gradx grady gradz) 0d0 nil)))))))))))))))
+                                        (funcall func mesh mp node weight (list gradx grady gradz)
+                                                 0d0 (list 0d0 0d0 0d0))))))))))))))))
 
 
 (defun make-knot-list (mesh pos)
