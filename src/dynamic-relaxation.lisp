@@ -6,6 +6,8 @@
   (loop for mp across (cl-mpm:sim-mps sim)
             sum (* (cl-mpm/particle:mp-mass mp)
                    (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp)))))
+(defmethod estimate-energy-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
+  (cl-mpm/mpi::mpi-average (call-next-method) 1))
 (defmethod estimate-oobf (sim))
 
 (declaim (notinline plot-time-disp))
@@ -118,7 +120,9 @@
                      (setf oobf (/ nmax dmax)))
                    (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
                            cl-mpm/penalty::*debug-force*)
-                   (when (and (< fnorm energy-crit) (< oobf oobf-crit))
+                   (when (and (< fnorm energy-crit)
+                              (< oobf oobf-crit)
+                              )
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t)))
                  (swank.live:update-swank))))
