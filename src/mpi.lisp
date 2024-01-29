@@ -187,7 +187,7 @@
            )
          )
        (defun ,deser-name (array)
-         (let* ((node-count (/ (length array) ,packet-size))
+         (let* ((node-count (floor (length array) ,packet-size))
                 (output (make-array node-count :element-type ',mpi-object-name))
                 (inc 0))
            (declare (fixnum inc)
