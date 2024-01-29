@@ -6,7 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/chalk)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -962,3 +962,12 @@
     (defparameter *oobf* 0)
     (defparameter *energy* 0)
     (defparameter *sim-step* 0))
+
+(defun plot-mohr-c (stress)
+  (let ((angle 30)
+        (coheasion 1))
+    (vgplot:figure)
+    (vgplot:plot '(0) '(0))
+    (vgplot:format-plot t "replot (~f*x + ~f)~%" (sin (* angle (/ pi 180))) coheasion)
+    (vgplot:replot))
+  )
