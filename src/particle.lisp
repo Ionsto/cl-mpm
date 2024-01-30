@@ -2003,47 +2003,6 @@
     (when (> damage 0.0d0)
       (let ((degredation (max 0d-9 (expt (- 1d0 damage) 1d0))))
         (magicl:scale! stress degredation)))
-    ;; (when (> damage 0.0d0)
-    ;;   (let* ((j 1d0)
-    ;;          (degredation (expt (- 1d0 damage) 2d0))
-    ;;          )
-    ;;     (multiple-value-bind (l v) (cl-mpm/utils::eig
-    ;;                                 (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-    ;;       (let* ((tp 0d0)
-    ;;              (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
-    ;;              )
-    ;;         (setf pressure tp)
-    ;;         (loop for i from 0 to 2
-    ;;               do
-    ;;                  (let* ((sii (nth i l))
-    ;;                           (esii (- sii driving-pressure)))
-    ;;                      (when (> esii 0d0)
-    ;;                        ;;tensile damage -> unbounded
-    ;;                        (setf (nth i l) (* sii (max 1d-5 degredation)))
-    ;;                        ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-    ;;                        ;; (setf (nth i l) (* sii degredation))
-    ;;                        )
-    ;;                    ;; (setf (nth i l) (* sii (max 1d-5 degredation)))
-    ;;                      (when (< esii 1d0)
-    ;;                        ;;bounded compressive damage
-    ;;                        (setf (nth i l) (* (nth i l) (max 1d-1 degredation)))
-    ;;                        ;; (setf (nth i l) (+ (nth i l) driving-pressure))
-    ;;                        )
-    ;;                    ;; (setf (nth i l) 0)
-    ;;                      ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
-    ;;                      )
-    ;;               )
-    ;;           (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
-    ;;                                                                   (magicl:from-diag l :type 'double-float)
-    ;;                                                                   (magicl:transpose v))) j))
-    ;;         ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-    ;;         ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-    ;;         ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-    ;;         ;;                           (magicl:scale! s (max 1d-3 degredation))
-    ;;         ;;                           )))
-    ;;           ))
-    ;;     ))
-
     stress
     ))
 

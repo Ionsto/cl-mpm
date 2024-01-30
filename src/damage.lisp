@@ -285,16 +285,17 @@
                    t)
                  nil))))
     ;;Check if the particle has been inserted by checking nil equality of damage position
-    (when (cl-mpm/particle::mp-damage-position mp)
-      (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
-        (when (cl-mpm/mesh:in-bounds mesh node-id)
-          (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-            (if (remove-mp-ll node)
-                t
-                (cl-mpm::iterate-over-nodes-serial
-                 mesh
-                 (lambda (node)
-                   (remove-mp-ll node))))))))))
+    (if (cl-mpm/particle::mp-damage-position mp)
+        (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+          (when (cl-mpm/mesh:in-bounds mesh node-id)
+            (let ((node (cl-mpm/mesh:get-node mesh node-id)))
+              (if (remove-mp-ll node)
+                  t
+                  (cl-mpm::iterate-over-nodes-serial
+                   mesh
+                   (lambda (node)
+                     (remove-mp-ll node)))))))
+        nil)))
 
 (defun update-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)

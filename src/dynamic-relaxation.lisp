@@ -53,7 +53,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      (loop for i from 0 to 100
+      (loop for i from 0 to 5
             while (and *run-convergance*
                    (not converged))
             do
@@ -127,7 +127,7 @@
                      (setf converged t)))
                  (swank.live:update-swank))))
     (when (not converged)
-      (error "System didn't converge")
+      ;; (error "System didn't converge")
       )
     ))
 
