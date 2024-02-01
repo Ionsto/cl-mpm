@@ -1636,6 +1636,7 @@
              (exponential 1)
              (degredation (expt (- 1d0 damage) 1d0))
              )
+        ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
           (loop for i from 0 to 2
@@ -1647,7 +1648,7 @@
                         (nth i l)
                         (* sii
                            (- 1d0
-                              (* (- 1d0 1d-9) damage)))))
+                              (* (- 1d0 1d-6) damage)))))
                      (when (< sii 0d0)
                        ;;tensile damage -> unbounded
                        (setf

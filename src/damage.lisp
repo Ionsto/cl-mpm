@@ -711,8 +711,8 @@ Calls the function with the mesh mp and node"
 ;;       )))
 
 (defun length-localisation (local-length local-length-damaged damage)
-  (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; local-length
   )
 ;; (declaim
@@ -1716,27 +1716,33 @@ Calls the function with the mesh mp and node"
           ;; (setf k (max k ybar))
           (setf damage-inc 0d0)
 
-          (incf k (the double-float (* dt
-                                       (/ (the double-float (max 0d0 (- ybar k))) tau)
-                                        )))
+          ;; (when (> ybar init-stress))
+          ;; (incf k (the double-float (* dt
+          ;;                              (/ (the double-float (max 0d0 (- ybar k))) tau)
+          ;;                               )))
           ;; (when (> ybar init-stress)
           ;;   (setf k (max k init-stress)))
           ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
 
           (setf p (/ (* (- 1d0 (* 1d-3 (expt damage 1))) E) (* (+ 1d0 nu) (- 1d0 nu))))
 
+          ;; (let ((new-damage (max damage
+          ;;                        (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility)
+          ;;                        )))
+          ;;   (declare (double-float new-damage))
+          ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
+          ;;   )
+
+          (incf k (the double-float (* dt
+                                       (/ (the double-float (max 0d0 (- ybar k))) tau)
+                                       )))
           (let ((new-damage (max damage
-                                 ;; (test-damage k 1d7 init-stress)
-                                 ;; (delayed-damage-y ybar E Gf length init-stress)
-                                 ;; (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility)
                                  (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                                  )))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))
-            ;; (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
             )
-          ;; (setf damage (max damage (brittle-chalk-d k E Gf length init-stress))
-          ;;       damage-inc 0d0)
+
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
