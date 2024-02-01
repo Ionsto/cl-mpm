@@ -167,10 +167,6 @@
     :type double-float
     :accessor mp-pressure-head
     :initform 0d0)
-   ;; (pressure-func
-   ;;  :type function
-   ;;  :accessor mp-pressure-func
-   ;;  :initform (lambda (pos) (declare (ignore pos)) 0d0))
 
    (boundary
     :type double-float
@@ -1602,13 +1598,23 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
+
+    ;; (setf stress-u
+    ;;       (cl-mpm/constitutive:maxwell-exp-v
+    ;;        strain-rate
+    ;;        stress-u
+    ;;        E nu de
+    ;;        1d7 dt))
+
     ;; (setf stress
     ;;       (magicl:scale! (cl-mpm/constitutive::linear-elastic-mat strain de) (- 1d0 damage)))
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
               ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
-              (cl-mpm/constitutive::mc-plastic stress-u de strain
+              (cl-mpm/constitutive::mc-plastic stress-u
+                                               de
+                                               strain
                                                E
                                                nu
                                                phi
@@ -1636,6 +1642,11 @@
              (exponential 1)
              (degredation (expt (- 1d0 damage) 1d0))
              )
+
+        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 5d-1) damage))))))
         ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         (multiple-value-bind (l v) (cl-mpm/utils::eig
                                     (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
@@ -1648,7 +1659,7 @@
                         (nth i l)
                         (* sii
                            (- 1d0
-                              (* (- 1d0 1d-6) damage)))))
+                              (* (- 1d0 1d-9) damage)))))
                      (when (< sii 0d0)
                        ;;tensile damage -> unbounded
                        (setf

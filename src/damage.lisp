@@ -1500,8 +1500,8 @@ Calls the function with the mesh mp and node"
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress))))
-    (* (/ 3d0 (+ 3d0 (tan angle))) (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
-  )
+    (* (/ 3d0 (+ 3 (tan angle)))
+       (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
     (let* ((j2 (cl-mpm/constitutive::voigt-j2
@@ -1513,8 +1513,7 @@ Calls the function with the mesh mp and node"
                    (* (/ 1d0 (* 2d0 k))
                       (sqrt (+ (expt (* k-factor i1) 2)
                                (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                               )))))
-           )
+                               ))))))
       s_1
       )))
 
@@ -1733,12 +1732,11 @@ Calls the function with the mesh mp and node"
           ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
           ;;   )
 
-          (incf k (the double-float (* dt
-                                       (/ (the double-float (max 0d0 (- ybar k))) tau)
-                                       )))
-          (let ((new-damage (max damage
-                                 (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
-                                 )))
+          (incf k (the double-float (* dt (/ (the double-float (max 0d0 (- ybar k))) tau))))
+          (let ((new-damage
+                  (max
+                   damage
+                   (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility))))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))
             )
