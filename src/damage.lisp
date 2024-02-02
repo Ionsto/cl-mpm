@@ -1725,12 +1725,11 @@ Calls the function with the mesh mp and node"
 
           (setf p (/ (* (- 1d0 (* 1d-3 (expt damage 1))) E) (* (+ 1d0 nu) (- 1d0 nu))))
 
-          ;; (let ((new-damage (max damage
-          ;;                        (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility)
-          ;;                        )))
+          ;; (let ((new-damage
+          ;;         (max damage
+          ;;              (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility))))
           ;;   (declare (double-float new-damage))
-          ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage))))))))
-          ;;   )
+          ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage)))))))))
 
           (incf k (the double-float (* dt (/ (the double-float (max 0d0 (- ybar k))) tau))))
           (let ((new-damage

@@ -1301,6 +1301,10 @@
    4.685252546248181))
 
 (defun interp (x-search x-list y-list)
+  (when (< x-search (first x-list))
+    (error "X-search is too small"))
+  (when (> x-search (first (last x-list)))
+    (error "X-search is too big"))
   (let ((np (position x-search x-list :test #'<=))
         (n (position x-search x-list :test #'> :from-end t)))
     (+ (nth n y-list) (* (- (nth np y-list) (nth n y-list)) (/ (- x-search (nth n x-list))
