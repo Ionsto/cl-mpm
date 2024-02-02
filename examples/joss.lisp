@@ -99,7 +99,6 @@
 
                 :ft 0.70d6
                 :fc 4.0d6
-
                 :friction-angle 60d0
 
                 :fracture-energy 3000d0
@@ -282,7 +281,7 @@
 (defmethod estimate-energy-crit ((sim cl-mpm::mpm-sim))
   ;; (/)
   (loop for mp across (cl-mpm:sim-mps sim)
-            maximizing (* (cl-mpm/particle::mp-mass mp)
+            sum (* (cl-mpm/particle::mp-mass mp)
                    ;; (cl-mpm/particle::mp-damage mp)
                    (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
   ;; (cl-mpm::sim-mass-scale sim)
@@ -295,7 +294,7 @@
 (defmethod estimate-energy-crit ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
    (loop for mp across (cl-mpm:sim-mps sim)
-         maximizing (* (cl-mpm/particle::mp-mass mp)
+         sum (* (cl-mpm/particle::mp-mass mp)
                 (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   ;; (/
   ;;  (cl-mpm/mpi::mpi-sum
