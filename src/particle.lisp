@@ -1642,16 +1642,17 @@
              (exponential 1)
              (degredation (expt (- 1d0 damage) 1d0))
              )
-
+        (declare (double-float damage))
         (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf p
                 (if (> p 0d0)
                     (* (- 1d0 (* (- 1d0 1d-6) damage)) p)
-                    (* (- 1d0 (* (- 1d0 1d0) damage)) p)
+                    ;; (* (- 1d0 (* (- 1d0 0d0) damage)) p)
+                    p
                     ))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-2) damage))))))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-1) damage))))))
         ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
         ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
