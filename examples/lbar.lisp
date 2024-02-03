@@ -717,7 +717,7 @@
                        (time
                         (progn
                           (cl-mpm/dynamic-relaxation::converge-quasi-static *sim*
-                                                                            :energy-crit 5d-2
+                                                                            :energy-crit 1d-2
                                                                             :dt-scale 1d0
                                                                             )
                           (cl-mpm/damage::calculate-damage *sim*)))

@@ -108,6 +108,7 @@
 (defsystem "cl-mpm/dynamic-relaxation"
   :depends-on ("cl-mpm"
                "cl-mpm/penalty"
+               "cl-mpm/mpi"
                "swank.live"
                "cl-mpm/utils")
   :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"

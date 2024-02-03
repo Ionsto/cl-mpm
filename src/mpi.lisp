@@ -27,33 +27,33 @@
                                         ;    #:make-shape-function
 (in-package :cl-mpm/mpi)
 
-(defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
-  ((neighbour-node-list)
-   (neighbour-ranks
-    :initform '())
-   (domain-bounds
-    :accessor mpm-sim-mpi-domain-bounds
-    :initform '((0 0)
-                (0 0)
-                (0 0))
-    )
-   (halo-depth
-    :accessor mpm-sim-mpi-halo-depth
-    :initform 1d0
-    )
-   (domain-count
-    :accessor mpm-sim-mpi-domain-count
-    :initform '(1 1 1)
-    :initarg :domain-count
-    )
-   (halo-damage-size
-    :accessor mpm-sim-mpi-halo-damage-size
-    :initform 1d0)
-   (damage-mps-cache
-    :accessor mpm-sim-mpi-damage-mps-cache
-    :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
-   )
-  (:documentation "Damage sim with only stress update on mpi"))
+;; (defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
+;;   ((neighbour-node-list)
+;;    (neighbour-ranks
+;;     :initform '())
+;;    (domain-bounds
+;;     :accessor mpm-sim-mpi-domain-bounds
+;;     :initform '((0 0)
+;;                 (0 0)
+;;                 (0 0))
+;;     )
+;;    (halo-depth
+;;     :accessor mpm-sim-mpi-halo-depth
+;;     :initform 1d0
+;;     )
+;;    (domain-count
+;;     :accessor mpm-sim-mpi-domain-count
+;;     :initform '(1 1 1)
+;;     :initarg :domain-count
+;;     )
+;;    (halo-damage-size
+;;     :accessor mpm-sim-mpi-halo-damage-size
+;;     :initform 1d0)
+;;    (damage-mps-cache
+;;     :accessor mpm-sim-mpi-damage-mps-cache
+;;     :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
+;;    )
+;;   (:documentation "Damage sim with only stress update on mpi"))
 
 (defclass mpm-sim-mpi-nodes (mpm-sim-mpi)
   ((halo-node-list

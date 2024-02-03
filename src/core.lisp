@@ -135,6 +135,7 @@
   ()
   (:documentation "Explicit simulation with update stress last update"))
 
+
 (defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
   "Constructs an mp with critical infomation like mesh and number of dimentions"
   (make-instance sim-type
