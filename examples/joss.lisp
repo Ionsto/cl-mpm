@@ -415,7 +415,7 @@
                          (if (or
                               ;; t
                               ;; (> energy-estimate 1d-4)
-                              (> total-energy 1d-2)
+                              (> total-energy 1d-4)
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -757,11 +757,11 @@
 
 
 (defun setup ()
-  (let* ((mesh-size 0.25)
+  (let* ((mesh-size 0.5)
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 1)
-         (shelf-aspect 0.5)
+         (shelf-aspect 1.0)
          (runout-aspect 0.75)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
