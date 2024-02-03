@@ -32,6 +32,7 @@
                                     (live-plot nil)
                                     (dt-scale 0.5d0)
                                     (substeps 50)
+                                    (conv-steps 50)
                                     (post-iter-step nil)
                                     )
   (setf *run-convergance* t)
