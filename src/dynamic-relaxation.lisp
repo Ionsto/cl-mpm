@@ -31,6 +31,7 @@
                                     (oobf-crit 1d-8)
                                     (live-plot nil)
                                     (dt-scale 0.5d0)
+                                    (post-iter-step nil)
                                     )
   (setf *run-convergance* t)
   (let* ((fnorm 0d0)
@@ -53,7 +54,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      (loop for i from 0 to 5
+      (loop for i from 0 to 20
             while (and *run-convergance*
                    (not converged))
             do
@@ -124,7 +125,11 @@
                               (< oobf oobf-crit)
                               )
                      (format t "Took ~D steps to converge~%" i)
-                     (setf converged t)))
+                     (setf converged t))
+                   (when post-iter-step 
+                     (funcall post-iter-step))
+                   
+                   )
                  (swank.live:update-swank))))
     (when (not converged)
       ;; (error "System didn't converge")
