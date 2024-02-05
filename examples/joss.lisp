@@ -415,7 +415,7 @@
                          (if (or
                               ;; t
                               ;; (> energy-estimate 1d-4)
-                              (> total-energy 1d-4)
+                              (> total-energy 1d-2)
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -430,7 +430,7 @@
                              (progn
                                (format t "Accelerated timestep~%")
                                (setf
-                                dt-scale 0.8d0
+                                dt-scale 1.0d0
                                 ;; target-time 1d0
                                 ;; (cl-mpm::sim-mass-scale *sim*) 1d4
                                 )
@@ -761,7 +761,7 @@
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 1)
-         (shelf-aspect 1.0)
+         (shelf-aspect 1.5)
          (runout-aspect 0.75)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
@@ -824,10 +824,7 @@
            (sloped-inflex-point
              (magicl:from-list (list (- shelf-length (* (tan (- (* pi (/ undercut-angle 180d0)))) sloped-height))
                                      soil-boundary)
-                               '(2 1) :type 'double-float)
-
-             )
-           )
+                               '(2 1) :type 'double-float)))
       (cl-mpm/setup::remove-sdf *sim*
                                (lambda (p)
                                  (if (and

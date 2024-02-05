@@ -1652,7 +1652,7 @@
                     p
                     ))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-1) damage))))))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-2) damage))))))
         ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
         ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
