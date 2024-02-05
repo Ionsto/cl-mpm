@@ -118,7 +118,7 @@
                 ;; :E 1d9
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
-                :phi (* 10d0 (/ pi 180))
+                :phi (* 40d0 (/ pi 180))
                 :c 1000d3
                 ;; :c 1d6
 
@@ -274,7 +274,7 @@
          (shelf-height 100)
          (soil-boundary 20)
          (shelf-aspect 2.0)
-         (runout-aspect 1.00)
+         (runout-aspect 2.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height (+ shelf-height soil-boundary))

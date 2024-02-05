@@ -104,12 +104,13 @@
                 :fracture-energy 3000d0
 
                 :initiation-stress 20d3
-                :delay-time 1d1
-                :ductility 5d0
+                :delay-time 1d0
+                :ductility 10d0
                 ;; :compression-ratio 8d0
 
-                :critical-damage 1.0d0
-                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
+                ;; :critical-damage 1.0d0
+                :damage-domain-rate 0.99d0;This slider changes how GIMP update turns to uGIMP under damage
+                :damage-domain-rate 0d0
                 :local-length 0.5d0;(* 0.20d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.10d0 (sqrt 7))
                 ;; :local-length-damaged (* 0.1d0 (sqrt 7))
@@ -121,8 +122,8 @@
                 ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
                 :phi (* 40d0 (/ pi 180))
-                :c 100d3
-                ;; :c 1d6
+                :c 1000d3
+                ;; :c 1d1
 
                 ;; 'cl-mpm/particle::particle-vm
                 ;; :E 1d9
@@ -138,7 +139,7 @@
         (format t "Chalk damage angle: ~F~%"
                 (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft)))))))
       ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 200d0 1d0 200d3)
-      (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
@@ -419,7 +420,7 @@
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
-                              ;; nil
+                              nil
                               )
                              (progn
                                (format t "Collapse timestep~%")
@@ -757,12 +758,12 @@
 
 
 (defun setup ()
-  (let* ((mesh-size 0.5)
+  (let* ((mesh-size 1.0)
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 1)
          (shelf-aspect 1.5)
-         (runout-aspect 0.75)
+         (runout-aspect 3.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -784,7 +785,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
 
     ;;Refine around tip
-    (dotimes (i 0)
+    (dotimes (i 1)
       (dolist (dir (list :x
                          :y
                          ))
@@ -817,7 +818,7 @@
            (undercut-angle ;(- 82.5d0 90d0)
              (- measured-angle 90d0)
                            )
-           ;; (undercut-angle 0d0)
+           (undercut-angle 0d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
                                       (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
@@ -845,7 +846,7 @@
                                          )
                                      1d0)
                                  ))
-      (let ((cut-height (* 0.5d0 shelf-height-true)))
+      (let ((cut-height (* 0.0d0 shelf-height-true)))
         (cl-mpm/setup::damage-sdf *sim*
                                  (lambda (p)
                                    (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)

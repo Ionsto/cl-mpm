@@ -1647,12 +1647,11 @@
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf p
                 (if (> p 0d0)
-                    (* (- 1d0 (* (- 1d0 1d-6) damage)) p)
-                    ;; (* (- 1d0 (* (- 1d0 0d0) damage)) p)
-                    p
+                    (* (- 1d0 (* (- 1d0 1d-8) damage)) p)
+                    (* (- 1d0 (* (- 1d0 1d-2) damage)) p)
                     ))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 1d-2) damage))))))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 5d-3) damage))))))
         ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
         ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
