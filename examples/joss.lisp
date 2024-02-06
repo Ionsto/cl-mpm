@@ -100,6 +100,9 @@
                 :ft 0.70d6
                 :fc 4.0d6
                 :friction-angle 60d0
+                :kt-res-ratio 1d-6
+                :kc-res-ratio 1d0
+                :g-res-ratio 1d0
 
                 :fracture-energy 3000d0
 
@@ -416,7 +419,7 @@
                          (if (or
                               ;; t
                               ;; (> energy-estimate 1d-4)
-                              (> total-energy 1d-2)
+                              (> total-energy 1d-3)
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -761,9 +764,9 @@
   (let* ((mesh-size 1.0)
          (mps-per-cell 2)
          (shelf-height 15.0)
-         (soil-boundary 1)
+         (soil-boundary 2)
          (shelf-aspect 1.5)
-         (runout-aspect 3.00)
+         (runout-aspect 2.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -785,7 +788,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
 
     ;;Refine around tip
-    (dotimes (i 1)
+    (dotimes (i 0)
       (dolist (dir (list :x
                          :y
                          ))
@@ -818,7 +821,7 @@
            (undercut-angle ;(- 82.5d0 90d0)
              (- measured-angle 90d0)
                            )
-           (undercut-angle 0d0)
+           ;; (undercut-angle 0d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
                                       (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
@@ -853,15 +856,24 @@
                                        (funcall
                                         (cl-mpm/setup::rectangle-sdf
                                          (list (- (magicl:tref sloped-inflex-point 0 0)
-                                                  (* 0.15d0 shelf-height-true)
-                                                  )
+                                                  (* 0.15d0 shelf-height-true))
                                                shelf-height)
                                          (list (* 1.0d0 mesh-size) cut-height)
                                          ) p)
                                        1d0)
-                                   )))
-
-      )
+                                   ))))
+    ;; (let ((sand-layer 3d0))
+    ;;   (cl-mpm/setup::apply-sdf
+    ;;    *sim*
+    ;;    (lambda (p)
+    ;;      (if (and
+    ;;           (> (magicl:tref p 1 0) (- soil-boundary sand-layer))
+    ;;           (> (magicl:tref p 0 0) shelf-length))
+    ;;          0d0
+    ;;          1d0))
+    ;;    (lambda (mp)
+    ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
+    ;;   )
     (let* ((notched-depth 1.0d0)
            (undercut-angle 45d0)
            (normal (magicl:from-list (list

@@ -1422,6 +1422,22 @@
     :accessor mp-ductility
     :initarg :ductility
     :initform 1d0)
+
+   (shear-residual-ratio
+    :accessor mp-shear-residual-ratio
+    :initarg :g-res-ratio
+    :initform 1d-3
+    )
+   (k-tensile-residual-ratio
+    :accessor mp-k-tensile-residual-ratio
+    :initarg :kt-res-ratio
+    :initform 1d-6
+    )
+   (k-compressive-residual-ratio
+    :accessor mp-k-compressive-residual-ratio
+    :initarg :kc-res-ratio
+    :initform 1d-2
+    )
    )
   (:documentation "A chalk damage model"))
 
@@ -1592,6 +1608,9 @@
                    (nu mp-nu)
                    (phi mp-phi)
                    (psi mp-psi)
+                   (kc-r mp-k-compressive-residual-ratio)
+                   (kt-r mp-k-tensile-residual-ratio)
+                   (g-r mp-shear-residual-ratio)
                    )
       mp
     (declare (function calc-pressure))
@@ -1647,11 +1666,11 @@
               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf p
                 (if (> p 0d0)
-                    (* (- 1d0 (* (- 1d0 1d-8) damage)) p)
-                    (* (- 1d0 (* (- 1d0 1d-2) damage)) p)
+                    (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
+                    (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
                     ))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (- 1d0 (* (- 1d0 5d-3) damage))))))
+                                  (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage))))))
         ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
         ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
         ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
