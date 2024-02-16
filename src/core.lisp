@@ -1455,12 +1455,12 @@ Calls func with only the node"
             (error "Negative volume"))
           ;;Stretch rate update
 
-          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
-                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
+          ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
+          ;;                                    (cl-mpm/particle::mp-damage-domain-update-rate mp))
           ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
           ;; (update-domain-stretch-rate df domain)
             ;; (update-domain-stretch def domain domain-0)
-            ;; (update-domain-corner mesh mp dt)
+            (update-domain-corner mesh mp dt)
           ;;   )
 
           )

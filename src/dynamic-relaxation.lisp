@@ -25,6 +25,7 @@
 ;; (defparameter *full-step* nil)
 ;; (defparameter *full-energy* nil)
 (defparameter *run-convergance* t)
+;; (defparameter *run-convergance* nil)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key
                                     (energy-crit 1d-8)
@@ -134,6 +135,7 @@
                  (swank.live:update-swank))))
     (when (not converged)
       ;; (error "System didn't converge")
+      (format t "System didn't converge~%")
       )
     ))
 
