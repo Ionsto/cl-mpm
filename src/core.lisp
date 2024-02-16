@@ -1466,6 +1466,41 @@ Calls func with only the node"
           )
           )))
   (values))
+(declaim (ftype (function (cl-mpm/mesh::mesh
+                           cl-mpm/particle:particle
+                           double-float
+                           boolean) (values))
+                update-strain-kirchoff-damaged))
+(defun update-strain-kirchoff-damaged (mesh mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
+                   ) mp
+    (declare (type double-float volume)
+             (type magicl:matrix/double-float
+                   domain))
+    (progn
+      (let ((df (calculate-df mesh mp fbar)))
+        (progn
+          (setf def (magicl:@ df def))
+          (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
+                          (magicl::matrix/double-float-storage strain))
+          (cl-mpm/ext:kirchoff-update strain df)
+          (magicl:.- eng-strain-rate strain eng-strain-rate)
+          (magicl:scale! eng-strain-rate (/ 1d0 dt))
+          ;;Post multiply to turn to eng strain
+          (setf volume (* volume (the double-float (magicl:det df))))
+          (when (<= volume 0d0)
+            (error "Negative volume"))
+          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
+                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
+          ))))
+  (values))
 
 (defun update-domain-deformation-rate (domain df)
   "Update the domain length based on the increment of defomation rate"
@@ -1498,9 +1533,13 @@ Calls func with only the node"
         ))))
 
 
+(declaim (ftype (function (magicl:matrix/double-float
+                           double-float
+                           magicl:matrix/double-float
+                           double-float) (values))
+                update-domain-stretch-rate-damage))
 (defun update-domain-stretch-rate-damage (stretch-rate damage domain
-                                          damage-domain-rate
-                                          )
+                                          damage-domain-rate)
   "Update the domain length based on the increment of the stretch rate"
   (declare (double-float damage damage-domain-rate))
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
@@ -1508,7 +1547,8 @@ Calls func with only the node"
                                               0d0 0d0 1d0)))
         (degredation (- 1d0 (* damage-domain-rate damage)))
         )
-    (magicl:.+ df (magicl:scale stretch-rate degredation) df)
+    (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
+    ;; (magicl:.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -1609,38 +1649,137 @@ Calls func with only the node"
 
 (declaim (inline update-stress-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-mp))
-(defun update-stress-mp (mesh mp dt fbar)
+;; (defun update-stress-mp (mesh mp dt fbar)
+;;   "Update stress for a single mp"
+;;   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
+;;   (%update-stress-mp mesh mp dt fbar)
+;;     ;; (with-accessors ((stress cl-mpm/particle:mp-stress)
+;;     ;;                  (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+;;     ;;                  (volume cl-mpm/particle:mp-volume)
+;;     ;;                  (strain cl-mpm/particle:mp-strain)
+;;     ;;                  (def    cl-mpm/particle:mp-deformation-gradient)
+;;     ;;                  (strain-rate cl-mpm/particle:mp-strain-rate)
+;;     ;;                     ) mp
+;;     ;;   (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+;;     ;;   (progn
+;;     ;;   ;;   ;;For no FBAR we need to update our strains
+;;     ;;       (progn
+;;     ;;         ;; (unless fbar)
+;;     ;;         (calculate-strain-rate mesh mp dt)
+
+;;     ;;         ;; Turn cauchy stress to kirchoff
+;;     ;;         (setf stress stress-kirchoff)
+
+;;     ;;         ;; Update our strains
+;;     ;;         (update-strain-kirchoff mesh mp dt fbar)
+
+;;     ;;         ;; Update our kirchoff stress with constitutive model
+;;     ;;         (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+
+;;     ;;         ;; Check volume constraint!
+;;     ;;         (when (<= volume 0d0)
+;;     ;;           (error "Negative volume"))
+;;     ;;         ;; Turn kirchoff stress to cauchy
+;;     ;;         (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+;;     ;;         )))
+;;   )
+(defun update-stress-kirchoff (mesh mp dt fbar)
   "Update stress for a single mp"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                     (volume cl-mpm/particle:mp-volume)
-                     (strain cl-mpm/particle:mp-strain)
-                     (def    cl-mpm/particle:mp-deformation-gradient)
-                     (strain-rate cl-mpm/particle:mp-strain-rate)
-                        ) mp
-      (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-      (progn
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+    (progn
       ;;   ;;For no FBAR we need to update our strains
-          (progn
-            ;; (unless fbar)
-            (calculate-strain-rate mesh mp dt)
+      (progn
+        ;; (unless fbar)
+        (calculate-strain-rate mesh mp dt)
 
-            ;; Turn cauchy stress to kirchoff
-            (setf stress stress-kirchoff)
+        ;; Turn cauchy stress to kirchoff
+        (setf stress stress-kirchoff)
 
-            ;; Update our strains
-            (update-strain-kirchoff mesh mp dt fbar)
+        ;; Update our strains
+        (update-strain-kirchoff mesh mp dt fbar)
 
-            ;; Update our kirchoff stress with constitutive model
-            (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+        ;; Update our kirchoff stress with constitutive model
+        (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
-            ;; Check volume constraint!
-            (when (<= volume 0d0)
-              (error "Negative volume"))
-            ;; Turn kirchoff stress to cauchy
-            (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
-            ))))
+        ;; Check volume constraint!
+        (when (<= volume 0d0)
+          (error "Negative volume"))
+        ;; Turn kirchoff stress to cauchy
+        (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+        ))))
+(defun update-stress-kirchoff-damaged (mesh mp dt fbar)
+  "Update stress for a single mp"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+    (progn
+      ;;   ;;For no FBAR we need to update our strains
+      (progn
+        ;; (unless fbar)
+        (calculate-strain-rate mesh mp dt)
+
+        ;; Turn cauchy stress to kirchoff
+        (setf stress stress-kirchoff)
+
+        ;; Update our strains
+        (update-strain-kirchoff-damaged mesh mp dt fbar)
+
+        ;; Update our kirchoff stress with constitutive model
+        (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+
+        ;; Check volume constraint!
+        (when (<= volume 0d0)
+          (error "Negative volume"))
+        ;; Turn kirchoff stress to cauchy
+        (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+        ))))
+
+(defun update-stress-linear (mesh mp dt fbar)
+  "Update stress for a single mp"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+    (progn
+      ;;   ;;For no FBAR we need to update our strains
+      (progn
+        (calculate-strain-rate mesh mp dt)
+
+        ;; Update our strains
+        (update-strain-linear mesh mp dt fbar)
+
+        ;; Update our kirchoff stress with constitutive model
+        (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
+        ;; Check volume constraint!
+        (when (<= volume 0d0)
+          (error "Negative volume"))
+        ))))
+
+(defgeneric update-stress-mp (mesh mp dt fbar)
+  (:documentation "A mp dependent stress update scheme"))
+
+(defmethod update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
+  (update-stress-kirchoff mesh mp dt fbar))
+
 (defun calculate-cell-deformation (mesh cell dt)
   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
                    (volume cl-mpm/mesh::cell-volume))
