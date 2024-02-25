@@ -129,9 +129,7 @@
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t))
                    (when post-iter-step 
-                     (funcall post-iter-step))
-                   
-                   )
+                     (funcall post-iter-step)))
                  (swank.live:update-swank))))
     (when (not converged)
       ;; (error "System didn't converge")

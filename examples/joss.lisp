@@ -13,6 +13,10 @@
 ;; (defmethod print-object ((object magicl:matrix) stream)
 ;;   (pprint object stream))
 
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
+  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar))
+
+
 (declaim (notinline plot))
 (defun plot (sim)
   (cl-mpm/plotter:simple-plot
@@ -82,9 +86,7 @@
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
-                ;; (mapcar (lambda (x) 0) size)
                 offset
-                ;; '(0 0)
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
@@ -92,61 +94,60 @@
                 'cl-mpm/particle::particle-chalk-delayed
                 ;; 'cl-mpm/particle::particle-chalk-anisotropic
                 ;; ;; 'cl-mpm/particle::particle-limestone
+
                 :E 1d9
                 :nu 0.24d0
-                ;; :rho 1d6
+
                 :enable-plasticity t
 
-                :ft 0.70d6
-                :fc 4.0d6
-                :friction-angle 60d0
-                :kt-res-ratio 1d-6
-                :kc-res-ratio 1d0
-                :g-res-ratio 1d0
+                ;; :ft 0.70d6
+                ;; :fc 4.0d6
+                :ft 20d3
+                :fc 210d3
 
+                :friction-angle 65d0
+                :kt-res-ratio 1d-9
+                :kc-res-ratio 1d-2
+                :g-res-ratio  5d-3
                 :fracture-energy 3000d0
-
                 :initiation-stress 20d3
                 :delay-time 1d0
-                :ductility 10d0
-                ;; :compression-ratio 8d0
+                :ductility 50d0
 
-                ;; :critical-damage 1.0d0
-                :damage-domain-rate 0.99d0;This slider changes how GIMP update turns to uGIMP under damage
-                :damage-domain-rate 0d0
-                :local-length 0.5d0;(* 0.20d0 (sqrt 7))
-                ;; :local-length-damaged (* 0.10d0 (sqrt 7))
-                ;; :local-length-damaged (* 0.1d0 (sqrt 7))
-                ;; :local-length-damaged 1d0
+                :critical-damage (- 1.0d0 1d-6)
+                :damage-domain-rate 0.0d0;This slider changes how GIMP update turns to uGIMP under damage
+
+                :local-length 0.25d0;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
-                ;; 'cl-mpm/particle::particle-mc
-                ;; :E 1d9
-                ;; :nu 0.35d0
                 :psi (* 00d0 (/ pi 180))
-                :phi (* 40d0 (/ pi 180))
+                :phi (* 60d0 (/ pi 180))
                 :c 1000d3
-                ;; :c 1d1
-
-                ;; 'cl-mpm/particle::particle-vm
-                ;; :E 1d9
-                ;; :nu 0.35d0
-                ;; :rho 1d6
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
              (fc (cl-mpm/particle::mp-fc mp-0))
-             (ft (cl-mpm/particle::mp-ft mp-0)))
-        (format t "Chalk damage angle: ~F~%"
-                (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft)))))))
+             (ft (cl-mpm/particle::mp-ft mp-0))
+             (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
+             (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+             (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+             (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+             (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+             )
+        (format t "Chalk damage growth angle: ~F~%"
+                angle-d)
+        (format t "Chalk plastic virgin angle: ~F~%"
+                (* (/ 180 pi) angle-plastic))
+        (format t "Chalk plastic residual angle: ~F~%"
+                (* (/ 180 pi) angle-plastic-damaged)))
       ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 200d0 1d0 200d3)
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-15)
       (let ((ms 1d6))
@@ -418,8 +419,8 @@
 
                          (if (or
                               ;; t
-                              ;; (> energy-estimate 1d-4)
-                              (> total-energy 1d-3)
+                              (> energy-estimate 1d-3)
+                              ;; (> total-energy 1d-3)
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -448,7 +449,7 @@
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 (* 0d-4 ms)
+                                 (* 0d-3 ms)
                                  )))
                        )
 
@@ -765,7 +766,7 @@
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 1.5)
+         (shelf-aspect 2.00)
          (runout-aspect 2.00)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
@@ -850,18 +851,19 @@
                                      1d0)
                                  ))
       (let ((cut-height (* 0.0d0 shelf-height-true)))
-        (cl-mpm/setup::damage-sdf *sim*
-                                 (lambda (p)
-                                   (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
-                                       (funcall
-                                        (cl-mpm/setup::rectangle-sdf
-                                         (list (- (magicl:tref sloped-inflex-point 0 0)
-                                                  (* 0.15d0 shelf-height-true))
-                                               shelf-height)
-                                         (list (* 1.0d0 mesh-size) cut-height)
-                                         ) p)
-                                       1d0)
-                                   ))))
+        (cl-mpm/setup::damage-sdf
+         *sim*
+         (lambda (p)
+           (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+               (funcall
+                (cl-mpm/setup::rectangle-sdf
+                 (list (- (magicl:tref sloped-inflex-point 0 0)
+                          (* 0.15d0 shelf-height-true))
+                       shelf-height)
+                 (list (* 1.0d0 mesh-size) cut-height)
+                 ) p)
+               0.99d0)
+           ))))
     ;; (let ((sand-layer 3d0))
     ;;   (cl-mpm/setup::apply-sdf
     ;;    *sim*
@@ -938,3 +940,4 @@
     (defparameter *oobf* 0)
     (defparameter *energy* 0)
     (defparameter *sim-step* 0))
+

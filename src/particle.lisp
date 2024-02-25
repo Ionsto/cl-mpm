@@ -1585,6 +1585,7 @@
         ))
     stress
     ))
+
 (defmethod constitutive-model ((mp particle-chalk-delayed) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
@@ -1618,19 +1619,9 @@
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
 
-    ;; (setf stress-u
-    ;;       (cl-mpm/constitutive:maxwell-exp-v
-    ;;        strain-rate
-    ;;        stress-u
-    ;;        E nu de
-    ;;        1d7 dt))
-
-    ;; (setf stress
-    ;;       (magicl:scale! (cl-mpm/constitutive::linear-elastic-mat strain de) (- 1d0 damage)))
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-              ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
               (cl-mpm/constitutive::mc-plastic stress-u
                                                de
                                                strain
@@ -1642,10 +1633,8 @@
             (setf stress
                   sig
                   plastic-strain (magicl:.- strain eps-e)
-                  yield-func f
-                  )
-            (setf strain eps-e)
-            )
+                  yield-func f)
+            (setf strain eps-e))
           (incf ps-vm
                 (multiple-value-bind (l v)
                     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
@@ -1667,75 +1656,10 @@
           (setf p
                 (if (> p 0d0)
                     (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
-                    (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
-                    ))
+                    (* (- 1d0 (* (- 1d0 kc-r) damage)) p)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
                                   (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage))))))
-        ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) (expt damage 2d0))))
-        ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
-        ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-        ;;   (loop for i from 0 to 2
-        ;;         do
-        ;;            (let* ((sii (nth i l)))
-        ;;              (when (> sii 0d0)
-        ;;                ;;tensile damage -> unbounded
-        ;;                (setf
-        ;;                 (nth i l)
-        ;;                 (* sii
-        ;;                    (- 1d0
-        ;;                       (* (- 1d0 1d-6) damage)))))
-        ;;              (when (< sii 0d0)
-        ;;                ;;tensile damage -> unbounded
-        ;;                (setf
-        ;;                 (nth i l)
-        ;;                 (* sii
-        ;;                    (- 1d0 (* (- 1d0 1d-2)
-        ;;                              (expt damage 2.0d0))))))
-        ;;              ;; (when (< sii 1d0)
-        ;;              ;;   ;;bounded compressive damage
-        ;;              ;;   (setf (nth i l) (* sii (max 1d-2 (expt (- 1d0 (* 0.5d0 damage)) 2d0)))))
-        ;;              )
-        ;;         )
-        ;;   (setf stress
-        ;;         (magicl:scale!
-        ;;          (matrix-to-voight
-        ;;           (magicl:@
-        ;;            v
-        ;;            (magicl:from-diag l :type 'double-float)
-        ;;            (magicl:transpose v)))
-        ;;          j)))
-        ;; ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-        ;; ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        ;; ;;   (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-        ;; ;;                           (magicl:scale! s (max 1d-6 degredation))
-        ;; ;;                           )))
-        ;; (magicl:.+
-        ;;  stress
-        ;;  (magicl:scale! (cl-mpm/utils::deviatoric-voigt (cl-mpm/particle::mp-eng-strain-rate mp))
-        ;;                 (* damage -1d6))
-        ;;  stress
-        ;;  )
       ))
-    ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-    ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-    ;;   (setf stress (cl-mpm/constitutive::voight-eye p)))
-
-    
-    ;; (magicl:.+
-    ;;  stress
-    ;;  (objectify-stress-logspin
-    ;;   (magicl:scale! (cl-mpm/constitutive::linear-elastic-mat strain-rate de) (- 1d0 damage))
-    ;;   stress
-    ;;   def
-    ;;   vorticity
-    ;;   D)
-    ;;  stress)
-    ;; (call-next-method)
-    ;; (when (> damage 0.0d0)
-    ;;   (let* ((j (magicl:det def))
-    ;;          (degredation (expt (- 1d0 damage) 1d0))
-    ;;          )
-    ;;     ))
     stress
     ))
 

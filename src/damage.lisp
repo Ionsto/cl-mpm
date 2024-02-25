@@ -22,7 +22,7 @@
     :accessor sim-damage-delocal-counter-max
     :type fixnum
     :initarg :delocal-counter-max
-    :initform 50))
+    :initform 10))
   (:documentation "Explicit simulation with update stress first update"))
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
@@ -1233,15 +1233,13 @@ Calls the function with the mesh mp and node"
         ;;                                      (sqrt (cl-mpm/constitutive::voigt-j2
         ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
         ;;                                      0d0)))
-        ;; (cl-mpm/output::save-parameter "i1"
-        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
-        ;;                                                 (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
-        ;;                                                 )
-        ;;                                    mp
-        ;;                                  (if (< damage 1d0)
-        ;;                                      (cl-mpm/utils::trace-voigt stress)
-        ;;                                      0d0)))
+        (cl-mpm/output::save-parameter "i1"
+                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                                        (stress cl-mpm/particle::mp-undamaged-stress)
+                                                        (def cl-mpm/particle::mp-deformation-gradient)
+                                                        )
+                                           mp
+                                         (cl-mpm/utils::trace-voigt stress)))
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
         (cl-mpm/output::save-parameter
@@ -1535,75 +1533,71 @@ Calls the function with the mesh mp and node"
                      (fc cl-mpm/particle::mp-fc)
                      ) mp
       (declare (double-float pressure damage))
-        (progn
-          (when (< damage 1d0)
-            (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
-              (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
-                (let* ((pressure-effective (* 1d0 damage pressure))
-                       (j2 (cl-mpm/constitutive::voigt-j2
-                                   (cl-mpm/utils::deviatoric-voigt cauchy-undamaged)))
-                       (p (+ s_1 s_2 s_3))
-                       ;; (s_1 (- s_1 pressure-effective))
-                       ;; (s_2 (- s_2 pressure-effective))
-                       ;; (s_3 (- s_3 pressure-effective))
-                       ;; (s_1 (max 0d0 s_1))
-                       ;; (s_2 (max 0d0 s_2))
-                       ;; (s_3 (max 0d0 s_3))
-                       ;; (s_1 (sqrt
-                       ;;       (+ (expt s_1 2)
-                       ;;          (expt s_2 2)
-                       ;;          (expt s_3 2))))
-                       (angle (* angle (/ pi 180d0)))
-                       ;; (ft 200d3)
-                       ;; (fc 600d3)
-                       ;; (fc 500d3)
-                       ;; (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
-                       ;; (fc (*
-                       ;;      ft
-                       ;;      -3d0
-                       ;;      (/ (+ 1d0 (tan angle))
-                       ;;         (- 1d0 (tan angle)))))
-                       ;; (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
-                       ;; ;; (c 1d4)
-                       ;;Another dp
-                       ;; (alpha (/ (- (/ fc ft) 1) (+ (/ fc ft) 1)))
-                       ;; (s_1 (/ (+ (sqrt (* 3 j2)) (* alpha p)) (+ 1 alpha)))
+      (progn
+        (when (< damage 1d0)
+          (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
+            (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
+              (let* ((pressure-effective (* 1d0 damage pressure))
+                     (j2 (cl-mpm/constitutive::voigt-j2
+                          (cl-mpm/utils::deviatoric-voigt cauchy-undamaged)))
+                     (p (+ s_1 s_2 s_3))
+                     ;; (s_1 (- s_1 pressure-effective))
+                     ;; (s_2 (- s_2 pressure-effective))
+                     ;; (s_3 (- s_3 pressure-effective))
+                     ;; (s_1 (max 0d0 s_1))
+                     ;; (s_2 (max 0d0 s_2))
+                     ;; (s_3 (max 0d0 s_3))
+                     ;; (s_1 (sqrt
+                     ;;       (+ (expt s_1 2)
+                     ;;          (expt s_2 2)
+                     ;;          (expt s_3 2))))
+                     (angle (* angle (/ pi 180d0)))
+                     ;; (ft 200d3)
+                     ;; (fc 600d3)
+                     ;; (fc 500d3)
+                     ;; (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
+                     ;; (fc (*
+                     ;;      ft
+                     ;;      -3d0
+                     ;;      (/ (+ 1d0 (tan angle))
+                     ;;         (- 1d0 (tan angle)))))
+                     ;; (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
+                     ;; ;; (c 1d4)
+                     ;;Another dp
 
-                       ;; (A (/ (* 6 c (cos angle))
-                       ;;       (* (sqrt 3) (- 3 (sin angle)))))
-                       ;; (B (/ (* 2d0 (sin angle)) (* (sqrt 3) (- 3 (sin angle)))))
-                       ;; (s_1 (sqrt
-                       ;;       (+ (expt s_1 2)
-                       ;;          (expt s_2 2)
-                       ;;          (expt s_3 2))))
+                     ;;Smooth rankine
+                     ;; (s_1 (sqrt
+                     ;;       (+ (expt (max 0d0 s_1) 2)
+                     ;;          (expt (max 0d0 s_2) 2)
+                     ;;          (expt (max 0d0 s_3) 2))))
 
-                       ;;Good drucker-prager
-                       (s_1 (* (/ 3d0 (+ 3 (tan angle)))
-                               (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                     ;;Good drucker-prager
+                     (s_1 (* (/ 3d0 (+ 3 (tan angle)))
+                             (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
 
 
-                       ;; (k (/ fc ft))
-                       ;; (i1 (+ s_1 s_2 s_3))
-                       ;; (k-factor (/ (- k 1d0)
-                       ;;             (- 1d0 (* 2d0 nu))))
-                       ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                       ;;        (* (/ 1d0 (* 2d0 k))
-                       ;;           (sqrt (+ (expt (* k-factor i1) 2)
-                       ;;                    (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                       ;;                    )))))
-                       )
-                  ;; (setf damage-increment s_1)
-                  (when (> s_1 0d0)
-                    ;; (setf damage-increment (* s_1 (expt (- 1d0 damage) -2d0)))
-                    (setf damage-increment s_1)
-                    )
-                  ))))
-          (when (>= damage 1d0)
-            (setf damage-increment 0d0))
-          ;;Delocalisation switch
-          (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
-          (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-          ))))
+                     ;; (k (/ fc ft))
+                     ;; (i1 (+ s_1 s_2 s_3))
+                     ;; (k-factor (/ (- k 1d0)
+                     ;;              (- 1d0 (* 2d0 nu))))
+                     ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+                     ;;         (* (/ 1d0 (* 2d0 k))
+                     ;;            (sqrt (+ (expt (* k-factor i1) 2)
+                     ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
+                     ;;                     )))))
+                     )
+                ;; (setf damage-increment s_1)
+                (when (> s_1 0d0)
+                  ;; (setf damage-increment (* s_1 (expt (- 1d0 damage) -2d0)))
+                  (setf damage-increment s_1)
+                  )
+                ))))
+        (when (>= damage 1d0)
+          (setf damage-increment 0d0))
+        ;;Delocalisation switch
+        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+        ))))
 
 (defun brittle-chalk-d (stress E Gf length init-stress)
   (declare (double-float stress E Gf length init-stress))
@@ -1994,24 +1988,27 @@ Calls the function with the mesh mp and node"
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
          (e0 (/ ft E))
-         ;; (ef (+ (/ e0 2) (/ Gf (* length ft))))
          (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
          (k (/ stress E))
-         ;; (beta (/ (* E e0 length) Gf))
          (beta (/ 1d0 (- ef e0)))
-         ;(beta (/ (* E e0 length) Gf))
          )
-    ;; (when (> length (/ (* 2 Gf E) (expt ft 2)))
-    ;;   (error "Length scale is too long, e0 ~F, Ef ~F, beta: ~F" e0 ef beta))
     (if (> k e0)
         (- 1d0 (* (/ e0 k) (+ 0d0 (exp (- (* beta (- k e0)))))))
-        0d0
-        ))
-  ;; (let* ((hs (/ (expt stress 2) (* 2 E Gf)))
-  ;;        (hsl (/ (* hs length) (- 1d0 (* hs length)))))
-  ;;   (min 1d0 (max 0d0 (- 1d0 (exp (* -1d0 hs (/ init-stress (max init-stress stress)))))))
-  ;;   )
+        0d0))
   )
+;; (defun damage-response-exponential-inverse (damage E length init-stress ductility)
+;;   (declare (double-float stress E length init-stress ductility))
+;;   "Function that controls how damage evolves with principal stresses"
+;;   (let* ((ft init-stress)
+;;          (e0 (/ ft E))
+;;          (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+;;          (k (/ stress E))
+;;          (beta (/ 1d0 (- ef e0)))
+;;          )
+;;     (if (> k e0)
+;;         (- 1d0 (* (/ e0 k) (+ 0d0 (exp (- (* beta (- k e0)))))))
+;;         0d0))
+;;   )
 
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-limestone) dt)
