@@ -189,7 +189,7 @@
                                    mp-scale
                                    2))
                  density
-                 'cl-mpm/particle::particle-limestone
+                 'cl-mpm/particle::particle-limestone-delayed
                  :E 25.85d9
                  :nu 0.18d0
                  ;; :elastic-approxmation :plane-stress
@@ -203,6 +203,7 @@
                  :compression-ratio 10d0
                  :gravity -0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
+                 :delay-time 0.1d0
                  )
                 ;; impactors
                 )
@@ -502,7 +503,7 @@
   (setf (cl-mpm:sim-dt *sim*)
         (cl-mpm/setup:estimate-elastic-dt *sim* :dt-scale 0.8d0))
 
-  (let* ((target-time 0.1d0)
+  (let* ((target-time 0.10d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1.0d0)
@@ -511,7 +512,8 @@
          (disp-step (/ disp-total load-steps))
          )
 
-    (setf (cl-mpm::sim-enable-damage *sim*) nil)
+    (setf (cl-mpm::sim-enable-damage *sim*) t)
+    (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 20)
     (time (cl-mpm::update-sim *sim*))
     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
     ;;                 (format t "CFL dt estimate: ~f~%" dt-e)
@@ -568,12 +570,13 @@
                           (incf *target-displacement* (/ disp-step substeps))
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
-                       (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 0)
-                       (cl-mpm/damage::calculate-damage *sim*)
+                       ;;For quasi-
+                       ;; (cl-mpm/damage::calculate-damage *sim*)
 
-                       (setf average-force (/ cl-mpm/penalty::*debug-force* 1d0))
-                       (setf average-reaction (get-reaction-force *fixed-nodes*))
-                       (setf average-disp (get-disp *terminus-mps*))
+                       ;;Not averaged
+                       ;; (setf average-force (/ cl-mpm/penalty::*debug-force* 1d0))
+                       ;; (setf average-reaction (get-reaction-force *fixed-nodes*))
+                       ;; (setf average-disp (get-disp *terminus-mps*))
 
                        (push
                         average-disp
@@ -666,7 +669,6 @@
                            (average-disp 0d0)
                            (average-reaction 0d0))
 
-                       (setf (cl-mpm::sim-enable-damage *sim*) nil)
                        (incf *target-displacement* disp-step)
                        (time
                         (progn
