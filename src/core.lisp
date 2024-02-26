@@ -1454,14 +1454,7 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-
-          ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
-          ;;                                    (cl-mpm/particle::mp-damage-domain-update-rate mp))
-          ;; (when (< (the double-float (cl-mpm/particle::mp-damage mp)) 1d0)
-          ;; (update-domain-stretch-rate df domain)
-            ;; (update-domain-stretch def domain domain-0)
             (update-domain-corner mesh mp dt)
-          ;;   )
 
           )
           )))
@@ -1638,15 +1631,23 @@ Calls func with only the node"
             (when (= 3 nd)
               (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2)))))
 
-            (let* ((jf (magicl:det def))
-                   (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-                   (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-                   (scaling (expt (/ (* jf jl0) jl) (/ 1d0 nd))))
-              (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                    (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                    )
-              (when (= 3 nd)
-                (setf (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)))))
+            (if (= 2 nd)
+                (let* ((jf (magicl:det def))
+                       (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+                       (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                       (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
+                  (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                        (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                        ))
+                (let* ((jf (magicl:det def))
+                       (jl (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
+                       (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
+                       (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
+                  (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                        (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                        (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
+                        ))
+                ))
           ))))
 
 
