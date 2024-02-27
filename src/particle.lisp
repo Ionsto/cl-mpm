@@ -1912,6 +1912,15 @@
     :initform 1d0)
    )
   (:documentation "A concrete damage model"))
+
+(defclass particle-limestone-delayed (particle-limestone)
+  ((delay-time
+    :accessor mp-delay-time
+    :initform 1d0
+    :initarg :delay-time
+    ))
+  (:documentation "A time dependant limestone elastic damage model"))
+
 (defmethod constitutive-model ((mp particle-limestone) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((E E)
