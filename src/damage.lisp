@@ -24,6 +24,9 @@
     :initarg :delocal-counter-max
     :initform 10))
   (:documentation "Explicit simulation with update stress first update"))
+
+(defclass mpm-sim-usl-damage (mpm-sim-damage cl-mpm::mpm-sim-usl) ())
+
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
 (declaim
@@ -287,14 +290,15 @@
     ;;Check if the particle has been inserted by checking nil equality of damage position
     (if (cl-mpm/particle::mp-damage-position mp)
         (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
-          (when (cl-mpm/mesh:in-bounds mesh node-id)
+          (if (cl-mpm/mesh:in-bounds mesh node-id)
             (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-              (if (remove-mp-ll node)
-                  t
+              (when (not (remove-mp-ll node))
                   (cl-mpm::iterate-over-nodes-serial
                    mesh
                    (lambda (node)
-                     (remove-mp-ll node)))))))
+                     (remove-mp-ll node))))
+              t)
+            nil))
         nil)))
 
 (defun update-delocalisation-list (mesh mps)
@@ -321,7 +325,9 @@
                               (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))
                               ))
                   (local-list-remove-particle mesh mp)
-                  (local-list-add-particle mesh mp))))))))
+                  (local-list-add-particle mesh mp)))))))
+      
+      )
     (lparallel:pdotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
         (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
@@ -846,6 +852,69 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
                     )))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
+  (declare (cl-mpm::mpm-sim-usf sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps  cl-mpm::mps)
+               (bcs  cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               )
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (cl-mpm::check-single-mps sim)
+                    ;;Do optional mass filter
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt )
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    ;Map forces onto nodes
+                    (cl-mpm::p2g-force mesh mps)
+                    (loop for bcs-f in bcs-force-list
+                          do
+                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    ;Reapply velocity BCs
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    ;Also updates mps inline
+
+
+                    (cl-mpm::g2p mesh mps dt)
+
+                    ;;Update stress last
+
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (cl-mpm::check-single-mps sim)
+                    ;;Do optional mass filter
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics mesh dt )
+                    (cl-mpm::apply-bcs mesh bcs dt)
+
+                    (cl-mpm::update-stress mesh mps dt fbar)
+                    (when enable-damage
+                      (cl-mpm/damage::calculate-damage sim))
+
+                    ;;18
+                    (when remove-damage
+                      (cl-mpm::remove-material-damaged sim))
+                    (when split
+                      (cl-mpm::split-mps sim))
+                    (cl-mpm::check-mps sim)
+                    )))
+
 
 
 (defstruct damage-model
@@ -2103,7 +2172,7 @@ Calls the function with the mesh mp and node"
                        (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
                                (* (/ 1d0 (* 2d0 k))
                                   (sqrt (+ (expt (* k-factor i1) 2)
-                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+                                           (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
                                            ))))))
                   (setf damage-increment s_1)
                   )))))
