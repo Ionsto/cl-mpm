@@ -485,19 +485,25 @@
  (inline weight-func)
  (ftype (function (double-float
                    double-float
-                   ) (values double-float))
+                   ) double-float)
         weight-func
         ))
 (defun weight-func (dist-squared length)
-  ;(values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared))))))
-  (if (< dist-squared (* 4d0 length length))
-      (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length)))))))
+  (if (< dist-squared (* length length))
+      (the double-float (expt (- 1d0 (expt (/ dist-squared (* length length)) 2)) 2))
+      ;; (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length))))))
       0d0)
-  ;; (values (the double-float (exp (the double-float (* 4d0 (/ (- dist-squared) (* 1.00d0 length length)))))))
-  ;; (if (= dist-squared 0d0)
-  ;;   1d0
-  ;;   0d0)
   )
+;; (defun weight-func (dist-squared length)
+;;   ;(values (the double-float (exp (the double-float (- (* (/ 4d0 (* length length)) dist-squared))))))
+;;   (if (< dist-squared (* 4d0 length length))
+;;       (values (the double-float (exp (the double-float (* 1d0 (/ (- dist-squared) (* 2d0 length length)))))))
+;;       0d0)
+;;   ;; (values (the double-float (exp (the double-float (* 4d0 (/ (- dist-squared) (* 1.00d0 length length)))))))
+;;   ;; (if (= dist-squared 0d0)
+;;   ;;   1d0
+;;   ;;   0d0)
+;;   )
 (declaim
  (inline weight-func-mps)
  (ftype (function (cl-mpm/mesh::mesh
@@ -552,7 +558,7 @@ Calls the function with the mesh mp and node"
   (declare (function func)
            (double-float length) )
   (let* ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+         (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 1d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh)))))))
          (potentially-in-bounds (patch-in-bounds-2d mesh node-id node-reach))
          )
@@ -570,7 +576,7 @@ Calls the function with the mesh mp and node"
 
 (defun iterate-over-damage-bounds-3d (mesh mp length func)
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
-        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 2d0)
+        (node-reach (the fixnum (+ 0 (truncate (ceiling (* length 1d0)
                                                         (the double-float (cl-mpm/mesh:mesh-resolution mesh))))))))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
@@ -650,7 +656,7 @@ Calls the function with the mesh mp and node"
                             (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
                                weight m)))
                     (when (and *enable-reflect-x*
-                               (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 4 length)))
+                               (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 2 length)))
                       (let ((weight (weight-func-pos mesh
                                                      (cl-mpm/particle::mp-position mp)
                                                      (magicl:.* (cl-mpm/particle:mp-position mp-other)
@@ -718,8 +724,8 @@ Calls the function with the mesh mp and node"
 
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 ;; (declaim
 ;;  (ftype
@@ -2096,7 +2102,8 @@ Calls the function with the mesh mp and node"
                      (pressure cl-mpm/particle::mp-pressure)
                      (volume cl-mpm/particle::mp-volume)
                      (def cl-mpm/particle::mp-deformation-gradient)
-                     (length cl-mpm/particle::mp-internal-length)
+                     ;(length cl-mpm/particle::mp-internal-length)
+                     (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
                      (eng-inc cl-mpm/particle::mp-dissipated-energy-inc)
                      (eng-int cl-mpm/particle::mp-dissipated-energy)
@@ -2110,7 +2117,7 @@ Calls the function with the mesh mp and node"
 
           (setf ybar damage-inc)
           (setf k (max k ybar))
-          (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress ductility))))
+          (let ((new-damage (max damage (damage-response-exponential k E Gf (/ length (sqrt 7)) init-stress ductility))))
             (setf damage-inc (- new-damage damage)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
