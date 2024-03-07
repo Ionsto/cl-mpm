@@ -471,6 +471,7 @@
                "cl-mpm/penalty"
                "cl-mpm/damage"
                "cl-mpm/plotter"
+               "cl-mpm/dynamic-relaxation"
                "vgplot"
                "swank.live")
   :serial t

@@ -668,10 +668,8 @@ Calls the function with the mesh mp and node"
                         (incf mass-total (* weight m))
                         (incf damage-inc
                               (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-                                 weight m)))
-
-                      ))
-                                             ))))
+                                 weight m))))
+                    )))))
     (when (> mass-total 0d0)
       (setf damage-inc (/ damage-inc mass-total)))
     damage-inc
@@ -2208,24 +2206,24 @@ Calls the function with the mesh mp and node"
                        ;;            (sqrt (+ (expt (* k-factor i1) 2)
                        ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
                        ;;                     )))))
-                       ;; (s_1 (max 0d0 s_1))
-                       ;; (s_2 (max 0d0 s_2))
-                       ;; (s_3 (max 0d0 s_3))
-                       ;; (s_1 (sqrt
-                       ;;       (+ (expt s_1 2)
-                       ;;          (expt s_2 2)
-                       ;;          (expt s_3 2))))
+                       (s_1 (max 0d0 s_1))
+                       (s_2 (max 0d0 s_2))
+                       (s_3 (max 0d0 s_3))
+                       (s_1 (sqrt
+                             (+ (expt s_1 2)
+                                (expt s_2 2)
+                                (expt s_3 2))))
 
-                       (s_1
-                         (* 0.5d0
-                            (+
-                             (* (/ 1d0 (* k init-stress))
-                                (+
-                                 (expt (- s_1 s_2) 2)
-                                 (expt (- s_2 s_3) 2)
-                                 (expt (- s_3 s_1) 2))
-                                )
-                             (* 2d0 (- 1 (/ 1d0 k)) i1))))
+                       ;; (s_1
+                       ;;   (* 0.5d0
+                       ;;      (+
+                       ;;       (* (/ 1d0 (* k init-stress))
+                       ;;          (+
+                       ;;           (expt (- s_1 s_2) 2)
+                       ;;           (expt (- s_2 s_3) 2)
+                       ;;           (expt (- s_3 s_1) 2))
+                       ;;          )
+                       ;;       (* 2d0 (- 1 (/ 1d0 k)) i1))))
 
                        )
                   (setf damage-increment s_1)

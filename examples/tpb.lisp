@@ -40,7 +40,9 @@
   (plot-load-disp)
   ;; (plot-time-disp)
   )
-
+(defun stop ()
+  (setf *run-sim* nil)
+  (setf cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
@@ -191,8 +193,8 @@
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
-                   ;; :E 15.3d9
-                   :E 18d9
+                   :E 15.3d9
+                   ;; :E 18d9
                    :nu 0.15d0
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
@@ -205,6 +207,10 @@
                    ;:ductility 7.1d0
                    :ductility 7.1d0
                    :critical-damage 1.000d0
+                   :enable-plasticity nil
+                   :c 0d0
+                   :phi 0d0
+                   :psi 0d0
                    ;; :local-length-damaged 0.01d0
                    :gravity -0.0d0
                    :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -221,7 +227,7 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 6d0 density ms)
+              (* 7d0 density ms)
               ;; (* 1d1 density)
               ;; 1d0
               ))
@@ -950,8 +956,25 @@
                      (incf *target-displacement* disp-step)
                      (time
                       (progn
-                        (converge-quasi-static *sim*)
-                        (cl-mpm/damage::calculate-damage *sim*)))
+                        (cl-mpm/dynamic-relaxation::converge-quasi-static
+                         *sim*
+                         :energy-crit 1d-1
+                         :dt-scale 0.8d0
+                         :conv-steps 10
+                         :post-iter-step
+                         (lambda ()
+                           (let ((av (get-disp *terminus-mps*)))
+                             (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E~%"
+                                     *target-displacement*
+                                     av
+                                     (abs (- *target-displacement* av )))))
+
+
+                         )
+                        ;; (converge-quasi-static *sim*)
+                        (cl-mpm/damage::calculate-damage *sim*)
+                        )
+                      )
 
                      (let ((average-force 0d0)
                            (average-disp 0d0)

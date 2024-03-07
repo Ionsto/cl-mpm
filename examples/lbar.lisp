@@ -176,7 +176,7 @@
          )
     (declare (double-float h density))
     (progn
-      (let* ((scaler (sqrt 7)))
+      (let* ((scaler 1d0))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (append
@@ -192,20 +192,26 @@
                  density
                  'cl-mpm/particle::particle-limestone-delayed
                  ;:E 25.85d9
+                 ;:E 21.00d9
                  :E 21.00d9
                  :nu 0.18d0
                  ;; :elastic-approxmation :plane-stress
                  :fracture-energy 95d0
-                 :initiation-stress (* 2.7d6 1d0)
+                 :initiation-stress  2.7d6
                  :critical-damage 1.0d0
                  ;; :internal-length 25d-3
                  :local-length (* 25d-3 scaler)
                  :local-length-damaged (* 25d-3 scaler)
-                 :ductility 6.8d0
+                 :ductility 16d0;6.8d0
                  :compression-ratio 10d0
                  :gravity 0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
-                 :delay-time 0.1d0
+                 :delay-time 0.50d0
+                 :phi (* 35d0 (/ pi 180))
+                 :psi 0d0
+                 :c 3000d3
+                 :enable-plasticity nil
+
                  )
                 )
                )))
@@ -218,7 +224,7 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 5d0 density)))
+              (* 7d0 density)))
 
       (dotimes (i 0)
         (dolist (dir (list :x :y))
@@ -390,8 +396,8 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 1.0d0))
-         (mps-per-cell 2)
+  (let* ((mesh-size (/ 0.025 0.5d0))
+         (mps-per-cell 4)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
          (domain-length (+ shelf-length (* 8 mesh-size)))
@@ -464,7 +470,7 @@
   (defparameter *data-full-load* '(0d0))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
-    (format stream "disp,load,load-mps~%"))
+    (format stream "disp,load~%"))
   (let ((ms 1d4))
     (setf (cl-mpm::sim-mass-scale *sim*) ms)
     (setf (cl-mpm::sim-damping-factor *sim*) (* ms 5d0)))
@@ -472,7 +478,7 @@
   (setf (cl-mpm:sim-dt *sim*)
         (cl-mpm/setup:estimate-elastic-dt *sim* :dt-scale 0.8d0))
 
-  (let* ((target-time 0.100d0)
+  (let* ((target-time 0.10000d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1.0d0)
@@ -544,12 +550,12 @@
                        ;;  average-reaction
                        ;;  *data-load*)
 
-                       (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
-                         (format stream "~f,~f~%"
-                                 average-disp
-                                 average-reaction
-                                 average-force
-                                 )))
+                       (let ((mesh-size (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+                         (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
+                           (format stream "~f,~f~%"
+                                   average-disp
+                                   (/ average-force mesh-size)
+                                   ))))
 
                      (format t "Target: ~E - Current: ~E Error: ~E - energy ~E~%"
                              *target-displacement*
@@ -597,8 +603,8 @@
   (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 1d0)
-         (load-steps 50)
+         (dt-scale 0.1d0)
+         (load-steps 100)
          (disp-step (/ 0.8d-3 load-steps))
          )
 
@@ -624,12 +630,13 @@
                            (average-reaction 0d0))
 
                        (incf *target-displacement* disp-step)
+                       (setf (cl-mpm::sim-enable-damage *sim*) nil)
                        (time
                         (progn
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-1
-                           :dt-scale 1d0
+                           :energy-crit 1d-3
+                           :dt-scale dt-scale
                            :conv-steps 100
                            :post-iter-step
                            (lambda ()
@@ -641,6 +648,7 @@
 
 
                            )
+                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (cl-mpm/damage::calculate-damage *sim*)))
                        (incf average-disp (get-disp *terminus-mps*))
                        (incf average-force cl-mpm/penalty::*debug-force*)
