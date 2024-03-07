@@ -282,14 +282,17 @@
   ((phi
     :accessor mp-phi
     :initarg :phi
+    :initform 0d0
     )
    (psi
     :accessor mp-psi
     :initarg :psi
+    :initform 0d0
     )
    (c
     :accessor mp-c
     :initarg :c
+    :initform 0d0
     )
    (strain-plastic-vm
     :accessor mp-strain-plastic-vm
@@ -1913,7 +1916,7 @@
    (enable-plasticity
     :accessor mp-enable-plasticity
     :initarg :enable-plasticity
-    :initform t
+    :initform nil
     )
    )
   (:documentation "A concrete damage model"))
