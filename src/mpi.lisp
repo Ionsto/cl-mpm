@@ -1109,13 +1109,16 @@
            (comp-size (mpm-sim-mpi-domain-count sim))
            )
       (setf (mpm-sim-mpi-domain-bounds sim)
-            (funcall domain-scaler
-                     (loop for i from 0 to 2
-                           collect
-                           (if (> (nth i comp-size) 1)
-                               (list (* (/ (nth i mesh-size) (nth i comp-size)) (nth i index))
-                                     (* (/ (nth i mesh-size) (nth i comp-size)) (+ (nth i index) 1)))
-                               (list 0 (nth i mesh-size))))))
+
+            (mapcar (lambda (domain size) (mapcar (lambda (x) (* x size)) domain))
+                    (funcall domain-scaler
+                             (loop for i from 0 to 2
+                                   collect
+                                   (if (> (nth i comp-size) 1)
+                                       (list (/ (* (/ (nth i mesh-size) (nth i comp-size)) (nth i index)) (nth i mesh-size))
+                                             (/ (* (/ (nth i mesh-size) (nth i comp-size)) (+ (nth i index) 1)) (nth i mesh-size)))
+                                       (list 0d0 1d0))))
+                    mesh-size))
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
       (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
