@@ -1,7 +1,7 @@
 (defpackage :cl-mpm/dynamic-relaxation
   (:use :cl))
 (in-package :cl-mpm/dynamic-relaxation)
-(defmethod estimate-energy-norm (sim))
+(defgeneric estimate-energy-norm (sim))
 (defmethod estimate-energy-norm ((sim cl-mpm::mpm-sim))
   (loop for mp across (cl-mpm:sim-mps sim)
             sum (* (cl-mpm/particle:mp-mass mp)
@@ -28,14 +28,35 @@
 ;; (defparameter *run-convergance* nil)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key
-                                    (energy-crit 1d-8)
-                                    (oobf-crit 1d-8)
-                                    (live-plot nil)
-                                    (dt-scale 0.5d0)
-                                    (substeps 50)
-                                    (conv-steps 50)
-                                    (post-iter-step nil)
-                                    )
+                                     (energy-crit 1d-8)
+                                     (oobf-crit 1d-8)
+                                     (live-plot nil)
+                                     (dt-scale 0.5d0)
+                                     (substeps 50)
+                                     (conv-steps 50)
+                                     (post-iter-step nil)
+                                     )
+  "Converge a simulation to a quasi-static solution via dynamic relaxation
+   This is controlled by a kinetic energy norm"
+  (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step))
+
+(defgeneric %converge-quasi-static (sim
+                                   energy-crit
+                                   oobf-crit
+                                   live-plot
+                                   dt-scale
+                                   substeps
+                                   conv-steps
+                                   post-iter-step)
+ )
+(defmethod %converge-quasi-static (sim
+                                    energy-crit
+                                    oobf-crit
+                                    live-plot
+                                    dt-scale
+                                    substeps
+                                    conv-steps
+                                    post-iter-step)
   (setf *run-convergance* t)
   (let* ((fnorm 0d0)
          (oobf 0d0)
@@ -128,12 +149,85 @@
                               )
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t))
-                   (when post-iter-step 
+                   (when post-iter-step
                      (funcall post-iter-step)))
                  (swank.live:update-swank))))
     (when (not converged)
       ;; (error "System didn't converge")
       (format t "System didn't converge~%")
+      )
+    ))
+(defmethod %converge-quasi-static ((sim cl-mpm/mpi:mpm-sim-mpi)
+                                    energy-crit
+                                    oobf-crit
+                                    live-plot
+                                    dt-scale
+                                    substeps
+                                    conv-steps
+                                    post-iter-step)
+  (setf *run-convergance* t)
+  (let* ((fnorm 0d0)
+         (oobf 0d0)
+         (rank (cl-mpi:mpi-comm-rank))
+         ;; (estimated-t 0.5d0)
+         (target-time 1d-4)
+         ;; (substeps 40)
+         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (estimated-t 1d-5)
+         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (total-step 0)
+        (converged nil))
+    (format t "Substeps ~D~%" substeps)
+    ;; (format t "dt ~D~%" dt)
+    ;; (setf *full-load* (list)
+    ;;       *full-step* (list)
+    ;;       *full-energy* (list)
+    ;;       )
+    (let ((full-load (list))
+          (full-step (list))
+          (full-energy (list)))
+      (loop for i from 0 to 20
+            while (and *run-convergance*
+                   (not converged))
+            do
+               (progn
+                 (dotimes (j substeps)
+                   (setf cl-mpm/penalty::*debug-force* 0d0)
+                   (cl-mpm:update-sim sim)
+                   )
+                 (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
+                   (when (= 0 rank)
+                     (format t "CFL dt estimate: ~f~%" dt-e)
+                     (format t "CFL step count estimate: ~D~%" substeps-e))
+                   )
+                 (setf fnorm (estimate-energy-norm sim))
+
+                 (setf oobf 0d0)
+                 (let ((nmax 0d0)
+                       (dmax 0d0)
+                       (imax 0)
+                       (iter 0)
+                       (force (cl-mpm/mpi:mpi-sum cl-mpm/penalty::*debug-force*))
+                       )
+                   (when (> dmax 0d0)
+                     (setf oobf (/ nmax dmax)))
+
+                   (when (= 0 rank)
+                     (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
+                             force))
+                   (when (and (< fnorm energy-crit)
+                              (< oobf oobf-crit)
+                              )
+                     (when (= 0 rank)
+                       (format t "Took ~D steps to converge~%" i))
+                     (setf converged t))
+                   (when post-iter-step
+                     (funcall post-iter-step)))
+                 (swank.live:update-swank))))
+    (when (not converged)
+      ;; (error "System didn't converge")
+      (when (= 0 rank)
+        (format t "System didn't converge~%"))
       )
     ))
 
@@ -165,3 +259,4 @@
 ;;   (time
 ;;    (converge-quasi-static *sim*))
 ;;   )
+
