@@ -1121,7 +1121,7 @@
                     mesh-size))
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
-      (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
+      ;; (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
       (let ((min-mps (mpi-min (length (cl-mpm:sim-mps sim))))
             (max-mps (mpi-max (length (cl-mpm:sim-mps sim))))
             )

@@ -19,17 +19,17 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (cl-mpm/plotter:simple-plot
-  ;;  *sim*
-  ;;  :plot :deformed
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-  ;;  :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-  ;;  ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
-  ;;  ;; :colour-func #'cl-mpm/particle::mp-boundary
-  ;;  )
+  (cl-mpm/plotter:simple-plot
+   *sim*
+   :plot :deformed
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+   ;; :colour-func #'cl-mpm/particle::mp-boundary
+   )
   )
 
 (defclass bc-weathering (cl-mpm/buoyancy::bc-scalar)
@@ -103,16 +103,16 @@
                 :friction-angle 60d0
                 :kt-res-ratio 1d-9
                 :kc-res-ratio 1d-2
-                :g-res-ratio 5d-3
+                :g-res-ratio 6.5d-3
                 :fracture-energy 3000d0
-                :initiation-stress 10d3
+                :initiation-stress 20d3
                 :delay-time 1d1
-                :ductility 10d0
+                :ductility 20d0
 
                 :critical-damage 1.0d0;(- 1.0d0 1d-6)
                 :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
 
-                :local-length 2.00d0;(* 0.20d0 (sqrt 7))
+                :local-length 0.50d0;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
                 :psi (* 00d0 (/ pi 180))
@@ -137,7 +137,7 @@
                 (* (/ 180 pi) angle-plastic))
         (format t "Chalk plastic residual angle: ~F~%"
                 (* (/ 180 pi) angle-plastic-damaged)))
-      ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 200d0 1d0 200d3)
+      ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 95d0 0.5d0 20d3)
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -941,8 +941,8 @@
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 2.0)
-         (runout-aspect 2.0)
+         (shelf-aspect 1.0)
+         (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1052,7 +1052,7 @@
     ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
     ;;   )
     (let* ((notched-depth 1.0d0)
-           (undercut-angle 20d0)
+           (undercut-angle 30d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
                                       (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))

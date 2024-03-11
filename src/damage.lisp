@@ -1592,6 +1592,7 @@ Calls the function with the mesh mp and node"
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
                      (damage cl-mpm/particle:mp-damage)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -1604,11 +1605,16 @@ Calls the function with the mesh mp and node"
                      (nu cl-mpm/particle::mp-nu)
                      (ft cl-mpm/particle::mp-ft)
                      (fc cl-mpm/particle::mp-fc)
+                     (E cl-mpm/particle::mp-e)
                      ) mp
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
+          (let ((cauchy-undamaged
+                  ;; (magicl:.* strain
+                  ;;            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+                  (magicl:scale stress (/ 1d0 (magicl:det def)))
+                  ))
             (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
               (let* ((pressure-effective (* 1d0 damage pressure))
                      (j2 (cl-mpm/constitutive::voigt-j2
@@ -1653,11 +1659,26 @@ Calls the function with the mesh mp and node"
                      ;; (i1 (+ s_1 s_2 s_3))
                      ;; (k-factor (/ (- k 1d0)
                      ;;              (- 1d0 (* 2d0 nu))))
-                     ;; (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                     ;;         (* (/ 1d0 (* 2d0 k))
-                     ;;            (sqrt (+ (expt (* k-factor i1) 2)
-                     ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
-                     ;;                     )))))
+                     ;; (s_1 (* E
+                     ;;         (+ (* i1 (/ k-factor (* 2d0 k)))
+                     ;;             (* (/ 1d0 (* 2d0 k))
+                     ;;                (sqrt (+ (expt (* k-factor i1) 2)
+                     ;;                         (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
+                     ;;                         ))))))
+
+
+                     ;; (s_1
+                     ;;   (* 0.5d0
+                     ;;      (+
+                     ;;       (* (/ 1d0 (* k init-stress))
+                     ;;          (+
+                     ;;           (expt (- s_1 s_2) 2)
+                     ;;           (expt (- s_2 s_3) 2)
+                     ;;           (expt (- s_3 s_1) 2))
+                     ;;          )
+                     ;;       (* (/ 2d0 (* k init-stress)) (- (* k init-stress) init-stress)
+                     ;;          (+ s_1 s_2 s_3))
+                     ;;       )))
                      )
                 ;; (setf damage-increment s_1)
                 (when (> s_1 0d0)
