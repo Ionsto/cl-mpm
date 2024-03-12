@@ -145,7 +145,7 @@
                    (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
                            cl-mpm/penalty::*debug-force*)
                    (when (and (< fnorm energy-crit)
-                              (< oobf oobf-crit)
+                              ;(< oobf oobf-crit)
                               )
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t))
@@ -216,7 +216,7 @@
                      (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
                              force))
                    (when (and (< fnorm energy-crit)
-                              (< oobf oobf-crit)
+                              ;(< oobf oobf-crit)
                               )
                      (when (= 0 rank)
                        (format t "Took ~D steps to converge~%" i))

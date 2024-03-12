@@ -22,6 +22,7 @@
     #:sim-dt
     #:sim-damping-factor
     #:sim-mass-filter
+    #:sim-mass-scale
     #:sim-allow-mp-split
     #:post-stress-step
     #:iterate-over-nodes
