@@ -1455,8 +1455,8 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-            ;; (update-domain-corner mesh mp dt)
-          (update-domain-stretch-rate df domain)
+            (update-domain-corner mesh mp dt)
+          ;; (update-domain-stretch-rate df domain)
 
           )
           )))

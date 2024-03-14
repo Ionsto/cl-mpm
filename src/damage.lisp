@@ -1612,7 +1612,9 @@ Calls the function with the mesh mp and node"
         (when (< damage 1d0)
           (let ((cauchy-undamaged
                   ;; (magicl:.* strain
-                  ;;            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+                  ;;            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0))
+                  ;;            )
+                  ;; strain
                   (magicl:scale stress (/ 1d0 (magicl:det def)))
                   ))
             (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
@@ -1626,10 +1628,28 @@ Calls the function with the mesh mp and node"
                      ;; (s_1 (max 0d0 s_1))
                      ;; (s_2 (max 0d0 s_2))
                      ;; (s_3 (max 0d0 s_3))
-                     ;; (s_1 (sqrt
-                     ;;       (+ (expt s_1 2)
-                     ;;          (expt s_2 2)
-                     ;;          (expt s_3 2))))
+                     ;; (s_1 (* E
+                     ;;         (sqrt
+                     ;;          (+ (expt s_1 2)
+                     ;;             (expt s_2 2)
+                     ;;             (expt s_3 2)))))
+                     ;; (k (/ fc ft))
+                     ;; (s_1 (* E
+                     ;;         (/
+                     ;;          (+
+                     ;;             (* k
+                     ;;                (sqrt
+                     ;;                 (+ (expt (max 0d0 s_1) 2)
+                     ;;                    (expt (max 0d0 s_2) 2)
+                     ;;                    (expt (max 0d0 s_3) 2))))
+                     ;;             (sqrt
+                     ;;              (+ (expt (max 0d0 (- s_1)) 2)
+                     ;;                 (expt (max 0d0 (- s_2)) 2)
+                     ;;                 (expt (max 0d0 (- s_3)) 2)))
+                     ;;             )
+                     ;;          (+ 1d0 k)
+                     ;;          ))
+                     ;;      )
                      (angle (* angle (/ pi 180d0)))
                      ;; (ft 200d3)
                      ;; (fc 600d3)
