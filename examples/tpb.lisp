@@ -21,7 +21,12 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func #'cl-mpm/particle::mp-damage
+   :colour-func (lambda (mp)
+                  (* (cl-mpm/particle::mp-mass mp)
+                     (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))
+                  )
+   ;:colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
@@ -180,7 +185,7 @@
                ;; (length-scale 20d-3) ;;65.15
                ;; (length-scale 10d-3) ;;47.56
                (length-scale 5.3d-3) ;; 
-               (kappa (sqrt 7)))
+               (kappa (sqrt 1)))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (setf (cl-mpm:sim-mps sim)
@@ -193,8 +198,8 @@
                    density
                    ;; 'cl-mpm/particle::particle-concrete
                    'cl-mpm/particle::particle-limestone
-                   :E 15.3d9
-                   ;; :E 18d9
+                   ;; :E 15.3d9
+                   :E 18d9
                    :nu 0.15d0
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.4d6
@@ -205,7 +210,9 @@
                    :local-length-damaged (* length-scale crack-scale kappa 1d0)
                    :compression-ratio 8d0
                    ;:ductility 7.1d0
-                   :ductility 7.1d0
+                   ;; :ductility 6.1d0
+                   ;; :ductility 3.0d0
+                   :ductility 16.0d0
                    :critical-damage 1.000d0
                    :enable-plasticity nil
                    :c 0d0
@@ -412,7 +419,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 2.0))
+  (let* ((mesh-size (/ 0.0102 0.5))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -693,6 +700,12 @@
   (defparameter *data-full-load* '(0d0))
   (defparameter *data-y* '(0d0))
   (defparameter *data-ybar* '(0d0))
+  (loop for mp across (cl-mpm:sim-mps *sim*)
+        do (change-class mp 'cl-mpm/particle::particle-limestone))
+
+  (let ((ms 1d4))
+    (setf (cl-mpm::sim-mass-scale *sim*) ms)
+    (setf (cl-mpm::sim-damping-factor *sim*) (* ms 5d0)))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
@@ -920,7 +933,7 @@
     (format stream "disp,load,load-mps~%"))
 
   (let* ((dt (cl-mpm:sim-dt *sim*))
-         (load-steps 50)
+         (load-steps 20)
          (disp-step (/ -0.2d-3 load-steps)
                     )
          )
@@ -958,9 +971,10 @@
                       (progn
                         (cl-mpm/dynamic-relaxation::converge-quasi-static
                          *sim*
-                         :energy-crit 1d-2
+                         :energy-crit 2d-1
                          :dt-scale 0.8d0
-                         :conv-steps 10
+                         :conv-steps 20
+                         :substeps 50
                          :post-iter-step
                          (lambda ()
                            (let ((av (get-disp *terminus-mps*)))
@@ -1284,41 +1298,52 @@
 
 
 
+
 (defparameter *calibration-ductility* 
   (list
-   2.145407636738909  
-   2.3486068111455136 
-   2.8890608875129047 
-   3.0926728586171333 
-   4.568524251805988  
-   5.17213622291022   
-   7.179050567595462  
-   11.052941176470592 
-   15.190815273477812 
-   18.99380804953561  
-   22.862435500516    
-   28.531269349845203 
-   38.601031991744065 
-   59.00443756449948  
+   2.0042060175857923
+   2.436951134024035 
+   2.723975956151442 
+   3.15683146675204  
+   4.096506576732223 
+   4.964535875342916 
+   6.6310461502795786
+   8.516799231656632 
+   11.491811513007194
+   15.339048071138008
+   19.840259647069864
+   24.996329394101643
+   30.224817711639417
+   35.744415435311794
+   40.75575843549393 
+   44.53256351804118 
+   50.27030010653037 
+   55.57231093619771 
+   58.9132798657607  
    ))
 
 
-(defparameter *calibration-relative-disspiation-length* 
+(defparameter *calibration-relative-disspiation-length*
   (list
-   3.3281733746130033  
-   3.4145510835913315  
-   3.6068111455108363  
-   3.704334365325078   
-   3.9523219814241486  
-   4.049845201238391   
-   4.2365325077399385  
-   4.431578947368421   
-   4.554179566563468   
-   4.634984520123839
-   4.687925696594427   
-   4.746439628482972   
-   4.830030959752322   
-   4.921981424148607))
+   3.814488129867692
+   3.8995725906014087
+   3.996822488026833
+   4.078867429490328
+   4.206479401369255
+   4.306739379621605
+   4.422156476365529
+   4.501088302450566
+   4.589083489265088
+   4.661836922063561
+   4.728478198072885
+   4.764691163131293
+   4.806979486924731
+   4.834055495145416
+   4.855078223463543
+   4.867044950663009
+   4.888030880927016
+   4.905999370753274
+   4.917988176785211))
 
 (defun interp (x-search x-list y-list)
   (when (< x-search (first x-list))

@@ -202,7 +202,7 @@
                  ;; :internal-length 25d-3
                  :local-length (* 25d-3 scaler)
                  :local-length-damaged (* 25d-3 scaler)
-                 :ductility 16d0;6.8d0
+                 :ductility 12.5d0;6.8d0
                  :compression-ratio 10d0
                  :gravity 0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
@@ -396,8 +396,8 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 0.5d0))
-         (mps-per-cell 4)
+  (let* ((mesh-size (/ 0.025 1.0d0))
+         (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
          (domain-length (+ shelf-length (* 8 mesh-size)))
@@ -603,7 +603,7 @@
   (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.1d0)
+         (dt-scale 0.9d0)
          (load-steps 100)
          (disp-step (/ 0.8d-3 load-steps))
          )
@@ -635,7 +635,7 @@
                         (progn
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-3
+                           :energy-crit 1d-2
                            :dt-scale dt-scale
                            :conv-steps 100
                            :post-iter-step

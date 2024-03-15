@@ -1606,13 +1606,16 @@ Calls the function with the mesh mp and node"
                      (ft cl-mpm/particle::mp-ft)
                      (fc cl-mpm/particle::mp-fc)
                      (E cl-mpm/particle::mp-e)
+                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
                      ) mp
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
           (let ((cauchy-undamaged
                   ;; (magicl:.* strain
-                  ;;            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0))
+                  ;;            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))
                   ;;            )
                   ;; strain
                   (magicl:scale stress (/ 1d0 (magicl:det def)))
@@ -1622,19 +1625,35 @@ Calls the function with the mesh mp and node"
                      (j2 (cl-mpm/constitutive::voigt-j2
                           (cl-mpm/utils::deviatoric-voigt cauchy-undamaged)))
                      (p (+ s_1 s_2 s_3))
+                     (p (cl-mpm/utils::trace-voigt stress))
+                     (p (if (> p 0d0)
+                           (* (- 1d0 kt-r) p)
+                           (* (- 1d0 kc-r) p)))
+                     ;; (p 0d0)
+                     (s_1 (sqrt (* E
+                                   (+
+                                    (* p (cl-mpm/utils::trace-voigt strain))
+                                    (* (- 1d0 g-r)
+                                       (cl-mpm/fastmath:dot (cl-mpm/utils::deviatoric-voigt stress)
+                                                            (cl-mpm/utils::deviatoric-voigt strain)))))))
+                     ;; (s_1
+                     ;;   (sqrt (max 0d0
+                     ;;              (* E
+                     ;;                 (cl-mpm/fastmath:dot (cl-mpm/utils::deviatoric-voigt stress)
+                     ;;                                      (cl-mpm/utils::deviatoric-voigt strain))))))
                      ;; (s_1 (- s_1 pressure-effective))
                      ;; (s_2 (- s_2 pressure-effective))
                      ;; (s_3 (- s_3 pressure-effective))
                      ;; (s_1 (max 0d0 s_1))
                      ;; (s_2 (max 0d0 s_2))
                      ;; (s_3 (max 0d0 s_3))
-                     ;; (s_1 (* E
+                     ;; (s_1 (* e
                      ;;         (sqrt
                      ;;          (+ (expt s_1 2)
                      ;;             (expt s_2 2)
                      ;;             (expt s_3 2)))))
                      ;; (k (/ fc ft))
-                     ;; (s_1 (* E
+                     ;; (s_1 (* e
                      ;;         (/
                      ;;          (+
                      ;;             (* k
@@ -1662,24 +1681,24 @@ Calls the function with the mesh mp and node"
                      ;;         (- 1d0 (tan angle)))))
                      ;; (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
                      ;; ;; (c 1d4)
-                     ;;Another dp
+                     ;;another dp
 
-                     ;;Smooth rankine
+                     ;;smooth rankine
                      ;; (s_1 (sqrt
                      ;;       (+ (expt (max 0d0 s_1) 2)
                      ;;          (expt (max 0d0 s_2) 2)
                      ;;          (expt (max 0d0 s_3) 2))))
 
-                     ;;Good drucker-prager
-                     (s_1 (* (/ 3d0 (+ 3 (tan angle)))
-                             (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
+                     ;;good drucker-prager
+                     ;; (s_1 (* (/ 3d0 (+ 3 (tan angle)))
+                     ;;         (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p))))
 
 
                      ;; (k (/ fc ft))
                      ;; (i1 (+ s_1 s_2 s_3))
                      ;; (k-factor (/ (- k 1d0)
                      ;;              (- 1d0 (* 2d0 nu))))
-                     ;; (s_1 (* E
+                     ;; (s_1 (* e
                      ;;         (+ (* i1 (/ k-factor (* 2d0 k)))
                      ;;             (* (/ 1d0 (* 2d0 k))
                      ;;                (sqrt (+ (expt (* k-factor i1) 2)
@@ -2233,8 +2252,7 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (* 1d0;(- 1d0 damage)
-                                                                   (magicl:det def))))))
+            (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
               (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
                 (let* (
                        (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt
@@ -2248,12 +2266,12 @@ Calls the function with the mesh mp and node"
                        ;;                     (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
                        ;;                     )))))
                        (s_1 (max 0d0 s_1))
-                       (s_2 (max 0d0 s_2))
-                       (s_3 (max 0d0 s_3))
-                       (s_1 (sqrt
-                             (+ (expt s_1 2)
-                                (expt s_2 2)
-                                (expt s_3 2))))
+                       ;; (s_2 (max 0d0 s_2))
+                       ;; (s_3 (max 0d0 s_3))
+                       ;; (s_1 (sqrt
+                       ;;       (+ (expt s_1 2)
+                       ;;          (expt s_2 2)
+                       ;;          (expt s_3 2))))
 
                        ;; (s_1
                        ;;   (* 0.5d0
