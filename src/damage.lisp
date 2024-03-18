@@ -1633,7 +1633,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm/utils:matrix-to-voight (magicl:@ v
                                                                (magicl:from-diag l :type 'double-float)
                                                                (magicl:transpose v)))))
-                   (strain- (magicl:.- strain+ strain))
+                   (strain- (magicl:.- strain strain+))
                    (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
                    (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
                    (k (/ fc ft))
@@ -2325,7 +2325,7 @@ Calls the function with the mesh mp and node"
                        (cl-mpm/utils:matrix-to-voight (magicl:@ v
                                                                 (magicl:from-diag l :type 'double-float)
                                                                 (magicl:transpose v)))))
-                   (strain- (magicl:.- strain+ strain))
+                   (strain- (magicl:.- strain strain+))
                    (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
                    (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
                    )
