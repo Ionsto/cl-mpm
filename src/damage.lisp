@@ -2316,19 +2316,26 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            (let ((strain+
-                    (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                                (cl-mpm/utils:voight-to-matrix strain))
-                      (loop for i from 0 to 2
-                            do
-                               (setf (nth i l) (max (nth i l) 0d0)))
-                      (cl-mpm/utils:matrix-to-voight
-                       (magicl:@
-                        v
-                        (magicl:from-diag l :type 'double-float)
-                        (magicl:transpose v))))))
+            (let* ((strain+
+                     (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                                 (cl-mpm/utils:voight-to-matrix strain))
+                       (loop for i from 0 to 2
+                             do
+                                (setf (nth i l) (max (nth i l) 0d0)))
+                       (cl-mpm/utils:matrix-to-voight (magicl:@ v
+                                                                (magicl:from-diag l :type 'double-float)
+                                                                (magicl:transpose v)))))
+                   (strain- (magicl:.- strain+ strain))
+                   (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+                   (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
+                   )
               ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
-              (setf damage-increment (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+              (setf damage-increment
+                    (/
+                     (+ (* k e+) e-)
+                     (+ k 1d0)
+                     )
+                    )
               )
             ;; (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
             ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
