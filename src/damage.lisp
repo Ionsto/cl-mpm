@@ -720,6 +720,7 @@ Calls the function with the mesh mp and node"
 ;;       ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
 ;;       )))
 
+(declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
   ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
@@ -1640,10 +1641,11 @@ Calls the function with the mesh mp and node"
                   )
               ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
               (setf damage-increment
-                    (/
-                     (+ (* k e+) e-)
-                     (+ k 1d0)
-                     )
+                    e+
+                    ;; (/
+                    ;;  (+ (* k e+) e-)
+                    ;;  (+ k 1d0)
+                    ;;  )
                     )
               )
             ;; (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
