@@ -440,6 +440,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/mpi"
+               "parse-float"
                "vgplot"
                "swank.live")
   :serial t
