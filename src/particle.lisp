@@ -1619,6 +1619,16 @@
       mp
     (declare (function calc-pressure))
     ;;Train elastic strain - plus trail kirchoff stress
+
+    ;; (let* ((p (cl-mpm/utils:trace-voigt strain))
+    ;;        (q (cl-mpm/utils:deviatoric-voigt strain))
+    ;;        (tau 1d0)
+    ;;        (rho (exp (- (/ dt tau)))))
+    ;;   (setf strain
+    ;;         (magicl:.+
+    ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
+    ;;          (magicl:scale! q rho))))
+
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
 
@@ -1661,8 +1671,27 @@
                     (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
                     (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0)))))
-      ))
+                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
+      ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) damage)))
+      ;; (let ((j (magicl:det def)))
+      ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig
+      ;;                               (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+
+      ;;     (loop for i from 0 to 2
+      ;;           do (let* ((sii (nth i l)))
+      ;;                (when (> sii 0d0)
+      ;;                  ;;Tensile damage -> unbounded
+      ;;                  (setf (nth i l) (* sii (- 1d0 damage)))
+      ;;                  )
+      ;;                (when (< sii 0d0)
+      ;;                  ;;Bounded compressive damage
+      ;;                  (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 (sqrt 1d-6)) damage)) 2d0)))
+      ;;                  )))
+      ;;     (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+      ;;                                                             (magicl:from-diag l :type 'double-float)
+      ;;                                                             (magicl:transpose v))) j))
+      ;;     ))
+      )
     stress
     ))
 

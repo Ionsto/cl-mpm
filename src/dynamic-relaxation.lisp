@@ -7,18 +7,30 @@
   ;;           sum (* (cl-mpm/particle:mp-mass mp)
   ;;                  (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
   (let ((energy 0d0))
-    (cl-mpm:iterate-over-nodes-serial (cl-mpm:sim-mesh sim)
-                                      (lambda (n)
-                                        (when (cl-mpm/mesh:node-active n)
-                                          (incf energy
-                                                (*
-                                                 (cl-mpm/mesh::node-mass n)
-                                                 (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
-                                                 )))))
-    energy)
-  )
+    (cl-mpm:iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (incf energy
+               (*
+                (cl-mpm/mesh::node-mass n)
+                (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                )))))
+    energy))
 (defmethod estimate-energy-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
-  (cl-mpm/mpi::mpi-sum (call-next-method)))
+  (cl-mpm/mpi::mpi-sum
+   (let ((energy 0d0))
+     (cl-mpm:iterate-over-nodes-serial
+      (cl-mpm:sim-mesh sim)
+      (lambda (n)
+        (when (cl-mpm/mesh:node-active n)
+          (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
+            (incf energy
+                  (*
+                   (cl-mpm/mesh::node-mass n)
+                   (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                   ))))))
+     energy)))
 (defmethod estimate-oobf (sim))
 
 (declaim (notinline plot-time-disp))
@@ -88,7 +100,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      (loop for i from 0 to 20
+      (loop for i from 0 to conv-steps
             while (and *run-convergance*
                    (not converged))
             do
@@ -197,7 +209,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      (loop for i from 0 to 20
+      (loop for i from 0 to conv-steps
             while (and *run-convergance*
                    (not converged))
             do

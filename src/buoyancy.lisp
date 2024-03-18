@@ -678,6 +678,11 @@
     :initarg :datum
     :initform 0d0
     )
+   (scalar-func
+    :accessor bc-scalar-func
+    :initarg :scalar-func
+    :initform (lambda (pos) 1d0)
+    )
    (clip-func
     :accessor bc-buoyancy-clip-func
     :type function
@@ -1030,14 +1035,13 @@
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
+                   (scalar-func bc-scalar-func)
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
     (apply-scalar
      sim
-     (lambda (pos)
-       1d0
-       )
+     scalar-func
      (lambda (pos)
        (and
         ;; (cell-clipping pos datum)
@@ -1055,9 +1059,9 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      (populate-nodes-volume mesh clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
+      (populate-nodes-domain mesh clip-function)
 
       (apply-scalar-mps-3d mesh mps
                           (lambda (mp)
@@ -1115,7 +1119,9 @@
     (let ((mp (aref mps i)))
       (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
         (with-accessors ((volume cl-mpm/particle:mp-volume)
-                         (pos cl-mpm/particle::mp-position))
+                         (pos cl-mpm/particle::mp-position)
+                         (damage cl-mpm/particle::mp-damage)
+                         )
             mp
           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
             ;;Iterate over neighbour nodes
@@ -1136,4 +1142,5 @@
                             (funcall clip-func pos)
                             )
                    (sb-thread:with-mutex (node-lock)
-                     (incf node-boundary-scalar (* volume svp (funcall func-scalar mp))))))))))))))
+                     (incf node-boundary-scalar (* ;(- 1d0 damage)
+                                                   volume svp (funcall func-scalar mp))))))))))))))
