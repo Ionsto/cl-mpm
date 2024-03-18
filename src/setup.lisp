@@ -146,6 +146,17 @@
                (when (>= 0 (funcall sdf pos))
                  (setf damage (coerce d 'double-float)))
                ))))
+(defun apply-sdf (sim sdf func)
+  (declare (function sdf func))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (loop for mp across mps
+          do (with-accessors ((pos cl-mpm/particle:mp-position)
+                              (damage cl-mpm/particle:mp-damage)) mp
+               (let ((sdf-v (funcall sdf pos)))
+                 (when (>= 0 sdf-v)
+                   (funcall func mp sdf-v)
+                   ))))))
 
 (defun rectangle-sdf (position size)
   (lambda (pos)

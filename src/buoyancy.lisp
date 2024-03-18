@@ -1142,5 +1142,5 @@
                             (funcall clip-func pos)
                             )
                    (sb-thread:with-mutex (node-lock)
-                     (incf node-boundary-scalar (* ;(- 1d0 damage)
+                     (incf node-boundary-scalar (* (- 1d0 damage)
                                                    volume svp (funcall func-scalar mp))))))))))))))
