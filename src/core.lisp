@@ -1605,7 +1605,6 @@ Calls func with only the node"
               (magicl.simd::.+-simd position
                                     (magicl:scale!
                                      (magicl:.*
-                                      ;; (vector-from-list (mapcar (lambda (x) (coerce (- (* 2d0 x) 1d0) 'double-float)) (list x y z)))
                                       (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y z)))
                                       domain
                                       ) 0.5d0) corner)
@@ -1620,9 +1619,11 @@ Calls func with only the node"
                  (declare (double-float dt svp))
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
                      node
-                   (magicl:.+ disp
-                              (magicl:scale vel (* dt svp))
-                              disp))))
+                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp))
+                   ;; (magicl:.+ disp
+                   ;;            (magicl:scale vel (* dt svp))
+                   ;;            disp)
+                   )))
               (incf (the double-float (aref diff 0)) (* 0.5d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
               (incf (the double-float (aref diff 1)) (* 0.5d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
               (incf (the double-float (aref diff 2)) (* 0.5d0 (the double-float (magicl:tref disp 2 0)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
@@ -1632,7 +1633,6 @@ Calls func with only the node"
             (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
             (when (= 3 nd)
               (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2)))))
-
             (if (= 2 nd)
                 (let* ((jf  (magicl:det def))
                        (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))

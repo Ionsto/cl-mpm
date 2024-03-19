@@ -537,8 +537,7 @@
                       )
          node
        (when (and active
-                  (funcall clip-function pos)
-                  )
+                  (funcall clip-function pos))
          (setf boundary t))))))
 
 (defun locate-mps-cells (mesh mps clip-function)
@@ -1128,9 +1127,7 @@
             (cl-mpm::iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                (node-pos cl-mpm/mesh::node-position)
-                                (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+               (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                 (node-lock  cl-mpm/mesh:node-lock)
                                 (node-boundary cl-mpm/mesh::node-boundary-node)
                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
