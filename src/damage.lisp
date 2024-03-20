@@ -1164,6 +1164,7 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
         (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-mpi-index mp))
+        (cl-mpm/output::save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
         (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
         ;; (cl-mpm/output::save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
@@ -1310,13 +1311,30 @@ Calls the function with the mesh mp and node"
         ;;                                      (sqrt (cl-mpm/constitutive::voigt-j2
         ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
         ;;                                      0d0)))
-        (cl-mpm/output::save-parameter "i1"
-                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
-                                                        (stress cl-mpm/particle::mp-undamaged-stress)
-                                                        (def cl-mpm/particle::mp-deformation-gradient)
-                                                        )
+        ;; (cl-mpm/output::save-parameter "i1"
+        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
+        ;;                                                 (stress cl-mpm/particle::mp-undamaged-stress)
+        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
+        ;;                                                 )
+        ;;                                    mp
+        ;;                                  (cl-mpm/utils::trace-voigt stress)))
+        (cl-mpm/output::save-parameter "e_i1"
+                                       (with-accessors ((strain cl-mpm/particle::mp-strain))
                                            mp
-                                         (cl-mpm/utils::trace-voigt stress)))
+                                         (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
+                                           (+ e_1 e_2 e_3))))
+        (cl-mpm/output::save-parameter "e_j2"
+                                       (with-accessors ((strain cl-mpm/particle::mp-strain))
+                                           mp
+                                         (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
+                                           (let* ((j2
+                                                    (* 1/6 (+
+                                                            (expt (- e_1 e_2) 2)
+                                                            (expt (- e_2 e_3) 2)
+                                                            (expt (- e_3 e_1) 2)))))
+                                             (sqrt j2)))))
+
+
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
         (cl-mpm/output::save-parameter
@@ -1639,6 +1657,111 @@ Calls the function with the mesh mp and node"
                   ;;  (+ k 1d0)
                   ;;  )
                   ))
+
+          ;; (let ((strain (magicl:.*
+          ;;                strain
+          ;;                (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 0.5d0 0.5d0 0.5d0)))))
+          ;;   (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
+          ;;     (let* ((K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
+          ;;            (mu (* (/ E (* 2d0 (+ 1d0 nu)))))
+          ;;            (angle (* angle (/ pi 180d0)))
+          ;;            (B (/ (* 2d0 (sin angle))
+          ;;                  (* (sqrt 3) (+ 3d0 (sin angle)))))
+          ;;            (j2
+          ;;              ;; (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils::deviatoric-voigt strain))
+          ;;              (* 1/6 (+
+          ;;                      (expt (- e_1 e_2) 2)
+          ;;                      (expt (- e_2 e_3) 2)
+          ;;                      (expt (- e_3 e_1) 2)))
+          ;;              )
+          ;;            (i1 (+ e_1 e_2 e_3))
+          ;;            (idisc (* -6d0 B (sqrt j2)))
+          ;;            (jdisc (* 2d0 mu (sqrt j2)))
+          ;;            (psi1 (+
+          ;;                   (* 0.5d0 K (expt i1 2))
+          ;;                   (* 2d0 mu j2)
+          ;;                   ))
+          ;;            (psi2 (* (/ 1d0 (+ (* 18d0 (expt B 2) K)
+          ;;                               (* 2d0 mu)))
+          ;;                     (expt
+          ;;                      (- (* 2d0 mu (sqrt j2))
+          ;;                         (* 3d0 B K i1)) 2)))
+          ;;            )
+          ;;       (setf damage-increment
+          ;;             (sqrt
+          ;;              (max 0d0
+          ;;                   (* E
+          ;;                      (cond
+          ;;                        ((< idisc i1) psi1)
+          ;;                        ((and (>= idisc i1)
+          ;;                              (>= jdisc (* 3d0 B K i1))
+          ;;                              ) psi2)
+          ;;                        (t 0d0)
+          ;;                        ))))
+          ;;             ))
+          ;;     ))
+
+          ;; (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d (magicl:.*
+          ;;                                                            strain
+          ;;                                                            (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
+          ;;   (let* ((e1+ (max 0d0 e_1))
+          ;;          (e2+ (max 0d0 e_2))
+          ;;          (e3+ (max 0d0 e_3))
+          ;;          (e1- (min 0d0 e_1))
+          ;;          (e2- (min 0d0 e_2))
+          ;;          (e3- (min 0d0 e_3))
+          ;;          (n 3d0)
+          ;;          (mu (/ E (* 2d0 (+ 1d0 nu))))
+          ;;          (K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
+          ;;          (lam (/ (* nu E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+          ;;          (ev+ (* 0.5d0 K
+          ;;                  (/ 1d0 n)
+          ;;                  (expt
+          ;;                   (max
+          ;;                    0d0
+          ;;                    (+ e_1
+          ;;                       e_2
+          ;;                       e_3)) 2d0)))
+          ;;          (ed+
+          ;;            (-
+          ;;             (* mu (/ (- n 1d0) n) (+ (expt e1+ 2)
+          ;;                                      (expt e2+ 2)
+          ;;                                      (expt e3+ 2)))
+          ;;             (* mu (/ 2 n)
+          ;;                (+
+          ;;                 (* e1+ e2-)
+          ;;                 (* e2+ e1-)
+          ;;                 (* e1+ e3-)
+          ;;                 (* e3+ e1-)
+          ;;                 (* e3+ e2-)
+          ;;                 (* e2+ e3-))))
+          ;;          )
+          ;;          (ed-
+          ;;            (* mu (/ (- n 1d0)
+          ;;                     n)
+          ;;               (+ (expt e1- 2)
+          ;;                  (expt e2- 2)
+          ;;                  (expt e3- 2))))
+          ;;          (angle (* angle (/ pi 180d0)))
+          ;;          (f (+
+          ;;              (* (/ (+ lam mu)
+          ;;                    mu)
+          ;;                 (/ (+ e_1 e_3)
+          ;;                    (- e_1 e_3))
+          ;;                 (sin angle)
+          ;;                 )
+          ;;              (/ (* -1d0 ft (cos angle))
+          ;;                 (* mu (- e_1 e_3)))
+          ;;              1d0))
+          ;;          )
+          ;;     (setf damage-increment (sqrt (max 0d0 (* E
+          ;;                                              (+ ev+ ed+
+          ;;                                                 ;; (if (> f 0d0)
+          ;;                                                 ;;     ed-
+          ;;                                                 ;;     0d0)
+          ;;                                                 ))))))
+          ;;   )
+
           ;; (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
           ;;   (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
           ;;     (let* ((pressure-effective (* 1d0 damage pressure))
@@ -2183,7 +2306,7 @@ Calls the function with the mesh mp and node"
          (beta (/ 1d0 (- ef e0)))
          )
     (if (> k e0)
-        (- 1d0 (* (/ e0 k) (+ 0d0 (exp (- (* beta (- k e0)))))))
+        (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
         0d0))
   )
 ;; (defun damage-response-exponential-inverse (damage E length init-stress ductility)
@@ -2310,26 +2433,26 @@ Calls the function with the mesh mp and node"
         (progn
           (when (< damage 1d0)
             (let* ((strain+
-                     (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                                 (cl-mpm/utils:voight-to-matrix strain))
+                     (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
                        (loop for i from 0 to 2
                              do
                                 (setf (nth i l) (max (nth i l) 0d0)))
-                       (cl-mpm/utils:matrix-to-voight (magicl:@ v
-                                                                (magicl:from-diag l :type 'double-float)
-                                                                (magicl:transpose v)))))
+                       (cl-mpm/utils:matrix-to-voigt (magicl:@ v
+                                                               (magicl:from-diag l :type 'double-float)
+                                                               (magicl:transpose v)))))
                    (strain- (magicl:.- strain strain+))
-                   (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
-                   (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
-                   )
+                   (invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+                   ;; (strain+ (magicl:.* strain+ invar))
+                   ;; (strain- (magicl:.* strain+ invar))
+                   (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain+ invar) (magicl:@ de strain+))))))
+                   (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain- invar) (magicl:@ de strain-)))))))
               ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
               (setf damage-increment
                     (/
                      (+ (* k e+) e-)
                      (+ k 1d0)
                      )
-                    )
-              )
+                    ))
             ;; (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (magicl:det def)))))
             ;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
             ;;     (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
