@@ -793,6 +793,9 @@ Calls the function with the mesh mp and node"
                 (funcall func mp))
             do (local-list-remove-particle mesh mp)))
   (call-next-method))
+(defmethod cl-mpm::sim-add-mp ((sim mpm-sim-damage) mp)
+  (local-list-add-particle (cl-mpm:sim-mesh sim) mp)
+  (call-next-method))
 
 (defmethod (setf cl-mpm::sim-mps) (mps (sim cl-mpm/damage::mpm-sim-damage))
   ;; (format t "Resetting mps~%")
@@ -1645,9 +1648,9 @@ Calls the function with the mesh mp and node"
                                                               (magicl:from-diag l :type 'double-float)
                                                               (magicl:transpose v)))))
                  (strain- (magicl:.- strain strain+))
-                 (invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
-                 (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain+ invar) (magicl:@ de strain+))))))
-                 (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain- invar) (magicl:@ de strain-))))))
+                 ;(invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+                 (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+                 (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
                  (k (/ fc ft)))
             ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
             (setf damage-increment

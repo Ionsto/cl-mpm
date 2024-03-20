@@ -186,7 +186,9 @@
       mesh
     (lparallel:pdotimes (i (length mps))
         (setf (cl-mpm/particle::mp-single-particle (aref mps i))
-              (single-particle-criteria mesh (aref mps i)))
+              ;; nil
+              (single-particle-criteria mesh (aref mps i))
+              )
         )
       (remove-mps-func
        sim
@@ -1455,7 +1457,8 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-            (update-domain-corner mesh mp dt)
+            ;(update-domain-corner mesh mp dt)
+            (update-domain-midpoint mesh mp dt)
           ;; (update-domain-stretch-rate df domain)
 
           )
@@ -1587,7 +1590,118 @@ Calls func with only the node"
         (setf (tref domain 2 0) (* (the double-float (tref domain-0 2 0))
                                    (the double-float (tref stretch 2 2))))
         ))))
-(defun update-domain-corner (mesh mp dt)
+(defun update-domain-midpoint (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
+  (with-accessors ((position cl-mpm/particle::mp-position)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    (let ((nd (the fixnum (cl-mpm/mesh:mesh-nd mesh))))
+      (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+          mesh
+        (let ((diff (make-array 3 :initial-element 0d0))
+              (domain-storage (magicl::matrix/double-float-storage domain)))
+          (loop for d from 0 below nd
+                do
+                   (let ((disp (cl-mpm/utils:vector-zeros)))
+                     (loop for direction in (list 1d0 -1d0)
+                           do
+                              (let ((corner (cl-mpm/utils::vector-copy position)))
+                                (incf (magicl:tref corner d 0)
+                                      (* direction 0.5d0 (aref domain-storage d)))
+                                ;; (loop for j from 0 to 2
+                                ;;       do
+                                ;;          (setf (the double-float (magicl:tref corner j 0))
+                                ;;                (max 0d0
+                                ;;                     (min
+                                ;;                      (the double-float (coerce (nth j mesh-size) 'double-float))
+                                ;;                      (the double-float (magicl:tref corner j 0))))))
+
+                                (iterate-over-neighbours-point-linear
+                                 mesh corner
+                                 (lambda (mesh node svp grads)
+                                   (declare (double-float dt svp))
+                                   (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                                       node
+                                     (cl-mpm/fastmath:fast-fmacc corner vel (* dt svp))
+                                     )))
+                                (cl-mpm/fastmath:fast-fmacc disp corner direction)
+                                ))
+                     (setf (aref diff d) (magicl:tref disp d 0))
+                     )
+                )
+          (setf (aref domain-storage 0) (aref diff 0)
+                (aref domain-storage 1) (aref diff 1)
+                (aref domain-storage 2) (aref diff 2))
+          (if (= 2 nd)
+              (let* ((jf  (magicl:det def))
+                     (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+                     (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                     (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
+                (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                      ))
+              (let* ((jf  (magicl:det def))
+                     (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
+                     (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
+                     (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
+                (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                      (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
+                      ))
+              )
+          )))))
+
+(defun update-domain-corner-2d (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
+  (with-accessors ((position cl-mpm/particle::mp-position)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+        mesh
+        (let ((diff (make-array 2 :initial-element 0d0))
+              (domain-storage (magicl::matrix/double-float-storage domain)))
+          (array-operations/utilities:nested-loop (x y) '(2 2)
+            (let ((corner (cl-mpm/utils:vector-zeros))
+                  (disp (cl-mpm/utils:vector-zeros)))
+              (magicl.simd::.+-simd position
+                                    (magicl:scale!
+                                     (magicl:.*
+                                      (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y 0)))
+                                      domain
+                                      ) 0.5d0) corner)
+              (loop for i from 0 to 1
+                    do (setf (the double-float (magicl:tref corner i 0))
+                             (max 0d0 (min
+                                       (the double-float (coerce (nth i mesh-size) 'double-float))
+                                       (the double-float (magicl:tref corner i 0))))))
+              (iterate-over-neighbours-point-linear
+               mesh corner
+               (lambda (mesh node svp grads)
+                 (declare (double-float dt svp))
+                 (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                     node
+                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
+
+              (incf (the double-float (aref diff 0)) (* 0.5d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 1)) (* 0.5d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
+              ))
+          (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
+          (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
+          (let* ((jf  (magicl:det def))
+                 (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
+                 (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                 (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
+            (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                  (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                  ))))))
+
+(defun update-domain-corner-3d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
   (with-accessors ((position cl-mpm/particle::mp-position)
                    (def cl-mpm/particle::mp-deformation-gradient)
@@ -1619,11 +1733,8 @@ Calls func with only the node"
                  (declare (double-float dt svp))
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
                      node
-                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp))
-                   ;; (magicl:.+ disp
-                   ;;            (magicl:scale vel (* dt svp))
-                   ;;            disp)
-                   )))
+                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
+
               (incf (the double-float (aref diff 0)) (* 0.5d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
               (incf (the double-float (aref diff 1)) (* 0.5d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
               (incf (the double-float (aref diff 2)) (* 0.5d0 (the double-float (magicl:tref disp 2 0)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
@@ -1651,6 +1762,12 @@ Calls func with only the node"
                         ))
                 ))
           ))))
+(defun update-domain-corner-3d (mesh mp dt)
+  (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
+      (update-domain-corner-2d mesh mp dt)
+      (update-domain-corner-3d mesh mp dt)
+      )
+  )
 
 
 (declaim (inline update-stress-mp)
@@ -1960,6 +2077,11 @@ Calls func with only the node"
           (cl-mpm/mesh:reset-node node)
           )))))
 
+(defgeneric sim-add-mp (sim mp)
+  (:documentation "A function to append an mp to a simulation"))
+(defmethod sim-add-mp (sim mp)
+  (vector-push-extend mp (cl-mpm:sim-mps sim)))
+
 (defgeneric remove-mps-func (sim func)
   (:documentation "A function for removing mps from a sim"))
 
@@ -2159,11 +2281,12 @@ Calls func with only the node"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
-      (setf mps (delete-if (lambda (mp) (split-criteria mp h)) mps))
+      ;; (setf mps (delete-if (lambda (mp) (split-criteria mp h)) mps))
+      (remove-mps-func sim criteria)
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (vector-push-extend new-mp mps)))
+                     do (sim-add-mp sim new-mp)))
       )))
 
 (defun split-mps-criteria (sim criteria)
@@ -2174,11 +2297,12 @@ Calls func with only the node"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
-      (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
+      ;; (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
+      (remove-mps-func sim criteria)
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (vector-push-extend new-mp mps)))
+                     do (sim-add-mp sim new-mp)))
       )))
 
 (defgeneric calculate-min-dt (sim)
@@ -2229,5 +2353,6 @@ This modifies the dt of the simulation in the process
 (ql:quickload :cl-mpm/examples/fracture)
 (in-package :cl-mpm/examples/fracture))
 ||#
+
 
 
