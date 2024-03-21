@@ -1599,6 +1599,26 @@ Calls the function with the mesh mp and node"
              (cl-mpm/utils::deviatoric-voigt stress))))
     (* (/ 3d0 (+ 3 (tan angle)))
        (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))
+
+
+(defun criterion-dp-strain (stress k)
+  (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt
+              stress
+              )))
+        ;; (* (/ (* 2 (sqrt 3)) (+ k 1))
+        ;;    (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
+        )
+    (* (/ (sqrt 3) (* 2 (+ k 1)))
+       (-
+        (sqrt j2)
+        (*
+         (/ (- k 1)
+            (+ k 1))
+         p)))
+    ))
+
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
     (let* ((j2 (cl-mpm/constitutive::voigt-j2
@@ -1739,9 +1759,14 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          ;(setf damage-increment (tensile-energy-norm strain E de))
+          (setf damage-increment (tensile-energy-norm strain E de))
           ;;            (angle )
-          (setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
+          ;(setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
+          ;(setf damage-increment (criterion-dp strain (* angle (/ pi 180d0)) E nu))
+          ;; (setf damage-increment
+          ;;       (max 0d0
+          ;;            (drucker-prager-criterion
+          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
           ;; (let* ((strain+
           ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
           ;;            (loop for i from 0 to 2
