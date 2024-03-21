@@ -1613,6 +1613,51 @@ Calls the function with the mesh mp and node"
                                ))))))
       s_1
       )))
+(defun smooth-rankine-criterion (stress)
+  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+     (sqrt
+      (+ (expt (max 0d0 s_1) 2)
+         (expt (max 0d0 s_2) 2)
+         (expt (max 0d0 s_3) 2)))
+     ))
+
+(defun modified-vm-strain (strain nu k E)
+  (multiple-value-bind (e1 e2 e3)
+      (principal-stresses-3d
+       (magicl:.*
+        strain
+        (cl-mpm/utils:voigt-from-list
+         (list 1d0 1d0 1d0
+               0.5d0
+               0.5d0
+               0.5d0))))
+    (let* ((i1 (+ e1 e2 e3))
+           (j2
+             ;; (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils::deviatoric-voigt strain))
+             (* 1/6 (+
+                     (expt (- e1 e2) 2)
+                     (expt (- e2 e3) 2)
+                     (expt (- e3 e1) 2)))
+             )
+           (k-factor (/ (- k 1d0)
+                        (- 1d0 (* 2d0 nu))))
+           (s_1 (* E
+                   (+ (* i1 (/ k-factor (* 2d0 k)))
+                      (* (/ 1d0 (* 2d0 k))
+                         (sqrt (+ (expt (* k-factor i1) 2)
+                                  (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
+                                  )))))))
+      s_)))
+(defun tensile-energy-norm (strain E de)
+  (let* ((strain+
+           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+             (loop for i from 0 to 2
+                   do
+                      (setf (nth i l) (max (nth i l) 0d0)))
+             (cl-mpm/utils:matrix-to-voigt (magicl:@ v
+                                                     (magicl:from-diag l :type 'double-float)
+                                                     (magicl:transpose v))))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
@@ -1639,27 +1684,31 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (let* ((strain+
-                   (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
-                     (loop for i from 0 to 2
-                           do
-                              (setf (nth i l) (max (nth i l) 0d0)))
-                     (cl-mpm/utils:matrix-to-voigt (magicl:@ v
-                                                              (magicl:from-diag l :type 'double-float)
-                                                              (magicl:transpose v)))))
-                 (strain- (magicl:.- strain strain+))
-                 ;(invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
-                 (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
-                 (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
-                 (k (/ fc ft)))
-            ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
-            (setf damage-increment
-                  e+
-                  ;; (/
-                  ;;  (+ (* k e+) e-)
-                  ;;  (+ k 1d0)
-                  ;;  )
-                  ))
+          (setf damage-increment (tensile-energy-norm strain E de))
+          ;; (let* ((strain+
+          ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+          ;;            (loop for i from 0 to 2
+          ;;                  do
+          ;;                     (setf (nth i l) (max (nth i l) 0d0)))
+          ;;            (cl-mpm/utils:matrix-to-voigt (magicl:@ v
+          ;;                                                     (magicl:from-diag l :type 'double-float)
+          ;;                                                     (magicl:transpose v)))))
+          ;;        (strain- (magicl:.- strain strain+))
+          ;;        ;(invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+          ;;        (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+          ;;        (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
+          ;;        (k (/ fc ft)))
+          ;;   ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
+          ;;   (setf damage-increment
+          ;;         ;; (+ e+ (/ e- k))
+          ;;         e+
+          ;;         ;; (/
+          ;;         ;;  (+ (* k e+) e-)
+          ;;         ;;  (+ k 1d0)
+          ;;         ;;  )
+          ;;         ))
+          
+          ;; (setf damage-increment (smooth-rankine-criterion (magicl:scale stress (/ 1d0 (magicl:det def)))))
 
           ;; (let ((strain (magicl:.*
           ;;                strain
@@ -2444,11 +2493,8 @@ Calls the function with the mesh mp and node"
                                                                (magicl:from-diag l :type 'double-float)
                                                                (magicl:transpose v)))))
                    (strain- (magicl:.- strain strain+))
-                   (invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
-                   ;; (strain+ (magicl:.* strain+ invar))
-                   ;; (strain- (magicl:.* strain+ invar))
-                   (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain+ invar) (magicl:@ de strain+))))))
-                   (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot (magicl:.* strain- invar) (magicl:@ de strain-)))))))
+                   (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+                   (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-)))))))
               ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
               (setf damage-increment
                     (/
