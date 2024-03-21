@@ -97,6 +97,24 @@
                     (magicl::matrix/double-float-storage vec))
     v))
 
+(defun voigt-contra->covar (vec)
+  (let* ((v (voigt-copy vec))
+        (vs (magicl::matrix/double-float-storage v)))
+    (setf
+     (aref vs 3) (* 0.5d0 (aref vs 3))
+     (aref vs 4) (* 0.5d0 (aref vs 4))
+     (aref vs 5) (* 0.5d0 (aref vs 5)))
+    v
+    ))
+(defun voigt-covar->contra (vec)
+  (let* ((v (voigt-copy vec))
+         (vs (magicl::matrix/double-float-storage v)))
+    (setf
+     (aref vs 3) (* 2d0 (aref vs 3))
+     (aref vs 4) (* 2d0 (aref vs 4))
+     (aref vs 5) (* 2d0 (aref vs 5)))
+    v))
+
 (declaim (inline stretch-dsvp-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) stretch-dsvp-zeros))

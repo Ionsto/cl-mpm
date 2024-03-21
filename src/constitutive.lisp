@@ -685,6 +685,7 @@
 (defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (let* ((tol 1d-9)
+         (initial-f 0d0)
          ;; (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
          ;; (eps-e (cl-mpm/utils:vector-zeros))
         )
@@ -711,7 +712,8 @@
 
                (k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
                (sigc (* 2d0 c (sqrt k)))
-               (f (mc-yield-func sig phi c)))
+               (f (mc-yield-func sig phi c))
+               (initial-f f))
           ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
           ;; (break)
           ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
@@ -839,8 +841,8 @@
                 (values
                  ;; sig
                  (swizzle-coombs->voigt sig)
-                 (swizzle-coombs->voigt eps-e) f)
+                 (swizzle-coombs->voigt eps-e) initial-f)
                 )
               (values stress
-                      trial-elastic-strain f)))))))
+                      trial-elastic-strain initial-f)))))))
 

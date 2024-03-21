@@ -192,17 +192,19 @@
                  density
                  'cl-mpm/particle::particle-limestone-delayed
                  ;:E 25.85d9
-                 ;:E 21.00d9
                  :E 21.00d9
                  :nu 0.18d0
-                 ;; :elastic-approxmation :plane-stress
+
                  :fracture-energy 95d0
-                 :initiation-stress  2.7d6
+                 :initiation-stress  (* 2.7d6 0.7d0)
                  :critical-damage 1.0d0
-                 ;; :internal-length 25d-3
+
                  :local-length (* 25d-3 scaler)
                  :local-length-damaged (* 25d-3 scaler)
-                 :ductility 12.5d0;6.8d0
+
+                 :ductility 10d0;6.8d0
+                 ;; :ductility 6.0d0
+                 ;; :ductility 12d0
                  :compression-ratio 10d0
                  :gravity 0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
@@ -215,6 +217,7 @@
                  )
                 )
                )))
+      ;; (cl-mpm/examples/tpb::calculate-ductility-param 21d9 95d0 (/ 25d-3 (sqrt 1)) 2.7d6)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -280,12 +283,33 @@
              (min-pos (loop for mp in above-crack
                             minimize (magicl:tref(cl-mpm/particle:mp-position mp) 1 0)))
              )
+        ;; (defparameter *terminus-mps*
+        ;;   (loop for mp in above-crack
+        ;;         when (= min-pos (magicl:tref
+        ;;                          (cl-mpm/particle:mp-position mp)
+        ;;                          1 0))
+        ;;           collect mp))
+        )
+      (let ((dist (loop for mp across (cl-mpm:sim-mps sim)
+                        minimize (cl-mpm/fastmath::mag-squared
+                                  (magicl:.*
+                                   (magicl:.- (cl-mpm/particle:mp-position mp)
+                                              (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
+                                              )
+                                   (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))))
         (defparameter *terminus-mps*
-          (loop for mp in above-crack
-                when (= min-pos (magicl:tref
-                                 (cl-mpm/particle:mp-position mp)
-                                 1 0))
-                  collect mp)))
+          (loop for mp across (cl-mpm:sim-mps sim)
+                when
+                (<=
+                 (cl-mpm/fastmath::mag-squared
+                  (magicl:.*
+                   (magicl:.- (cl-mpm/particle:mp-position mp)
+                              (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
+                              )
+                   (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0))))
+                 (+ dist 1d-10))
+                  collect mp))
+        )
 
       (loop for mp in *terminus-mps*
             do (setf (cl-mpm/particle::mp-index mp) 1))
@@ -396,13 +420,14 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 1.0d0))
+  (let* ((mesh-size (/ 0.025 0.5d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
-         (domain-length (+ shelf-length (* 8 mesh-size)))
+         (domain-length (+ shelf-length
+                           0.20))
          (offset (list
-                  (* 2 mesh-size)
+                  0.10
                   0d0
                   0d0))
 
@@ -844,3 +869,13 @@
 ;;              (loop for i fixnum from 0 to 1
 ;;                    do (incf (aref a i) (aref b i))))
 ;;            )))))
+
+(defun est-eta ()
+  (let ((E 21d9)
+        (ft 2.7d6)
+        (k 1.6d0)
+        (R (/ 25d-3 (sqrt 1)))
+        (Gf 95d0))
+    (* (/ (* 2d0 E) ft)
+       (+ (/ Gf (* k R ft))
+          (/ ft (* 2 E))))))

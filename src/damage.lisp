@@ -1648,16 +1648,71 @@ Calls the function with the mesh mp and node"
                                   (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
                                   )))))))
       s_)))
+
 (defun tensile-energy-norm (strain E de)
   (let* ((strain+
            (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
              (loop for i from 0 to 2
                    do
                       (setf (nth i l) (max (nth i l) 0d0)))
-             (cl-mpm/utils:matrix-to-voigt (magicl:@ v
-                                                     (magicl:from-diag l :type 'double-float)
-                                                     (magicl:transpose v))))))
+             (cl-mpm/utils:matrix-to-voigt
+              (magicl:@ v
+                        (magicl:from-diag l :type 'double-float)
+                        (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
+(defun criterion-enhanced-bi-energy-norm (stress strain E nu k)
+  (let* ((strain+
+           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+             (loop for i from 0 to 2
+                   do
+                      (setf (nth i l) (max (nth i l) 0d0)))
+             (cl-mpm/utils:matrix-to-voigt
+              (magicl:@ v
+                        (magicl:from-diag l :type 'double-float)
+                        (magicl:transpose v)))))
+
+         (i1 (cl-mpm/utils:trace-voigt strain))
+         (j2
+           (cl-mpm/constitutive::voigt-j2
+            (cl-mpm/utils::deviatoric-voigt
+             (cl-mpm/utils::voigt-contra->covar strain))))
+         (j2-factor (sqrt (* 3d0 j2)))
+
+         (et (+ (/ i1 (* 2d0 (- 1d0 (* 2d0 nu))))
+                (/ j2-factor (* 2d0 (+ 1d0 nu)))
+                ))
+         (ec (+ (/ i1 (* 5d0 (- 1d0 (* 2d0 nu))))
+                (/ (* 6d0 j2-factor) (* 5d0 (+ 1d0 nu)))
+                ))
+         ;; (r
+         ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix stress))
+         ;;     (loop for i from 0 to 2
+         ;;           do
+         ;;              (setf (nth i l) (max (nth i l) 0d0)))
+         ;;     (/ )(reduce #'+ (mapcar (lambda (x) (max 0d0 x)) l))
+         ;;     )
+         ;;   )
+         )
+    ))
+
+(defun criterion-mc (strain angle E nu)
+  (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d
+                                      ;; strain
+                                      (magicl:scale!
+                                       ;(cl-mpm/utils::voigt-contra->covar strain)
+                                       ;(cl-mpm/utils::voigt-contra->covar strain)
+                                       strain
+                                       -1d0
+                                       )
+                                      )
+    (let ((a (/ (sin angle) (- 1d0 (* 2d0 nu)))))
+      (* E
+         (/ 1d0 (cos angle))
+         (-
+          (* (- 1d0 a) e_1)
+          (* (+ 1d0 a) e_2)
+          )))))
+
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
@@ -1684,7 +1739,9 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (setf damage-increment (tensile-energy-norm strain E de))
+          ;(setf damage-increment (tensile-energy-norm strain E de))
+          ;;            (angle )
+          (setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
           ;; (let* ((strain+
           ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
           ;;            (loop for i from 0 to 2

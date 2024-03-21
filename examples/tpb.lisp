@@ -184,7 +184,7 @@
                ;; (length-scale 5.3d-3)
                ;; (length-scale 20d-3) ;;65.15
                ;; (length-scale 10d-3) ;;47.56
-               (length-scale 5.3d-3) ;; 
+               (length-scale 5.3d-3) ;;
                (kappa (sqrt 1)))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
@@ -209,10 +209,13 @@
                    :local-length (* length-scale crack-scale kappa)
                    :local-length-damaged (* length-scale crack-scale kappa 1d0)
                    :compression-ratio 8d0
+
                    ;:ductility 7.1d0
-                   ;; :ductility 6.1d0
+                   :ductility 6.4d0
                    ;; :ductility 3.0d0
-                   :ductility 16.0d0
+                   ;:ductility 5.0d0
+                   ;; :ductility 2.0d0
+
                    :critical-damage 1.000d0
                    :enable-plasticity nil
                    :c 0d0
@@ -225,6 +228,8 @@
                   ;; impactors
                   )
                  ))))
+      ;; (calculate-ductility-param 18d9  48d0 5.3d-3 3.4d6)
+      ;calculate-ductility-param (E Gf l-c f-t)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -419,7 +424,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.0102 0.5))
+  (let* ((mesh-size (/ 0.0102 1.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -1377,4 +1382,41 @@
            )
          )))
 
+  )
+
+(defun estimate-gf (eta ft lc &optional (E 1d9))
+  (let* ((gf (* eta (/ (expt ft 2) (* 2 E)))))
+    (* gf lc)))
+
+
+(defun test-energy (strain)
+  (let* ((de (cl-mpm/constitutive::linear-elastic-matrix 1d0 0.1d0))
+         (stress ;(magicl:@ de strain)
+           (cl-mpm/constitutive::linear-elastic-mat strain de)
+                 ))
+    (format t "~A~%" stress)
+    (multiple-value-bind (e1 e2 e3) (cl-mpm/damage::principal-stresses-3d strain)
+      (multiple-value-bind (s1 s2 s3) (cl-mpm/damage::principal-stresses-3d stress)
+        (format t "Energy ~F~%"
+                (cl-mpm/fastmath:dot strain stress)
+                ;; (+
+                                ;;  (* (max e1 0d0) s1)
+                                ;;  (* (max e2 0d0) s2)
+                                ;;  (* (max e3 0d0) s3)
+                                ;;  )
+                )
+        ))
+    (let ((strain+
+            (multiple-value-bind (l v) (cl-mpm/utils::eig
+                                        (cl-mpm/utils:voigt-to-matrix strain))
+              ;; (loop for i from 0 to 2
+              ;;       do
+              ;;          (setf (nth i l) (max (nth i l) 0d0)))
+              (cl-mpm/utils:matrix-to-voigt (magicl:@ v
+                                          (magicl:from-diag l :type 'double-float)
+                                          (magicl:transpose v))))))
+      ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
+      (format t "Energy real ~F~%" (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))
+      )
+    )
   )

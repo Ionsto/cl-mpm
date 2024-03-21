@@ -3,11 +3,11 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (in-package :cl-mpm/examples/sliding)
+(in-package :cl-mpm/examples/sliding)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 ;; (pushnew :cl-mpm-pic *features*)
@@ -269,14 +269,16 @@
                :E 1d9
                :nu 0.2400d0
 
-               :kt-res-ratio 1d-9
+               :ft 1d0
+               :ft 10d0
+               :kt-res-ratio 1d-5
                :kc-res-ratio 1d-2
                :g-res-ratio 6.5d-3
                :initiation-stress 500d3
                :delay-time 1d0
                :ductility 10d0
                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
-               :local-length 25.0d0;(* 0.20d0 (sqrt 7))
+               :local-length 10.0d0;(* 0.20d0 (sqrt 7))
                :local-length-damaged 10d-10
                :critical-damage 1.0d0;(- 1.0d0 1d-6)
                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
@@ -289,7 +291,7 @@
                :angle angle
                ))
         )
-      (let ((mass-scale 1d2))
+      (let ((mass-scale 1d0))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 0.0001d0 mass-scale)
@@ -297,11 +299,12 @@
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
-              0.1d0
+              0.0d0
               ;; 0.1d0
               )
         )
       ;; (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm:sim-dt sim) 1d-4)
@@ -334,9 +337,18 @@
                 (cl-mpm/utils:vector-from-list (list 0d0
                                                      1d0
                                                      0d0))
-                (cl-mpm/utils:vector-from-list (list 0d0 50d0 0d0))
-                ;; (magicl:.- (magicl:from-list block-offset '(2 1) :type 'double-float)
-                ;;            (magicl:from-list (list 0d0 0d0) '(2 1) :type 'double-float))
+                (cl-mpm/utils:vector-from-list (list 0d0 100d0 0d0))
+
+                (* density 1d6)
+                0d0
+                )
+               (cl-mpm/penalty::make-bc-penalty-point-normal
+                sim
+                (cl-mpm/utils:vector-from-list (list -1d0
+                                                     0d0
+                                                     0d0))
+                (cl-mpm/utils:vector-from-list (list 1900d0 0d0 0d0))
+
                 (* density 1d6)
                 0d0
                 )
@@ -356,8 +368,8 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 50)
-         (mps-per-cell 4)
+  (let* ((mesh-size 25)
+         (mps-per-cell 2)
          (block-length 200)
          (shelf-aspect 15)
          (offset (list mesh-size 800))
@@ -380,6 +392,8 @@
   (defparameter *x-pos* '())
   (defparameter *cfl-max* '())
   (defparameter *sim-step* 0)
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
   ;(defparameter *run-sim* t)
   (defparameter *load-mps*
     (let* ((mps (cl-mpm:sim-mps *sim*))
@@ -449,7 +463,7 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d1)
+ (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.8d0)
          (substeps (floor target-time dt)))
@@ -461,12 +475,13 @@
       (format t "CFL step count estimate: ~D~%" substeps-e)
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
+   (plot *sim*)
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
-                     (when (> steps 20)
+                     (when (> steps 10)
                        (setf (cl-mpm::sim-enable-damage *sim*) t))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
