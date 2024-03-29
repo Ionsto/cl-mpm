@@ -283,3 +283,90 @@
 ;;    (converge-quasi-static *sim*))
 ;;   )
 
+
+(defun converge-quasi-static-KED (sim &key
+                                        (energy-crit 1d-8)
+                                        (oobf-crit 1d-8)
+                                        (live-plot nil)
+                                        (dt-scale 0.5d0)
+                                        (substeps 50)
+                                        (conv-steps 50)
+                                        (post-iter-step nil)
+                                        )
+  "Converge a simulation to a quasi-static solution via dynamic relaxation
+   This is controlled by a kinetic energy norm"
+  (let* ((fnorm 0d0)
+         (oobf 0d0)
+         ;; (estimated-t 0.5d0)
+         (target-time 1d-4)
+         ;; (substeps 40)
+         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (estimated-t 1d-5)
+         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
+         (total-step 0)
+        (converged nil))
+    (setf (cl-mpm:sim-damping-factor sim) 0d0)
+    (format t "Substeps ~D~%" substeps)
+    ;; (format t "dt ~D~%" dt)
+    ;; (setf *full-load* (list)
+    ;;       *full-step* (list)
+    ;;       *full-energy* (list)
+    ;;       )
+    (let ((full-load (list))
+          (full-step (list))
+          (full-energy (list)))
+      (loop for i from 0 to conv-steps
+            while (and *run-convergance*
+                   (not converged))
+            do
+               (progn
+                 (dotimes (j substeps)
+                   (setf cl-mpm/penalty::*debug-force* 0d0)
+                   (cl-mpm:update-sim sim)
+                   )
+                 (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
+                   (format t "CFL dt estimate: ~f~%" dt-e)
+                   (format t "CFL step count estimate: ~D~%" substeps-e)
+                   ;; (setf substeps substeps-e)
+                   )
+                 (setf fnorm (estimate-energy-norm sim))
+
+                 (setf oobf 0d0)
+                 (let ((nmax 0d0)
+                       (dmax 0d0)
+                       (imax 0)
+                       (iter 0))
+                   (cl-mpm::iterate-over-nodes-serial
+                    (cl-mpm:sim-mesh sim)
+                    (lambda (node)
+                      (with-accessors ((active cl-mpm/mesh::node-active)
+                                       (f-ext cl-mpm/mesh::node-external-force)
+                                       (f-int cl-mpm/mesh::node-internal-force))
+                          node
+                        (when active
+                          (setf imax iter)
+                          (setf nmax (+ nmax
+                                        (cl-mpm/fastmath::mag-squared
+                                         (magicl:.- f-ext f-int)))
+                                dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
+                        )
+                      (incf iter)
+                      ))
+                   (when (> dmax 0d0)
+                     (setf oobf (/ nmax dmax)))
+                   (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
+                           cl-mpm/penalty::*debug-force*)
+                   (when (and (< fnorm energy-crit)
+                              ;(< oobf oobf-crit)
+                              )
+                     (format t "Took ~D steps to converge~%" i)
+                     (setf converged t))
+                   (when post-iter-step
+                     (funcall post-iter-step)))
+                 (swank.live:update-swank))))
+    (when (not converged)
+      (error "System didn't converge")
+      ;; (format t "System didn't converge~%")
+      )
+    )
+  )

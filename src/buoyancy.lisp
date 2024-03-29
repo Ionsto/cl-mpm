@@ -861,9 +861,9 @@
                             (funcall clip-func (cl-mpm/mesh::node-position node) datum))
 
                    (setf pressure 0d0)
-                   (setf mp-pfunc
-                         (lambda (p)
-                           0d0))
+                   ;; (setf mp-pfunc
+                   ;;       (lambda (p)
+                   ;;         0d0))
                    (setf mp-datum datum
                          mp-head rho))))
 
@@ -883,9 +883,9 @@
                       (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                                  (funcall clip-func (cl-mpm/mesh::node-position node) datum))
                         (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
-                        (setf mp-pfunc
-                              (lambda (p)
-                                (pressure-at-depth (tref p 1 0) datum rho)))
+                        ;; (setf mp-pfunc
+                        ;;       (lambda (p)
+                        ;;         (pressure-at-depth (tref p 1 0) datum rho)))
                         (setf mp-datum datum
                               mp-head rho)
                         )))))))))
@@ -911,9 +911,9 @@
                    mp
                  (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
                  ;; (setf pressure -1d0)
-                 (setf mp-pfunc
-                       (lambda (p)
-                         (pressure-at-depth (tref p 1 0) datum rho)))
+                 ;; (setf mp-pfunc
+                 ;;       (lambda (p)
+                 ;;         (pressure-at-depth (tref p 1 0) datum rho)))
                  (setf mp-datum datum
                        mp-head rho)
                  )))))

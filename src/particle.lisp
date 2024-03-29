@@ -568,6 +568,11 @@
   ()
   (:documentation "A mp with damage mechanics"))
 
+
+(defclass particle-visco-elasto-plastic-damage (particle-viscoplastic particle-chalk-delayed)
+  ()
+  (:documentation "A ice mp with viscoplastic damage and viscoelastic relaxation "))
+
 (defclass particle-glen-damage (particle-glen particle-damage)
   ()
   (:documentation "A weakly compressible glen flow mp with damage mechanics"))
@@ -1485,6 +1490,11 @@
     :initform 1d0
     :initarg :delay-time
     )
+   (delay-exponent
+    :accessor mp-delay-exponent
+    :initform 1d0
+    :initarg :delay-exponent
+    )
    )
   (:documentation "A chalk damage model"))
 (defclass particle-chalk-anisotropic (particle-chalk-delayed)
@@ -1589,7 +1599,7 @@
     stress
     ))
 
-(defmethod constitutive-model ((mp particle-chalk-delayed) strain dt)
+(defmethod constitutive-model ((mp particle-chalk-brittle) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
@@ -2091,6 +2101,111 @@
       ;;                                                                 (magicl:transpose v))) j))
       ;;         ))
       ;;   )
+      )
+    stress
+    ))
+
+(defmethod constitutive-model ((mp particle-visco-elasto-plastic-damage) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (stress-u mp-undamaged-stress)
+                   (strain mp-strain)
+                   (strain-rate mp-strain-rate)
+                   (damage mp-damage)
+                   (pressure mp-pressure)
+                   (def mp-deformation-gradient)
+                   (pos mp-position)
+                   (calc-pressure mp-pressure-func)
+                   (coheasion mp-c)
+                   (ps-vm mp-strain-plastic-vm)
+                   (plastic-strain mp-strain-plastic)
+                   (yield-func mp-yield-func)
+                   (enable-plasticity mp-enable-plasticity)
+                   (D mp-stretch-tensor)
+                   (vorticity mp-vorticity)
+                   (E mp-E)
+                   (nu mp-nu)
+                   (phi mp-phi)
+                   (psi mp-psi)
+                   (kc-r mp-k-compressive-residual-ratio)
+                   (kt-r mp-k-tensile-residual-ratio)
+                   (g-r mp-shear-residual-ratio)
+
+                   (eng-strain-rate mp-eng-strain-rate)
+                   (visc-factor mp-visc-factor)
+                   (visc-power mp-visc-power)
+                   )
+      mp
+    (declare (function calc-pressure))
+    ;;Train elastic strain - plus trail kirchoff stress
+
+    ;; (let* ((p (cl-mpm/utils:trace-voigt strain))
+    ;;        (q (cl-mpm/utils:deviatoric-voigt strain))
+    ;;        (tau 1d0)
+    ;;        (rho (exp (- (/ dt tau)))))
+    ;;   (setf strain
+    ;;         (magicl:.+
+    ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
+    ;;          (magicl:scale! q rho))))
+
+    ;; (setf stress-u
+    ;;       (cl-mpm/constitutive::linear-elastic-mat strain de))
+    (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+           (visc-u viscosity)
+           ;; (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
+           )
+      (setf stress-u
+            (cl-mpm/constitutive:maxwell-exp-v
+             strain-rate
+             stress-u
+             E nu de
+             viscosity dt))
+      ;; (setf eps-e (magicl:@ Ce sig))
+      (setf strain (magicl:linear-solve de stress-u))
+      )
+
+
+    (if enable-plasticity
+        (progn
+          (multiple-value-bind (sig eps-e f)
+              (cl-mpm/constitutive::mc-plastic stress-u
+                                               de
+                                               strain
+                                               E
+                                               nu
+                                               phi
+                                               psi
+                                               coheasion)
+            (setf stress
+                  sig
+                  plastic-strain (magicl:.- strain eps-e)
+                  yield-func f)
+            (setf strain eps-e))
+          (incf ps-vm
+                (multiple-value-bind (l v)
+                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                  (destructuring-bind (s1 s2 s3) l
+                    (sqrt
+                     (/ (+ (expt (- s1 s2) 2d0)
+                           (expt (- s2 s3) 2d0)
+                           (expt (- s3 s1) 2d0)
+                           ) 2d0)))))))
+        (setf stress (magicl:scale stress-u 1d0))
+    (when (> damage 0.0d0)
+      (let* ((j (magicl:det def))
+             (exponential 1)
+             (degredation (expt (- 1d0 damage) 1d0))
+             )
+        (declare (double-float damage))
+        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+          (setf p
+                (if (> p 0d0)
+                    (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
+                    (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
+          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
       )
     stress
     ))

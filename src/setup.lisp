@@ -178,8 +178,11 @@
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))
     (lambda (pos)
-      (let* ((position (magicl:from-list position '(2 1) :type 'double-float))
-             (dist-vec (magicl.simd::.*-simd (magicl:.- position pos) (magicl:from-list (list 1 aspect) '(2 1)
+      (let* ((position (cl-mpm/utils:vector-from-list (append
+                                                       position '(0d0))))
+             (dist-vec (magicl.simd::.*-simd
+                        (magicl:.- position pos)
+                        (magicl:from-list (list 1d0 aspect 1d0) '(3 1)
                                                                              :type 'double-float)))
              (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
                                                     dist-vec) 0 0))))

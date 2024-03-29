@@ -522,7 +522,7 @@
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
                     (mpi-sync-force sim)
-                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::g2p mesh mps dt)
                     (when remove-damage
@@ -571,7 +571,7 @@
                         do
                            (cl-mpm::apply-bcs mesh bcs-f dt))
                   (mpi-sync-force sim)
-                  (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                  (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::g2p mesh mps dt)
                   (when remove-damage
@@ -616,7 +616,7 @@
                         do
                            (cl-mpm::apply-bcs mesh bcs-f dt))
                   (mpi-sync-force sim)
-                  (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                  (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::g2p mesh mps dt)
 
@@ -680,7 +680,7 @@
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
-                    (cl-mpm::update-node-forces mesh (cl-mpm::sim-damping-factor sim) dt (cl-mpm::sim-mass-scale sim))
+                    (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
                                         ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)

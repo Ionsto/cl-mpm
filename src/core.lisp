@@ -128,6 +128,7 @@
 (defclass mpm-nd-3d ()())
 (defclass mpm-sf-mpm ()())
 (defclass mpm-sf-gimp ()())
+(defclass mpm-sim-quasi-static (mpm-sim) ())
 
 (defclass mpm-sim-usf (mpm-sim)
   ()
@@ -187,8 +188,8 @@
       mesh
     (lparallel:pdotimes (i (length mps))
         (setf (cl-mpm/particle::mp-single-particle (aref mps i))
-              nil
-              ;; (single-particle-criteria mesh (aref mps i))
+              ;; nil
+              (single-particle-criteria mesh (aref mps i))
               )
         )
       (remove-mps-func
@@ -222,7 +223,7 @@
                     (apply-bcs mesh bcs-force dt) ;;Update nodes
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
-                    (update-node-forces mesh (sim-damping-factor sim) dt(sim-mass-scale sim))
+                    (update-node-forces sim)
                     ;Apply vel bcs
                     (apply-bcs mesh bcs dt)
                     ;;G2p + Particle update
@@ -275,7 +276,7 @@
                     (loop for bcs-f in bcs-force-list
                           do
                              (apply-bcs mesh bcs-f dt))
-                    (update-node-forces mesh (sim-damping-factor sim) dt (sim-mass-scale sim))
+                    (update-node-forces sim)
                     ;; Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
                     ;; Also updates mps inline
@@ -314,7 +315,7 @@
                     (p2g-force mesh mps)
                     (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
-                    (update-node-forces mesh (sim-damping-factor sim) dt(sim-mass-scale sim))
+                    (update-node-forces sim)
                     ;;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
@@ -1181,8 +1182,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
         ;;FLIP
         (magicl:scale! mapped-vel dt)
-        (magicl:.+ pos mapped-vel pos)
-        (magicl:.+ disp mapped-vel disp)
+        (cl-mpm/fastmath::simd-add pos mapped-vel)
+        (cl-mpm/fastmath::simd-add disp mapped-vel)
+        ;; (magicl:.+ pos mapped-vel pos)
+        ;; (magicl:.+ disp mapped-vel disp)
         (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ))))
 (defgeneric pre-particle-update-hook (particle dt)
@@ -1224,6 +1227,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
+  "Update forces and nodal velocities with viscous damping"
   (when (cl-mpm/mesh:node-active node)
       (with-accessors ( (mass  node-mass)
                         (vel   node-velocity)
@@ -1239,6 +1243,52 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;; (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
+  (values))
+
+(defun calculate-forces-cundall (node damping dt mass-scale)
+  "Apply cundall damping to the system"
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (force node-force)
+                     (acc   node-acceleration)
+                     )
+        node
+      (declare (double-float mass dt damping))
+      (progn
+        (magicl:scale! acc 0d0)
+        ;;Set acc to f/m
+
+        (let* ((vel-sign (cl-mpm/utils:vector-zeros))
+               (f-s (magicl::matrix/double-float-storage force))
+               (v-s (magicl::matrix/double-float-storage vel))
+               (vs-s (magicl::matrix/double-float-storage vel-sign)))
+          (loop for i from 0 to 2
+                do
+                   (incf (aref f-s i)
+                         (* (signum (aref v-s i))
+                            (abs (aref f-s i))
+                            damping
+                            -1d0))
+                   ;(setf (aref vs-s i) (signum (aref v-s i)))
+                )
+
+          ;; (cl-mpm/fastmath:fast-fmacc acc
+          ;;                             vel-sign
+          ;;                             (/
+          ;;                              (* (cl-mpm/fastmath::mag force)
+          ;;                                 damping -1d0)
+          ;;                              (* mass mass-scale)))
+          (cl-mpm/fastmath:fast-fmacc force
+                                      vel-sign
+                                      (* (cl-mpm/fastmath::mag force)
+                                         damping -1d0))
+
+          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+          )
+        ;; (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
+        (cl-mpm/fastmath:fast-fmacc vel acc dt)
+        )))
   (values))
 
 (declaim (inline iterate-over-nodes)
@@ -1297,10 +1347,31 @@ Calls func with only the node"
   (iterate-over-nodes mesh
                       (lambda (node)
                         (calculate-kinematics node))))
-(defun update-node-forces (mesh damping dt mass-scale)
-  (iterate-over-nodes mesh
-                      (lambda (node)
-                        (calculate-forces node damping dt mass-scale))))
+(defgeneric update-node-forces (sim)
+  (:documentation "Update the acceleration from forces and apply any damping"))
+(defmethod update-node-forces ((sim mpm-sim))
+  (with-accessors ((damping sim-damping-factor)
+                   (mass-scale sim-mass-scale)
+                   (mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (calculate-forces node damping dt mass-scale)))))
+
+(defmethod update-node-forces ((sim mpm-sim-quasi-static))
+  (with-accessors ((damping sim-damping-factor)
+                   (mass-scale sim-mass-scale)
+                   (mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    ;; (break)
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (calculate-forces-cundall node damping dt mass-scale)))))
+
 
 
 (defun apply-bcs (mesh bcs dt)
@@ -1455,7 +1526,7 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-            ;(update-domain-corner mesh mp dt)
+            ;; (update-domain-corner mesh mp dt)
             (update-domain-midpoint mesh mp dt)
           ;; (update-domain-stretch-rate df domain)
 
@@ -1667,12 +1738,13 @@ Calls func with only the node"
           (array-operations/utilities:nested-loop (x y) '(2 2)
             (let ((corner (cl-mpm/utils:vector-zeros))
                   (disp (cl-mpm/utils:vector-zeros)))
-              (magicl.simd::.+-simd position
-                                    (magicl:scale!
-                                     (magicl:.*
-                                      (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y 0)))
-                                      domain
-                                      ) 0.5d0) corner)
+              (magicl.simd::.+-simd
+               position
+               (magicl:scale!
+                (magicl:.*
+                 (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y 0)))
+                 domain
+                 ) 0.5d0) corner)
               (loop for i from 0 to 1
                     do (setf (the double-float (magicl:tref corner i 0))
                              (max 0d0 (min
@@ -1686,8 +1758,8 @@ Calls func with only the node"
                      node
                    (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
 
-              (incf (the double-float (aref diff 0)) (* 0.5d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 1)) (* 0.5d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 0)) (* 1.0d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 1)) (* 1.0d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
               ))
           (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
           (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
@@ -1733,32 +1805,23 @@ Calls func with only the node"
                      node
                    (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
 
-              (incf (the double-float (aref diff 0)) (* 0.5d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 1)) (* 0.5d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 2)) (* 0.5d0 (the double-float (magicl:tref disp 2 0)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 0)) (* (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 1)) (* (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 2)) (* (the double-float (magicl:tref disp 2 0)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
               ))
           (let ((nd (the fixnum (cl-mpm/mesh:mesh-nd mesh))))
             (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
             (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
-            (when (= 3 nd)
-              (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2)))))
-            (if (= 2 nd)
-                (let* ((jf  (magicl:det def))
-                       (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-                       (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-                       (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
-                  (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                        (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                        ))
-                (let* ((jf  (magicl:det def))
-                       (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
-                       (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
-                       (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
-                  (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                        (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                        (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
-                        ))
-                ))
+            (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2))))
+            (let* ((jf  (magicl:det def))
+                   (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
+                   (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
+                   (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
+              (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
+                    (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+                    (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
+                    ))
+            )
           ))))
 (defun update-domain-corner (mesh mp dt)
   (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
@@ -2108,8 +2171,9 @@ Calls func with only the node"
          (with-accessors ((damage cl-mpm/particle:mp-damage)
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
-           (and (>= damage 1d0)
-                (or instant-damage-removal (damage-removal-criteria mp h) )
+           (and (>= damage 0.9d0)
+                (or instant-damage-removal
+                    (damage-removal-criteria mp h) )
                 )))))
     ))
 
@@ -2117,16 +2181,30 @@ Calls func with only the node"
   "Some criteria for when we should remove fully damaged MPs"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
+                   (strain cl-mpm/particle::mp-strain)
                    (lens-0 cl-mpm/particle::mp-domain-size-0)
+                   ;; (ft cl-mpm/particle::mp-initiation-stress)
+                   ;; (ductility cl-mpm/particle::mp-ductility)
+                   ;; (E cl-mpm/particle::mp-e)
                    )
       mp
-    (let ((l-factor 2.50d0))
+    ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain)))
+    (let* ((l-factor 4.00d0)
+           ;; (e0 (/ ft E))
+           ;; (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+           ;; (ef (* ef 50d0))
+           ;; (e_max (reduce #' max l))
+           )
       (cond
+        ;; ((< ef e_max) :x)
+        ;; ((< ef (tref strain 0 0)) :x)
+        ;; ((< ef (tref strain 1 0)) :y)
+        ;; ((< ef (tref strain 2 0)) :z)
         ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
         ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
-        ((and (< (* l-factor (tref lens-0 2 0)) (tref lens 2 0))
-              (> (tref lens-0 2 0) 0d0)
-              ) :z)
+        ;; ((and (< (* l-factor (tref lens-0 2 0)) (tref lens 2 0))
+        ;;       (> (tref lens-0 2 0) 0d0)
+        ;;       ) :z)
         (t nil)
         ))))
 
@@ -2187,7 +2265,7 @@ Calls func with only the node"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
-    (let ((h-factor (* 0.95d0 h))
+    (let ((h-factor (* 1.5d0 h))
           (aspect 0.01d0))
       (cond
         ((< h-factor (the double-float (tref lens 0 0))) :x)
