@@ -298,6 +298,10 @@
     :accessor mp-strain-plastic-vm
     :type DOUBLE-FLOAT
     :initform 0d0)
+   (strain-plastic-vm-inc
+    :accessor mp-strain-plastic-vm-inc
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (strain-plastic
     :accessor mp-strain-plastic
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -1091,7 +1095,6 @@
       ;;  (cl-mpm/constitutive:maxwell strain-rate stress E nu de viscosity dt)
       ;;  stress-u)
       (setf stress-u
-
             (cl-mpm/constitutive:maxwell-exp-v
              strain-rate
              stress-u
@@ -1613,6 +1616,7 @@
                    (calc-pressure mp-pressure-func)
                    (coheasion mp-c)
                    (ps-vm mp-strain-plastic-vm)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
@@ -1658,15 +1662,18 @@
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f)
             (setf strain eps-e))
-          (incf ps-vm
-                (multiple-value-bind (l v)
-                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                  (destructuring-bind (s1 s2 s3) l
-                    (sqrt
-                     (/ (+ (expt (- s1 s2) 2d0)
-                           (expt (- s2 s3) 2d0)
-                           (expt (- s3 s1) 2d0)
-                           ) 2d0)))))))
+          (let ((inc (multiple-value-bind (l v)
+                         (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                       (destructuring-bind (s1 s2 s3) l
+                         (sqrt
+                          (/ (+ (expt (- s1 s2) 2d0)
+                                (expt (- s2 s3) 2d0)
+                                (expt (- s3 s1) 2d0)
+                                ) 2d0))))))
+            (incf ps-vm
+                  inc)
+            (setf ps-vm-inc inc)
+            )))
         (setf stress (magicl:scale stress-u 1d0))
     (when (> damage 0.0d0)
       (let* ((j (magicl:det def))
@@ -2149,21 +2156,22 @@
     ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
     ;;          (magicl:scale! q rho))))
 
-    ;; (setf stress-u
-    ;;       (cl-mpm/constitutive::linear-elastic-mat strain de))
-    (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
-           (visc-u viscosity)
-           ;; (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
-           )
-      (setf stress-u
-            (cl-mpm/constitutive:maxwell-exp-v
-             strain-rate
-             stress-u
-             E nu de
-             viscosity dt))
-      ;; (setf eps-e (magicl:@ Ce sig))
-      (setf strain (magicl:linear-solve de stress-u))
-      )
+    (setf stress-u
+          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+    ;;        (visc-u viscosity)
+    ;;        (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
+    ;;        )
+    ;;   (setf stress-u
+    ;;         (cl-mpm/constitutive:maxwell-exp-v
+    ;;          strain-rate
+    ;;          stress-u
+    ;;          E nu de
+    ;;          viscosity dt))
+    ;;   ;; (setf eps-e (magicl:@ Ce sig))
+    ;;   (setf strain (magicl:linear-solve de stress-u))
+    ;;   (setf stress (magicl:scale stress-u 1d0))
+    ;;   )
 
 
     (if enable-plasticity
@@ -2206,6 +2214,8 @@
                     (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
                                   (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
+
+      ;; (magicl:.+ stress (cl-mpm/constitutive::voight-eye (/ (* (- 1d0 damage)pressure) 3d0)) stress)
       )
     stress
     ))

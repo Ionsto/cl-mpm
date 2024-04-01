@@ -134,7 +134,7 @@
             (cl-mpm::iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-force cl-mpm/mesh:node-force)
+               (with-accessors ((node-force cl-mpm/mesh::node-external-force)
                                 (node-pos cl-mpm/mesh::node-position)
                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                 (node-lock  cl-mpm/mesh:node-lock)
@@ -203,7 +203,7 @@
                        (cl-mpm/mesh::cell-iterate-over-neighbours
                         mesh cell
                         (lambda (mesh cell pos volume node svp grads)
-                          (with-accessors ((node-force cl-mpm/mesh:node-force)
+                          (with-accessors ((node-force cl-mpm/mesh::node-external-force)
                                            (node-pos cl-mpm/mesh::node-position)
                                            (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                            (node-lock  cl-mpm/mesh:node-lock)
@@ -264,7 +264,7 @@
                            (center-pos (cl-mpm/mesh::cell-centroid cell))
                            (h (cl-mpm/mesh::mesh-resolution mesh)))
                        (flet ((apply-force (mesh cell pos volume node svp grads)
-                                (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                (with-accessors ((node-force cl-mpm/mesh::node-external-force)
                                                  (node-pos cl-mpm/mesh::node-position)
                                                  (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                                  (node-lock  cl-mpm/mesh:node-lock)
@@ -338,7 +338,7 @@
         (cl-mpm::iterate-over-neighbours
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
-           (with-accessors ((node-force cl-mpm/mesh:node-force)
+           (with-accessors ((node-force cl-mpm/mesh::node-external-force)
                             (node-lock  cl-mpm/mesh:node-lock)
                             (node-active  cl-mpm/mesh:node-active))
                node
@@ -450,7 +450,7 @@
                        (when (and (funcall clip-function pos) ;(not pruned)
                                   )
                          (let ((vest 0d0))
-                           (loop for n in nns 
+                           (loop for n in nns
                                  do
                                     (when (cl-mpm/mesh:node-active n)
                                       (incf vest
@@ -466,9 +466,9 @@
                                           (setf (cl-mpm/mesh::node-boundary-node n) t))))))
 
                          ))))
-            (check-cell cell)
-            ;; (loop for neighbour in neighbours
-            ;;       do (check-cell neighbour))
+            ;; (check-cell cell)
+            (loop for neighbour in neighbours
+                  do (check-cell neighbour))
 
               ;; (loop for neighbour in neighbours
               ;;       do
@@ -787,9 +787,9 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
-      ;; (populate-cells-volume mesh clip-function)
+      (populate-cells-volume mesh clip-function)
       ;; (populate-nodes-volume mesh clip-function)
-      (populate-nodes-volume-damage mesh clip-function)
+      ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
 
       (apply-force-mps-3d mesh mps
@@ -936,7 +936,7 @@
                        (cl-mpm/mesh::cell-iterate-over-neighbours
                         mesh cell
                         (lambda (mesh cell pos volume node svp grads)
-                          (with-accessors ((node-force cl-mpm/mesh:node-force)
+                          (with-accessors ((node-force cl-mpm/mesh::node-force)
                                            (node-pos cl-mpm/mesh::node-position)
                                            (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                            (node-lock  cl-mpm/mesh:node-lock)
@@ -965,14 +965,14 @@
                                                              (* -1d0 svp volume))
 
                                 ;;Debug buoyancy
-                                (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                             (magicl:@ (magicl:transpose dsvp)
-                                                                       (funcall func-stress pos))
-                                                             volume)
-                                ;; Add divergance of stress
-                                (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                             (funcall func-div pos)
-                                                             (* svp volume))
+                                ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                ;;                              (magicl:@ (magicl:transpose dsvp)
+                                ;;                                        (funcall func-stress pos))
+                                ;;                              volume)
+                                ;; ;; Add divergance of stress
+                                ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                ;;                              (funcall func-div pos)
+                                ;;                              (* svp volume))
                                 (incf node-boundary-scalar
                                       (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                                 )))
@@ -992,7 +992,7 @@
             (cl-mpm::iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-force cl-mpm/mesh:node-force)
+               (with-accessors ((node-force cl-mpm/mesh::node-force)
                                 (node-pos cl-mpm/mesh::node-position)
                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                 (node-lock  cl-mpm/mesh:node-lock)
@@ -1018,14 +1018,14 @@
                                                   (funcall func-div mp)
                                                   (* svp volume))
                      ;;Debug buoyancy
-                     (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                  (magicl:@ (magicl:transpose dsvp)
-                                                            (funcall func-stress mp))
-                                                  volume)
-                     ;; Add divergance of stress
-                     (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                  (funcall func-div mp)
-                                                  (* svp volume))
+                     ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                     ;;                              (magicl:@ (magicl:transpose dsvp)
+                     ;;                                        (funcall func-stress mp))
+                     ;;                              volume)
+                     ;; ;; Add divergance of stress
+                     ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                     ;;                              (funcall func-div mp)
+                     ;;                              (* svp volume))
                      (incf node-boundary-scalar
                            (* volume svp (calculate-val-mp mp #'melt-rate)))
                      )))))))))))
@@ -1058,9 +1058,9 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      ;; (populate-nodes-volume mesh clip-function)
+      (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      (populate-nodes-domain mesh clip-function)
+      ;; (populate-nodes-domain mesh clip-function)
 
       (apply-scalar-mps-3d mesh mps
                           (lambda (mp)
@@ -1090,7 +1090,7 @@
                        (cl-mpm/mesh::cell-iterate-over-neighbours
                         mesh cell
                         (lambda (mesh cell pos volume node svp grads)
-                          (with-accessors ((node-force cl-mpm/mesh:node-force)
+                          (with-accessors ((node-force cl-mpm/mesh::node-force)
                                            (node-pos cl-mpm/mesh::node-position)
                                            (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                            (node-lock  cl-mpm/mesh:node-lock)

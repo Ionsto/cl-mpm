@@ -235,7 +235,6 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline
                                         ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
@@ -338,7 +337,6 @@
                           &rest mp-args)
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-bspline
                                         ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)

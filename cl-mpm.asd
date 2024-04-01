@@ -262,6 +262,8 @@
                "cl-mpm/eigenerosion"
                "cl-mpm/damage"
                "cl-mpm/mpi"
+               "cl-mpm/dynamic-relaxation"
+               "cl-mpm/plotter"
                "lfarm-client"
                "vgplot"
                "swank.live"
@@ -456,6 +458,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/mpi"
+               "cl-mpm/dynamic-relaxation"
                "cl-mpm/examples/chalk")
   :serial t
   :components ((:file "examples/joss")))

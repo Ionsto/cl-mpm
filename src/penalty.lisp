@@ -90,6 +90,18 @@
                                 (normal-damping 0d0)
                                 (damping-force (* normal-damping rel-vel)))
 
+                               (when (> (cl-mpm/fastmath:dot tang-vel tang-vel) 0d0)
+                                 (let ((tang-normal (cl-mpm/fastmath:norm tang-vel))
+                                       (force-friction (cl-mpm/utils:vector-zeros)))
+                                   (cl-mpm/fastmath::fast-fmacc force-friction
+                                                                tang-normal
+                                                                (* -1d0
+                                                                   friction
+                                                                   (coerce (abs normal-force) 'double-float)
+                                                                   ))
+                                   (magicl:.+ force force-friction force))
+                               )
+
                            (cl-mpm/fastmath::fast-fmacc force
                                                         normal
                                                         (- normal-force
