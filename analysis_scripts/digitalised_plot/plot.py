@@ -91,14 +91,20 @@ data_post = pd.read_csv("data_post.csv")
 plt.clf()
 sync_number = 1
 offset = 15.5
+scale = 0.95
 data_pre["x"] -= data_pre["x"].iloc[sync_number]
-data_pre["y"] -= data_pre["y"].iloc[sync_number] + offset
+data_pre["y"] -= data_pre["y"].iloc[sync_number]
 data_post["x"] -= data_post["x"].iloc[2] - 2
-data_post["y"] -= data_post["y"].iloc[2] + offset
+data_post["y"] -= data_post["y"].iloc[2]
 sim_offset = [15.5-1.9 - 2,2]
+scale = (15)/15.5
+data_pre["y"] *=  scale
+data_post["y"] *= scale
+data_pre["y"] -= offset
+data_post["y"] -=  offset
 
 
-output_dir = "~/quicklisp/local-projects/cl-mpm/output/"
+output_dir = "../../output/"
 with open(output_dir+"settings.json") as f:
     json_settings = json.load(f)
     water_height = 0
