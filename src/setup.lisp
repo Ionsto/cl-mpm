@@ -188,6 +188,13 @@
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
 (defun circle-sdf (position radius)
+  (lambda (pos)
+    (let* ((position (cl-mpm/utils:vector-from-list (append
+                                                     position '(0d0))))
+           (dist-vec (magicl:.- position pos))
+           (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
+                                                  dist-vec) 0 0))))
+      (- distance radius)))
   (ellipse-sdf position radius radius))
 
 (defun line-sdf (position a b width)

@@ -498,3 +498,14 @@
                "swank.live")
   :serial t
   :components ((:file "examples/lbar")))
+
+(defsystem "cl-mpm/examples/uniaxial"
+  :depends-on ("cl-mpm/examples/tpb"
+               )
+  :serial t
+  :components ((:file "examples/uniaxial")))
+(defsystem "cl-mpm/examples/brazilian"
+  :depends-on ("cl-mpm/examples/tpb"
+               )
+  :serial t
+  :components ((:file "examples/brazilian")))

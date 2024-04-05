@@ -88,6 +88,7 @@
                                 (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
                                 (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                                 (normal-damping 0d0)
+                                ;; (svp (* svp volume))
                                 (damping-force (* normal-damping rel-vel)))
 
                                (when (> (cl-mpm/fastmath:dot tang-vel tang-vel) 0d0)

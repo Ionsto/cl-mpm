@@ -1353,13 +1353,13 @@ Calls the function with the mesh mp and node"
         ;;                                      (sqrt (cl-mpm/constitutive::voigt-j2
         ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
         ;;                                      0d0)))
-        ;; (cl-mpm/output::save-parameter "i1"
-        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
-        ;;                                                 (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
-        ;;                                                 )
-        ;;                                    mp
-        ;;                                  (cl-mpm/utils::trace-voigt stress)))
+        (cl-mpm/output::save-parameter "i1"
+                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                                        (stress cl-mpm/particle::mp-undamaged-stress)
+                                                        (def cl-mpm/particle::mp-deformation-gradient)
+                                                        )
+                                           mp
+                                         (cl-mpm/utils::trace-voigt stress)))
         (cl-mpm/output::save-parameter "e_i1"
                                        (with-accessors ((strain cl-mpm/particle::mp-strain))
                                            mp

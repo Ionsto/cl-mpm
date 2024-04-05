@@ -1,6 +1,6 @@
 import matplotlib as mpl
 # if PDF_OUTPUT:
-#     mpl.use('pdf')
+#mpl.use('pdf')
 # else:
 #mpl.use('Agg')
 import pandas as pd
@@ -25,6 +25,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib import cm
 from multiprocessing import Pool
+from matplotlib import pyplot, transforms
 
 def get_data(filename):
     reader = vtkUnstructuredGridReader()
@@ -49,7 +50,10 @@ def get_data(filename):
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
 def get_plot(i,fname):
-    fig = plt.figure()
+    figscale = 0.3
+    aspect = 1.0
+                #16/9
+    fig = plt.figure(figsize=(16*figscale,16*aspect*figscale),dpi=200)
     #outname = "outframes/frame_{:05}.png".format(i)
     #if NO_OVERWRITE and os.path.isfile(outname):
     #    return
@@ -64,7 +68,7 @@ def get_plot(i,fname):
     #ps = PatchCollection(patch_sea)
     #ax.add_collection(ps)
 
-    for a_x, a_y,lx,ly,damage in zip(df["coord_x"],
+    for a_x, a_y,lx,ly,damage in zip(df["coord_x"]-(0 * 15.5),
                                      df["coord_y"],
                                      df["lx"],
                                      df["ly"],
@@ -76,10 +80,12 @@ def get_plot(i,fname):
     p.set_array(df["damage"])
     p.set_clim([0,1.0])
     ax.add_collection(p)
-    fig.colorbar(p,location="bottom",label="damage")
+    #fig.colorbar(p,location="bottom",label="damage")
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    ax.set_xticks([])
+    ax.set_yticks([])
     #plt.title("t = {:.2f}s".format(i * dt))
     #plt.savefig("outframes/frame_{:05}.png".format(i))
     #plt.clf()
@@ -87,11 +93,17 @@ def get_plot(i,fname):
 data_pre = pd.read_csv("data_pre.csv")
 data_post = pd.read_csv("data_post.csv")
 
+data_crack = pd.read_csv("cracks.csv")
+
 
 plt.clf()
 sync_number = 1
 offset = 15.5
 scale = 0.95
+
+data_crack["x"] += 3
+data_crack["y"] += 2.0
+
 data_pre["x"] -= data_pre["x"].iloc[sync_number]
 data_pre["y"] -= data_pre["y"].iloc[sync_number]
 data_post["x"] -= data_post["x"].iloc[2] - 2
@@ -110,6 +122,7 @@ with open(output_dir+"settings.json") as f:
     water_height = 0
     xlim = [0,json_settings["DOMAIN-SIZE"][0]]
     ylim = [0,json_settings["DOMAIN-SIZE"][1]]
+xlim = [0,20]
     
 files = os.listdir(output_dir)
 finalcsv = re.compile("sim.*\.vtk")
@@ -117,21 +130,13 @@ files_csvs = list(filter(finalcsv.match,files))
 print("files: {}".format(files_csvs))
 
 
-get_plot(0,files_csvs[-1])
-plt.plot(data_pre["x"] + sim_offset[0],-data_pre["y"] + sim_offset[1],label="pre")
-plt.plot(data_post["x"]+ sim_offset[0],-data_post["y"]+ sim_offset[1],label="post")
-plt.legend()
-plt.savefig("plot.png")
-##Fig 2
-get_plot(0,files_csvs[1])
-plt.plot(data_pre["x"] + sim_offset[0],-data_pre["y"] + sim_offset[1],label="pre")
-plt.plot(data_post["x"]+ sim_offset[0],-data_post["y"]+ sim_offset[1],label="post")
-plt.legend()
-plt.savefig("plot.png")
 
-get_plot(0,files_csvs[20])
-plt.plot(data_pre["x"] + sim_offset[0],-data_pre["y"] + sim_offset[1],label="pre")
-plt.plot(data_post["x"]+ sim_offset[0],-data_post["y"]+ sim_offset[1],label="post")
-plt.legend()
-plt.savefig("plot.png")
+rot = transforms.Affine2D().rotate_deg(5)
+for i in [-1]:
+    get_plot(i,files_csvs[i])
+    #plt.plot(data_pre["x"] + sim_offset[0],-data_pre["y"] + sim_offset[1],label="Pre-failure geometry",linewidth=4.0,)
+    #plt.plot(data_post["x"]+ sim_offset[0],-data_post["y"]+ sim_offset[1],label="Post-failure geometry",linewidth=4.0)
+    plt.scatter(data_crack["x"],data_crack["y"],label="Tensile crack failure (Styles)",c="purple",marker="x")
+    plt.legend()
+    plt.savefig("plot.pdf")
 plt.show()
