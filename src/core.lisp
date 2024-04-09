@@ -989,45 +989,52 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (mp-volume cl-mpm/particle:mp-volume)
                    (mp-pmod cl-mpm/particle::mp-p-modulus)
                    (mp-damage cl-mpm/particle::mp-damage)
-                   ;; (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
     (declare (type double-float mp-mass mp-volume))
-    (iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare
-        (cl-mpm/particle:particle mp)
-        (cl-mpm/mesh::node node)
-        (double-float svp)
-        )
-       (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                        (node-active  cl-mpm/mesh::node-active)
-                        (node-mass  cl-mpm/mesh:node-mass)
-                        (node-volume  cl-mpm/mesh::node-volume)
-                        (node-volume-true  cl-mpm/mesh::node-volume-true)
-                        (node-svp-sum  cl-mpm/mesh::node-svp-sum)
-                        (node-force cl-mpm/mesh:node-force)
-                        (node-p-wave cl-mpm/mesh::node-pwave)
-                        (node-damage cl-mpm/mesh::node-damage)
-                        (node-lock  cl-mpm/mesh:node-lock)) node
-         (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
-                  (type sb-thread:mutex node-lock))
-         (sb-thread:with-mutex (node-lock)
-           (setf node-active t)
-           (incf node-mass
-                 (* mp-mass svp))
-           (incf node-volume
-                 (* mp-volume svp))
-           (incf node-p-wave
-                 (* mp-pmod svp))
-           (incf node-damage
-                 (* mp-damage svp))
-           (incf node-svp-sum svp)
-           (fast-fmacc node-vel mp-vel (* mp-mass svp))
-           )
-         ;;Ideally we include these generic functions for special mapping operations, however they are slow
-         ;; (special-p2g mp node svp dsvp)
-          ))))
+    (let (
+          (mp-mass mp-mass)
+          (mp-vel mp-vel)
+          (mp-volume mp-volume)
+          (mp-pmod mp-pmod)
+          (mp-damage mp-damage)
+          )
+      (iterate-over-neighbours
+       mesh mp
+       (lambda (mesh mp node svp grads fsvp fgrads)
+         (declare
+          (cl-mpm/particle:particle mp)
+          (cl-mpm/mesh::node node)
+          (double-float svp)
+          )
+         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                          (node-active  cl-mpm/mesh::node-active)
+                          (node-mass  cl-mpm/mesh:node-mass)
+                          (node-volume  cl-mpm/mesh::node-volume)
+                          (node-volume-true  cl-mpm/mesh::node-volume-true)
+                          (node-svp-sum  cl-mpm/mesh::node-svp-sum)
+                          (node-force cl-mpm/mesh:node-force)
+                          (node-p-wave cl-mpm/mesh::node-pwave)
+                          (node-damage cl-mpm/mesh::node-damage)
+                          (node-lock  cl-mpm/mesh:node-lock)) node
+           (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
+                    (type sb-thread:mutex node-lock))
+           (sb-thread:with-mutex (node-lock)
+             (setf node-active t)
+             (incf node-mass
+                   (* mp-mass svp))
+             (incf node-volume
+                   (* mp-volume svp))
+             (incf node-p-wave
+                   (* mp-pmod svp))
+             (incf node-damage
+                   (* mp-damage svp))
+             (incf node-svp-sum svp
+                   )
+             (fast-fmacc node-vel mp-vel (* mp-mass svp))
+             )
+           ;;Ideally we include these generic functions for special mapping operations, however they are slow
+           ;; (special-p2g mp node svp dsvp)
+           )))))
   (values))
 
 (declaim (notinline p2g))
