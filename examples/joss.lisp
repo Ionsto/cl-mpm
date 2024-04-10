@@ -20,8 +20,8 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (incf (cl-mpm/particle::mp-c mp) 1d-3)
-  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
@@ -221,7 +221,7 @@
                 :friction-angle 60.0d0
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d-2
-                :g-res-ratio 6.5d-3
+                :g-res-ratio 6d-3
 
                 ;; :kt-res-ratio 1d-10
                 ;; :kc-res-ratio 1d-2
@@ -230,20 +230,21 @@
                 ;; :g-res-ratio 1.0d-3
                 ;; :g-res-ratio 1.0d-4
                 :fracture-energy 3000d0
-                :initiation-stress 30d3;18d3
-                :delay-time 10d0
+                :initiation-stress 40d3;18d3
+                :delay-time 1.0d0
                 :delay-exponent 3d0
                 ;:ductility 6.7d0
-                :ductility 10d0
+                :ductility 5d0
                 ;; :ductility 6.7d0
 
                 :critical-damage 1d0;(- 1.0d0 1d-3)
                 :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
 
-                :local-length 1.0d0;(* 0.20d0 (sqrt 7))
+                :local-length 0.5d0;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
-                :psi (* 00d0 (/ pi 180))
+                ;; :psi (* 00d0 (/ pi 180))
+                :psi 0d0
                 :phi (* 42d0 (/ pi 180))
                 ;; :phi 0d0;(* 30d0 (/ pi 180))
                 ;; :phi (* 70d0 (/ pi 180))
@@ -278,7 +279,7 @@
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
@@ -643,7 +644,10 @@
                               ;; (> total-energy 1d2)
                               ;; (> total-energy 1d2)
                               ;; (> plastic-inc  1d-3)
-                              (> total-energy 1d2)
+                              (and
+                               (> total-energy 1d2)
+                               (> (- (first *data-e*) (second *data-e*) 0d0))
+                               )
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -676,7 +680,8 @@
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
                                  ;; (* 0d-3 ms)
-                                 0.0d0
+                                 0.1d0
+                                 ;; 0.0d0
                                  )))
                        )
                      
@@ -721,15 +726,16 @@
 
 (defun test ()
   (setup)
-  (sb-profile:profile "CL-MPM")
-  (sb-profile:profile "CL-MPM/PARTICLE")
-  (sb-profile:profile "CL-MPM/MESH")
-  (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  (sb-profile:reset)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  ;; (sb-profile:reset)
+  (setf (cl-mpm::sim-enable-damage *sim*) nil)
   (time
-   (dotimes (i 100)
+   (dotimes (i 500)
          (cl-mpm::update-sim *sim*)))
-  (sb-profile:report)
+  ;; (sb-profile:report)
   )
 (defun test-undercut ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output_chalk/mesh.vtk")
@@ -746,9 +752,9 @@
 (defun profile ()
   (sb-profile:unprofile)
   (sb-profile:reset)
-  (sb-profile:profile "CL-MPM")
-  (sb-profile:profile "CL-MPM/PARTICLE")
-  (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
   (loop repeat 100
         do (progn
              (cl-mpm::update-sim *sim*)
@@ -994,12 +1000,12 @@
 
 
 (defun setup ()
-  (let* ((mesh-size 0.5d0)
+  (let* ((mesh-size 1.00d0)
          (mps-per-cell 2)
          (shelf-height 15.5)
          (soil-boundary 2)
          (shelf-aspect 1.0)
-         (runout-aspect 2.0)
+         (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1109,7 +1115,7 @@
                                          )
                                      1d0)
                                  ))
-      (when nil
+      (when t
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.15d0)
               (width ;(* 2d0 mesh-size)
@@ -1135,7 +1141,7 @@
                                      ))
           )))
 
-    (let* ((notched-depth 1d0)
+    (let* ((notched-depth 0.5d0)
            (undercut-angle 30d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
@@ -1221,7 +1227,7 @@
 
 
 (defun setup-3d ()
-  (let* ((mesh-size 0.25)
+  (let* ((mesh-size 0.5)
          (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 2)
