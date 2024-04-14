@@ -807,10 +807,15 @@
 
 (defun mpi-rank-to-index (sim rank)
   (let ((size (mpm-sim-mpi-domain-count sim)))
-    (let ((index (list (truncate (floor rank (* (nth 1 size)))) (truncate (mod rank (nth 1 size))) 0)))
+    (let ((index (list
+                  (truncate (floor rank (* (nth 2 size) (nth 1 size))))
+                  (truncate (floor (mod rank (* (nth 2 size) (nth 1 size))) (nth 2 size)))
+                  (truncate (mod rank (nth 2 size)))
+                  )))
       (if (mpi-index-in-bounds sim index)
           index
-          (list -1 -1 -1)))))
+          (list -1 -1 -1))
+      )))
 
 (defun mpi-index-to-rank (sim index)
   (if (mpi-index-in-bounds sim index)
