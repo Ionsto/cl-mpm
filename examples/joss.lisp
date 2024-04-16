@@ -221,7 +221,7 @@
                 :friction-angle 60.0d0
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d-2
-                :g-res-ratio 6d-3
+                :g-res-ratio 8d-3
 
                 ;; :kt-res-ratio 1d-10
                 ;; :kc-res-ratio 1d-2
@@ -230,17 +230,17 @@
                 ;; :g-res-ratio 1.0d-3
                 ;; :g-res-ratio 1.0d-4
                 :fracture-energy 3000d0
-                :initiation-stress 40d3;18d3
+                :initiation-stress 50d3;18d3
                 :delay-time 1.0d0
                 :delay-exponent 3d0
                 ;:ductility 6.7d0
-                :ductility 5d0
+                :ductility 2.5d0
                 ;; :ductility 6.7d0
 
                 :critical-damage 1d0;(- 1.0d0 1d-3)
                 :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
 
-                :local-length 0.5d0;(* 0.20d0 (sqrt 7))
+                :local-length 1.0d0;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
                 ;; :psi (* 00d0 (/ pi 180))
@@ -418,6 +418,8 @@
    *data-t* (mapcar (lambda (x) (/ x 1d0
                                    ;(reduce #'max *data-se*)
                                    )) *data-se*  ) "Strain Energy"
+
+   ;; *data-t* (mapcar (lambda (x) (/ x -1d0)) *data-gpe*  ) "GPE"
    ;; *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-di*))) *data-di* ) "Damage inc"
    ;; *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-pi*))) *data-pi* ) "plastic inc"
    )
@@ -443,16 +445,18 @@
   ;;                (cl-mpm/particle::mp-mass mp)
   ;;                  ;; (cl-mpm/particle::mp-damage mp)
   ;;                  (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
-  (let ((energy 0d0))
-    (cl-mpm:iterate-over-nodes-serial
+  (let ((energy 0d0)
+        (mut (sb-thread:make-mutex)))
+    (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
        (when (cl-mpm/mesh:node-active n)
-         (incf energy
-               (*
-                (cl-mpm/mesh::node-mass n)
-                (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
-                )))))
+         (let ((e-inc (*
+                       (cl-mpm/mesh::node-mass n)
+                       (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                       )))
+           (sb-thread:with-mutex (mut)
+             (incf energy e-inc))))))
     energy)
   )
 (defmethod estimate-energy-crit ((sim cl-mpm/mpi::mpm-sim-mpi))
@@ -461,18 +465,34 @@
   ;;        sum (* (cl-mpm/particle::mp-mass mp)
   ;;               (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   (cl-mpm/mpi::mpi-sum
-   (let ((energy 0d0))
-     (cl-mpm:iterate-over-nodes-serial
+   (let ((energy 0d0)
+         (mut (sb-thread:make-mutex)))
+     (cl-mpm:iterate-over-nodes
       (cl-mpm:sim-mesh sim)
       (lambda (n)
         (when (cl-mpm/mesh:node-active n)
           (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
-            (incf energy
-                  (*
-                   (cl-mpm/mesh::node-mass n)
-                   (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
-                   ))))))
+            (let ((e-inc (*
+                          (cl-mpm/mesh::node-mass n)
+                          (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                          )))
+              (sb-thread:with-mutex (mut)
+                (incf energy e-inc)))))))
      energy)))
+
+
+(defun estimate-energy-gradient (data h)
+  (*
+   (cond
+       ((= (length data) 1)
+        0d0)
+       ((= (length data) 2)
+        (/ (- (first data) (second data)) h))
+       (t
+        (/ (- (+ (first data) (third data)) (* 2 (second data))) (* h h))
+        ))
+   (cl-mpm:sim-mass-scale *sim*)
+   ))
 
 (defun estimate-oobf (sim)
   (let ((oobf 0d0)
@@ -625,6 +645,8 @@
                        (push plastic-inc *data-pi*)
                        ;; (format t "Energy estimate: ~E~%" energy-estimate)
                        (format t "Total energy: ~E~%" total-energy)
+                       (format t "Energy gradient: ~E~%" (estimate-energy-gradient *data-e* target-time))
+
                        (setf last-e total-energy)
                        (defparameter *oobf* oobf)
                        (defparameter *energy* energy-estimate)
@@ -632,8 +654,39 @@
                        (defparameter *total-strain-energy* total-strain-energy)
                        (defparameter *damage-inc* damage-inc)
                        (defparameter *plastic-inc* plastic-inc)
+
+                       ;;Half MS resiudal
+                       ;; (let ((ms (cl-mpm:sim-mass-scale *sim*))
+                       ;;       (dt (cl-mpm:sim-dt *sim*))
+                       ;;       (ms-descale 2)
+                       ;;       (half-ms-energy 0d0)
+                       ;;       (full-ms-energy 0d0)
+                       ;;       )
+
+                       ;;   (dotimes (i 1)
+                       ;;     (cl-mpm::update-sim *sim*)
+                       ;;     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                       ;;     (incf full-ms-energy (estimate-energy-crit *sim*)))
+
+                       ;;    (setf (cl-mpm:sim-dt *sim*) (/ dt ms-descale)
+                       ;;          (cl-mpm:sim-mass-scale *sim*) (/ ms (expt ms-descale 2.0)))
+
+                       ;;    (dotimes (i ms-descale)
+                       ;;      (cl-mpm::update-sim *sim*)
+                       ;;      (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))) ;)
+                       ;;      (incf half-ms-energy (estimate-energy-crit *sim*)))
+
+                       ;;   (setf (cl-mpm:sim-dt *sim*) dt
+                       ;;         (cl-mpm:sim-mass-scale *sim*) ms)
+                       ;;   (setf half-ms-energy (/ half-ms-energy ms-descale))
+                       ;;   ;(format t "E : ~E - HE : ~E ~%" full-ms-energy half-ms-energy)
+                       ;;   (defparameter *ms-e-ratio* 0d0)
+                       ;;   (when (> full-ms-energy 0d0)
+                       ;;     (defparameter *ms-e-ratio* (/ half-ms-energy full-ms-energy))
+                       ;;     (format t "MS E ratio : ~F ~%" (/ half-ms-energy full-ms-energy)))
+                       ;;   )
                        (when (>= steps settle-steps)
-                         (setf (cl-mpm::sim-enable-damage *sim*) t)
+                         (setf (cl-mpm::sim-enable-damage *sim*) nil)
                          (cl-mpm::iterate-over-mps
                           (cl-mpm:sim-mps *sim*)
                           (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled)))
@@ -644,10 +697,17 @@
                               ;; (> total-energy 1d2)
                               ;; (> total-energy 1d2)
                               ;; (> plastic-inc  1d-3)
-                              (and
-                               (> total-energy 1d2)
-                               (> (- (first *data-e*) (second *data-e*) 0d0))
-                               )
+                              ;; t
+                              ;; nil
+                              ;; (> (abs (estimate-energy-gradient *data-e* target-time))
+                              ;;    1d5
+                              ;;    )
+                              ;; (and
+                              nil
+                              ;; (> *ms-e-ratio* 1.5d0)
+                               ;; (> total-energy 1d2)
+                              ;;  ;; (> (- (first *data-e*) (second *data-e*) 0d0))
+                              ;;  )
                               ;; (< 0.5d0
                               ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
                               ;;          maximizing (cl-mpm/particle::mp-damage mp)))
@@ -700,7 +760,7 @@
 
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:title (format nil "Time:~F - KE ~E - SE ~E - dD ~E - dP ~E"  *t* *total-energy* *total-strain-energy* *damage-inc* *plastic-inc*))
+                     (vgplot:title (format nil "Time:~F - KE ~E - SE ~E - dD ~E - dP ~E - MS-ratio ~E"  *t* *total-energy* *total-strain-energy* *damage-inc* *plastic-inc* *ms-e-ratio*))
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                         :terminal "png size 1920,1080"
                                         )
@@ -1000,12 +1060,12 @@
 
 
 (defun setup ()
-  (let* ((mesh-size 1.00d0)
+  (let* ((mesh-size 0.25d0)
          (mps-per-cell 2)
          (shelf-height 15.5)
          (soil-boundary 2)
          (shelf-aspect 1.0)
-         (runout-aspect 1.0)
+         (runout-aspect 1.5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1115,7 +1175,7 @@
                                          )
                                      1d0)
                                  ))
-      (when t
+      (when nil
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.15d0)
               (width ;(* 2d0 mesh-size)
@@ -1141,7 +1201,7 @@
                                      ))
           )))
 
-    (let* ((notched-depth 0.5d0)
+    (let* ((notched-depth 1.0d0)
            (undercut-angle 30d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
@@ -1612,3 +1672,55 @@
         (ef (+ (/ GF (* k R E e0)) (/ e0 2)))
         )
    (format t "Ductility aprox: ~F ~%" (- (* 2 (/ ef e0)) 1d0))))
+
+
+
+;; (let* ((mpi-count 16)
+;;        (x (loop for x from 0 upto 1 by (/ 1d0 mpi-count) collect x))
+;;        (z (loop for i from 0 upto 1 by (/ 1d0 mpi-count) collect 1d0))
+;;        (density-ratio 0.5)
+;;        (inflection (/ 0.4 density-ratio))
+;;       (di (* density-ratio inflection)))
+;;   (let ((y (mapcar
+;;             (lambda (p)
+;;                                         (expt p 1.6)
+;;               ;; (if (> p inflection)
+;;               ;;     (+
+;;               ;;      (* (/ (- 1d0 di)
+;;               ;;            (- 1d0 inflection)) p)
+;;               ;;      (-
+;;               ;;       di
+;;               ;;       (*
+;;               ;;        (/ (- 1d0 di)
+;;               ;;           (- 1d0 inflection))
+;;               ;;        inflection)
+;;               ;;       ))
+;;               ;;     (* density-ratio p)
+;;               ;;     )
+;;               ) x))
+;;         (inf (mapcar
+;;             (lambda (p)
+;;               ;; (expt p 1.6)
+;;               (if (> p inflection)
+;;                   (+
+;;                    (* (/ (- 1d0 di)
+;;                          (- 1d0 inflection)) p)
+;;                    (-
+;;                     di
+;;                     (*
+;;                      (/ (- 1d0 di)
+;;                         (- 1d0 inflection))
+;;                      inflection)
+;;                     ))
+;;                   (* density-ratio p)
+;;                   )
+;;               ) x))
+;;         )
+;;     ;; (vgplot:figure)
+;;     (vgplot:plot y (mapcar (lambda (i) (* 0.25d0 i)) z) ";;with points"
+;;                  inf (mapcar (lambda (i) (* 0.5d0 i)) z) ";;with points"
+;;                  x (mapcar (lambda (i) (* 0.75d0 i)) z) ";;with points"
+;;                  )
+;;     ;; (vgplot:axis '())
+;;     (vgplot:axis (list 0d0 1d0 0d0 1d0))
+;;     ))
