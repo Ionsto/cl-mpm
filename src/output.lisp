@@ -31,7 +31,7 @@
         (let ((av 0))
           (progn
             (cl-mpm::iterate-over-neighbours mesh mp 
-                 (lambda (mesh mp node svp dsvp) 
+                 (lambda (mesh mp node svp dsvp &rest rest) 
                    (setf av (+ av (* svp (,accessor node))))))
             av))))
 
@@ -39,8 +39,9 @@
     `(lambda (mesh mp)
         (let ((av (magicl:zeros ,shape)))
           (progn
-            (cl-mpm::iterate-over-neighbours mesh mp 
-             (lambda (mesh mp node svp dsvp) 
+            (cl-mpm::iterate-over-neighbours
+             mesh mp
+             (lambda (mesh mp node svp dsvp  &rest rest) 
                (setf av (magicl.simd::.+-simd av (magicl:scale (,accessor node) svp)))))
             av))))
 
@@ -79,17 +80,17 @@
      (incf ,id)))
   )
 
-(defun save-simulation-parameters (filename sim &rest args)
-  (with-accessors ((mesh cl-mpm:sim-mesh))
-      sim
-    (str:to-file
-     filename
-     (jonathan:to-json
-      (append
-       (list
-        :resolution (cl-mpm/mesh::mesh-resolution mesh)
-        :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
-       (apply #'append args))))))
+;; (defun save-simulation-parameters (filename sim &rest args)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh))
+;;       sim
+;;     (str:to-file
+;;      filename
+;;      (jonathan:to-json
+;;       (append
+;;        (list
+;;         :resolution (cl-mpm/mesh::mesh-resolution mesh)
+;;         :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
+;;        (apply #'append args))))))
 (defun save-vtk-mesh (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
