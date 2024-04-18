@@ -1686,25 +1686,6 @@
                     (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
                                   (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
-      ;; (magicl:scale! stress (- 1d0 (* (- 1d0 1d-6) damage)))
-      ;; (let ((j (magicl:det def)))
-      ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig
-      ;;                               (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-
-      ;;     (loop for i from 0 to 2
-      ;;           do (let* ((sii (nth i l)))
-      ;;                (when (> sii 0d0)
-      ;;                  ;;Tensile damage -> unbounded
-      ;;                  (setf (nth i l) (* sii (- 1d0 damage)))
-      ;;                  )
-      ;;                (when (< sii 0d0)
-      ;;                  ;;Bounded compressive damage
-      ;;                  (setf (nth i l) (* sii (expt (- 1d0 (* (- 1d0 (sqrt 1d-6)) damage)) 2d0)))
-      ;;                  )))
-      ;;     (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
-      ;;                                                             (magicl:from-diag l :type 'double-float)
-      ;;                                                             (magicl:transpose v))) j))
-      ;;     ))
       )
     stress
     ))
@@ -1767,6 +1748,9 @@
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f
                   )
+            ;; (cl-mpm/utils:voigt-copy-into stress sig)
+            ;; (magicl:.- strain eps-e plastic-strain)
+            ;; (cl-mpm/utils:voigt-copy-into strain eps-e)
             (setf strain eps-e)
             )
           (incf ps-vm

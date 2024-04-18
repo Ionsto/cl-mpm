@@ -29,7 +29,15 @@
    #:vector-zeros
    #:vector-from-list
    #:eig
+   #:@-mat-vec
+   #:@-tensor-voigt
    #:get-stress
+   #:matrix-copy
+   #:vector-copy
+   #:voigt-copy
+   #:matrix-copy-into
+   #:vector-copy-into
+   #:voigt-copy-into
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -40,6 +48,17 @@
 (defun eig (mat)
   "Real eigen-decomposition"
   (magicl:self-adjoint-eig mat))
+
+(defun @-mat-vec (mat vec)
+  (let ((result (vector-zeros)))
+    (magicl:mult mat vec :target result)
+    result))
+
+(defun @-tensor-voigt (mat vec)
+  (let ((result (voigt-zeros)))
+    (magicl:mult mat vec :target result)
+    result))
+
 
 (let ((stress-components '(:xx :yy :zz
                            :yz :xz :xy)))

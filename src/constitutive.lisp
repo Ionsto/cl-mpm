@@ -45,7 +45,7 @@
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
-  (magicl:@ elastic-matrix strain))
+  (cl-mpm/utils:@-tensor-voigt elastic-matrix strain))
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float)
                           magicl:matrix/double-float
@@ -565,7 +565,7 @@
   (declare (double-float rho))
   (let* ((s (deviatoric-voigt sig))
          (j2 (the double-float (voigt-j2 s)))
-         (dj2 (magicl:.* s (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
+         (dj2 (magicl.simd::.*-simd s (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
          (ddj2 (magicl:block-matrix (list (magicl:.- (magicl:eye 3) (magicl:const (/ 1d0 3d0) '(3 3)))
                                           (magicl:zeros '(3 3))
                                           (magicl:zeros '(3 3))
@@ -613,7 +613,7 @@
                        ;;Calculate backstress
                        (let* ((A (magicl:block-matrix
                                   (list
-                                   (magicl:.+ (magicl:eye 6)
+                                   (magicl.simd::.+-simd (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
                                    df
                                    (magicl:@ (magicl:transpose df) de)
@@ -633,7 +633,7 @@
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
-                         (let ((b-eps (magicl:.+ eps-e
+                         (let ((b-eps (magicl.simd::.+-simd eps-e
                                                  (magicl:scale trial-elastic-strain -1d0)
                                                  (magicl:scale! df dgam)
                                                  )
@@ -707,7 +707,7 @@
                   (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
                (epsTr (cl-mpm/utils:vector-from-list l))
                (Ce (magicl:inv De3))
-               (sig (magicl:@ De3 epsTr))
+               (sig (cl-mpm/utils:@-mat-vec De3 epsTr))
                (eps-e (cl-mpm/utils::vector-copy epsTr))
 
                (k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
@@ -728,7 +728,7 @@
                      (rg2 (vector-from-list (list 1d0 m m)))
                      (df (vector-from-list (list k 0d0 -1d0)))
                      (dg (vector-from-list (list m 0d0 -1d0)))
-                     (rp (magicl:scale! (magicl:@ De3 dg)
+                     (rp (magicl:scale! (cl-mpm/utils:@-mat-vec De3 dg)
                                         (/ 1d0 (magicl:tref (magicl:@ (magicl:transpose dg) De3 df) 0 0))))
                      (t1 (/ (magicl:tref (magicl:@ (magicl:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
                             (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
@@ -742,46 +742,46 @@
                      (Q
                        (magicl:transpose!
                         (magicl:block-matrix (list
-                                              (magicl:.* (magicl:column v 0)
+                                              (magicl.simd::.*-simd (magicl:column v 0)
                                                          (magicl:column v 0))
 
-                                              (magicl:.* (magicl:column v 1)
+                                              (magicl.simd::.*-simd (magicl:column v 1)
                                                          (magicl:column v 1))
-                                              (magicl:.* (magicl:column v 2)
+                                              (magicl.simd::.*-simd (magicl:column v 2)
                                                          (magicl:column v 2))
 
                                               (magicl:scale!
-                                               (magicl:.* (magicl:column v 0)
+                                               (magicl.simd::.*-simd (magicl:column v 0)
                                                           (magicl:column v 1)) 2d0)
                                               (magicl:scale!
-                                               (magicl:.* (magicl:column v 1)
+                                               (magicl.simd::.*-simd (magicl:column v 1)
                                                           (magicl:column v 2)) 2d0)
                                               (magicl:scale!
-                                               (magicl:.* (magicl:column v 2)
+                                               (magicl.simd::.*-simd (magicl:column v 2)
                                                           (magicl:column v 0)) 2d0)
 
-                                              (magicl:.* (magicl:column v 0)
+                                              (magicl.simd::.*-simd (magicl:column v 0)
                                                          (rotate-vector (magicl:column v 0)))
-                                              (magicl:.* (magicl:column v 1)
+                                              (magicl.simd::.*-simd (magicl:column v 1)
                                                          (rotate-vector (magicl:column v 1)))
-                                              (magicl:.* (magicl:column v 2)
+                                              (magicl.simd::.*-simd (magicl:column v 2)
                                                          (rotate-vector (magicl:column v 2)))
 
-                                              (magicl:scale! (magicl:.+
-                                                             (magicl:.* (magicl:column v 0)
+                                              (magicl:scale! (magicl.simd::.+-simd
+                                                             (magicl.simd::.*-simd (magicl:column v 0)
                                                                         (rotate-vector (magicl:column v 1)))
-                                                             (magicl:.* (magicl:column v 1)
+                                                             (magicl.simd::.*-simd (magicl:column v 1)
                                                                         (rotate-vector (magicl:column v 0)))) 1d0)
 
-                                              (magicl:scale! (magicl:.+
-                                                              (magicl:.* (magicl:column v 1)
+                                              (magicl:scale! (magicl.simd::.+-simd
+                                                              (magicl.simd::.*-simd (magicl:column v 1)
                                                                          (rotate-vector (magicl:column v 2)))
-                                                              (magicl:.* (magicl:column v 2)
+                                                              (magicl.simd::.*-simd (magicl:column v 2)
                                                                          (rotate-vector (magicl:column v 1)))) 1d0)
-                                              (magicl:scale! (magicl:.+
-                                                              (magicl:.* (magicl:column v 2)
+                                              (magicl:scale! (magicl.simd::.+-simd
+                                                              (magicl.simd::.*-simd (magicl:column v 2)
                                                                          (rotate-vector (magicl:column v 0)))
-                                                              (magicl:.* (magicl:column v 0)
+                                                              (magicl.simd::.*-simd (magicl:column v 0)
                                                                          (rotate-vector (magicl:column v 2)))) 1d0)
                                               ) '(2 6)))))
                 (cond
@@ -797,7 +797,7 @@
                     (< f12 tol)
                     (< f13 tol)
                     )
-                   (setf sig (magicl:.+ siga (magicl:scale! r1 t1)))
+                   (setf sig (magicl.simd::.+-simd siga (magicl:scale! r1 t1)))
                    (setf path :line-1)
                    ;;line 1
                    )
@@ -805,7 +805,7 @@
                     (> f12 tol)
                     (> f13 tol)
                     )
-                   (setf sig (magicl:.+ siga (magicl:scale! r2 t2)))
+                   (setf sig (magicl.simd::.+-simd siga (magicl:scale! r2 t2)))
                    ;;line 2
                    (setf path :line-2)
                    )

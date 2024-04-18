@@ -1854,14 +1854,14 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          ;; (setf damage-increment (tensile-energy-norm strain E de))
+          (setf damage-increment (tensile-energy-norm strain E de))
           ;;            (angle )
           ;(setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
           ;(setf damage-increment (criterion-dp strain (* angle (/ pi 180d0)) E nu))
-          (setf damage-increment
-                (max 0d0
-                     (drucker-prager-criterion
-                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+          ;; (setf damage-increment
+          ;;       (max 0d0
+          ;;            (drucker-prager-criterion
+          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
           ;; (let* ((strain+
           ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
           ;;            (loop for i from 0 to 2
