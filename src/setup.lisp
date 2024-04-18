@@ -121,13 +121,6 @@
                     (* res (+ (/ 1 (* 2 mps)))))
                       position))
 
-(defun apply-sdf (sim sdf func)
-  (declare (function func sdf))
-  (loop for mp across (cl-mpm:sim-mps sim)
-        do
-           (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-             (when (>= 0d0 (funcall sdf pos))
-               (funcall func mp)))))
 
 (defun remove-sdf (sim sdf)
   (setf (cl-mpm:sim-mps sim)
