@@ -1082,7 +1082,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                ;; (det-ext-force mp node svp node-force)
                ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
                ;; (det-int-force mp dsvp node-force)
-               (magicl:.+ node-int-force node-ext-force node-force)
+               (magicl.simd::.+-simd node-int-force node-ext-force node-force)
                ))
            )
          ))))
@@ -1191,8 +1191,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         ;; (cl-mpm/utils::voigt-copy-into vel mapped-vel)
-        ;; (magicl:.+ pos mapped-vel pos)
-        ;; (magicl:.+ disp mapped-vel disp)
+        ;; (magicl.simd::.+-simd pos mapped-vel pos)
+        ;; (magicl.simd::.+-simd disp mapped-vel disp)
         (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ))))
 (defgeneric pre-particle-update-hook (particle dt)
@@ -1629,7 +1629,7 @@ Calls func with only the node"
         (degredation (- 1d0 (* damage-domain-rate damage)))
         )
     (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
-    ;; (magicl:.+ df (magicl:scale stretch-rate degredation) df)
+    ;; (magicl.simd::.+-simd df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -2016,7 +2016,7 @@ Calls func with only the node"
     (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
-      (magicl:.+ df stretch-tensor df)
+      (magicl.simd::.+-simd df stretch-tensor df)
       (let ((j-inc (magicl:det df))
             (j-n (magicl:det def)))
         (iterate-over-neighbours
@@ -2057,7 +2057,7 @@ Calls func with only the node"
                                                             0d0 1d0 0d0
                                                             0d0 0d0 1d0)))
                  (nd (cl-mpm/mesh::mesh-nd mesh)))
-            (magicl:.+ df-fbar stretch-tensor-fbar df-fbar)
+            (magicl.simd::.+-simd df-fbar stretch-tensor-fbar df-fbar)
             (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
                   (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
             (magicl:scale! df (expt
@@ -2334,7 +2334,7 @@ Calls func with only the node"
                       :volume (/ volume 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl:.+ pos pos-offset)
+                      :position (magicl.simd::.+-simd pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
                        )
