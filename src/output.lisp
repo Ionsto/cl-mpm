@@ -80,17 +80,17 @@
      (incf ,id)))
   )
 
-;; (defun save-simulation-parameters (filename sim &rest args)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh))
-;;       sim
-;;     (str:to-file
-;;      filename
-;;      (jonathan:to-json
-;;       (append
-;;        (list
-;;         :resolution (cl-mpm/mesh::mesh-resolution mesh)
-;;         :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
-;;        (apply #'append args))))))
+(defun save-simulation-parameters (filename sim &rest args)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (str:to-file
+     filename
+     (jonathan:to-json
+      (append
+       (list
+        :resolution (cl-mpm/mesh::mesh-resolution mesh)
+        :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
+       (apply #'append args))))))
 (defun save-vtk-mesh (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
