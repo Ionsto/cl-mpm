@@ -155,6 +155,57 @@
       ))
   target)
 
+(defun @-m-v (matrix vector result-vector)
+  "Multiply a 3x3 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (9)) a)
+             ((simple-array double-float (3)) b c))
+    (flet ((tref (m x y)
+             (aref m (+ x (* 3 y)))))
+      (loop for i fixnum from 0 below 3
+            do
+               (setf
+                (aref c i)
+                (+
+                 (* (aref b 0) (tref a i 0))
+                 (* (aref b 1) (tref a i 1))
+                 (* (aref b 2) (tref a i 2))
+                 )
+                )
+            )))
+  result-vector)
+
+(declaim
+ (inline @-stretch-vec)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float magicl:matrix/double-float)
+                          magicl:matrix/double-float) @-stretch-vec))
+(defun @-stretch-vec (matrix vector result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (27)) a)
+             ((simple-array double-float (9)) c)
+             ((simple-array double-float (3)) b)
+             )
+    (flet ((tref (m x y)
+             (aref m (+ (* 9 x)  y))))
+      (loop for i fixnum from 0 below 9
+            do
+               (setf (aref c i) 0d0)
+               (loop for j fixnum from 0 below 3
+                     do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
+            )))
+  result-vector)
+
 
 ;; (declaim
 ;;  (inline fast-.+)
