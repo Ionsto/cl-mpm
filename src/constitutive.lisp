@@ -684,6 +684,8 @@
 (declaim (notinline  mc-plastic))
 (defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (declare (double-float E nu phi psi c)
+           (magicl:matrix/double-float stress de trial-elastic-strain))
   (let* ((tol 1d-9)
          (initial-f 0d0)
          ;; (sig (cl-mpm/utils::voigt-copy (swizzle-voigt->coombs stress)))
@@ -698,12 +700,11 @@
                                       (magicl:column v (cdr (nth 1 l-sort)))
                                       (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
         (let* ((De3
-                 (magicl:scale!
-                  (magicl:from-list (list
-                                     (- 1d0 nu) nu nu
-                                     nu (- 1d0 nu) nu
-                                     nu nu (- 1d0 nu))
-                                    '(3 3) :type 'double-float)
+                 (cl-mpm/fastmath::fast-scale
+                  (cl-mpm/utils:matrix-from-list (list
+                                                  (- 1d0 nu) nu nu
+                                                  nu (- 1d0 nu) nu
+                                                  nu nu (- 1d0 nu)))
                   (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
                (epsTr (cl-mpm/utils:vector-from-list l))
                (Ce (magicl:inv De3))

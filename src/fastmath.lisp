@@ -205,6 +205,32 @@
                      do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
             )))
   result-vector)
+(declaim
+ (inline @-dsvp-vec)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float double-float magicl:matrix/double-float)
+                  magicl:matrix/double-float) @-dsvp-vec))
+(defun @-dsvp-vec (matrix vector scale result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (double-float scale)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (18)) a)
+             ((simple-array double-float (3)) c)
+             ((simple-array double-float (6)) b)
+             )
+    (flet ((tref (m x y)
+             (aref m (+ (* 6 x) y))))
+      (loop for i fixnum from 0 below 3
+            do
+               (setf (aref c i) 0d0)
+               (loop for j fixnum from 0 below 6
+                     do (incf (aref c i) (the double-float (* (aref b j) (tref a i j) scale))))
+            )))
+  result-vector)
 
 
 ;; (declaim

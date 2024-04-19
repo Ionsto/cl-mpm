@@ -8,6 +8,34 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (declaim
+ (inline @-dsvp-vec)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float double-float magicl:matrix/double-float)
+                  (values)) @-dsvp-vec))
+(defun @-dsvp-vec (matrix vector scale result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (double-float scale)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (18)) a)
+             ((simple-array double-float (3)) c)
+             ((simple-array double-float (6)) b)
+             )
+    (flet ((tref (m x y)
+             (aref m (+ (* 6 x) y))))
+      (loop for i fixnum from 0 below 3
+            do
+               ;; (setf (aref c i) 0d0)
+               (loop for j fixnum from 0 below 6
+                     do (decf (aref c i) (the double-float (* (aref b j) (tref a i j) scale))))
+            )))
+  (values))
+
+
+(declaim
  (inline mult-force)
  (ftype (function (magicl:matrix/double-float
                    magicl:matrix/double-float
@@ -24,7 +52,7 @@
         ;; (res-s (magicl::matrix/double-float-storage res))
         )
     ;; (declare (type (simple-array double-float) a-s b-s res-s))
-    (loop for i from 0 below 2
+    (loop for i from 0 below 3
           do (loop for j from 0 below 6
                    do (decf (the double-float (magicl:tref res i 0))
                             (* (the double-float (magicl:tref a j i))
@@ -88,7 +116,10 @@
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))
       ;; (print dsvp)
-      (mult-force dsvp stress volume f-out)
+      ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+      (@-dsvp-vec dsvp stress volume f-out)
+      ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+      ;(mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force-plane-strain dsvp stress volume f-out)
@@ -111,7 +142,7 @@
                    ) mp
     (declare (type double-float svp mass gravity volume)
              (type magicl:matrix/double-float body-force))
-    (let* ((f-out (if f-out f-out (magicl:zeros '(3 1))))
+    (let* ((f-out (if f-out f-out (cl-mpm/utils::vector-zeros)))
            (f-s (magicl::matrix/double-float-storage f-out))
            (b-s (magicl::matrix/double-float-storage body-force))
            (g-s (magicl::matrix/double-float-storage gravity-axis))

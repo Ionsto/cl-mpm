@@ -1056,6 +1056,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    ) mp
     (declare (type double-float mp-mass))
     (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+      (declare (dynamic-extent dsvp))
       (iterate-over-neighbours
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1071,9 +1072,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-int-force cl-mpm/mesh::node-internal-force)
                           (node-ext-force cl-mpm/mesh::node-external-force)
                           (node-lock  cl-mpm/mesh:node-lock)) node
-           (declare (type double-float node-mass)
-                    (type bool node-active)
-                    (type sb-thread:mutex node-lock)
+           (declare (double-float node-mass)
+                    (boolean node-active)
+                    (sb-thread:mutex node-lock)
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
              (sb-thread:with-mutex (node-lock)
