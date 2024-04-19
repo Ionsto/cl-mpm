@@ -71,7 +71,7 @@
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
-  (magicl.simd::.+-simd
+  (cl-mpm/fastmath::fast-.+
    stress
    (magicl:@
     (linear-elastic-matrix elasticity 0d0) strain-increment)))
@@ -102,7 +102,7 @@
            (pressure-matrix (magicl:eye 2 :value p))
            (dev-stress (magicl:.- stress-matrix pressure-matrix)))
       (setf elastic-increment (matrix-to-voight
-                    (magicl.simd::.+-simd pressure-matrix
+                    (cl-mpm/fastmath::fast-.+ pressure-matrix
                                (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
     ;; (magicl:scale! elastic-increment (max 1d-3 (- 1d0 damage)))
     (magicl:.-
@@ -172,7 +172,7 @@
                            (H sii))
                           )
                         )
-                   (magicl.simd::.+-simd Q comp Q)
+                   (cl-mpm/fastmath::fast-.+ Q comp Q)
                    )
               )
       Q))))
@@ -192,7 +192,7 @@
                                          (matrix-to-mandel vii)
                                          (magicl:transpose (matrix-to-mandel vii)))
                                         (H si))))
-                   (magicl.simd::.+-simd Q comp-prod Q)
+                   (cl-mpm/fastmath::fast-.+ Q comp-prod Q)
                    )
               )
         (let* ((si (nth 0 l))
@@ -202,14 +202,14 @@
                (vij (magicl:@ vi (magicl:transpose vj)))
                (vji (magicl:@ vj (magicl:transpose vi)))
                (pij (magicl:scale!
-                     (magicl.simd::.+-simd vij vji)
+                     (cl-mpm/fastmath::fast-.+ vij vji)
                      0.5d0))
                (comp-prod
                  (magicl:scale! (magicl:@
                                 (matrix-to-mandel pij)
                                 (magicl:transpose (matrix-to-mandel pij)))
                                (+ (H si) (H sj)))))
-          (magicl.simd::.+-simd Q comp-prod Q))
+          (cl-mpm/fastmath::fast-.+ Q comp-prod Q))
           )
       Q)))
 
@@ -223,7 +223,7 @@
   "Generate a mandel form tensile projection matrix A* from stress"
   (let ((Q (tensile-projection-q-cw-mandel strain))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
-    (magicl.simd::.+-simd I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
+    (cl-mpm/fastmath::fast-.+ I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
 
 ;; (defun test-tensile ()
 ;;   (loop for stress in (list
@@ -266,7 +266,7 @@
                    (when (> sii 0d0)
                      (setf scale (sqrt (- 1d0 damage)))
                      (magicl:scale! A scale))
-                   (magicl.simd::.+-simd damaged-stiffness
+                   (cl-mpm/fastmath::fast-.+ damaged-stiffness
                               (magicl:@ A stiffness A)
                               damaged-stiffness)
                      )))
@@ -297,7 +297,7 @@
          (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
     (declare (type double-float pressure))
-    (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
     )))
@@ -312,7 +312,7 @@
     (declare (type double-float pressure))
     (when (< pressure 0)
       (setf pressure (* pressure (- 1d0 damage))))
-    (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
      )))
@@ -358,9 +358,9 @@
          (stress-inc-pressure (magicl:eye 3 :value (/ (magicl:trace stress-inc) 3d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
-    (magicl.simd::.+-simd
-     (matrix-to-voight (magicl.simd::.+-simd pressure-matrix stress-inc-pressure))
-               (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
+     (matrix-to-voight (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure))
+               (cl-mpm/fastmath::fast-.+
                 (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
                 (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
@@ -380,9 +380,9 @@
          )
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
-     (magicl.simd::.+-simd
-      (magicl.simd::.+-simd pressure-matrix stress-inc-pressure)
-      (magicl.simd::.+-simd (magicl:scale! dev-stress exp-rho)
+     (cl-mpm/fastmath::fast-.+
+      (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure)
+      (cl-mpm/fastmath::fast-.+ (magicl:scale! dev-stress exp-rho)
                  (magicl:scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
@@ -420,9 +420,9 @@
     (cl-mpm/fastmath:fast-fmacc result-stress dev-stress exp-rho)
     (cl-mpm/fastmath:fast-fmacc result-stress stress-inc-dev lam)
     result-stress
-    ;; (magicl.simd::.+-simd
-    ;;  (magicl.simd::.+-simd pressure-matrix stress-inc-pressure result-stress)
-    ;;  (magicl.simd::.+-simd (magicl:scale! dev-stress exp-rho)
+    ;; (cl-mpm/fastmath::fast-.+
+    ;;  (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure result-stress)
+    ;;  (cl-mpm/fastmath::fast-.+ (magicl:scale! dev-stress exp-rho)
     ;;             (magicl:scale! stress-inc-dev lam) result-stress))
   ))
 
@@ -439,7 +439,7 @@
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
                                                               (* 0.5 (- visc-power 1)))))))
-    (magicl.simd::.+-simd stress
+    (cl-mpm/fastmath::fast-.+ stress
                (magicl:.-
                 ;;I think this is correct but not sure
                 (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
@@ -475,7 +475,7 @@
          (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
          (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
          (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
-    (magicl.simd::.+-simd (matrix-to-voight pressure-matrix) dev-stress)))
+    (cl-mpm/fastmath::fast-.+ (matrix-to-voight pressure-matrix) dev-stress)))
 
 (defun glen-stress (strain visc-factor visc-power dt)
   (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 3d0))
@@ -613,7 +613,7 @@
                        ;;Calculate backstress
                        (let* ((A (magicl:block-matrix
                                   (list
-                                   (magicl.simd::.+-simd (magicl:eye 6)
+                                   (cl-mpm/fastmath::fast-.+ (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
                                    df
                                    (magicl:@ (magicl:transpose df) de)
@@ -633,7 +633,7 @@
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
-                         (let ((b-eps (magicl.simd::.+-simd eps-e
+                         (let ((b-eps (cl-mpm/fastmath::fast-.+ eps-e
                                                  (magicl:scale trial-elastic-strain -1d0)
                                                  (magicl:scale! df dgam)
                                                  )
@@ -767,18 +767,18 @@
                                               (magicl.simd::.*-simd (magicl:column v 2)
                                                          (rotate-vector (magicl:column v 2)))
 
-                                              (magicl:scale! (magicl.simd::.+-simd
+                                              (magicl:scale! (cl-mpm/fastmath::fast-.+
                                                              (magicl.simd::.*-simd (magicl:column v 0)
                                                                         (rotate-vector (magicl:column v 1)))
                                                              (magicl.simd::.*-simd (magicl:column v 1)
                                                                         (rotate-vector (magicl:column v 0)))) 1d0)
 
-                                              (magicl:scale! (magicl.simd::.+-simd
+                                              (magicl:scale! (cl-mpm/fastmath::fast-.+
                                                               (magicl.simd::.*-simd (magicl:column v 1)
                                                                          (rotate-vector (magicl:column v 2)))
                                                               (magicl.simd::.*-simd (magicl:column v 2)
                                                                          (rotate-vector (magicl:column v 1)))) 1d0)
-                                              (magicl:scale! (magicl.simd::.+-simd
+                                              (magicl:scale! (cl-mpm/fastmath::fast-.+
                                                               (magicl.simd::.*-simd (magicl:column v 2)
                                                                          (rotate-vector (magicl:column v 0)))
                                                               (magicl.simd::.*-simd (magicl:column v 0)
@@ -797,7 +797,7 @@
                     (< f12 tol)
                     (< f13 tol)
                     )
-                   (setf sig (magicl.simd::.+-simd siga (magicl:scale! r1 t1)))
+                   (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r1 t1)))
                    (setf path :line-1)
                    ;;line 1
                    )
@@ -805,7 +805,7 @@
                     (> f12 tol)
                     (> f13 tol)
                     )
-                   (setf sig (magicl.simd::.+-simd siga (magicl:scale! r2 t2)))
+                   (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r2 t2)))
                    ;;line 2
                    (setf path :line-2)
                    )

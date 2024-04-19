@@ -66,6 +66,18 @@
     "Get stress component from voigt notation stress vector"
     (aref (magicl::matrix/double-float-storage stress) (position component stress-components))))
 
+
+(declaim (inline deep-copy)
+         (ftype (function ()
+                          magicl:matrix/double-float) vector-zeros))
+(defun deep-copy (m)
+  "Make a vector of 3x1 zeros"
+  (let* ((rows (magicl::matrix/double-float-nrows m))
+         (cols (magicl::matrix/double-float-ncols m))
+         (total (* rows cols)))
+    (declare (fixnum rows cols total))
+    (magicl::make-matrix/double-float rows cols total :column-major (make-array total :element-type 'double-float))))
+
 (declaim (inline vector-zeros)
          (ftype (function ()
                           magicl:matrix/double-float) vector-zeros))

@@ -1072,7 +1072,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (node-ext-force cl-mpm/mesh::node-external-force)
                           (node-lock  cl-mpm/mesh:node-lock)) node
            (declare (type double-float node-mass)
-                    (type sb-thread:mutex node-lock))
+                    (type bool node-active)
+                    (type sb-thread:mutex node-lock)
+                    (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
@@ -1082,7 +1084,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                ;; (det-ext-force mp node svp node-force)
                ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
                ;; (det-int-force mp dsvp node-force)
-               (magicl.simd::.+-simd node-int-force node-ext-force node-force)
+
+               ;; (cl-mpm/fastmath::fast-zero node-force)
+               ;; (cl-mpm/fastmath::fast-.+ node-force node-int-force)
+               ;; (cl-mpm/fastmath::fast-.+ node-force node-ext-force)
+
+               (cl-mpm/fastmath::fast-.+ node-int-force node-ext-force node-force)
+               ;; (magicl:.+ node-int-force node-ext-force node-force)
                ))
            )
          ))))
@@ -1191,8 +1199,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         ;; (cl-mpm/utils::voigt-copy-into vel mapped-vel)
-        ;; (magicl.simd::.+-simd pos mapped-vel pos)
-        ;; (magicl.simd::.+-simd disp mapped-vel disp)
+        ;; (cl-mpm/fastmath::fast-.+ pos mapped-vel pos)
+        ;; (cl-mpm/fastmath::fast-.+ disp mapped-vel disp)
         (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ))))
 (defgeneric pre-particle-update-hook (particle dt)
@@ -1405,57 +1413,60 @@ Calls func with only the node"
          (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
 (defun calculate-strain-rate (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0)))
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (jfbar cl-mpm/particle::mp-j-fbar)
                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    ) mp
+    (declare (magicl:matrix/double-float strain-rate vorticity stretch-tensor stretch-tensor-fbar velocity-rate))
         (progn
-          (magicl:scale! strain-rate 0d0)
-          (magicl:scale! vorticity 0d0)
-          (magicl:scale! stretch-tensor 0d0)
-          (magicl:scale! stretch-tensor-fbar 0d0)
+          (cl-mpm/fastmath::fast-zero strain-rate)
+          (cl-mpm/fastmath::fast-zero vorticity)
+          (cl-mpm/fastmath::fast-zero stretch-tensor)
+          (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
           (let ((stretch-dsvp (stretch-dsvp-3d-zeros))
                 (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
                 (temp-add (cl-mpm/utils::matrix-zeros))
                 )
             (declare (magicl:matrix/double-float stretch-dsvp)
-                     (dynamic-extent stretch-dsvp))
+                     (dynamic-extent stretch-dsvp temp-mult temp-add))
             (iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
+               (declare (ignore mesh mp svp fsvp))
                (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                                 (node-active cl-mpm/mesh:node-active))
                    node
+                 (declare (magicl:matrix/double-float node-vel)
+                          (boolean node-active))
                  (when node-active
                    (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
                    (magicl:mult stretch-dsvp node-vel :target temp-mult)
                    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-                   (magicl.simd::.+-simd
+                   (cl-mpm/fastmath::fast-.+
                     stretch-tensor
                     temp-add
                     stretch-tensor)
-
                    (cl-mpm/shape-function::assemble-dstretch-3d-prealloc fgrads stretch-dsvp)
                    (magicl:mult stretch-dsvp node-vel :target temp-mult)
                    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-                   (magicl.simd::.+-simd
+                   (cl-mpm/fastmath::fast-.+
                     stretch-tensor-fbar
                     temp-add
-                    stretch-tensor-fbar))))))
+                    stretch-tensor-fbar)))))
+            )
 
-            (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
-            (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
+            ;; (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
+            ;; (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
             (aops:copy-into (magicl::matrix/double-float-storage velocity-rate) (magicl::matrix/double-float-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
-            (magicl:scale! stretch-tensor dt)
-            ;; #+cl-mpm-fbar
-            (magicl:scale! stretch-tensor-fbar dt)
-            (magicl:scale! strain-rate dt)
-            (magicl:scale! vorticity dt)
+            (cl-mpm/fastmath::fast-scale stretch-tensor dt)
+            (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
+            (cl-mpm/fastmath::fast-scale strain-rate dt)
+            (cl-mpm/fastmath::fast-scale vorticity dt)
             )))
 
 
@@ -1480,7 +1491,7 @@ Calls func with only the node"
           (dstrain (magicl:scale strain-rate dt)))
                    (progn
                      (setf def (magicl:@ df def))
-                     (setf strain (magicl.simd::.+-simd strain dstrain))
+                     (setf strain (cl-mpm/fastmath::fast-.+ strain dstrain))
                      (setf volume (* volume-0 (magicl:det def)))
                      (update-domain-corner mesh mp dt)))))
 
@@ -1522,7 +1533,7 @@ Calls func with only the node"
             (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
 
-            (magicl:scale! eng-strain-rate (/ 1d0 dt))
+            (cl-mpm/fastmath::fast-scale eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )
@@ -1565,9 +1576,7 @@ Calls func with only the node"
         (progn
           (let ((def-n (cl-mpm/utils::matrix-zeros)))
             (magicl:mult df def :target def-n)
-            (cl-mpm/utils::matrix-copy-into def-n def)
-            ;(setf def (magicl:@ df def))
-            )
+            (cl-mpm/utils::matrix-copy-into def-n def))
           (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
                           (magicl::matrix/double-float-storage strain))
           (cl-mpm/ext:kirchoff-update strain df)
@@ -1629,7 +1638,7 @@ Calls func with only the node"
         (degredation (- 1d0 (* damage-domain-rate damage)))
         )
     (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
-    ;; (magicl.simd::.+-simd df (magicl:scale stretch-rate degredation) df)
+    ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -1694,14 +1703,6 @@ Calls func with only the node"
                               (let ((corner (cl-mpm/utils::vector-copy position)))
                                 (incf (magicl:tref corner d 0)
                                       (* direction 0.5d0 (aref domain-storage d)))
-                                ;; (loop for j from 0 to 2
-                                ;;       do
-                                ;;          (setf (the double-float (magicl:tref corner j 0))
-                                ;;                (max 0d0
-                                ;;                     (min
-                                ;;                      (the double-float (coerce (nth j mesh-size) 'double-float))
-                                ;;                      (the double-float (magicl:tref corner j 0))))))
-
                                 (iterate-over-neighbours-point-linear
                                  mesh corner
                                  (lambda (mesh node svp grads)
@@ -1752,7 +1753,7 @@ Calls func with only the node"
           (array-operations/utilities:nested-loop (x y) '(2 2)
             (let ((corner (cl-mpm/utils:vector-zeros))
                   (disp (cl-mpm/utils:vector-zeros)))
-              (magicl.simd::.+-simd
+              (cl-mpm/fastmath::fast-.+
                position
                (magicl:scale!
                 (magicl:.*
@@ -1800,7 +1801,7 @@ Calls func with only the node"
           (array-operations/utilities:nested-loop (x y z) '(2 2 2)
             (let ((corner (cl-mpm/utils:vector-zeros))
                   (disp (cl-mpm/utils:vector-zeros)))
-              (magicl.simd::.+-simd position
+              (cl-mpm/fastmath::fast-.+ position
                                     (magicl:scale!
                                      (magicl:.*
                                       (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y z)))
@@ -1947,7 +1948,7 @@ Calls func with only the node"
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
       (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      (magicl:scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
       ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
       )
     )
@@ -2002,7 +2003,7 @@ Calls func with only the node"
              (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel dstrain))
            )))
       (magicl:scale! dstrain dt)
-      (let ((df (magicl.simd::.+-simd (magicl:eye 2) (voight-to-matrix dstrain))))
+      (let ((df (cl-mpm/fastmath::fast-.+ (magicl:eye 2) (voight-to-matrix dstrain))))
         (progn
           (setf def (magicl:@ df def))
           (setf volume (* volume (det df)))
@@ -2016,7 +2017,7 @@ Calls func with only the node"
     (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
-      (magicl.simd::.+-simd df stretch-tensor df)
+      (cl-mpm/fastmath::fast-.+ df stretch-tensor df)
       (let ((j-inc (magicl:det df))
             (j-n (magicl:det def)))
         (iterate-over-neighbours
@@ -2050,14 +2051,14 @@ Calls func with only the node"
     (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
-      (magicl.simd::.+-simd df stretch-tensor df)
+      (cl-mpm/fastmath::fast-.+ df stretch-tensor df)
       (progn
         (when fbar
           (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                             0d0 1d0 0d0
                                                             0d0 0d0 1d0)))
                  (nd (cl-mpm/mesh::mesh-nd mesh)))
-            (magicl.simd::.+-simd df-fbar stretch-tensor-fbar df-fbar)
+            (cl-mpm/fastmath::fast-.+ df-fbar stretch-tensor-fbar df-fbar)
             (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
                   (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
             (magicl:scale! df (expt
@@ -2334,7 +2335,7 @@ Calls func with only the node"
                       :volume (/ volume 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl.simd::.+-simd pos pos-offset)
+                      :position (cl-mpm/fastmath::fast-.+ pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
                        )

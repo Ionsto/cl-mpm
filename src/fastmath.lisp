@@ -122,8 +122,94 @@
    (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) fast-add))
 (defun fast-add (a b)
   #+:sb-simd (simd-add a b)
-  #-:sb-simd (magicl.simd::.+-simd a b a)
+  #-:sb-simd (magicl:.+ a b a)
   )
+
+(declaim
+ (inline simd-any+)
+ (ftype (function ((simple-array double-float)
+                           (simple-array double-float)
+                           (simple-array double-float))
+                          (values)) simd-any+))
+(defun simd-any+ (a b target)
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (let ((offset 0))
+    (declare (type sb-simd:f64vec a b target)
+             (fixnum offset))
+    (multiple-value-bind (iter remain) (floor (length a) 2)
+      (declare (fixnum iter remain))
+      (dotimes (i iter)
+        (setf (sb-simd-avx:f64.2-aref target offset)
+              (sb-simd-avx:f64.2+
+               (sb-simd-avx:f64.2-aref a offset)
+               (sb-simd-avx:f64.2-aref b offset)
+               ))
+        (incf offset 2)
+        )
+      (unless (eq remain 0)
+        (dotimes (i remain)
+          (setf (aref target offset)
+                (+ (aref a offset) (aref b offset)))
+          (incf offset 1))
+        )
+      ))
+  target)
+
+
+;; (declaim
+;;  (inline fast-.+)
+;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
+;; (defun fast-.+ (a b)
+;;   (declare (optimize (speed 3) (space 0)))
+;;   (let ((res (cl-mpm/utils::deep-copy a)))
+;;     (declare (magicl:matrix/double-float a b res))
+;;     (simd-any+ (magicl::matrix/double-float-storage a)
+;;                (magicl::matrix/double-float-storage b)
+;;                (magicl::matrix/double-float-storage res))
+;;     res))
+
+(declaim
+ (inline fast-.+)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
+(defun fast-.+ (a b &optional res)
+  (declare (optimize (speed 3) (space 0)))
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::deep-copy a))))
+    (declare (magicl:matrix/double-float a b res))
+    (simd-any+ (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    res))
+
+
+(declaim
+ (inline fast-scale)
+ (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale))
+(defun fast-scale (m scale)
+  (let ((m-s (magicl::matrix/double-float-storage m)))
+    (loop for i fixnum from 0 below (length m-s)
+          do (setf (aref m-s i) (* (aref m-s i) scale)))) m)
+(declaim
+ (inline fast-zero)
+ (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) fast-zero))
+(defun fast-zero (m)
+  (let ((m-s (magicl::matrix/double-float-storage m)))
+    (loop for i fixnum from 0 below (length m-s)
+          do (setf (aref m-s i) 0d0))) m)
+
+;; (declaim
+;;  (inline fast-.+)
+;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (magicl:matrix/double-float)) fast-.+))
+;; (defun fast-.+ (a b)
+;;   (let ((res ))
+;;     )
+;;   )
+;; (declaim
+;;  (inline fast-.+)
+;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float magicl:matrix/double-float) (magicl:matrix/double-float)) fast-.+))
+;; (defun fast-.+ (a b res)
+;;   )
 
 
 (declaim (inline voigt-tensor-reduce-lisp)

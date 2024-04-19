@@ -545,59 +545,35 @@
 (defun assemble-dstretch-3d (dsvp)
   (assemble-dstretch-3d-prealloc dsvp (cl-mpm/utils::stretch-dsvp-3d-zeros)))
 
+(declaim (inline assemble-dsvp-3d-prealloc))
 (defun assemble-dstretch-3d-prealloc (dsvp result)
+  (declare (list dsvp)
+           (magicl:matrix/double-float result)
+           (optimize (speed 3) (safety 0) (debug 0)))
   "Assemble d/di to the strain-displacement matrix"
-  (let* ((dx (nth 0 dsvp))
-         (dy (nth 1 dsvp))
-         (dz (nth 2 dsvp))
-         (s result)
-         )
-    (declare (double-float dx dy dy))
-    (setf
+  (destructuring-bind (dx dy dz) dsvp
+    (let* ((s (magicl::matrix/double-float-storage result)))
+      (declare (double-float dx dy dy))
+      (setf
                                         ;dx/dx
-     (magicl:tref s 0 0) dx
-     ;; (magicl:tref s 0 1) 0d0
-     ;; (magicl:tref s 0 2) 0d0
+       (aref s (+ 0 (* 9 0))) dx
                                         ;dy/dy
-     ;; (magicl:tref s 1 0) 0d0
-     (magicl:tref s 1 1) dy
-     ;; (magicl:tref s 1 2) 0d0
+       (aref s (+ 1 (* 9 1))) dy
                                         ;dz/dz
-     ;; (magicl:tref s 2 0) 0d0
-     ;; (magicl:tref s 2 1) 0d0
-     (magicl:tref s 2 2) dz
-
+       (aref s (+ 2 (* 9 2))) dz
                                         ;Dy/dx
-     (magicl:tref s 3 0) dy
-     ;; (magicl:tref s 3 1) 0
-     ;; (magicl:tref s 3 2) 0
-
+       (aref s (+ 3 (* 9 0))) dy
                                         ;Dx/dy
-     ;; (magicl:tref s 4 0) 0
-     (magicl:tref s 4 1) dx
-     ;; (magicl:tref s 4 2) 0
-
+       (aref s (+ 4 (* 9 1))) dx
                                         ;dz/dx
-     (magicl:tref s 5 0) dz 
-     ;; (magicl:tref s 5 1) 0
-     ;; (magicl:tref s 5 2) 0
-
-                                        ;dz/dx
-     ;; (magicl:tref s 6 0) 0 
-     ;; (magicl:tref s 6 1) 0
-     (magicl:tref s 6 2) dx
-
+       (aref s (+ 5 (* 9 0))) dz 
+       (aref s (+ 6 (* 9 2))) dx
                                         ;Dz/dy
-     ;; (magicl:tref s 7 0) 0
-     (magicl:tref s 7 1) dz
-     ;; (magicl:tref s 7 2) 0
-
+       (aref s (+ 7 (* 9 1))) dz
                                         ;Dy/dz
-     ;; (magicl:tref s 8 0) 0
-     ;; (magicl:tref s 8 1) 0
-     (magicl:tref s 8 2) dy
-     )
-    result))
+       (aref s (+ 8 (* 9 2))) dy)
+       ;);)
+      result)))
 
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
