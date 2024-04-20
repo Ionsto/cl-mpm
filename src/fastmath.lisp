@@ -97,7 +97,7 @@
  (inline fast-fmacc-array)
  (ftype (function ((simple-array double-float)
                    (simple-array double-float)
-                   double-float) (values)) fast-fmacc))
+                   double-float) (values)) fast-fmacc-array))
 (defun fast-fmacc-array (a b d)
   #+:sb-simd (simd-fmacc a
                          b
@@ -363,19 +363,19 @@
   (def-fast-.+-type fast-.+-matrix 9 simd-any+-4)
   (def-fast-.+-type fast-.+-stretch 27 simd-any+-4)
   )
-(declaim
- (inline fast-.+-voigt)
- (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+-voigt))
-(defun fast-.+-voigt (a b &optional res)
-  (declare (optimize (speed 3) (space 0)))
-  (let ((res (if res
-                 res
-                 (cl-mpm/utils::deep-copy a))))
-    (declare (magicl:matrix/double-float a b res))
-    (simd-any+-4 (the (simple-array double-float (6)) (magicl::matrix/double-float-storage a))
-                 (the (simple-array double-float (6)) (magicl::matrix/double-float-storage b))
-                 (the (simple-array double-float (6)) (magicl::matrix/double-float-storage res)))
-    res))
+;; (declaim
+;;  (inline fast-.+-voigt)
+;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+-voigt))
+;; (defun fast-.+-voigt (a b &optional res)
+;;   (declare (optimize (speed 3) (space 0)))
+;;   (let ((res (if res
+;;                  res
+;;                  (cl-mpm/utils::deep-copy a))))
+;;     (declare (magicl:matrix/double-float a b res))
+;;     (simd-any+-4 (the (simple-array double-float (6)) (magicl::matrix/double-float-storage a))
+;;                  (the (simple-array double-float (6)) (magicl::matrix/double-float-storage b))
+;;                  (the (simple-array double-float (6)) (magicl::matrix/double-float-storage res)))
+;;     res))
 
 
 

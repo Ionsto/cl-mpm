@@ -99,9 +99,9 @@
   "Make a stress matrix 3x3 of zeros"
   (magicl::make-matrix/double-float 3 3 9 :column-major (make-array 9 :element-type 'double-float)))
 
-(declaim (inline matrix-zeros)
+(declaim (inline tensor-voigt-4th-zeros)
          (ftype (function ()
-                          magicl:matrix/double-float) matrix-zeros))
+                          magicl:matrix/double-float) tensor-voigt-4th-zeros))
 (defun tensor-voigt-4th-zeros ()
   "Make a stress matrix 3x3 of zeros"
   (magicl::make-matrix/double-float 6 6 36 :column-major (make-array 36 :element-type 'double-float)))
@@ -162,9 +162,14 @@
 (defun stretch-dsvp-zeros ()
   (magicl::make-matrix/double-float 4 2 8 :column-major (make-array 8 :element-type 'double-float)))
 
+(declaim (inline stretch-dsvp-3d-zeros)
+         (ftype (function () magicl:matrix/double-float) stretch-dsvp-3d-zeros))
 (defun stretch-dsvp-3d-zeros ()
   (magicl::make-matrix/double-float 9 3 27 :column-major (make-array 27 :element-type 'double-float)))
 
+(declaim (inline stretch-dsvp-voigt-zeros)
+         (ftype (function ()
+                          magicl:matrix/double-float) stretch-dsvp-voigt-zeros))
 (defun stretch-dsvp-voigt-zeros ()
   (magicl::make-matrix/double-float 9 1 9 :column-major (make-array 9 :element-type 'double-float)))
 
