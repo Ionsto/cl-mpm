@@ -1448,7 +1448,7 @@ Calls func with only the node"
                    ;(magicl:mult stretch-dsvp node-vel :target temp-mult)
                    (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
                    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-                   (cl-mpm/fastmath::fast-.+
+                   (cl-mpm/fastmath::fast-.+-matrix
                     stretch-tensor
                     temp-add
                     stretch-tensor)
@@ -1456,7 +1456,7 @@ Calls func with only the node"
                    ;(magicl:mult stretch-dsvp node-vel :target temp-mult)
                    (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
                    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-                   (cl-mpm/fastmath::fast-.+
+                   (cl-mpm/fastmath::fast-.+-matrix
                     stretch-tensor-fbar
                     temp-add
                     stretch-tensor-fbar)))))
