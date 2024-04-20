@@ -34,6 +34,50 @@
             )))
   (values))
 
+(defun @-dsvp-vec-simd (matrix vector scale result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (double-float scale)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (18)) a)
+             ((simple-array double-float (3)) c)
+             ((simple-array double-float (6)) b)
+             )
+    (declare (type sb-simd:f64vec a))
+    (macrolet ((component (i)
+                 (declare (fixnum i))
+                 `(decf (aref c ,i)
+                        (* scale
+                           (+
+                            (sb-simd-avx:f64.4-horizontal+
+                             (sb-simd-avx:f64.4* (sb-simd-avx:f64.4-aref a ,(the fixnum (* i 6))) (sb-simd-avx:f64.4-aref b 0)))
+                            (sb-simd-avx:f64.2-horizontal+
+                             (sb-simd-avx:f64.2* (sb-simd-avx:f64.2-aref a ,(the fixnum (+ (* i 6) 4))) (sb-simd-avx:f64.2-aref b 4))))))))
+      (component 0)
+      (component 1)
+      (component 2)
+      )
+    
+
+    ;; (sb-simd-avx:f64.4+
+    ;;  (sb-simd-avx:f64.4* (sb-simd-avx:f64.4-aref a 0) (sb-simd-avx:f64.4-aref a 0))
+    ;;  (sb-simd-avx:f64.4* (sb-simd-avx:f64.4-aref a 6) b2)
+    ;;  (sb-simd-avx:f64.4* (sb-simd-avx:f64.4-aref a 12) b3)
+    ;;  )
+    
+    ;; (loop for i fixnum from 0 below 3
+    ;;       do
+    ;;          ;; (setf (aref c i) 0d0)
+    ;;          (loop for j fixnum from 0 below 6
+    ;;                do (decf (aref c i) (the double-float (* (aref b j) (tref a i j) scale))))
+    ;;       )
+    )
+  (values))
+
 
 (declaim
  (inline mult-force)
@@ -117,7 +161,7 @@
       (declare (type double-float volume))
       ;; (print dsvp)
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
-      (@-dsvp-vec dsvp stress volume f-out)
+      (@-dsvp-vec-simd dsvp stress volume f-out)
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
       ;(mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)

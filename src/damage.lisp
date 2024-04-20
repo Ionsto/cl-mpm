@@ -1306,6 +1306,10 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
                                            (cl-mpm/particle::mp-damage-y-local mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "damage-k"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::history-stress)
+                                           (cl-mpm/particle::mp-history-stress mp)
+                                           0d0))
         ;; (cl-mpm/output::save-parameter "damage-xx"
         ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
         ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 0 0)
