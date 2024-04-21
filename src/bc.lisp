@@ -115,12 +115,14 @@
   (with-slots ((value value))
     bc
     (loop for d from 0 below (length value)
-            do (when (nth d value)
+            do
+               (when (nth d value)
                  (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
                  (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
 
                  (setf (magicl:tref (cl-mpm/mesh::node-external-force node) d 0) (nth d value))
                  (setf (magicl:tref (cl-mpm/mesh::node-internal-force node) d 0) (nth d value))
+                 (setf (magicl:tref (cl-mpm/mesh::node-force node) d 0) (nth d value))
 
                  ))))
 

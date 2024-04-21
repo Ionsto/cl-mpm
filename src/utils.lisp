@@ -47,7 +47,26 @@
                           (values list magicl:matrix/double-float)) eig))
 (defun eig (mat)
   "Real eigen-decomposition"
-  (magicl:self-adjoint-eig mat))
+  (magicl:self-adjoint-eig mat)
+  ;; (magicl:hermitian-eig mat)
+  ;; (multiple-value-bind (l v) 
+  ;;   (values l v))
+  ;;
+  )
+
+;; (dotimes (i 100))
+;; (let ((mat (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-from-list (loop repeat 6 collect (random 1d0))))))
+;;   (multiple-value-bind (l v) (magicl:hermitian-eig mat)
+;;     (pprint l)
+;;     (pprint v)
+;;     ;; (sort l #'>)
+;;     ;; (multiple-value-bind (lu vu) (eig mat)
+;;     ;;   (sort lu #'>)
+;;     ;;   (when (not (every (lambda (x) (< (abs x) 1d-10)) (mapcar #'- l lu)))
+;;     ;;     (format t "~A - ~A ~%" l lu))
+;;     ;;   (pprint (every (lambda (x) (< (abs x) 1d-10)) (mapcar #'- l lu))))
+;;     ))
+
 
 (defun @-mat-vec (mat vec)
   (let ((result (vector-zeros)))
@@ -300,11 +319,11 @@
                             exy eyx)
                       '(4 1) :type 'double-float)))
 
-(defun voight-to-stretch-3d (vec)
-  (voight-to-stretch-prealloc vec (stretch-dsvp-3d-zeros)))
+(defun voight-to-stretch (vec)
+  (voight-to-stretch-prealloc vec (matrix-zeros)))
 
 (declaim
- (inline voight-to-stretch-prealloc)
+ (notinline voight-to-stretch-prealloc)
  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
                   magicl:matrix/double-float) voight-to-stretch-prealloc))
 (defun voight-to-stretch-prealloc (vec result)
@@ -317,21 +336,26 @@
            (eyx (aref vecs 4))
            (exz (aref vecs 5))
            (ezx (aref vecs 6))
-           (ezy (aref vecs 7))
-           (eyz (aref vecs 8))
+           (eyz (aref vecs 7))
+           (ezy (aref vecs 8))
            (s result)
            )
-      (declare (double-float exx eyy exy eyx))
-      (setf (magicl:tref s 0 0) exx
-            (magicl:tref s 0 1) exy
-            (magicl:tref s 1 0) eyx
-            (magicl:tref s 1 1) eyy
-            (magicl:tref s 0 2) exz
-            (magicl:tref s 2 0) ezx
-            (magicl:tref s 1 2) eyz
-            (magicl:tref s 2 1) ezy
-            (magicl:tref s 2 2) ezz
-            )))
+
+      (declare (double-float exx eyy exy eyx ezy ez))
+      (setf
+       (magicl:tref s 0 0) exx
+       (magicl:tref s 0 1) exy
+       (magicl:tref s 1 0) eyx
+       (magicl:tref s 1 1) eyy
+
+       (magicl:tref s 0 2) exz
+       (magicl:tref s 2 0) ezx
+
+       (magicl:tref s 2 1) ezy
+       (magicl:tref s 1 2) eyz
+
+       (magicl:tref s 2 2) ezz
+       )))
   result)
 
 (defun matrix-to-voight-strain (matrix)

@@ -45,7 +45,9 @@
 
 (defun linear-elastic-mat (strain elastic-matrix)
   "Isotropic linear-elastic constitutive model"
-  (cl-mpm/utils:@-tensor-voigt elastic-matrix strain))
+  ;(cl-mpm/utils:@-tensor-voigt elastic-matrix strain)
+  (magicl:@ elastic-matrix strain)
+  )
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float)
                           magicl:matrix/double-float

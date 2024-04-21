@@ -19,6 +19,37 @@
                 kirchoff-expt-step)
          (inline kirchoff-expt-step)
          )
+(defun kirchoff-expt-step-lisp (strain df)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig
+                              (cl-mpm/utils:voigt-to-matrix strain))
+    (let ((trial-lgs (magicl:@ df
+                               v
+                               (cl-mpm/utils::matrix-from-list
+                                (list
+                                 (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
+                                 0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
+                                 0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
+                                 ))
+                               (magicl:transpose v)
+                               (magicl:transpose df))))
+      (multiple-value-bind (lf vf)
+          (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+        (aops:copy-into (magicl::matrix/double-float-storage strain)
+                        (magicl::matrix/double-float-storage
+                         (magicl:scale!
+                          ;;Note that this is taking care of the shear scaling factor
+                          (cl-mpm/utils:matrix-to-voigt
+                           (magicl:@
+                            vf
+                            (cl-mpm/utils::matrix-from-list
+                             (list
+                              (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
+                              0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
+                              0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
+                              )
+                             )
+                            (magicl:transpose vf)))
+                          0.5d0)))))))
 (handler-case
     (progn
       (define-foreign-library cl-mpm-cpp
@@ -44,38 +75,8 @@
         (format t "~&No accelerated kirchoff update~%")
         ;;Use a lisp fallback
         (defun kirchoff-expt-step (strain df)
-          (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                      (cl-mpm/utils:voigt-to-matrix strain))
-            (let ((trial-lgs (magicl:@ df
-                                       v
-                                       (cl-mpm/utils::matrix-from-list
-                                        (list
-                                         (the double-float (exp (* 2d0 (the double-float (nth 0 l))))) 0d0 0d0
-                                         0d0 (the double-float (exp (* 2d0 (the double-float (nth 1 l))))) 0d0
-                                         0d0 0d0 (the double-float (exp (* 2d0 (the double-float (nth 2 l)))))
-                                         ))
-                                       (magicl:transpose v)
-                                       (magicl:transpose df))))
-              (multiple-value-bind (lf vf)
-                  (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
-                (aops:copy-into (magicl::matrix/double-float-storage strain)
-                                (magicl::matrix/double-float-storage
-                                 (magicl:scale!
-                                  ;;Note that this is taking care of the shear scaling factor
-                                  (cl-mpm/utils:matrix-to-voigt
-                                   (magicl:@
-                                    vf
-                                    (cl-mpm/utils::matrix-from-list
-                                     (list
-                                      (the double-float (log (the double-float (nth 0 lf)))) 0d0 0d0
-                                      0d0 (the double-float (log (the double-float (nth 1 lf)))) 0d0
-                                      0d0 0d0 (the double-float (log (the double-float (nth 2 lf))))
-                                      )
-                                     )
-                                    (magicl:transpose vf)))
-                                  0.5d0))))))))
-                                      ))
-
+          (kirchoff-expt-step-lisp strain df))
+        )))
 (defun kirchoff-update (strain df)
   (kirchoff-expt-step strain df))
 

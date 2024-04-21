@@ -91,6 +91,24 @@
                             (* (the double-float (magicl:tref a j i))
                                (the double-float (magicl:tref b j 0)) scale))))))
 
+(defun test-@-dsvp-vec-simd ()
+  (let ((volume 0.1d0)
+        (dsvp (cl-mpm/shape-function::assemble-dsvp-3d (list 6d0 2d0 1.5d0)))
+        (stress (cl-mpm/utils:voigt-from-list (list 9d0 3d0 5d0 3d0 5d0 8d0))))
+                                        ;(mult-force dsvp stress volume f-out)
+    ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+    ;; (@-dsvp-vec-simd dsvp stress volume f-out)
+
+    (let ((res (cl-mpm/utils:vector-zeros)))
+      (magicl:.- res (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) res)
+      (pprint res))
+    (let ((res (cl-mpm/utils:vector-zeros)))
+      (@-dsvp-vec-simd dsvp stress volume res)
+      ;; (magicl:.- res (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) res)
+      (pprint res))
+    )
+  )
+
 (declaim
  (inline mult-force-plane-strain)
  (ftype (function (magicl:matrix/double-float
@@ -98,44 +116,8 @@
                    double-float
                    magicl:matrix/double-float) (values)
                   ) mult-force-plane-strain))
-(defun mult-force-plane-strain (a b scale res)
-  (declare (type magicl:matrix/double-float a b res)
-           (type double-float scale))
-  (declare (optimize (speed 3) (safety 0)))
-  (let ((rs (magicl::matrix/double-float-storage res))
-        (bs (magicl::matrix/double-float-storage b))
-        )
-    ;; (declare (type (simple-array double-float) a-s b-s res-s))
-    (loop for i from 0 to 1
-          do
-             ;; (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 0 i))
-             ;;                                                   (the double-float (magicl:tref b 0 0)) scale))
-             ;; (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 1 i))
-             ;;                                                   (the double-float (magicl:tref b 1 0)) scale))
-             ;; (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 2 i))
-             ;;                                                   (the double-float (magicl:tref b 2 0)) scale))
 
-             ;; (loop for j in '(0 1 5)
-             ;;       do (decf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
-             ;;                                                            (the double-float (magicl:tref b j 0)) scale)))
-             (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 0 i))
-                                                     (the double-float (aref bs 0)) scale))
-             (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 1 i))
-                                                     (the double-float (aref bs 1)) scale))
-             (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a 2 i))
-                                                     (the double-float (aref bs 5)) scale))
-             ;; (loop for j in '(0 1 5)
-             ;;       do (decf (the double-float (aref rs i)) (* (the double-float (magicl:tref a j i))
-             ;;                                                  (the double-float (aref bs j)) scale)))
 
-          )))
-
-(defun plane-strain-transform (stress)
-  (magicl:from-list (list (magicl:tref stress 0 0)
-                          (magicl:tref stress 1 0)
-                          (magicl:tref stress 5 0))
-                    '(3 1)
-                    :type 'double-float))
 
 (declaim
  (inline det-int-force)
@@ -144,7 +126,7 @@
         det-int-force))
 (defun det-int-force (mp dsvp &optional f-out)
   "Calculate internal force contribution from mp at node"
-  (let* ((f-out (if f-out f-out (magicl:zeros '(3 1)))))
+  (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)) mp
       (declare (type double-float volume))
@@ -152,7 +134,7 @@
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
       (@-dsvp-vec-simd dsvp stress volume f-out)
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
-      ;(mult-force dsvp stress volume f-out)
+      ;; (mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force-plane-strain dsvp stress volume f-out)

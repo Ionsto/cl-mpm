@@ -66,32 +66,32 @@
                      (magicl::matrix/double-float-storage b))
     (values)))
 
-;; (declaim
-;;  (inline mult)
-;;  (ftype (function (magicl:matrix/double-float
-;;                    magicl:matrix/double-float
-;;                    magicl:matrix/double-float) (values)
-;;                   ) mult))
-;; (defun mult (a b res)
-;;   (declare (type magicl:matrix/double-float a b res))
-;;   (let ((a-s (magicl::matrix/double-float-storage a))
-;;         (b-s (magicl::matrix/double-float-storage b))
-;;         (res-s (magicl::matrix/double-float-storage res))
-;;         )
-;;     (declare (type (simple-array double-float) a-s b-s res-s))
-;;     (loop for i from 0 to 2
-;;           do (loop for j from 0 to 1
-;;                    do (incf (aref res-s i) (* (aref a-s (+ j (* 2 i)))
-;;                                               (aref b-s j)))))))
+(defun test-simd-accumulate ()
+  (let* ((a (make-array 3 :element-type 'double-float  :initial-contents (list 1d0 2d0 3d0)))
+         (b (make-array 3 :element-type 'double-float  :initial-contents (list 3d0 5d0 9d0))))
+    (loop for i from 0 to 2
+          do (incf (aref a i) (aref b i)))
+    (pprint a)
+    )
+  (let* ((a (make-array 3 :element-type 'double-float  :initial-contents (list 1d0 2d0 3d0)))
+         (b (make-array 3 :element-type 'double-float  :initial-contents (list 3d0 5d0 9d0))))
+    (simd-accumulate a b)
+    (pprint a)
+    ))
 
-;; (declaim (inline det)
-;;          (ftype (function (magicl:matrix/double-float) (values double-float)) det)
-;;          )
-;; (defun det (x)
-;;   (let ((x-a (magicl::matrix/double-float-storage x)))
-;;     (declare (type (simple-array double-float) x-a))
-;;     (values (- (* (aref x-a 0) (aref x-a 3))
-;;                (* (aref x-a 1) (aref x-a 2))))))
+(defun test-simd-fmacc ()
+  (let ((scale 2d0))
+    (let* ((a (make-array 3 :element-type 'double-float  :initial-contents (list 1d0 2d0 3d0)))
+           (b (make-array 3 :element-type 'double-float  :initial-contents (list 3d0 5d0 9d0))))
+      (loop for i from 0 to 2
+            do (incf (aref a i) (* scale(aref b i))))
+      (pprint a)
+      )
+    (let* ((a (make-array 3 :element-type 'double-float  :initial-contents (list 1d0 2d0 3d0)))
+           (b (make-array 3 :element-type 'double-float  :initial-contents (list 3d0 5d0 9d0))))
+      (simd-fmacc a b scale)
+      (pprint a)
+      )))
 
 (declaim
  (inline fast-fmacc-array)
@@ -161,6 +161,19 @@
       ))
   target)
 
+(defun test-simd-any+ ()
+  (let ((a (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0)))
+        (b (cl-mpm/utils::vector-from-list (list 3d0 5d0 9d0))))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (magicl:.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (simd-any+ (magicl::storage a)
+                 (magicl::storage b)
+                 (magicl::storage res))
+      (pprint res)))
+  )
+
 (declaim
  (inline simd-any+-4)
  (ftype (function ((simple-array double-float)
@@ -189,6 +202,19 @@
         )
       ))
   target)
+
+(defun test-simd-any+-4 ()
+  (let ((a (cl-mpm/utils::voigt-from-list (list 1d0 2d0 3d0 9d0 2d0 10d0)))
+        (b (cl-mpm/utils::voigt-from-list (list 3d0 5d0 9d0 -1d0 3d0 1d0))))
+    (let ((res (cl-mpm/utils::voigt-zeros)))
+      (magicl:.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::voigt-zeros)))
+      (simd-any+ (magicl::storage a)
+                 (magicl::storage b)
+                 (magicl::storage res))
+      (pprint res)))
+  )
 
 (defun @-m-v (matrix vector result-vector)
   "Multiply a 3x3 matrix with a 3x1 vector to calculate a 3x1 vector in place"
@@ -252,40 +278,55 @@
              ((simple-array double-float (3)) b)
              ((simple-array double-float (9)) c)
              )
-    (macrolet ((simd-component (i)
-                 (declare (fixnum i))
-                 `(setf
-                   (sb-simd-avx:f64.4-aref c ,(the fixnum (* 4 i)))
-                   (sb-simd-avx:f64.4+
-                    (sb-simd-avx:f64.4*
-                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 0))))
-                     (aref b 0))
-                    (sb-simd-avx:f64.4*
-                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 1))))
-                     (aref b 1))
-                    (sb-simd-avx:f64.4*
-                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 2))))
-                     (aref b 2))))
-                 ))
-      (simd-component 0)
-      (simd-component 1)
-      (setf
-       (aref c 8)
-       (+
-        (* (aref a (+ 8 0)) (aref b 0))
-        (* (aref a (+ 8 9)) (aref b 1))
-        (* (aref a (+ 8 18)) (aref b 2))))
-      )
-    ;; (flet ((tref (m x y)
-    ;;          (aref m (+ (* 9 x)  y))))
-    ;;   (loop for i fixnum from 0 below 9
-    ;;         do
-    ;;            (setf (aref c i) 0d0)
-    ;;            (loop for j fixnum from 0 below 3
-    ;;                  do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
-    ;;         ))
-    )
+    (flet ((tref (m x y)
+             (aref m (+ (* 9 x)  y))))
+      (loop for i fixnum from 0 below 9
+            do
+               (setf (aref c i) 0d0)
+               (loop for j fixnum from 0 below 3
+                     do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
+            ))
+    ;; (macrolet ((simd-component (i)
+    ;;              (declare (fixnum i))
+    ;;              `(setf
+    ;;                (sb-simd-avx:f64.4-aref c ,(the fixnum (* 4 i)))
+    ;;                (sb-simd-avx:f64.4+
+    ;;                 (sb-simd-avx:f64.4*
+    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 0))))
+    ;;                  (aref b 0))
+    ;;                 (sb-simd-avx:f64.4*
+    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 1))))
+    ;;                  (aref b 1))
+    ;;                 (sb-simd-avx:f64.4*
+    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 2))))
+    ;;                  (aref b 2))))
+    ;;              ))
+    ;;   (simd-component 0)
+    ;;   (simd-component 1)
+    ;;   (setf
+    ;;    (aref c 8)
+    ;;    (+
+    ;;     (* (aref a (+ 8 0)) (aref b 0))
+    ;;     (* (aref a (+ 8 9)) (aref b 1))
+    ;;     (* (aref a (+ 8 18)) (aref b 2))))
+    ;;   )
+  )
   result-vector)
+
+;; (defun test-@-stretch-vec ()
+;;   (let ((stretch (cl-mpm/shape-function::assemble-dstretch-3d (list 1d0 2d0 3d0)))
+;;         (vel (cl-mpm/utils::vector-from-list (list 0.1d0 9d0 2d0)))
+;;         (res-t (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+;;         (res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+;;         )
+;;     (magicl:mult stretch vel :target res-t)
+;;     (pprint res-t)
+;;     (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+;;     (cl-mpm/fastmath::@-stretch-vec stretch vel res)
+;;     (pprint res)
+;;     (format t "~%Pass?: ~A~%"
+;;      (every #'identity (loop for a across (magicl::storage (magicl:.- res res-t))
+;;                              collect (< (abs a) 1d-15))))))
 
 (declaim
  (inline @-dsvp-vec)
@@ -363,6 +404,45 @@
   (def-fast-.+-type fast-.+-matrix 9 simd-any+-4)
   (def-fast-.+-type fast-.+-stretch 27 simd-any+-4)
   )
+(defun test-.+-vector ()
+  (let ((a (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0)))
+        (b (cl-mpm/utils::vector-from-list (list 3d0 5d0 9d0))))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (magicl:.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (cl-mpm/fastmath::fast-.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (cl-mpm/fastmath::fast-.+-vector a b res)
+      (pprint res))))
+(defun test-.+-voigt ()
+  (let ((a (cl-mpm/utils::voigt-from-list (list 1d0 2d0 3d0 2d0 5d0 7d0)))
+        (b (cl-mpm/utils::voigt-from-list (list 3d0 5d0 9d0 3d0 4d0 9d0))))
+    (let ((res (cl-mpm/utils::voigt-zeros)))
+      (magicl:.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::voigt-zeros)))
+      (cl-mpm/fastmath::fast-.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::voigt-zeros)))
+      (cl-mpm/fastmath::fast-.+-voigt a b res)
+      (pprint res))))
+
+(defun test-.+-matrix ()
+  (let ((a (cl-mpm/utils::matrix-from-list (loop for i from 0 below 9 collect (random 1d0))))
+        (b (cl-mpm/utils::matrix-from-list (loop for i from 0 below 9 collect (random 1d0)))))
+    (let ((res (cl-mpm/utils::matrix-zeros)))
+      (magicl:.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::matrix-zeros)))
+      (cl-mpm/fastmath::fast-.+ a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::matrix-zeros)))
+      (cl-mpm/fastmath::fast-.+-matrix a b res)
+      (pprint res))))
+
+
 ;; (declaim
 ;;  (inline fast-.+-voigt)
 ;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+-voigt))

@@ -36,7 +36,7 @@ extern "C" {
     auto trial_lgs = df * (eigen_vectors
                           * (eigen_values.array() * 2.0).exp().matrix().asDiagonal()
                           * eigen_vectors.transpose()) * df.transpose();
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> trialeigensolver(trial_lgs);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> trialeigensolver(0.5*(trial_lgs + trial_lgs.transpose()));
     if (trialeigensolver.info() != Eigen::Success)
       {
         return false;
@@ -47,6 +47,9 @@ extern "C" {
     //No clue if this works
     return true;
   }
+
+  // bool MC_plastic_model(double * strain_ptr, double )
+
 }
 
 
