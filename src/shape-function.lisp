@@ -655,24 +655,22 @@
 
 (defun assemble-dsvp-3d-prealloc (dsvp mat)
   "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp))
-        (dy (nth 1 dsvp))
-        (dz (nth 2 dsvp)))
-    (setf
-     (magicl:tref mat 0 0) dx
-     (magicl:tref mat 1 1) dy
-     (magicl:tref mat 2 2) dz
+  (destructuring-bind (dx dy dz) dsvp
+      (setf
+       (magicl:tref mat 0 0) dx
+       (magicl:tref mat 1 1) dy
+       (magicl:tref mat 2 2) dz
 
-     (magicl:tref mat 3 1) dz
-     (magicl:tref mat 3 2) dy
+       (magicl:tref mat 3 1) dz
+       (magicl:tref mat 3 2) dy
 
-     (magicl:tref mat 4 0) dz
-     (magicl:tref mat 4 2) dx
+       (magicl:tref mat 4 0) dz
+       (magicl:tref mat 4 2) dx
 
-     (magicl:tref mat 5 0) dy
-     (magicl:tref mat 5 1) dx)
-    mat
-    ))
+       (magicl:tref mat 5 0) dy
+       (magicl:tref mat 5 1) dx)
+    mat)
+  )
 
 
 

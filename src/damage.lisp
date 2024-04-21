@@ -1210,12 +1210,12 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
         (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
 
-        (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
-        (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
-        (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
-        (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
-        (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
+        (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-strain mp) 0 0))
+        (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
+        (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
+        (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
+        (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0))
+        (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
 
         ;; (cl-mpm/output::save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 

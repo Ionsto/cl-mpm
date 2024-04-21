@@ -1476,8 +1476,7 @@ Calls func with only the node"
                  (when node-active
                    (ecase (cl-mpm/mesh::mesh-nd mesh)
                      (2 (cl-mpm/shape-function::assemble-dstretch-2d-prealloc grads stretch-dsvp))
-                     (3 (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp))
-                     )
+                     (3 (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)))
                    (magicl:mult stretch-dsvp node-vel :target temp-mult)
                    ;; (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
                    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
@@ -1565,7 +1564,11 @@ Calls func with only the node"
             (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
                             (magicl::matrix/double-float-storage strain))
             ;;This can may be in lisp or accelerated
+            (when (> (abs (magicl:tref strain 4 0)) 0d0)
+              (error "Nonzero out of plane strain with ~A" strain))
             (cl-mpm/ext:kirchoff-update strain df)
+            (when (> (abs (magicl:tref strain 4 0)) 0d0)
+              (error "Nonzero out of plane strain with ~A" strain))
             ;;Not sure about this engineering strain calculation
             (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
