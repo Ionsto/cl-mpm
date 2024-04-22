@@ -198,7 +198,7 @@
       (unless (eq remain 0)
         (dotimes (i remain)
           (setf (aref target offset)
-                (+ (aref a offset) (aref b offset)))
+                (* (aref a offset) (aref b offset)))
           (incf offset 1))
         )
       ))
