@@ -1652,8 +1652,8 @@ Calls func with only the node"
           (cl-mpm/ext:kirchoff-update strain df)
           ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
           ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-          (magicl:.- eng-strain-rate strain eng-strain-rate)
-          (magicl:scale! eng-strain-rate (/ 1d0 dt))
+          ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
+          ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
           ;;Post multiply to turn to eng strain
           (setf volume (* volume (the double-float (magicl:det df))))
           (when (<= volume 0d0)
