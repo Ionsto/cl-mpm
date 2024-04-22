@@ -28,6 +28,7 @@
     )
   )
 (in-package :cl-mpm/particle)
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defstruct node-cache
@@ -682,7 +683,7 @@
 
     ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (setf pressure (funcall calc-pressure pos))
-    (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
      stress-undamaged
      (objectify-stress-logspin
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -768,7 +769,7 @@
                )
       mp
     ;; Non-objective stress intergration
-    ;; (magicl.simd::.+-simd
+    ;; (cl-mpm/fastmath::fast-.+
     ;;  stress
     ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
     (magicl:.+ stress (magicl:@ de strain-rate))
@@ -789,7 +790,7 @@
                )
       mp
     ;;Jaumann rate equation
-    (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
      stress
      (objectify-stress-jaumann
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -812,7 +813,7 @@
                )
       mp
     ;; Truesdale rate
-    (magicl.simd::.+-simd
+    (cl-mpm/fastmath::fast-.+
      stress
      (objectify-stress-kirchoff-truesdale
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -837,7 +838,7 @@
           ;; (strain-rate (magicl:scale strain-rate (/ 1d0 dt)))
           ;; (vorticity (magicl:scale vorticity (/ 1d0 dt)))
           )
-      (magicl.simd::.+-simd
+      (cl-mpm/fastmath::fast-.+
        stress
        (objectify-stress-logspin
         (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -913,14 +914,14 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* ((eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+    (let* ((eng-strain-rate (cl-mpm/fastmath::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
                                                   (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
           ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
           )
       ;; stress
       (setf temp viscosity)
-      (magicl.simd::.+-simd
+      (cl-mpm/fastmath::fast-.+
        stress
        (objectify-stress-logspin
         (if (> viscosity 0d0)
@@ -959,7 +960,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (flet ((inv (x) (/ 1d0 (the double-float x))))
-      (let* (;(eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+      (let* (;(eng-strain-rate (cl-mpm/fastmath::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
                                         ;                            (cl-mpm/utils:stress-from-list '(1d0 1d0 0.5d0))))
              (estrain (cl-mpm/constitutive::effective-strain-rate eng-strain-rate))
              (viscosity-diff (/ 6.5d8 (* 2d0 (expt 10d-3 2))))
@@ -984,7 +985,7 @@
         ;; (setf stress
         ;;       (cl-mpm/constitutive:maxwell-exp-v strain-rate stress E nu de viscosity dt))
 
-        (magicl.simd::.+-simd
+        (cl-mpm/fastmath::fast-.+
          stress
          (objectify-stress-logspin
           (if (> viscosity 0d0)
@@ -1017,7 +1018,7 @@
       mp
     (declare (double-float E visc-factor visc-power))
     (let ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power)))
-      (magicl.simd::.+-simd
+      (cl-mpm/fastmath::fast-.+
        stress
        (objectify-stress-logspin
         ;; (if (> viscosity 0d0)
@@ -1060,7 +1061,7 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (;; (eng-strain-rate (magicl.simd::.*-simd (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+    (let* (;; (eng-strain-rate (cl-mpm/fastmath::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
            ;;                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
            (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
            ;; (viscosity 1d-20)
@@ -1077,7 +1078,7 @@
 
       (incf time-averaged-visc viscosity)
       ;; (setf stress-u
-      ;;       (magicl.simd::.+-simd
+      ;;       (cl-mpm/fastmath::fast-.+
       ;;        stress-u
       ;;        (objectify-stress-logspin
       ;;         (if (> viscosity 0d0)
@@ -1208,7 +1209,7 @@
                ;; (stress stress)
                )
       mp
-    ;; (magicl.simd::.+-simd stress (cl-mpm/constitutive:linear-elastic strain-rate E nu) (objectify-stress-jaumann stress vorticity))
+    ;; (cl-mpm/fastmath::fast-.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu) (objectify-stress-jaumann stress vorticity))
    ;(cl-mpm/constitutive:maxwell strain-rate (magicl:scale stress (magicl:det def)) E nu viscosity dt vorticity)
     (cl-mpm/constitutive:maxwell-exp strain-rate stress E nu viscosity dt vorticity)
     ))
@@ -1300,7 +1301,7 @@
     (let ((b (magicl:@ def (magicl:transpose def)))
           ;; (omega (assemble-vorticity-matrix vorticity))
           (omega (magicl:scale! (magicl:.- D (magicl:transpose D)) 0.5d0))
-          (D (magicl:scale! (magicl.simd::.+-simd D (magicl:transpose D)) 0.5d0))
+          (D (magicl:scale! (cl-mpm/fastmath::fast-.+ D (magicl:transpose D)) 0.5d0))
           ;; (D (cl-mpm/utils::voigt-to-matrix D))
           )
         (multiple-value-bind (l v) (cl-mpm/utils::eig b)
@@ -1322,7 +1323,7 @@
                                        )
                                   ;; When we have pairs of unique nonzero eigenvalues
                                   (setf omega
-                                        (magicl.simd::.+-simd omega
+                                        (cl-mpm/fastmath::fast-.+ omega
                                                    (magicl:scale!
                                                     (magicl:@
                                                      (magicl:@

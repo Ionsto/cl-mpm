@@ -348,7 +348,7 @@
     (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
                            (cl-mpm/particle:mp-position mp-b)))
           )
-      (values (the double-float (magicl::sum (magicl.simd::.*-simd dist dist)))))))
+      (values (the double-float (magicl::sum (cl-mpm/fastmath::fast-.* dist dist)))))))
 
 ;;This is a simd dot product
 #+ :sb-simd
@@ -436,7 +436,7 @@
                     (loop for i fixnum from 0 below steps
                           do
                              (progn
-                               (magicl.simd::.+-simd step-point dhstep step-point)
+                               (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
                                (let ((damage 0d0))
                                  (declare (double-float damage))
                                  (cl-mpm::iterate-over-neighbours-point-linear-3d
@@ -450,14 +450,14 @@
                                  ;; (print damage)
                                  (incf final-distance (* step-size
                                                          (/ 1d0 (max epsilon (sqrt (- 1d0 damage)))))))
-                               (magicl.simd::.+-simd step-point dhstep step-point)
+                               (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
                                )
                           )))
                 (let* ((step-size remainder)
                        (dhstep (cl-mpm/utils::vector-copy step-norm)))
                   (magicl:scale! dhstep (* 0.5d0 step-size))
                   (progn
-                    (magicl.simd::.+-simd step-point dhstep step-point)
+                    (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
                     (let ((damage 0d0))
                       (cl-mpm::iterate-over-neighbours-point-linear-3d
                        mesh

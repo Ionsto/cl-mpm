@@ -5,7 +5,8 @@
    #:det-ext-force
    ))
 (in-package :cl-mpm/forces)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (declaim
  (inline @-dsvp-vec)
@@ -173,9 +174,9 @@
             (* (+ (* mass gravity (aref g-s 2)) (* volume (aref b-s 2))) svp))
 
           ;; (magicl:scale!
-          ;;   ;; (magicl.simd::.+-simd (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
+          ;;   ;; (cl-mpm/fastmath::fast-.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
           ;;   ;;                               '(2 1) :type 'double-float :layout :column-major)
-          ;;   (magicl.simd::.+-simd (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
+          ;;   (cl-mpm/fastmath::fast-.+ (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
           ;;              (magicl:scale body-force mass))
           ;;   svp))
       f-out)))

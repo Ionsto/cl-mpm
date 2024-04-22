@@ -430,7 +430,7 @@
                (incf svp (mpi-object-node-svp mpi-node))
                (incf vol (mpi-object-node-vol mpi-node))
                (incf pmod (mpi-object-node-pmod mpi-node))
-               (magicl.simd::.+-simd velocity (mpi-object-node-velocity mpi-node) velocity)
+               (cl-mpm/fastmath::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
                )))
          ))))
 
@@ -450,7 +450,7 @@
                             )
                (apply #'aref (cl-mpm/mesh:mesh-nodes mesh) index)
              ;; (setf active t)
-             (magicl.simd::.+-simd force (mpi-object-node-force mpi-node) force)
+             (cl-mpm/fastmath::fast-.+ force (mpi-object-node-force mpi-node) force)
              )))))))
 
 (defun mpi-sync-damage-mps (sim &optional halo-depth)

@@ -9,9 +9,12 @@
    #:det
    #:dot
    #:norm
+   :fast-.+
+   :fast-.*
     ))
 
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 3) (speed 0)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmath)
 
 (pushnew :sb-simd *features*)
@@ -116,8 +119,8 @@
   #+:sb-simd (simd-fmacc (magicl::matrix/double-float-storage a)
                           (magicl::matrix/double-float-storage b)
                           d)
-  #-:sb-simd (magicl.simd::.+-simd a (magicl:scale b d) a)
-  ;; (magicl.simd::.+-simd a (magicl:scale b d) a)
+  #-:sb-simd (fast-.+ a (magicl:scale b d) a)
+  ;; (fast-.+ a (magicl:scale b d) a)
   )
 
 (declaim
@@ -135,7 +138,7 @@
                            (simple-array double-float))
                           (values)) simd-any+))
 (defun simd-any+ (a b target)
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (declare (optimize (speed 0) (debug 0) (safety 3)))
   ;; (declare ((simple-array double-float (*)) a b target))
   ;; (let ((offset 0))
   ;;   (declare (type sb-simd:f64vec a b target)
@@ -167,6 +170,39 @@
         do (setf (aref target i) (+ (aref a i) (aref b i))))
   target)
 
+(defun simd-any* (a b target)
+  (declare (optimize (speed 0) (debug 0) (safety 3)))
+  ;; (declare ((simple-array double-float (*)) a b target))
+  ;; (let ((offset 0))
+  ;;   (declare (type sb-simd:f64vec a b target)
+  ;;            (fixnum offset))
+  ;;   (multiple-value-bind (iter remain) (floor (length a) 2)
+  ;;     (declare (fixnum iter remain))
+  ;;     ;; (loop for offset fixnum from 0 by 2
+  ;;     ;;       repeat iter
+  ;;     ;;       do
+  ;;     ;;          (setf (sb-simd-avx:f64.2-aref target offset)
+  ;;     ;;                (sb-simd-avx:f64.2+
+  ;;     ;;                 (sb-simd-avx:f64.2-aref a offset)
+  ;;     ;;                 (sb-simd-avx:f64.2-aref b offset))))
+  ;;     (dotimes (i iter)
+  ;;       (setf (sb-simd-avx:f64.2-aref target offset)
+  ;;             (sb-simd-avx:f64.2+
+  ;;              (sb-simd-avx:f64.2-aref a offset)
+  ;;              (sb-simd-avx:f64.2-aref b offset)))
+  ;;       (incf offset 2))
+  ;;     (unless (eq remain 0)
+  ;;       (dotimes (i remain)
+  ;;         (setf (aref target offset)
+  ;;               (+ (aref a offset) (aref b offset)))
+  ;;         (incf offset 1))
+  ;;       )
+  ;;     ))
+
+  (loop for i from 0 below (length a)
+        do (setf (aref target i) (* (aref a i) (aref b i))))
+  target)
+
 (defun test-simd-any+ ()
   (let ((a (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0)))
         (b (cl-mpm/utils::vector-from-list (list 3d0 5d0 9d0))))
@@ -187,7 +223,7 @@
                            (simple-array double-float))
                           (values)) simd-any+-4))
 (defun simd-any+-4 (a b target)
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (declare (optimize (speed 0) (debug 0) (safety 3)))
   ;; (declare ((simple-array double-float (*)) a b target))
   ;; (let ((offset 0))
   ;;   (declare (type sb-simd:f64vec a b target)
@@ -228,7 +264,7 @@
 (defun @-m-v (matrix vector result-vector)
   "Multiply a 3x3 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           (optimize (speed 0) (safety 3) (debug 0)))
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -257,7 +293,7 @@
 ;; (defun @-stretch-vec (matrix vector result-vector)
 ;;   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
 ;;   (declare (magicl:matrix/double-float matrix vector result-vector)
-;;            (optimize (speed 3) (safety 0) (debug 0)))
+;;            (optimize (speed 0) (safety 3) (debug 0)))
 ;;   (let ((a (magicl::matrix/double-float-storage matrix))
 ;;         (b (magicl::matrix/double-float-storage vector))
 ;;         (c (magicl::matrix/double-float-storage result-vector))
@@ -278,7 +314,7 @@
 (defun @-stretch-vec (matrix vector result-vector)
   "Multiply a 9x3 matrix with a 3x1 vector to calculate a 9x1 vector in place - SIMD implementation"
   (declare (magicl:matrix/double-float matrix vector result-vector)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           (optimize (speed 0) (safety 3) (debug 0)))
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -345,7 +381,7 @@
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
            (double-float scale)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           (optimize (speed 0) (safety 3) (debug 0)))
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -369,7 +405,7 @@
 ;;  (inline fast-.+)
 ;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
 ;; (defun fast-.+ (a b)
-;;   (declare (optimize (speed 3) (space 0)))
+;;   (declare (optimize (speed 0) (space 0)))
 ;;   (let ((res (cl-mpm/utils::deep-copy a)))
 ;;     (declare (magicl:matrix/double-float a b res))
 ;;     (simd-any+ (magicl::matrix/double-float-storage a)
@@ -381,12 +417,23 @@
  (inline fast-.+)
  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
 (defun fast-.+ (a b &optional res)
-  (declare (optimize (speed 3) (space 0)))
+  (declare (optimize (speed 0) (space 0)))
   (let ((res (if res
                  res
                  (cl-mpm/utils::deep-copy a))))
     (declare (magicl:matrix/double-float a b res))
     (simd-any+ (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    res))
+
+(defun fast-.* (a b &optional res)
+  (declare (optimize (speed 0) (space 0)))
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::deep-copy a))))
+    (declare (magicl:matrix/double-float a b res))
+    (simd-any* (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
                (magicl::matrix/double-float-storage res))
     res))
@@ -399,7 +446,7 @@
                  (inline ,name)
                  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) ,name))
                 (defun ,name (a b &optional res)
-                  (declare (optimize (speed 3) (space 0)))
+                  (declare (optimize (speed 0) (space 0)))
                   (let ((res (if res
                                  res
                                  (cl-mpm/utils::deep-copy a))))
@@ -457,7 +504,7 @@
 ;;  (inline fast-.+-voigt)
 ;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+-voigt))
 ;; (defun fast-.+-voigt (a b &optional res)
-;;   (declare (optimize (speed 3) (space 0)))
+;;   (declare (optimize (speed 0) (space 0)))
 ;;   (let ((res (if res
 ;;                  res
 ;;                  (cl-mpm/utils::deep-copy a))))
@@ -503,7 +550,7 @@
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
 (let ((second-invar (magicl:from-array (make-array 6 :initial-contents '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0)) '(6 1) :type 'double-float :layout :column-major)))
   (defun voigt-tensor-reduce-lisp (a)
-     (values (magicl::sum (magicl.simd::.*-simd a a second-invar)))))
+     (values (magicl::sum (fast-.* a a second-invar)))))
 
 (declaim (inline voigt-tensor-reduce-simd)
          (ftype (function (magicl:matrix/double-float) double-float) voigt-tensor-reduce-simd))
@@ -578,7 +625,7 @@
 ;;                                                                         (the double-float (magicl:tref b j 0)) scale))))))
 
 (defun dot (a b)
-  (the double-float (magicl::sum (magicl.simd::.*-simd a b))))
+  (the double-float (magicl::sum (fast-.* a b))))
 
 (defun mag-squared (a)
   "Calculate the magnitude - 2-norm"

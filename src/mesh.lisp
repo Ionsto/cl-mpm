@@ -25,7 +25,8 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 0) (safety 3) (speed 0)))
 
 (defclass node ()
   ((active
@@ -242,7 +243,7 @@
   (let ((centroid (cl-mpm/utils:vector-zeros)))
     (loop for node in nodes
           do
-             (magicl.simd::.+-simd centroid (node-position node) centroid))
+             (cl-mpm/fastmath::fast-.+ centroid (node-position node) centroid))
     (magicl:scale centroid (/ 1d0 (length nodes)))))
 (defun make-cell (mesh index h)
   ;;Get local nodes
@@ -253,7 +254,7 @@
              res))
          (volume (expt h (mesh-nd mesh)))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (magicl.simd::.+-simd (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+         (centroid (cl-mpm/fastmath::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                                          (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
          )
     (loop for n in nodes
@@ -273,7 +274,7 @@
              res))
          (volume (expt h 2))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (magicl.simd::.+-simd (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+         (centroid (cl-mpm/fastmath::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                                          (magicl:scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
          )
     (loop for n in nodes
@@ -513,7 +514,7 @@
 ;;                      (temp cl-mpm/particle::mp-temperature)
 ;;                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
 ;;       (progn 
-;;         (setf vel (magicl.simd::.+-simd vel (magicl:scale node-vel svp)))))))
+;;         (setf vel (cl-mpm/fastmath::fast-.+ vel (magicl:scale node-vel svp)))))))
 (defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
@@ -644,7 +645,7 @@
       (loop for point in (newton-points gp h)
             for gweight in (newton-weights gp h)
             do
-        (let ((quad (magicl.simd::.+-simd centroid point))
+        (let ((quad (cl-mpm/fastmath::fast-.+ centroid point))
               (volume-ratio (/ 1 (expt gp 2))))
           (loop for node in nodes
                 do

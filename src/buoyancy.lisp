@@ -392,7 +392,7 @@
                               (size cl-mpm/particle::mp-domain-size))
                  mp
                (let* ((pmin (cl-mpm/mesh:position-to-index mesh (magicl:.- pos (magicl:scale size 0.5d0)) #'floor))
-                      (pmax (cl-mpm/mesh:position-to-index mesh (magicl.simd::.+-simd pos (magicl:scale size 0.5d0)) #'floor)))
+                      (pmax (cl-mpm/mesh:position-to-index mesh (cl-mpm/fastmath::fast-.+ pos (magicl:scale size 0.5d0)) #'floor)))
                  (loop for x from (first pmin) to (first pmax)
                        do
                           (loop for y from (second pmin) to (second pmax)

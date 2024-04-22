@@ -16,7 +16,8 @@
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
@@ -590,13 +591,13 @@
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;        (dotimes (i 1000000)
-;;          (setf a (magicl.simd::.+-simd a b))
+;;          (setf a (cl-mpm/fastmath::fast-.+ a b))
 ;;          )))
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;    (dotimes (i 1000000)
-;;      (magicl.simd::.+-simd a b a)
+;;      (cl-mpm/fastmath::fast-.+ a b a)
 ;;      )))
 
 (declaim

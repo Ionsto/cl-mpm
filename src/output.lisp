@@ -20,7 +20,7 @@
       (loop :repeat (+ steps 1) collect 
               (prog1
                 (funcall get-value (cl-mpm:sim-mesh sim) sample-mp)
-                (setf (cl-mpm/particle:mp-position sample-mp) (magicl.simd::.+-simd (cl-mpm/particle:mp-position sample-mp) direction))))))
+                (setf (cl-mpm/particle:mp-position sample-mp) (cl-mpm/fastmath::fast-.+ (cl-mpm/particle:mp-position sample-mp) direction))))))
 
 (defun sample-point (sim point get-value)
     (let ((sample-mp (cl-mpm/particle:make-particle 2 :pos point)))
@@ -42,7 +42,7 @@
             (cl-mpm::iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp dsvp  &rest rest) 
-               (setf av (magicl.simd::.+-simd av (magicl:scale (,accessor node) svp)))))
+               (setf av (cl-mpm/fastmath::fast-.+ av (magicl:scale (,accessor node) svp)))))
             av))))
 
 (defun sample-line-mass (sim start end steps)
@@ -241,7 +241,7 @@
 ;;         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
 ;;         ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
 ;;         ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
-;;         (labels ((dot (a b) (magicl::sum (magicl.simd::.*-simd a b)))
+;;         (labels ((dot (a b) (magicl::sum (cl-mpm/fastmath::fast-.* a b)))
 ;;                  (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
 ;;                  (radial-stress (mp)
 ;;                    (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -460,9 +460,12 @@
         (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
         (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
 
-        (save-parameter "e_xx" (magicl:tref (cl-mpm/particle::mp-strain mp) 0 0))
-        (save-parameter "e_yy" (magicl:tref (cl-mpm/particle::mp-strain mp) 1 0))
-        (save-parameter "e_xy" (magicl:tref (cl-mpm/particle::mp-strain mp) 2 0))
+        (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-strain mp) 0 0))
+        (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
+        (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
+        (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
+        (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0))
+        (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))

@@ -74,7 +74,7 @@
                                                                      (* (nth 2 spacing) z))
                                                                '(3 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
-                               (position-vec (magicl.simd::.+-simd origin-vec
+                               (position-vec (cl-mpm/fastmath::fast-.+ origin-vec
                                                         (magicl:@ rot position-vec)))
                                )
                           (flet ((lisp-list (m) (loop for i from 0 to 2 collect (magicl:tref m i 0))))
@@ -173,7 +173,7 @@
     (lambda (pos)
       (let* ((position (cl-mpm/utils:vector-from-list (append
                                                        position '(0d0))))
-             (dist-vec (magicl.simd::.*-simd
+             (dist-vec (cl-mpm/fastmath::fast-.*
                         (magicl:.- position pos)
                         (magicl:from-list (list 1d0 aspect 1d0) '(3 1)
                                                                              :type 'double-float)))

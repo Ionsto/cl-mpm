@@ -10,7 +10,8 @@
    #:kirchoff-expt-step-lisp
    ))
 (in-package :cl-mpm/ext)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
 (pushnew (asdf:system-relative-pathname 'cl-mpm "./libs/")  *foreign-library-directories* :test #'equal)
@@ -33,7 +34,12 @@
                                (magicl:transpose v)
                                (magicl:transpose df))))
       (multiple-value-bind (lf vf)
-          (cl-mpm/utils::eig (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0))
+          ;; (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0)
+          (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
+                (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
+                (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1)
+                )
+          (cl-mpm/utils::eig trial-lgs )
         (aops:copy-into (magicl::matrix/double-float-storage strain)
                         (magicl::matrix/double-float-storage
                          (magicl:scale!

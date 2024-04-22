@@ -31,8 +31,9 @@
     #:calculate-adaptive-time
     #:iterate-over-mps
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 0)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -186,12 +187,11 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    (lparallel:pdotimes (i (length mps))
-        (setf (cl-mpm/particle::mp-single-particle (aref mps i))
-              ;; nil
-              (single-particle-criteria mesh (aref mps i))
-              )
-        )
+    (iterate-over-mps
+     mps
+     (lambda (mp)
+       (setf (cl-mpm/particle::mp-single-particle mp)
+             (single-particle-criteria mesh mp))))
       (remove-mps-func
        sim
        #'cl-mpm/particle::mp-single-particle))))
@@ -367,7 +367,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       mp
     ;;Simple if statement - we take the hit
     (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-        (iterate-over-neighbours-shape-gimp;bspline
+        (iterate-over-neighbours-shape-gimp-simd;bspline
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
            ;; (break)
@@ -396,8 +396,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              )
             nodes)
            (funcall func mesh mp node svp grads fsvp fgrads)
-           )))
-    ))
+           )))))
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
@@ -434,7 +433,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
-                     do (let* ((id (mapcar #'+ pos-index (list dx dy))))
+                     do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                    (node (cl-mpm/mesh:get-node mesh id))
@@ -443,7 +442,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                    (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
                                                   dist (nreverse weights))))
                               (when (< 0d0 weight)
-                                (funcall func mesh mp node weight grads nil nil))))))))))
+                                (funcall func mesh mp node weight (append grads (list 0d0)) 0d0 (list 0d0 0d0 0d0)))))))))))
 
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear-3d (mesh mp func)
@@ -618,7 +617,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 3) (safety 0) (debug 0))
+           (optimize (speed 0) (safety 3) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -759,7 +758,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 3) (safety 0) (debug 0))
+           (optimize (speed 0) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -833,7 +832,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 3) (safety 0) (debug 0))
+           (optimize (speed 0) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -993,7 +992,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         mp-thermal-conductivity
                                         mp-temp
                                         (magicl::sum
-                                         (magicl.simd::.*-simd dsvp dsvp)))))
+                                         (cl-mpm/fastmath::fast-.* dsvp dsvp)))))
                   (sb-thread:with-mutex (node-lock)
                     (setf node-temp
                           (+ node-temp weighted-temp))
@@ -1066,8 +1065,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun p2g (mesh mps)
   "Map particle momentum to the grid"
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (lparallel:pdotimes (i (length mps))
-    (p2g-mp mesh (aref mps i))))
+  (iterate-over-mps
+   mps
+   (lambda (mp)
+     (p2g-mp mesh mp))))
 
 (declaim (notinline p2g-force-mp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
@@ -1126,8 +1127,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun p2g-force (mesh mps)
   "Map particle forces to the grid"
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (lparallel:pdotimes (i (length mps))
-    (p2g-force-mp mesh (aref mps i))))
+  (iterate-over-mps
+   mps
+   (lambda (mp)
+     (p2g-force-mp mesh mp)))
+  ;; (lparallel:pdotimes (i (length mps))
+  ;;   (p2g-force-mp mesh (aref mps i)))
+  )
 
 (defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
@@ -1242,8 +1248,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun g2p (mesh mps dt)
   (declare (cl-mpm/mesh::mesh mesh) (array mps))
   "Map grid values to all particles"
-  (lparallel:pdotimes (i (length mps))
-    (g2p-mp mesh (aref mps i) dt)))
+  (iterate-over-mps
+   mps
+   (lambda (mp)
+     (g2p-mp mesh mp dt))))
 
 
 (defgeneric special-update-node (mesh dt node damping)
@@ -1345,9 +1353,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
-    (lparallel:pdotimes (i (array-total-size nodes))
+    (dotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
-        (funcall func node))))
+        (funcall func node)))
+    ;; (lparallel:pdotimes (i (array-total-size nodes))
+    ;;   (let ((node (row-major-aref nodes i)))
+    ;;     (funcall func node)))
+    )
   (values))
 
 (declaim (inline iterate-over-nodes-serial)
@@ -1374,8 +1386,10 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func)
            (type (array cl-mpm/particle:particle) mps))
-  (lparallel:pdotimes (i (length mps))
-                      (funcall func (aref mps i)))
+  (dotimes (i (length mps))
+    (funcall func (aref mps i)))
+  ;; (lparallel:pdotimes (i (length mps))
+  ;;                     (funcall func (aref mps i)))
   (values))
 ;; 
 ;; (defun iterate-over-mps-serial (mps func)
@@ -1426,7 +1440,7 @@ Calls func with only the node"
                    (nD     mesh-nD)
                    (mc     mesh-count)) mesh
                                         ;each bc is a list (pos value)
-    (lparallel:pdotimes (i (array-total-size bcs))
+    (dotimes (i (array-total-size bcs))
       (let ((bc (aref bcs i)))
         (with-accessors ((node cl-mpm/bc::bc-node)
                          (index cl-mpm/bc::bc-index))
@@ -1444,7 +1458,8 @@ Calls func with only the node"
 (defun calculate-strain-rate (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
+           ;(optimize (speed 0) (safety 0))
+           )
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
@@ -1492,8 +1507,7 @@ Calls func with only the node"
                    ;;  stretch-tensor-fbar
                    ;;  temp-add
                    ;;  stretch-tensor-fbar)
-                   ))))
-            )
+                   )))))
 
             (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
@@ -1561,14 +1575,14 @@ Calls func with only the node"
           (setf def (magicl:@ df def))
           (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
                 )
-            (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-                            (magicl::matrix/double-float-storage strain))
+            ;; (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
+            ;;                 (magicl::matrix/double-float-storage strain))
             ;;This can may be in lisp or accelerated
-            (when (> (abs (magicl:tref strain 4 0)) 0d0)
-              (error "Nonzero out of plane strain with ~A" strain))
+            ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
+            ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
             (cl-mpm/ext:kirchoff-update strain df)
-            (when (> (abs (magicl:tref strain 4 0)) 0d0)
-              (error "Nonzero out of plane strain with ~A" strain))
+            ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
+            ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
             ;;Not sure about this engineering strain calculation
             (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
@@ -1586,7 +1600,7 @@ Calls func with only the node"
           ;;Stretch rate update
             ;; (update-domain-corner mesh mp dt)
             ;; (update-domain-midpoint mesh mp dt)
-          (update-domain-stretch-rate df domain)
+          ;; (update-domain-stretch-rate df domain)
 
           )
           )))
@@ -1617,9 +1631,13 @@ Calls func with only the node"
           (let ((def-n (cl-mpm/utils::matrix-zeros)))
             (magicl:mult df def :target def-n)
             (cl-mpm/utils::matrix-copy-into def-n def))
-          (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-                          (magicl::matrix/double-float-storage strain))
+          ;; (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
+          ;;                 (magicl::matrix/double-float-storage strain))
+          ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
+          ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
           (cl-mpm/ext:kirchoff-update strain df)
+          ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
+          ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
           (magicl:.- eng-strain-rate strain eng-strain-rate)
           (magicl:scale! eng-strain-rate (/ 1d0 dt))
           ;;Post multiply to turn to eng strain
@@ -1675,8 +1693,8 @@ Calls func with only the node"
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                               0d0 1d0 0d0
                                               0d0 0d0 1d0)))
-        (degredation (- 1d0 (* damage-domain-rate damage)))
-        )
+        (degredation (- 1d0 (* damage-domain-rate damage))))
+
     (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
     ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
@@ -1973,7 +1991,8 @@ Calls func with only the node"
       (calculate-strain-rate mesh mp dt)
 
       ;; Turn cauchy stress to kirchoff
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+      (setf stress stress-kirchoff)
       ;; (setf stress stress-kirchoff)
 
       ;; Update our strains
@@ -1981,15 +2000,16 @@ Calls func with only the node"
 
       ;; Update our kirchoff stress with constitutive model
       ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+      ;; (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+      (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
 
       ;; Check volume constraint!
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
-      ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+      ;; (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
       )
     )
   )
@@ -2163,33 +2183,61 @@ Calls func with only the node"
   ;;     (let ((mp (aref mps i)))
   ;;       (calculate-strain-rate mesh mp dt)
   ;;       (map-jacobian mesh mp dt))))
-  (lparallel:pdotimes (i (length mps))
-    (update-stress-mp mesh (aref mps i) dt fbar)
-    (post-stress-step mesh (aref mps i) dt)
-    )
+
+  (iterate-over-mps
+   mps
+   (lambda (mp)
+     (update-stress-mp mesh mp dt fbar)
+     (post-stress-step mesh mp dt)))
+
+  ;; (lparallel:pdotimes (i (length mps))
+  ;;   (update-stress-mp mesh (aref mps i) dt fbar)
+  ;;   (post-stress-step mesh (aref mps i) dt)
+  ;;   )
+  ;; (dotimes (i (length mps))
+  ;;   (update-stress-mp mesh (aref mps i) dt fbar)
+  ;;   (post-stress-step mesh (aref mps i) dt)
+  ;;   )
   (values))
 
 (declaim (notinline reset-grid))
 (defun reset-grid (mesh)
   "Reset all nodes on the grid"
   (declare (cl-mpm/mesh::mesh mesh))
-  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-    (lparallel:pdotimes (i (array-total-size nodes))
-      (let ((node (row-major-aref nodes i)))
-        (when (cl-mpm/mesh:node-active node)
-          (cl-mpm/mesh:reset-node node))))))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (cl-mpm/mesh:node-active node)
+       (cl-mpm/mesh:reset-node node))))
+
+  ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+  ;;   (lparallel:pdotimes (i (array-total-size nodes))
+  ;;     (let ((node (row-major-aref nodes i)))
+  ;;       (when (cl-mpm/mesh:node-active node)
+  ;;         (cl-mpm/mesh:reset-node node)))))
+  )
 
 (defun filter-grid (mesh mass-thresh)
   "Filter out nodes with very small massess"
   (declare (cl-mpm/mesh::mesh mesh) (double-float mass-thresh))
-  (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-    (lparallel:pdotimes (i (array-total-size nodes))
-      (let ((node (row-major-aref nodes i)))
-        (when (and (cl-mpm/mesh:node-active node)
-                   (< (cl-mpm/mesh:node-mass node) mass-thresh))
-          (setf (cl-mpm/mesh::node-active node) nil)
-          (cl-mpm/mesh:reset-node node)
-          )))))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (and (cl-mpm/mesh:node-active node)
+                (< (cl-mpm/mesh:node-mass node) mass-thresh))
+       (setf (cl-mpm/mesh::node-active node) nil)
+       (cl-mpm/mesh:reset-node node)
+       )))
+
+  ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+  ;;   (lparallel:pdotimes (i (array-total-size nodes))
+  ;;     (let ((node (row-major-aref nodes i)))
+  ;;       (when (and (cl-mpm/mesh:node-active node)
+  ;;                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
+  ;;         (setf (cl-mpm/mesh::node-active node) nil)
+  ;;         (cl-mpm/mesh:reset-node node)
+  ;;         ))))
+  )
 (defun filter-grid-volume (mesh volume-ratio)
   (declare (cl-mpm/mesh::mesh mesh) (double-float volume-ratio))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
@@ -2368,9 +2416,9 @@ Calls func with only the node"
       (setf (tref new-size ,dimension 0) 0.5d0)
       (setf (tref new-size-0 ,dimension 0) 0.5d0)
       (setf (tref pos-offset ,dimension 0) 0.25d0)
-      (magicl.simd::.*-simd lens new-size new-size)
-      (magicl.simd::.*-simd lens-0 new-size-0 new-size-0)
-      (magicl.simd::.*-simd lens pos-offset pos-offset)
+      (cl-mpm/fastmath::fast-.* lens new-size new-size)
+      (cl-mpm/fastmath::fast-.* lens-0 new-size-0 new-size-0)
+      (cl-mpm/fastmath::fast-.* lens pos-offset pos-offset)
       (list
        (copy-particle mp
                       :mass (/ mass 2)
@@ -2496,3 +2544,5 @@ This modifies the dt of the simulation in the process
 
 
 
+
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
