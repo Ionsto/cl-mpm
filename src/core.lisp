@@ -1953,6 +1953,7 @@ Calls func with only the node"
         (loop for v across (cl-mpm/utils::fast-storage strain)
               do (when (sb-ext::float-nan-p v)
                    (error "PRE NaN strain found ~A" mp)))
+        ;; (pprint stretch-tensor)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
         (loop for v across (cl-mpm/utils::fast-storage strain)

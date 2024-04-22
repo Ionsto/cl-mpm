@@ -45,7 +45,7 @@ extern "C" {
     auto l = trialeigensolver.eigenvalues();
     auto v = trialeigensolver.eigenvectors();
     //Nasty hack we may get very small negative eigenvalues - so we take max of 0
-    strain = (matrix_to_voigt(v * l.array().max(0.0).log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
+    strain = (matrix_to_voigt(v * l.array().max(1e-10).log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
     //No clue if this works
     return true;
   }

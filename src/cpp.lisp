@@ -10,7 +10,7 @@
    #:kirchoff-expt-step-lisp
    ))
 (in-package :cl-mpm/ext)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
@@ -106,6 +106,7 @@
         (df-ptr :pointer))
       (defcfun "test" :void
         (flags :pointer))
+      (format t "~&Using accelerated kirchoff update~%")
       (defun kirchoff-expt-step (strain-matrix df-matrix)
         (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage strain-matrix))
                                                 (dfp (magicl::matrix/double-float-storage df-matrix)))
