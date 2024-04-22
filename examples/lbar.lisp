@@ -3,10 +3,10 @@
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/lbar)
 
 (ql:quickload :magicl)
@@ -420,7 +420,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.025 0.5d0))
+  (let* ((mesh-size (/ 0.025 1.0d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
@@ -879,3 +879,19 @@
     (* (/ (* 2d0 E) ft)
        (+ (/ Gf (* k R ft))
           (/ ft (* 2 E))))))
+
+;; (cl-mpm::iterate-over-nodes-serial
+;;  (cl-mpm:sim-mesh *sim*)
+;;  (lambda (n)
+;;    (when (cl-mpm/mesh:node-active n)
+;;      ;; (pprint (cl-mpm/mesh::node-velocity n))
+;;      (pprint (cl-mpm/mesh::node-velocity n))
+;;      (pprint (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n)))
+;;      ;; (format t "~a~%" )
+;;      ))
+;;  )
+
+
+(pprint (nth-value 2 (magicl:svd (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
+                                                                     0d0 2d0 0d0
+                                                                     0d0 0d0 3d0)))))

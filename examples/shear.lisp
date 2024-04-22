@@ -3,11 +3,11 @@
 (sb-ext:restrict-compiler-policy 'speed  0 0)
 (sb-ext:restrict-compiler-policy 'debug  3 3)
 (sb-ext:restrict-compiler-policy 'safety 3 3)
-(setf *block-compile-default* nil)
+;; (setf *block-compile-default* nil)
 
 ;; (pushnew :cl-mpm-pic *features*)
 ;; (setf *features* (delete :cl-mpm-pic *features*))
-(asdf:compile-system :cl-mpm :force T)
+;; (asdf:compile-system :cl-mpm :force T)
 (in-package :cl-mpm/examples/shear)
 (declaim (optimize (debug 2) (safety 2) (speed 2)))
 
@@ -26,7 +26,7 @@
          )
     h-initial))
 (defun max-stress (mp)
-  (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+  (multiple-value-bind (l v) (cl-mpm/utils:eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
     ;; (apply #'max l)
     (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
     ))
@@ -142,7 +142,7 @@
 (defun setup-test-column (size block-size block-offset &optional (e-scale 1d0) (mp-scale 1d0) (particle-type 'cl-mpm/particle::particle-elastic))
   (let* ((sim (cl-mpm/setup::make-block (/ 1 e-scale)
                                         (mapcar (lambda (s) (* s e-scale)) size)
-                                        #'cl-mpm/shape-function:make-shape-function-linear))
+                                        ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          ;(e-scale 1)
          (h-x (/ h 1d0))
@@ -157,14 +157,14 @@
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-block-mps
                ;; block-position
-               '(0 0)
+               block-offset
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                ;; 'cl-mpm::make-particle
                particle-type
                :E 1d4
-               :nu 0.3d0
+               :nu 0.0d0
                :gravity -0.0d0
                )))
       (setf (cl-mpm:sim-damping-factor sim) 0.00d0)
@@ -178,10 +178,12 @@
       (format t "DT ~f~%" (cl-mpm:sim-dt sim))
       (setf (cl-mpm:sim-bcs sim)
             (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
-                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil nil)))
+                                            (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil nil)))
                                            ))
       (with-accessors ((mps cl-mpm:sim-mps))
           sim
@@ -221,7 +223,7 @@
               (map 'list #'identity (cl-mpm:sim-bcs sim))
               (list
                (cl-mpm/bc::make-bc-closure
-                '(0 0)
+                '(0 0 0)
                 (lambda ()
                   (apply-simple-shear
                    sim
@@ -234,9 +236,13 @@
 ;Setup
 (defun setup ()
   (declare (optimize (speed 0)))
-  (let ((mesh-size 4.0)
-        (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column (list (* 8 10) 8) '(8 8) '(0 0) (/ 1 mesh-size) mps-per-cell)))
+  (let* ((mesh-size 4.0)
+        (mps-per-cell 2)
+        (size 8)
+        (shear-aspect 4)
+        (shear-size (* shear-aspect size))
+        )
+    (defparameter *sim* (setup-test-column (list shear-size size shear-size) (list size size size) (list 0 0 0) (/ 1 mesh-size) mps-per-cell)))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
@@ -293,12 +299,9 @@
                                    )
                       node
                     (when active
-                      (setf (magicl:tref vel 0 0)
-                            (* shear-rate
-                               (magicl:tref pos 1 0)
-                               )
-                            (magicl:tref vel 1 0)
-                            0d0
+                      (setf (magicl:tref vel 2 0) (* shear-rate (magicl:tref pos 1 0))
+                            (magicl:tref vel 1 0) 0d0
+                            (magicl:tref vel 0 0) 0d0
                             )
                       ;; (setf (magicl:tref acc 0 0) 0d0
                       ;;       (magicl:tref acc 1 0) 0d0
@@ -341,7 +344,7 @@
                               *sim*)
       (incf *sim-step*)
       (format t "Substeps for ~a~%" sub-steps)
-      (time (loop for steps from 0 below 60
+      (time (loop for steps from 0 below 10
                   while *run-sim*
                   do
                      (progn
@@ -362,7 +365,7 @@
                          (push
                           (/
                            (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+                                 sum (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
                            (length mps))
                           *s-xx*)
                          (push
@@ -373,8 +376,11 @@
                           *s-yy*)
                          (push
                           (/
+                           ;; (loop for mp across mps
+                           ;;       sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
                            (loop for mp across mps
-                                 sum (magicl:tref (cl-mpm/particle::mp-stress mp) 5 0))
+                                 sum (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :yz))
+                           ;(magicl:tref (cl-mpm/particle::mp-stress mp) 5 0)
                            (length mps))
                           *s-xy*)
                          )
@@ -399,7 +405,7 @@
       ;; (vgplot:figure)
       ;; (vgplot:title "Velocity over time")
       ;; (vgplot:plot *time* *velocity*)
-      (plot-energy)
+      ;; (plot-energy)
       (plot-stress)
       ))
 
@@ -407,7 +413,9 @@
   (let* ((E 1d4)
          (shear (mapcar (lambda (x) (* x *shear-rate*)) *time*))
          ;; (sxy-an (shear-stress-analytic E 0.3 shear))
-         (analytic (stress-analytic E 0.3 shear))
+         (nu (cl-mpm/particle::mp-nu (aref (cl-mpm:sim-mps *sim*) 0)))
+         (analytic (stress-analytic E nu shear))
+
          )
     (vgplot:figure)
     (vgplot:title "Stress - xx")
@@ -607,3 +615,21 @@
   )
 
 (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
+
+(defun test-stretch ()
+  (let ((stretch-dsvp (cl-mpm/utils::stretch-dsvp-3d-zeros))
+        (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+        (temp-add (cl-mpm/utils::matrix-zeros))
+        (stretch-tensor (cl-mpm/utils::matrix-zeros))
+        (grads (list 1d0 2d0 3d0))
+        (node-vel (cl-mpm/utils:vector-from-list (list 0d0 0d0 -1d0)))
+        )
+    (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
+    (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
+    (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+    ;; (cl-mpm/fastmath::fast-.+-matrix
+    ;;  stretch-tensor
+    ;;  temp-add
+    ;;  stretch-tensor)
+    (pprint temp-add))
+  )

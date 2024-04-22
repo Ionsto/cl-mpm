@@ -1,10 +1,13 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 (ql:quickload "vgplot")
 
@@ -67,51 +70,63 @@
   (vgplot:replot))
 
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-block (/ 1d0 e-scale)
-                                        (list (* 1 (first size)) (* e-scale (second size))))) 
-         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-         (h-x (/ h 1d0))
-         (h-y (/ h 1d0))
-         (density 80)
-         (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
-         ;(block-size (list (* (first size) h-x) (second block-size)))
-         (block-size (list (* 1d0 h-x) (second block-size)))
-         )
-    (progn
-      (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
-                                  (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
-        ;; (print block-position)
-        (setf (cl-mpm:sim-mps sim)
-              (cl-mpm/setup::make-block-mps
-               ;; block-position
-               '(0 0)
-               block-size
-               (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-               ;(list 1 (* e-scale mp-scale (second block-size)))
-               density
-               'cl-mpm/particle::particle-elastic
-               :E 1d5
-               :nu 0.0d0
-               :gravity -10.0d0
-               )))
+  (let ((nd (length block-size)))
+    (let* ((sim (cl-mpm/setup::make-block (/ 1d0 e-scale)
+                                          (if (= nd 2)
+                                              (list
+                                               (* 1 (first size))
+                                               (* e-scale (second size))
+                                               )
+                                              (list
+                                               (* 1 (first size))
+                                               (* e-scale (second size))
+                                               (* 1 (nth 2 size))
+                                               ))))
+           (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+           (h-x (/ h 1d0))
+           (h-y (/ h 1d0))
+           (density 80)
+           (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
+                                        ;(block-size (list (* (first size) h-x) (second block-size)))
+           (block-size
+             (if (= nd 2)
+                 (list (* 1d0 h-x)
+                       (second block-size))
+                 (list (* 1d0 h-x)
+                       (second block-size)
+                       (* 1d0 h-x)))))
+      (progn
+        (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
+                                    (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
+          ;; (print block-position)
+          (setf (cl-mpm:sim-mps sim)
+                (cl-mpm/setup::make-block-mps
+                 ;; block-position
+                 (list 0 0 0)
+                 block-size
+                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                                        ;(list 1 (* e-scale mp-scale (second block-size)))
+                 density
+                 'cl-mpm/particle::particle-elastic
+                 :E 1d5
+                 :nu 0.1d0
+                 :gravity -10.0d0
+                 )))
 
-      ;; (loop for mp across (cl-mpm::sim-mps sim)
-      ;;       do (setf (cl-mpm/particle::mp-gravity mp) -10.0d0))
-      (setf (cl-mpm:sim-damping-factor sim) 1d0)
-      (setf (cl-mpm:sim-mass-filter sim) 1d-15)
-      (setf (cl-mpm:sim-dt sim) 1d-2)
-      ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc-nostick (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
-      ;; (setf (cl-mpm:sim-bcs sim) '())
-      ;; (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim))))
-      (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil)))
-                                           (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0)))
-                                           ))
-      sim)))
-(setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+        (setf (cl-mpm:sim-damping-factor sim) 1d0)
+        (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+        (setf (cl-mpm:sim-dt sim) 1d-2)
+        (setf (cl-mpm:sim-bcs sim)
+              (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
+                                              ))
+        sim))))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
 (defun simple-time ()
   (setup)
   (time
@@ -120,20 +135,22 @@
 ;Setup
 (defun setup ()
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
-  (let* ((e (expt 2 4))
-        (L 50d0)
-        (h (/ L e)))
-    (defparameter *sim* (setup-test-column (list 1 (+ L h))
-                                           (list h L)
-                                           ;(list 0d0 0d0)
-                                           ;(list (* 1 h) (* 4 h))
-                                           (/ 1d0 h) 2)))
+  (let* ((e (expt 2 3))
+         (L 50d0)
+         (h (/ L e)))
+    (defparameter
+        *sim*
+      (setup-test-column (list 1 (+ L h) 1)
+                         (list h L h)
+                         (/ 1d0 h) 2)))
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
   (defparameter *sim-step* 0)
   (defparameter *run-sim* nil)
   (defparameter *run-sim* t)
+
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
   ;; (defparameter *load-mps-top*
   ;;   (let* ((mps (cl-mpm:sim-mps *sim*))
   ;;          (least-pos
@@ -234,6 +251,8 @@
                        (setf substeps substeps-e))
                      (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                              *sim*)
+
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (incf *sim-step*)
                      (plot *sim*)
                      (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))

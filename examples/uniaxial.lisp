@@ -47,15 +47,15 @@
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+          ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
           ;;            (angle )
           ;(setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
           ;; (setf damage-increment (criterion-dp strain (* angle (/ pi 180d0)) E nu))
           ;; (setf damage-increment (cl-mpm/damage::smooth-rankine-criterion (magicl:scale stress (/ 1d0 (magicl:det def)))))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::drucker-prager-criterion
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::drucker-prager-criterion
+                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
           )
         (when (>= damage 1d0)
           (setf damage-increment 0d0))
@@ -280,7 +280,7 @@
                    :critical-damage 1d0;(- 1.0d0 1d-2)
                    :damage-domain-rate 1.0d0;This slider changes how GIMP update turns to uGIMP under damage
 
-                   :local-length (/ 0.01d0 2d0);(* 0.20d0 (sqrt 7))
+                   :local-length (/ 0.01d0 1d0);(* 0.20d0 (sqrt 7))
                    :local-length-damaged 10d-10
 
                    :psi (* 00d0 (/ pi 180))
@@ -493,7 +493,7 @@
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
-  (let* ((mesh-size (/ 0.010 2.0))
+  (let* ((mesh-size (/ 0.010 1.0))
          (mps-per-cell 2)
          (shelf-height 0.170d0)
          (shelf-length 0.080d0)
@@ -518,19 +518,19 @@
             mesh-size
                      ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
-      (cl-mpm/setup::remove-sdf
-       *sim*
-       (cl-mpm/setup::circle-sdf
-        (list
-         (+ (first offset) (* 0.5d0 shelf-length))
-         (+ (second offset) (* 0.5d0 shelf-height))
-              )
-        ;; (list
-        ;;  10d-3
-        ;;  10d-3
-        ;;  )
-        5d-3
-        ))
+      ;; (cl-mpm/setup::remove-sdf
+      ;;  *sim*
+      ;;  (cl-mpm/setup::circle-sdf
+      ;;   (list
+      ;;    (+ (first offset) (* 0.5d0 shelf-length))
+      ;;    (+ (second offset) (* 0.5d0 shelf-height))
+      ;;         )
+      ;;   ;; (list
+      ;;   ;;  10d-3
+      ;;   ;;  10d-3
+      ;;   ;;  )
+      ;;   5d-3
+      ;;   ))
       ;; (let* ((width 0.010d0)
       ;;       (length 0.100d0)
       ;;       (angle (* 30d0 (/ pi 180)))

@@ -197,7 +197,7 @@
                    (mapcar (lambda (e) (round (* e mp-scale) h-x)) block-size)
                    density
                    ;; 'cl-mpm/particle::particle-concrete
-                   'cl-mpm/particle::particle-limestone
+                   'cl-mpm/particle::particle-limestone-delayed
                    ;; :E 15.3d9
                    :E 18d9
                    :nu 0.15d0
@@ -215,6 +215,7 @@
                    ;; :ductility 3.0d0
                    ;:ductility 5.0d0
                    ;; :ductility 2.0d0
+                   :delay-time 0.1d0
 
                    :critical-damage 1.000d0
                    :enable-plasticity nil
@@ -705,22 +706,20 @@
   (defparameter *data-full-load* '(0d0))
   (defparameter *data-y* '(0d0))
   (defparameter *data-ybar* '(0d0))
-  (loop for mp across (cl-mpm:sim-mps *sim*)
-        do (change-class mp 'cl-mpm/particle::particle-limestone))
 
-  (let ((ms 1d4))
+  (let ((ms 1d6))
     (setf (cl-mpm::sim-mass-scale *sim*) ms)
-    (setf (cl-mpm::sim-damping-factor *sim*) (* ms 5d0)))
+    (setf (cl-mpm::sim-damping-factor *sim*) (* ms 0.001d0)))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 10.0d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (disp-step -0.002d-3
-                    )
+         (load-steps 20)
+         (disp-step (/ -0.2d-3 load-steps))
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -734,7 +733,7 @@
     (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
     ;; (incf *target-displacement* disp-step)
-    (time (loop for steps from 0 to 20
+    (time (loop for steps from 0 to load-steps
                 while *run-sim*
                 do
                    (progn
@@ -751,56 +750,53 @@
                            (average-reaction 0d0))
                        (time
                         (dotimes (i substeps);)
-                          (unless *data-averaged*
-                            (push
-                             ;; (- *t*)
-                             (get-disp *terminus-mps*)
-                             *data-displacement*)
+                          ;; (unless *data-averaged*
+                          ;;   (push
+                          ;;    ;; (- *t*)
+                          ;;    (get-disp *terminus-mps*)
+                          ;;    *data-displacement*)
 
-                            (push
-                             (get-reaction-force *fixed-nodes*)
-                             *data-load*)
+                          ;;   (push
+                          ;;    (get-reaction-force *fixed-nodes*)
+                          ;;    *data-load*)
 
-                            (push
-                             ;; (get-force-mps *sim* *terminus-mps*)
-                             (/ cl-mpm/penalty::*debug-force*
-                                0.5d0
-                                ;; (max 1 cl-mpm/penalty::*debug-force-count*)
-                                )
-                             *data-mp-load*)
-                            (push
-                             *t*
-                             *data-time*))
-                          (push
-                           (get-reaction-force *fixed-nodes*)
-                           *data-full-load*)
+                          ;;   (push
+                          ;;    ;; (get-force-mps *sim* *terminus-mps*)
+                          ;;    (/ cl-mpm/penalty::*debug-force*
+                          ;;       0.5d0
+                          ;;       ;; (max 1 cl-mpm/penalty::*debug-force-count*)
+                          ;;       )
+                          ;;    *data-mp-load*)
+                          ;;   (push
+                          ;;    *t*
+                          ;;    *data-time*))
+                          ;; (push
+                          ;;  (get-reaction-force *fixed-nodes*)
+                          ;;  *data-full-load*)
                           (push
                            *t*
                            *data-full-time*)
 
-                          ;; (incf average-force (/ (get-force-mps *sim* *terminus-mps*) substeps))
-                          ;; (incf average-force (/ cl-mpm/penalty::*debug-force* substeps))
-                          (incf average-force (/
-                                               (/ cl-mpm/penalty::*debug-force*
-                                                  0.5d0
-                                                  ;; (max 1 cl-mpm/penalty::*debug-force-count*)
-                                                  )
-                                               substeps
-                                               ))
-                          (incf average-reaction
-                                (/ (get-reaction-force *fixed-nodes*) substeps)
-                                )
-                          (incf average-disp
-                                (/ (get-disp *terminus-mps*) substeps)
-                                )
-                          (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
+                          ;; (incf average-force (/
+                          ;;                      (/ cl-mpm/penalty::*debug-force*
+                          ;;                         0.5d0
+                          ;;                         )
+                          ;;                      substeps
+                          ;;                      ))
+                          ;; (incf average-reaction
+                          ;;       (/ (get-reaction-force *fixed-nodes*) substeps)
+                          ;;       )
+                          ;; (incf average-disp
+                          ;;       (/ (get-disp *terminus-mps*) substeps)
+                          ;;       )
+                          ;; (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
                           (setf cl-mpm/penalty::*debug-force* 0d0)
                           (setf cl-mpm/penalty::*debug-force-count* 0d0)
 
-                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
-                          (setf cl-mpm/damage::*delocal-counter-max* 0)
-                          (when (= i (- substeps 1))
-                            (setf (cl-mpm::sim-enable-damage *sim*) t))
+                          ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                          ;; (setf cl-mpm/damage::*delocal-counter-max* 0)
+                          ;; (when (= i (- substeps 1))
+                          ;;   (setf (cl-mpm::sim-enable-damage *sim*) t))
                           (cl-mpm::update-sim *sim*)
                           ;; (incf *target-displacement* (* dt *tip-velocity*))
                           ;; (push
@@ -808,10 +804,15 @@
                           ;;  *data-load*)
                           ;; (incf *target-displacement* (/ -0.01d-3 substeps))
                           ;; (incf *target-displacement* (/ -0.001d-3 substeps))
-                          ;; (incf *target-displacement* (/ disp-step substeps))
+                          (incf *target-displacement* (/ disp-step substeps))
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
                        ;; (incf *target-displacement* -0.01d-3)
+
+                       (setf average-disp (get-disp *terminus-mps*))
+                       (setf average-force (* cl-mpm/penalty::*debug-force* 2.0d0))
+                       (setf average-reaction (* (get-reaction-force *fixed-nodes*) 2d0))
+
                        (push
                         average-disp
                         *data-displacement*)
@@ -934,13 +935,15 @@
   (defparameter *data-y* '(0d0))
   (defparameter *data-ybar* '(0d0))
 
+  (loop for mp across (cl-mpm:sim-mps *sim*)
+        do (change-class mp 'cl-mpm/particle::particle-limestone))
+
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
   (let* ((dt (cl-mpm:sim-dt *sim*))
          (load-steps 20)
-         (disp-step (/ -0.2d-3 load-steps)
-                    )
+         (disp-step (/ -0.2d-3 load-steps))
          )
 
     (setf cl-mpm/penalty::*debug-force* 0d0)

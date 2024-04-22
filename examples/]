@@ -1,42 +1,28 @@
 (defpackage :cl-mpm/examples/joss
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-
 (setf *block-compile-default* t)
-
 (in-package :cl-mpm/examples/joss)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-
-(defun full-recompile ()
-  (asdf:compile-system :cl-mpm/utils :force t)
-  (asdf:compile-system :cl-mpm/fastmath :force t)
-  (asdf:compile-system :cl-mpm/forces :force t)
-  (asdf:compile-system :cl-mpm/constitutive :force t)
-  (asdf:compile-system :cl-mpm/mesh :force t)
-  (asdf:compile-system :cl-mpm/particle :force t)
-  (asdf:compile-system :cl-mpm/bc :force t)
-  (asdf:compile-system :cl-mpm :force t)
-  (ql:quickload :cl-mpm/examples/joss)
-  )
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
   ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   local-length
   )
+;; (defmethod print-object ((object magicl:matrix) stream)
+;;   (pprint object stream))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
+  ;; (incf (cl-mpm/particle::mp-c mp) 1d-3)
+  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   )
-
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -81,6 +67,56 @@
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
 
+;; (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
+;;   (let ((damage-increment 0d0))
+;;     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+;;                      (strain cl-mpm/particle::mp-strain)
+;;                      (damage cl-mpm/particle:mp-damage)
+;;                      (init-stress cl-mpm/particle::mp-initiation-stress)
+;;                      (critical-damage cl-mpm/particle::mp-critical-damage)
+;;                      (damage-rate cl-mpm/particle::mp-damage-rate)
+;;                      (pressure cl-mpm/particle::mp-pressure)
+;;                      (ybar cl-mpm/particle::mp-damage-ybar)
+;;                      (def cl-mpm/particle::mp-deformation-gradient)
+;;                      (angle cl-mpm/particle::mp-friction-angle)
+;;                      (c cl-mpm/particle::mp-coheasion)
+;;                      (nu cl-mpm/particle::mp-nu)
+;;                      (ft cl-mpm/particle::mp-ft)
+;;                      (fc cl-mpm/particle::mp-fc)
+;;                      (E cl-mpm/particle::mp-e)
+;;                      (de cl-mpm/particle::mp-elastic-matrix)
+;;                      ) mp
+;;       (declare (double-float pressure damage))
+;;         (progn
+;;           (when (< damage 1d0)
+;;             (let* ((strain+
+;;                      (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+;;                        (loop for i from 0 to 2
+;;                              do
+;;                                 (setf (nth i l) (max (nth i l) 0d0)))
+;;                        (cl-mpm/utils:matrix-to-voigt (magicl:@ v
+;;                                                                (magicl:from-diag l :type 'double-float)
+;;                                                                (magicl:transpose v)))))
+;;                    (strain- (magicl:.- strain strain+))
+;;                    (k (/ fc ft))
+;;                    (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+;;                    (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-)))))))
+
+;;               (setf damage-increment
+;;                     (if (= *sim-value* 0)
+;;                         e+
+;;                         (/
+;;                           (+ (* k e+) e-)
+;;                           (+ k 1d0)
+;;                           ))
+;;                     ))
+
+;;             )
+;;           (when (>= damage 1d0)
+;;             (setf damage-increment 0d0))
+;;           ;;Delocalisation switch
+;;           (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+;;           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)))))
 
 
 (declaim (notinline plot))
@@ -88,10 +124,9 @@
   ;; (plot-collapse-curves)
   (cl-mpm/plotter:simple-plot
    *sim*
-   :plot :point
-   ;; :plot :deformed
+   :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   ;; :colour-func #'cl-mpm/particle::mp-damage
+   :colour-func #'cl-mpm/particle::mp-damage
    ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-yield-func mp))
    ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
@@ -109,7 +144,6 @@
   ((weathering-rate
     :initform 1d0
     )))
-
 (declaim (notinline make-bc-weathering))
 (defun make-bc-weathering (sim datum)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -120,8 +154,12 @@
                      :index '(0 0 0)
                      :sim sim
                      :scalar-func (lambda (pos)
-                                    1d0)))))
-
+                                    1d0
+                                    ;; (+ 1.0d0
+                                    ;;    (* 1d0 (exp (- (expt (- 3.5d0 (magicl:tref pos 1 0)) 2))))
+                                    ;;    )
+                                    )
+                     ))))
 (defmethod cl-mpm/bc::apply-bc ((bc bc-weathering) node mesh dt)
   (call-next-method)
   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
@@ -152,8 +190,8 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type
-               'cl-mpm::mpm-sim-usf
-               ;; 'cl-mpm/damage::mpm-sim-damage
+               ;; 'cl-mpm::mpm-sim-usf
+               'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -163,8 +201,8 @@
     (declare (double-float h density))
     (progn
       (let* ((length-scale 1.0d0)
-            (init-stress 40d3)
-            (gf 50d0)
+            (init-stress 60d3)
+            (gf 10d0)
             (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9)))
         (format t "Estimated ductility ~E~%" ductility)
         (setf (cl-mpm:sim-mps sim)
@@ -198,9 +236,9 @@
                 :fracture-energy 3000d0
                 :initiation-stress init-stress;18d3
                 :delay-time 1d0
-                :delay-exponent 3d0
+                :delay-exponent 2d0
                 ;:ductility 6.7d0
-                :ductility ductility
+                :ductility 5d0;ductility
                 ;; :ductility 6.7d0
 
                 :critical-damage 1d0;(- 1.0d0 1d-3)
@@ -298,7 +336,7 @@
         (cl-mpm/penalty::make-bc-penalty-point-normal
          sim
          (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-         (cl-mpm/utils:vector-from-list (list 0d0 (+ h-y) 0d0))
+         (cl-mpm/utils:vector-from-list (list 00d0 (+ h-y) 0d0))
          (* density 1d5)
          0.9d0
          ;; 1d1
@@ -548,7 +586,7 @@
                                *t*
                                last-e
                                ))
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((energy-estimate 0d0)
                            (oobf 0d0)
                            (total-energy 0d0)
@@ -726,7 +764,7 @@
 
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:title (format nil "Time:~F - KE ~E - SE ~E - dD ~E - dP ~E - MS-ratio ~E"  *t* *total-energy* *total-strain-energy* *damage-inc* *plastic-inc* 0d0))
+                     (vgplot:title (format nil "Time:~F - KE ~E - SE ~E - dD ~E - dP ~E - MS-ratio ~E"  *t* *total-energy* *total-strain-energy* *damage-inc* *plastic-inc* *ms-e-ratio*))
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                         :terminal "png size 1920,1080"
                                         )
@@ -752,17 +790,17 @@
 
 (defun test ()
   (setup)
-  (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM")
   ;; ;; (sb-profile:profile "CL-MPM/PARTICLE")
   ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
   ;; ;; (sb-profile:profile "CL-MPM/MESH")
   ;; ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  (sb-profile:reset)
+  ;; (sb-profile:reset)
   ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
   (time
-   (dotimes (i 100)
+   (dotimes (i 50)
          (cl-mpm::update-sim *sim*)))
-  (sb-profile:report)
+  ;; (sb-profile:report)
   )
 ;; (defun test-undercut ()
 ;;   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output_chalk/mesh.vtk")
@@ -1114,8 +1152,7 @@
     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
            (measured-angle 78d0)
            (undercut-angle ;(- 82.5d0 90d0)
-             ;; (- measured-angle 90d0)
-             0d0
+             (- measured-angle 90d0)
                            )
            ;; (undercut-angle 0d0)
            (normal (magicl:from-list (list
@@ -1171,7 +1208,7 @@
                                      ))
           )))
 
-    (let* ((notched-depth 0.0d0)
+    (let* ((notched-depth 1.0d0)
            (undercut-angle 45d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
@@ -1257,34 +1294,28 @@
 
 
 (defun setup-3d ()
-  (let* ((mesh-size 1)
-         (mps-per-cell 2)
+  (let* ((mesh-size 0.5)
+         (mps-per-cell 4)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 1.0)
-         (runout-aspect 1.0)
+         (shelf-aspect 0.25)
+         (runout-aspect 0.5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
          (shelf-height (+ shelf-height soil-boundary))
-         (depth-aspect 1.0d0)
-         (depth 10d0
-           ;(* depth-aspect shelf-height)
-           )
+         (depth (* 30d0))
          (offset (list 0 (* 0 mesh-size)
                        0
                        ))
          )
-    (setf cl-mpm/damage::*enable-reflect-z* t)
     (defparameter *sim*
       (setup-test-column (list domain-length
                                (+ shelf-height (* 5 mesh-size))
                                depth
-                               ;; mesh-size
                                )
                          (list domain-length shelf-height
                                depth
-                               ;; mesh-size
                                )
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
@@ -1322,10 +1353,10 @@
           do (setf (cl-mpm/particle::mp-split-depth mp) 0))
 
     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
-           (measured-angle 78d0)
+           (measured-angle 60d0)
            (undercut-angle ;(- 82.5d0 90d0)
              (- measured-angle 90d0)
-             )
+                           )
            ;; (undercut-angle 0d0)
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
@@ -1335,25 +1366,25 @@
                                      soil-boundary)
                                '(2 1) :type 'double-float)))
       (cl-mpm/setup::remove-sdf *sim*
-                                (lambda (p)
-                                  (if (and
-                                       (> (magicl:tref p 1 0) soil-boundary))
-                                      (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
-                                          (cl-mpm/setup::plane-point-sdf
-                                           (magicl:from-list (list (magicl:tref p 0 0)
-                                                                   (magicl:tref p 1 0)) '(2 1))
-                                           normal
-                                           (magicl:from-list (list shelf-length soil-boundary)
-                                                             '(2 1) :type 'double-float))
+                               (lambda (p)
+                                 (if (and
+                                      (> (magicl:tref p 1 0) soil-boundary))
+                                     (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
+                                         (cl-mpm/setup::plane-point-sdf
+                                          (magicl:from-list (list (magicl:tref p 0 0)
+                                                                  (magicl:tref p 1 0)) '(2 1))
+                                          normal
+                                          (magicl:from-list (list shelf-length soil-boundary)
+                                                            '(2 1) :type 'double-float))
 
-                                          (cl-mpm/setup::plane-point-sdf
-                                           (magicl:from-list (list (magicl:tref p 0 0)
-                                                                   (magicl:tref p 1 0)) '(2 1))
-                                           (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
-                                           sloped-inflex-point)
-                                          )
-                                      1d0)
-                                  ))
+                                         (cl-mpm/setup::plane-point-sdf
+                                          (magicl:from-list (list (magicl:tref p 0 0)
+                                                                  (magicl:tref p 1 0)) '(2 1))
+                                          (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
+                                          sloped-inflex-point)
+                                         )
+                                     1d0)
+                                 ))
       (let ((cut-height (* 0.0d0 shelf-height-true)))
         (cl-mpm/setup::damage-sdf
          *sim*
@@ -1367,47 +1398,43 @@
                  (list (* 1.0d0 mesh-size) cut-height)
                  ) p)
                0.99d0)
-           )))
-      (let* ((notched-depth 2.0d0)
-             (undercut-angle 45d0)
-             (notched-width (* 10.5 notched-depth))
-             (d-mid 0d0
-                                        ;(/ depth 2)
-                    )
-             (normal (magicl:from-list (list
-                                        (cos (- (* pi (/ undercut-angle 180d0))))
-                                        (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+           ))))
+    (let* ((notched-depth 10.0d0)
+           (undercut-angle 30d0)
+           (normal (magicl:from-list (list
+                                      (cos (- (* pi (/ undercut-angle 180d0))))
+                                      (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+           (sloped-inflex-point
+             (magicl:from-list (list
+                                (- shelf-length notched-depth)
+                                soil-boundary)
+                               '(2 1) :type 'double-float)
 
              )
-        (cl-mpm/setup:remove-sdf *sim*
-                                 (lambda (p)
+           )
+      (cl-mpm/setup:remove-sdf *sim*
+                               (lambda (p)
+                                 (let* ((d (* 0.3d0 (abs (- 15d0 (magicl:tref p 2 0)))))
+                                       (sloped-inflex-point
+                                         (magicl:from-list (list
+                                                            (- shelf-length
+                                                               (* notched-depth
+                                                                  (- 
+                                                                     (/ 1d0 (+ 1d0 d))
+                                                                     0d0
+                                                                     )))
+                                                            soil-boundary)
+                                                           '(2 1) :type 'double-float)))
                                    (if (and
-                                        (> (magicl:tref p 1 0) soil-boundary)
-                                        (> (magicl:tref p 2 0) (- d-mid notched-width))
-                                        (< (magicl:tref p 2 0) (+ d-mid notched-width))
-                                        )
-                                       (let
-                                           (
-                                            (sloped-inflex-point
-                                              (magicl:from-list (list
-                                                                 (- shelf-length (* notched-depth
-                                                                                    (- 1d0 (/ (abs (- (magicl:tref p 2 0) d-mid)) notched-width))
-                                                                                    ))
-                                                                 soil-boundary)
-                                                                '(2 1) :type 'double-float))
-                                            )
-                                         (cl-mpm/setup::plane-point-sdf
-                                          (magicl:from-list (list (magicl:tref p 0 0)
-                                                                  (magicl:tref p 1 0)) '(2 1))
-                                          normal
-                                          sloped-inflex-point)
-                                         )
-                                       1d0)
-                                   ))
-  )
-
+                                        (> (magicl:tref p 1 0) soil-boundary))
+                                       (cl-mpm/setup::plane-point-sdf
+                                        (magicl:from-list (list (magicl:tref p 0 0)
+                                                                (magicl:tref p 1 0)) '(2 1))
+                                        normal
+                                        sloped-inflex-point)
+                                       1d0))
+                                 ))
       )
-    
 
      (let ((notch-height 0.0d0))
        (cl-mpm/setup:remove-sdf *sim*
@@ -1503,7 +1530,7 @@
           do (setf (cl-mpm/particle::mp-split-depth mp) 0))
 
     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
-           (measured-angle 78d0)
+           (measured-angle 90d0)
            (undercut-angle ;(- 82.5d0 90d0)
              (- measured-angle 90d0)
                            )
@@ -1561,43 +1588,31 @@
     ;;    (lambda (mp)
     ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
     ;;   )
-    (let* ((notched-depth 3.0d0)
-       (undercut-angle 45d0)
-       (notched-width (* 0.5 notched-depth))
-       (d-mid 0d0
-              ;(/ depth 2)
-              )
-       (normal (magicl:from-list (list
-                                  (cos (- (* pi (/ undercut-angle 180d0))))
-                                  (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+    (let* ((notched-depth 0.5d0)
+           (undercut-angle 40d0)
+           (normal (magicl:from-list (list
+                                      (cos (- (* pi (/ undercut-angle 180d0))))
+                                      (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+           (sloped-inflex-point
+             (magicl:from-list (list
+                                (- shelf-length notched-depth)
+                                soil-boundary)
+                               '(2 1) :type 'double-float)
 
-       )
+             )
+           )
       (cl-mpm/setup:remove-sdf *sim*
                                (lambda (p)
                                  (if (and
-                                      (> (magicl:tref p 1 0) soil-boundary)
-                                      (> (magicl:tref p 2 0) (- d-mid notched-width))
-                                      (< (magicl:tref p 2 0) (+ d-mid notched-width))
-                                      )
-                                     (let
-                                         (
-                                          (sloped-inflex-point
-                                            (magicl:from-list (list
-                                                               (- shelf-length (* notched-depth
-                                                                                  (- 1d0 (/ (abs (- (magicl:tref p 2 0) d-mid)) notched-width))
-                                                                                  ))
-                                                               soil-boundary)
-                                                              '(2 1) :type 'double-float))
-                                          )
-                                       (cl-mpm/setup::plane-point-sdf
-                                        (magicl:from-list (list (magicl:tref p 0 0)
-                                                                (magicl:tref p 1 0)) '(2 1))
-                                        normal
-                                        sloped-inflex-point)
-                                       )
+                                      (> (magicl:tref p 1 0) soil-boundary))
+                                     (cl-mpm/setup::plane-point-sdf
+                                      (magicl:from-list (list (magicl:tref p 0 0)
+                                                              (magicl:tref p 1 0)) '(2 1))
+                                      normal
+                                      sloped-inflex-point)
                                      1d0)
                                  ))
-  )
+      )
 
      (let ((notch-height 0.0d0))
        (cl-mpm/setup:remove-sdf *sim*
@@ -1765,30 +1780,27 @@
  
 
 
-(defun test-add () 
-  (let ((a (cl-mpm/utils::stretch-dsvp-3d-zeros))
-        (b (cl-mpm/utils::stretch-dsvp-3d-zeros))
-        (res (cl-mpm/utils::stretch-dsvp-3d-zeros))
-        (iter 100000000))
-    ;; (time
-    ;;  (dotimes (i iter)
-    ;;    (magicl:.+ a b res)))
-    (time
-     (dotimes (i iter)
-       (cl-mpm/fastmath::fast-.+ a b res)))
-    (time
-     (dotimes (i iter)
-       (cl-mpm/fastmath::fast-.+-stretch a b res)))
-    ;; (time
-    ;;  (lparallel:pdotimes (i iter)
-    ;;    (magicl:scale! a 0d0)))
-    ;; (time
-    ;;  (lparallel:pdotimes (i iter)
-    ;;    (cl-mpm/fastmath::fast-scale a 0d0)))
-    ;; (time
-    ;;  (lparallel:pdotimes (i iter)
-    ;;    (cl-mpm/fastmath::fast-zero a)))
-    ))
+;; (defun test-add () 
+;;   (let ((a (cl-mpm/utils:vector-zeros))
+;;         (b (cl-mpm/utils:vector-zeros))
+;;         (res (cl-mpm/utils:vector-zeros))
+;;         (iter 10000000))
+;;     (time
+;;      (dotimes (i iter)
+;;        (magicl:.+ a b res)))
+;;     (time
+;;      (dotimes (i iter)
+;;        (cl-mpm/fastmath::fast-.+ a b res)))
+;;     ;; (time
+;;     ;;  (lparallel:pdotimes (i iter)
+;;     ;;    (magicl:scale! a 0d0)))
+;;     ;; (time
+;;     ;;  (lparallel:pdotimes (i iter)
+;;     ;;    (cl-mpm/fastmath::fast-scale a 0d0)))
+;;     ;; (time
+;;     ;;  (lparallel:pdotimes (i iter)
+;;     ;;    (cl-mpm/fastmath::fast-zero a)))
+;;     ))
 
 
 ;; (defun test-strain-rate ()
@@ -1841,88 +1853,54 @@
             )))
   mc)
 
-;; (let ((a (cl-mpm/utils::matrix-from-list (list
-;;                                           1d0 5d0 8d0
-;;                                           5d0 2d0 3d0
-;;                                           9d0 1.2d0 3d0)))
-;;       (b (cl-mpm/utils:vector-from-list (list 2d0 3d0 4d0)))
-;;       (res (cl-mpm/utils:vector-zeros))
-;;       (iters 10000000)
-;;       )
-;;   (magicl:mult a b :target res)
-;;   (pprint res)
-;;   (setf res (cl-mpm/utils:vector-zeros))
-;;   (cl-mpm/fastmath::@-m-v a b res)
-;;   (pprint res)
-;;   ;; (time
-;;   ;;  (dotimes (i iters)
-;;   ;;    (magicl:mult a b :target res)))
-;;   ;; (time
-;;   ;;  (dotimes (i iters)
-;;   ;;    (shit-mult a b res)))
-;;   )
+(let ((a (cl-mpm/utils::matrix-from-list (list
+                                          1d0 5d0 8d0
+                                          5d0 2d0 3d0
+                                          9d0 1.2d0 3d0)))
+      (b (cl-mpm/utils:vector-from-list (list 2d0 3d0 4d0)))
+      (res (cl-mpm/utils:vector-zeros))
+      (iters 10000000)
+      )
+  (magicl:mult a b :target res)
+  (pprint res)
+  (setf res (cl-mpm/utils:vector-zeros))
+  (cl-mpm/fastmath::@-m-v a b res)
+  (pprint res)
+  ;; (time
+  ;;  (dotimes (i iters)
+  ;;    (magicl:mult a b :target res)))
+  ;; (time
+  ;;  (dotimes (i iters)
+  ;;    (shit-mult a b res)))
+  )
 
 (let ((stretch (cl-mpm/shape-function::assemble-dstretch-3d (list 1d0 2d0 3d0)))
       (vel (cl-mpm/utils::vector-from-list (list 0.1d0 9d0 2d0)))
       (res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-      (iters 100000000)
+      (iters 10000000)
       )
   (magicl:mult stretch vel :target res)
   (pprint res)
-  ;; (magicl:mult stretch vel :target res)
+  (magicl:mult stretch vel :target res)
   (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
   (cl-mpm/fastmath::@-stretch-vec stretch vel res)
   (pprint res)
-  ;; (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-  ;; (cl-mpm/fastmath::@-stretch-vec-simd stretch vel res)
-  ;; (pprint res)
   ;; (time
   ;;  (dotimes (i iters)
   ;;    (magicl:mult stretch vel :target res)))
   ;; (time
   ;;  (dotimes (i iters)
   ;;    (cl-mpm/fastmath::@-stretch-vec stretch vel res)))
-  ;; (time
-  ;;  (dotimes (i iters)
-  ;;    (cl-mpm/fastmath::@-stretch-vec-simd stretch vel res)))
   )
 
 
 (defun setup-dsvp ()
   (let ((dsvp (cl-mpm/shape-function::assemble-dsvp-3d (list 1d0 2d0 1d0)))
         (stress (cl-mpm/utils:voigt-from-list (list 1d0 2d0 1d0 2d0 5d0 8d0)))
-        (res (cl-mpm/utils:vector-zeros))
-        (iters 100000000))
+        (res (cl-mpm/utils:vector-zeros)))
     (pprint (magicl:@ (magicl:transpose dsvp) stress))
-    (pprint (progn (cl-mpm/forces::mult-force dsvp stress 1d0 res) res))
+    (pprint (progn (cl-mpm/forces::mult-force dsvp stress -1d0 res) res))
     (setf res (cl-mpm/utils:vector-zeros))
-    (pprint (progn (cl-mpm/forces::@-dsvp-vec dsvp stress 1d0 res) res))
-    (setf res (cl-mpm/utils:vector-zeros))
-    (pprint (progn (cl-mpm/forces::@-dsvp-vec-simd dsvp stress 1d0 res) res))
-    ;; (time
-    ;;  (dotimes (i iters)
-    ;;    (magicl:@ (magicl:transpose dsvp) stress)))
-    ;; (time
-    ;;  (dotimes (i iters)
-    ;;    (cl-mpm/forces::mult-force dsvp stress -1d0 res)))
-    (time
-     (dotimes (i iters)
-       (cl-mpm/forces::@-dsvp-vec dsvp stress -1d0 res)))
-    (time
-     (dotimes (i iters)
-       (cl-mpm/forces::@-dsvp-vec-simd dsvp stress -1d0 res)))
+    (pprint (progn (cl-mpm/fastmath::@-dsvp-vec dsvp stress res) res))
     )
   )
-
-
-;; (let* ((ddF (cl-mpm/utils::voight-to-stretch (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d (list 1d0 2d0 0d0)) (cl-mpm/utils:vector-from-list (list 5d0 7d0 1d0)))))
-;;        (df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-;;                                              0d0 1d0 0d0
-;;                                              0d0 0d0 1d0)))
-;;        (strain (cl-mpm/utils:voigt-zeros))
-;;       )
-
-;;   (cl-mpm/fastmath::fast-.+-matrix df ddF df)
-;;   (cl-mpm/ext:kirchoff-update strain df)
-;;   (pprint (cl-mpm/constitutive::swizzle-voigt->coombs strain))
-;;   )
