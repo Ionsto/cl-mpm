@@ -1598,10 +1598,10 @@ Calls func with only the node"
             ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
             ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
             ;;Not sure about this engineering strain calculation
-            (magicl:.- eng-strain-rate strain eng-strain-rate)
+            ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
 
-            (cl-mpm/fastmath::fast-scale eng-strain-rate (/ 1d0 dt))
+            ;; (cl-mpm/fastmath::fast-scale eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )

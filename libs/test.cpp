@@ -45,12 +45,12 @@ extern "C" {
     auto l = trialeigensolver.eigenvalues();
     auto v = trialeigensolver.eigenvectors();
     if ((l.array() <= 0.0).any())
-      {
-        //Bad news we've got negative or zero eigenvalues - this is not good
-        return false;
-      }
+    {
+      //Bad news we've got negative or zero eigenvalues - this is not good
+      return false;
+    }
     //Nasty hack we may get very small negative eigenvalues - so we take max of 0
-    strain = (matrix_to_voigt(v * l.array().max(1e-10).log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
+    strain = (matrix_to_voigt(v * l.array().log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
     //No clue if this works
     return true;
   }
