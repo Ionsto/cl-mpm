@@ -33,36 +33,40 @@
                      (simple-array double-float)) (values)) simd-accumulate))
   (defun simd-accumulate (a b)
     ;; (declare (type (simple-array double-float 3) a b))
-    (declare (type sb-simd:f64vec a b))
+    ;; (declare (type sb-simd:f64vec a b))
 
-    ;; (setf (sb-simd-avx:f64.2-aref a 0)
-    ;;       (sb-simd-avx:f64.2+
-    ;;        (sb-simd-avx:f64.2-aref a 0)
-    ;;        (sb-simd-avx:f64.2-aref b 0)
-    ;;        ))
-    ;; (incf (aref a 2) (aref b 2))
+    (setf (sb-simd-avx:f64.2-aref a 0)
+          (sb-simd-avx:f64.2+
+           (sb-simd-avx:f64.2-aref a 0)
+           (sb-simd-avx:f64.2-aref b 0)
+           ))
+    (incf (aref a 2) (aref b 2))
 
-    (loop for i from 0 to 2
-          do (incf (aref a i) (aref b i)))
+    ;; (loop for i from 0 to 2
+    ;;       do (incf (aref a i) (aref b i)))
     (values))
 
   (declaim
    (inline simd-fmacc)
-   (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
+   (ftype (function ((simple-array double-float (3)) (simple-array double-float (3)) double-float) (values)) simd-fmacc))
   (defun simd-fmacc (result source scale)
-    (declare (type sb-simd:f64vec result source)
+    (declare
+     ((simple-array double-float (3)) result source)
+     ;(type sb-simd:f64vec result source)
              (type double-float scale))
-    ;; (setf (sb-simd-avx:f64.2-aref a 0)
-    ;;       (sb-simd-avx:f64.2+
-    ;;        (sb-simd-avx:f64.2-aref a 0)
-    ;;        (sb-simd-avx:f64.2*
-    ;;         (sb-simd-avx:f64.2-aref b 0)
-    ;;         (sb-simd-avx:f64.2 scale))
-    ;;        ))
-    ;; (incf (aref a 2) (* scale (aref b 2)))
+    (setf (sb-simd-avx:f64.2-aref result 0)
+          (sb-simd-avx:f64.2+
+           (sb-simd-avx:f64.2-aref result 0)
+           (sb-simd-avx:f64.2*
+            (sb-simd-avx:f64.2-aref source 0)
+            scale
+            ;; (sb-simd-avx:f64.2 scale)
+            )
+           ))
+    (incf (aref result 2) (* scale (aref source 2)))
 
-    (loop for i from 0 to 2
-          do (incf (aref result i) (* scale (aref source i))))
+    ;; (loop for i from 0 to 2
+    ;;       do (incf (aref result i) (* scale (aref source i))))
     (values))
   (declaim
    (inline simd-add)
@@ -139,68 +143,68 @@
                           (values)) simd-any+))
 (defun simd-any+ (a b target)
   ;; (declare (optimize (speed 0) (debug 0) (safety 3)))
-  ;; (declare ((simple-array double-float (*)) a b target))
-  ;; (let ((offset 0))
-  ;;   (declare (type sb-simd:f64vec a b target)
-  ;;            (fixnum offset))
-  ;;   (multiple-value-bind (iter remain) (floor (length a) 2)
-  ;;     (declare (fixnum iter remain))
-  ;;     ;; (loop for offset fixnum from 0 by 2
-  ;;     ;;       repeat iter
-  ;;     ;;       do
-  ;;     ;;          (setf (sb-simd-avx:f64.2-aref target offset)
-  ;;     ;;                (sb-simd-avx:f64.2+
-  ;;     ;;                 (sb-simd-avx:f64.2-aref a offset)
-  ;;     ;;                 (sb-simd-avx:f64.2-aref b offset))))
-  ;;     (dotimes (i iter)
-  ;;       (setf (sb-simd-avx:f64.2-aref target offset)
-  ;;             (sb-simd-avx:f64.2+
-  ;;              (sb-simd-avx:f64.2-aref a offset)
-  ;;              (sb-simd-avx:f64.2-aref b offset)))
-  ;;       (incf offset 2))
-  ;;     (unless (eq remain 0)
-  ;;       (dotimes (i remain)
-  ;;         (setf (aref target offset)
-  ;;               (+ (aref a offset) (aref b offset)))
-  ;;         (incf offset 1))
-  ;;       )
-  ;;     ))
+  (declare ((simple-array double-float (*)) a b target))
+  (let ((offset 0))
+    (declare (type sb-simd:f64vec a b target)
+             (fixnum offset))
+    (multiple-value-bind (iter remain) (floor (length a) 2)
+      (declare (fixnum iter remain))
+      ;; (loop for offset fixnum from 0 by 2
+      ;;       repeat iter
+      ;;       do
+      ;;          (setf (sb-simd-avx:f64.2-aref target offset)
+      ;;                (sb-simd-avx:f64.2+
+      ;;                 (sb-simd-avx:f64.2-aref a offset)
+      ;;                 (sb-simd-avx:f64.2-aref b offset))))
+      (dotimes (i iter)
+        (setf (sb-simd-avx:f64.2-aref target offset)
+              (sb-simd-avx:f64.2+
+               (sb-simd-avx:f64.2-aref a offset)
+               (sb-simd-avx:f64.2-aref b offset)))
+        (incf offset 2))
+      (unless (eq remain 0)
+        (dotimes (i remain)
+          (setf (aref target offset)
+                (+ (aref a offset) (aref b offset)))
+          (incf offset 1))
+        )
+      ))
 
-  (loop for i from 0 below (length a)
-        do (setf (aref target i) (+ (aref a i) (aref b i))))
+  ;; (loop for i from 0 below (length a)
+  ;;       do (setf (aref target i) (+ (aref a i) (aref b i))))
   target)
 
 (defun simd-any* (a b target)
   ;(declare (optimize (speed 0) (debug 0) (safety 3)))
-  ;; (declare ((simple-array double-float (*)) a b target))
-  ;; (let ((offset 0))
-  ;;   (declare (type sb-simd:f64vec a b target)
-  ;;            (fixnum offset))
-  ;;   (multiple-value-bind (iter remain) (floor (length a) 2)
-  ;;     (declare (fixnum iter remain))
-  ;;     ;; (loop for offset fixnum from 0 by 2
-  ;;     ;;       repeat iter
-  ;;     ;;       do
-  ;;     ;;          (setf (sb-simd-avx:f64.2-aref target offset)
-  ;;     ;;                (sb-simd-avx:f64.2+
-  ;;     ;;                 (sb-simd-avx:f64.2-aref a offset)
-  ;;     ;;                 (sb-simd-avx:f64.2-aref b offset))))
-  ;;     (dotimes (i iter)
-  ;;       (setf (sb-simd-avx:f64.2-aref target offset)
-  ;;             (sb-simd-avx:f64.2+
-  ;;              (sb-simd-avx:f64.2-aref a offset)
-  ;;              (sb-simd-avx:f64.2-aref b offset)))
-  ;;       (incf offset 2))
-  ;;     (unless (eq remain 0)
-  ;;       (dotimes (i remain)
-  ;;         (setf (aref target offset)
-  ;;               (+ (aref a offset) (aref b offset)))
-  ;;         (incf offset 1))
-  ;;       )
-  ;;     ))
+  (declare ((simple-array double-float (*)) a b target))
+  (let ((offset 0))
+    (declare (type sb-simd:f64vec a b target)
+             (fixnum offset))
+    (multiple-value-bind (iter remain) (floor (length a) 2)
+      (declare (fixnum iter remain))
+      ;; (loop for offset fixnum from 0 by 2
+      ;;       repeat iter
+      ;;       do
+      ;;          (setf (sb-simd-avx:f64.2-aref target offset)
+      ;;                (sb-simd-avx:f64.2+
+      ;;                 (sb-simd-avx:f64.2-aref a offset)
+      ;;                 (sb-simd-avx:f64.2-aref b offset))))
+      (dotimes (i iter)
+        (setf (sb-simd-avx:f64.2-aref target offset)
+              (sb-simd-avx:f64.2*
+               (sb-simd-avx:f64.2-aref a offset)
+               (sb-simd-avx:f64.2-aref b offset)))
+        (incf offset 2))
+      (unless (eq remain 0)
+        (dotimes (i remain)
+          (setf (aref target offset)
+                (+ (aref a offset) (aref b offset)))
+          (incf offset 1))
+        )
+      ))
 
-  (loop for i from 0 below (length a)
-        do (setf (aref target i) (* (aref a i) (aref b i))))
+  ;; (loop for i from 0 below (length a)
+  ;;       do (setf (aref target i) (* (aref a i) (aref b i))))
   target)
 
 (defun test-simd-any+ ()
@@ -211,6 +215,18 @@
       (pprint res))
     (let ((res (cl-mpm/utils::vector-zeros)))
       (simd-any+ (magicl::storage a)
+                 (magicl::storage b)
+                 (magicl::storage res))
+      (pprint res)))
+  )
+(defun test-simd-any* ()
+  (let ((a (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0)))
+        (b (cl-mpm/utils::vector-from-list (list 3d0 5d0 9d0))))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (magicl:.* a b res)
+      (pprint res))
+    (let ((res (cl-mpm/utils::vector-zeros)))
+      (simd-any* (magicl::storage a)
                  (magicl::storage b)
                  (magicl::storage res))
       (pprint res)))
@@ -325,38 +341,38 @@
              ((simple-array double-float (3)) b)
              ((simple-array double-float (9)) c)
              )
-    (flet ((tref (m x y)
-             (aref m (+ (* 9 x)  y))))
-      (loop for i fixnum from 0 below 9
-            do
-               (setf (aref c i) 0d0)
-               (loop for j fixnum from 0 below 3
-                     do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
-            ))
-    ;; (macrolet ((simd-component (i)
-    ;;              (declare (fixnum i))
-    ;;              `(setf
-    ;;                (sb-simd-avx:f64.4-aref c ,(the fixnum (* 4 i)))
-    ;;                (sb-simd-avx:f64.4+
-    ;;                 (sb-simd-avx:f64.4*
-    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 0))))
-    ;;                  (aref b 0))
-    ;;                 (sb-simd-avx:f64.4*
-    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 1))))
-    ;;                  (aref b 1))
-    ;;                 (sb-simd-avx:f64.4*
-    ;;                  (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 2))))
-    ;;                  (aref b 2))))
-    ;;              ))
-    ;;   (simd-component 0)
-    ;;   (simd-component 1)
-    ;;   (setf
-    ;;    (aref c 8)
-    ;;    (+
-    ;;     (* (aref a (+ 8 0)) (aref b 0))
-    ;;     (* (aref a (+ 8 9)) (aref b 1))
-    ;;     (* (aref a (+ 8 18)) (aref b 2))))
-    ;;   )
+    ;; (flet ((tref (m x y)
+    ;;          (aref m (+ (* 9 x)  y))))
+    ;;   (loop for i fixnum from 0 below 9
+    ;;         do
+    ;;            (setf (aref c i) 0d0)
+    ;;            (loop for j fixnum from 0 below 3
+    ;;                  do (incf (aref c i) (the double-float (* (aref b j) (tref a j i)))))
+    ;;         ))
+    (macrolet ((simd-component (i)
+                 (declare (fixnum i))
+                 `(setf
+                   (sb-simd-avx:f64.4-aref c ,(the fixnum (* 4 i)))
+                   (sb-simd-avx:f64.4+
+                    (sb-simd-avx:f64.4*
+                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 0))))
+                     (aref b 0))
+                    (sb-simd-avx:f64.4*
+                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 1))))
+                     (aref b 1))
+                    (sb-simd-avx:f64.4*
+                     (sb-simd-avx:f64.4-aref a ,(the fixnum (+ (* i 4) (* 9 2))))
+                     (aref b 2))))
+                 ))
+      (simd-component 0)
+      (simd-component 1)
+      (setf
+       (aref c 8)
+       (+
+        (* (aref a (+ 8 0)) (aref b 0))
+        (* (aref a (+ 8 9)) (aref b 1))
+        (* (aref a (+ 8 18)) (aref b 2))))
+      )
   )
   result-vector)
 

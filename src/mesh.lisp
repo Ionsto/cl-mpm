@@ -758,6 +758,9 @@
 
 (defmethod print-object ((obj node) stream)
   (print-unreadable-object (obj stream :type t)
-    (with-accessors ((index node-index))
+    (with-accessors ((index node-index)
+                     (mass node-mass)
+                     (vel node-velocity)
+                     )
         obj
-      (format stream "index: ~a" index))))
+      (format stream "index: ~a, mass: ~a, vel: ~a" index mass vel))))

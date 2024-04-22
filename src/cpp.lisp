@@ -10,7 +10,7 @@
    #:kirchoff-expt-step-lisp
    ))
 (in-package :cl-mpm/ext)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
@@ -18,11 +18,33 @@
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
                           (values))
                 kirchoff-expt-step)
-         (inline kirchoff-expt-step)
+         (notinline kirchoff-expt-step)
          )
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (defun kirchoff-expt-step-lisp (strain df)
+  (declare (optimize (debug 3) (speed 0)))
+  (loop for s across (cl-mpm/utils::fast-storage strain)
+        do (when (or
+                  (sb-ext:float-nan-p s)
+                  (< (the double-float s) -1d2)
+                  (> (the double-float s) 1d2))
+             (error "Bad strain! ~A" strain)))
+  (loop for s across (cl-mpm/utils::fast-storage df)
+        do (when (or
+                  (sb-ext:float-nan-p s)
+                  (< (the double-float s) -1d2)
+                  (> (the double-float s) 1d2))
+             (error "Bad df! ~A" df)))
   (multiple-value-bind (l v) (cl-mpm/utils::eig
                               (cl-mpm/utils:voigt-to-matrix strain))
+    (loop for eigenvalue in l
+          do (when (or
+                    (sb-ext:float-nan-p eigenvalue)
+                    ;; (< (the double-float eigenvalue) -1d2)
+                    (> (the double-float eigenvalue) 1d2))
+               (error "Bad eigenvalue! ~A - ~A" l v)))
     (let ((trial-lgs (magicl:@ df
                                v
                                (cl-mpm/utils::matrix-from-list
@@ -33,14 +55,19 @@
                                  ))
                                (magicl:transpose v)
                                (magicl:transpose df))))
+
+      ;; (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0)
+      ;;Enforce symmetry
+      (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
+            (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
+            (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1))
       (multiple-value-bind (lf vf)
-          ;; (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0)
-          ;;Enforce symmetry
-          (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
-                (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
-                (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1)
-                )
-          (cl-mpm/utils::eig trial-lgs )
+          (cl-mpm/utils::eig trial-lgs)
+        ;; (loop for i from 0 to 2
+        ;;       do (setf (nth i lf) (max (nth i lf) 0d0)))
+        (loop for eigenvalue in lf
+              do (when (<= (the double-float eigenvalue) 0d0)
+                   (error "Negative eigenvalue! ~A - ~A" lf vf)))
         (aops:copy-into (magicl::matrix/double-float-storage strain)
                         (magicl::matrix/double-float-storage
                          (magicl:scale!
@@ -56,7 +83,12 @@
                               )
                              )
                             (magicl:transpose vf)))
-                          0.5d0)))))))
+                          0.5d0)))
+        )))
+  )
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 (handler-case
     (progn
       (define-foreign-library cl-mpm-cpp

@@ -38,6 +38,7 @@
    #:matrix-copy-into
    #:vector-copy-into
    #:voigt-copy-into
+   #:fast-storage
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -50,10 +51,23 @@
   "Real eigen-decomposition"
   (magicl:self-adjoint-eig mat)
   ;; (magicl:hermitian-eig mat)
-  ;; (multiple-value-bind (l v) 
-  ;;   (values l v))
-  ;;
+  ;; (multiple-value-bind (l v) (magicl:eig mat)
+  ;;   (values l (magicl:.realpart v)))
   )
+
+(defmacro check-nan-matrix (mat &rest body)
+  `(loop for vsdadasdsd across (cl-mpm/utils::fast-storage ,mat)
+         do (when (or
+                   (sb-ext::float-nan-p vsdadasdsd)
+                   (= (abs vsdadasdsd) #.sb-ext:double-float-positive-infinity)
+                   (> (abs vsdadasdsd) 1d10))
+             ,@body)))
+
+(declaim (inline fast-storage)
+         (ftype (function (magicl:matrix/double-float)
+                          (simple-array double-float (*))) fast-storage))
+(defun fast-storage (m)
+  (magicl::matrix/double-float-storage m))
 
 ;; (dotimes (i 100))
 ;; (let ((mat (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-from-list (loop repeat 6 collect (random 1d0))))))
