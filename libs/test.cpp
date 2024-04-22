@@ -34,16 +34,18 @@ extern "C" {
     auto eigen_values = eigensolver.eigenvalues();
     auto eigen_vectors = eigensolver.eigenvectors();
     auto trial_lgs = df * (eigen_vectors
-                          * (eigen_values.array() * 2.0).exp().matrix().asDiagonal()
-                          * eigen_vectors.transpose()) * df.transpose();
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> trialeigensolver(0.5*(trial_lgs + trial_lgs.transpose()));
+                           * (eigen_values.array() * 2.0).exp().matrix().asDiagonal()
+                           * eigen_vectors.transpose()) * df.transpose();
+    //0.5 * (trial_lgs + trial_lgs.transpose())
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> trialeigensolver(trial_lgs);
     if (trialeigensolver.info() != Eigen::Success)
       {
         return false;
       }
     auto l = trialeigensolver.eigenvalues();
     auto v = trialeigensolver.eigenvectors();
-    strain = (matrix_to_voigt(v * l.array().log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
+    //Nasty hack we may get very small negative eigenvalues - so we take max of 0
+    strain = (matrix_to_voigt(v * l.array().max(0.0).log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
     //No clue if this works
     return true;
   }

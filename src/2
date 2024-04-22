@@ -58,9 +58,9 @@
 
       ;; (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0)
       ;;Enforce symmetry
-      ;; (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
-      ;;       (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
-      ;;       (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1))
+      (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
+            (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
+            (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1))
       (multiple-value-bind (lf vf)
           (cl-mpm/utils::eig trial-lgs)
         ;; (loop for i from 0 to 2
@@ -68,8 +68,6 @@
         (loop for eigenvalue in lf
               do (when (<= (the double-float eigenvalue) 0d0)
                    (error "Negative eigenvalue! ~A - ~A" lf vf)))
-        (loop for i from 0 to 2
-              do (setf (nth i lf) (max 0d0 (nth i lf))))
         (aops:copy-into (magicl::matrix/double-float-storage strain)
                         (magicl::matrix/double-float-storage
                          (magicl:scale!
@@ -88,7 +86,34 @@
                           0.5d0)))
         )))
   )
-
+(defun kirchoff-svd-lisp (strain df)
+  (declare (optimize (debug 3) (speed 0)))
+  (multiple-value-bind (u l v) (magicl:svd (cl-mpm/utils:voigt-to-matrix strain))
+    (let ((trial-lgs (magicl:@ df
+                               u
+                               (magicl:map! (lambda (x) (the double-float (exp (* 2d0 (the double-float x))))) l)
+                               v
+                               (magicl:transpose df))))
+      (pprint trial-lgs)
+      (multiple-value-bind (uf lf vf) (magicl:svd trial-lgs)
+        (aops:copy-into
+         (magicl::matrix/double-float-storage strain)
+         (magicl::matrix/double-float-storage
+          (magicl:scale!
+           ;;Note that this is taking care of the shear scaling factor
+           (cl-mpm/utils:matrix-to-voigt
+            (magicl:@
+             uf
+             (magicl:map!
+              (lambda (x)
+                (if (> x 0d0)
+                    (the double-float (log (the double-float x)))
+                    0d0))
+              lf)
+             vf))
+           0.5d0)))
+        )))
+  )
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
@@ -109,8 +134,7 @@
       (defun kirchoff-expt-step (strain-matrix df-matrix)
         (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage strain-matrix))
                                                 (dfp (magicl::matrix/double-float-storage df-matrix)))
-          (unless (kirchoff-strain-update sp dfp)
-            (error "Kirchoff strain update failed - eigensolver error ~A ~A" strain-matrix df-matrix)))
+          (kirchoff-strain-update sp dfp))
         (values)))
 
     (cffi::load-foreign-library-error (c)
@@ -122,7 +146,10 @@
         )))
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
 (defun kirchoff-update (strain df)
-  (kirchoff-expt-step strain df)
-  ;; (kirchoff-svd-lisp strain df)
-  )
+  ;(kirchoff-expt-step strain df)
+  (kirchoff-svd-lisp strain df))
 
+
+(let ((m (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0)))))
+  (multiple-value-bind (u s v) (magicl:svd m)
+    (pprint (magicl:@ u s v))))
