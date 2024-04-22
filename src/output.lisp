@@ -446,12 +446,14 @@
         (save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        (save-parameter "vel_z" (magicl:tref (cl-mpm/particle:mp-velocity mp) 2 0))
 
         ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
         ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
 
         (save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
         (save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+        (save-parameter "disp_z" (magicl:tref (cl-mpm/particle::mp-displacement mp) 2 0))
 
         (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))

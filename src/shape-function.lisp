@@ -16,8 +16,8 @@
    #:shape-bspline-dsvp
    ))
 (in-package :cl-mpm/shape-function)
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmacro shape-linear-form (x)
   `(quote (- 1d0 (abs ,x))))
@@ -521,7 +521,8 @@
 (defun assemble-dstretch-2d-prealloc (dsvp result)
   (declare (list dsvp)
            (magicl:matrix/double-float result)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           ;; (optimize (speed 3) (safety 0) (debug 0))
+           )
   "Assemble d/di to the strain-displacement matrix"
   (destructuring-bind (dx dy dz) dsvp
     (let* ((s (magicl::matrix/double-float-storage result)))
@@ -560,7 +561,8 @@
 (defun assemble-dstretch-3d-prealloc (dsvp result)
   (declare (list dsvp)
            (magicl:matrix/double-float result)
-           (optimize (speed 3) (safety 0) (debug 0)))
+           ;; (optimize (speed 3) (safety 0) (debug 0))
+           )
   "Assemble d/di to the strain-displacement matrix"
   (destructuring-bind (dx dy dz) dsvp
     (let* ((s (magicl::matrix/double-float-storage result)))
@@ -578,12 +580,13 @@
        (aref s (+ 4 (* 9 1))) dx
                                         ;dz/dx
        (aref s (+ 5 (* 9 0))) dz 
-
+                                        ;dx/dz
        (aref s (+ 6 (* 9 2))) dx
                                         ;Dz/dy
        (aref s (+ 7 (* 9 1))) dz
                                         ;Dy/dz
-       (aref s (+ 8 (* 9 2))) dy)
+       (aref s (+ 8 (* 9 2))) dy
+       )
        ;);)
       result)))
 
@@ -626,33 +629,9 @@
 
 (defun assemble-dsvp-3d (dsvp)
   "Assemble d/di to the strain-displacement matrix"
-  ;; (let ((dx (nth 0 dsvp))
-  ;;       (dy (nth 1 dsvp))
-  ;;       (dz (nth 2 dsvp))
-  ;;       )
-  ;;   (magicl:from-list (list dx  0d0 0d0;xx
-  ;;                           0d0 dy  0d0;yy
-  ;;                           0d0 0d0  dz;zz
-  ;;                           0d0 dz  dy ;zy
-  ;;                           dz  0d0 dx ;zx
-  ;;                           dy  dx  0d0;yx
-  ;;                           ) '(6 3) :type 'double-float))
   (assemble-dsvp-3d-prealloc dsvp (cl-mpm/utils::dsvp-3d-zeros))
   )
 
-(defun assemble-dsvp-plane-strain (dsvp)
-  "Assemble d/di to the strain-displacement matrix"
-  (let ((dx (nth 0 dsvp))
-        (dy (nth 1 dsvp))
-        (dz (nth 2 dsvp))
-        )
-    (magicl:from-list (list dx  0d0 0d0;xx
-                            0d0 dy  0d0;yy
-                            0d0 0d0  dz;zz
-                            0d0 0d0  0d0 ;zy
-                            0d0 0d0 0d0 ;zx
-                            dy  dx  0d0;yx
-                            ) '(6 3) :type 'double-float)))
 
 (defun assemble-dsvp-3d-prealloc (dsvp mat)
   "Assemble d/di to the strain-displacement matrix"
@@ -669,7 +648,8 @@
        (magicl:tref mat 4 2) dx
 
        (magicl:tref mat 5 0) dy
-       (magicl:tref mat 5 1) dx)
+       (magicl:tref mat 5 1) dx
+       )
     mat)
   )
 

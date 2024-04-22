@@ -13,8 +13,8 @@
    :fast-.*
     ))
 
-;; (declaim (optimize (debug 0) (safety 3) (speed 0)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmath)
 
 (pushnew :sb-simd *features*)
@@ -49,8 +49,8 @@
   (declaim
    (inline simd-fmacc)
    (ftype (function ((simple-array double-float) (simple-array double-float) double-float) (values)) simd-fmacc))
-  (defun simd-fmacc (a b scale)
-    (declare (type sb-simd:f64vec a b)
+  (defun simd-fmacc (result source scale)
+    (declare (type sb-simd:f64vec result source)
              (type double-float scale))
     ;; (setf (sb-simd-avx:f64.2-aref a 0)
     ;;       (sb-simd-avx:f64.2+
@@ -62,7 +62,7 @@
     ;; (incf (aref a 2) (* scale (aref b 2)))
 
     (loop for i from 0 to 2
-          do (incf (aref a i) (* scale (aref b i))))
+          do (incf (aref result i) (* scale (aref source i))))
     (values))
   (declaim
    (inline simd-add)
@@ -138,7 +138,7 @@
                            (simple-array double-float))
                           (values)) simd-any+))
 (defun simd-any+ (a b target)
-  (declare (optimize (speed 0) (debug 0) (safety 3)))
+  ;; (declare (optimize (speed 0) (debug 0) (safety 3)))
   ;; (declare ((simple-array double-float (*)) a b target))
   ;; (let ((offset 0))
   ;;   (declare (type sb-simd:f64vec a b target)
@@ -171,7 +171,7 @@
   target)
 
 (defun simd-any* (a b target)
-  (declare (optimize (speed 0) (debug 0) (safety 3)))
+  ;(declare (optimize (speed 0) (debug 0) (safety 3)))
   ;; (declare ((simple-array double-float (*)) a b target))
   ;; (let ((offset 0))
   ;;   (declare (type sb-simd:f64vec a b target)
@@ -223,7 +223,7 @@
                            (simple-array double-float))
                           (values)) simd-any+-4))
 (defun simd-any+-4 (a b target)
-  (declare (optimize (speed 0) (debug 0) (safety 3)))
+  ;; (declare (optimize (speed 0) (debug 0) (safety 3)))
   ;; (declare ((simple-array double-float (*)) a b target))
   ;; (let ((offset 0))
   ;;   (declare (type sb-simd:f64vec a b target)
@@ -264,7 +264,8 @@
 (defun @-m-v (matrix vector result-vector)
   "Multiply a 3x3 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
-           (optimize (speed 0) (safety 3) (debug 0)))
+           ;; (optimize (speed 0) (safety 3) (debug 0))
+           )
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -314,7 +315,8 @@
 (defun @-stretch-vec (matrix vector result-vector)
   "Multiply a 9x3 matrix with a 3x1 vector to calculate a 9x1 vector in place - SIMD implementation"
   (declare (magicl:matrix/double-float matrix vector result-vector)
-           (optimize (speed 0) (safety 3) (debug 0)))
+           ;; (optimize (speed 0) (safety 3) (debug 0))
+           )
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -381,7 +383,8 @@
   "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
   (declare (magicl:matrix/double-float matrix vector result-vector)
            (double-float scale)
-           (optimize (speed 0) (safety 3) (debug 0)))
+           ;; (optimize (speed 0) (safety 3) (debug 0))
+           )
   (let ((a (magicl::matrix/double-float-storage matrix))
         (b (magicl::matrix/double-float-storage vector))
         (c (magicl::matrix/double-float-storage result-vector))
@@ -417,7 +420,6 @@
  (inline fast-.+)
  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
 (defun fast-.+ (a b &optional res)
-  (declare (optimize (speed 0) (space 0)))
   (let ((res (if res
                  res
                  (cl-mpm/utils::deep-copy a))))
@@ -428,7 +430,6 @@
     res))
 
 (defun fast-.* (a b &optional res)
-  (declare (optimize (speed 0) (space 0)))
   (let ((res (if res
                  res
                  (cl-mpm/utils::deep-copy a))))
@@ -446,7 +447,6 @@
                  (inline ,name)
                  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) ,name))
                 (defun ,name (a b &optional res)
-                  (declare (optimize (speed 0) (space 0)))
                   (let ((res (if res
                                  res
                                  (cl-mpm/utils::deep-copy a))))

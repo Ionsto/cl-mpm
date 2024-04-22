@@ -32,8 +32,8 @@
     #:iterate-over-mps
     ))
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim (optimize (debug 0) (safety 0) (speed 0)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 3)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
@@ -44,6 +44,7 @@
   #-cl-mpm-fbar (print "Compiled without FBAR")
   #+cl-mpm-special (print "Compiled with special hooks")
   #-cl-mpm-special (print "Compiled without special hooks")
+  (format t "Compiled with optimize ~A~%" (sb-ext:restrict-compiler-policy))
 )
 
 
@@ -370,33 +371,28 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (iterate-over-neighbours-shape-gimp-simd;bspline
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
-           ;; (break)
            (vector-push-extend
             (cl-mpm/particle::make-node-cache
              :node node
              :weight svp
              :grads grads
              :weight-fbar fsvp
-             :grads-fbar fgrads
-             )
+             :grads-fbar fgrads)
             nodes)
            (funcall func mesh mp node svp grads fsvp fgrads)
            ))
         (iterate-over-neighbours-shape-gimp-3d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
-           ;; (break)
            (vector-push-extend
             (cl-mpm/particle::make-node-cache
              :node node
              :weight svp
              :grads grads
              :weight-fbar fsvp
-             :grads-fbar fgrads
-             )
+             :grads-fbar fgrads)
             nodes)
-           (funcall func mesh mp node svp grads fsvp fgrads)
-           )))))
+           (funcall func mesh mp node svp grads fsvp fgrads))))))
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
@@ -617,7 +613,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 0) (safety 3) (debug 0))
+           (optimize (speed 3) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -758,7 +754,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 0) (safety 0) (debug 0))
+           (optimize (speed 3) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -832,7 +828,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 0) (safety 0) (debug 0))
+           (optimize (speed 3) (safety 0) (debug 0))
            )
   (progn
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
@@ -1131,8 +1127,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
    mps
    (lambda (mp)
      (p2g-force-mp mesh mp)))
-  ;; (lparallel:pdotimes (i (length mps))
-  ;;   (p2g-force-mp mesh (aref mps i)))
   )
 
 (defgeneric special-g2p (mesh mp node svp grads)
@@ -1353,12 +1347,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type function func))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
     (declare (type (array cl-mpm/particle:particle) nodes))
-    (dotimes (i (array-total-size nodes))
-      (let ((node (row-major-aref nodes i)))
-        (funcall func node)))
-    ;; (lparallel:pdotimes (i (array-total-size nodes))
+    ;; (dotimes (i (array-total-size nodes))
     ;;   (let ((node (row-major-aref nodes i)))
     ;;     (funcall func node)))
+    (lparallel:pdotimes (i (array-total-size nodes))
+      (let ((node (row-major-aref nodes i)))
+        (funcall func node)))
     )
   (values))
 
@@ -1386,10 +1380,10 @@ Calls func with only the node"
    Calls func with only the node"
   (declare (type function func)
            (type (array cl-mpm/particle:particle) mps))
-  (dotimes (i (length mps))
-    (funcall func (aref mps i)))
-  ;; (lparallel:pdotimes (i (length mps))
-  ;;                     (funcall func (aref mps i)))
+  ;; (dotimes (i (length mps))
+  ;;   (funcall func (aref mps i)))
+  (lparallel:pdotimes (i (length mps))
+                      (funcall func (aref mps i)))
   (values))
 ;; 
 ;; (defun iterate-over-mps-serial (mps func)
@@ -1458,7 +1452,7 @@ Calls func with only the node"
 (defun calculate-strain-rate (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           ;(optimize (speed 0) (safety 0))
+           (optimize (speed 3) (safety 0))
            )
   (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
                    (vorticity cl-mpm/particle:mp-vorticity)
@@ -1543,7 +1537,8 @@ Calls func with only the node"
                      (setf def (magicl:@ df def))
                      (setf strain (cl-mpm/fastmath::fast-.+-voigt strain dstrain))
                      (setf volume (* volume-0 (magicl:det def)))
-                     (update-domain-corner mesh mp dt)))))
+                     ;(update-domain-corner mesh mp dt)
+                     (update-domain-midpoint mesh mp dt)))))
 
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
@@ -1771,12 +1766,14 @@ Calls func with only the node"
                                      )))
                                 (cl-mpm/fastmath:fast-fmacc disp corner direction)
                                 ))
-                     (setf (aref diff d) (magicl:tref disp d 0))
-                     )
-                )
-          (setf (aref domain-storage 0) (aref diff 0)
-                (aref domain-storage 1) (aref diff 1)
-                (aref domain-storage 2) (aref diff 2))
+                     (setf (aref diff d) (magicl:tref disp d 0))))
+          (setf
+           (aref domain-storage 0) (aref diff 0)
+           (aref domain-storage 1) (aref diff 1)
+           (aref domain-storage 2) (aref diff 2))
+          ;; (incf (aref domain-storage 0) (aref diff 0))
+          ;; (incf (aref domain-storage 1) (aref diff 1))
+          ;; (incf (aref domain-storage 2) (aref diff 2))
           ;; (if (= 2 nd)
           ;;     (let* ((jf  (magicl:det def))
           ;;            (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
@@ -1794,7 +1791,9 @@ Calls func with only the node"
           ;;             (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
           ;;             ))
           ;;     )
-          )))))
+          )))
+    )
+  )
 
 (defun update-domain-corner-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
@@ -1897,7 +1896,7 @@ Calls func with only the node"
             )
           ))))
 (defun update-domain-corner (mesh mp dt)
-  (if (= (cl-mpm/mesh:mesh-nd mesh) 2)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (update-domain-corner-2d mesh mp dt)
       (update-domain-corner-3d mesh mp dt)
       )
@@ -1942,7 +1941,8 @@ Calls func with only the node"
 ;;   )
 (defun update-stress-kirchoff (mesh mp dt fbar)
   "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0) (debug 0)))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
                    (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                    (volume cl-mpm/particle:mp-volume)

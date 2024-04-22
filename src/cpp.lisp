@@ -10,8 +10,8 @@
    #:kirchoff-expt-step-lisp
    ))
 (in-package :cl-mpm/ext)
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
 (pushnew (asdf:system-relative-pathname 'cl-mpm "./libs/")  *foreign-library-directories* :test #'equal)
@@ -35,6 +35,7 @@
                                (magicl:transpose df))))
       (multiple-value-bind (lf vf)
           ;; (magicl:scale! (magicl:.+ trial-lgs (magicl:transpose trial-lgs)) 0.5d0)
+          ;;Enforce symmetry
           (setf (magicl:tref trial-lgs 0 1) (magicl:tref trial-lgs 1 0)
                 (magicl:tref trial-lgs 0 2) (magicl:tref trial-lgs 2 0)
                 (magicl:tref trial-lgs 1 2) (magicl:tref trial-lgs 2 1)
@@ -83,6 +84,7 @@
         (defun kirchoff-expt-step (strain df)
           (kirchoff-expt-step-lisp strain df))
         )))
+(declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
 (defun kirchoff-update (strain df)
   (kirchoff-expt-step strain df))
 
