@@ -338,7 +338,7 @@
   (voight-to-stretch-prealloc vec (matrix-zeros)))
 
 (declaim
- (notinline voight-to-stretch-prealloc)
+ (inline voight-to-stretch-prealloc)
  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float)
                   magicl:matrix/double-float) voight-to-stretch-prealloc))
 (defun voight-to-stretch-prealloc (vec result)

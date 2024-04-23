@@ -1235,7 +1235,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
         ;;FLIP
         ;;PIC
-        (cl-mpm/utils::voigt-copy-into mapped-vel vel)
+        ;; (cl-mpm/utils::voigt-copy-into mapped-vel vel)
         (magicl:scale! mapped-vel dt)
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
@@ -1245,7 +1245,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
 
         ;;FLIP
-        ;; (cl-mpm/fastmath:fast-fmacc vel acc dt)
+        (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ))))
 (defgeneric pre-particle-update-hook (particle dt)
   )
@@ -1475,61 +1475,63 @@ Calls func with only the node"
                    ) mp
     (declare (magicl:matrix/double-float strain-rate vorticity stretch-tensor stretch-tensor-fbar velocity-rate))
         (progn
-          (cl-mpm/fastmath::fast-zero strain-rate)
-          (cl-mpm/fastmath::fast-zero vorticity)
+          ;; (cl-mpm/fastmath::fast-zero strain-rate)
+          ;; (cl-mpm/fastmath::fast-zero vorticity)
           (cl-mpm/fastmath::fast-zero stretch-tensor)
-          (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
+          ;; (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
           (let (
-                (stretch-dsvp (stretch-dsvp-3d-zeros))
-                (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-                (temp-add (cl-mpm/utils::matrix-zeros))
+                ;; (stretch-dsvp (stretch-dsvp-3d-zeros))
+                ;; (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+                ;; (temp-add (cl-mpm/utils::matrix-zeros))
                 )
-            (declare (magicl:matrix/double-float stretch-dsvp temp-mult temp-add)
-                     ;; (dynamic-extent stretch-dsvp temp-mult temp-add)
-                     )
+            ;; (declare (magicl:matrix/double-float stretch-dsvp temp-mult temp-add)
+            ;;          ;; (dynamic-extent stretch-dsvp temp-mult temp-add)
+            ;;          )
             (iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
-               ;; (declare (ignore mp svp fsvp))
+               (declare (ignore mp svp fsvp))
                (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                                 (node-active cl-mpm/mesh:node-active))
                    node
                  (declare (magicl:matrix/double-float node-vel)
                           (boolean node-active))
                  (when node-active
-                   (ecase (cl-mpm/mesh::mesh-nd mesh)
-                     (2 (cl-mpm/shape-function::assemble-dstretch-2d-prealloc grads stretch-dsvp))
-                     (3 (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)))
-                   ;; (magicl:mult stretch-dsvp node-vel :target temp-mult)
-                   ;; (setf temp-mult (magicl:@ (cl-mpm/shape-function::assemble-dstretch-3d grads) node-vel))
 
-                   (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
-                   (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
 
-                   ;; (setf stretch-tensor (magicl:.+ stretch-tensor temp-add))
-                   ;; (magicl:.+ stretch-tensor temp-add stretch-tensor)
-                   (cl-mpm/fastmath::fast-.+-matrix
-                    stretch-tensor
-                    temp-add
-                    stretch-tensor)
+                   ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
+                   ;; ;; (ecase (cl-mpm/mesh::mesh-nd mesh)
+                   ;; ;;   (2 (cl-mpm/shape-function::assemble-dstretch-2d-prealloc grads stretch-dsvp))
+                   ;; ;;   (3 (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)))
 
-                   (cl-mpm/shape-function::assemble-dstretch-3d-prealloc fgrads stretch-dsvp)
-                   (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
-                   (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-                   (cl-mpm/fastmath::fast-.+-matrix
-                    stretch-tensor-fbar
-                    temp-add
-                    stretch-tensor-fbar)
+                   ;; (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
+                   ;; (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+
+                   ;; ;; (setf stretch-tensor (magicl:.+ stretch-tensor temp-add))
+                   ;; ;; (magicl:.+ stretch-tensor temp-add stretch-tensor)
+                   ;; (cl-mpm/fastmath::fast-.+-matrix
+                   ;;  stretch-tensor
+                   ;;  temp-add
+                   ;;  stretch-tensor)
+
+                   ;; ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc fgrads stretch-dsvp)
+                   ;; ;; (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
+                   ;; ;; (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
+                   ;; ;; (cl-mpm/fastmath::fast-.+-matrix
+                   ;; ;;  stretch-tensor-fbar
+                   ;; ;;  temp-add
+                   ;; ;;  stretch-tensor-fbar)
                    )))))
 
             ;; (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
             ;; (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
-            (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
+            ;; (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (cl-mpm/fastmath::fast-scale stretch-tensor dt)
-            (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
-            (cl-mpm/fastmath::fast-scale strain-rate dt)
-            (cl-mpm/fastmath::fast-scale vorticity dt)
+            ;; (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
+            ;; (cl-mpm/fastmath::fast-scale strain-rate dt)
+            ;; (cl-mpm/fastmath::fast-scale vorticity dt)
             )))
 
 
@@ -1949,24 +1951,28 @@ Calls func with only the node"
         ;;            (error "Bad stretch tensor found ~A ~A" mp stretch-tensor)))
 
         ;; Turn cauchy stress to kirchoff
-        (setf stress stress-kirchoff)
-        (loop for v across (cl-mpm/utils::fast-storage strain)
-              do (when (sb-ext::float-nan-p v)
-                   (error "PRE NaN strain found ~A" mp)))
+        ;; (setf stress stress-kirchoff)
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; (loop for v across (cl-mpm/utils::fast-storage strain)
+        ;;       do (when (sb-ext::float-nan-p v)
+        ;;            (error "PRE NaN strain found ~A" mp)))
         ;; (pprint stretch-tensor)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
-        (loop for v across (cl-mpm/utils::fast-storage strain)
-              do (when (sb-ext::float-nan-p v)
-                   (error "POST NaN strain found ~A" mp)))
+        ;; (loop for v across (cl-mpm/utils::fast-storage strain)
+        ;;       do (when (sb-ext::float-nan-p v)
+        ;;            (error "POST NaN strain found ~A" mp)))
         ;; Update our kirchoff stress with constitutive model
-        (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+        ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
 
         ;; Check volume constraint!
         (when (<= volume 0d0)
           (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
-        (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
+        ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
         ))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-damaged))
