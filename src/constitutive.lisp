@@ -43,11 +43,14 @@
                        '(6 6) :type 'double-float)
      (/ E (- 1d0 (* nu nu))))))
 
-(defun linear-elastic-mat (strain elastic-matrix)
+(defun linear-elastic-mat (strain elastic-matrix &optional result)
   "Isotropic linear-elastic constitutive model"
   ;(cl-mpm/utils:@-tensor-voigt elastic-matrix strain)
-  (magicl:@ elastic-matrix strain)
-  )
+  (let ((result (if result
+                    result
+                    (cl-mpm/utils:voigt-zeros))))
+    (magicl:mult elastic-matrix strain :target result)
+    result))
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float)
                           magicl:matrix/double-float

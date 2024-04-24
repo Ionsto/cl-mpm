@@ -1707,6 +1707,7 @@ Calls the function with the mesh mp and node"
 
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+    (declare (double-float nu k s_1 s_2 s_3))
     (let* ((j2 (cl-mpm/constitutive::voigt-j2
                 (cl-mpm/utils::deviatoric-voigt stress)))
            (i1 (+ s_1 s_2 s_3))
@@ -2680,11 +2681,12 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            ;; (setf )
-            (setf damage-increment
-                  (max 0d0
-                       (drucker-prager-criterion
-                        (magicl:scale stress (/ 1d0 (magicl:det def))) (* 60d0 (/ pi 180d0)))))
+
+            (setf damage-increment (* E (modified-vm-criterion strain nu k)))
+            ;; (setf damage-increment
+            ;;       (max 0d0
+            ;;            (drucker-prager-criterion
+            ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* 60d0 (/ pi 180d0)))))
             ;; (let* ((strain+
             ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
             ;;            (loop for i from 0 to 2

@@ -1634,18 +1634,10 @@
       mp
     (declare (function calc-pressure))
     ;;Train elastic strain - plus trail kirchoff stress
+    ;(cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
 
-    ;; (let* ((p (cl-mpm/utils:trace-voigt strain))
-    ;;        (q (cl-mpm/utils:deviatoric-voigt strain))
-    ;;        (tau 1d0)
-    ;;        (rho (exp (- (/ dt tau)))))
-    ;;   (setf strain
-    ;;         (magicl:.+
-    ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
-    ;;          (magicl:scale! q rho))))
-
-    (setf stress-u
-          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
 
     (if enable-plasticity
         (progn
