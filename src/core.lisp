@@ -2264,11 +2264,12 @@ Calls func with only the node"
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (declare ((vector cl-mpm/particle::particle) mps))
-    (setf mps
-          ;;We cant do this in parallel apparently
-          (delete-if func mps)
-          ;(lparallel:premove-if func mps)
-          ))
+    (when (> (length mps) 0)
+      (setf mps
+            ;;We cant do this in parallel apparently
+            (delete-if func mps)
+                                        ;(lparallel:premove-if func mps)
+            )))
   (values))
 
 (defun remove-material-damaged (sim)

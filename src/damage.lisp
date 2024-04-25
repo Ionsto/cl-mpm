@@ -813,12 +813,13 @@ Calls the function with the mesh mp and node"
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
-    (loop for mp across mps
-          when (and
-                (typep mp 'cl-mpm/particle:particle-damage)
-                (funcall func mp))
-            do (local-list-remove-particle mesh mp)))
-  (call-next-method))
+    (when (> (length mps) 0)
+      (loop for mp across mps
+            when (and
+                  (typep mp 'cl-mpm/particle:particle-damage)
+                  (funcall func mp))
+              do (local-list-remove-particle mesh mp))
+      (call-next-method))))
 (defmethod cl-mpm::sim-add-mp ((sim mpm-sim-damage) mp)
   (local-list-add-particle (cl-mpm:sim-mesh sim) mp)
   (call-next-method))
@@ -2647,20 +2648,30 @@ Calls the function with the mesh mp and node"
              )
           (* 2d0 (- 1 (/ 1d0 k)) i1)))
       )))
-(defun modified-vm-strain (stress k init-stress nu)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
-    (let (
-          (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt
-                                              stress)))
-          (i1 (+ s_1 s_2 s_3))
+;; (defun modified-vm-strain (stress k init-stress nu)
+;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+;;     (let (
+;;           (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt
+;;                                               stress)))
+;;           (i1 (+ s_1 s_2 s_3))
+;;           (k-factor (/ (- k 1d0)
+;;                        (- 1d0 (* 2d0 nu)))))
+;;       (+ (* i1 (/ k-factor (* 2d0 k)))
+;;          (* (/ 1d0 (* 2d0 k))
+;;             (sqrt (+ (expt (* k-factor i1) 2)
+;;                      (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
+;;                      )))))))
+(defun criterion-modified-vm (strain k nu)
+  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain)
+    (let ((i1 (+ s_1 s_2 s_3))
+          (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt strain)))
           (k-factor (/ (- k 1d0)
-                       (- 1d0 (* 2d0 nu)))))
-      (+ (* i1 (/ k-factor (* 2d0 k)))
-         (* (/ 1d0 (* 2d0 k))
+                       (- 1d0 (* 2d0 nu))))
+          )
+      (* (/ 1d0 (* 2d0 k))
+         (+ (* i1 k-factor)
             (sqrt (+ (expt (* k-factor i1) 2)
-                     (* (/ (* 12 k) (expt (- 1d0 nu) 2)) j2)
-                     ))))
-      )))
+                     (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2))))))))
 
 (defmethod damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
   (let ((damage-increment 0d0))
