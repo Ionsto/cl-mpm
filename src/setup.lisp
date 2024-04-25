@@ -43,7 +43,8 @@
           (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
            sim)))
 
-(defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) &allow-other-keys)
+(defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) (clip-func (lambda (x y z) t))&allow-other-keys)
+  (declare (function clip-func))
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
   (if (= (length size) 2)
       (setf mps (append mps '(1))
@@ -66,12 +67,16 @@
                         append
                         (loop
                           for z from 0 to (- (nth 2 mps) 1)
-                          collect
-                        (let* ((rot (magicl:eye 3)) ;(cl-mpm::rotation-matrix angle))
-                               (origin-vec (magicl:from-list offset '(3 1) :type 'double-float))
-                               (position-vec (magicl:from-list (list (* (nth 0 spacing) x)
-                                                                     (* (nth 1 spacing) y)
-                                                                     (* (nth 2 spacing) z))
+                          when (funcall clip-func
+                                        (* (nth 0 spacing) x)
+                                        (* (nth 1 spacing) y)
+                                        (* (nth 2 spacing) z))
+                            collect
+                            (let* ((rot (magicl:eye 3)) ;(cl-mpm::rotation-matrix angle))
+                                   (origin-vec (magicl:from-list offset '(3 1) :type 'double-float))
+                                   (position-vec (magicl:from-list (list (* (nth 0 spacing) x)
+                                                                         (* (nth 1 spacing) y)
+                                                                         (* (nth 2 spacing) z))
                                                                '(3 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
                                (position-vec (cl-mpm/fastmath::fast-.+ origin-vec
@@ -94,6 +99,13 @@
   (make-array (length mp-list)  :adjustable t :fill-pointer (length mp-list) :initial-contents mp-list))
 
 (defun make-block-mps (offset size mps constructor &rest args)
+  (if (= (length size) 2)
+      (append size '(1)))
+
+  (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
+    (make-mps-from-list data)))
+
+(defun make-block-mps-clipped (offset size mps clip-func constructor &rest args)
   (if (= (length size) 2)
       (append size '(1)))
 
