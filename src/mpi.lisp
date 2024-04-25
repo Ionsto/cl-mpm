@@ -1259,13 +1259,13 @@
 (declaim (notinline set-mp-mpi-index))
 (defun set-mp-mpi-index (sim)
   (let* ((rank (cl-mpi:mpi-comm-rank)))
-    (let ((mps (cl-mpm:sim-mps sim)))
-      (lparallel:pdotimes (i (length mps))
-                          (let ((mp (aref mps i)))
-                            (setf (cl-mpm/particle::mp-mpi-index mp)
-                                  (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
-                                      rank
-                                      -1)))))))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (setf (cl-mpm/particle::mp-mpi-index mp)
+             (if (in-computational-domain sim (cl-mpm/particle:mp-position mp))
+                 rank
+                 -1))))))
 
 ;; (defun cl-mpi:mpi-comm-rank ()
 ;;   0)
@@ -1294,7 +1294,6 @@
            (comp-size (mpm-sim-mpi-domain-count sim))
            )
       (setf (mpm-sim-mpi-domain-bounds sim)
-
             (mapcar (lambda (domain size) (mapcar (lambda (x) (* x size)) domain))
                     (funcall domain-scaler
                              (loop for i from 0 to 2
