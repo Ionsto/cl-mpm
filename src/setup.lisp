@@ -68,9 +68,9 @@
                         (loop
                           for z from 0 to (- (nth 2 mps) 1)
                           when (funcall clip-func
-                                        (+ (* (nth 0 spacing) x) (nth 0 origin))
-                                        (+ (* (nth 1 spacing) y) (nth 1 origin))
-                                        (+ (* (nth 2 spacing) z) (nth 2 origin)))
+                                        (+ (* (nth 0 spacing) x) (nth 0 offset))
+                                        (+ (* (nth 1 spacing) y) (nth 1 offset))
+                                        (+ (* (nth 2 spacing) z) (nth 2 offset)))
                             collect
                             (let* ((rot (magicl:eye 3)) ;(cl-mpm::rotation-matrix angle))
                                    (origin-vec (magicl:from-list offset '(3 1) :type 'double-float))
