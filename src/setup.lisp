@@ -52,7 +52,7 @@
             offset (append offset '(0))
             ))
   (let*  ((nD 3)
-          (args (alexandria:remove-from-plist args :angle))
+          (args (alexandria:remove-from-plist args :angle :clip-func))
           (spacing (mapcar (lambda (s m) (/ (coerce s 'double-float)
                                             (coerce m 'double-float)
                                             )) size mps))
