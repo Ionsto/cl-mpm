@@ -276,8 +276,7 @@
                                     (recv
                                       (cond
                                         ((and (not (= left-neighbor -1))
-                                              (not (= right-neighbor -1))
-                                              )
+                                              (not (= right-neighbor -1)))
                                          (cl-mpi-extensions:mpi-waitall-anything
                                           (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
                                           (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
