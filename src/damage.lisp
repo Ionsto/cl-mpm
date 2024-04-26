@@ -2863,3 +2863,9 @@ Calls the function with the mesh mp and node"
           )
   (values)
   ))
+
+(defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 1d0))
+  (let* ((e0 (/ ft E))
+         (ef (+ (/ GF (* k R E e0)) (/ e0 2)))
+         )
+    (- (* 2d0 (/ ef e0)) 1d0)))

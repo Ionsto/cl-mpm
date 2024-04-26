@@ -47,6 +47,11 @@
   (format t "Compiled with optimize ~A~%" (sb-ext:restrict-compiler-policy))
 )
 
+(defun FLIP-status ()
+  #+cl-mpm-pic (print "Compiled with PIC")
+  #-cl-mpm-pic (print "Compiled with FLIP")
+  )
+
 
 (defclass mpm-sim ()
   ((dt

@@ -34,14 +34,14 @@
 (defmethod estimate-oobf (sim))
 
 (declaim (notinline plot-time-disp))
-(defun plot-time-disp (full-time full-load full-energy)
-  (vgplot:xlabel "Displacement (mm)")
-  (vgplot:ylabel "Load (N)")
-  (vgplot:plot
-   (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) full-load) "mps"
-   (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d4)) full-energy)) "energy"
-   )
-  )
+;; (defun plot-time-disp (full-time full-load full-energy)
+;;   (vgplot:xlabel "Displacement (mm)")
+;;   (vgplot:ylabel "Load (N)")
+;;   (vgplot:plot
+;;    (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) full-load) "mps"
+;;    (mapcar (lambda (x) (* x -1d0)) full-time) (mapcar (lambda (x) (* x 0.1)) (mapcar (lambda (x) (* x 1d4)) full-energy)) "energy"
+;;    )
+;;   )
 ;; (plot-time-disp *full-step* *full-load* *full-energy*)
 
 ;; (defparameter *full-load* nil)
@@ -105,6 +105,7 @@
                    (not converged))
             do
                (progn
+                 (setf fnorm 0d0)
                  (dotimes (j substeps)
                    ;; (push
                    ;;  ;; (get-reaction-force *fixed-nodes*)
@@ -131,6 +132,7 @@
                    ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
+                   (incf fnorm (/ (estimate-energy-norm sim) substeps))
                    )
                  ;; (when t;live-plot
                  ;;   (plot-time-disp full-step full-load full-energy))
@@ -140,7 +142,6 @@
                    (format t "CFL step count estimate: ~D~%" substeps-e)
                    ;; (setf substeps substeps-e)
                    )
-                 (setf fnorm (estimate-energy-norm sim))
 
                  (setf oobf 0d0)
                  (let ((nmax 0d0)
