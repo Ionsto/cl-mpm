@@ -146,10 +146,12 @@
                    ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
-                   (incf fnorm (/ (estimate-energy-norm sim) substeps))
-                   (incf load (/ cl-mpm/penalty::*debug-force* substeps))
+                   ;; (incf fnorm (/ (estimate-energy-norm sim) substeps))
+                   ;; (incf load (/ cl-mpm/penalty::*debug-force* substeps))
                    (incf work (estimate-power-norm sim))
                    )
+                 (setf load cl-mpm/penalty::*debug-force*)
+                 (setf fnorm (/ (estimate-energy-norm sim) work))
                  ;; (incf fnorm (estimate-energy-norm sim))
                  ;; (when t;live-plot
                  ;;   (plot-time-disp full-step full-load full-energy))
@@ -185,8 +187,7 @@
                      (setf oobf (/ nmax dmax)))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm work oobf
                            load)
-                   (format t "normalised energy: ~E ~%" (/ fnorm work))
-                   (when (and (< (/ fnorm work) energy-crit)
+                   (when (and (< fnorm energy-crit)
                               ;(< oobf oobf-crit)
                               )
                      (format t "Took ~D steps to converge~%" i)
@@ -257,7 +258,7 @@
                      (setf oobf (/ nmax dmax)))
 
                    (when (= 0 rank)
-                     (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
+                     (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm work oobf
                              force))
                    (when (and (< fnorm energy-crit)
                               ;(< oobf oobf-crit)
