@@ -1325,12 +1325,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (let* ((vel-sign (cl-mpm/utils:vector-zeros))
                (f-s (magicl::matrix/double-float-storage force))
                (v-s (magicl::matrix/double-float-storage vel))
+               (fnorm (cl-mpm/fastmath::mag force))
                (vs-s (magicl::matrix/double-float-storage vel-sign)))
           (loop for i from 0 to 2
                 do
                    (incf (aref f-s i)
                          (* (signum (aref v-s i))
-                            (abs (aref f-s i))
+                            fnorm
+                            ;(abs (aref f-s i))
                             damping
                             -1d0))
                    ;(setf (aref vs-s i) (signum (aref v-s i)))
@@ -1342,10 +1344,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;                              (* (cl-mpm/fastmath::mag force)
           ;;                                 damping -1d0)
           ;;                              (* mass mass-scale)))
-          (cl-mpm/fastmath:fast-fmacc force
-                                      vel-sign
-                                      (* (cl-mpm/fastmath::mag force)
-                                         damping -1d0))
+          ;; (cl-mpm/fastmath:fast-fmacc force
+          ;;                             vel-sign
+          ;;                             (* (cl-mpm/fastmath::mag force)
+          ;;                                damping -1d0))
 
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
           )
