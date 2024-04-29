@@ -372,17 +372,33 @@
      (the double-float (expt (- (aref a 1) (aref b 1)) 2))
      (the double-float (expt (- (aref a 2) (aref b 2)) 2))
      )
-    ;; (loop for i fixnum from 0 to 2
-    ;;       sum
-    ;;       (the double-float (expt (- (aref a i) (aref b i)) 2))
-    ;;       double-float
-    ;;       )
     )
+
   (defun diff-squared-mat (pos-a pos-b)
     (let ((pos-a (magicl::matrix/double-float-storage pos-a))
           (pos-b (magicl::matrix/double-float-storage pos-b))
           )
       (values (the double-float (simd-accumulate pos-a pos-b)))))
+
+  (defun test-simd-acc (a b)
+    (let (
+          ;; (a (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)))
+          ;; (b (cl-mpm/utils:vector-from-list (list -1d0 5d0 8d0)))
+          (a (cl-mpm/utils:vector-from-list (list 0d0 0d0 0d0)))
+          (b (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0)))
+          )
+      (pprint (diff-squared-mat a b))
+      ;; (let ((iter 1000000000))
+      ;;   (time
+      ;;    (dotimes (i iter)
+      ;;        (simd-accumulate (cl-mpm/utils::fast-storage a)
+      ;;                         (cl-mpm/utils::fast-storage b))))
+      ;;   (time
+      ;;    (dotimes (i iter)
+      ;;      (cl-mpm/fastmath::simd-diff-norm (cl-mpm/utils::fast-storage a) (cl-mpm/utils::fast-storage b)))))
+
+      ))
+
   (declaim
    (inline diff-squared)
    (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))

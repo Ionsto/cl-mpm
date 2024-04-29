@@ -104,6 +104,28 @@
       )))
 
 (declaim
+ (inline simd-diff-norm)
+ (ftype (function ((simple-array double-float (3))
+                   (simple-array double-float (3))) (values)) simd-diff-norm))
+(defun simd-diff-norm (a b)
+  (declare (type (simple-array double-float (3)) a b))
+  (+
+   (the double-float (expt (- (aref a 0) (aref b 0)) 2))
+   (the double-float (expt (- (aref a 1) (aref b 1)) 2))
+   (the double-float (expt (- (aref a 2) (aref b 2)) 2))
+   )
+  ;; (let ((temp
+  ;;         (sb-simd-avx:f64.2-
+  ;;          (sb-simd-avx:f64.2-aref a 0)
+  ;;          (sb-simd-avx:f64.2-aref b 0))))
+  ;;   (+
+  ;;    (sb-simd-avx:f64.2-horizontal+ (sb-simd-avx:f64.2*
+  ;;                                    temp
+  ;;                                    temp))
+  ;;    (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
+  )
+
+(declaim
  (inline fast-fmacc-array)
  (ftype (function ((simple-array double-float)
                    (simple-array double-float)

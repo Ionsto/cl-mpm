@@ -136,6 +136,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
+      (setf *work* 0d0)
       (loop for i from 0 to conv-steps
             while (and *run-convergance*
                    (not converged))
@@ -228,6 +229,7 @@
     ;;       *full-step* (list)
     ;;       *full-energy* (list)
     ;;       )
+    (setf *work* 0d0)
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
