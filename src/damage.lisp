@@ -672,7 +672,7 @@ Calls the function with the mesh mp and node"
                     (macrolet ((reflect-axis (axis enable)
                                  (declare (fixnum axis))
                                  `(when (and ,enable
-                                            (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 2 length)))
+                                            (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 0.5d0 length)))
                                     (let ((weight (weight-func-pos
                                                    mesh
                                                    (cl-mpm/particle::mp-position mp)
@@ -692,7 +692,7 @@ Calls the function with the mesh mp and node"
                                  ))
                       (reflect-axis 0 *enable-reflect-x*)
                       ;; (reflect-axis 1 *enable-reflect-y*)
-                      ;; (reflect-axis 2 *enable-reflect-z*)
+                      (reflect-axis 2 *enable-reflect-z*)
                       )
                     ;; (when (and *enable-reflect-x*
                     ;;            (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 2 length)))
