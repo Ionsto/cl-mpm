@@ -32,23 +32,50 @@
                    ))))))
      energy)))
 
-(defun estimate-power-crit (sim)
-  (let ((energy 0d0)
-        (mut (sb-thread:make-mutex))
-        (dt (cl-mpm:sim-dt sim)))
-    (cl-mpm:iterate-over-nodes
+(defgeneric estimate-energy-norm (sim))
+(defmethod estimate-power-norm ((sim cl-mpm::mpm-sim))
+  (let ((dt (cl-mpm:sim-dt sim)))
+    (let ((energy 0d0))
+      (cl-mpm:iterate-over-nodes-serial
+       (cl-mpm:sim-mesh sim)
+       (lambda (n)
+         (when (cl-mpm/mesh:node-active n)
+           (incf energy
+                 (*
+                  (cl-mpm/mesh::node-mass n)
+                  (cl-mpm/fastmath:dot
+                   (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
+                   (cl-mpm/mesh::node-external-force n))
+                  )))))
+      energy))
+  (let ((energy 0d0))
+    (cl-mpm:iterate-over-nodes-serial
      (cl-mpm:sim-mesh sim)
      (lambda (n)
        (when (cl-mpm/mesh:node-active n)
-         (let ((e-inc (*
-                       ;; (cl-mpm/mesh::node-mass n)
-                       ;; (cl-mpm/mesh::node-volume n)
-                       (cl-mpm/fastmath:dot
-                        (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
-                        (cl-mpm/mesh::node-external-force n)))))
-           (sb-thread:with-mutex (mut)
-             (incf energy e-inc))))))
+         (incf energy
+               (*
+                (cl-mpm/mesh::node-mass n)
+                (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                )))))
     energy))
+(defmethod estimate-power-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
+  (let ((dt (cl-mpm:sim-dt sim)))
+    (cl-mpm/mpi::mpi-sum
+     (let ((energy 0d0))
+       (cl-mpm:iterate-over-nodes-serial
+        (cl-mpm:sim-mesh sim)
+        (lambda (n)
+          (when (cl-mpm/mesh:node-active n)
+            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
+              (incf energy
+                    (*
+                     (cl-mpm/mesh::node-mass n)
+                     (cl-mpm/fastmath:dot
+                      (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
+                      (cl-mpm/mesh::node-external-force n))
+                     ))))))
+       energy))))
 
 (defmethod estimate-oobf (sim))
 
@@ -134,7 +161,7 @@
                    (cl-mpm:update-sim sim)
                    (incf fnorm (/ (estimate-energy-norm sim) substeps))
                    (incf load (/ cl-mpm/penalty::*debug-force* substeps))
-                   (incf work (estimate-power-crit sim))
+                   (incf work (estimate-power-norm sim))
                    )
                  ;; (incf fnorm (estimate-energy-norm sim))
                  ;; (when t;live-plot
@@ -204,6 +231,7 @@
          (estimated-t 1d-5)
          ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
          (total-step 0)
+         (work 0d0)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
@@ -222,13 +250,14 @@
                  (dotimes (j substeps)
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
+                   (incf work (estimate-power-norm sim))
                    )
                  (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
                    (when (= 0 rank)
                      (format t "CFL dt estimate: ~f~%" dt-e)
                      (format t "CFL step count estimate: ~D~%" substeps-e))
                    )
-                 (setf fnorm (estimate-energy-norm sim))
+                 (setf fnorm (/ (estimate-energy-norm sim) work))
 
                  (setf oobf 0d0)
                  (let ((nmax 0d0)
@@ -253,7 +282,7 @@
                      (funcall post-iter-step)))
                  (swank.live:update-swank))))
     (when (not converged)
-      ;; (error "System didn't converge")
+      (error "System didn't converge")
       (when (= 0 rank)
         (format t "System didn't converge~%"))
       )
