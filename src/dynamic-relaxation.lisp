@@ -42,23 +42,11 @@
          (when (cl-mpm/mesh:node-active n)
            (incf energy
                  (*
-                  (cl-mpm/mesh::node-mass n)
                   (cl-mpm/fastmath:dot
                    (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
                    (cl-mpm/mesh::node-external-force n))
                   )))))
-      energy))
-  (let ((energy 0d0))
-    (cl-mpm:iterate-over-nodes-serial
-     (cl-mpm:sim-mesh sim)
-     (lambda (n)
-       (when (cl-mpm/mesh:node-active n)
-         (incf energy
-               (*
-                (cl-mpm/mesh::node-mass n)
-                (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
-                )))))
-    energy))
+      energy)))
 (defmethod estimate-power-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((dt (cl-mpm:sim-dt sim)))
     (cl-mpm/mpi::mpi-sum
@@ -70,7 +58,6 @@
             (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
               (incf energy
                     (*
-                     (cl-mpm/mesh::node-mass n)
                      (cl-mpm/fastmath:dot
                       (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
                       (cl-mpm/mesh::node-external-force n))
