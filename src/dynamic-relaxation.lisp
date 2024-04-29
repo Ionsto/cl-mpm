@@ -31,6 +31,25 @@
                    (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
                    ))))))
      energy)))
+
+(defun estimate-power-crit (sim)
+  (let ((energy 0d0)
+        (mut (sb-thread:make-mutex))
+        (dt (cl-mpm:sim-dt sim)))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (let ((e-inc (*
+                       ;; (cl-mpm/mesh::node-mass n)
+                       (cl-mpm/mesh::node-volume n)
+                       (cl-mpm/fastmath:dot
+                        (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
+                        (cl-mpm/mesh::node-external-force n)))))
+           (sb-thread:with-mutex (mut)
+             (incf energy e-inc))))))
+    energy))
+
 (defmethod estimate-oobf (sim))
 
 (declaim (notinline plot-time-disp))
@@ -90,6 +109,8 @@
          (estimated-t 1d-5)
          ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
          (total-step 0)
+         (work 0d0)
+         (load 0d0)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
@@ -105,35 +126,17 @@
                    (not converged))
             do
                (progn
-                 (setf fnorm 0d0)
+                 (setf fnorm 0d0
+                       load 0d0)
                  (dotimes (j substeps)
-                   ;; (push
-                   ;;  ;; (get-reaction-force *fixed-nodes*)
-                   ;;  cl-mpm/penalty::*debug-force*
-                   ;;  *full-load*)
-                   ;; (push
-                   ;;  (estimate-energy-norm sim)
-                   ;;  *full-energy*)
-                   ;; (push
-                   ;;  total-step
-                   ;;  *full-step*)
-                   ;; (incf total-step)
-
-                   ;; (push
-                   ;;  (get-reaction-force *fixed-nodes*)
-                   ;;  ;; cl-mpm/penalty::*debug-force*
-                   ;;  *data-full-reaction*)
-                   ;; (push
-                   ;;  (estimate-energy-crit *sim*)
-                   ;;  *data-full-energy*)
-                   ;; (push
-                   ;;  *t*
-                   ;;  *data-full-time*)
                    ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
                    (incf fnorm (/ (estimate-energy-norm sim) substeps))
+                   (incf load (/ cl-mpm/penalty::*debug-force* substeps))
+                   (incf work (estimate-power-crit sim))
                    )
+                 ;; (incf fnorm (estimate-energy-norm sim))
                  ;; (when t;live-plot
                  ;;   (plot-time-disp full-step full-load full-energy))
                  ;; (plot-time-disp)
@@ -166,9 +169,10 @@
                    ;;    ))
                    (when (> dmax 0d0)
                      (setf oobf (/ nmax dmax)))
-                   (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - Load: ~E~%" i fnorm oobf
-                           cl-mpm/penalty::*debug-force*)
-                   (when (and (< fnorm energy-crit)
+                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm work oobf
+                           load)
+                   (format t "normalised energy: ~E ~%" (/ fnorm work))
+                   (when (and (< (/ fnorm work) energy-crit)
                               ;(< oobf oobf-crit)
                               )
                      (format t "Took ~D steps to converge~%" i)

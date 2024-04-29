@@ -2205,6 +2205,7 @@
     (when (> damage 0.0d0)
       (let* ((j (magicl:det def))
              (exponential 1)
+             (pressure (* pressure damage))
              (degredation (expt (- 1d0 damage) 1d0))
              )
         (declare (double-float damage))
@@ -2212,9 +2213,10 @@
                (p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           (setf p
-                (+ pressure (if (> p 0d0)
-                               (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
-                               (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p))))
+                (+ pressure
+                   (if (> p 0d0)
+                       (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
+                       (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p))))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
                                   (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
 
