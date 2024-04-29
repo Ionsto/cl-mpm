@@ -370,14 +370,11 @@
     (+
      (the double-float (expt (- (aref a 0) (aref b 0)) 2))
      (the double-float (expt (- (aref a 1) (aref b 1)) 2))
-     (the double-float (expt (- (aref a 2) (aref b 2)) 2))
-     )
-    )
+     (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
 
   (defun diff-squared-mat (pos-a pos-b)
     (let ((pos-a (magicl::matrix/double-float-storage pos-a))
-          (pos-b (magicl::matrix/double-float-storage pos-b))
-          )
+          (pos-b (magicl::matrix/double-float-storage pos-b)))
       (values (the double-float (simd-accumulate pos-a pos-b)))))
 
   (defun test-simd-acc (a b)
@@ -530,14 +527,14 @@
         weight-func-mps
         ))
 (defun weight-func-mps (mesh mp-a mp-b length)
-  (weight-func (diff-squared mp-a mp-b) length))
+  (weight-func (diff-squared mp-a mp-b) length)
+  )
 
 (defun weight-func-pos (mesh pos-a pos-b length)
   (let ((ps-a (magicl::matrix/double-float-storage pos-a))
-        (ps-b (magicl::matrix/double-float-storage pos-b))
-        )
-    (weight-func (the double-float (simd-accumulate ps-a ps-b)) length))
-  )
+        (ps-b (magicl::matrix/double-float-storage pos-b)))
+    (weight-func (the double-float (simd-accumulate ps-a ps-b)) length)))
+
 (declaim
  (inline weight-func-mps-damaged)
  (ftype (function (cl-mpm/mesh::mesh
@@ -666,8 +663,7 @@ Calls the function with the mesh mp and node"
                             ;; (weight-func-mps-damaged mesh mp mp-other
                             ;;                          (cl-mpm/particle::mp-local-length mp)
                             ;;                          )
-                            )
-                          )
+                            ))
                       (declare (double-float weight m d mass-total damage-inc))
                       (incf mass-total (* weight m))
                       (incf damage-inc
@@ -677,16 +673,17 @@ Calls the function with the mesh mp and node"
                                  (declare (fixnum axis))
                                  `(when (and ,enable
                                             (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 2 length)))
-                                    (let ((weight (weight-func-pos mesh
-                                                                   (cl-mpm/particle::mp-position mp)
-                                                                   (magicl:.* (cl-mpm/particle:mp-position mp-other)
-                                                                              (cl-mpm/utils::vector-from-list
-                                                                               (list ,(if (= axis 0) -1d0 0d0) 
-                                                                                     ,(if (= axis 1) -1d0 0d0) 
-                                                                                     ,(if (= axis 2) -1d0 0d0) 
-                                                                                     )))
-                                                                   (sqrt (* length ll))
-                                                                   )))
+                                    (let ((weight (weight-func-pos
+                                                   mesh
+                                                   (cl-mpm/particle::mp-position mp)
+                                                   (magicl:.* (cl-mpm/particle:mp-position mp-other)
+                                                              (cl-mpm/utils::vector-from-list
+                                                               (list ,(if (= axis 0) -1d0 0d0)
+                                                                     ,(if (= axis 1) -1d0 0d0)
+                                                                     ,(if (= axis 2) -1d0 0d0)
+                                                                     )))
+                                                   (sqrt (* length ll))
+                                                   )))
                                       (declare (double-float weight m d mass-total damage-inc))
                                       (incf mass-total (* weight m))
                                       (incf damage-inc
@@ -694,23 +691,37 @@ Calls the function with the mesh mp and node"
                                                weight m))))
                                  ))
                       (reflect-axis 0 *enable-reflect-x*)
-                      ;(reflect-axis 1 *enable-reflect-y*)
-                      (reflect-axis 2 *enable-reflect-z*)
+                      ;; (reflect-axis 1 *enable-reflect-y*)
+                      ;; (reflect-axis 2 *enable-reflect-z*)
                       )
-                    (when (and *enable-reflect-x*
-                               (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 2 length)))
-                      (let ((weight (weight-func-pos mesh
-                                                     (cl-mpm/particle::mp-position mp)
-                                                     (magicl:.* (cl-mpm/particle:mp-position mp-other)
-                                                                (cl-mpm/utils::vector-from-list (list -1d0 0d0 0d0)))
-                                                     (sqrt (* length ll))
-                                                     ;; (* 0.5d0 (+ length ll))
-                                                     )))
-                        (declare (double-float weight m d mass-total damage-inc))
-                        (incf mass-total (* weight m))
-                        (incf damage-inc
-                              (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-                                 weight m))))
+                    ;; (when (and *enable-reflect-x*
+                    ;;            (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 2 length)))
+                    ;;   (let ((weight (weight-func-pos mesh
+                    ;;                                  (cl-mpm/particle::mp-position mp)
+                    ;;                                  (magicl:.* (cl-mpm/particle:mp-position mp-other)
+                    ;;                                             (cl-mpm/utils::vector-from-list (list -1d0 0d0 0d0)))
+                    ;;                                  (sqrt (* length ll))
+                    ;;                                  ;; (* 0.5d0 (+ length ll))
+                    ;;                                  )))
+                    ;;     (declare (double-float weight m d mass-total damage-inc))
+                    ;;     (incf mass-total (* weight m))
+                    ;;     (incf damage-inc
+                    ;;           (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                    ;;              weight m))))
+                    ;; (when (and *enable-reflect-x*
+                    ;;            (< (magicl:tref (cl-mpm/particle::mp-position mp) 0 0) (* 2 length)))
+                    ;;   (let ((weight (weight-func-pos mesh
+                    ;;                                  (cl-mpm/particle::mp-position mp)
+                    ;;                                  (magicl:.* (cl-mpm/particle:mp-position mp-other)
+                    ;;                                             (cl-mpm/utils::vector-from-list (list -1d0 0d0 0d0)))
+                    ;;                                  (sqrt (* length ll))
+                    ;;                                  ;; (* 0.5d0 (+ length ll))
+                    ;;                                  )))
+                    ;;     (declare (double-float weight m d mass-total damage-inc))
+                    ;;     (incf mass-total (* weight m))
+                    ;;     (incf damage-inc
+                    ;;           (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                    ;;              weight m))))
                     )))))
     (when (> mass-total 0d0)
       (setf damage-inc (/ damage-inc mass-total)))
@@ -2885,3 +2896,28 @@ Calls the function with the mesh mp and node"
          (ef (+ (/ GF (* k R E e0)) (/ e0 2)))
          )
     (- (* 2d0 (/ ef e0)) 1d0)))
+
+
+;; (defmacro reflect-axis (axis enable)
+;;                           (declare (fixnum axis))
+;;                           `(when (and ,enable
+;;                                       (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 2 length)))
+;;                              (let ((weight (weight-func-pos mesh
+;;                                                             (cl-mpm/particle::mp-position mp)
+;;                                                             (magicl:.* (cl-mpm/particle:mp-position mp-other)
+;;                                                                        (cl-mpm/utils::vector-from-list
+;;                                                                         (list ,(if (= axis 0) -1d0 0d0)
+;;                                                                               ,(if (= axis 1) -1d0 0d0)
+;;                                                                               ,(if (= axis 2) -1d0 0d0)
+;;                                                                               )))
+;;                                                             (sqrt (* length ll))
+;;                                                             )))
+;;                                (declare (double-float weight m d mass-total damage-inc))
+;;                                (incf mass-total (* weight m))
+;;                                (incf damage-inc
+;;                                      (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+;;                                         weight m))))
+;;                           )
+;; (reflect-axis 0 *enable-reflect-x*)
+;;                                         ;(reflect-axis 1 *enable-reflect-y*)
+;; (reflect-axis 2 *enable-reflect-z*)
