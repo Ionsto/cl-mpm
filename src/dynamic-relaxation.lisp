@@ -42,7 +42,7 @@
        (when (cl-mpm/mesh:node-active n)
          (let ((e-inc (*
                        ;; (cl-mpm/mesh::node-mass n)
-                       (cl-mpm/mesh::node-volume n)
+                       ;; (cl-mpm/mesh::node-volume n)
                        (cl-mpm/fastmath:dot
                         (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
                         (cl-mpm/mesh::node-external-force n)))))
