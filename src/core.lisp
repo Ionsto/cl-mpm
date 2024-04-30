@@ -397,7 +397,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             nodes)
            (funcall func mesh mp node svp grads fsvp fgrads)
            ))
-        (iterate-over-neighbours-shape-gimp-3d
+        (iterate-over-neighbours-shape-gimp-simd-3d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
            (vector-push-extend
