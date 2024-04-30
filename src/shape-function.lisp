@@ -62,8 +62,8 @@
          (ftype (function (double-float double-float double-float) double-float) shape-gimp-fast))
 (defun shape-gimp-fast (x l h)
   (declare (type double-float x l h))
-  (when (= 0d0 l)
-    (error "Zero length domain!"))
+  ;; (when (= 0d0 l)
+  ;;   (error "Zero length domain!"))
   (let ((ax (abs x)))
     (declare (type double-float ax))
     (cond

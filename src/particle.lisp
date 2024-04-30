@@ -1667,7 +1667,7 @@
                   inc)
             (setf ps-vm-inc inc)
             )))
-        (setf stress (magicl:scale stress-u 1d0))
+    (setf stress (cl-mpm/utils:voigt-copy stress-u))
     (when (> damage 0.0d0)
       (let* ()
         (declare (double-float damage))
@@ -1678,8 +1678,7 @@
                     (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
                     (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
           (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))))))
-      )
+                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0)))))))
     stress
     ))
 

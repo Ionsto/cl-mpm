@@ -901,11 +901,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (weightsz (cl-mpm/shape-function::shape-gimp-fast distz doz h))
                                          (weight (* weightsx weightsy weightsz))
 
-                                         ;; (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
-                                         ;; (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                         ;; (weights-fbar-z (the double-float (cl-mpm/shape-function::shape-gimp-fbar distz (* 0.5d0 doz) h)))
-                                         ;; (weight-fbar (* weights-fbar-x weights-fbar-y weights-fbar-z))
-                                         (weight-fbar 0d0)
+                                         (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                         (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                         (weights-fbar-z (the double-float (cl-mpm/shape-function::shape-gimp-fbar distz (* 0.5d0 doz) h)))
+                                         (weight-fbar (* weights-fbar-x weights-fbar-y weights-fbar-z))
                                          )
                                     (declare ;(type double-float h)
                                      (double-float weight weightsx weightsy weightsz distx disty distz)
@@ -921,14 +920,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                              (gradz (* (cl-mpm/shape-function::shape-gimp-dsvp distz doz h)
                                                        weightsx weightsy
                                                        ))
-                                             ;; (grads-fbar
-                                             ;;   (list (* weights-fbar-y weights-fbar-z
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
-                                             ;;         (* weights-fbar-x weights-fbar-z
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                             ;;         (* weights-fbar-x weights-fbar-y
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp distz (* 0.5d0 doz) h))))
-                                             (grads-fbar (list 0d0 0d0 0d0))
+                                             (grads-fbar
+                                               (list (* weights-fbar-y weights-fbar-z
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
+                                                     (* weights-fbar-x weights-fbar-z
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
+                                                     (* weights-fbar-x weights-fbar-y
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp distz (* 0.5d0 doz) h))))
                                              )
                                         (declare (double-float gradx grady gradz))
                                         (funcall func mesh mp node
@@ -954,109 +952,69 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (da (magicl::matrix/double-float-storage d0))
 
                  (ia (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                       (loop for i from 0 to 2 do (setf (aref arr i) (ffloor (aref arr i)))) arr))
-                 (ca (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                       ;; (loop for i from 0 to 2
-                       ;;       for pv across pa
-                       ;;       for iv across ia
-                       ;;       do (setf (aref arr i) (- pv (* h iv))))
-                       (setf
-                        (sb-simd-avx:f64.2-aref
-                         arr 0)
-                        (sb-simd-avx:f64.2-
-                         (sb-simd-avx:f64.2-aref
-                          pa 0)
-                         (sb-simd-avx:f64.2*
-                          (sb-simd-avx:f64.2-aref
-                           ia 0)
-                          h))
-                        (aref arr 2)
-                        (- (aref pa 2) (* h (aref ia 2))))
-                       arr))
-
-                 (doa (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                        (setf
-                         (sb-simd-avx:f64.2-aref
-                          arr 0)
-                         (sb-simd-avx:f64.2*
-                          (sb-simd-avx:f64.2-aref
-                           da 0)
-                          0.5d0)
-                         (aref arr 2)
-                         (* 0.5 (aref da 2)))
-                       ;; (loop for i from 0 to 2
-                       ;;       for dv across da
-                       ;;       do (setf (aref arr i) (* 0.5d0 dv)))
-                        arr))
-                 (dfa (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                       (loop for i from 0 to 2
-                             for cv across ca
-                             for dov across doa
-                             do (setf (aref arr i) (ffloor (- cv dov)))) arr))
-                 (dca (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                        (loop for i from 0 to 2
-                              for cv across ca
-                              for dov across doa
-                              do (setf (aref arr i) (fceiling (+ cv dov)))) arr))
+                       (loop for i from 0 to 2 do (setf (aref arr i) (truncate (aref arr i)))) arr))
+                 ;; (px (the double-float (aref pa 0)))
+                 ;; (py (the double-float (aref pa 1)))
+                 ;; (pz (the double-float (aref pa 2)))
+                 ;; (ix (the fixnum (truncate (center-id px))))
+                 ;; (iy (the fixnum (truncate (center-id py))))
+                 ;; (iz (the fixnum (truncate (center-id pz))))
+                 (cx (- px (* h ix)))
+                 (cy (- py (* h iy)))
+                 (cz (- pz (* h iz)))
+                 (dox (* 0.5d0 (the double-float (aref da 0))))
+                 (doy (* 0.5d0 (the double-float (aref da 1))))
+                 (doz (* 0.5d0 (the double-float (aref da 2))))
+                 (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
+                 (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
+                 (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
+                 (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
+                 (dzf (the fixnum (truncate (ffloor   (- cz doz) h))))
+                 (dzc (the fixnum (truncate (fceiling (+ cz doz) h))))
                  )
-            (declare ((simple-array double-float (3)) pa da ia ca doa dfa dca))
-            (declare (dynamic-extent pa da ia ca doa dfa dca))
-            (loop for dx fixnum from (truncate (aref dfa 0)) to (truncate (aref dca 0))
-                  do (loop for dy fixnum from (truncate (aref dfa 1)) to (truncate (aref dca 1))
+            (declare ((simple-array double-float *) pa))
+            ;; (declare (dynamic-extent pa))
+            (declare (type double-float h cx cy dox doy px py pz doz cz)
+                     (type integer dxf dxc dyf dyc ix iy dzf dzc iz)
+                     )
+            (loop for dx from dxf to dxc
+                  do (loop for dy from dyf to dyc
                            do
-                              (loop for dz fixnum from (truncate (aref dfa 2)) to (truncate (aref dca 2))
+                              (loop for dz from dzf to dzc
                                     do
-                                       (let* ((id (list (the fixnum (+ (the fixnum (truncate (aref ia 0))) dx))
-                                                        (the fixnum (+ (the fixnum (truncate (aref ia 1))) dy))
-                                                        (the fixnum (+ (the fixnum (truncate (aref ia 2))) dz))
-                                                        )))
-                                         (declare (dynamic-extent id))
-                                         (when (cl-mpm/mesh:in-bounds mesh id)
-                                           (let* ((dista
-                                                    (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                                                      (declare ((simple-array double-float (3))))
-                                                           (setf
-                                                            (sb-simd-avx:f64.2-aref
-                                                             arr 0)
-                                                            (sb-simd-avx:f64.2-
-                                                             (sb-simd-avx:f64.2-aref
-                                                              ca 0)
-                                                             (sb-simd-avx:f64.2*
-                                                              (sb-simd-avx:make-f64.2
-                                                               dx
-                                                               dy)
-                                                              h))
-                                                            ;; (aref arr 0) (- (aref ca 0) (* h dx))
-                                                            ;; (aref arr 1) (- (aref ca 1) (* h dy))
-                                                            (aref arr 2) (- (aref ca 2) (* h dz)))
-                                                            arr))
-                                                  (weightsx (cl-mpm/shape-function::shape-gimp-fast
-                                                             (aref dista 0) (aref doa 0) h))
-                                                  (weightsy (cl-mpm/shape-function::shape-gimp-fast
-                                                             (aref dista 1) (aref doa 1) h))
-                                                  (weightsz (cl-mpm/shape-function::shape-gimp-fast
-                                                             (aref dista 2) (aref doa 2) h))
-                                                  (weight (* weightsx weightsy weightsz))
-                                                  )
-                                             (declare ;(type double-float h)
-                                              (double-float weight weightsx weightsy weightsz)
-                                              )
-                                             (when (< 0d0 weight)
-                                               (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                                      (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 0) (aref doa 0) h)
-                                                                weightsy weightsz
-                                                                ))
-                                                      (grady (* (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 1) (aref doa 1) h)
-                                                                weightsx weightsz
-                                                                ))
-                                                      (gradz (* (cl-mpm/shape-function::shape-gimp-dsvp (aref dista 2) (aref doa 2) h)
-                                                                weightsx weightsy
-                                                                ))
-                                                      )
-                                                 (declare (double-float gradx grady gradz))
-                                                 (funcall func mesh mp node
-                                                          weight (list gradx grady gradz)
-                                                          0d0 (list 0d0 0d0 0d0))))))))))))))))
+                              (let* ((id (list (the fixnum (+ ix dx))
+                                               (the fixnum (+ iy dy))
+                                               (the fixnum (+ iz dz))
+                                               )))
+                                (declare (dynamic-extent id))
+                                (when (cl-mpm/mesh:in-bounds mesh id)
+                                  (let* ((distx (- cx (* h dx)))
+                                         (disty (- cy (* h dy)))
+                                         (distz (- cz (* h dz)))
+                                         (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
+                                         (weightsy (cl-mpm/shape-function::shape-gimp-fast disty doy h))
+                                         (weightsz (cl-mpm/shape-function::shape-gimp-fast distz doz h))
+                                         (weight (* weightsx weightsy weightsz))
+                                         )
+                                    (declare ;(type double-float h)
+                                     (double-float weight weightsx weightsy weightsz distx disty distz)
+                                     )
+                                    (when (< 0d0 weight)
+                                      (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                             (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
+                                                       weightsy weightsz
+                                                       ))
+                                             (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
+                                                       weightsx weightsz
+                                                       ))
+                                             (gradz (* (cl-mpm/shape-function::shape-gimp-dsvp distz doz h)
+                                                       weightsx weightsy
+                                                       ))
+                                             )
+                                        (declare (double-float gradx grady gradz))
+                                        (funcall func mesh mp node
+                                                 weight (list gradx grady gradz)
+                                                 0d0 (list 0d0 0d0 0d0))))))))))))))))
 
 
 (defun make-knot-list (mesh pos)

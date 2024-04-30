@@ -2886,38 +2886,18 @@ Calls the function with the mesh mp and node"
                            (magicl:transpose strain)
                            undamaged-stress
                            ) 0 0)))
-          (incf eng-int eng-inc)
-          )
-  (values)
-  ))
+          (incf eng-int eng-inc))
+  (values)))
 
 (defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 1d0))
+  "Simple estimate of ductility from key elastic parameters"
   (let* ((e0 (/ ft E))
-         (ef (+ (/ GF (* k R E e0)) (/ e0 2)))
-         )
+         (ef (+ (/ GF (* k R E e0)) (/ e0 2))))
     (- (* 2d0 (/ ef e0)) 1d0)))
 
+(defun gf-from-ductility (ductility R ft E &optional (k 1d0))
+  "Sanity check for estimating fracture energy from ductility and elastic parameters"
+  (let ((e0 (/ ft E)))
+    (/ (* ductility R E (expt e0 2))
+       2d0)))
 
-;; (defmacro reflect-axis (axis enable)
-;;                           (declare (fixnum axis))
-;;                           `(when (and ,enable
-;;                                       (< (magicl:tref (cl-mpm/particle::mp-position mp) ,axis 0) (* 2 length)))
-;;                              (let ((weight (weight-func-pos mesh
-;;                                                             (cl-mpm/particle::mp-position mp)
-;;                                                             (magicl:.* (cl-mpm/particle:mp-position mp-other)
-;;                                                                        (cl-mpm/utils::vector-from-list
-;;                                                                         (list ,(if (= axis 0) -1d0 0d0)
-;;                                                                               ,(if (= axis 1) -1d0 0d0)
-;;                                                                               ,(if (= axis 2) -1d0 0d0)
-;;                                                                               )))
-;;                                                             (sqrt (* length ll))
-;;                                                             )))
-;;                                (declare (double-float weight m d mass-total damage-inc))
-;;                                (incf mass-total (* weight m))
-;;                                (incf damage-inc
-;;                                      (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
-;;                                         weight m))))
-;;                           )
-;; (reflect-axis 0 *enable-reflect-x*)
-;;                                         ;(reflect-axis 1 *enable-reflect-y*)
-;; (reflect-axis 2 *enable-reflect-z*)
