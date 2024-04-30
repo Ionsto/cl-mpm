@@ -998,17 +998,28 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                               for cv across ca
                               for dov across doa
                               do (setf (aref arr i) (fceiling (+ cv dov) h))) arr))
+                 (dfia (let ((arr (make-array 3 :initial-element 0 :element-type 'fixnum)))
+                         (loop for v across dfa
+                               for i from 0
+                               do (setf (aref arr i) (truncate v))) arr))
+                 (dcia (let ((arr (make-array 3 :initial-element 0 :element-type 'fixnum)))
+                         (loop for v across dca
+                               for i from 0
+                               do (setf (aref arr i) (truncate v))) arr))
+
+                 (iia (let ((arr (make-array 3 :initial-element 0 :element-type 'fixnum)))
+                       (loop for i from 0 to 2 do (setf (aref arr i) (truncate (aref ia i)))) arr))
                  )
             (declare ((simple-array double-float (3)) pa da ia ca doa dfa dca))
-            (declare (dynamic-extent pa da ia ca doa dfa dca))
-            (loop for dx fixnum from (truncate (aref dfa 0)) to (truncate (aref dca 0))
-                  do (loop for dy fixnum from (truncate (aref dfa 1)) to (truncate (aref dca 1))
+            (declare (dynamic-extent pa da ia ca doa dfa dca dfia dcia iia))
+            (loop for dx fixnum from (aref dfia 0) to (aref dcia 0)
+                  do (loop for dy fixnum from (aref dfia 1) to (aref dcia 1)
                            do
-                              (loop for dz fixnum from (truncate (aref dfa 2)) to (truncate (aref dca 2))
+                              (loop for dz fixnum from (aref dfia 2) to (aref dcia 2)
                                     do
-                                       (let* ((id (list (the fixnum (+ (the fixnum (truncate (aref ia 0))) dx))
-                                                        (the fixnum (+ (the fixnum (truncate (aref ia 1))) dy))
-                                                        (the fixnum (+ (the fixnum (truncate (aref ia 2))) dz))
+                                       (let* ((id (list (the fixnum (+ (the fixnum (aref iia 0)) dx))
+                                                        (the fixnum (+ (the fixnum (aref iia 1)) dy))
+                                                        (the fixnum (+ (the fixnum (aref iia 2)) dz))
                                                         )))
                                          (declare (dynamic-extent id))
                                          (when (cl-mpm/mesh:in-bounds mesh id)
