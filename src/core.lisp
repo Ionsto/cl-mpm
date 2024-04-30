@@ -954,7 +954,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (da (magicl::matrix/double-float-storage d0))
 
                  (ia (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                       (loop for i from 0 to 2 do (setf (aref arr i) (ffloor (aref arr i)))) arr))
+                       (loop for i from 0 to 2 do (setf (aref arr i) (fround (aref arr i) h))) arr))
                  (ca (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
                        ;; (loop for i from 0 to 2
                        ;;       for pv across pa
@@ -983,7 +983,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                            da 0)
                           0.5d0)
                          (aref arr 2)
-                         (* 0.5 (aref da 2)))
+                         (* 0.5d0 (aref da 2)))
                        ;; (loop for i from 0 to 2
                        ;;       for dv across da
                        ;;       do (setf (aref arr i) (* 0.5d0 dv)))
@@ -992,12 +992,12 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                        (loop for i from 0 to 2
                              for cv across ca
                              for dov across doa
-                             do (setf (aref arr i) (ffloor (- cv dov)))) arr))
+                             do (setf (aref arr i) (ffloor (- cv dov) h))) arr))
                  (dca (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
                         (loop for i from 0 to 2
                               for cv across ca
                               for dov across doa
-                              do (setf (aref arr i) (fceiling (+ cv dov)))) arr))
+                              do (setf (aref arr i) (fceiling (+ cv dov) h))) arr))
                  )
             (declare ((simple-array double-float (3)) pa da ia ca doa dfa dca))
             (declare (dynamic-extent pa da ia ca doa dfa dca))
