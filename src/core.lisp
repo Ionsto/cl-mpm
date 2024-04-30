@@ -1620,7 +1620,7 @@ Calls func with only the node"
           ;; (cl-mpm/fastmath::fast-zero strain-rate)
           ;; (cl-mpm/fastmath::fast-zero vorticity)
           (cl-mpm/fastmath::fast-zero stretch-tensor)
-          (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
+          ;; (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
           (let (
                 ;; (stretch-dsvp (stretch-dsvp-3d-zeros))
                 ;; (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
@@ -1641,7 +1641,7 @@ Calls func with only the node"
                  (when node-active
 
                    (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
+                   ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
 
                    ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
                    ;; ;; (ecase (cl-mpm/mesh::mesh-nd mesh)
@@ -1672,7 +1672,7 @@ Calls func with only the node"
             ;; (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (cl-mpm/fastmath::fast-scale stretch-tensor dt)
-            (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
+            ;; (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
             ;; (cl-mpm/fastmath::fast-scale strain-rate dt)
             ;; (cl-mpm/fastmath::fast-scale vorticity dt)
             )))
