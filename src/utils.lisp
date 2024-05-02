@@ -447,7 +447,7 @@
   "Calculate the product A_{ij}A_{ij}"
   (let* ((tr (/ (trace-voigt a) 3d0))
          (arr (magicl::matrix/double-float-storage a)))
-    (declare ((simple-array double-float *) arr)
+    (declare ((simple-array double-float (6)) arr)
              (double-float tr))
     (voigt-from-list (list (- (aref arr 0) tr)
                            (- (aref arr 1) tr)

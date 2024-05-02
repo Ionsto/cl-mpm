@@ -107,6 +107,17 @@
       (@-dsvp-vec-simd dsvp stress volume res)
       ;; (magicl:.- res (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) res)
       (pprint res))
+    (let ((iters 1000000))
+      (let ((res (cl-mpm/utils:vector-zeros)))
+        (time 
+         (dotimes (i iters)
+           (magicl:.- res (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) res)))
+        )
+      (let ((res (cl-mpm/utils:vector-zeros)))
+        (time 
+         (dotimes (i iters)
+           (@-dsvp-vec-simd dsvp stress volume res)))
+        ))
     )
   )
 
@@ -163,15 +174,32 @@
            (b-s (magicl::matrix/double-float-storage body-force))
            (g-s (magicl::matrix/double-float-storage gravity-axis))
            )
-      (declare (type (simple-array double-float *) f-s b-s g-s))
+      (declare (type (simple-array double-float (3)) f-s b-s g-s))
       ;;Manually unrolled
 
-      (incf (aref f-s 0)
-            (* (+ (* mass gravity (aref g-s 0)) (* volume (aref b-s 0))) svp))
-      (incf (aref f-s 1)
-            (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp))
+      (setf
+       (sb-simd-avx:f64.2-aref f-s 0)
+       (sb-simd-avx:f64.2+
+        (sb-simd-avx:f64.2-aref f-s 0)
+        (sb-simd-avx:f64.2*
+         (sb-simd-avx:f64.2+
+          (sb-simd-avx:f64.2*
+           (sb-simd-avx:f64.2-aref g-s 0)
+           (* mass gravity))
+          (sb-simd-avx:f64.2*
+           (sb-simd-avx:f64.2-aref b-s 0)
+           volume))
+         svp)))
+      ;; (incf (aref f-s 0)
+      ;;       (* (+ (* mass gravity (aref g-s 0)) (* volume (aref b-s 0))) svp))
+      ;; (incf (aref f-s 1)
+      ;;       (* (+ (* mass gravity (aref g-s 1)) (* volume (aref b-s 1))) svp))
       (incf (aref f-s 2)
-            (* (+ (* mass gravity (aref g-s 2)) (* volume (aref b-s 2))) svp))
+            (*
+             (+
+              (* mass gravity (aref g-s 2))
+              (* volume (aref b-s 2)))
+             svp))
 
           ;; (magicl:scale!
           ;;   ;; (cl-mpm/fastmath::fast-.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))

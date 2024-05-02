@@ -1603,40 +1603,32 @@
     stress
     ))
 
+
+
 (defmethod constitutive-model ((mp particle-chalk-brittle) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
                    (stress-u mp-undamaged-stress)
-                   (strain mp-strain)
-                   (strain-rate mp-strain-rate)
+                   ;; (strain mp-strain)
                    (damage mp-damage)
-                   (pressure mp-pressure)
-                   (def mp-deformation-gradient)
-                   (pos mp-position)
-                   (calc-pressure mp-pressure-func)
                    (coheasion mp-c)
                    (ps-vm mp-strain-plastic-vm)
                    (ps-vm-inc mp-strain-plastic-vm-inc)
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
-                   (D mp-stretch-tensor)
-                   (vorticity mp-vorticity)
                    (E mp-E)
                    (nu mp-nu)
                    (phi mp-phi)
                    (psi mp-psi)
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
-                   (g-r mp-shear-residual-ratio)
-                   )
+                   (g-r mp-shear-residual-ratio))
       mp
-    (declare (function calc-pressure))
+    (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
+             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r))
     ;;Train elastic strain - plus trail kirchoff stress
-    ;(cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
-
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
 
     (if enable-plasticity
@@ -1666,8 +1658,8 @@
             (incf ps-vm
                   inc)
             (setf ps-vm-inc inc)
-            )))
-    (setf stress (cl-mpm/utils:voigt-copy stress-u))
+            ))
+        (setf stress (cl-mpm/utils:voigt-copy stress-u)))
     (when (> damage 0.0d0)
       (let* ()
         (declare (double-float damage))

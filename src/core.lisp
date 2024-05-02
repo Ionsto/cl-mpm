@@ -161,26 +161,26 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-      (loop for mp across mps
-            do
-               (progn
-                 (with-accessors ((pos cl-mpm/particle::mp-position)
-                                  (vel cl-mpm/particle::mp-velocity)
-                                  (domain cl-mpm/particle::mp-domain-size)
-                                  ) mp
-                   (loop for i from 0 to 2
-                         do (progn
-                              (when (sb-ext:float-nan-p (magicl:tref pos i 0)) 
-                                ;; (break)
-                                (pprint mp)
-                                (error "NaN location found for ~A" mp))
-                              (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
-                                (pprint mp)
-                                (error "Infinite velocity found"))
-                              (when (> (abs (magicl:tref vel i 0)) 1e10)
-                                (pprint mp)
-                                (error "High velocity found"))
-                         )))))
+    ;; loop for mp across mps do
+    (cl-mpm::iterate-over-mps
+     mps
+     (lambda (mp)
+       (progn
+         (with-accessors ((pos cl-mpm/particle::mp-position)
+                          (vel cl-mpm/particle::mp-velocity)
+                          (domain cl-mpm/particle::mp-domain-size)
+                          ) mp
+           (loop for i from 0 to 2
+                 do (progn
+                      (when (sb-ext:float-nan-p (magicl:tref pos i 0)) 
+                        (pprint mp)
+                        (error "NaN location found for ~A" mp))
+                      (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
+                        (pprint mp)
+                        (error "Infinite velocity found"))
+                      (when (> (abs (magicl:tref vel i 0)) 1e10)
+                        (pprint mp)
+                        (error "High velocity found"))))))))
     ;; (remove-mps-func
     ;;    sim
     ;;    (lambda (mp)
@@ -589,8 +589,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          (sb-simd-avx:f64.2/ pos-vec h))))
         (declare (sb-simd-avx:f64.2 pos-vec)
                  (double-float h))
-        (loop for dx from 0 to 1
-              do (loop for dy from 0 to 1
+        (loop for dx fixnum from 0 to 1
+              do (loop for dy fixnum from 0 to 1
                        do (let* ((id-vec
                                    (sb-simd-avx:f64.2+ pos-index (sb-simd-avx:make-f64.2 dx dy)))
                                  ;; (id (mapcar (lambda (x) (truncate x))
@@ -1743,6 +1743,11 @@ Calls func with only the node"
       (let ((df (calculate-df mesh mp fbar)))
         (progn
           (setf def (magicl:@ df def))
+
+          ;; (let ((temp (cl-mpm/utils:matrix-zeros)))
+          ;;   (magicl:mult df def :target temp)
+          ;;   (cl-mpm/utils:matrix-copy-into temp def))
+
           (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
                 )
             ;; (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
@@ -1863,30 +1868,34 @@ Calls func with only the node"
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                               0d0 1d0 0d0
                                               0d0 0d0 1d0)))
-        (degredation (- 1d0 (* damage-domain-rate damage))))
+        (degredation (- 1d0 (* damage-domain-rate damage)))
+        (domain-array (cl-mpm/utils:fast-storage domain))
+        )
 
     (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
     ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-        (let* ((stretch
-                 (magicl:@
-                  v
-                  (cl-mpm/utils::matrix-from-list
-                   (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
-                         0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
-                         0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-                  (magicl:transpose v)))
-               )
-          (declare (type magicl:matrix/double-float stretch))
-          (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                                     (the double-float (tref stretch 0 0))))
-          (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                                     (the double-float (tref stretch 1 1))))
-          (setf (tref domain 2 0) (* (the double-float (tref domain 2 0))
-                                     (the double-float (tref stretch 2 2))))
-          )))))
+        (destructuring-bind (l1 l2 l3) l
+          (declare (double-float l1 l2 l3))
+          (let* ((stretch
+                   (magicl:@
+                    v
+                    (cl-mpm/utils::matrix-from-list
+                     (list (the double-float (sqrt l1)) 0d0 0d0
+                           0d0 (the double-float (sqrt l2)) 0d0
+                           0d0 0d0 (the double-float (sqrt l3))))
+                    (magicl:transpose v)))
+                 )
+            (declare (type magicl:matrix/double-float stretch))
+            (setf (aref domain-array 0) (* (the double-float (tref domain 0 0))
+                                       (the double-float (tref stretch 0 0))))
+            (setf (aref domain-array 1) (* (the double-float (tref domain 1 0))
+                                       (the double-float (tref stretch 1 1))))
+            (setf (aref domain-array 2) (* (the double-float (tref domain 2 0))
+                                       (the double-float (tref stretch 2 2))))
+            ))))))
 
 (defun update-domain-stretch (def domain domain-0)
   "Update the domain length based on the total stretch rate"
@@ -2137,34 +2146,20 @@ Calls func with only the node"
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
     (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-    ;For no FBAR we need to update our strains
     (progn
-      ;; (unless fbar)
       (calculate-strain-rate mesh mp dt)
-
       ;; Turn cauchy stress to kirchoff
-      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      (setf stress stress-kirchoff)
-      ;; (setf stress stress-kirchoff)
-
+      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
       ;; Update our strains
       (update-strain-kirchoff-damaged mesh mp dt fbar)
-
       ;; Update our kirchoff stress with constitutive model
-      ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-      ;; (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-      (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
-
+      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
       ;; Check volume constraint!
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      ;; (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
-      (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
-      )
-    )
-  )
+      (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
+      )))
 
 (defun update-stress-linear (mesh mp dt fbar)
   "Update stress for a single mp"
@@ -2340,7 +2335,8 @@ Calls func with only the node"
    mps
    (lambda (mp)
      (update-stress-mp mesh mp dt fbar)
-     (post-stress-step mesh mp dt)))
+     (post-stress-step mesh mp dt)
+     ))
 
   ;; (lparallel:pdotimes (i (length mps))
   ;;   (update-stress-mp mesh (aref mps i) dt fbar)

@@ -885,29 +885,22 @@ Calls the function with the mesh mp and node"
                     (cl-mpm::check-single-mps sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                      ;; (cl-mpm::filter-grid-volume mesh 1d-8)
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::update-stress mesh mps dt fbar)
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage sim))
                     ;Map forces onto nodes
-                    ;;13.5
                     (cl-mpm::p2g-force mesh mps)
-                    ;;15
                     (loop for bcs-f in bcs-force-list
                           do
                              (cl-mpm::apply-bcs mesh bcs-f dt))
-                    ;;15
                     (cl-mpm::update-node-forces sim)
                     ;Reapply velocity BCs
-                    ;;15
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;Also updates mps inline
-                    ;;15
                     (cl-mpm::g2p mesh mps dt)
 
-                    ;;18
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
@@ -2891,11 +2884,13 @@ Calls the function with the mesh mp and node"
 
 (defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 1d0))
   "Simple estimate of ductility from key elastic parameters"
+  (declare (double-float GF R ft E k))
   (let* ((e0 (/ ft E))
-         (ef (+ (/ GF (* k R E e0)) (/ e0 2))))
+         (ef (+ (/ GF (* k R E e0)) (/ e0 2d0))))
     (- (* 2d0 (/ ef e0)) 1d0)))
 
 (defun gf-from-ductility (ductility R ft E &optional (k 1d0))
+  (declare (double-float ductility R ft E k))
   "Sanity check for estimating fracture energy from ductility and elastic parameters"
   (let ((e0 (/ ft E)))
     (/ (* ductility R E (expt e0 2))
