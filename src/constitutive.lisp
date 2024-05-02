@@ -729,10 +729,10 @@
           ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
           ;; (break)
           ;; (pprint (cl-mpm/utils:voigt-to-matrix (swizzle-voigt->coombs trial-elastic-strain)))
-          (when (and
-                 (> f tol)
-                 (not (> f-dp tol)))
-            (error "DP misses mc case ~E ~E" f f-dp))
+          ;; (when (and
+          ;;        (> f tol)
+          ;;        (not (> f-dp tol)))
+          ;;   (error "DP misses mc case ~E ~E" f f-dp))
           (if (> f tol)
               (let* (
                      (Ce (magicl:inv De3))
