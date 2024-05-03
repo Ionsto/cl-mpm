@@ -1328,6 +1328,13 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                                            (cl-mpm/particle::mp-damage-ybar mp)
                                            0d0))
+        (cl-mpm/output::save-parameter "damage-ybar-scaled"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
+                                           (*
+                                            (- 1d0 (cl-mpm/particle::mp-damage mp))
+                                            (cl-mpm/particle::mp-damage-ybar mp)
+                                            )
+                                           0d0))
         (cl-mpm/output::save-parameter "damage-y"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
                                            (cl-mpm/particle::mp-damage-y-local mp)
@@ -2306,6 +2313,7 @@ Calls the function with the mesh mp and node"
                          (*
                           dt
                           (/
+                           ;; (the double-float (max 0d0 (- ybar k)))
                            (* k0
                               (expt
                                (/ (the double-float (max 0d0 (- ybar k)))

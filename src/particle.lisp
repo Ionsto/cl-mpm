@@ -1610,7 +1610,7 @@
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
                    (stress-u mp-undamaged-stress)
-                   ;; (strain mp-strain)
+                   (strain mp-strain)
                    (damage mp-damage)
                    (coheasion mp-c)
                    (ps-vm mp-strain-plastic-vm)
@@ -1627,7 +1627,7 @@
                    (g-r mp-shear-residual-ratio))
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
-             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r))
+             (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
 
@@ -1642,8 +1642,7 @@
                                                phi
                                                psi
                                                coheasion)
-            (setf stress
-                  sig
+            (setf stress sig
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f)
             (setf strain eps-e))
@@ -1657,20 +1656,18 @@
                                 ) 2d0))))))
             (incf ps-vm
                   inc)
-            (setf ps-vm-inc inc)
-            ))
+            (setf ps-vm-inc inc)))
         (setf stress (cl-mpm/utils:voigt-copy stress-u)))
     (when (> damage 0.0d0)
-      (let* ()
-        (declare (double-float damage))
-        (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-          (setf p
-                (if (> p 0d0)
-                    (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
-                    (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
-          (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                  (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0)))))))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (setf p
+              (if (> p 0d0)
+                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
+                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)))
+        (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+                   (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))
+                   stress)))
     stress
     ))
 
