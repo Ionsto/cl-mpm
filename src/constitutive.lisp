@@ -709,8 +709,7 @@
            (magicl:matrix/double-float stress de trial-elastic-strain))
   (let* ((tol 1d-9)
          (initial-f 0d0))
-    (let ((f-dp (dp-yield-mc-circumscribe stress phi c))
-          )
+    (let ((f-dp (dp-yield-mc-circumscribe stress phi c)))
       ;;Early check for if we should yield - DP eval is much faster?
       (if (> f-dp tol)
           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix trial-elastic-strain))

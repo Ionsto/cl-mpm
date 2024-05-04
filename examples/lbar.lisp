@@ -16,6 +16,8 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
+
+
 (defun plot-3d (sim)
   (cl-mpm/plotter:simple-plot-3d
    *sim*
@@ -160,13 +162,17 @@
 ;(defparameter *tip-velocity* -0.02d-3)
 (defparameter *tip-velocity* -0.000d-3)
 
+(defclass mpm-sim-quasi-static-damage (cl-mpm::mpm-sim-quasi-static cl-mpm/damage::mpm-sim-damage) ())
+
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               ;:sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'mpm-sim-quasi-static-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -191,20 +197,22 @@
                                    2))
                  density
                  'cl-mpm/particle::particle-limestone-delayed
-                 ;:E 25.85d9
-                 :E 21.00d9
+                 :E 25.85d9
+                 ;; :E 21.00d9
                  :nu 0.18d0
 
                  :fracture-energy 95d0
-                 :initiation-stress  (* 2.7d6 0.7d0)
+                 :initiation-stress  (* 2.7d6 1d0)
                  :critical-damage 1.0d0
 
                  :local-length (* 25d-3 scaler)
                  :local-length-damaged (* 25d-3 scaler)
 
-                 :ductility 10d0;6.8d0
+
+                 ;; :ductility 10d0;6.8d0
                  ;; :ductility 6.0d0
                  ;; :ductility 12d0
+                 :ductility 26.85d0
                  :compression-ratio 10d0
                  :gravity 0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
@@ -227,7 +235,10 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 7d0 density)))
+              (* 2.5d0 density)
+                                        ;(* 7d0 density)
+              ;; 0.9d0
+              ))
 
       (dotimes (i 0)
         (dolist (dir (list :x :y))
@@ -267,6 +278,7 @@
            cut-size
            ))))
 
+      ;;Right most mp
       (let* ((crack-pos
                (loop for mp across (cl-mpm:sim-mps sim)
                      when
@@ -283,33 +295,34 @@
              (min-pos (loop for mp in above-crack
                             minimize (magicl:tref(cl-mpm/particle:mp-position mp) 1 0)))
              )
-        ;; (defparameter *terminus-mps*
-        ;;   (loop for mp in above-crack
-        ;;         when (= min-pos (magicl:tref
-        ;;                          (cl-mpm/particle:mp-position mp)
-        ;;                          1 0))
-        ;;           collect mp))
-        )
-      (let ((dist (loop for mp across (cl-mpm:sim-mps sim)
-                        minimize (cl-mpm/fastmath::mag-squared
-                                  (magicl:.*
-                                   (magicl:.- (cl-mpm/particle:mp-position mp)
-                                              (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
-                                              )
-                                   (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))))
         (defparameter *terminus-mps*
-          (loop for mp across (cl-mpm:sim-mps sim)
-                when
-                (<=
-                 (cl-mpm/fastmath::mag-squared
-                  (magicl:.*
-                   (magicl:.- (cl-mpm/particle:mp-position mp)
-                              (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
-                              )
-                   (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0))))
-                 (+ dist 1d-10))
+          (loop for mp in above-crack
+                when (= min-pos (magicl:tref
+                                 (cl-mpm/particle:mp-position mp)
+                                 1 0))
                   collect mp))
         )
+      ;;Correct mp
+      ;; (let ((dist (loop for mp across (cl-mpm:sim-mps sim)
+      ;;                   minimize (cl-mpm/fastmath::mag-squared
+      ;;                             (magicl:.*
+      ;;                              (magicl:.- (cl-mpm/particle:mp-position mp)
+      ;;                                         (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
+      ;;                                         )
+      ;;                              (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))))
+      ;;   (defparameter *terminus-mps*
+      ;;     (loop for mp across (cl-mpm:sim-mps sim)
+      ;;           when
+      ;;           (<=
+      ;;            (cl-mpm/fastmath::mag-squared
+      ;;             (magicl:.*
+      ;;              (magicl:.- (cl-mpm/particle:mp-position mp)
+      ;;                         (cl-mpm/utils:vector-from-list (list 0.57d0 0.25d0 0d0))
+      ;;                         )
+      ;;              (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0))))
+      ;;            (+ dist 1d-10))
+      ;;             collect mp))
+      ;;   )
 
       (loop for mp in *terminus-mps*
             do (setf (cl-mpm/particle::mp-index mp) 1))
@@ -419,8 +432,9 @@
   ;; (let ((mps-per-dim 4))
   ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
+  (setf cl-mpm/dynamic-relaxation::*work* 0d0)
 
-  (let* ((mesh-size (/ 0.025 1.0d0))
+  (let* ((mesh-size (/ 0.025 0.5d0))
          (mps-per-cell 2)
          (shelf-height 0.500d0)
          (shelf-length 0.500d0)
@@ -628,7 +642,7 @@
   (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.9d0)
+         (dt-scale 0.5d0)
          (load-steps 100)
          (disp-step (/ 0.8d-3 load-steps))
          )
@@ -660,6 +674,7 @@
                         (progn
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
+                           ;:energy-crit 1d-3
                            :energy-crit 1d-2
                            :dt-scale dt-scale
                            :conv-steps 100
@@ -892,6 +907,94 @@
 ;;  )
 
 
-(pprint (nth-value 2 (magicl:svd (cl-mpm/utils::matrix-from-list (list 1d0 0d0 0d0
-                                                                     0d0 2d0 0d0
-                                                                     0d0 0d0 3d0)))))
+
+(defun cundall-test ()
+  (let ((disp-step 0.1d-4)
+        (target 1d2)
+        (dt-scale 0.5d0)
+        (step 0)
+        )
+
+    (defparameter data-cundall-step (list))
+    (defparameter data-cundall-load (list))
+    (defparameter data-cundall-energy (list))
+    (defparameter data-visc-step (list))
+    (defparameter data-visc-load (list))
+    (defparameter data-visc-energy (list))
+    ;; (setup)
+    ;; (setf (cl-mpm:sim-damping-factor *sim*)
+    ;;       0.1d0)
+    ;; (incf *target-displacement* disp-step)
+    ;; (time
+    ;;  (progn
+    ;;    (cl-mpm/dynamic-relaxation::converge-quasi-static
+    ;;     *sim*
+    ;;     :energy-crit target
+    ;;     :dt-scale dt-scale
+    ;;     :conv-steps 100
+    ;;     :substeps (* 20 1)
+    ;;     :post-iter-step
+    ;;     (lambda ()
+    ;;       (let ((av (get-disp *terminus-mps*))
+    ;;             (load cl-mpm/penalty::*debug-force*)
+    ;;             (energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+    ;;             )
+    ;;         (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
+    ;;                 *target-displacement*
+    ;;                 av
+    ;;                 (abs (- *target-displacement* av ))
+    ;;                 load
+    ;;                 )
+    ;;         (push step data-cundall-step)
+    ;;         (incf step)
+    ;;         (push load data-cundall-load)
+    ;;         (push energy data-cundall-energy)
+    ;;         )))))
+
+    ;; (setf step 0)
+    (setup)
+    (incf *target-displacement* disp-step)
+    ;; (change-class *sim* 'cl-mpm/damage::mpm-sim-usl-damage)
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 2.5d0 2.2d3))
+    (time
+     (progn
+       (cl-mpm/dynamic-relaxation::converge-quasi-static
+        *sim*
+        :energy-crit target
+        :dt-scale dt-scale
+        :conv-steps 100
+        :substeps (* 20 1)
+        :post-iter-step
+        (lambda ()
+          (let ((av (get-disp *terminus-mps*))
+                (load cl-mpm/penalty::*debug-force*)
+                (energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                )
+            (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
+                    *target-displacement*
+                    av
+                    (abs (- *target-displacement* av ))
+                    load
+                    )
+            (push step data-visc-step)
+            (incf step)
+            (push load data-visc-load)
+            (push energy data-visc-energy)
+            ))
+        ))))
+  (plot-cundall-test)
+  )
+(defun plot-cundall-test ()
+  (vgplot:close-all-plots)
+  (vgplot:figure)
+  (vgplot:plot
+   ;; data-cundall-step data-cundall-load "Cundall"
+   data-visc-step data-visc-load "Visc"
+               )
+  (vgplot:figure)
+  (vgplot:plot
+   ;; data-cundall-step data-cundall-energy "Cundall"
+   data-visc-step data-visc-energy "Visc"
+               )
+  )

@@ -1,9 +1,43 @@
 (defpackage :cl-mpm/examples/slump
   (:use :cl))
+(in-package :cl-mpm/examples/slump)
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
+
+(defun estimate-energy-crit (sim)
+  (let ((energy 0d0)
+        (mut (sb-thread:make-mutex)))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (let ((e-inc (*
+                       (cl-mpm/mesh::node-mass n)
+                       (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                       )))
+           (sb-thread:with-mutex (mut)
+             ;(incf energy e-inc)
+             (setf energy (max energy e-inc))
+             )))))
+    energy))
+
+(defun estimate-power-crit (sim)
+  (let ((energy 0d0)
+        (mut (sb-thread:make-mutex)))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (let ((e-inc (*
+                       (cl-mpm/mesh::node-mass n)
+                       (cl-mpm/fastmath:dot
+                        (cl-mpm/mesh::node-velocity n)
+                        (cl-mpm/utils:vector-from-list (list 0d0 -9.8d0 0d0))))))
+           (sb-thread:with-mutex (mut)
+             (incf energy e-inc))))))
+    energy))
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
@@ -42,7 +76,9 @@
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (setf damage-increment (cl-mpm/damage::tensile-energy-norm-pressure strain E nu de pressure))
+          (setf damage-increment (cl-mpm/damage::tensile-energy-norm-pressure strain E nu de
+                                                                              (* damage pressure)
+                                                                              ))
           ;(setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
           ;; (multiple-value-bind (s_1 s_2 s_3) (cl-mpm/damage::principal-stresses-3d (magicl:scale stress (/ 1d0 (magicl:det def))))
           ;;   (setf damage-increment (max 0d0 (- s_1 pressure))))
@@ -481,7 +517,12 @@
             (mapcar (lambda (e) (floor (* e e-scale mp-scale))) block-size)
             )
     (progn
-      (let ()
+      (let* ((length-scale h)
+             (stress 0.3d6)
+             (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 10000d0 length-scale stress 1d9)))
+        (format t "~%Estimated ductility: ~F~%" ductility)
+        (when (< ductility 1d0)
+          (error "Ductility can't be less than 1!"))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
@@ -502,7 +543,6 @@
                 ;; :local-length 100d0
                 ;; :local-length-damaged 0.1d0
                 ;; :damage 0.0d0
-                
                 'cl-mpm/particle::particle-visco-elasto-plastic-damage
                 :visc-factor 1.11d6
                 ;; :visc-factor 11d6
@@ -515,18 +555,19 @@
 
                 :friction-angle 80.0d0
 
-                :kt-res-ratio 1d-9
-                :kc-res-ratio 1d-1
-                :g-res-ratio 1d-5
+                :kt-res-ratio 1d-15
+                :kc-res-ratio 1d-2
+                :g-res-ratio 5d-3
 
                 :fracture-energy 3000d0
-                :initiation-stress 0.30d6;0.6d6
-                :delay-time 1d1
-                :delay-exponent 2d0
-                :ductility 10d0
+                :initiation-stress stress
+                ;0.30d6;0.6d6
+                :delay-time 1d2
+                :delay-exponent 3d0
+                :ductility ductility
                 :critical-damage 1d0;(- 1.0d0 1d-3)
                 :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
-                :local-length 10d0;(* 0.20d0 (sqrt 7))
+                :local-length length-scale;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
                 :psi (* 00d0 (/ pi 180))
@@ -569,7 +610,6 @@
       (setf (cl-mpm:sim-mass-filter sim) 0d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-nonlocal-damage sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -592,7 +632,8 @@
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
-             (ocean-y (+ h-y (* 0.5d0 terminus-size)))
+             ;(ocean-y (+ h-y (* 0.5d0 terminus-size)))
+             (ocean-y (+ h-y (- terminus-size 100d0)))
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
             ;(angle -1d0)
@@ -670,11 +711,11 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 5)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (slope 0d0;-0.02
                 )
-         (shelf-height 100)
+         (shelf-height 400)
          (shelf-aspect 3)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
@@ -685,6 +726,7 @@
                        (* 2 mesh-size)
                        ))
          )
+    (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* runout-aspect shelf-height))
                                                  (+ shelf-height 100)
@@ -746,7 +788,7 @@
     ;;                                                                          shelf-height)
     ;;                                                                    '(2 1) :type 'double-float)
     ;;                                                  ))))
-    (let* ((undercut-angle 20d0)
+    (let* ((undercut-angle 00d0)
            (normal (magicl:from-list (list
                                            (cos (- (* pi (/ undercut-angle 180d0))))
                                            (sin (- (* pi (/ undercut-angle 180d0))))
@@ -852,16 +894,17 @@
   (defparameter *run-sim* t)
     (vgplot:close-all-plots)
     (vgplot:figure)
-  (sleep 1)
+  ;; (sleep 1)
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d0)
-         (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.8d0)
-         (substeps (floor target-time dt)))
+ (let* ((target-time 1d1)
+        (dt (cl-mpm:sim-dt *sim*))
+        (dt-0 0d0)
+        (dt-scale 0.9d0)
+        (substeps (floor target-time dt)))
 
    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
                                               *sim*
@@ -877,24 +920,37 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-   (let ((energy-crit 0d0))
-     (time (loop for steps from 0 to 100
+   (setf dt-0 (/ (cl-mpm:sim-dt *sim*) (sqrt (cl-mpm::sim-mass-scale *sim*))))
+   (let ((energy-crit 0d0)
+         (power-crit 0d0))
+     (time (loop for steps from 0 to 300
                  while *run-sim*
                  do
                     (progn
                       (let ((base-damping 1d-3))
+                        (when (> steps 8)
+                          (setf (cl-mpm::sim-enable-damage *sim*) t)
+                          )
                         (if (> steps 5)
-                            (progn
-                              (format t "Enabling damage~%")
-                              (setf (cl-mpm::sim-enable-damage *sim*) t
-                                    ;; (cl-mpm::sim-mass-scale *sim*) 1d3
-                                    target-time 1d1
-                                    (cl-mpm:sim-mass-scale *sim*) 1d4
-                                    (cl-mpm::sim-damping-factor *sim*) 0d0;(* 1d4 0.001d0)
-                                    )
-                              ;; (setf (cl-mpm::sim-damping-factor *sim*) base-damping
-                                        ;dt-scale 1.0d0
-                              );)
+                            (if (> energy-crit 1d4)
+                                (progn
+                                  (format t "Collapse ~%")
+                                  (setf
+                                        ;; (cl-mpm::sim-mass-scale *sim*) 1d3
+                                        target-time 1d0
+                                        (cl-mpm:sim-mass-scale *sim*) 1d0
+                                        (cl-mpm::sim-damping-factor *sim*) 0d0;(* 1d4 0.001d0)
+                                        )
+                                  )
+                                (progn
+                                  (format t "Accelerate ~%")
+                                  (setf 
+                                        ;; (cl-mpm::sim-mass-scale *sim*) 1d3
+                                        target-time 1d1
+                                        (cl-mpm:sim-mass-scale *sim*) 1d4
+                                        (cl-mpm::sim-damping-factor *sim*) 0d0;(* 1d4 0.001d0)
+                                        )
+                                  ))
                             (progn
                               (setf (cl-mpm::sim-enable-damage *sim*) nil
                                     (cl-mpm:sim-mass-scale *sim*) 1d4
@@ -911,6 +967,11 @@
                         (format t "CFL dt estimate: ~f~%" dt-e)
                         (format t "CFL step count estimate: ~D~%" substeps-e)
                         (setf substeps substeps-e))
+
+                      (setf (cl-mpm:sim-dt *sim*) (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
+                      (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
+                      (format t "Actual dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+                      (format t "Actual step count estimate: ~D~%" substeps)
                       ;; (when (> steps 2)
                       ;;   (setf dt-scale 1d0)
                       ;;     )
@@ -928,7 +989,8 @@
                       (push
                        *x*
                        *x-pos*)
-                      (setf energy-crit 0d0)
+                      (setf energy-crit 0d0
+                            power-crit 0d0)
                       (let ((cfl 0))
                         (time (dotimes (i substeps)
                                 ;; (increase-load *sim* *terminus-mps*
@@ -938,9 +1000,14 @@
                                 ;; (melt-sdf *sim* (rectangle-sdf (list 0 0) (list 5000 *water-level*))
                                 ;;           (* (cl-mpm:sim-dt *sim*) 1d-3))
                                 (cl-mpm::update-sim *sim*)
-                                (incf energy-crit (* dt (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
+                                ;(incf energy-crit (* dt (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
+                                ;(incf energy-crit (* dt (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
+                                ;; (incf energy-crit (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
+                                (incf energy-crit (estimate-energy-crit *sim*))
+                                (incf power-crit (estimate-power-crit *sim*))
                                 ;; (setf cfl (max cfl (find-max-cfl *sim*)))
                                 (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                        (setf energy-crit (/ energy-crit substeps))
                         ;; (loop for mp across (cl-mpm:sim-mps *sim*)
                         ;;       do
                         ;;          (with-accessors ((tv cl-mpm/particle::mp-time-averaged-visc))
@@ -950,18 +1017,26 @@
                         (format t "CFL: ~f~%" cfl)
                         (push cfl *cfl-max*)
                         (format t "Energy norm: ~F~%" energy-crit)
-                        (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-                               (substeps-e (floor target-time dt-e)))
-                          (format t "CFL dt estimate: ~f~%" dt-e)
-                          (format t "CFL step count estimate: ~D~%" substeps-e)
-                          (setf (cl-mpm:sim-dt *sim*) dt-e)
-                          (setf substeps substeps-e))
+                        ;; (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                        ;;        (substeps-e (floor target-time dt-e)))
+                        ;;   (format t "CFL dt estimate: ~f~%" dt-e)
+                        ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
+                        ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
+                        ;;   (setf substeps substeps-e))
                         )
+
+                      (cl-mpm/setup:remove-sdf
+                       *sim*
+                       (lambda (p)
+                         (if (> (magicl:tref p 0 0) *removal-point*)
+                             -1d0
+                             1d0)))
+
                       (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
                         (format stream "~f, ~f ~%" *t* *x*))
                       (incf *sim-step*)
                       (plot *sim*)
-                      (vgplot:title (format nil "Time:~F - Energy ~E"  *t* energy-crit))
+                      (vgplot:title (format nil "Time:~F - Energy ~E - Power ~E"  *t* energy-crit power-crit))
                       (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                          :terminal "png size 1920,1080"
                                          )
