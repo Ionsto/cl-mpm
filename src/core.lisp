@@ -1394,7 +1394,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         ;; (cl-mpm/fastmath::fast-.+ pos mapped-vel pos)
         ;; (cl-mpm/fastmath::fast-.+ disp mapped-vel disp)
-        ;; #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ;;FLIP
         #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
         ))))
@@ -1478,8 +1477,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (loop for i from 0 to 2
                 do
                    (incf (aref f-s i)
-                         (* (signum (aref v-s i))
-                            fnorm
+                         (*
+                          (signum
+                           (*
+                            (aref f-s i)
+                            (aref v-s i)))
+                            ;; fnorm
+                            (aref f-s i)
                             ;(abs (aref f-s i))
                             damping
                             -1d0))
