@@ -288,7 +288,9 @@
                            )
               mp
             (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
-                   (normal-force (* (expt penetration-dist 1d0) epsilon)))
+                   (normal-force (* (expt penetration-dist 1d0) epsilon
+                                    ;(sqrt volume)
+                                    )))
               (sb-thread:with-mutex (*debug-mutex*)
                 (incf *debug-force* (* normal-force 1d0))
                 (incf *debug-force-count* 1))
