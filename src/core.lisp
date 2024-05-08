@@ -1480,10 +1480,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                          (*
                           (signum
                            (*
-                            (aref f-s i)
+                            ;(aref f-s i)
                             (aref v-s i)))
                             ;; fnorm
-                            (aref f-s i)
+                            (abs (aref f-s i))
                             ;(abs (aref f-s i))
                             damping
                             -1d0))

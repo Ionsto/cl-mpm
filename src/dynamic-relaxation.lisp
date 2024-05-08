@@ -42,8 +42,9 @@
          (when (cl-mpm/mesh:node-active n)
            (incf energy
                  (*
+                  dt
                   (cl-mpm/fastmath:dot
-                   (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
+                   (cl-mpm/mesh::node-velocity n)
                    (cl-mpm/mesh::node-external-force n))
                   )))))
       energy)))
@@ -58,8 +59,9 @@
             (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
               (incf energy
                     (*
+                     dt
                      (cl-mpm/fastmath:dot
-                      (magicl:scale (cl-mpm/mesh::node-velocity n) dt)
+                      (cl-mpm/mesh::node-velocity n)
                       (cl-mpm/mesh::node-external-force n))
                      ))))))
        energy))))
@@ -150,7 +152,7 @@
                    (cl-mpm:update-sim sim)
                    ;; (incf fnorm (/ (estimate-energy-norm sim) substeps))
                    ;; (incf load (/ cl-mpm/penalty::*debug-force* substeps))
-                   ;; (incf *work* (estimate-power-norm sim))
+                   (incf *work* (estimate-power-norm sim))
                    )
                  (setf load cl-mpm/penalty::*debug-force*)
                  ;(setf fnorm (/ (estimate-energy-norm sim) *work*))
@@ -242,7 +244,7 @@
                  (dotimes (j substeps)
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
-                   ;; (incf *work* (estimate-power-norm sim))
+                   (incf *work* (estimate-power-norm sim))
                    )
                  (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
                    (when (= 0 rank)
