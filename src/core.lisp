@@ -1476,6 +1476,29 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (vs-s (magicl::matrix/double-float-storage vel-sign)))
           (loop for i from 0 to 2
                 do
+                   ;; (incf (aref f-s i)
+                   ;;       (*
+                   ;;        (signum (aref v-s i))
+                   ;;        fnorm
+                   ;;        damping
+                   ;;        -1d0))
+
+                   ;; (incf (aref f-s i)
+                   ;;       (*
+                   ;;        (signum (* (aref v-s i)
+                   ;;                   (aref f-s i))
+                   ;;                )
+                   ;;        (aref f-s i)
+                   ;;        damping
+                   ;;        -1d0))
+                   ;; (incf (aref f-s i)
+                   ;;       (*
+                   ;;        (signum (aref v-s i)
+                   ;;                )
+                   ;;        (abs (aref f-s i))
+                   ;;        damping
+                   ;;        -1d0))
+                   ;;Possible form of damping
                    (when (> (* (aref f-s i) (aref v-s i)) 0)
                      (incf (aref f-s i)
                            (*

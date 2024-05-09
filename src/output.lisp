@@ -401,6 +401,7 @@
             (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
             (save-parameter-nodes "energy"
                                   (*
+                                   (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                                    (cl-mpm/mesh::node-mass node)
                                    (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity node))))
             (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))

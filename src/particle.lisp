@@ -2000,7 +2000,7 @@
                              ) 2d0))))))
           (setf stress (magicl:scale stress-undamaged 1d0)))
       (when (> damage 0.0d0)
-        (magicl:scale! stress (- 1d0 (* (- 1d0 1d-5) damage)))
+        (magicl:scale! stress (- 1d0 (* (- 1d0 1d-15) damage)))
         ))
     stress
     ))
