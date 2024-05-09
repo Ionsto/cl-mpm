@@ -2374,8 +2374,7 @@ Calls func with only the node"
      (when (and (cl-mpm/mesh:node-active node)
                 (< (cl-mpm/mesh:node-mass node) mass-thresh))
        (setf (cl-mpm/mesh::node-active node) nil)
-       (cl-mpm/mesh:reset-node node)
-       )))
+       (cl-mpm/mesh:reset-node node))))
 
   ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
   ;;   (lparallel:pdotimes (i (array-total-size nodes))

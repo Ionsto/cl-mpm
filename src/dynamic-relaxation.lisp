@@ -9,36 +9,39 @@
 
 (defgeneric estimate-energy-norm (sim))
 (defmethod estimate-energy-norm ((sim cl-mpm::mpm-sim))
-  (loop for mp across (cl-mpm:sim-mps sim)
-            sum (* (cl-mpm/particle:mp-mass mp)
-                   (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
-  ;; (let ((energy 0d0))
-  ;;   (cl-mpm:iterate-over-nodes-serial
-  ;;    (cl-mpm:sim-mesh sim)
-  ;;    (lambda (n)
-  ;;      (when (cl-mpm/mesh:node-active n)
-  ;;        (incf energy
-  ;;              (*
-  ;;               (cl-mpm/mesh::node-mass n)
-  ;;               (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
-  ;;               )))))
-  ;;   energy)
+  ;; (loop for mp across (cl-mpm:sim-mps sim)
+  ;;           sum (* (cl-mpm/particle:mp-mass mp)
+  ;;                  (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
+  (let ((energy 0d0))
+    (cl-mpm:iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (incf energy
+               (*
+                (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                (cl-mpm/mesh::node-mass n)
+                (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
+                )))))
+    energy)
   )
 (defmethod estimate-energy-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
-   (call-next-method)
-   ;; (let ((energy 0d0))
-   ;;   (cl-mpm:iterate-over-nodes-serial
-   ;;    (cl-mpm:sim-mesh sim)
-   ;;    (lambda (n)
-   ;;      (when (cl-mpm/mesh:node-active n)
-   ;;        (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
-   ;;          (incf energy
-   ;;                (*
-   ;;                 (cl-mpm/mesh::node-mass n)
-   ;;                 (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
-   ;;                 ))))))
-   ;;   energy)
+   ;; (call-next-method)
+   (let ((energy 0d0))
+     (cl-mpm:iterate-over-nodes-serial
+      (cl-mpm:sim-mesh sim)
+      (lambda (n)
+        (when (cl-mpm/mesh:node-active n)
+          (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
+            (incf energy
+                  (*
+                   (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                   (cl-mpm/mesh::node-mass n)
+                   (cl-mpm/mesh::node-mass n)
+                   (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
+                   ))))))
+     energy)
    ))
 
 (defgeneric estimate-energy-norm (sim))
