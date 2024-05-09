@@ -62,7 +62,12 @@
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+          ;(setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+          ;; (setf damage-increment
+          ;;       (sqrt (* 3/2
+          ;;                (cl-mpm/constitutive::voigt-j2
+          ;;                 (cl-mpm/utils::deviatoric-voigt (magicl:scale stress (/ 1d0 (magicl:det def))))))))
+          ;; (setf damage-increment (* E (cl-mpm/damage::modified-vm-criterion strain nu (/ fc ft))))
 
           ;; (multiple-value-bind (s_1 s_2 s_3) (cl-mpm/damage::principal-stresses-3d (magicl:scale stress (/ 1d0 (magicl:det def))))
           ;;   (setf damage-increment (max damage-increment
@@ -75,10 +80,10 @@
           ;(setf damage-increment (criterion-mc strain (* angle (/ pi 180d0)) E nu))
           ;; (setf damage-increment (criterion-dp strain (* angle (/ pi 180d0)) E nu))
           ;; (setf damage-increment (cl-mpm/damage::smooth-rankine-criterion (magicl:scale stress (/ 1d0 (magicl:det def)))))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::drucker-prager-criterion
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::drucker-prager-criterion
+                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
           )
         (when (>= damage 1d0)
           (setf damage-increment 0d0))
@@ -167,12 +172,17 @@
          )
     (declare (double-float h density))
     (progn
-      (let* ((length-scale h)
+      (let* (
              (init-stress 60d3)
+             (downscale (/ 1d0 8d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
-             (gf (* 47d0 0.5d0))
+             (gf (* 47d0 downscale))
+             (length-scale 0.5d0)
+             ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9)))
         (format t "Estimated ductility ~E~%" ductility)
+        (format t "Estimated lc ~E~%" length-scale)
+        (format t "Estimated init stress ~E~%" init-stress)
         (when (< ductility 1d0)
           (error "Ductility too low ~A" ductility))
         (setf (cl-mpm:sim-mps sim)
@@ -191,7 +201,7 @@
                 :ft 1d0
                 :fc 10d0
 
-                :friction-angle 30.0d0
+                :friction-angle 50.0d0
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d-2
                 :g-res-ratio 5d-3
@@ -1096,8 +1106,8 @@
 (defun setup (&optional (notch-length 1d0))
   (let* ((mesh-size 0.5d0)
          (mps-per-cell 2)
-         (shelf-height 15)
-         (soil-boundary 2)
+         (shelf-height 15.5)
+         (soil-boundary 5)
          (shelf-aspect 1.0)
          (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
@@ -2067,3 +2077,14 @@
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic sig-i de eps E nu angle angle c)
         (cl-mpm/constitutive::swizzle-voigt->coombs sig))
       )))
+
+
+(let* ((downscale (/ 1d0 1000d0))
+       (length-scale (/ 5d-3 downscale))
+       (init-stress (* 1.5d6 (sqrt downscale)))
+       (gf (* 1.0d0 1))
+       (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9)))
+  (format t "~%Estimated ductility ~E~%" ductility)
+  (format t "~%Estimated Gf ~E~%" gf)
+  (format t "~%Estimated lc ~E~%" length-scale)
+  (format t "~%Estimated init stress ~E~%" init-stress))
