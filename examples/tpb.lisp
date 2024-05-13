@@ -201,6 +201,7 @@
                (kappa (sqrt 7)))
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
+          (cl-mpm/damage::estimate-ductility-jirsek2004 (* 48d0 0.5d0) (* length-scale (sqrt 7)) 3.45d6 15.3d9)
           (setf (cl-mpm:sim-mps sim)
                 (cl-mpm/setup::make-mps-from-list
                  (append
@@ -255,7 +256,7 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 3d0 density ms)
-              (* 10d0 density ms)
+              (* 5d0 density ms)
               ;; 0.7d0
               ;; (* 15.3d9 1d-4)
               ;; (* 1d1 density)
@@ -313,7 +314,7 @@
                                       1 0)))
                   collect mp)))
 
-      ;; (setf *terminus-mps* (list (nth 0 *terminus-mps*)))
+      (setf *terminus-mps* (list (nth 0 *terminus-mps*)))
       ;; (setf *terminus-mps* (mapcar (lambda (i) (nth i *terminus-mps*))
       ;;                              (list (floor (- (length *terminus-mps*) 1) 2))))
       ;; (when (> (length *terminus-mps*) 2)
@@ -426,9 +427,6 @@
 
 (declaim (notinline setup))
 (defun setup (&key (undercut 0d0) (refine 1d0))
-  ;; (let ((mps-per-dim 4))
-  ;;   (defparameter *sim* (setup-test-column '(16 16) '(8 8)  '(0 0) *refine* mps-per-dim)))
-  ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
 
   (let* ((mesh-size (/ 0.0102 1.0))
          (mps-per-cell 2)
@@ -977,8 +975,9 @@
                                            )))
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-3
-                           :dt-scale 1.0d0
+                           :energy-crit 1d-7
+                           :oobf-crit 1d0
+                           :dt-scale 0.7d0
                            :conv-steps 200
                            :substeps 50
                            :post-iter-step
@@ -987,7 +986,8 @@
                                (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E~%"
                                        *target-displacement*
                                        av
-                                       (abs (- *target-displacement* av )))))))
+                                       (/ (abs (- *target-displacement* av )) *target-displacement*)
+                                       )))))
                         (cl-mpm/damage::calculate-damage *sim*)
                         )
                       )
@@ -1420,8 +1420,8 @@
 
 (defun cundall-test ()
   (let ((disp-step -0.5d-4)
-        (target 1d-4)
-        (dt-scale 0.9d0)
+        (target 1d-7)
+        (dt-scale 0.8d0)
         (step 0)
         )
 
@@ -1442,7 +1442,7 @@
         :energy-crit target
         :dt-scale dt-scale
         :conv-steps 500
-        :substeps (* 10 1)
+        :substeps (* 50 1)
         :post-iter-step
         (lambda (step ke fnorm)
           (let ((av (get-disp *terminus-mps*))
@@ -1453,8 +1453,7 @@
                     *target-displacement*
                     av
                     (abs (- *target-displacement* av ))
-                    load
-                    )
+                    load)
             (push step data-cundall-step)
             (incf step)
             (push load data-cundall-load)

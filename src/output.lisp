@@ -404,6 +404,17 @@
                                    (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                                    (cl-mpm/mesh::node-mass node)
                                    (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity node))))
+            (save-parameter-nodes "oobf"
+                                  (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
+                                                   (f-int cl-mpm/mesh::node-internal-force))
+                                      node
+                                      (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
+                                          (/
+                                           (cl-mpm/fastmath::mag-squared
+                                            (magicl:.+ f-ext f-int))
+                                             (cl-mpm/fastmath::mag-squared f-ext))
+                                          0d0)))
+
             (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
 
             (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)

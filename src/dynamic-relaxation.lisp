@@ -80,7 +80,34 @@
                      ))))))
        energy))))
 
-(defmethod estimate-oobf (sim))
+(defgeneric estimate-oobf (sim))
+(defmethod estimate-oobf (sim)
+  (let ((oobf 0d0)
+        (nmax 0d0)
+        (dmax 0d0)
+        )
+    (cl-mpm::iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (f-ext cl-mpm/mesh::node-external-force)
+                        (f-int cl-mpm/mesh::node-internal-force))
+           node
+         (when active
+           (setf nmax (+ nmax
+                         (*
+                          (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                          (cl-mpm/fastmath::mag-squared
+                           (magicl:.+ f-ext f-int))))
+                 dmax (+ dmax
+                         (*
+                          (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                          (cl-mpm/fastmath::mag-squared f-ext)))))
+         )
+       ))
+    (when (> dmax 0d0)
+      (setf oobf (/ nmax dmax)))
+    oobf))
 
 (declaim (notinline plot-time-disp))
 ;; (defun plot-time-disp (full-time full-load full-energy)
@@ -155,7 +182,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      (setf *work* 0d0)
+      ;; (setf *work* 0d0)
       (loop for i from 0 to conv-steps
             while (and *run-convergance*
                    (not converged))
@@ -184,38 +211,15 @@
                    ;; (setf substeps substeps-e)
                    )
 
-                 (setf oobf 0d0)
-                 (let ((nmax 0d0)
-                       (dmax 0d0)
-                       (imax 0)
-                       (iter 0))
-                   ;; (cl-mpm::iterate-over-nodes-serial
-                   ;;  (cl-mpm:sim-mesh sim)
-                   ;;  (lambda (node)
-                   ;;    (with-accessors ((active cl-mpm/mesh::node-active)
-                   ;;                     (f-ext cl-mpm/mesh::node-external-force)
-                   ;;                     (f-int cl-mpm/mesh::node-internal-force))
-                   ;;        node
-                   ;;      (when active
-                   ;;        (setf imax iter)
-                   ;;        (setf nmax (+ nmax
-                   ;;                      (cl-mpm/fastmath::mag-squared
-                   ;;                       (magicl:.- f-ext f-int)))
-                   ;;              dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
-                   ;;      )
-                   ;;    (incf iter)
-                   ;;    ))
-                   (when (> dmax 0d0)
-                     (setf oobf (/ nmax dmax)))
-                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
-                           load)
-                   (when (and (< fnorm energy-crit)
-                              ;(< oobf oobf-crit)
-                              )
-                     (format t "Took ~D steps to converge~%" i)
-                     (setf converged t))
-                   (when post-iter-step
-                     (funcall post-iter-step i fnorm oobf)))
+                 (setf oobf (estimate-oobf sim))
+                 (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
+                         load)
+                 (when (and (< fnorm energy-crit)
+                            (< oobf oobf-crit))
+                   (format t "Took ~D steps to converge~%" i)
+                   (setf converged t))
+                 (when post-iter-step
+                   (funcall post-iter-step i fnorm oobf))
                  (swank.live:update-swank))))
     (when (not converged)
       (error (make-instance 'non-convergence-error
@@ -254,7 +258,7 @@
     ;;       *full-step* (list)
     ;;       *full-energy* (list)
     ;;       )
-    (setf *work* 0d0)
+    ;; (setf *work* 0d0)
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
