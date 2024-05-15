@@ -95,8 +95,8 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  (plot-collapse-curves)
-  ;; (vgplot:plot *time-data* *damage-data*)
+  ;; (plot-collapse-curves)
+  (vgplot:plot *time-data* *damage-data*)
   ;; (cl-mpm/plotter:simple-plot
   ;;  *sim*
   ;;  :plot :deformed
@@ -186,8 +186,8 @@
              (init-stress 50d3)
              (downscale (/ 1d0 1d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
-             (gf 5d0)
-             (length-scale h)
+             (gf (* 3d0 downscale))
+             (length-scale 1.00d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9)))
         (format t "Estimated ductility ~E~%" ductility)
@@ -219,7 +219,7 @@
                 :fracture-energy 3000d0
                 :initiation-stress init-stress;18d3
                 :delay-time 1d0
-                :delay-exponent 2d0
+                :delay-exponent 1d0
 
                 ;; :ductility 5d0
                 :ductility ductility
@@ -264,15 +264,13 @@
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
-      (setf (cl-mpm::sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (let ((ms 1d6))
         (setf (cl-mpm::sim-mass-scale sim) ms)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d6 0.1d0))
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 5d0 (sqrt (/ 1d9 (* (expt h 2) 1.7d3)))))
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         )
-      (format t "Set damping: ~F~%" (cl-mpm:sim-damping-factor sim))
 
       ;; (dotimes (i 2)
       ;;   (dolist (dir (list :x :y))
@@ -396,10 +394,18 @@
 (defparameter *refine* (/ 1d0 2d0))
 
 (defun plot-collapse-curves ()
-  ;; (vgplot:figure)
+  (vgplot:figure)
   (vgplot:plot
-   *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-e*))) *data-e*) "KE"
-   *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-d*))) *data-d*) "Damage"
+   ;; *data-t* *data-e*   "Energy"
+   *data-t* (mapcar (lambda (x) (/ x 1d0 ;(reduce #'max *data-e*)
+                                   )) *data-e*  ) "Kinetic Energy"
+   *data-t* (mapcar (lambda (x) (/ x 1d0
+                                   ;(reduce #'max *data-se*)
+                                   )) *data-se*  ) "Strain Energy"
+
+   ;; *data-t* (mapcar (lambda (x) (/ x -1d0)) *data-gpe*  ) "GPE"
+   ;; *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-di*))) *data-di* ) "Damage inc"
+   ;; *data-t* (mapcar (lambda (x) (/ x (reduce #'max *data-pi*))) *data-pi* ) "plastic inc"
    )
   )
 
@@ -504,14 +510,11 @@
     ;;   (setf converged t))
     ))
 
-
-
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                                *sim*)
 
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
@@ -520,17 +523,11 @@
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.9d0)
-         (settle-steps 20)
-         (damp-steps 20)
+         (dt-scale 0.8d0)
+         (settle-steps 6)
+         (damp-steps 5)
          (dt-0 0d0)
          (last-e 0d0)
-         (damage-0
-           (lparallel:pmap-reduce (lambda (mp)
-                                    (*
-                                     (cl-mpm/particle::mp-damage mp)))
-                                  #'+ (cl-mpm:sim-mps *sim*)
-                                  :initial-value 0d0))
          )
     (cl-mpm/output::save-simulation-parameters
      #p"output/settings.json"
@@ -539,21 +536,16 @@
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
      (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
-
     (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :supersede)
-      (format stream "steps,time,damage,energy~%"))
+      (format stream "steps,time,energy~%"))
 
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
       (format t "CFL dt estimate: ~f~%" dt-e)
       (format t "CFL step count estimate: ~D~%" substeps-e)
       (setf substeps substeps-e))
-
     (format t "Substeps ~D~%" substeps)
     (setf dt-0 (/ (cl-mpm:sim-dt *sim*) (sqrt (cl-mpm::sim-mass-scale *sim*))))
-    (defparameter *data-damage* 0d0)
-    (defparameter *data-energy* 0d0)
-    (setf *data-d* (list))
     (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
@@ -569,11 +561,11 @@
                      (format t "MPs ~d ~%" (length (cl-mpm:sim-mps *sim*)))
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :append)
-                       (format stream "~D,~f,~f,~f~%"
+                       (format stream "~D,~f~%"
                                steps
                                *t*
-                               *data-damage*
-                               *data-energy*))
+                               last-e
+                               ))
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((energy-estimate 0d0)
                            (oobf 0d0)
@@ -611,8 +603,15 @@
                                                                      (cl-mpm/particle::mp-gravity mp)))
                                                                   #'+ (cl-mpm:sim-mps *sim*))
                                            )
+                                     ;; (incf damage-inc
+                                     ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
+                                     ;;             sum
+                                     ;;             (cl-mpm/particle::mp-damage-increment mp)))
+                                     ;; (incf plastic-inc
+                                     ;;       (loop for mp across (cl-mpm:sim-mps *sim*)
+                                     ;;             sum
+                                     ;;             (cl-mpm/particle::mp-strain-plastic-vm-inc mp)))
                                      (incf oobf (estimate-oobf *sim*))))))
-
                        (setf energy-estimate (/ energy-estimate substeps)
                              oobf (/ oobf substeps)
                              total-energy (/ total-energy substeps)
@@ -621,26 +620,8 @@
                              damage-inc (/ damage-inc substeps)
                              plastic-inc (/ plastic-inc substeps)
                              )
-                       (setf total-energy (* total-energy
-                                              ;; (/ (cl-mpm::sim-mass-scale *sim*)
-                                              ;;    1d4)
-                                              ))
-
-                       (setf *data-energy* total-energy)
-                       (let ((damage-est
-                               (-
-                                (lparallel:pmap-reduce (lambda (mp)
-                                                           (*
-                                                            1d0
-                                                            (cl-mpm/particle::mp-damage mp)))
-                                                         #'+ (cl-mpm:sim-mps *sim*)
-                                                         :initial-value 0d0)
-                                  damage-0)))
-                         (setf *data-damage* damage-est))
-
                        (push *t* *data-t*)
                        (push total-energy *data-e*)
-                       (push *data-damage* *data-d*)
                        (push total-strain-energy *data-se*)
                        (push total-gpe *data-gpe*)
                        (push damage-inc *data-di*)
@@ -657,84 +638,92 @@
                        (defparameter *damage-inc* damage-inc)
                        (defparameter *plastic-inc* plastic-inc)
 
+                       ;;Half MS resiudal
+                       ;; (let ((ms (cl-mpm:sim-mass-scale *sim*))
+                       ;;       (dt (cl-mpm:sim-dt *sim*))
+                       ;;       (ms-descale 2)
+                       ;;       (half-ms-energy 0d0)
+                       ;;       (full-ms-energy 0d0)
+                       ;;       )
+
+                       ;;   (dotimes (i 1)
+                       ;;     (cl-mpm::update-sim *sim*)
+                       ;;     (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
+                       ;;     (incf full-ms-energy (estimate-energy-crit *sim*)))
+
+                       ;;    (setf (cl-mpm:sim-dt *sim*) (/ dt ms-descale)
+                       ;;          (cl-mpm:sim-mass-scale *sim*) (/ ms (expt ms-descale 2.0)))
+
+                       ;;    (dotimes (i ms-descale)
+                       ;;      (cl-mpm::update-sim *sim*)
+                       ;;      (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))) ;)
+                       ;;      (incf half-ms-energy (estimate-energy-crit *sim*)))
+
+                       ;;   (setf (cl-mpm:sim-dt *sim*) dt
+                       ;;         (cl-mpm:sim-mass-scale *sim*) ms)
+                       ;;   (setf half-ms-energy (/ half-ms-energy ms-descale))
+                       ;;   ;(format t "E : ~E - HE : ~E ~%" full-ms-energy half-ms-energy)
+                       ;;   (defparameter *ms-e-ratio* 0d0)
+                       ;;   (when (> full-ms-energy 0d0)
+                       ;;     (defparameter *ms-e-ratio* (/ half-ms-energy full-ms-energy))
+                       ;;     (format t "MS E ratio : ~F ~%" (/ half-ms-energy full-ms-energy)))
+                       ;;   )
                        (when (>= steps settle-steps)
                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                          (cl-mpm::iterate-over-mps
                           (cl-mpm:sim-mps *sim*)
                           (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled)))
-                         ;; (if (or
-                         ;;      ;; t
-                         ;;      ;; (> energy-estimate 1d-3)
-                         ;;      ;; (> total-energy 1d2)
-                         ;;      ;; (> total-energy 1d2)
-                         ;;      ;; (> plastic-inc  1d-3)
-                         ;;      ;; t
-                         ;;      ;; nil
-                         ;;      ;; (> (abs (estimate-energy-gradient *data-e* target-time))
-                         ;;      ;;    1d5
-                         ;;      ;;    )
-                         ;;      ;; (and
-                         ;;      ;; nil
-                         ;;      ;; (> *ms-e-ratio* 1.5d0)
-                         ;;      (> total-energy 1d3)
-                         ;;      ;;  ;; (> (- (first *data-e*) (second *data-e*) 0d0))
-                         ;;      ;;  )
-                         ;;      ;; (< 0.5d0
-                         ;;      ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
-                         ;;      ;;          maximizing (cl-mpm/particle::mp-damage mp)))
-                         ;;      ;; nil
-                         ;;      ;; t
-                         ;;      )
-                         ;;     (progn
-                         ;;       (format t "Collapse timestep~%")
-                         ;;       (setf
-                         ;;        target-time collapse-target-time
-                         ;;        (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale
-                         ;;        ;; (cl-mpm::sim-mass-scale *sim*) 1d0
-                         ;;        ;; (cl-mpm:sim-damping-factor *sim*) 10d0
-                         ;;        ))
-                         ;;     (progn
-                         ;;       (format t "Accelerated timestep~%")
-                         ;;       (setf
-                         ;;        target-time 1d0
-                         ;;        (cl-mpm::sim-mass-scale *sim*) 1d4
-                         ;;        )
-                         ;;       ;; (setf
-                         ;;       ;;  target-time target-time-original
-                         ;;       ;;  ;; (cl-mpm::sim-mass-scale *sim*) 1d3
-                         ;;       ;;  (cl-mpm::sim-mass-scale *sim*) mass-scale
-                         ;;       ;;  )
-                         ;;       ))
-                         (cond
-                           ((> total-energy 5d2)
-                            (progn
-                              (format t "Collapse timestep~%")
-                              (setf
-                               target-time collapse-target-time
-                               (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale
+
+                         (if (or
+                              ;; t
+                              ;; (> energy-estimate 1d-3)
+                              ;; (> total-energy 1d2)
+                              ;; (> total-energy 1d2)
+                              ;; (> plastic-inc  1d-3)
+                              ;; t
+                              ;; nil
+                              ;; (> (abs (estimate-energy-gradient *data-e* target-time))
+                              ;;    1d5
+                              ;;    )
+                              ;; (and
+                              ;; nil
+                              ;; (> *ms-e-ratio* 1.5d0)
+                               (> total-energy 1d3)
+                              ;;  ;; (> (- (first *data-e*) (second *data-e*) 0d0))
+                              ;;  )
+                              ;; (< 0.5d0
+                              ;;    (loop for mp across (cl-mpm:sim-mps *sim*)
+                              ;;          maximizing (cl-mpm/particle::mp-damage mp)))
+                              ;; nil
+                              ;; t
+                              )
+                             (progn
+                               (format t "Collapse timestep~%")
+                               (setf
+                                target-time collapse-target-time
+                                (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale
+                                ;; (cl-mpm::sim-mass-scale *sim*) 1d0
+                                ;; (cl-mpm:sim-damping-factor *sim*) 10d0
+                                ))
+                             (progn
+                               (format t "Accelerated timestep~%")
+                               (setf
+                                ;; dt-scale 0.9d0
+                                target-time 1d0
+                                (cl-mpm::sim-mass-scale *sim*) 1d4
+                                (cl-mpm:sim-damping-factor *sim*) 0d0;(* 1d4 10d0)
+                                )
+                               ;; (setf
+                               ;;  target-time target-time-original
+                               ;;  ;; (cl-mpm::sim-mass-scale *sim*) 1d3
+                               ;;  (cl-mpm::sim-mass-scale *sim*) mass-scale
+                               ;;  )
                                )))
-                           (t ;(> total-energy 1d1)
-                            (progn
-                              (format t "Accelerated timestep~%")
-                              (setf
-                               target-time 1d0
-                               (cl-mpm::sim-mass-scale *sim*) 1d4
-                               )
-                              ))
-                           ;; (t;(> total-energy 1d0)
-                           ;;  (progn
-                           ;;    (format t "Bigstep timestep~%")
-                           ;;    (setf
-                           ;;     target-time 1d1
-                           ;;     (cl-mpm::sim-mass-scale *sim*) 1d6
-                           ;;     )
-                           ;;    ))
-                           ))
 
                        (when (>= steps damp-steps)
                          (let ((ms (cl-mpm::sim-mass-scale *sim*)))
                            (setf (cl-mpm:sim-damping-factor *sim*)
-                                 (* 1.7d3 0.0d0)
+                                 0d0
                                  ;; (* 0d-3 ms)
                                  ;; 0.1d0
                                  ;; 10000d0
@@ -745,10 +734,10 @@
                      
 
 
-                     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                     ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                     ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                     ;;   (setf substeps substeps-e))
+                     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf substeps substeps-e))
                      (setf (cl-mpm:sim-dt *sim*) (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
                      (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                      (format t "CFL dt estimate: ~f~%" dt)
@@ -1124,7 +1113,7 @@
 
 
 
-(defun setup (&optional (notch-length 0d0) &key (mesh-size 0.5d0) (mps 2))
+(defun setup (&optional (notch-length 1d0) &key (mesh-size 1d0) (mps 2))
   (let* ((mesh-size mesh-size)
          (mps-per-cell mps)
          (shelf-height 15.5)
@@ -1138,8 +1127,7 @@
          (depth 400)
          (offset (list 0 (* 0 mesh-size)
                        ;; 0
-                       ))
-         )
+                       )))
     (defparameter *sim*
       (setup-test-column (list domain-length
                                (+ shelf-height (* 5 mesh-size))
@@ -1151,6 +1139,31 @@
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
 
+    (when nil
+      (let ((density 1.7d3)
+            (g 9.8d0))
+        (loop for mp across (cl-mpm:sim-mps *sim*)
+              do
+                 (let* ((depth (- (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) shelf-height ))
+                        (p (* density depth g 1/3))
+                        (E (cl-mpm/particle::mp-e mp))
+                        (nu (cl-mpm/particle::mp-e mp))
+                        (K (/ E (* 2 (+ 1 nu) (- 1 nu nu))))
+                        (p-e (/ p K))
+                        (stress (cl-mpm/utils:voigt-from-list (list p p p 0d0 0d0 0d0)))
+                        )
+                   (setf
+                    (cl-mpm/particle::mp-strain mp)
+                    ;(cl-mpm/utils:voigt-from-list (list p-e p-e 0d0 0d0 0d0 0d0))
+                    (magicl:linear-solve
+                     (cl-mpm/particle::mp-elastic-matrix mp)
+                     stress)
+                    (cl-mpm/particle::mp-undamaged-stress mp)
+                    stress
+                    (cl-mpm/particle::mp-stress mp)
+                    stress
+                    )))
+              ));)
     ;;Refine around tip
     (dotimes (i 0)
       (dolist (dir (list :x
@@ -1178,7 +1191,7 @@
 
     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
            (measured-angle 78d0)
-           (undercut-angle              ;(- 82.5d0 90d0)
+           (undercut-angle ;(- 82.5d0 90d0)
              (- measured-angle 90d0))
            (normal (magicl:from-list (list
                                       (cos (- (* pi (/ undercut-angle 180d0))))
@@ -1188,29 +1201,29 @@
                                      soil-boundary)
                                '(2 1) :type 'double-float)))
       (cl-mpm/setup::remove-sdf *sim*
-                                (lambda (p)
-                                  (if (and
-                                       (> (magicl:tref p 1 0) soil-boundary))
-                                      (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
-                                          (cl-mpm/setup::plane-point-sdf
-                                           (magicl:from-list (list (magicl:tref p 0 0)
-                                                                   (magicl:tref p 1 0)) '(2 1))
-                                           normal
-                                           (magicl:from-list (list shelf-length soil-boundary)
-                                                             '(2 1) :type 'double-float))
+                               (lambda (p)
+                                 (if (and
+                                      (> (magicl:tref p 1 0) soil-boundary))
+                                     (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
+                                         (cl-mpm/setup::plane-point-sdf
+                                          (magicl:from-list (list (magicl:tref p 0 0)
+                                                                  (magicl:tref p 1 0)) '(2 1))
+                                          normal
+                                          (magicl:from-list (list shelf-length soil-boundary)
+                                                            '(2 1) :type 'double-float))
 
-                                          (cl-mpm/setup::plane-point-sdf
-                                           (magicl:from-list (list (magicl:tref p 0 0)
-                                                                   (magicl:tref p 1 0)) '(2 1))
-                                           (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
-                                           sloped-inflex-point)
-                                          )
-                                      1d0)
-                                  ))
+                                         (cl-mpm/setup::plane-point-sdf
+                                          (magicl:from-list (list (magicl:tref p 0 0)
+                                                                  (magicl:tref p 1 0)) '(2 1))
+                                          (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
+                                          sloped-inflex-point)
+                                         )
+                                     1d0)
+                                 ))
       (when nil
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.15d0)
-              (width                    ;(* 2d0 mesh-size)
+              (width ;(* 2d0 mesh-size)
                 ;; 0.5d0
                 (* 1.5d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0)))
                 ))
@@ -1261,19 +1274,19 @@
                                      1d0)
                                  ))
       )
-    (let ((notch-height 0.0d0))
-      (cl-mpm/setup:remove-sdf
-       *sim*
-       (lambda (p)
-         (if t
-             (funcall
-              (cl-mpm/setup::rectangle-sdf
-               (list shelf-length (+ notch-height soil-boundary))
-               (list (* 2d0 notch-height) notch-height)
-               ) p)
-             1d0))))
+     (let ((notch-height 0.0d0))
+       (cl-mpm/setup:remove-sdf
+        *sim*
+        (lambda (p)
+          (if t
+              (funcall
+               (cl-mpm/setup::rectangle-sdf
+                (list shelf-length (+ notch-height soil-boundary))
+                (list (* 2d0 notch-height) notch-height)
+                ) p)
+              1d0))))
 
-    (setf cl-mpm::*max-split-depth* 6))
+     (setf cl-mpm::*max-split-depth* 6))
 
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
@@ -1290,8 +1303,6 @@
   (defparameter *data-gpe* (list))
   (defparameter *data-di* (list))
   (defparameter *data-pi* (list))
-
-  (defparameter *data-d* (list))
   )
 (defparameter *data-t* (list))
 (defparameter *data-e* (list))
@@ -1491,13 +1502,10 @@
     (defparameter *energy* 0)
     (defparameter *sim-step* 0))
 
-(defun setup-under (&key (mesh-size 0.5d0) (mps-per-cell 2) (height 15d0))
-  (let* (
-         ;; (mesh-size 0.5)
-         ;; (mps-per-cell 2)
-         (shelf-height ;15.0
-           height
-                       )
+(defun setup-under ()
+  (let* ((mesh-size 0.5)
+         (mps-per-cell 4)
+         (shelf-height 15.0)
          (soil-boundary 2)
          (shelf-aspect 1.0)
          (runout-aspect 1.0)
@@ -1553,8 +1561,7 @@
     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
            (measured-angle 78d0)
            (undercut-angle ;(- 82.5d0 90d0)
-             0d0
-             ;; (- measured-angle 90d0)
+             (- measured-angle 90d0)
                            )
            ;; (undercut-angle 0d0)
            (normal (magicl:from-list (list
@@ -1610,7 +1617,7 @@
     ;;    (lambda (mp)
     ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
     ;;   )
-    (let* ((notched-depth 0.0d0)
+    (let* ((notched-depth 3.0d0)
        (undercut-angle 45d0)
        (notched-width (* 0.5 notched-depth))
        (d-mid 0d0
@@ -2112,151 +2119,50 @@
 ;;     (format t "~%Ed: ~E nud: ~E~%" Ed nud)))
 
 
-;;1-0.5-6.47
-;;0.5-0.5-7.41
-;;0.25-0.5-7.41
-
-;; (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
-;;   (with-accessors ((damping cl-mpm::sim-damping-factor)
-;;                    (mass-scale cl-mpm::sim-mass-scale)
-;;                    (mesh cl-mpm::sim-mesh)
-;;                    (dt cl-mpm::sim-dt))
-;;       sim
-;;     (cl-mpm::iterate-over-nodes
-;;      mesh
-;;      (lambda (node)
-;;        (cl-mpm::calculate-forces-cundall node damping dt mass-scale)))))
-;; (setf *run-sim* nil)
+(setf *run-sim* nil)
 (defun estimate-max-stress ()
   (vgplot:close-all-plots)
-  (let ((refine 2))
-    (setup 0.5d0 :mesh-size 0.25d0 :mps 2)
-    ;; (setup-under :mesh-size (/ 1.00d0 refine)
-    ;;              :height 15.5d0
-    ;;              )
-    (cl-mpm/output::save-simulation-parameters
-     #p"output/settings.json"
-     *sim*
-     (list :dt 1d0))
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do (setf (cl-mpm/particle::mp-initiation-stress mp) 1d10))
-    (setf (cl-mpm:sim-damping-factor *sim*)
-          0.4d0
-          ;(* 1d-1 (cl-mpm::sim-mass-scale *sim*))
-          )
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do (setf
-              (cl-mpm/particle::mp-initiation-stress mp) 1d10
-              (cl-mpm/particle::mp-enable-plasticity mp) nil))
-    (defparameter *damage-data* (list))
-    (defparameter *time-data* (list))
-    (setf (cl-mpm::sim-enable-damage *sim*) nil)
-    (cl-mpm/dynamic-relaxation::converge-quasi-static
-     *sim*
-     :energy-crit 1d-2
-     :oobf-crit 1d-2
-     :dt-scale 0.9d0
-     :conv-steps 200
-     :substeps 50)
-    (cl-mpm/damage::calculate-damage *sim*)
-    (let ((dy
-            (lparallel:pmap-reduce (lambda (mp)
-                                     (cl-mpm/particle::mp-damage-ybar mp))
-                                   #'max (cl-mpm:sim-mps *sim*))
-            ))
-      (format t "Max damage-ybar ~E~%" dy))
-    (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" 0)) *sim*)
-    ;; (setup-under :mesh-size (/ 1.00d0 refine)
-    ;;              :height 15d0
-    ;;              )
-    ;; (setup 0.0d0 :mesh-size 0.5d0)
-    ;; (cl-mpm/output::save-simulation-parameters
-    ;;  #p"output/settings.json"
-    ;;  *sim*
-    ;;  (list :dt 1d0))
-    ;; (setf (cl-mpm:sim-damping-factor *sim*)
-    ;;       0.7d0
-    ;;                                     ;(* 1d-1 (cl-mpm::sim-mass-scale *sim*))
-    ;;       )
-    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;       do (setf
-    ;;           (cl-mpm/particle::mp-initiation-stress mp) 1d10
-    ;;           (cl-mpm/particle::mp-enable-plasticity mp) nil))
-    ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
-    ;; (let ((dt-scale 0.9d0))
-    ;;   (loop for i from 0 to 400
-    ;;         while *run-sim*
-    ;;         do
-    ;;            (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-    ;;            (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-    ;;            (loop for j from 0 to (* refine 10)
-    ;;                  while *run-sim*
-    ;;                  do
-    ;;                     (cl-mpm:update-sim *sim*))
-    ;;            (cl-mpm/damage::calculate-damage *sim*)
-    ;;            (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
-    ;;            (format t "Step ~D~%" i)
-    ;;            (let ((dy
-    ;;                    (lparallel:pmap-reduce (lambda (mp)
-    ;;                                             (cl-mpm/particle::mp-damage-ybar mp))
-    ;;                                           #'max (cl-mpm:sim-mps *sim*))
-    ;;                    ))
-    ;;              (format t "Max damage-ybar ~E~%" dy)
-    ;;              (push dy *damage-data*)
-    ;;              (push i *time-data*))
-    ;;            (plot *sim*)
-    ;;            (swank.live:update-swank)
-    ;;         )
-    ;;   (vgplot:figure)
-    ;;   (vgplot:plot *time-data* *damage-data*))
-    ))
-(defun estimate-max-stress ()
-  (vgplot:close-all-plots)
-  (let ((refine 2))
-    (setup 0.5d0 :mesh-size 0.25d0)
-    (cl-mpm/output::save-simulation-parameters
-     #p"output/settings.json"
-     *sim*
-     (list :dt 1d0))
-    (setf (cl-mpm:sim-damping-factor *sim*)
-          0.7d0
-                                        ;(* 1d-1 (cl-mpm::sim-mass-scale *sim*))
-          )
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do (setf
-              (cl-mpm/particle::mp-initiation-stress mp) 1d10
-              (cl-mpm/particle::mp-enable-plasticity mp) nil))
-    (setf (cl-mpm::sim-enable-damage *sim*) nil)
-    (defparameter *damage-data* (list))
-    (defparameter *time-data* (list))
-    (let ((dt-scale 0.9d0))
-      (loop for i from 0 to 400
-            while *run-sim*
-            do
-               (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-               (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-               (loop for j from 0 to (* refine 10)
-                     while *run-sim*
-                     do
-                        (cl-mpm:update-sim *sim*))
-               (cl-mpm/damage::calculate-damage *sim*)
-               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
-               (format t "Step ~D~%" i)
-               (let ((dy
-                       (lparallel:pmap-reduce (lambda (mp)
-                                                (cl-mpm/particle::mp-damage-ybar mp))
-                                              #'max (cl-mpm:sim-mps *sim*))
-                       ))
-                 (format t "Max damage-ybar ~E~%" dy)
-                 (push dy *damage-data*)
-                 (push i *time-data*))
-               (plot *sim*)
-               (swank.live:update-swank)
-            )
-      (vgplot:figure)
-      (vgplot:plot *time-data* *damage-data*))
-    ))
+  (let ((refine 1d0)))
+  (setup 0.0d0 :mesh-size 1.00d0)
+  (cl-mpm/output::save-simulation-parameters
+   #p"output/settings.json"
+   *sim*
+   (list :dt 1d0))
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (* 1d-1 (cl-mpm::sim-mass-scale *sim*)))
+  (loop for mp across (cl-mpm:sim-mps *sim*)
+        do (setf (cl-mpm/particle::mp-initiation-stress mp) 1d10))
+  (defparameter *damage-data* (list))
+  (defparameter *time-data* (list))
+  (let ((dt-scale 0.9d0))
+    (setf
+     *damage-data* (list)
+     *time-data* (list))
+    (loop for i from 0 to 100
 
+          while *run-sim*
+          do
+             (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+             (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+             (dotimes (i 20)
+               (cl-mpm:update-sim *sim*))
+             (cl-mpm/damage::calculate-damage *sim*)
+             (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
+             (format t "Step ~D~%" i)
+             (let ((dy
+                     (lparallel:pmap-reduce (lambda (mp)
+                                              (cl-mpm/particle::mp-damage-ybar mp))
+                                            #'max (cl-mpm:sim-mps *sim*))
+                     ))
+               (format t "Max damage-ybar ~E~%" dy)
+               (push dy *damage-data*)
+               (push i *time-data*))
+             (plot *sim*)
+             (swank.live:update-swank)
+          )
+    (vgplot:figure)
+    (vgplot:plot *time-data* *damage-data*))
+  )
 
 (defun stop ()
   (setf *run-sim* nil)

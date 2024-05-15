@@ -2313,7 +2313,6 @@ Calls the function with the mesh mp and node"
                          (*
                           dt
                           (/
-                           ;; (the double-float (max 0d0 (- ybar k)))
                            (* k0
                               (expt
                                (/ (the double-float (max 0d0 (- ybar k)))
