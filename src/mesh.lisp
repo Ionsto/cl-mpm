@@ -26,7 +26,7 @@
 
 (in-package :cl-mpm/mesh)
 ;(declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 0) (safety 3) (speed 0)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass node ()
   ((active
@@ -459,10 +459,16 @@
   (declare (type function round-operator)
            (type magicl:matrix/double-float pos))
   "Turn a vector position into a list of indexes with rounding"
-  (mapcar (lambda (x) (funcall round-operator (/
-                                                  (the double-float (magicl:tref pos x 0))
-                                                  (the double-float (mesh-resolution mesh))))
-                         ) '(0 1 2)))
+  (list
+   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 0 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 1 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 2 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   )
+  ;; (mapcar (lambda (x) (funcall round-operator (/
+  ;;                                                 (the double-float (magicl:tref pos x 0))
+  ;;                                                 (the double-float (mesh-resolution mesh))))
+  ;;                        ) '(0 1 2))
+  )
 
 (defun index-to-position-array (mesh index)
   "Turn a vector position into a list of indexes with rounding"

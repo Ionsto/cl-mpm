@@ -107,6 +107,34 @@
     (when (> dmax 0d0)
       (setf oobf (/ nmax dmax)))
     oobf))
+(defmethod estimate-oobf ((sim cl-mpm/mpi::mpm-sim-mpi))
+  (let ((oobf 0d0)
+        (nmax 0d0)
+        (dmax 0d0)
+        )
+    (cl-mpm::iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (f-ext cl-mpm/mesh::node-external-force)
+                        (f-int cl-mpm/mesh::node-internal-force))
+           node
+         (when active
+           (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
+             (setf nmax (+ nmax
+                           (*
+                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                            (cl-mpm/fastmath::mag-squared
+                             (magicl:.+ f-ext f-int))))
+                   dmax (+ dmax
+                           (*
+                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                            (cl-mpm/fastmath::mag-squared f-ext)))))))))
+    (setf nmax (cl-mpm/mpi::mpi-sum nmax))
+    (setf dmax (cl-mpm/mpi::mpi-sum dmax))
+    (when (> dmax 0d0)
+      (setf oobf (/ nmax dmax)))
+    oobf))
 
 (declaim (notinline plot-time-disp))
 ;; (defun plot-time-disp (full-time full-load full-energy)
@@ -265,6 +293,7 @@
                    )
                  (setf fnorm (/ (estimate-energy-norm sim) *work*))
                  (setf oobf (estimate-oobf sim))
+
                  (let ((force (cl-mpm/mpi:mpi-sum cl-mpm/penalty::*debug-force*)))
                    (when (= 0 rank)
                      (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
