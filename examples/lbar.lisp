@@ -235,7 +235,8 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 2.5d0 density)
+              ;; (* 2.5d0 density)
+              (* 4d-3 (cl-mpm/setup::estimate-critical-damping sim))
                                         ;(* 7d0 density)
               ;; 0.9d0
               ))
@@ -418,10 +419,10 @@
 (defparameter *t* 0)
 (defparameter *sim-step* 0)
 (defparameter *refine* (/ 1d0 2d0))
-(let ((refine (uiop:getenv "REFINE")))
-  (when refine
-    (setf *refine* (parse-integer (uiop:getenv "REFINE")))
-    ))
+;; (let ((refine (uiop:getenv "REFINE")))
+;;   (when refine
+;;     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
+;;     ))
 
 (defun stop ()
   (setf *run-sim* nil)
@@ -675,7 +676,8 @@
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
                            ;:energy-crit 1d-3
-                           :energy-crit 1d-2
+                           :energy-crit 1d-3
+                           :oobf-crit 1d-3
                            :dt-scale dt-scale
                            :conv-steps 100
                            :post-iter-step
@@ -921,47 +923,19 @@
     (defparameter data-visc-step (list))
     (defparameter data-visc-load (list))
     (defparameter data-visc-energy (list))
-    ;; (setup)
-    ;; (setf (cl-mpm:sim-damping-factor *sim*)
-    ;;       0.1d0)
-    ;; (incf *target-displacement* disp-step)
-    ;; (time
-    ;;  (progn
-    ;;    (cl-mpm/dynamic-relaxation::converge-quasi-static
-    ;;     *sim*
-    ;;     :energy-crit target
-    ;;     :dt-scale dt-scale
-    ;;     :conv-steps 100
-    ;;     :substeps (* 20 1)
-    ;;     :post-iter-step
-    ;;     (lambda ()
-    ;;       (let ((av (get-disp *terminus-mps*))
-    ;;             (load cl-mpm/penalty::*debug-force*)
-    ;;             (energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-    ;;             )
-    ;;         (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
-    ;;                 *target-displacement*
-    ;;                 av
-    ;;                 (abs (- *target-displacement* av ))
-    ;;                 load
-    ;;                 )
-    ;;         (push step data-cundall-step)
-    ;;         (incf step)
-    ;;         (push load data-cundall-load)
-    ;;         (push energy data-cundall-energy)
-    ;;         )))))
-
-    ;; (setf step 0)
     (setup)
     (incf *target-displacement* disp-step)
     ;; (change-class *sim* 'cl-mpm/damage::mpm-sim-usl-damage)
-    (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 2.5d0 2.2d3))
+    ;; (setf (cl-mpm:sim-damping-factor *sim*)
+    ;;       (* 2.5d0 2.2d3))
+    (vgplot:figure)
     (time
      (progn
        (cl-mpm/dynamic-relaxation::converge-quasi-static
         *sim*
-        :energy-crit target
+        ;; :energy-crit target
+        :energy-crit 1d-3
+        :oobf-crit 1d-3
         :dt-scale dt-scale
         :conv-steps 100
         :substeps (* 20 1)
@@ -981,6 +955,8 @@
             (incf step)
             (push load data-visc-load)
             (push energy data-visc-energy)
+            (vgplot:plot
+             data-visc-step data-visc-load "Visc")
             ))
         ))))
   (plot-cundall-test)

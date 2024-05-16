@@ -1,8 +1,5 @@
 (defpackage :cl-mpm/examples/tpb
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
@@ -251,12 +248,14 @@
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
-      (setf (cl-mpm::sim-mass-filter sim) 1d-15)
+      (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 3d0 density ms)
-              (* 5d0 density ms)
+              ;; (* 5d0 density ms)
+              (* 1d-2 (cl-mpm::sim-mass-scale sim)
+                 (cl-mpm/setup::estimate-critical-damping sim))
               ;; 0.7d0
               ;; (* 15.3d9 1d-4)
               ;; (* 1d1 density)
@@ -975,8 +974,8 @@
                                            )))
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-7
-                           :oobf-crit 1d0
+                           :energy-crit 1d-3
+                           :oobf-crit 1d-3
                            :dt-scale 0.7d0
                            :conv-steps 200
                            :substeps 50
@@ -1435,6 +1434,7 @@
     ;; (setf (cl-mpm:sim-damping-factor *sim*)
     ;;       0.1d0)
     (incf *target-displacement* disp-step)
+    (vgplot:figure)
     (time
      (progn
        (cl-mpm/dynamic-relaxation::converge-quasi-static
@@ -1458,6 +1458,8 @@
             (incf step)
             (push load data-cundall-load)
             (push energy data-cundall-energy)
+            (vgplot:plot
+             data-cundall-step data-cundall-load "Cundall")
             )))))
 
     ;; (setf step 0)

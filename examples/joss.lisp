@@ -406,10 +406,10 @@
      ))
   )
 
-(let ((refine (uiop:getenv "REFINE")))
-  (when refine
-    (setf *refine* (parse-integer (uiop:getenv "REFINE")))
-    ))
+;; (let ((refine (uiop:getenv "REFINE")))
+;;   (when refine
+;;     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
+;;     ))
 
 
 (defun estimate-total-energy (sim)
@@ -2282,3 +2282,33 @@
 (defun stop ()
   (setf *run-sim* nil)
   (setf cl-mpm/dynamic-relaxation::*run-convergance* nil))
+
+
+(let* ((density-ratio 0.50d0)
+       (inflection (/ 0.25d0 density-ratio))
+       (di (* density-ratio inflection))
+       ;; (density-ratio (/ di inflection))
+       )
+  (let* ((x (loop for i from 0 upto 1d0 by 0.01d0 collect i))
+         (y (mapcar
+             (lambda (p)
+               (float
+                (if (> p inflection)
+                    (+
+                     (* (/ (- 1d0 di)
+                           (- 1d0 inflection)) p)
+                     (-
+                      di
+                      (*
+                       (/ (- 1d0 di)
+                          (- 1d0 inflection))
+                       inflection)
+                      ))
+                    (* density-ratio p)
+                    )
+                0d0
+                )) x)))
+    ;; (vgplot:figure)
+    (vgplot:plot x y ";;x")
+    )
+  )
