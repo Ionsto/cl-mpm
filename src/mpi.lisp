@@ -1325,13 +1325,12 @@
       (clear-ghost-mps sim)
       ;; (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
       (let ((min-mps (mpi-min (length (cl-mpm:sim-mps sim))))
-            (max-mps (mpi-max (length (cl-mpm:sim-mps sim))))
-            )
+            (max-mps (mpi-max (length (cl-mpm:sim-mps sim)))))
         (when (and (= rank 0)
                    (> min-mps 0))
           (format t "Occupancy ratio : ~F%~%" (* 100d0 (/ max-mps min-mps))))))
     ))
-(defmethod %domain-decompose :after ((sim mpm-sim-mpi-nodes) domain-scaler)
+(defmethod %domain-decompose :after ((sim cl-mpm/mpi::mpm-sim-mpi-nodes) domain-scaler)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
     (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -1381,30 +1380,28 @@
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
                                  (right-filter))))))))
 
-        (let ((bcs (cl-mpm:sim-bcs sim)))
-          (dotimes (i (array-total-size bcs))
-            (let ((bc (row-major-aref bcs i)))
-              (let ((node (cl-mpm/mesh:get-node mesh (cl-mpm/bc:bc-index bc))))
-                (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 4))
-                  (setf (row-major-aref bcs i) nil))))))
-        ;;Trim out all nodes that we can get rid of
-        (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-          (dotimes (i (array-total-size nodes))
-            (let ((node (row-major-aref nodes i)))
-              (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 4))
-                (setf (row-major-aref nodes i) nil)))))
+        (let* ((domain-sizes (mapcar (lambda (x) (abs (reduce #'- x)))  (cl-mpm/mpi::mpm-sim-mpi-domain-bounds *sim*)))
+               (h (cl-mpm/mesh:mesh-resolution mesh))
+               (min-domain-length (reduce #'min (remove 0d0 domain-sizes)))
+               (buffer-size (/ min-domain-length h)))
 
-        ))
+          (let ((bcs (cl-mpm:sim-bcs sim)))
+            (dotimes (i (array-total-size bcs))
+              (let ((bc (row-major-aref bcs i)))
+                (let ((index (cl-mpm/bc:bc-index bc)))
+                  ;;nil indexes indiciate global bcs
+                  (when index
+                    (let ((node (cl-mpm/mesh:get-node mesh index)))
+                      (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                        (setf (row-major-aref bcs i) nil))))))))
+          ;;Trim out all nodes that we can get rid of
+          (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+            (dotimes (i (array-total-size nodes))
+              (let ((node (row-major-aref nodes i)))
+                (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                  (setf (row-major-aref nodes i) nil))))))
 
-    ;; (format t "rank ~D : Left filter node count: ~D~%"  rank (length (nth 0 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
-    ;; (format t "rank ~D : Right filter node count: ~D~%" rank (length (nth 1 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
-    ;; (loop for i from 0 to 2
-    ;;       do
-    ;;          (format t "Rank: ~D - X: ~D ~D~%" rank (length (nth 0 (nth i (mpm-sim-mpi-halo-node-list sim)))) (length (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim))))))
-
-    )
-  
-  )
+        ))))
 
 ;; (defun kill-servers ()
 ;;     (dolist (server *open-servers*)

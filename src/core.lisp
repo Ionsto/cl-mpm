@@ -1630,7 +1630,8 @@ Calls func with only the node"
           (with-accessors ((node cl-mpm/bc::bc-node)
                            (index cl-mpm/bc::bc-index))
               bc
-            (if node
+            (if (or node
+                      (not index))
                 (cl-mpm/bc:apply-bc bc node mesh dt)
                 (progn
                   (setf node (cl-mpm/mesh:get-node mesh index))
