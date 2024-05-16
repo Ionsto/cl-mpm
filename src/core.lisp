@@ -195,7 +195,6 @@
     )))
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-1022686E13
 (defun check-single-mps (sim)
   "Function to check and remove single material points"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1541,7 +1540,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     ;;     (funcall func node)))
     (lparallel:pdotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
-        (funcall func node)))
+        (when node
+          (funcall func node))))
     )
   (values))
 
@@ -1556,7 +1556,8 @@ Calls func with only the node"
     (declare (type (array cl-mpm/particle:particle) nodes))
     (dotimes (i (array-total-size nodes))
       (let ((node (row-major-aref nodes i)))
-        (funcall func node))))
+        (when node
+          (funcall func node)))))
   (values))
 
 (declaim (ftype (function
@@ -1623,16 +1624,17 @@ Calls func with only the node"
                    (nD     mesh-nD)
                    (mc     mesh-count)) mesh
                                         ;each bc is a list (pos value)
-    (dotimes (i (array-total-size bcs))
+    (lparallel:pdotimes (i (array-total-size bcs))
       (let ((bc (aref bcs i)))
-        (with-accessors ((node cl-mpm/bc::bc-node)
-                         (index cl-mpm/bc::bc-index))
-            bc
-          (if node
-              (cl-mpm/bc:apply-bc bc node mesh dt)
-              (progn
-                (setf node (cl-mpm/mesh:get-node mesh index))
-                (cl-mpm/bc:apply-bc bc node mesh dt))))))))
+        (when bc
+          (with-accessors ((node cl-mpm/bc::bc-node)
+                           (index cl-mpm/bc::bc-index))
+              bc
+            (if node
+                (cl-mpm/bc:apply-bc bc node mesh dt)
+                (progn
+                  (setf node (cl-mpm/mesh:get-node mesh index))
+                  (cl-mpm/bc:apply-bc bc node mesh dt)))))))))
 
 
 ;Could include this in p2g but idk

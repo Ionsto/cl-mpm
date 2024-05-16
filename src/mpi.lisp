@@ -1244,6 +1244,24 @@
                         )))))
     in-bounds
     ))
+
+(defun in-computational-domain-buffer (sim pos node-buffer)
+  (let ((in-bounds t)
+        (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+    (loop for i from 0 to 2
+          do
+             (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
+               (when (not (= bu bl))
+                 (setf in-bounds
+                       (and
+                        in-bounds
+                        (and
+                         (> (+ bu (* node-buffer h)) (magicl:tref pos i 0))
+                         (<= (- bl (* node-buffer h)) (magicl:tref pos i 0)))
+                        )))))
+    in-bounds
+    ))
+
 (defun calculate-domain-sizes (sim &optional size)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (divs mpm-sim-mpi-domain-count))
@@ -1316,7 +1334,8 @@
 (defmethod %domain-decompose :after ((sim mpm-sim-mpi-nodes) domain-scaler)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
-    (with-accessors ((mesh cl-mpm:sim-mesh))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     )
         sim
       (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
              (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes :displaced-index-offset 0))
@@ -1360,7 +1379,22 @@
 
                          (when t;(not (= right-neighbor -1))
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
-                                 (right-filter))))))))))
+                                 (right-filter))))))))
+
+        (let ((bcs (cl-mpm:sim-bcs sim)))
+          (dotimes (i (array-total-size bcs))
+            (let ((bc (row-major-aref bcs i)))
+              (let ((node (cl-mpm/mesh:get-node mesh (cl-mpm/bc:bc-index bc))))
+                (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 4))
+                  (setf (row-major-aref bcs i) nil))))))
+        ;;Trim out all nodes that we can get rid of
+        (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+          (dotimes (i (array-total-size nodes))
+            (let ((node (row-major-aref nodes i)))
+              (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 4))
+                (setf (row-major-aref nodes i) nil)))))
+
+        ))
 
     ;; (format t "rank ~D : Left filter node count: ~D~%"  rank (length (nth 0 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
     ;; (format t "rank ~D : Right filter node count: ~D~%" rank (length (nth 1 (nth 0 (mpm-sim-mpi-halo-node-list sim)))))
