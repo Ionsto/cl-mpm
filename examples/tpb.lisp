@@ -12,17 +12,17 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-;; (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
-;;   (with-accessors ((damping cl-mpm::sim-damping-factor)
-;;                    (mass-scale cl-mpm::sim-mass-scale)
-;;                    (mesh cl-mpm::sim-mesh)
-;;                    (dt cl-mpm::sim-dt))
-;;       sim
-;;     ;; (break)
-;;     (cl-mpm::iterate-over-nodes
-;;      mesh
-;;      (lambda (node)
-;;        (cl-mpm::calculate-forces-cundall node damping dt mass-scale)))))
+(defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
+  (with-accessors ((damping cl-mpm::sim-damping-factor)
+                   (mass-scale cl-mpm::sim-mass-scale)
+                   (mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt))
+      sim
+    ;; (break)
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (node)
+       (cl-mpm::calculate-forces-cundall node damping dt mass-scale)))))
 
 (declaim (notinline plot))
 (defun plot-domain (sim)
@@ -254,8 +254,9 @@
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 3d0 density ms)
               ;; (* 5d0 density ms)
-              (* 1d-2 (cl-mpm::sim-mass-scale sim)
-                 (cl-mpm/setup::estimate-critical-damping sim))
+              ;; (* 1d-2 (cl-mpm::sim-mass-scale sim)
+              ;;    (cl-mpm/setup::estimate-critical-damping sim))
+              0.7d0
               ;; 0.7d0
               ;; (* 15.3d9 1d-4)
               ;; (* 1d1 density)
@@ -427,7 +428,7 @@
 (declaim (notinline setup))
 (defun setup (&key (undercut 0d0) (refine 1d0))
 
-  (let* ((mesh-size (/ 0.0102 1.0))
+  (let* ((mesh-size (/ 0.0102 2.0))
          (mps-per-cell 2)
          (shelf-height 0.102d0)
          (shelf-length (* shelf-height 2))
@@ -950,7 +951,7 @@
     (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 0)
     (setf cl-mpm/damage::*enable-reflect-x* t)
 
-    (time (loop for steps from 0 to load-steps
+    (time (loop for steps from 0 below load-steps
                 while *run-sim*
                 do
                    (progn
@@ -974,9 +975,9 @@
                                            )))
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-3
-                           :oobf-crit 1d-3
-                           :dt-scale 0.7d0
+                           :energy-crit 1d-4
+                           :oobf-crit 1d-4
+                           :dt-scale 0.8d0
                            :conv-steps 200
                            :substeps 50
                            :post-iter-step
@@ -1431,18 +1432,19 @@
     (defparameter data-visc-load (list))
     (defparameter data-visc-energy (list))
     (setup)
-    ;; (setf (cl-mpm:sim-damping-factor *sim*)
-    ;;       0.1d0)
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          0.7d0)
     (incf *target-displacement* disp-step)
     (vgplot:figure)
     (time
      (progn
        (cl-mpm/dynamic-relaxation::converge-quasi-static
         *sim*
-        :energy-crit target
+        :energy-crit 1d-4
+        :oobf-crit 1d-4
         :dt-scale dt-scale
         :conv-steps 500
-        :substeps (* 50 1)
+        :substeps (* 5 1)
         :post-iter-step
         (lambda (step ke fnorm)
           (let ((av (get-disp *terminus-mps*))
