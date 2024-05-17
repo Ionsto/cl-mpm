@@ -1493,28 +1493,39 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                (vs-s (magicl::matrix/double-float-storage vel-sign)))
           (loop for i from 0 to 2
                 do
-                   ;; (incf (aref f-s i)
-                   ;;       (*
-                   ;;        (signum (aref v-s i))
-                   ;;        fnorm
-                   ;;        damping
-                   ;;        -1d0))
+                   ;;Possible form of damping
+                   (when t;(> (* (aref f-s i) (aref v-s i)) 0)
+                     (incf (aref f-s i)
+                           (*
+                            (signum (aref v-s i))
+                            (abs (aref f-s i))
+                            damping
+                            -1d0)))
+                )
+          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
+        (cl-mpm/fastmath:fast-fmacc vel acc dt))))
+  (values))
+(defun calculate-forces-cundall-conservative (node damping dt mass-scale)
+  "Apply cundall damping to the system only when doing negative work"
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (force node-force)
+                     (acc   node-acceleration)
+                     )
+        node
+      (declare (double-float mass dt damping))
+      (progn
+        (magicl:scale! acc 0d0)
+        ;;Set acc to f/m
 
-                   ;; (incf (aref f-s i)
-                   ;;       (*
-                   ;;        (signum (* (aref v-s i)
-                   ;;                   (aref f-s i))
-                   ;;                )
-                   ;;        (aref f-s i)
-                   ;;        damping
-                   ;;        -1d0))
-                   ;; (incf (aref f-s i)
-                   ;;       (*
-                   ;;        (signum (aref v-s i)
-                   ;;                )
-                   ;;        (abs (aref f-s i))
-                   ;;        damping
-                   ;;        -1d0))
+        (let* ((vel-sign (cl-mpm/utils:vector-zeros))
+               (f-s (magicl::matrix/double-float-storage force))
+               (v-s (magicl::matrix/double-float-storage vel))
+               (fnorm (cl-mpm/fastmath::mag force))
+               (vs-s (magicl::matrix/double-float-storage vel-sign)))
+          (loop for i from 0 to 2
+                do
                    ;;Possible form of damping
                    (when (> (* (aref f-s i) (aref v-s i)) 0)
                      (incf (aref f-s i)
@@ -1523,25 +1534,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                             (abs (aref f-s i))
                             damping
                             -1d0)))
-                   ;(setf (aref vs-s i) (signum (aref v-s i)))
                 )
-
-          ;; (cl-mpm/fastmath:fast-fmacc acc
-          ;;                             vel-sign
-          ;;                             (/
-          ;;                              (* (cl-mpm/fastmath::mag force)
-          ;;                                 damping -1d0)
-          ;;                              (* mass mass-scale)))
-          ;; (cl-mpm/fastmath:fast-fmacc force
-          ;;                             vel-sign
-          ;;                             (* (cl-mpm/fastmath::mag force)
-          ;;                                damping -1d0))
-
-          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-          )
-        ;; (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
-        (cl-mpm/fastmath:fast-fmacc vel acc dt)
-        )))
+          (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
+        (cl-mpm/fastmath:fast-fmacc vel acc dt))))
   (values))
 
 (declaim (inline iterate-over-nodes)
