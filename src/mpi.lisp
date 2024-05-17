@@ -1393,22 +1393,22 @@
                (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
                (buffer-size (ceiling min-domain-length h)))
           (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
-          ;; (let ((bcs (cl-mpm:sim-bcs sim)))
-          ;;   (dotimes (i (array-total-size bcs))
-          ;;     (let ((bc (row-major-aref bcs i)))
-          ;;       (let ((index (cl-mpm/bc:bc-index bc)))
-          ;;         ;;nil indexes indiciate global bcs
-          ;;         (when index
-          ;;           (let ((node (cl-mpm/mesh:get-node mesh index)))
-          ;;             (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
-          ;;               (setf (row-major-aref bcs i) nil))))))))
-          ;; ;;Trim out all nodes that we can get rid of
-          ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-          ;;   (dotimes (i (array-total-size nodes))
-          ;;     (let ((node (row-major-aref nodes i)))
-          ;;       (when node
-          ;;         (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
-          ;;           (setf (row-major-aref nodes i) nil))))))
+          (let ((bcs (cl-mpm:sim-bcs sim)))
+            (dotimes (i (array-total-size bcs))
+              (let ((bc (row-major-aref bcs i)))
+                (let ((index (cl-mpm/bc:bc-index bc)))
+                  ;;nil indexes indiciate global bcs
+                  (when index
+                    (let ((node (cl-mpm/mesh:get-node mesh index)))
+                      (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                        (setf (row-major-aref bcs i) nil))))))))
+          ;;Trim out all nodes that we can get rid of
+          (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
+            (dotimes (i (array-total-size nodes))
+              (let ((node (row-major-aref nodes i)))
+                (when node
+                  (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                    (setf (row-major-aref nodes i) nil))))))
           )
 
         ))))

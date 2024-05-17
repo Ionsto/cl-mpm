@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/lbar
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/lbar)
 
 ;; (ql:quickload :magicl)
@@ -248,7 +248,7 @@
         (setf (cl-mpm:sim-damping-factor sim)
               ;; (* 2.5d0 density)
               ;; (* 4d-3 (cl-mpm/setup::estimate-critical-damping sim))
-              0.7d0
+              0.5d0
                                         ;(* 7d0 density)
               ;; 0.9d0
               ))
@@ -657,7 +657,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.9d0)
-         (load-steps 100)
+         (load-steps 10)
          (disp-step (/ 0.8d-3 load-steps))
          )
 
@@ -691,9 +691,10 @@
                            :energy-crit 1d-4
                            :oobf-crit 1d-4
                            :dt-scale dt-scale
-                           :conv-steps 100
+                           :conv-steps 200
+                           :substeps 20
                            :post-iter-step
-                           (lambda ()
+                           (lambda (i fnorm oobf)
                              (let ((av (get-disp *terminus-mps*)))
                                (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E~%"
                                        *target-displacement*
@@ -961,7 +962,7 @@
             (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
                     *target-displacement*
                     av
-                    (abs (- *target-displacement* av ))
+                    (abs (- *target-displacement* av))
                     load
                     )
             (push step data-visc-step)
