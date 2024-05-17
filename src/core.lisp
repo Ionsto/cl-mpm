@@ -1453,6 +1453,24 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))
+(defun calculate-forces-psudo-viscous (node damping dt mass-scale)
+  "Update forces and nodal velocities with viscous damping - except without scaling by mass
+This allows for a non-physical but viscous damping scheme that is robust to GIMP domains "
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ( (mass  node-mass)
+                     (vel   node-velocity)
+                     (force node-force)
+                     (acc   node-acceleration))
+        node
+      (declare (double-float mass dt damping))
+      (progn
+        (magicl:scale! acc 0d0)
+        ;;Set acc to f/m
+        (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+        (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
+        (cl-mpm/fastmath:fast-fmacc vel acc dt)
+        )))
+  (values))
 
 (defun calculate-forces-cundall (node damping dt mass-scale)
   "Apply cundall damping to the system"
@@ -1898,7 +1916,7 @@ Calls func with only the node"
         (domain-array (cl-mpm/utils:fast-storage domain))
         )
 
-    (cl-mpm/fastmath:fast-fmacc df stretch-rate degredation)
+    (cl-mpm/fastmath:fast-.+ df (magicl:scale stretch-rate degredation))
     ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
