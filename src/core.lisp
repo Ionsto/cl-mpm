@@ -1154,7 +1154,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         mp-temp
                                         (magicl::sum
                                          (cl-mpm/fastmath::fast-.* dsvp dsvp)))))
-                  (sb-thread:with-mutex (node-lock)
+                (sb-thread:with-mutex (node-lock)
                     (setf node-temp
                           (+ node-temp weighted-temp))
                     (setf node-dtemp
