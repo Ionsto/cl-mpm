@@ -134,6 +134,8 @@
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
     (when (> dmax 0d0)
       (setf oobf (/ nmax dmax)))
+    (setf oobf (cl-mpm/mpi::mpi-max oobf))
+    ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))
     oobf))
 
 (declaim (notinline plot-time-disp))
