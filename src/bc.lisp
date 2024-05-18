@@ -113,19 +113,19 @@
 
 (defmethod apply-bc ((bc bc-fixed) node mesh dt)
   "Fixed velocity BC over some dimensions"
-  (with-slots ((value value))
-    bc
-    (loop for d from 0 below (length value)
-            do
-               (when (nth d value)
-                 (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
-                 (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
-
-                 (setf (magicl:tref (cl-mpm/mesh::node-external-force node) d 0) (nth d value))
-                 (setf (magicl:tref (cl-mpm/mesh::node-internal-force node) d 0) (nth d value))
-                 (setf (magicl:tref (cl-mpm/mesh::node-force node) d 0) (nth d value))
-
-                 ))))
+  (with-accessors ((lock cl-mpm/mesh:node-lock))
+      node
+      (with-slots ((value value))
+          bc
+        (loop for d from 0 below (length value)
+              do
+                 (when (nth d value)
+                   (sb-thread:with-mutex (node-lock)
+                     (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
+                     (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
+                     (setf (magicl:tref (cl-mpm/mesh::node-external-force node) d 0) (nth d value))
+                     (setf (magicl:tref (cl-mpm/mesh::node-internal-force node) d 0) (nth d value))
+                     (setf (magicl:tref (cl-mpm/mesh::node-force node) d 0) (nth d value))))))))
 
 
 (defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)
