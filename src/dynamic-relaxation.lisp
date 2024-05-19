@@ -12,7 +12,8 @@
   ;; (loop for mp across (cl-mpm:sim-mps sim)
   ;;           sum (* (cl-mpm/particle:mp-mass mp)
   ;;                  (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
-  (let ((energy 0d0))
+  (let ((energy 0d0)
+        )
     (cl-mpm:iterate-over-nodes-serial
      (cl-mpm:sim-mesh sim)
      (lambda (n)
@@ -27,18 +28,20 @@
   )
 (defmethod estimate-energy-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
-   (let ((energy 0d0))
-     (cl-mpm:iterate-over-nodes-serial
+   (let ((energy 0d0)
+         (lock (sb-thread:make-mutex)))
+     (cl-mpm:iterate-over-nodes
       (cl-mpm:sim-mesh sim)
       (lambda (n)
         (when (cl-mpm/mesh:node-active n)
           (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
-            (incf energy
-                  (*
-                   (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
-                   (cl-mpm/mesh::node-mass n)
-                   (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
-                   ))))))
+            (sb-thread:with-mutex (lock)
+              (incf energy
+                    (*
+                     (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                     (cl-mpm/mesh::node-mass n)
+                     (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
+                     )))))))
      energy)
    ))
 
@@ -63,20 +66,22 @@
 (defmethod estimate-power-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((dt (cl-mpm:sim-dt sim)))
     (cl-mpm/mpi::mpi-sum
-     (let ((energy 0d0))
-       (cl-mpm:iterate-over-nodes-serial
+     (let ((energy 0d0)
+           (lock (sb-thread:make-mutex)))
+       (cl-mpm:iterate-over-nodes
         (cl-mpm:sim-mesh sim)
         (lambda (n)
           (when (cl-mpm/mesh:node-active n)
             (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
-              (incf energy
-                    (*
-                     dt
-                     ;; (cl-mpm/mesh::node-volume n)
-                     (cl-mpm/fastmath:dot
-                      (cl-mpm/mesh::node-velocity n)
-                      (cl-mpm/mesh::node-external-force n))
-                     ))))))
+              (sb-thread:with-mutex (lock)
+                (incf energy
+                      (*
+                       dt
+                       ;; (cl-mpm/mesh::node-volume n)
+                       (cl-mpm/fastmath:dot
+                        (cl-mpm/mesh::node-velocity n)
+                        (cl-mpm/mesh::node-external-force n))
+                       )))))))
        energy))))
 
 (defgeneric estimate-oobf (sim))
@@ -111,8 +116,9 @@
   (let ((oobf 0d0)
         (nmax 0d0)
         (dmax 0d0)
+        (lock (sb-thread:make-mutex))
         )
-    (cl-mpm::iterate-over-nodes-serial
+    (cl-mpm::iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (node)
        (with-accessors ((active cl-mpm/mesh::node-active)
@@ -121,15 +127,16 @@
            node
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
-             (setf nmax (+ nmax
-                           (*
-                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmath::mag-squared
-                             (magicl:.+ f-ext f-int))))
-                   dmax (+ dmax
-                           (*
-                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmath::mag-squared f-ext)))))))))
+             (sb-thread:with-mutex (lock)
+               (setf nmax (+ nmax
+                             (*
+                              (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                              (cl-mpm/fastmath::mag-squared
+                               (magicl:.+ f-ext f-int))))
+                     dmax (+ dmax
+                             (*
+                              (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                              (cl-mpm/fastmath::mag-squared f-ext))))))))))
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
     (when (> dmax 0d0)

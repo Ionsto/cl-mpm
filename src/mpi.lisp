@@ -240,10 +240,10 @@
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
-            (index (mpi-rank-to-index sim rank))
-            (bounds-list (mpm-sim-mpi-domain-bounds sim))
-            (h (cl-mpm/mesh:mesh-resolution mesh))
-            (halo-depth 2))
+             (index (mpi-rank-to-index sim rank))
+             (bounds-list (mpm-sim-mpi-domain-bounds sim))
+             (h (cl-mpm/mesh:mesh-resolution mesh))
+             (halo-depth 2))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
