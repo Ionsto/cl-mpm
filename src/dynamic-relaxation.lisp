@@ -139,8 +139,10 @@
                               (cl-mpm/fastmath::mag-squared f-ext))))))))))
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
-    (when (> dmax 0d0)
-      (setf oobf (/ nmax dmax)))
+    (if (> dmax 0d0)
+      (setf oobf (/ nmax dmax))
+      ;;Odd case where we have no forces?
+      (setf oobf sb-ext:double-float-negative-infinity))
     ;;Sanity check the floating point errors
     (setf oobf (cl-mpm/mpi::mpi-max oobf))
     ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))
@@ -215,7 +217,7 @@
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))
-      ;; (setf *work* 0d0)
+      (setf *work* 0d0)
       (loop for i from 0 to conv-steps
             while (and *run-convergance*
                    (not converged))
@@ -281,7 +283,7 @@
          ;; (work 0d0)
         (converged nil))
     (format t "Substeps ~D~%" substeps)
-    ;; (setf *work* 0d0)
+    (setf *work* 0d0)
     (let ((full-load (list))
           (full-step (list))
           (full-energy (list)))

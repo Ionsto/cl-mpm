@@ -175,6 +175,7 @@
                "cl-mpm/bc"
                "cl-mpm/mesh"
                "cl-mpm/damage"
+               "cl-mpm/setup"
                "cl-mpi"
                "cl-mpi-extensions"
                "trivial-with-current-source-form"
