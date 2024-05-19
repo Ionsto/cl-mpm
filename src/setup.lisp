@@ -270,21 +270,31 @@
                             ))))))
     data))
 
-(defun estimate-elastic-dt-mp (sim p-modulus density &key (dt-scale 1d0))
-  (* dt-scale
-     (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
-     (sqrt (cl-mpm::sim-mass-scale sim))
-     (sqrt (/ density p-modulus))))
+(defun estimate-elastic-dt-mp (sim p-modulus density)
+  "Calculate the estimated critical timestep for an elastic mp in a mesh"
+  (declare (double-float p-modulus density))
+  (*
+   (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+   (the double-float (sqrt (the double-float (cl-mpm::sim-mass-scale sim))))
+   (the double-float (sqrt (the double-float (/ density p-modulus))))))
+
+(defgeneric %estimate-elastic-dt (sim))
+(defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (if (> (length mps) 0)
+        (loop for mp across mps
+              minimize
+              (estimate-elastic-dt-mp
+               sim
+               (cl-mpm/particle::mp-p-modulus mp)
+               (/ (the double-float (cl-mpm/particle:mp-mass mp))
+                  (the double-float (cl-mpm/particle:mp-volume mp)))))
+        sb-ext:double-float-positive-infinity)))
 
 (defun estimate-elastic-dt (sim &key (dt-scale 1d0))
-  (loop for mp across (cl-mpm:sim-mps sim)
-        minimize
-        (estimate-elastic-dt-mp
-         sim
-         (cl-mpm/particle::mp-p-modulus mp)
-         (/ (cl-mpm/particle:mp-mass mp)
-            (cl-mpm/particle:mp-volume mp))
-         :dt-scale dt-scale)))
+  (* dt-scale
+     (%estimate-elastic-dt sim)))
 
 (defun estimate-critical-damping-mp (sim E density)
   (*

@@ -1608,3 +1608,7 @@
       (lparallel:pdotimes (i (length damage-mps))
         (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i))))
     (values)))
+
+;;MPI stubs for setup
+(defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/mpi:mpm-sim-mpi))
+  (cl-mpm/mpi::mpi-max (call-next-method)))

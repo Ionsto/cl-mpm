@@ -232,7 +232,7 @@
                    (incf *work* (estimate-power-norm sim))
                    )
                  (setf load cl-mpm/penalty::*debug-force*)
-                 (setf fnorm (/ (estimate-energy-norm sim) *work*))
+                 (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
                  ;; (setf fnorm (estimate-energy-norm sim))
                  ;; (incf fnorm (estimate-energy-norm sim))
                  ;; (when t;live-plot
@@ -301,7 +301,7 @@
                      (format t "CFL dt estimate: ~f~%" dt-e)
                      (format t "CFL step count estimate: ~D~%" substeps-e))
                    )
-                 (setf fnorm (/ (estimate-energy-norm sim) *work*))
+                 (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
                  (setf oobf (estimate-oobf sim))
 
                  (let ((force (cl-mpm/mpi:mpi-sum cl-mpm/penalty::*debug-force*)))
