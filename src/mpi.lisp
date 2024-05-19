@@ -1611,4 +1611,5 @@
 
 ;;MPI stubs for setup
 (defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/mpi:mpm-sim-mpi))
-  (cl-mpm/mpi::mpi-max (call-next-method)))
+  (cl-mpm/mpi::mpi-min
+   (call-next-method)))
