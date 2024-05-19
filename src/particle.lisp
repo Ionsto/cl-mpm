@@ -1997,7 +1997,8 @@
       (declare (double-float pressure damage)
                (function calc-pressure))
       ;; Non-objective stress intergration
-      (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
+      (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
+      ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
       (if enable-plasticity
           (progn
             (multiple-value-bind (sig eps-e f)
@@ -2023,12 +2024,10 @@
                              (expt (- s2 s3) 2d0)
                              (expt (- s3 s1) 2d0)
                              ) 2d0))))))
-          (setf stress (magicl:scale stress-undamaged 1d0)))
+          (setf stress (cl-mpm/utils:voigt-copy stress-undamaged)))
       (when (> damage 0.0d0)
-        (magicl:scale! stress (- 1d0 (* (- 1d0 1d-15) damage)))
-        ))
-    stress
-    ))
+        (cl-mpm/fastmath::fast-scale stress (- 1d0 (* (- 1d0 1d-9) damage)))))
+    stress))
 
 (defmethod constitutive-model ((mp particle-concrete) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
