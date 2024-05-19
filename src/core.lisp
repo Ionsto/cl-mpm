@@ -1444,7 +1444,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (force node-force)
                         (acc   node-acceleration))
         node
-        (declare (double-float mass dt damping))
+        (declare (double-float mass dt damping mass-scale))
         (progn
           (magicl:scale! acc 0d0)
           ;;Set acc to f/m
@@ -1462,7 +1462,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                      (force node-force)
                      (acc   node-acceleration))
         node
-      (declare (double-float mass dt damping))
+      (declare (double-float mass dt damping mass-scale))
       (progn
         (magicl:scale! acc 0d0)
         ;;Set acc to f/m
@@ -1481,7 +1481,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                      (acc   node-acceleration)
                      )
         node
-      (declare (double-float mass dt damping))
+      (declare (double-float mass dt damping mass-scale))
       (progn
         (magicl:scale! acc 0d0)
         ;;Set acc to f/m

@@ -134,6 +134,7 @@
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
     (when (> dmax 0d0)
       (setf oobf (/ nmax dmax)))
+    ;;Sanity check the floating point errors
     (setf oobf (cl-mpm/mpi::mpi-max oobf))
     ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))
     oobf))

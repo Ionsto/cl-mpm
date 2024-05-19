@@ -288,11 +288,11 @@
 
 (defun estimate-critical-damping-mp (sim E density)
   (*
-   (/ pi 2) (sqrt (/ E
-                     (*
-                      (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
-                            (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
-                            ) density)))))
+   (/ pi 2)
+   (sqrt (/ E
+            (*
+             (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
+                   (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))) density)))))
 
 (defun estimate-critical-damping (sim)
   (loop for mp across (cl-mpm:sim-mps sim)
