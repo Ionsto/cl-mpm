@@ -459,7 +459,7 @@
                                 (force-ext cl-mpm/mesh::node-external-force)
                                 )
                    node
-                 ;; (setf active t)
+                 (setf active t)
                  (cl-mpm/fastmath::fast-.+ force (mpi-object-node-force mpi-node) force)
                  (cl-mpm/fastmath::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
                  (cl-mpm/fastmath::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)

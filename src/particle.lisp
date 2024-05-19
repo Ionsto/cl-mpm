@@ -1949,9 +1949,7 @@
    (enable-plasticity
     :accessor mp-enable-plasticity
     :initarg :enable-plasticity
-    :initform nil
-    )
-   )
+    :initform nil))
   (:documentation "A concrete damage model"))
 
 (defclass particle-limestone-delayed (particle-limestone)
