@@ -251,7 +251,6 @@
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar (lambda (a b) (declare (fixnum a b)) (- a b)) index id-delta)))
                          (right-neighbor (mpi-index-to-rank sim (mapcar (lambda (a b) (declare (fixnum a b)) (+ a b)) index id-delta))))
                      (declare (fixnum left-neighbor right-neighbor))
-                     ;; (format t "Bounds list ~A~%" bounds-list)
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (when (not
                               (and
@@ -449,21 +448,18 @@
        (lparallel:pdotimes (i (length node-list))
          (let* ((mpi-node (aref node-list i))
                 (index (mpi-object-node-index mpi-node))
-                (node (cl-mpm/mesh:get-node mesh index))
-                )
+                (node (cl-mpm/mesh:get-node mesh index)))
            (if node
-               (with-accessors ((active cl-mpm/mesh:node-active)
-                                (mass cl-mpm/mesh:node-mass)
-                                (force cl-mpm/mesh:node-force)
-                                (force-int cl-mpm/mesh::node-internal-force)
-                                (force-ext cl-mpm/mesh::node-external-force)
-                                )
-                   node
-                 (setf active t)
-                 (cl-mpm/fastmath::fast-.+ force (mpi-object-node-force mpi-node) force)
-                 (cl-mpm/fastmath::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
-                 (cl-mpm/fastmath::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)
-                 )
+               (when (cl-mpm/mesh:node-active node)
+                 (with-accessors ((mass cl-mpm/mesh:node-mass)
+                                  (force cl-mpm/mesh:node-force)
+                                  (force-int cl-mpm/mesh::node-internal-force)
+                                  (force-ext cl-mpm/mesh::node-external-force))
+                     node
+                   ;; (setf active t)
+                   (cl-mpm/fastmath::fast-.+ force (mpi-object-node-force mpi-node) force)
+                   (cl-mpm/fastmath::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
+                   (cl-mpm/fastmath::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)))
                (error "MPI force exchange touched invalid node" index)
                )))))))
 
@@ -671,8 +667,7 @@
                     (cl-mpm/damage::calculate-damage sim))
                   (cl-mpm::p2g-force mesh mps)
                   (loop for bcs-f in bcs-force-list
-                        do
-                           (cl-mpm::apply-bcs mesh bcs-f dt))
+                        do (cl-mpm::apply-bcs mesh bcs-f dt))
                   (mpi-sync-force sim)
                   (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)

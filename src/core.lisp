@@ -1291,8 +1291,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (iterate-over-mps
    mps
    (lambda (mp)
-     (p2g-force-mp mesh mp)))
-  )
+     (p2g-force-mp mesh mp))))
 
 (defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
@@ -1431,8 +1430,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass))
         (progn
-          (magicl:scale! vel (/ 1.0d0 mass))
-          ))))
+          (cl-mpm/fastmath::fast-scale vel (/ 1.0d0 mass))))))
 
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
@@ -1500,8 +1498,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                             (signum (aref v-s i))
                             (abs (aref f-s i))
                             damping
-                            -1d0)))
-                )
+                            -1d0))))
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale))))
         (cl-mpm/fastmath:fast-fmacc vel acc dt))))
   (values))
