@@ -1402,11 +1402,12 @@
                   ;;nil indexes indiciate global bcs
                   (when index
                     (let ((node (cl-mpm/mesh:get-node mesh index)))
-                      (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
-                        (incf prune-count)
-                        (setf (row-major-aref bcs i) nil)))))))
+                      (when node
+                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                          (incf prune-count)
+                          (setf (row-major-aref bcs i) nil))))))))
 
-            (format t "Pruned ~D bcs~%" prune-count)
+            (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count)
             )
           ;;Trim out all nodes that we can get rid of
           (let ((nodes (cl-mpm/mesh:mesh-nodes mesh))
@@ -1417,8 +1418,7 @@
                   (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
                     (incf prune-count)
                     (setf (row-major-aref nodes i) nil)))))
-            (format t "Pruned ~D nodes~%" prune-count)
-            )
+            (format t "Rank ~D - Pruned ~D nodes~%" rank prune-count))
           ;;Cells
           (let ((cells (cl-mpm/mesh::mesh-cells mesh))
                 (prune-count 0)
@@ -1429,9 +1429,7 @@
                   (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell) buffer-size))
                     (incf prune-count)
                     (setf (row-major-aref cells i) nil)))))
-            (format t "Pruned ~D cells~%" prune-count)
-            )
-          )
+            (format t "Rank ~D - Pruned ~D cells~%" rank prune-count)))
 
         ))))
 ;; (defmethod %domain-decompose :after ((sim cl-mpm/mpi::mpm-sim-mpi-nodes-damage) domain-scaler)
