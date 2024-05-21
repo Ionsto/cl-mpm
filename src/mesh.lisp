@@ -63,6 +63,11 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros)
     )
+   (ghost
+    :accessor node-ghost
+    :initarg :acceleration
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
   (force
     :accessor node-force
     :initarg :force
@@ -532,8 +537,8 @@
   (:documentation "Reset grid to default state"))
 
 (defmethod reset-node ((node node))
-  (with-slots ( (mass mass)
-                (vel velocity)
+  (with-slots ((mass mass)
+               (vel velocity)
                (acc acceleration)
                (j-inc jacobian-inc)
                (j jacobian)
@@ -548,8 +553,7 @@
                (force force)
                (int-force internal-force)
                (ext-force external-force)
-               (buoyancy-force buoyancy-force)
-               )
+               (buoyancy-force buoyancy-force))
                 node
     (setf active nil)
     (setf boundary nil)
@@ -562,12 +566,12 @@
     (setf j-inc 0d0)
     (setf boundary-scalar 0d0)
     (setf pressure 0d0)
-    (magicl:scale! vel 0d0)
-    (magicl:scale! acc 0d0)
-    (magicl:scale! force 0d0)
-    (magicl:scale! int-force 0d0)
-    (magicl:scale! ext-force 0d0)
-    (magicl:scale! buoyancy-force 0d0)
+    (cl-mpm/fastmath::fast-zero vel)
+    (cl-mpm/fastmath::fast-zero acc)
+    (cl-mpm/fastmath::fast-zero force)
+    (cl-mpm/fastmath::fast-zero int-force)
+    (cl-mpm/fastmath::fast-zero ext-force)
+    (cl-mpm/fastmath::fast-zero buoyancy-force)
     ))
 
 (defmethod reset-node ((node node-thermal))

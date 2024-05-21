@@ -10,6 +10,7 @@
    #:dot
    #:norm
    :fast-.+
+   :fast-.-
    :fast-.*
     ))
 
@@ -195,6 +196,32 @@
   ;; (loop for i from 0 below (length a)
   ;;       do (setf (aref target i) (+ (aref a i) (aref b i))))
   target)
+(declaim
+ (inline simd-any-)
+ (ftype (function ((simple-array double-float)
+                           (simple-array double-float)
+                           (simple-array double-float))
+                          (values)) simd-any-))
+(defun simd-any- (a b target)
+  (declare ((simple-array double-float (*)) a b target))
+  (let ((offset 0))
+    (declare (type sb-simd:f64vec a b target)
+             (fixnum offset))
+    (multiple-value-bind (iter remain) (floor (length a) 2)
+      (declare (fixnum iter remain))
+      (dotimes (i iter)
+        (setf (sb-simd-avx:f64.2-aref target offset)
+              (sb-simd-avx:f64.2-
+               (sb-simd-avx:f64.2-aref a offset)
+               (sb-simd-avx:f64.2-aref b offset)))
+        (incf offset 2))
+      (unless (eq remain 0)
+        (dotimes (i remain)
+          (setf (aref target offset)
+                (- (aref a offset) (aref b offset)))
+          (incf offset 1)))))
+  target)
+
 
 (defun simd-any* (a b target)
   ;(declare (optimize (speed 0) (debug 0) (safety 3)))
@@ -463,6 +490,19 @@
                  (cl-mpm/utils::deep-copy a))))
     (declare (magicl:matrix/double-float a b res))
     (simd-any+ (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    res))
+
+(declaim
+ (inline fast-.-)
+ (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) fast-.-))
+(defun fast-.- (a b &optional res)
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::deep-copy a))))
+    (declare (magicl:matrix/double-float a b res))
+    (simd-any- (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
                (magicl::matrix/double-float-storage res))
     res))

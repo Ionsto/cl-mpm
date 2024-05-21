@@ -315,7 +315,7 @@
                             (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
                             (normal-damping 0d0)
                             (damping-force (* normal-damping rel-vel)))
-                       (declare (double-float tang-vel rel-vel normal-damping damping-force))
+                       (declare (double-float rel-vel normal-damping damping-force))
 
                        (cl-mpm/fastmath::fast-fmacc force
                                                     normal

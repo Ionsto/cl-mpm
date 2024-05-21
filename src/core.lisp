@@ -30,6 +30,7 @@
     #:iterate-over-neighbours
     #:calculate-adaptive-time
     #:iterate-over-mps
+    #:iterate-over-neighbours-point-linear
     ))
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 3)))
@@ -2408,8 +2409,8 @@ Calls func with only the node"
    mesh
    (lambda (node)
      (when (and (cl-mpm/mesh:node-active node)
-                (< (cl-mpm/mesh:node-mass node) mass-thresh))
-       (setf (cl-mpm/mesh::node-active node) nil)
+                (<= (cl-mpm/mesh:node-mass node) mass-thresh))
+       ;; (setf (cl-mpm/mesh::node-active node) nil)
        (cl-mpm/mesh:reset-node node))))
 
   ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))

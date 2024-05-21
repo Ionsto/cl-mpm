@@ -360,7 +360,8 @@
                           (list (make-bc-fixed (list order     y) '(0d0 nil))
                                 (make-bc-fixed (list (- xsize order) y) '(0d0 nil))))))))))
 
-(defun make-outside-bc-var-list (mesh left right top bottom front back)
+(defun make-outside-bc-var-list (mesh left right top bottom front back &key (clip-func (lambda (i) t)))
+  (declare (function clip-func))
   "Construct fixed bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count))
       mesh
@@ -369,18 +370,19 @@
         (destructuring-bind (xsize ysize zsize) bounds
           (array-operations/utilities:nested-loop
            (x y z) mesh-count
-           (when (= x 0)
-             (push (funcall left (list x y z)) outlist))
-           (when (= x xsize)
-             (push (funcall right (list x y z)) outlist))
-           (when (= y 0)
-             (push (funcall bottom (list x y z)) outlist))
-           (when (= y ysize)
-             (push (funcall top (list x y z)) outlist))
-           (when (= z 0)
-             (push (funcall front (list x y z)) outlist))
-           (when (= z zsize)
-             (push (funcall back (list x y z)) outlist)))
+            (when (funcall clip-func (list x y z))
+              (when (= x 0)
+                (push (funcall left (list x y z)) outlist))
+              (when (= x xsize)
+                (push (funcall right (list x y z)) outlist))
+              (when (= y 0)
+                (push (funcall bottom (list x y z)) outlist))
+              (when (= y ysize)
+                (push (funcall top (list x y z)) outlist))
+              (when (= z 0)
+                (push (funcall front (list x y z)) outlist))
+              (when (= z zsize)
+                (push (funcall back (list x y z)) outlist))))
 
           (delete nil outlist)))))
 (defun make-outside-bc-var (mesh left right top bottom
@@ -388,10 +390,11 @@
                             &optional
                               (front (lambda (i) nil))
                               (back (lambda (i) nil))
+                            &key (clip-func (lambda (i) t))
                               )
   "Construct fixed bcs over the outside of a mesh"
       (make-bcs-from-list
-       (make-outside-bc-var-list mesh left right top bottom front back)))
+       (make-outside-bc-var-list mesh left right top bottom front back :clip-func clip-func)))
 (defun make-sub-domain-bcs (mesh start end make-bc)
   "Construct  bcs over the outside of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)

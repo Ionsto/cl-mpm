@@ -2718,7 +2718,9 @@ Calls the function with the mesh mp and node"
         (progn
           (when (< damage 1d0)
 
+            ;; (setf damage-increment (tensile-energy-norm strain E de))
             (setf damage-increment (* E (modified-vm-criterion strain nu k)))
+
             ;; (setf damage-increment
             ;;       (max 0d0
             ;;            (drucker-prager-criterion
