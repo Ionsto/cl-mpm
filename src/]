@@ -1403,7 +1403,6 @@
                     (let ((node (cl-mpm/mesh:get-node mesh index)))
                       (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
                         (setf (row-major-aref bcs i) nil))))))))
-
           ;;Trim out all nodes that we can get rid of
           (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
             (dotimes (i (array-total-size nodes))
@@ -1411,13 +1410,6 @@
                 (when node
                   (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
                     (setf (row-major-aref nodes i) nil))))))
-          ;;Cells
-          (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-            (dotimes (i (array-total-size cells))
-              (let ((cell (row-major-aref cells i)))
-                (when cell
-                  (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell) buffer-size))
-                    (setf (row-major-aref cells i) nil))))))
           )
 
         ))))
