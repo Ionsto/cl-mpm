@@ -1392,7 +1392,7 @@
                            (cells cl-mpm/mesh::mesh-cells))
               mesh
             (with-accessors ((bcs cl-mpm:sim-bcs))
-                *sim*
+                sim
               (let* ((domain-sizes (mapcar (lambda (x) (abs (reduce #'- x)))
                                            (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
                      (h (cl-mpm/mesh:mesh-resolution mesh))
