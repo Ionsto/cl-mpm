@@ -1361,9 +1361,9 @@
                               (let ((res
                                       (lparallel:premove-if-not
                                        (lambda (node)
-                                         (and
-                                          node
-                                          (funcall test (nth i (cl-mpm/mesh:node-index node)))))
+                                         (if node
+                                             (funcall test (nth i (cl-mpm/mesh:node-index node)))
+                                             nil))
                                        all-nodes)))
                                 (make-array (length res) :initial-contents res)))
                             (left-filter ()
