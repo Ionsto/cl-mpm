@@ -200,6 +200,14 @@
                (:file "src/penalty")
                ))
 
+(defsystem "cl-mpm/ghost"
+  :depends-on ("cl-mpm"
+               "cl-mpm/bc")
+  :description ""
+  :components (
+               (:file "src/ghost")
+               ))
+
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
 (defsystem "cl-mpm/example"
@@ -499,6 +507,22 @@
                "swank.live")
   :serial t
   :components ((:file "examples/lbar")))
+(defsystem "cl-mpm/all"
+  :depends-on ("cl-mpm"
+               "cl-mpm/forces"
+               "cl-mpm/fastmath"
+               "cl-mpm/setup"
+               "cl-mpm/bc"
+               "cl-mpm/constitutive"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "cl-mpm/mpi"
+               "cl-mpm/dynamic-relaxation"
+               "cl-mpm/ghost"))
 
 (defsystem "cl-mpm/examples/uniaxial"
   :depends-on ("cl-mpm/examples/tpb"
