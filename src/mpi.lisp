@@ -1362,7 +1362,7 @@
                                       (lparallel:premove-if-not
                                        (lambda (mp)
                                          (and
-                                          ;; (cl-mpm/mesh:node-active mp)
+                                          mp
                                           (funcall test (nth i (cl-mpm/mesh:node-index mp)))))
                                        all-nodes)))
                                 (make-array (length res) :initial-contents res)))
@@ -1391,8 +1391,9 @@
                                      (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
                (h (cl-mpm/mesh:mesh-resolution mesh))
                (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
-               (buffer-size (ceiling min-domain-length h)))
+               (buffer-size (1+ (ceiling min-domain-length h))))
           (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
+          (format t "Domain size ~A~%" domain-sizes)
           (let ((bcs (cl-mpm:sim-bcs sim)))
             (dotimes (i (array-total-size bcs))
               (let ((bc (row-major-aref bcs i)))
