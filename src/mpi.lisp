@@ -1337,11 +1337,11 @@
                    (> min-mps 0))
           (format t "Occupancy ratio : ~F%~%" (* 100d0 (/ max-mps min-mps))))))
     ))
+(defparameter *prune-nodes* t)
 (defmethod %domain-decompose :after ((sim cl-mpm/mpi::mpm-sim-mpi-nodes) domain-scaler)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
-    (with-accessors ((mesh cl-mpm:sim-mesh)
-                     )
+    (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (let* ((nd-nodes (cl-mpm/mesh:mesh-nodes mesh))
              (all-nodes (make-array (array-total-size nd-nodes) :displaced-to nd-nodes :displaced-index-offset 0))
@@ -1387,48 +1387,50 @@
                            (setf (nth 1 (nth i (mpm-sim-mpi-halo-node-list sim)))
                                  (right-filter))))))))
 
-        (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
-                         (cells cl-mpm/mesh::mesh-cells)
-                         (bcs cl-mpm/mesh::mesh-bcs))
-            mesh
-          (let* ((domain-sizes (mapcar (lambda (x) (abs (reduce #'- x)))
-                                       (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
-                 (h (cl-mpm/mesh:mesh-resolution mesh))
-                 (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
-                 (buffer-size (1+ (ceiling min-domain-length h))))
-            (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
-            (format t "Domain size ~A~%" domain-sizes)
-            (let ((prune-count 0))
-              (dotimes (i (array-total-size bcs))
-                (let ((bc (row-major-aref bcs i)))
-                  (let ((index (cl-mpm/bc:bc-index bc)))
-                    ;;nil indexes indiciate global bcs
-                    (when index
-                      (let ((node (cl-mpm/mesh:get-node mesh index)))
-                        (when node
-                          (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
-                            (incf prune-count)
-                            (setf (row-major-aref bcs i) nil))))))))
+        (when *prune-nodes*
+          (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
+                           (cells cl-mpm/mesh::mesh-cells))
+              mesh
+            (with-accessors ((bcs cl-mpm:sim-bcs))
+                *sim*
+              (let* ((domain-sizes (mapcar (lambda (x) (abs (reduce #'- x)))
+                                           (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
+                     (h (cl-mpm/mesh:mesh-resolution mesh))
+                     (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
+                     (buffer-size (1+ (ceiling min-domain-length h))))
+                (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
+                (format t "Domain size ~A~%" domain-sizes)
+                (let ((prune-count 0))
+                  (dotimes (i (array-total-size bcs))
+                    (let ((bc (row-major-aref bcs i)))
+                      (let ((index (cl-mpm/bc:bc-index bc)))
+                        ;;nil indexes indiciate global bcs
+                        (when index
+                          (let ((node (cl-mpm/mesh:get-node mesh index)))
+                            (when node
+                              (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                                (incf prune-count)
+                                (setf (row-major-aref bcs i) nil))))))))
 
-              (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
-            ;;Trim out all nodes that we can get rid of
-            (let ((prune-count 0))
-              (dotimes (i (array-total-size nodes))
-                (let ((node (row-major-aref nodes i)))
-                  (when node
-                    (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
-                      (incf prune-count)
-                      (setf (row-major-aref nodes i) nil)))))
-              (format t "Rank ~D - Pruned ~D nodes~%" rank prune-count))
-            ;;Cells
-            (let ((prune-count 0))
-              (dotimes (i (array-total-size cells))
-                (let ((cell (row-major-aref cells i)))
-                  (when cell
-                    (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell) buffer-size))
-                      (incf prune-count)
-                      (setf (row-major-aref cells i) nil)))))
-              (format t "Rank ~D - Pruned ~D cells~%" rank prune-count))))
+                  (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
+                ;;Trim out all nodes that we can get rid of
+                (let ((prune-count 0))
+                  (dotimes (i (array-total-size nodes))
+                    (let ((node (row-major-aref nodes i)))
+                      (when node
+                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                          (incf prune-count)
+                          (setf (row-major-aref nodes i) nil)))))
+                  (format t "Rank ~D - Pruned ~D nodes~%" rank prune-count))
+                ;;Cells
+                (let ((prune-count 0))
+                  (dotimes (i (array-total-size cells))
+                    (let ((cell (row-major-aref cells i)))
+                      (when cell
+                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell) buffer-size))
+                          (incf prune-count)
+                          (setf (row-major-aref cells i) nil)))))
+                  (format t "Rank ~D - Pruned ~D cells~%" rank prune-count))))))
 
         ))))
 ;; (defmethod %domain-decompose :after ((sim cl-mpm/mpi::mpm-sim-mpi-nodes-damage) domain-scaler)
