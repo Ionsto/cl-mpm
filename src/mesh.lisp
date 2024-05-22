@@ -538,10 +538,18 @@
   "Reset all velocity map on node for MUSL"
   (with-accessors ((active node-active)
                    (mass node-mass)
+                   (volume node-volume)
+                   (svp node-svp-sum)
+                   (p-mod node-pwave)
+                   (damage node-damage)
                    (vel node-velocity))
       node
     (setf
      active nil
+     volume 0d0
+     svp 0d0
+     damage 0d0
+     p-mod 0d0
      mass 0d0)
     (cl-mpm/fastmath::fast-zero vel)))
 

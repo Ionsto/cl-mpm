@@ -438,6 +438,7 @@
                  )))
          ))))
 
+
 (defun mpi-sync-force (sim)
   ;; (format t "Sync force ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -1407,14 +1408,16 @@
                         ;;nil indexes indiciate global bcs
                         (when index
                           (let ((node (cl-mpm/mesh:get-node mesh index)))
-                            (when node
-                              (format t "Pruning BC at index: ~A node: ~A~%" index node)
-                              (when (not (in-computational-domain-buffer
-                                          sim
-                                          (cl-mpm/mesh::node-position node)
-                                          buffer-size))
-                                (incf prune-count)
-                                (setf (row-major-aref bcs i) nil))))))))
+                            (declare ((or cl-mpm/mesh::node nil) node))
+                            (when (not (equal node nil))
+                              (progn
+                                ;; (format t "Pruning BC at index: ~A node: ~A~%" index node)
+                                (when (not (in-computational-domain-buffer
+                                            sim
+                                            (cl-mpm/mesh::node-position node)
+                                            buffer-size))
+                                  (incf prune-count)
+                                  (setf (row-major-aref bcs i) nil)))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
                 ;;Trim out all nodes that we can get rid of

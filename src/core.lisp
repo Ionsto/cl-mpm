@@ -1216,8 +1216,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                    (* mp-pmod svp))
              (incf node-damage
                    (* mp-damage svp))
-             (incf node-svp-sum svp
-                   )
+             (incf node-svp-sum svp)
              (fast-fmacc node-vel mp-vel (* mp-mass svp))
              )
            ;;Ideally we include these generic functions for special mapping operations, however they are slow
