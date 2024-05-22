@@ -27,6 +27,8 @@ Output
  - Live GNUplot plotter
  - CSV format to conform with cb-geo
 
+Documentation in the wiki: https://github.com/Ionsto/cl-mpm/wiki 
+
 # Installation
 cl-mpm only runs with SBCL due to its use of SIMD intrinsics, install sbcl from https://www.sbcl.org/
 
