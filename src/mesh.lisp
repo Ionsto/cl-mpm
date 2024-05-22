@@ -422,7 +422,7 @@
   ;; (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
   ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
   )
-(declaim (ftype (function (mesh (simple-array fixnume))) in-bounds-array))
+(declaim (ftype (function (mesh (simple-array fixnum))) in-bounds-array))
 (defun in-bounds-array (mesh pos)
   (declare (type (simple-array fixnum) pos))
   "Check a position (list) is inside a mesh"
@@ -440,6 +440,7 @@
   "Turn a vector position into a list of indexes with rounding"
   (let ((h (mesh-resolution mesh))
         (p-a (magicl::matrix/double-float-storage pos)))
+    (declare (double-float h))
     (aops:each (lambda (x) (/ (the double-float x) h)) p-a))
   ;; (let ((res (make-array 2
   ;;                        :initial-contents (the (simple-array double-float) (magicl::matrix/double-float-storage pos))
@@ -487,13 +488,13 @@
     (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
 
 (declaim (inline get-node)
-         (ftype (function (mesh list) (or node nil)) get-node))
+         (ftype (function (mesh list) (or node null)) get-node))
 (defun get-node (mesh pos)
   "Check bounds and get node"
   (policy-cond:policy-if (> safety speed)
                          (if (in-bounds mesh pos)
                              (apply #'aref (mesh-nodes mesh) pos)
-                             (error (format nil "Access grid out of bounds at: ~a" pos)))
+                               (error (format nil "Access grid out of bounds at: ~a" pos)))
                          (apply #'aref (mesh-nodes mesh) pos)))
 
 (defun get-node-array (mesh pos)
@@ -505,7 +506,7 @@
                          (aref (mesh-nodes mesh) (aref pos 0) (aref pos 1))))
 
 (declaim (inline get-cell)
-         (ftype (function (mesh list) cell) get-cell))
+         (ftype (function (mesh list) (or cell null)) get-cell))
 (defun get-cell (mesh pos)
   "Check bounds and get cell"
   (policy-cond:policy-if (> safety speed)
