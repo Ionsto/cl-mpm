@@ -1408,7 +1408,11 @@
                         (when index
                           (let ((node (cl-mpm/mesh:get-node mesh index)))
                             (when node
-                              (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                              (format t "Pruning BC at index: ~A node: ~A~%" index node)
+                              (when (not (in-computational-domain-buffer
+                                          sim
+                                          (cl-mpm/mesh::node-position node)
+                                          buffer-size))
                                 (incf prune-count)
                                 (setf (row-major-aref bcs i) nil))))))))
 
@@ -1418,7 +1422,10 @@
                   (dotimes (i (array-total-size nodes))
                     (let ((node (row-major-aref nodes i)))
                       (when node
-                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) buffer-size))
+                        (when (not (in-computational-domain-buffer
+                                    sim
+                                    (cl-mpm/mesh::node-position node)
+                                    buffer-size))
                           (incf prune-count)
                           (setf (row-major-aref nodes i) nil)))))
                   (format t "Rank ~D - Pruned ~D nodes~%" rank prune-count))

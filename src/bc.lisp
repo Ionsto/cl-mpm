@@ -51,7 +51,7 @@
 
 (defun make-bc-fixed (index value)
   (make-instance 'bc-fixed
-                 :index index 
+                 :index index
                  :value value))
 
 (defclass bc-surface (bc)
