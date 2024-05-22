@@ -8,7 +8,7 @@
  Used for simulating viscoelastic glacier dynamics.
 
 Tested on Ubuntu & WSL.
-Theoretically should work on windows however cffi, and BLAS are a bit iffy.
+Theoretically should work on windows however MAGICL library is required which is broken as of right now.
  
  
 # Features
