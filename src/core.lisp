@@ -385,8 +385,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       mp
     ;;Simple if statement - we take the hit
     (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-        (;iterate-over-neighbours-shape-gimp-simd;bspline
-         iterate-over-neighbours-shape-linear
+        (iterate-over-neighbours-shape-gimp-simd;bspline
+         ;; iterate-over-neighbours-shape-linear
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
            (vector-push-extend
