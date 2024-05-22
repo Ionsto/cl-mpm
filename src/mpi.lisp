@@ -1403,7 +1403,7 @@
                 (format t "Domain size ~A~%" domain-sizes)
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size bcs))
-                    (let ((bc (row-major-aref bcs i)))
+                    (let ((bc (aref bcs i)))
                       (let ((index (cl-mpm/bc:bc-index bc)))
                         ;;nil indexes indiciate global bcs
                         (when index
@@ -1415,11 +1415,12 @@
                                 (when (not (in-computational-domain-buffer
                                             sim
                                             (cl-mpm/mesh::node-position node)
-                                            buffer-size))
+                                            (* 1.1 buffer-size)))
                                   (incf prune-count)
                                   (setf (row-major-aref bcs i) nil)))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
+                (setf bcs (delete nil bcs))
                 ;;Trim out all nodes that we can get rid of
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size nodes))
@@ -1432,6 +1433,21 @@
                           (incf prune-count)
                           (setf (row-major-aref nodes i) nil)))))
                   (format t "Rank ~D - Pruned ~D nodes~%" rank prune-count))
+
+                ;;Prune orphan bcs
+                (let ((prune-count 0))
+                  (dotimes (i (array-total-size bcs))
+                    (let ((bc (aref bcs i)))
+                      (when bc
+                        (let ((index (cl-mpm/bc:bc-index bc)))
+                          ;;nil indexes indiciate global bcs
+                          (when index
+                            ;;SBCL is very sure that the result cannot be nil!
+                            (when (equal (cl-mpm/mesh:get-node mesh index) nil)
+                              (incf prune-count)
+                              (setf (row-major-aref bcs i) nil)))))))
+                  (setf bcs (delete nil bcs))
+                  (format t "Rank ~D - Pruned ~D orphan bcs~%" rank prune-count))
                 ;;Cells
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size cells))

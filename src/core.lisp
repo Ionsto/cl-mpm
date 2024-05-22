@@ -1643,11 +1643,13 @@ Calls func with only the node"
                            (index cl-mpm/bc::bc-index))
               bc
             (if (or node
-                      (not index))
+                    (not index))
                 (cl-mpm/bc:apply-bc bc node mesh dt)
                 (progn
                   (setf node (cl-mpm/mesh:get-node mesh index))
-                  (cl-mpm/bc:apply-bc bc node mesh dt)))))))))
+                  (if node
+                      (cl-mpm/bc:apply-bc bc node mesh dt)
+                      (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
 
 
 ;Could include this in p2g but idk
