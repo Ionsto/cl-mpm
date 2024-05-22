@@ -487,7 +487,7 @@
     (mapcar (lambda (i) (* (the double-float h) (coerce i 'double-float))) index)))
 
 (declaim (inline get-node)
-         (ftype (function (mesh list) node) get-node))
+         (ftype (function (mesh list) (or node nil)) get-node))
 (defun get-node (mesh pos)
   "Check bounds and get node"
   (policy-cond:policy-if (> safety speed)
