@@ -301,6 +301,7 @@
                     (check-mps sim)
                     (incf time dt)
                     )))
+
 (defmethod update-sim ((sim mpm-sim-usl))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -2393,14 +2394,17 @@ Calls func with only the node"
    mesh
    (lambda (node)
      (when (cl-mpm/mesh:node-active node)
-       (cl-mpm/mesh:reset-node node))))
+       (cl-mpm/mesh:reset-node node)))))
+(declaim (notinline reset-grid-velocity))
+(defun reset-grid-velocity (mesh)
+  "Reset all velocity map on grid for MUSL"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (cl-mpm/mesh:node-active node)
+       (cl-mpm/mesh::reset-node-velocity node)))))
 
-  ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-  ;;   (lparallel:pdotimes (i (array-total-size nodes))
-  ;;     (let ((node (row-major-aref nodes i)))
-  ;;       (when (cl-mpm/mesh:node-active node)
-  ;;         (cl-mpm/mesh:reset-node node)))))
-  )
 
 (defun filter-grid (mesh mass-thresh)
   "Filter out nodes with very small massess"
@@ -2410,18 +2414,18 @@ Calls func with only the node"
    (lambda (node)
      (when (and (cl-mpm/mesh:node-active node)
                 (<= (cl-mpm/mesh:node-mass node) mass-thresh))
-       ;; (setf (cl-mpm/mesh::node-active node) nil)
-       (cl-mpm/mesh:reset-node node))))
+       (cl-mpm/mesh:reset-node node)))))
 
-  ;; (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))
-  ;;   (lparallel:pdotimes (i (array-total-size nodes))
-  ;;     (let ((node (row-major-aref nodes i)))
-  ;;       (when (and (cl-mpm/mesh:node-active node)
-  ;;                  (< (cl-mpm/mesh:node-mass node) mass-thresh))
-  ;;         (setf (cl-mpm/mesh::node-active node) nil)
-  ;;         (cl-mpm/mesh:reset-node node)
-  ;;         ))))
-  )
+(defun filter-grid-velocity (mesh mass-thresh)
+  "Filter out nodes with very small massess"
+  (declare (cl-mpm/mesh::mesh mesh) (double-float mass-thresh))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (and (cl-mpm/mesh:node-active node)
+                (<= (cl-mpm/mesh:node-mass node) mass-thresh))
+       (cl-mpm/mesh::reset-node-velocity node)))))
+
 (defun filter-grid-volume (mesh volume-ratio)
   (declare (cl-mpm/mesh::mesh mesh) (double-float volume-ratio))
   (let ((nodes (cl-mpm/mesh:mesh-nodes mesh)))

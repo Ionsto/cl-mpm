@@ -817,11 +817,11 @@
                   (cl-mpm::g2p mesh mps dt)
 
                   ;;2nd round of mapping for USL
-                  (cl-mpm::reset-grid mesh)
+                  (cl-mpm::reset-grid-velocity mesh)
                   (cl-mpm::p2g mesh mps)
                   (mpi-sync-momentum sim)
                   (when (> mass-filter 0d0)
-                    (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
                   (cl-mpm::update-node-kinematics mesh dt)
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::update-stress mesh mps dt nil)

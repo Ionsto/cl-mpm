@@ -947,12 +947,12 @@ Calls the function with the mesh mp and node"
 
                     ;;Update stress last
 
-                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::reset-grid-velocity mesh)
                     (cl-mpm::p2g mesh mps)
                     (cl-mpm::check-single-mps sim)
                     ;;Do optional mass filter
                     (when (> mass-filter 0d0)
-                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                      (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
 

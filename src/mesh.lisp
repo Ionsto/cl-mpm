@@ -533,6 +533,18 @@
         (setf temp (+ temp (* node-temp svp))))))
   (call-next-method))
 
+
+(defun reset-node-velocity (node)
+  "Reset all velocity map on node for MUSL"
+  (with-accessors ((active node-active)
+                   (mass node-mass)
+                   (vel node-velocity))
+      node
+    (setf
+     active nil
+     mass 0d0)
+    (cl-mpm/fastmath::fast-zero vel)))
+
 (defgeneric reset-node (node)
   (:documentation "Reset grid to default state"))
 
