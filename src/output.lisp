@@ -362,8 +362,14 @@
           (format fs "Lisp generated vtk file, SJVS~%")
           (format fs "ASCII~%")
           (format fs "DATASET UNSTRUCTURED_GRID~%")
-          (format fs "POINTS ~d double~%" (array-total-size nodes))
+
           (let ((node-count 0))
+            (cl-mpm:iterate-over-nodes-serial
+             mesh
+             (lambda (n)
+               (declare (ignore n))
+               (incf node-count)))
+            (format fs "POINTS ~d double~%" node-count)
             (destructuring-bind (n m l) (array-dimensions nodes)
               (loop for i from 0 below n do
                 (loop for j from 0 below m do
@@ -371,7 +377,7 @@
                         do
                            (let ((node (aref nodes i j k)))
                              (when node
-                               (incf node-count)
+                               ;; (incf node-count)
                                (format fs "~E ~E ~E ~%"
                                        (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 0 0) 'single-float)
                                        (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 1 0) 'single-float)
