@@ -1446,6 +1446,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass dt damping mass-scale))
         (progn
+
           (magicl:scale! acc 0d0)
           ;;Set acc to f/m
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))

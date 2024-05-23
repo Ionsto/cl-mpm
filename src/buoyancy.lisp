@@ -693,7 +693,7 @@
 
 (defun make-bc-pressure (sim pressure-x pressure-y)
   (make-instance 'bc-pressure
-                 :index '(0 0 0)
+                 :index nil
                  :sim sim
                  :pressures (list pressure-x pressure-y)
                  )
@@ -752,7 +752,7 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       (make-instance 'bc-buoyancy
-                     :index '(0 0 0)
+                     :index nil
                      :sim sim
                      :clip-func (lambda (pos datum)
                                   (and
@@ -769,7 +769,7 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       (make-instance 'bc-buoyancy
-                     :index '(0 0 0)
+                     :index nil
                      :sim sim
                      :clip-func clip-func
                                         ;(lambda (pos)
@@ -872,7 +872,7 @@
                (cl-mpm::iterate-over-neighbours
                 mesh mp
                 (lambda (mesh mp node svp grads fsvp fgrad)
-                  (when (cl-mpm/mesh::node-boundary-node node)
+                  (when t;(cl-mpm/mesh::node-boundary-node node)
                     (with-accessors ((pos cl-mpm/particle:mp-position)
                                      (pressure cl-mpm/particle::mp-pressure)
                                      (mp-datum cl-mpm/particle::mp-pressure-datum)

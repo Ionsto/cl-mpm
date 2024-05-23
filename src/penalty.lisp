@@ -236,7 +236,7 @@
     (setf (magicl:tref normal (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 0) 1d0)
     (setf normal (cl-mpm/fastmath::norm normal))
     (make-instance 'bc-penalty
-                   :index '(0 0 0)
+                   :index nil
                    :sim sim
                    :datum datum
                    :normal normal
@@ -250,7 +250,7 @@
          )
     ;; (format t "Normal ~F ~F ~%" (magicl:tref normal 0 0) (magicl:tref normal 1 0))
     (make-instance 'bc-penalty
-                   :index '(0 0 0)
+                   :index nil
                    :sim sim
                    :datum datum
                    :normal normal
