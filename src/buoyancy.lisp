@@ -942,6 +942,7 @@
                 mesh cell
                 (lambda (mesh cell pos volume node svp grads)
                   (with-accessors ((node-force cl-mpm/mesh::node-force)
+                                   (node-force-ext cl-mpm/mesh::node-external-force)
                                    (node-pos cl-mpm/mesh::node-position)
                                    (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                    (node-lock  cl-mpm/mesh:node-lock)
@@ -966,6 +967,15 @@
                                                      (* -1d0 volume))
 
                         (cl-mpm/fastmath::fast-fmacc node-force
+                                                     (funcall func-div pos)
+                                                     (* -1d0 svp volume))
+
+                        (cl-mpm/fastmath::fast-fmacc node-force-ext
+                                                     (magicl:@ (magicl:transpose dsvp)
+                                                               (funcall func-stress pos))
+                                                     (* -1d0 volume))
+
+                        (cl-mpm/fastmath::fast-fmacc node-force-ext
                                                      (funcall func-div pos)
                                                      (* -1d0 svp volume))
 
@@ -998,6 +1008,7 @@
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
                (with-accessors ((node-force cl-mpm/mesh::node-force)
+                                (node-force-ext cl-mpm/mesh::node-external-force)
                                 (node-pos cl-mpm/mesh::node-position)
                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                 (node-lock  cl-mpm/mesh:node-lock)
@@ -1020,6 +1031,15 @@
                                                   volume)
                      ;; Add divergance of stress
                      (cl-mpm/fastmath::fast-fmacc node-force
+                                                  (funcall func-div mp)
+                                                  (* svp volume))
+
+                     (cl-mpm/fastmath::fast-fmacc node-force-ext
+                                                  (magicl:@ (magicl:transpose dsvp)
+                                                            (funcall func-stress mp))
+                                                  volume)
+                     ;; Add divergance of stress
+                     (cl-mpm/fastmath::fast-fmacc node-force-ext
                                                   (funcall func-div mp)
                                                   (* svp volume))
                      ;;Debug buoyancy
