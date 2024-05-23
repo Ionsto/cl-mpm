@@ -8,7 +8,7 @@
  Used for simulating viscoelastic glacier dynamics.
 
 Tested on Ubuntu & WSL.
-Theoretically should work on windows however cffi, and BLAS are a bit iffy.
+Theoretically should work on windows however MAGICL library is required which is broken as of right now.
  
  
 # Features
@@ -26,6 +26,8 @@ Output
  - VTK mesh & mp output
  - Live GNUplot plotter
  - CSV format to conform with cb-geo
+
+Documentation in the wiki: https://github.com/Ionsto/cl-mpm/wiki 
 
 # Installation
 cl-mpm only runs with SBCL due to its use of SIMD intrinsics, install sbcl from https://www.sbcl.org/
