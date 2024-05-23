@@ -10,7 +10,9 @@
     :magicl tref .+ .-)
   (:export
     ))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+
 ;    #:make-shape-function
 (in-package :cl-mpm/buoyancy)
 
@@ -848,47 +850,50 @@
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))
         sim
-      (loop for mp across mps
-            do
-               (with-accessors ((pos cl-mpm/particle:mp-position)
-                                (pressure cl-mpm/particle::mp-pressure)
-                                (mp-datum cl-mpm/particle::mp-pressure-datum)
-                                (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                                (mp-head cl-mpm/particle::mp-pressure-head)
-                                )
-                   mp
-                 (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
-                            (funcall clip-func (cl-mpm/mesh::node-position node) datum))
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (with-accessors ((pos cl-mpm/particle:mp-position)
+                          (pressure cl-mpm/particle::mp-pressure)
+                          (mp-datum cl-mpm/particle::mp-pressure-datum)
+                          (mp-pfunc cl-mpm/particle::mp-pressure-func)
+                          (mp-head cl-mpm/particle::mp-pressure-head)
+                          )
+             mp
+           (when ;(and (cell-clipping (cl-mpm/mesh::node-position node) datum)
+                                        ;     (funcall clip-func (cl-mpm/mesh::node-position node) datum))
 
-                   (setf pressure 0d0)
-                   ;; (setf mp-pfunc
-                   ;;       (lambda (p)
-                   ;;         0d0))
-                   (setf mp-datum datum
-                         mp-head rho))))
+               (setf pressure 0d0)
+             ;; (setf mp-pfunc
+             ;;       (lambda (p)
+             ;;         0d0))
+             (setf mp-datum datum
+                   mp-head rho)))))
 
-      (loop for mp across mps
-            do
-               (cl-mpm::iterate-over-neighbours
-                mesh mp
-                (lambda (mesh mp node svp grads fsvp fgrad)
-                  (when t;(cl-mpm/mesh::node-boundary-node node)
-                    (with-accessors ((pos cl-mpm/particle:mp-position)
-                                     (pressure cl-mpm/particle::mp-pressure)
-                                     (mp-datum cl-mpm/particle::mp-pressure-datum)
-                                     (mp-head cl-mpm/particle::mp-pressure-head)
-                                     (mp-pfunc cl-mpm/particle::mp-pressure-func)
-                                     )
-                        mp
-                      (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
-                                 (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-                        (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
-                        ;; (setf mp-pfunc
-                        ;;       (lambda (p)
-                        ;;         (pressure-at-depth (tref p 1 0) datum rho)))
-                        (setf mp-datum datum
-                              mp-head rho)
-                        )))))))))
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (with-accessors ((pos cl-mpm/particle:mp-position)
+                          (pressure cl-mpm/particle::mp-pressure)
+                          (mp-datum cl-mpm/particle::mp-pressure-datum)
+                          (mp-head cl-mpm/particle::mp-pressure-head)
+                          (mp-pfunc cl-mpm/particle::mp-pressure-func)
+                          )
+             mp
+           (cl-mpm::iterate-over-neighbours
+            mesh mp
+            (lambda (mesh mp node svp grads fsvp fgrad)
+              (when t;(cl-mpm/mesh::node-boundary-node node)
+                (when node
+                  (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
+                             (funcall clip-func (cl-mpm/mesh::node-position node) datum))
+                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                    ;; (setf mp-pfunc
+                    ;;       (lambda (p)
+                    ;;         (pressure-at-depth (tref p 1 0) datum rho)))
+                    (setf mp-datum datum
+                          mp-head rho)
+                    )))))))))))
 
 (defun set-pressure-all (sim bc)
   (with-accessors ((datum bc-buoyancy-datum)
