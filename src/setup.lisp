@@ -96,7 +96,10 @@
                           )))))
     data))
 (defun make-mps-from-list (mp-list)
-  (make-array (length mp-list)  :adjustable t :fill-pointer (length mp-list) :initial-contents mp-list))
+  (make-array (length mp-list)
+              :adjustable t
+              :fill-pointer (length mp-list)
+              :initial-contents mp-list))
 
 (defun make-block-mps (offset size mps constructor &rest args)
   (if (= (length size) 2)

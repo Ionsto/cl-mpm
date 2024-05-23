@@ -2472,7 +2472,12 @@ Calls func with only the node"
             ;;We cant do this in parallel apparently
             (delete-if func mps)
                                         ;(lparallel:premove-if func mps)
-            )))
+            ))
+    ;;Sometimes when compacting the array; sbcl will just discard make and unadjustable array in place which is a bit wild
+    (when (and (not (adjustable-array-p mps))
+               (= (length mps) 0))
+      (setf mps (make-array 0 :adjustable t :fill-pointer 0)))
+    )
   (values))
 
 (defun remove-material-damaged (sim)
