@@ -1573,6 +1573,8 @@ Calls func with only the node"
           (funcall func node)))))
   (values))
 
+(declaim
+ (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-cells))
 (defun iterate-over-cells (mesh func)
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"

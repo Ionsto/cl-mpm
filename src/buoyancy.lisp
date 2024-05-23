@@ -925,6 +925,7 @@
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
     (cl-mpm::iterate-over-cells
+     mesh
      (lambda (cell)
        (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
          (let ((nodal-volume 0d0))
