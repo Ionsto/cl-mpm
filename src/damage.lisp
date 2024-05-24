@@ -2297,7 +2297,7 @@ Calls the function with the mesh mp and node"
           ;;   (setf k (max k init-stress)))
           ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
 
-          (setf p (/ (* (- 1d0 (* 1d-3 (expt damage 1))) E) (* (+ 1d0 nu) (- 1d0 nu))))
+          ;; (setf p (/ (* (- 1d0 (* 1d-3 (expt damage 1))) E) (* (+ 1d0 nu) (- 1d0 nu))))
 
           ;; (let ((new-damage
           ;;         (max damage

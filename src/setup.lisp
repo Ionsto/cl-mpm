@@ -97,6 +97,7 @@
     data))
 (defun make-mps-from-list (mp-list)
   (make-array (length mp-list)
+              :element-type t
               :adjustable t
               :fill-pointer (length mp-list)
               :initial-contents mp-list))
