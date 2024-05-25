@@ -1927,7 +1927,7 @@ Calls func with only the node"
         (domain-array (cl-mpm/utils:fast-storage domain))
         )
 
-    (cl-mpm/fastmath:fast-.+ df (magicl:scale stretch-rate degredation))
+    (cl-mpm/fastmath:fast-.+ df (magicl:scale stretch-rate degredation) df)
     ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
