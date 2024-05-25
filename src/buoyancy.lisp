@@ -386,9 +386,10 @@
 (defun populate-cell-mp-count-gimp (mesh mps)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh))
         (h (cl-mpm/mesh:mesh-resolution mesh)))
-    (lparallel:pdotimes (i (array-total-size cells))
-      (let ((cell (row-major-aref cells i)))
-        (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
     (loop for mp across mps
           do (with-accessors ((pos cl-mpm/particle:mp-position)
                               (size cl-mpm/particle::mp-domain-size))
@@ -405,22 +406,24 @@
                                          (incf (cl-mpm/mesh::cell-mp-count cell))))))))))))
 (defun populate-cell-mp-count-volume (mesh mps)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-    (lparallel:pdotimes (i (array-total-size cells))
-      (let ((cell (row-major-aref cells i)))
-        (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
-    (lparallel:pdotimes (i (array-total-size cells))
-      (let ((cell (row-major-aref cells i)))
-        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                         (neighbours cl-mpm/mesh::cell-neighbours)
-                         (index cl-mpm/mesh::cell-index)
-                         (nodes cl-mpm/mesh::cell-nodes)
-                         )
-            cell
-          (when (every (lambda (n)
-                         (and (cl-mpm/mesh:node-active n) (> (cl-mpm/mesh:node-mass n) 0d0))
-                         ) nodes)
-            (setf mp-count 1))
-          )))))
+    (cl-mpm/mesh::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
+    (cl-mpm/mesh::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                        (neighbours cl-mpm/mesh::cell-neighbours)
+                        (index cl-mpm/mesh::cell-index)
+                        (nodes cl-mpm/mesh::cell-nodes)
+                        )
+           cell
+         (when (every (lambda (n)
+                        (and (cl-mpm/mesh:node-active n) (> (cl-mpm/mesh:node-mass n) 0d0))
+                        ) nodes)
+           (setf mp-count 1))
+         )))))
 
 (defun cell-clipping (pos datum)
   (<= (magicl:tref pos 1 0) datum)
@@ -600,9 +603,9 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      (populate-nodes-volume mesh clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
+      (populate-nodes-domain mesh clip-function)
       (apply-force-mps-3d mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
                        (lambda (mp) (calculate-val-mp mp func-div))
@@ -788,10 +791,10 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells mesh mps clip-function)
+      (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
       ;; (populate-nodes-volume mesh clip-function)
-      (populate-nodes-volume-damage mesh clip-function)
+      ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
 
       (apply-force-mps-3d mesh mps
@@ -980,14 +983,14 @@
                                                      (* -1d0 svp volume))
 
                         ;;Debug buoyancy
-                        ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                        ;;                              (magicl:@ (magicl:transpose dsvp)
-                        ;;                                        (funcall func-stress pos))
-                        ;;                              volume)
-                        ;; ;; Add divergance of stress
-                        ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                        ;;                              (funcall func-div pos)
-                        ;;                              (* svp volume))
+                        (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                                     (magicl:@ (magicl:transpose dsvp)
+                                                               (funcall func-stress pos))
+                                                     volume)
+                        ;; Add divergance of stress
+                        (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                                     (funcall func-div pos)
+                                                     (* svp volume))
                         (incf node-boundary-scalar
                               (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                         )))
@@ -1043,14 +1046,14 @@
                                                   (funcall func-div mp)
                                                   (* svp volume))
                      ;;Debug buoyancy
-                     ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                     ;;                              (magicl:@ (magicl:transpose dsvp)
-                     ;;                                        (funcall func-stress mp))
-                     ;;                              volume)
-                     ;; ;; Add divergance of stress
-                     ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                     ;;                              (funcall func-div mp)
-                     ;;                              (* svp volume))
+                     (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                                  (magicl:@ (magicl:transpose dsvp)
+                                                            (funcall func-stress mp))
+                                                  volume)
+                     ;; Add divergance of stress
+                     (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                                                  (funcall func-div mp)
+                                                  (* svp volume))
                      (incf node-boundary-scalar
                            (* volume svp (calculate-val-mp mp #'melt-rate)))
                      )))))))))))

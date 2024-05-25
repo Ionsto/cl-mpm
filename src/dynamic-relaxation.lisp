@@ -102,7 +102,7 @@
                         (f-int cl-mpm/mesh::node-internal-force))
            node
          (when active
-           (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
+           (when (> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
                (setf nmax (+
                            nmax
