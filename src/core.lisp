@@ -1587,6 +1587,18 @@ Calls func with only the node"
           (funcall func cell)))))
   (values))
 
+(defun iterate-over-cells-serial (mesh func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func))
+  (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+    (declare (type (array (or cl-mpm/mesh::cell null)) cells))
+    (dotimes (i (array-total-size cells))
+      (let ((cell (row-major-aref cells i)))
+        (when cell
+          (funcall func cell)))))
+  (values))
+
 (declaim (ftype (function
                  ((vector cl-mpm/particle:particle *)
                   function)

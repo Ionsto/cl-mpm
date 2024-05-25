@@ -249,85 +249,7 @@
                                 )))
                           ))))))))))
 
-(defun apply-force-cells-buoy (mesh func-stress func-div clip-func datum)
-  "Update force on nodes, with virtual stress field from cells"
-  (declare (function func-stress func-div))
-  (let ((cells (cl-mpm/mesh::mesh-cells mesh))
-        (n-vol (expt (cl-mpm/mesh:mesh-resolution mesh) 2)))
 
-    (lparallel:pdotimes (i (array-total-size cells))
-             (let ((cell (row-major-aref cells i)))
-               (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
-                 (let ((nodal-volume 0d0))
-                   ;;Possibly clip ill posed cells
-                   (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
-                     ;;Iterate over a cells nodes
-                     (let ((dsvp (cl-mpm/utils::dsvp-2d-zeros))
-                           (center-pos (cl-mpm/mesh::cell-centroid cell))
-                           (h (cl-mpm/mesh::mesh-resolution mesh)))
-                       (flet ((apply-force (mesh cell pos volume node svp grads)
-                                (with-accessors ((node-force cl-mpm/mesh::node-external-force)
-                                                 (node-pos cl-mpm/mesh::node-position)
-                                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                                 (node-lock  cl-mpm/mesh:node-lock)
-                                                 (node-active cl-mpm/mesh:node-active)
-                                                 (node-boundary cl-mpm/mesh::node-boundary-node)
-                                                 (node-volume cl-mpm/mesh::node-volume)
-                                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-                                    node
-                                  (declare (double-float volume svp))
-                                  (when (and node-active
-                                             node-boundary
-                                             (funcall clip-func pos)
-                                             )
-                                    ;;Lock node
-                                    (sb-thread:with-mutex (node-lock)
-                                      (cl-mpm/shape-function::assemble-dsvp-2d-prealloc grads dsvp)
-                                      (cl-mpm/fastmath::fast-fmacc node-force
-                                                                   (magicl:@ (magicl:transpose dsvp)
-                                                                             (funcall func-stress pos))
-                                                                   (* -1d0 volume))
-
-                                      (cl-mpm/fastmath::fast-fmacc node-force
-                                                                   (funcall func-div pos)
-                                                                   (* -1d0 svp volume))
-                                      (incf node-boundary-scalar
-                                            (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
-                                      )))
-                                ))
-                         (when (> datum (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
-                           (if (>= datum (+ (magicl:tref center-pos 1 0) (* 0.5d0 h)))
-                               ;;Happy path; use centered gauss point
-                               (cl-mpm/mesh::cell-iterate-over-neighbours
-                                mesh cell
-                                #'apply-force)
-                               ;; (cl-mpm/mesh::cell-iterate-over-neighbours
-                               ;;  mesh cell
-                               ;;  #'apply-force)
-                               ;;Go overboard with trapz
-                               (cl-mpm/mesh::cell-quadrature-iterate-over-neighbours
-                                mesh cell 10
-                                #'apply-force)
-                               ;;Go overboard with trapz
-                               ;;Sad path; we need to use a smart quadrature point
-                               ;; (let* ((gp (cl-mpm/utils::vector-copy center-pos))
-                               ;;        (floor-point (- (magicl:tref center-pos 1 0) (* 0.5d0 h)))
-                               ;;        (fill-height (- datum floor-point))
-                               ;;        (fill-ratio (/ fill-height h))
-                               ;;        )
-                               ;;   (setf (magicl:tref gp 1 0) (+ floor-point (* 0.5d0 fill-height)))
-                               ;;   ;; (print gp)
-                               ;;   ;; (break)
-                               ;;   (with-accessors ((volume   cl-mpm/mesh::cell-volume))
-                               ;;       cell
-                               ;;     (cl-mpm::iterate-over-neighbours-point-linear
-                               ;;      mesh gp
-                               ;;      (lambda (mesh node svp grads)
-                               ;;        (apply-force mesh cell gp (* fill-ratio volume) node svp grads))))
-                               ;; )
-                               ))
-                             )))
-                       ))))))
 
 
 (defun direct-mp-enforcment (mesh mps datum)
@@ -406,11 +328,11 @@
                                          (incf (cl-mpm/mesh::cell-mp-count cell))))))))))))
 (defun populate-cell-mp-count-volume (mesh mps)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-    (cl-mpm/mesh::iterate-over-cells
+    (cl-mpm::iterate-over-cells
      mesh
      (lambda (cell)
        (setf (cl-mpm/mesh::cell-mp-count cell) 0)))
-    (cl-mpm/mesh::iterate-over-cells
+    (cl-mpm::iterate-over-cells
      mesh
      (lambda (cell)
        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
@@ -545,40 +467,48 @@
                   (funcall clip-function pos))
          (setf boundary t))))))
 
-(defun locate-mps-cells (mesh mps clip-function)
-  "Mark boundary nodes based on neighbour MP inclusion"
-  (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-    ;;The aproach described by the paper
-    ;; (populate-cell-mp-count mesh mps)
-    (populate-cell-mp-count-gimp mesh mps)
-    ;; (populate-cell-mp-count-volume mesh mps)
-    ;; (populate-cell-nodes mesh mps)
-    ;; (prune-buoyancy-nodes mesh '(0 0) 300)
-    (lparallel:pdotimes (i (array-total-size cells))
-      (let ((cell (row-major-aref cells i)))
-        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                         (neighbours cl-mpm/mesh::cell-neighbours)
-                         (index cl-mpm/mesh::cell-index)
-                         (nodes cl-mpm/mesh::cell-nodes)
-                         (pruned cl-mpm/mesh::cell-pruned)
-                         (boundary cl-mpm/mesh::cell-boundary)
-                         (pos cl-mpm/mesh::cell-centroid)
-                         )
-            cell
-          (setf boundary nil)
-          (when (and (= mp-count 0)
-                     (funcall clip-function pos) (not pruned))
-              (loop for neighbour in neighbours
-                    do
-                       (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
-                         (check-neighbour-cell neighbour)
-                         (setf boundary t)
-                         (loop for n in nodes
-                               do
-                                  (when (cl-mpm/mesh:node-active n)
-                                    (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                      (setf (cl-mpm/mesh::node-boundary-node n) t))))))
-              ))))))
+(defgeneric locate-mps-cells (sim clip-function))
+(defmethod locate-mps-cells (sim clip-function)
+  "mark boundary nodes based on neighbour mp inclusion"
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+        ;;the aproach described by the paper
+        ;; (populate-cell-mp-count mesh mps)
+        ;; (populate-cell-mp-count-gimp mesh mps)
+        (populate-cell-mp-count-volume mesh mps)
+        ;; (populate-cell-nodes mesh mps)
+        ;; (prune-buoyancy-nodes mesh '(0 0) 300)
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                            (neighbours cl-mpm/mesh::cell-neighbours)
+                            (index cl-mpm/mesh::cell-index)
+                            (nodes cl-mpm/mesh::cell-nodes)
+                            (pruned cl-mpm/mesh::cell-pruned)
+                            (boundary cl-mpm/mesh::cell-boundary)
+                            (pos cl-mpm/mesh::cell-centroid)
+                            )
+               cell
+             (setf boundary nil)
+             (when (and (= mp-count 0)
+                        (funcall clip-function pos) (not pruned))
+               (loop for neighbour in neighbours
+                     do
+                        (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
+                          (check-neighbour-cell neighbour)
+                          (setf boundary t)
+                          (loop for n in nodes
+                                do
+                                   (when (cl-mpm/mesh:node-active n)
+                                     (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                       (setf (cl-mpm/mesh::node-boundary-node n) t))))))
+               )))))))
+
+
+
 
 (defun find-active-nodes (mesh mps)
   (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
@@ -791,7 +721,7 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells mesh mps clip-function)
+      (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume mesh clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)

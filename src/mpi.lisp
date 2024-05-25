@@ -1453,7 +1453,10 @@
                   (dotimes (i (array-total-size cells))
                     (let ((cell (row-major-aref cells i)))
                       (when cell
-                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell) buffer-size))
+                        (when (not (in-computational-domain-buffer sim (cl-mpm/mesh::cell-centroid cell)
+                                                                   0
+                                                                   ;; buffer-size
+                                                                   ))
                           (incf prune-count)
                           (setf (row-major-aref cells i) nil)))))
                   (format t "Rank ~D - Pruned ~D cells~%" rank prune-count))))))

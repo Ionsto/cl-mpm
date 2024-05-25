@@ -562,3 +562,58 @@
 ;;   (loop for )
 
 ;;   )
+
+(defun format-scalar-cell (stream name id cells accessor)
+  (format stream "SCALARS ~a FLOAT ~d~%" name 1)
+  (format stream "LOOKUP_TABLE default~%")
+  (destructuring-bind (n m l) (array-dimensions cells)
+    (loop for i from 0 below n do
+      (loop for j from 0 below m
+        do (loop for k from 0 below l
+                 do
+                    (let ((cell (aref cells i j k)))
+                      (when cell
+                        (format stream "~E ~%"
+                                (coerce (funcall accessor cell) 'single-float))))))))
+  (format stream "~%"))
+(defmacro save-parameter-cells (name accessor)
+  `(progn
+     (format-scalar-cell fs ,name id cells (lambda (cell) ,accessor))
+     (incf id)))
+
+(defun save-vtk-cells (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (with-accessors ((cells cl-mpm/mesh::mesh-cells))
+        mesh
+        (with-open-file (fs filename :direction :output :if-exists :supersede)
+          (format fs "# vtk DataFile Version 2.0~%")
+          (format fs "Lisp generated vtk file, SJVS~%")
+          (format fs "ASCII~%")
+          (format fs "DATASET UNSTRUCTURED_GRID~%")
+
+          (let ((node-count 0))
+            (cl-mpm::iterate-over-cells-serial
+             mesh
+             (lambda (n)
+               (declare (ignore n))
+               (incf node-count)))
+            (format fs "POINTS ~d double~%" node-count)
+            (destructuring-bind (n m l) (array-dimensions cells)
+              (loop for i from 0 below n do
+                (loop for j from 0 below m do
+                  (loop for k from 0 below l
+                        do
+                           (let ((node (aref cells i j k)))
+                             (when node
+                               ;; (incf node-count)
+                               (format fs "~E ~E ~E ~%"
+                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 0 0) 'single-float)
+                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 1 0) 'single-float)
+                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 2 0) 'single-float))))))))
+            (format fs "~%")
+            (let ((id 1))
+              (declare (special id))
+              (format fs "POINT_DATA ~d~%" node-count)
+              (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
+              ))
+          ))))
