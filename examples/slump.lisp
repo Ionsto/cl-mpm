@@ -5,9 +5,9 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+;(sb-ext:restrict-compiler-policy 'speed  0 0)
+;(sb-ext:restrict-compiler-policy 'debug  3 3)
+;(sb-ext:restrict-compiler-policy 'safety 3 3)
 ;; (setf *block-compile-default* t)
 
 (defun estimate-energy-crit (sim)
@@ -121,7 +121,8 @@
                    (setf (cl-mpm/particle::mp-boundary mp)
                          weathering)
                    (incf
-                    (cl-mpm/particle::mp-history-stress mp)
+                    ;(cl-mpm/particle::mp-history-stress mp)
+                    (cl-mpm/particle::mp-damage mp)
                     (abs (*
                           (bc-water-damage-damage-rate bc)
                           weathering dt)))))))))
@@ -664,8 +665,7 @@
           (make-bc-water-damage
            sim
            ocean-y
-           1d0
-           ))
+           1d0))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
                (cl-mpm/bc:make-bcs-from-list
@@ -702,7 +702,7 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 40)
+  (let* ((mesh-size 20)
          (mps-per-cell 2)
          (slope 0d0;-0.02
                 )
