@@ -125,7 +125,12 @@
                     (cl-mpm/particle::mp-damage mp)
                     (abs (*
                           (bc-water-damage-damage-rate bc)
-                          weathering dt)))))))))
+                          weathering dt)))
+                   (setf 
+                    (cl-mpm/particle::mp-damage mp)
+                    (min
+                      (cl-mpm/particle::mp-damage mp)
+                      1d0))))))))
 
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
