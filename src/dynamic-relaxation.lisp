@@ -154,13 +154,15 @@
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
              (sb-thread:with-mutex (lock)
-               (incf oobf-norm
-                     (*
-                      (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                      (/
-                       (cl-mpm/fastmath::mag-squared
-                        (magicl:.+ f-ext f-int))
-                       (cl-mpm/fastmath::mag-squared f-ext))))
+               (setf oobf-norm
+                     (+
+                      oobf-norm
+                      (*
+                       (cl-mpm/mesh:node-mass node)
+                       (/
+                        (cl-mpm/fastmath::mag-squared
+                         (magicl:.+ f-ext f-int))
+                        (cl-mpm/fastmath::mag-squared f-ext)))))
                (setf nmax (+ nmax
                              (*
                               (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
@@ -176,6 +178,11 @@
       (setf oobf (/ nmax dmax))
       ;;Odd case where we have no forces?
       (setf oobf sb-ext:double-float-negative-infinity))
+
+    (let ((mass-total (cl-mpm/mpi::mpi-sum
+                       (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
+          (oobf-norm (cl-mpm/mpi::mpi-sum oobf-norm)))
+      (setf oobf (/ oobf-norm mass-total)))
     ;;Sanity check the floating point errors
     (setf oobf (cl-mpm/mpi::mpi-max oobf))
     ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))
