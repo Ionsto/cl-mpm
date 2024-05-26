@@ -116,6 +116,7 @@
                       (*
                        ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                        (cl-mpm/mesh:node-mass node)
+                       ;; (sqrt)
                        (/
                         (cl-mpm/fastmath::mag-squared
                          (magicl:.+ f-ext f-int))
@@ -130,8 +131,7 @@
                              (*
                               (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                               (cl-mpm/fastmath::mag-squared f-ext)))))))
-         )
-       ))
+         )))
     (when (> dmax 0d0)
       (setf oobf (/ nmax dmax)))
     (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))

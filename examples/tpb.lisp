@@ -4,10 +4,13 @@
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (in-package :cl-mpm/examples/tpb)
 
-(ql:quickload :magicl)
-(pushnew :cl-mpm-pic *features*)
+;; (ql:quickload :magicl)
+;; (pushnew :cl-mpm-pic *features*)
 ;; (delete :cl-mpm-pic *features*)
 ;; (asdf:compile-system :cl-mpm :force T)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -22,7 +25,10 @@
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (node)
-       (cl-mpm::calculate-forces-cundall node damping dt mass-scale)))))
+       (cl-mpm::calculate-forces-cundall-conservative node damping dt mass-scale)
+       ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
+       ;; (cl-mpm::calculate-forces node damping dt mass-scale)
+       ))))
 
 (declaim (notinline plot))
 (defun plot-domain (sim)
@@ -178,7 +184,7 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-damage
+               :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -223,7 +229,7 @@
 
                    ;:ductility 7.1d0
                    ;:ductility 10.16d0
-                   :ductility 6.00d0
+                   :ductility 6.48d0
                    ;; :ductility 3.0d0
                    ;:ductility 5.0d0
                    ;; :ductility 2.0d0
@@ -235,8 +241,8 @@
                    :phi 0d0
                    :psi 0d0
                    ;; :local-length-damaged 0.01d0
-                   :gravity -0.0d0
-                   :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+                   :gravity 0.0d0
+                   :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
                    )
                   ;; impactors
                   )
@@ -256,8 +262,8 @@
               ;; (* 5d0 density ms)
               ;; (* 1d-2 (cl-mpm::sim-mass-scale sim)
               ;;    (cl-mpm/setup::estimate-critical-damping sim))
-              0.7d0
               ;; 0.7d0
+              0.7d0
               ;; (* 15.3d9 1d-4)
               ;; (* 1d1 density)
               ;; 1d0
@@ -275,10 +281,10 @@
                      (* (first block-size) 0.10)))
                dir)))))
 
-      (let ((dt-scale 1d0))
+      (let ((dt-scale 0.5d0))
         (setf
          (cl-mpm:sim-dt sim)
-         (* dt-scale h
+         (* dt-scale 
             (sqrt (cl-mpm::sim-mass-scale sim))
             (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
 
@@ -351,9 +357,9 @@
                 (cl-mpm/bc::make-outside-bc-var-list
                  (cl-mpm:sim-mesh sim)
                  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
+                 (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
                  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
                  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0))))
 
@@ -379,7 +385,7 @@
               (list
                ;; *floor-bc*
                (cl-mpm/bc::make-bc-closure
-                '(0 0 0)
+                nil
                 (lambda ()
                   (with-accessors ((mesh cl-mpm:sim-mesh)
                                    (dt cl-mpm::sim-dt))
@@ -392,7 +398,7 @@
                                                        normal
                                                        datum
                                                        ;; (* density 1d6)
-                                                       (* 15.3d9 0.1)
+                                                       (* 15.3d9 1)
                                                        ;; (* 0d0 density 1d10)
                                                        0d0))
                     )))
@@ -426,28 +432,30 @@
     ))
 
 (declaim (notinline setup))
-(defun setup (&key (undercut 0d0) (refine 1d0))
-
-  (let* ((mesh-size (/ 0.0102 2.0))
-         (mps-per-cell 2)
+(defun setup (&key (undercut 0d0) (refine 1d0) (mps 2))
+  (let* ((mesh-size (/ 0.0102 (* refine 1.0)))
+         (mps-per-cell mps)
          (shelf-height 0.102d0)
-         (shelf-length (* shelf-height 2))
+         (shelf-length (* shelf-height 2.0))
          ;; (shelf-length 0.225d0)
-         (domain-length (+ shelf-length (* 5 mesh-size)))
+         (domain-length (+ shelf-length
+                           (* shelf-height 0.5d0)
+                           ))
          (offset (list
                   0d0
-                  (* 4 mesh-size)
+                  (* shelf-height 0.5)
                        ))
          )
     (defparameter *sim*
-      (setup-test-column (list domain-length (+ (* mesh-size 8) (* shelf-height 1)))
+      (setup-test-column (list domain-length
+                               (* shelf-height 2.0))
                          (list shelf-length shelf-height)
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width
-            ;; (/ 0.0102 1.0d0)
-            mesh-size
+            (/ 0.0102 1.0d0)
+            ;; mesh-size
                      ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
       (cl-mpm/setup::remove-sdf
@@ -457,13 +465,13 @@
          0d0
          (+ (second offset) 0d0))
         (list
-         ;; cut-width
+         cut-width
          ;; 0.0102
          ;; 10.0d-3
          ;2.5d-3
          ;; 1.33d-3
          ;; 10d-3
-         mesh-size
+         ;; mesh-size
          cut-depth
          )))
 
@@ -587,110 +595,7 @@
 (defparameter *data-full-energy* '(0d0))
 (defparameter *data-full-time* '(0d0))
 (defparameter *data-full-load* '(0d0))
-(declaim (notinline converge-quasi-static))
-(defun converge-quasi-static (sim)
-  (let* ((fnorm 0d0)
-        (oobf 0d0)
-        ;; (estimated-t 0.5d0)
-         (target-time 1d-4)
-         (dt-scale 1d0)
-         ;; (substeps 40)
-         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
-         (estimated-t 1d-5)
-         (dt-scale 1.0d0)
-         ;; (substeps (floor estimated-t (cl-mpm:sim-dt sim)))
-         (substeps 50)
-        (converged nil))
-    (format t "Substeps ~D~%" substeps)
-    ;; (format t "dt ~D~%" dt)
-    (setf *data-full-load* (list)
-          *data-full-reaction* (list)
-          *data-full-time* (list)
-          *data-full-energy* (list)
-          )
-    (loop for i from 0 to 100
-          while (and *run-sim*
-                     (not converged))
-          do
-             (progn
-               (dotimes (i substeps)
-                 (push
-                  ;; (get-reaction-force *fixed-nodes*)
-                  cl-mpm/penalty::*debug-force*
-                  *data-full-load*)
-                 (push
-                  (get-reaction-force *fixed-nodes*)
-                  ;; cl-mpm/penalty::*debug-force*
-                  *data-full-reaction*)
-                 (push
-                  (estimate-energy-crit *sim*)
-                  *data-full-energy*)
-                 (push
-                  *t*
-                  *data-full-time*)
-                 (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
-                 (setf cl-mpm/penalty::*debug-force* 0d0)
-                 (cl-mpm:update-sim sim)
-                 )
-               (plot-time-disp)
-               (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                 (format t "CFL dt estimate: ~f~%" dt-e)
-                 (format t "CFL step count estimate: ~D~%" substeps-e)
-                 ;; (setf substeps substeps-e)
-                 )
-               (setf fnorm (/ (loop for mp across (cl-mpm:sim-mps *sim*)
-                                    sum (* (cl-mpm/particle:mp-mass mp)
-                                           (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
-                             (length (cl-mpm:sim-mps *sim*))))
 
-               (setf oobf 0d0)
-               (let ((nmax 0d0)
-                     (dmax 0d0)
-                     (reaction (get-reaction-force *fixed-nodes*))
-                     (penalty cl-mpm/penalty::*debug-force*)
-                     (imax 0)
-                     (iter 0))
-                 (cl-mpm::iterate-over-nodes-serial
-                  (cl-mpm:sim-mesh sim)
-                  (lambda (node)
-                    (with-accessors ((active cl-mpm/mesh::node-active)
-                                     (f-ext cl-mpm/mesh::node-external-force)
-                                     (f-int cl-mpm/mesh::node-internal-force))
-                        node
-                      (when active
-                        (setf imax iter)
-                        (setf nmax (+ nmax
-                                      (cl-mpm/fastmath::mag-squared
-                                       (magicl:.- f-ext f-int)))
-                              dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
-                      )
-                    (incf iter)
-                    ))
-                 (when (> dmax 0d0)
-                   ;; (pprint (row-major-aref (cl-mpm/mesh::mesh-nodes (cl-mpm:sim-mesh *sim*)) imax))
-                   ;; (break)
-                   (setf oobf (/ nmax dmax)))
-                 (format t "Conv step ~D - KE norm: ~E - OOBF: ~E - P: ~E R: ~E~%" i fnorm oobf penalty reaction)
-                 (when (and ;(< fnorm 1d-6) (< oobf 5d0)
-                            (< (abs (- penalty reaction)) 100d0)
-                            )
-                   (format t "Took ~D steps to converge~%" i)
-                   (setf converged t)))
-               (swank.live:update-swank)))))
-
-(defun quasi-test ()
-  (setup)
-  (setf *run-sim* t)
-  (incf *target-displacement* (* -0.002d-3 4))
-  (setf cl-mpm/penalty::*debug-force* 0d0)
-  (setf cl-mpm/penalty::*debug-force-count* 0d0)
-  ;; (setf cl-mpm/damage::*enable-reflect-x* t)
-  (defparameter *data-full-time* '(0d0))
-  (defparameter *data-full-load* '(0d0))
-  (defparameter *data-full-reaction* '(0d0))
-  (time
-   (converge-quasi-static *sim*))
-  )
 (defun run ()
   (vgplot:close-all-plots)
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
@@ -706,10 +611,23 @@
   (defparameter *data-full-load* '(0d0))
   (defparameter *data-y* '(0d0))
   (defparameter *data-ybar* '(0d0))
+  (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
+    (with-accessors ((damping cl-mpm::sim-damping-factor)
+                     (mass-scale cl-mpm::sim-mass-scale)
+                     (mesh cl-mpm::sim-mesh)
+                     (dt cl-mpm::sim-dt))
+        sim
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (node)
+         (cl-mpm::calculate-forces node damping dt mass-scale)))))
 
-  (let ((ms 1d5))
+  (let ((ms 1d6))
     (setf (cl-mpm::sim-mass-scale *sim*) ms)
-    (setf (cl-mpm::sim-damping-factor *sim*) (* ms 0.001d0)))
+    ;; (setf (cl-mpm::sim-damping-factor *sim*) (* ms 0.001d0))
+    (* 1d-3 (cl-mpm::sim-mass-scale *sim*)
+       (cl-mpm/setup::estimate-critical-damping *sim*))
+    )
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
@@ -742,7 +660,7 @@
                        ;; )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
 
 
                      (let ((average-force 0d0)
@@ -943,9 +861,12 @@
 
   (let* ((dt (cl-mpm:sim-dt *sim*))
          (load-steps 25)
+         (dt-scale 0.9d0)
          (disp-step (/ -0.2d-3 load-steps))
          )
 
+
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
     (setf cl-mpm/penalty::*debug-force* 0d0)
     (setf cl-mpm/penalty::*debug-force-count* 0d0)
     (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 0)
@@ -959,6 +880,7 @@
                        ;; )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
 
                      (setf (cl-mpm::sim-enable-damage *sim*) nil)
                      (incf *target-displacement* disp-step)
@@ -971,18 +893,21 @@
                                            (setf *run-sim* nil)
                                            (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_fail_~5,'0d.vtk" *sim-step*)) *sim*)
                                            (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_fail_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                                           (invoke-restart 'cl-mpm/dynamic-relaxation::continue)
+                                           (error "Conv fail")
+                                           ;(invoke-restart 'cl-mpm/dynamic-relaxation::continue)
                                            )))
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
                            :energy-crit 1d-4
                            :oobf-crit 1d-4
-                           :dt-scale 0.8d0
+                           :dt-scale dt-scale
                            :conv-steps 200
                            :substeps 50
                            :post-iter-step
                            (lambda (step ke fnorm)
                              (let ((av (get-disp *terminus-mps*)))
+                               ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_conv_~5,'0d.vtk" step)) *sim*)
+                               ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_conv_nodes_~5,'0d.vtk" step)) *sim*)
                                (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E~%"
                                        *target-displacement*
                                        av
@@ -1022,6 +947,15 @@
                              (get-disp *terminus-mps*)
                              (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*))
                              (energy-norm *sim*))
+                     (let ((damage-est
+                             (lparallel:pmap-reduce (lambda (mp)
+                                                      (*
+                                                       1d0
+                                                       (cl-mpm/particle::mp-damage mp)))
+                                                    #'+ (cl-mpm:sim-mps *sim*)
+                                                    :initial-value 0d0)
+                             ))
+                       (format t "Total damage: ~E~%" damage-est))
 
                      ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                      ;;   (format t "CFL dt estimate: ~f~%" dt-e)
@@ -1419,10 +1353,13 @@
   )
 
 (defun cundall-test ()
-  (let ((disp-step -0.5d-4)
-        (target 1d-7)
-        (dt-scale 0.8d0)
-        (step 0)
+  (let* ((load-steps 50)
+         (disp-step (/ -0.2d-3 load-steps))
+         (target 1d-7)
+         (dt-scale 0.70d0)
+         (step 0)
+         (refine 2.0)
+         (work 0d0)
         )
 
     (defparameter data-cundall-step (list))
@@ -1431,45 +1368,74 @@
     (defparameter data-visc-step (list))
     (defparameter data-visc-load (list))
     (defparameter data-visc-energy (list))
-    (setup)
+    (setup :refine refine :mps 2)
     (setf (cl-mpm:sim-damping-factor *sim*)
           0.7d0)
-    (incf *target-displacement* disp-step)
+    (setf *target-displacement* disp-step)
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+    (vgplot:close-all-plots)
     (vgplot:figure)
     (time
-     (progn
-       (cl-mpm/dynamic-relaxation::converge-quasi-static
-        *sim*
-        :energy-crit 1d-4
-        :oobf-crit 1d-4
-        :dt-scale dt-scale
-        :conv-steps 500
-        :substeps (* 5 1)
-        :post-iter-step
-        (lambda (step ke fnorm)
-          (let ((av (get-disp *terminus-mps*))
-                (load cl-mpm/penalty::*debug-force*)
-                (energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                )
-            (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
-                    *target-displacement*
-                    av
-                    (abs (- *target-displacement* av ))
-                    load)
-            (push step data-cundall-step)
-            (incf step)
-            (push load data-cundall-load)
-            (push energy data-cundall-energy)
-            (vgplot:plot
-             data-cundall-step data-cundall-load "Cundall")
-            )))))
+     (loop for step from 0 to 500
+                                        ;(floor (* refine 1000))
+           while *run-sim*
+           do
+              (progn
+                (format t "Step ~D~%" step)
+                (dotimes (i (floor (* refine 10)))
+                  (setf cl-mpm/penalty::*debug-force* 0)
+                  (cl-mpm:update-sim *sim*)
+                  (incf work (cl-mpm/dynamic-relaxation:estimate-power-norm *sim*))
+                  (format t "Step ~D - Load ~E - OOBF ~E - KE ~E~%"
+                          step
+                          cl-mpm/penalty::*debug-force*
+                          (cl-mpm/dynamic-relaxation::estimate-oobf *sim*)
+                          (abs (/ (cl-mpm/dynamic-relaxation:estimate-energy-norm *sim*) work)))
+                  (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                  ;; (format t "Target: ~E - Current: ~E Error: ~E~%"
+                  ;;         *target-displacement*
+                  ;;         (get-disp *terminus-mps*)
+                  ;;         (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*)))
+                  )
+                (push (* (cl-mpm:sim-dt *sim*) step) data-visc-step)
+                (push cl-mpm/penalty::*debug-force* data-visc-load)
+                (vgplot:plot
+                 data-visc-step data-visc-load "Visc")
+                (swank.live:update-swank))))
+    ;; (time
+    ;;  (progn
+    ;;    (cl-mpm/dynamic-relaxation::converge-quasi-static
+    ;;     *sim*
+    ;;     :energy-crit 1d-4
+    ;;     :oobf-crit 1d-4
+    ;;     :dt-scale dt-scale
+    ;;     :conv-steps 500
+    ;;     :substeps (* 10 1)
+    ;;     :post-iter-step
+    ;;     (lambda (step ke fnorm)
+    ;;       (let ((av (get-disp *terminus-mps*))
+    ;;             (load cl-mpm/penalty::*debug-force*)
+    ;;             (energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+    ;;             )
+    ;;         (format t "Conv disp - Target: ~E - Current: ~E - Error: ~E - LOAD ~E~%"
+    ;;                 *target-displacement*
+    ;;                 av
+    ;;                 (abs (- *target-displacement* av ))
+    ;;                 load)
+    ;;         (push step data-cundall-step)
+    ;;         (incf step)
+    ;;         (push load data-cundall-load)
+    ;;         (push energy data-cundall-energy)
+    ;;         (vgplot:plot
+    ;;          data-cundall-step data-cundall-load "Cundall")
+    ;;         )))))
 
     ;; (setf step 0)
-    (setup)
+    ;; (setup)
     (incf *target-displacement* disp-step)
     ;; (change-class *sim* 'cl-mpm/damage::mpm-sim-usl-damage)
     )
-  (plot-cundall-test)
+  ;; (plot-cundall-test)
   )
 (defun plot-cundall-test ()
   (vgplot:close-all-plots)
@@ -1478,9 +1444,55 @@
    data-cundall-step data-cundall-load "Cundall"
    ;; data-visc-step data-visc-load "Visc"
    )
-  (vgplot:figure)
-  (vgplot:plot
-   data-cundall-step data-cundall-energy "Cundall"
-   ;; data-visc-step data-visc-energy "Visc"
-   )
+  ;; (vgplot:figure)
+  ;; (vgplot:plot
+  ;;  data-cundall-step data-cundall-energy "Cundall"
+  ;;  ;; data-visc-step data-visc-energy "Visc"
+  ;;  )
+  )
+
+
+(defun delete-nodes ()
+  (setup)
+  (defparameter *test-node* (sb-ext::make-weak-pointer (aref (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*)) 1 0 0)))
+  (sb-ext:search-roots *test-node* :print :verbose)
+  (room)
+  (let* ((sim *sim*)
+         (mesh (cl-mpm:sim-mesh *sim*)))
+    (let ((bcs (cl-mpm:sim-bcs sim))
+          (prune-count 0))
+      (dotimes (i (array-total-size bcs))
+        (let ((bc (row-major-aref bcs i)))
+          (let ((index (cl-mpm/bc:bc-index bc)))
+            ;;nil indexes indiciate global bcs
+            (when index
+              (let ((node (cl-mpm/mesh:get-node mesh index)))
+                (when node
+                  (when t
+                    (incf prune-count)
+                    (setf (row-major-aref bcs i) nil))))))))
+      )
+    ;;Trim out all nodes that we can get rid of
+    (let ((nodes (cl-mpm/mesh:mesh-nodes mesh))
+          (prune-count 0))
+      (dotimes (i (array-total-size nodes))
+        (let ((node (row-major-aref nodes i)))
+          (when node
+            (when t
+              (incf prune-count)
+              (setf (row-major-aref nodes i) nil)))))
+      )
+    ;;Cells
+    (let ((cells (cl-mpm/mesh::mesh-cells mesh))
+          (prune-count 0)
+          )
+      (dotimes (i (array-total-size cells))
+        (let ((cell (row-major-aref cells i)))
+          (when cell
+            (when t
+              (incf prune-count)
+              (setf (row-major-aref cells i) nil)))))))
+  (sb-ext:gc :full t)
+  (room)
+  (sb-ext:search-roots *test-node* :print :verbose)
   )

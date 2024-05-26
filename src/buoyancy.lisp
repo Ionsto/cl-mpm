@@ -1016,7 +1016,8 @@
         mesh
       ;; (locate-mps-cells mesh mps clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      (populate-nodes-volume mesh clip-function)
+      (locate-mps-cells sim clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
 
@@ -1035,67 +1036,67 @@
 (defun apply-scalar-cells-3d (mesh func-scalar clip-func)
   "Update force on nodes, with virtual stress field from cells"
   (declare (function func-scalar))
-  (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
-
-    (lparallel:pdotimes (i (array-total-size cells))
-             (let ((cell (row-major-aref cells i)))
-               (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
-                 (let ((nodal-volume 0d0))
-                   ;;Possibly clip ill posed cells
-                   (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
-                     ;;Iterate over a cells nodes
-                     (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-                       (cl-mpm/mesh::cell-iterate-over-neighbours
-                        mesh cell
-                        (lambda (mesh cell pos volume node svp grads)
-                          (with-accessors ((node-force cl-mpm/mesh::node-force)
-                                           (node-pos cl-mpm/mesh::node-position)
-                                           (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                           (node-lock  cl-mpm/mesh:node-lock)
-                                           (node-active cl-mpm/mesh:node-active)
-                                           (node-boundary cl-mpm/mesh::node-boundary-node)
-                                           (node-volume cl-mpm/mesh::node-volume)
-                                           (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                           )
-                              node
-                            (declare (double-float volume svp))
-                            (when (and node-active
-                                       node-boundary
-                                       (funcall clip-func pos)
-                                       )
-                              ;;Lock node
-                              (sb-thread:with-mutex (node-lock)
-                                (incf node-boundary-scalar
-                                      (* -1d0 volume svp (the double-float (calculate-val-cell cell func-scalar))))
-                                )))))))))))))
+  (cl-mpm::iterate-over-cells
+   mesh
+   (lambda (cell)
+     (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
+       (let ((nodal-volume 0d0))
+         ;;Possibly clip ill posed cells
+         (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
+           ;;Iterate over a cells nodes
+           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+             (cl-mpm/mesh::cell-iterate-over-neighbours
+              mesh cell
+              (lambda (mesh cell pos volume node svp grads)
+                (with-accessors ((node-force cl-mpm/mesh::node-force)
+                                 (node-pos cl-mpm/mesh::node-position)
+                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                                 (node-lock  cl-mpm/mesh:node-lock)
+                                 (node-active cl-mpm/mesh:node-active)
+                                 (node-boundary cl-mpm/mesh::node-boundary-node)
+                                 (node-volume cl-mpm/mesh::node-volume)
+                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                 )
+                    node
+                  (declare (double-float volume svp))
+                  (when (and node-active
+                             node-boundary
+                             (funcall clip-func pos)
+                             )
+                    ;;Lock node
+                    (sb-thread:with-mutex (node-lock)
+                      (incf node-boundary-scalar
+                            (* -1d0 volume svp (the double-float (calculate-val-cell cell func-scalar))))
+                      ))))))))))))
 
 (defun apply-scalar-mps-3d (mesh mps func-scalar clip-func)
   "Update force on nodes, with virtual stress field from mps"
   (declare (function func-scalar))
-  (lparallel:pdotimes (i (length mps))
-    (let ((mp (aref mps i)))
-      (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
-        (with-accessors ((volume cl-mpm/particle:mp-volume)
-                         (pos cl-mpm/particle::mp-position)
-                         (damage cl-mpm/particle::mp-damage)
-                         )
-            mp
-          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-            ;;Iterate over neighbour nodes
-            (cl-mpm::iterate-over-neighbours
-             mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                (node-lock  cl-mpm/mesh:node-lock)
-                                (node-boundary cl-mpm/mesh::node-boundary-node)
-                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                (node-active  cl-mpm/mesh:node-active))
-                   node
-                 (declare (double-float volume svp))
-                 (when (and node-active
-                            node-boundary
-                            (funcall clip-func pos)
-                            )
-                   (sb-thread:with-mutex (node-lock)
-                     (incf node-boundary-scalar (* (- 1d0 damage)
-                                                   volume svp (funcall func-scalar mp))))))))))))))
+  (cl-mpm::iterate-over-mps
+   mps
+   (lambda (mp)
+     (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
+       (with-accessors ((volume cl-mpm/particle:mp-volume)
+                        (pos cl-mpm/particle::mp-position)
+                        (damage cl-mpm/particle::mp-damage)
+                        )
+           mp
+         (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+           ;;Iterate over neighbour nodes
+           (cl-mpm::iterate-over-neighbours
+            mesh mp
+            (lambda (mesh mp node svp grads fsvp fgrads)
+              (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                               (node-lock  cl-mpm/mesh:node-lock)
+                               (node-boundary cl-mpm/mesh::node-boundary-node)
+                               (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                               (node-active  cl-mpm/mesh:node-active))
+                  node
+                (declare (double-float volume svp))
+                (when (and node-active
+                           node-boundary
+                           (funcall clip-func pos)
+                           )
+                  (sb-thread:with-mutex (node-lock)
+                    (incf node-boundary-scalar (* (- 1d0 damage)
+                                                  volume svp (funcall func-scalar mp))))))))))))))
