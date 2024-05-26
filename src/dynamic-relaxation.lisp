@@ -153,25 +153,26 @@
            node
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
-             (sb-thread:with-mutex (lock)
-               (setf oobf-norm
-                     (+
-                      oobf-norm
-                      (*
-                       (cl-mpm/mesh:node-mass node)
-                       (/
-                        (cl-mpm/fastmath::mag-squared
-                         (magicl:.+ f-ext f-int))
-                        (cl-mpm/fastmath::mag-squared f-ext)))))
-               (setf nmax (+ nmax
-                             (*
-                              (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/fastmath::mag-squared
-                               (magicl:.+ f-ext f-int))))
-                     dmax (+ dmax
-                             (*
-                              (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/fastmath::mag-squared f-ext))))))))))
+             (when (> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
+               (sb-thread:with-mutex (lock)
+                 (setf oobf-norm
+                       (+
+                        oobf-norm
+                        (*
+                         (cl-mpm/mesh:node-mass node)
+                         (/
+                          (cl-mpm/fastmath::mag-squared
+                           (magicl:.+ f-ext f-int))
+                          (cl-mpm/fastmath::mag-squared f-ext)))))
+                 (setf nmax (+ nmax
+                               (*
+                                (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                (cl-mpm/fastmath::mag-squared
+                                 (magicl:.+ f-ext f-int))))
+                       dmax (+ dmax
+                               (*
+                                (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                (cl-mpm/fastmath::mag-squared f-ext)))))))))))
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
     (if (> dmax 0d0)
