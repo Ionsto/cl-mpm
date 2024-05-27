@@ -1793,7 +1793,7 @@ Calls the function with the mesh mp and node"
                       (setf (nth i l) (max (nth i l) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
               (magicl:@ v
-                        (magicl:from-diag l :type 'double-float)
+                        (cl-mpm/utils::matrix-from-diag l)
                         (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
 
@@ -1806,9 +1806,10 @@ Calls the function with the mesh mp and node"
                    do
                       (setf (nth i l) (max (+ (nth i l) ep) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
-              (magicl:@ v
-                        (magicl:from-diag l :type 'double-float)
-                        (magicl:transpose v))))))
+              (magicl:@
+               v
+               (cl-mpm/utils::matrix-from-diag l)
+               (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
 
 (defun criterion-enhanced-bi-energy-norm (stress strain E nu k)
@@ -1819,7 +1820,7 @@ Calls the function with the mesh mp and node"
                       (setf (nth i l) (max (nth i l) 0d0)))
              (cl-mpm/utils:matrix-to-voigt
               (magicl:@ v
-                        (magicl:from-diag l :type 'double-float)
+                        (cl-mpm/utils::matrix-from-diag l)
                         (magicl:transpose v)))))
 
          (i1 (cl-mpm/utils:trace-voigt strain))

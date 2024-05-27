@@ -247,6 +247,16 @@
                                                                         :initial-contents elements
                                                                      )))
 
+(declaim (inline matrix-from-diag)
+         (ftype (function (list)
+                          magicl:matrix/double-float) matrix-from-diag))
+(defun matrix-from-diag (elements)
+  "Take a 3 element list and form a diagonal matrix"
+  (destructuring-bind (i1 i2 i3) elements
+    (matrix-from-list (list i1 0d0 0d0
+                            0d0 i2 0d0
+                            0d0 0d0 i3))))
+
 
 (declaim (inline matrix-to-voight)
          (ftype (function (magicl:matrix/double-float)
