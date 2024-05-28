@@ -270,8 +270,7 @@
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
-         (ms-y (second ms))
-         )
+         (ms-y (second ms)))
     (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
   (vgplot:format-plot t "set style fill solid")
   (cl-mpm/plotter:simple-plot
@@ -597,7 +596,7 @@
                 :initiation-stress stress
                 ;0.30d6;0.6d6
                 :delay-time 1d1
-                :delay-exponent 2d0
+                :delay-exponent 3d0
                 :ductility ductility
                 :critical-damage 1d0;(- 1.0d0 1d-3)
                 :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
@@ -622,9 +621,11 @@
       (let ((mass-scale 1d4))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 100d0
-                 (cl-mpm::sim-mass-scale sim)
-                 (cl-mpm/setup::estimate-critical-damping sim))))
+              (* 1d4 (cl-mpm::sim-mass-scale sim))
+              ;; (* 100d0
+              ;;    (cl-mpm::sim-mass-scale sim)
+              ;;    (cl-mpm/setup::estimate-critical-damping sim))
+              ))
       (format t "Est dt: ~f~%"
               (* 1d0 h
                  (sqrt (cl-mpm::sim-mass-scale sim))
@@ -650,7 +651,7 @@
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
-             (ocean-y (+ h-y
+             (ocean-y (+ (* 2d0 h-y)
                          (- terminus-size 100d0)))
              ;; (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
@@ -665,7 +666,7 @@
            (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
            (cl-mpm/utils:vector-from-list (list 00d0 (* 2d0 h-y) 0d0))
            (* 1d9 0.1d0)
-           0.0d0))
+           0.5d0))
         (defparameter *melt-bc*
           (make-bc-water-damage
            sim
@@ -687,8 +688,8 @@
                  ))
                (cl-mpm/bc:make-bcs-from-list
                 (list *floor-bc*))
-               (cl-mpm/bc:make-bcs-from-list
-                (list *melt-bc*))
+               ;; (cl-mpm/bc:make-bcs-from-list
+               ;;  (list *melt-bc*))
                ))
         )
       (let ((normal (magicl:from-list (list (sin (- (* pi (/ angle 180d0))))
@@ -707,13 +708,13 @@
 (defun setup ()
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 20)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (slope 0d0;-0.02
                 )
-         (shelf-height 400)
+         (shelf-height 200)
          (shelf-aspect 1)
-         (runout-aspect 2)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -906,8 +907,14 @@
         (collapse-mass-scale 1d0)
         (substeps (floor target-time dt))
         (damage-0 0d0)
-        (damping-0 (* 0.1d0
-                      (cl-mpm/setup::estimate-critical-damping *sim*))))
+        (damping-0
+          0d0
+          ;; (* 0.1d0
+          ;;    (cl-mpm/setup::estimate-critical-damping *sim*))
+                   )
+        (mass-0
+          (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*)))
+        )
 
    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
                                               *sim*
@@ -927,6 +934,11 @@
    (defparameter *oobf* 0)
    (defparameter *data-damage* 0)
    (defparameter *data-energy* 0)
+
+   (defparameter *data-full-time* (list))
+   (defparameter *data-full-damage* (list))
+   (defparameter *data-full-oobf* (list))
+   (defparameter *data-full-energy* (list))
    (with-open-file (stream (merge-pathnames "./output/timesteps.csv") :direction :output :if-exists :supersede)
 		 (format stream "steps,time,damage,energy,oobf~%"))
    (let ((energy-crit 0d0)
@@ -960,7 +972,11 @@
 
                         (setf *oobf* (/ *oobf* substeps)
                               energy-estimate (/ energy-estimate substeps))
+
+                        (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                        (setf *oobf* (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
                         (setf energy-estimate (abs (/ energy-estimate work)))
+                        ;; (setf energy-estimate (abs (/ energy-estimate work)))
                         ;; (setf energy-estimate (abs energy-estimate))
 
                         (setf *data-energy* energy-estimate)
@@ -986,9 +1002,9 @@
                           (setf (cl-mpm::sim-enable-damage *sim*) t
                                         ;dt-scale 0.7d0
                                 )
-                          (if (or 
-                               (> energy-estimate 1d-3)
-                               ;; (> *oobf* 1d-2)
+                          (if (or
+                               (> energy-estimate 1d-4)
+                               (> *oobf* 1d0)
                                nil
                                )
                               (progn
@@ -1000,7 +1016,7 @@
                               (progn
                                 (format t "Accelerate timestep~%")
                                 (setf
-                                 target-time 1d1
+                                 target-time 1d2
                                  (cl-mpm::sim-mass-scale *sim*) 1d4)
                                 ))))
                       (when (>= steps damp-steps)
@@ -1014,12 +1030,12 @@
                         (format t "CFL dt estimate: ~f~%" dt-e)
                         (format t "CFL step count estimate: ~D~%" substeps-e)
                         (setf substeps substeps-e))
-					            ;; (let* (;(dt-est (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-							        ;;        (dt-est (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
-					 	          ;;        (substeps-est (floor target-time dt-est)))
-					            ;;   (when (< substeps-est substeps)
-					 	          ;;     (setf (cl-mpm:sim-dt *sim*) dt-est)
-					 	          ;;     (setf substeps substeps-est)))
+					            (let* (;(dt-est (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+							               (dt-est (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
+					 	                 (substeps-est (floor target-time dt-est)))
+					              (when (< substeps-est substeps)
+					 	              (setf (cl-mpm:sim-dt *sim*) dt-est)
+					 	              (setf substeps substeps-est)))
                       (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
                       (format t "CFL step count estimate: ~D~%" substeps)
 					            (cl-mpm/setup:remove-sdf
@@ -1030,6 +1046,17 @@
                              1d0)))
                       (incf *sim-step*)
                       (plot *sim*)
+                        (vgplot:title (format nil "Time:~F - Energy ~E - Power ~E"  *t* energy-crit power-crit))
+                        (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                                           :terminal "png size 1920,1080"
+                                           )
+                      (push *t* *data-full-time*)
+                      (push *data-energy* *data-full-energy*)
+                      (push *oobf* *data-full-oobf*)
+                      (format t "Mass loss: ~F~%"
+                              (-
+                               mass-0
+                               (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*))))
                       (swank.live:update-swank)
                      )
                     ;; (progn
