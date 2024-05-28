@@ -1877,9 +1877,11 @@ Calls func with only the node"
           ;;                 (magicl::matrix/double-float-storage strain))
           ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
           ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
+          (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
           ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
           ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
+          (cl-mpm/fastmath:fast-.- strain-rate strain strain-rate)
           ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
           ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
           ;;Post multiply to turn to eng strain

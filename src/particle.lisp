@@ -2142,9 +2142,14 @@
 
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
-    ;; (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
+
+    ;;Viscous relaxation
+    ;; (let* ((viscosity
+    ;;          ;; (cl-mpm/constitutive::glen-viscosity-strain strain-rate visc-factor visc-power)
+    ;;          (cl-mpm/constitutive::glen-viscosity-stress stress-u visc-factor visc-power)
+    ;;          )
     ;;        (visc-u viscosity)
-    ;;        (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
+    ;;        ;; (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
     ;;        )
     ;;   (setf stress-u
     ;;         (cl-mpm/constitutive:maxwell-exp-v
@@ -2152,9 +2157,8 @@
     ;;          stress-u
     ;;          E nu de
     ;;          viscosity dt))
-    ;;   ;; (setf eps-e (magicl:@ Ce sig))
     ;;   (setf strain (magicl:linear-solve de stress-u))
-    ;;   (setf stress (magicl:scale stress-u 1d0))
+    ;;   ;; (setf stress (magicl:scale stress-u 1d0))
     ;;   )
 
 

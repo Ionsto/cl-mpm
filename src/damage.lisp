@@ -1812,6 +1812,24 @@ Calls the function with the mesh mp and node"
                (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
 
+(defun criterion-effective-principal-stress (stress pressure)
+  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (- (max s1 s2 s3) pressure))
+  ;; (let* ((K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
+  ;;        (ep (* -1/3 (/ pressure K)))
+  ;;        (strain+
+  ;;          (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+  ;;            (loop for i from 0 to 2
+  ;;                  do
+  ;;                     (setf (nth i l) (max (+ (nth i l) ep) 0d0)))
+  ;;            (cl-mpm/utils:matrix-to-voigt
+  ;;             (magicl:@
+  ;;              v
+  ;;              (cl-mpm/utils::matrix-from-diag l)
+  ;;              (magicl:transpose v))))))
+  ;;   (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+  )
+
 (defun criterion-enhanced-bi-energy-norm (stress strain E nu k)
   (let* ((strain+
            (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
