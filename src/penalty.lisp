@@ -85,23 +85,25 @@
                      ;;Lock node for multithreading
                      (sb-thread:with-mutex (node-lock)
                        (let* ((force (cl-mpm/utils:vector-zeros))
-                              (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
+                              (rel-vel (cl-mpm/fastmath:dot normal mp-vel))
                               (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
+                              (tang-vel-norm-squared (cl-mpm/fastmath:dot tang-vel tang-vel))
                               (normal-damping 0d0)
-                              ;; (svp (* svp volume))
                               (damping-force (* normal-damping rel-vel)))
 
-                         (when (> (cl-mpm/fastmath:dot tang-vel tang-vel) 0d0)
-                           (let ((tang-normal (cl-mpm/fastmath:norm tang-vel))
-                                 (force-friction (cl-mpm/utils:vector-zeros)))
+                         (when (> tang-vel-norm-squared 0d0)
+                           (let* ((tang-vel-norm (sqrt tang-vel-norm-squared))
+                                  (tang-normal (cl-mpm/fastmath:norm tang-vel))
+                                  ;;Trial friction
+                                  (trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
+                                  (sliding-friction (* friction (abs normal-force)))
+                                  (force-friction (cl-mpm/utils:vector-zeros)))
                              (cl-mpm/fastmath::fast-fmacc force-friction
                                                           tang-normal
                                                           (* -1d0
-                                                             friction
-                                                             (coerce (abs normal-force) 'double-float)
-                                                             ))
-                             (magicl:.+ force force-friction force))
-                         )
+                                                             (min trial-friction-force
+                                                                  sliding-friction)))
+                             (magicl:.+ force force-friction force)))
 
                          (cl-mpm/fastmath::fast-fmacc force
                                                       normal

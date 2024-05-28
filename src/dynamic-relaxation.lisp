@@ -121,20 +121,22 @@
                         (cl-mpm/fastmath::mag-squared
                          (magicl:.+ f-ext f-int))
                         (cl-mpm/fastmath::mag-squared f-ext)))))
-               (setf nmax (+
+
+               (setf nmax (max
                            nmax
                            (*
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                             (cl-mpm/fastmath::mag-squared
                              (magicl:.+ f-ext f-int))))
-                     dmax (+ dmax
-                             (*
-                              (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/fastmath::mag-squared f-ext)))))))
+                     dmax (max
+                           dmax
+                           (*
+                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                            (cl-mpm/fastmath::mag-squared f-ext)))))))
          )))
     (when (> dmax 0d0)
       (setf oobf (/ nmax dmax)))
-    (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
+    ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
     ;; (setf oobf oobf-norm)
     oobf))
 (defmethod estimate-oobf ((sim cl-mpm/mpi::mpm-sim-mpi))

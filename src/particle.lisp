@@ -226,7 +226,10 @@
     :accessor mp-debug-j-gather
     :type double-float
     :initform 0d0)
-   )
+   (penalty-frictional-force
+    :accessor mp-penalty-frictional-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::vector-zeros)))
   (:documentation "A single material point"))
 
 ;; (defun mp-mass (mp)
