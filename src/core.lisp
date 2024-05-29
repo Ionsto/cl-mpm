@@ -1698,7 +1698,7 @@ Calls func with only the node"
           ;; (cl-mpm/fastmath::fast-zero strain-rate)
           ;; (cl-mpm/fastmath::fast-zero vorticity)
           (cl-mpm/fastmath::fast-zero stretch-tensor)
-          ;; (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
+          (cl-mpm/fastmath::fast-zero stretch-tensor-fbar)
           (let (
                 ;; (stretch-dsvp (stretch-dsvp-3d-zeros))
                 ;; (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
@@ -1719,7 +1719,7 @@ Calls func with only the node"
                  (when node-active
 
                    (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
-                   ;; (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
+                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
 
                    ;; (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
                    ;; ;; (ecase (cl-mpm/mesh::mesh-nd mesh)
@@ -1750,7 +1750,7 @@ Calls func with only the node"
             ;; (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
             (cl-mpm/fastmath::fast-scale stretch-tensor dt)
-            ;; (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
+            (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
             ;; (cl-mpm/fastmath::fast-scale strain-rate dt)
             ;; (cl-mpm/fastmath::fast-scale vorticity dt)
             )))
@@ -2216,7 +2216,9 @@ Calls func with only the node"
                    ) mp
     (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
     (progn
+      ;; (unless fbar)
       (calculate-strain-rate mesh mp dt)
+
       ;; Turn cauchy stress to kirchoff
       (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
       ;; Update our strains
@@ -2287,15 +2289,14 @@ Calls func with only the node"
 ;;           (setf volume (* volume (det df)))
 ;;           )))))
 (defun map-jacobian (mesh mp dt)
-  (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (volume cl-mpm/particle:mp-volume)
                    (def cl-mpm/particle:mp-deformation-gradient))
       mp
     (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
-      (cl-mpm/fastmath::fast-.+-matrix df stretch-tensor df)
+      (cl-mpm/fastmath::fast-.+ df stretch-tensor df)
       (let ((j-inc (magicl:det df))
             (j-n (magicl:det def)))
         (iterate-over-neighbours
@@ -2330,22 +2331,23 @@ Calls func with only the node"
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
       (cl-mpm/fastmath::fast-.+-matrix df stretch-tensor df)
-      (progn
-        (when fbar
-          (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                            0d0 1d0 0d0
-                                                            0d0 0d0 1d0)))
-                 (nd (cl-mpm/mesh::mesh-nd mesh)))
-            (cl-mpm/fastmath::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-            (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
-                  (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
-            (magicl:scale! df (expt
-                               (the double-float (/ (magicl:det df-fbar)
-                                                    (magicl:det df)))
-                               (the double-float (/ 1d0 (float nd)))))
-            (when (= nd 2)
-              (setf (magicl:tref df 2 2) 1d0))
-            )))
+      ;;Coombs fbar
+      (when fbar
+        (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                                          0d0 1d0 0d0
+                                                          0d0 0d0 1d0)))
+               (nd (cl-mpm/mesh::mesh-nd mesh)))
+          (cl-mpm/fastmath::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
+          (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
+                (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
+          (magicl:scale! df (expt
+                             (the double-float (/ (magicl:det df-fbar)
+                                                  (magicl:det df)))
+                             (the double-float (/ 1d0 (float nd)))))
+          (when (= nd 2)
+            (setf (magicl:tref df 2 2) 1d0))
+          ))
+
       ;; (when fbar
       ;;   (let ((j-inc (magicl:det df))
       ;;         (j-n (magicl:det def))
@@ -2395,10 +2397,11 @@ Calls func with only the node"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   ;;Update stress
   ;; (when fbar
-  ;;   (lparallel:pdotimes (i (length mps))
-  ;;     (let ((mp (aref mps i)))
-  ;;       (calculate-strain-rate mesh mp dt)
-  ;;       (map-jacobian mesh mp dt))))
+  ;;   (cl-mpm:iterate-over-mps
+  ;;    mps
+  ;;    (lambda (mp)
+  ;;      (calculate-strain-rate mesh mp dt)
+  ;;      (map-jacobian mesh mp dt))))
 
   (iterate-over-mps
    mps

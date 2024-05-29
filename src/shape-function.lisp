@@ -155,6 +155,17 @@
      0d0)))
 
 
+;; (let* ((x (loop for x from -4d0 to 4d0 by 0.01d0 collect x))
+;;        (h 0.10d0)
+;;        (offset 0.0d0)
+;;        (fbar (mapcar (lambda (x) (shape-gimp-fbar (+ x offset) h 1d0)) x))
+;;        (gimp (mapcar (lambda (x) (shape-gimp-fast (+ x offset) h 1d0)) x))
+;;        )
+;;   (vgplot:close-all-plots)
+;;   (vgplot:figure)
+;;   (vgplot:plot x fbar ""
+;;                x gimp ""))
+
 
 
 (declaim (inline shape-bspline)
