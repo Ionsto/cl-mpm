@@ -330,6 +330,8 @@
                             (< oobf oobf-crit))
                    (format t "Took ~D steps to converge~%" i)
                    (setf converged t))
+                 (when (= i (round (* conv-steps 0.5)))
+                   (setf dt-scale (* dt-scale 0.5d0)))
                  (when post-iter-step
                    (funcall post-iter-step i fnorm oobf))
                  (swank.live:update-swank))))
@@ -394,6 +396,8 @@
                      (when (= 0 rank)
                        (format t "Took ~D steps to converge~%" i))
                      (setf converged t))
+                   (when (= i (round (* conv-steps 0.5)))
+                     (setf dt-scale (* dt-scale 0.5d0)))
                    (when post-iter-step
                      (funcall post-iter-step i fnorm oobf)))
                  (swank.live:update-swank))))
