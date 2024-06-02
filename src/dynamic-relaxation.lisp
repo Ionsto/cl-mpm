@@ -114,8 +114,8 @@
                      (+
                       oobf-norm
                       (*
-                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                       (cl-mpm/mesh:node-mass node)
+                       (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                       ;; (cl-mpm/mesh:node-mass node)
                        ;; (sqrt)
                        (/
                         (cl-mpm/fastmath::mag-squared
@@ -125,17 +125,40 @@
                (setf nmax (+
                            nmax
                            (*
-                            (cl-mpm/mesh:node-mass node)
-                            ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                            ;; (cl-mpm/mesh:node-mass node)
+                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                             (cl-mpm/fastmath::mag-squared
                              (magicl:.+ f-ext f-int))))
                      dmax (+
                            dmax
                            (*
-                            (cl-mpm/mesh:node-mass node)
-                            ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmath::mag-squared f-ext)))))))
-         )))
+                            ;; (cl-mpm/mesh:node-mass node)
+                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                            (cl-mpm/fastmath::mag-squared f-ext))))))))))
+    ;; (cl-mpm::iterate-over-mps
+    ;;  (cl-mpm:sim-mps sim)
+    ;;  (lambda (mp)
+    ;;    (cl-mpm:iterate-over-neighbours
+    ;;     (cl-mpm:sim-mesh sim)
+    ;;     mp
+    ;;     (lambda (mesh mp node svp grads fsvp fgrads)
+    ;;       (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
+    ;;                        (f-int cl-mpm/mesh::node-internal-force))
+    ;;           node
+    ;;         (sb-thread:with-mutex (lock)
+    ;;           (setf nmax
+    ;;                 (+
+    ;;                  nmax
+    ;;                  (*
+    ;;                   svp
+    ;;                   (cl-mpm/fastmath::mag-squared
+    ;;                    (magicl:.+ f-ext f-int))))
+    ;;                 dmax
+    ;;                 (+
+    ;;                  dmax
+    ;;                  (*
+    ;;                   svp
+    ;;                   (cl-mpm/fastmath::mag-squared f-ext))))))))))
     ;; (let ((mass-total (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
     ;;   (setf
     ;;    nmax (/ nmax mass-total)
@@ -188,10 +211,11 @@
       ;;Odd case where we have no forces?
       (setf oobf sb-ext:double-float-negative-infinity))
 
-    (let ((mass-total (cl-mpm/mpi::mpi-sum
-                       (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
-          (oobf-norm (cl-mpm/mpi::mpi-sum oobf-norm)))
-      (setf oobf (/ oobf-norm mass-total)))
+    ;; (let ((mass-total (cl-mpm/mpi::mpi-sum
+    ;;                    (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
+    ;;       (oobf-norm (cl-mpm/mpi::mpi-sum oobf-norm)))
+    ;;   (setf oobf (/ oobf-norm mass-total)))
+
     ;;Sanity check the floating point errors
     (setf oobf (cl-mpm/mpi::mpi-max oobf))
     ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))

@@ -75,6 +75,7 @@
                 (let* ((pen-point (penetration-point mp penetration-dist datum normal))
                        (normal-force (* (expt penetration-dist 1d0) epsilon)))
                   (sb-thread:with-mutex (*debug-mutex*)
+                    ;; (format t "Pen dist ~E - Normal Force ~E~%" penetration-dist normal-force)
                     (incf *debug-force* (* normal-force 1d0))
                     (incf *debug-force-count* 1))
                   (setf mp-contact t)
@@ -259,7 +260,8 @@
 (defun disp-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
-         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0) (cl-mpm/fastmath::norm (magicl:.* normal normal))))
+         (yheight (cl-mpm/fastmath::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
+                                        (cl-mpm/fastmath::norm (magicl:.* normal normal))))
          (dist (- datum (- ypos yheight))))
     (the double-float dist)))
 
@@ -287,7 +289,7 @@
                            )
               mp
             (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
-                   (normal-force (* (expt penetration-dist 1d0) epsilon
+                   (normal-force (* (signum penetration-dist) (expt (abs penetration-dist) 1d0) epsilon
                                     ;(sqrt volume)
                                     )))
               (sb-thread:with-mutex (*debug-mutex*)
