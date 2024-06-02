@@ -601,7 +601,8 @@
 (defun fast-scale (m scale)
   (let ((m-s (magicl::matrix/double-float-storage m)))
     (loop for i fixnum from 0 below (length m-s)
-          do (setf (aref m-s i) (* (aref m-s i) scale)))) m)
+          do (setf (aref m-s i) (* (aref m-s i) scale))))
+  m)
 (declaim
  (inline fast-zero)
  (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) fast-zero))
@@ -737,25 +738,48 @@
 ;;           do (loop for j from 0 to 2
 ;;                    do (incf (the double-float (magicl:tref res i 0)) (* (the double-float (magicl:tref a j i))
 ;;                                                                         (the double-float (magicl:tref b j 0)) scale))))))
-
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float)
+   double-float)
+  dot))
 (defun dot (a b)
   (the double-float (magicl::sum (fast-.* a b))))
 
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float)
+   double-float)
+  mag-squared))
 (defun mag-squared (a)
   "Calculate the magnitude - 2-norm"
   (dot a a))
 
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float)
+   double-float)
+  mag))
 (defun mag (a)
   "Calculate the magnitude - 2-norm"
   (sqrt (mag-squared a)))
 
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float)
+   magicl::matrix/double-float)
+  norm))
 (defun norm (a)
   "Normalise a vector"
   (let ((m (mag-squared a)))
     (declare (double-float m))
     (if (> m 0d0)
       (magicl::scale a (/ 1d0 (sqrt m)))
-      m)))
+      a)))
 
 (defun cross-product (a b)
   "Calculate the cross product of column vectors a and b, returning a new vector"

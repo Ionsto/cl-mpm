@@ -903,11 +903,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (weightsz (cl-mpm/shape-function::shape-gimp-fast distz doz h))
                                          (weight (* weightsx weightsy weightsz))
 
-                                         ;; (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
-                                         ;; (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                         ;; (weights-fbar-z (the double-float (cl-mpm/shape-function::shape-gimp-fbar distz (* 0.5d0 doz) h)))
-                                         ;; (weight-fbar (* weights-fbar-x weights-fbar-y weights-fbar-z))
-                                         (weight-fbar 0d0)
+                                         (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                         (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                         (weights-fbar-z (the double-float (cl-mpm/shape-function::shape-gimp-fbar distz (* 0.5d0 doz) h)))
+                                         (weight-fbar (* weights-fbar-x weights-fbar-y weights-fbar-z))
+                                         ;; (weight-fbar 0d0)
                                          )
                                     (declare ;(type double-float h)
                                      (double-float weight weightsx weightsy weightsz distx disty distz)
@@ -923,14 +923,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                              (gradz (* (cl-mpm/shape-function::shape-gimp-dsvp distz doz h)
                                                        weightsx weightsy
                                                        ))
-                                             ;; (grads-fbar
-                                             ;;   (list (* weights-fbar-y weights-fbar-z
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
-                                             ;;         (* weights-fbar-x weights-fbar-z
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                             ;;         (* weights-fbar-x weights-fbar-y
-                                             ;;            (cl-mpm/shape-function::shape-gimp-dsvp distz (* 0.5d0 doz) h))))
-                                             (grads-fbar (list 0d0 0d0 0d0))
+                                             (grads-fbar
+                                               (list (* weights-fbar-y weights-fbar-z
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
+                                                     (* weights-fbar-x weights-fbar-z
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
+                                                     (* weights-fbar-x weights-fbar-y
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp distz (* 0.5d0 doz) h))))
+                                             ;; (grads-fbar (list 0d0 0d0 0d0))
                                              )
                                         (declare (double-float gradx grady gradz))
                                         (funcall func mesh mp node
@@ -1888,8 +1888,8 @@ Calls func with only the node"
           (setf volume (* volume (the double-float (magicl:det df))))
           (when (<= volume 0d0)
             (error "Negative volume"))
-          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
-                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
+          ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
+          ;;                                    (cl-mpm/particle::mp-damage-domain-update-rate mp))
           )))
     )
   (values))
@@ -2529,7 +2529,7 @@ Calls func with only the node"
                    )
       mp
     ;; (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain)))
-    (let* ((l-factor 4.00d0)
+    (let* ((l-factor 2.00d0)
            ;; (e0 (/ ft E))
            ;; (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
            ;; (ef (* ef 50d0))
@@ -2548,7 +2548,7 @@ Calls func with only the node"
         (t nil)
         ))))
 
-(defparameter *max-split-depth* 1)
+(defparameter *max-split-depth* 3)
 (defun split-criteria (mp h)
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
@@ -2558,8 +2558,8 @@ Calls func with only the node"
                    )
       mp
     (when (< split-depth *max-split-depth*)
-      (let ((l-factor 1.50d0)
-            (h-factor (* 0.75d0 h))
+      (let ((l-factor 1.00d0)
+            (h-factor (* 0.6d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (tref lens 0 0)) :x)
@@ -2605,7 +2605,7 @@ Calls func with only the node"
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
-    (let ((h-factor (* 1.5d0 h))
+    (let ((h-factor (* 1.0d0 h))
           (aspect 0.01d0))
       (cond
         ((< h-factor (the double-float (tref lens 0 0))) :x)

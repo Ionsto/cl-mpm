@@ -1481,6 +1481,9 @@ Calls the function with the mesh mp and node"
               )
            0d0)
          )
+        (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact mp) 1 0))
+        (cl-mpm/output::save-parameter "fric-x" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
+        (cl-mpm/output::save-parameter "fric-y" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 1 0))
         )
       )))
 
@@ -1722,10 +1725,7 @@ Calls the function with the mesh mp and node"
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt
               stress
-              )))
-        ;; (* (/ (* 2 (sqrt 3)) (+ k 1))
-        ;;    (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
-        )
+              ))))
     (* (/ (sqrt 3) (* 2 (+ k 1)))
        (-
         (sqrt j2)
@@ -1734,6 +1734,11 @@ Calls the function with the mesh mp and node"
             (+ k 1))
          p)))
     ))
+
+(defun criterion-j2 (stress)
+  (let ((j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress))))
+     (sqrt j2)))
 
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
@@ -2964,36 +2969,23 @@ Calls the function with the mesh mp and node"
         (progn
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
-          ;; (setf k (max k ybar))
           (setf damage-inc 0d0)
-
-          ;; (when (> ybar init-stress))
-          ;; (incf k (the double-float (* dt
-          ;;                              (/ (the double-float (max 0d0 (- ybar k))) tau)
-          ;;                               )))
-          ;; (when (> ybar init-stress)
-          ;;   (setf k (max k init-stress)))
-          ;; (setf (cl-mpm/particle::mp-mass mp) (/ (cl-mpm/particle::mp-mass mp) (max 1d-3 (- 1d0 damage))))
-
-          ;; (setf p (/ (* (- 1d0 (* 1d-3 (expt damage 1))) E) (* (+ 1d0 nu) (- 1d0 nu))))
-
-          ;; (let ((new-damage
-          ;;         (max damage
-          ;;              (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility))))
-          ;;   (declare (double-float new-damage))
-          ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage)))))))))
+          ;; (setf k (max k ybar))
 
           (let ((a tau-exp)
                 (k0 init-stress))
-            (incf k (the double-float
-                         (*
-                          dt
-                          (/
-                           (* k0
-                              (expt
-                               (/ (the double-float (max 0d0 (- ybar k)))
-                                  k0) a))
-                             tau)))))
+            (incf k
+                  (the double-float
+                       (*
+                        dt
+                        (/
+                         (* k0
+                            (expt
+                             (/ (the double-float (max 0d0 (- ybar k)))
+                                k0)
+                             a))
+                         tau)))))
+
           (let ((new-damage
                   (max
                    damage

@@ -387,6 +387,8 @@
               (declare (special id))
               (format fs "POINT_DATA ~d~%" node-count)
 
+
+              (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
               (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
 
               (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
@@ -423,8 +425,8 @@
                                         node
                                       (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
                                           (*
-                                           ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                           (cl-mpm/mesh::node-mass node)
+                                           (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                           ;; (cl-mpm/mesh::node-mass node)
                                            (sqrt
                                             (/
                                              (cl-mpm/fastmath::mag-squared
@@ -617,5 +619,6 @@
               (declare (special id))
               (format fs "POINT_DATA ~d~%" node-count)
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
+              (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               ))
           ))))

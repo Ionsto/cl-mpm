@@ -285,8 +285,7 @@
     (if (> mp-count 0)
         (progn
           (loop for n in nodes
-                do
-                   (setf (cl-mpm/mesh::node-boundary-node n) t))
+                do (setf (cl-mpm/mesh::node-boundary-node n) t))
           t)
         nil)))
 
@@ -326,7 +325,7 @@
                                      (when (cl-mpm/mesh::in-bounds-cell mesh id)
                                        (let ((cell (cl-mpm/mesh::get-cell mesh id)))
                                          (incf (cl-mpm/mesh::cell-mp-count cell))))))))))))
-(defun populate-cell-mp-count-volume (mesh mps)
+(defun populate-cell-mp-count-volume (mesh mps clip-func)
   (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
     (cl-mpm::iterate-over-cells
      mesh
@@ -339,12 +338,16 @@
                         (neighbours cl-mpm/mesh::cell-neighbours)
                         (index cl-mpm/mesh::cell-index)
                         (nodes cl-mpm/mesh::cell-nodes)
-                        )
+                        (centroid cl-mpm/mesh::cell-centroid))
            cell
-         (when (every (lambda (n)
-                        (and (cl-mpm/mesh:node-active n) (> (cl-mpm/mesh:node-mass n) 0d0))
-                        ) nodes)
-           (setf mp-count 1))
+         (when (funcall clip-func centroid)
+           (when (every
+                  (lambda (n)
+                    (and (cl-mpm/mesh:node-active n)
+                         (> (cl-mpm/mesh:node-mass n) 0d0)
+                         ))
+                  nodes)
+             (setf mp-count 1)))
          )))))
 
 (defun cell-clipping (pos datum)
@@ -477,7 +480,7 @@
         ;;the aproach described by the paper
         ;; (populate-cell-mp-count mesh mps)
         ;; (populate-cell-mp-count-gimp mesh mps)
-        (populate-cell-mp-count-volume mesh mps)
+        (populate-cell-mp-count-volume mesh mps clip-function)
         ;; (populate-cell-nodes mesh mps)
         ;; (prune-buoyancy-nodes mesh '(0 0) 300)
         (cl-mpm::iterate-over-cells
@@ -489,22 +492,25 @@
                             (nodes cl-mpm/mesh::cell-nodes)
                             (pruned cl-mpm/mesh::cell-pruned)
                             (boundary cl-mpm/mesh::cell-boundary)
-                            (pos cl-mpm/mesh::cell-centroid)
-                            )
+                            (pos cl-mpm/mesh::cell-centroid))
                cell
              (setf boundary nil)
              (when (and (= mp-count 0)
-                        (funcall clip-function pos) (not pruned))
+                        (funcall clip-function pos)
+                        (not pruned))
+               ;; (setf boundary t)
+               ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
+               ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
                (loop for neighbour in neighbours
                      do
                         (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
-                          (check-neighbour-cell neighbour)
-                          (setf boundary t)
-                          (loop for n in nodes
-                                do
-                                   (when (cl-mpm/mesh:node-active n)
-                                     (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                       (setf (cl-mpm/mesh::node-boundary-node n) t))))))
+                          (when (check-neighbour-cell neighbour)
+                            (setf boundary t)
+                            (loop for n in nodes
+                                  do
+                                     (when (cl-mpm/mesh:node-active n)
+                                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                         (setf (cl-mpm/mesh::node-boundary-node n) t)))))))
                )))))))
 
 
@@ -707,13 +713,8 @@
                      :index nil
                      :sim sim
                      :clip-func clip-func
-                                        ;(lambda (pos)
-                                        ;  (and
-                                        ;   (cell-clipping pos datum)
-                                        ;   (funcall clip-func pos datum)))
                      :rho rho
-                     :datum datum
-                     ))))
+                     :datum datum))))
 
 (defun apply-buoyancy (sim func-stress func-div clip-function datum)
   (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -762,7 +763,6 @@
              (lambda (pos)
                (and
                 (cell-clipping pos datum)
-                ;; t
                 (funcall clip-func pos datum)
                 ))
              datum)
@@ -776,8 +776,8 @@
            (lambda (pos)
              (and
               ;; (cell-clipping pos datum)
-              t
-              ;; (funcall clip-func pos datum)
+              ;; t
+              (funcall clip-func pos datum)
               ))
            datum)))
     (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -888,7 +888,7 @@
                     (declare (double-float volume svp))
                     (when (and node-active
                                node-boundary
-                               (funcall clip-func pos)
+                               ;; (funcall clip-func pos)
                                )
                       ;;Lock node
                       (sb-thread:with-mutex (node-lock)
@@ -952,8 +952,7 @@
                  (declare (double-float volume svp))
                  (when (and node-active
                             node-boundary
-                            (funcall clip-func pos)
-                            )
+                            (funcall clip-func pos))
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
                      (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
