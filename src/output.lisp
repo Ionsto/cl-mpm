@@ -423,15 +423,12 @@
                                     (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
                                                      (f-int cl-mpm/mesh::node-internal-force))
                                         node
-                                      (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
+                                      (if t;(> (cl-mpm/fastmath::mag-squared f-ext) 0)
                                           (*
-                                           (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                           ;; (cl-mpm/mesh::node-mass node)
-                                           (sqrt
-                                            (/
-                                             (cl-mpm/fastmath::mag-squared
-                                              (magicl:.+ f-ext f-int))
-                                             (cl-mpm/fastmath::mag-squared f-ext))))
+                                           ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                           (/
+                                            (cl-mpm/fastmath::mag-squared
+                                             (magicl:.+ f-ext f-int))))
                                           0d0)))
 
               (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
