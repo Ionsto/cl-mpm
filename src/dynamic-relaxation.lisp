@@ -184,7 +184,7 @@
            node
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
-             (when (> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
+             (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
                (sb-thread:with-mutex (lock)
                  (setf oobf-norm
                        (+
