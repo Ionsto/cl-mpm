@@ -741,7 +741,9 @@
 (declaim
  (ftype
   (function
-   (magicl::matrix/double-float)
+   (magicl::matrix/double-float
+    magicl::matrix/double-float
+    )
    double-float)
   dot))
 (defun dot (a b)
