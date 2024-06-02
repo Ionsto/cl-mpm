@@ -423,7 +423,7 @@
                                     (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
                                                      (f-int cl-mpm/mesh::node-internal-force))
                                         node
-                                      (if t;(> (cl-mpm/fastmath::mag-squared f-ext) 0)
+                                      (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
                                           (*
                                            ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                                            (/
