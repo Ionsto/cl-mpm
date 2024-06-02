@@ -110,17 +110,17 @@
          (when active
            (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
-               (setf oobf-norm
-                     (+
-                      oobf-norm
-                      (*
-                       (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                       ;; (cl-mpm/mesh:node-mass node)
-                       ;; (sqrt)
-                       (/
-                        (cl-mpm/fastmath::mag-squared
-                         (magicl:.+ f-ext f-int))
-                        (cl-mpm/fastmath::mag-squared f-ext)))))
+               ;; (setf oobf-norm
+               ;;       (+
+               ;;        oobf-norm
+               ;;        (*
+               ;;         (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+               ;;         ;; (cl-mpm/mesh:node-mass node)
+               ;;         ;; (sqrt)
+               ;;         (/
+               ;;          (cl-mpm/fastmath::mag-squared
+               ;;           (magicl:.+ f-ext f-int))
+               ;;          (cl-mpm/fastmath::mag-squared f-ext)))))
 
                (setf nmax (+
                            nmax
@@ -186,15 +186,15 @@
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
              (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
                (sb-thread:with-mutex (lock)
-                 (setf oobf-norm
-                       (+
-                        oobf-norm
-                        (*
-                         (cl-mpm/mesh:node-mass node)
-                         (/
-                          (cl-mpm/fastmath::mag-squared
-                           (magicl:.+ f-ext f-int))
-                          (cl-mpm/fastmath::mag-squared f-ext)))))
+                 ;; (setf oobf-norm
+                 ;;       (+
+                 ;;        oobf-norm
+                 ;;        (*
+                 ;;         (cl-mpm/mesh:node-mass node)
+                 ;;         (/
+                 ;;          (cl-mpm/fastmath::mag-squared
+                 ;;           (magicl:.+ f-ext f-int))
+                 ;;          (cl-mpm/fastmath::mag-squared f-ext)))))
                  (setf nmax (+ nmax
                                (*
                                 (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
