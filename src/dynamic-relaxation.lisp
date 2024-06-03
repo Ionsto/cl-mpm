@@ -135,36 +135,8 @@
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                             (cl-mpm/fastmath::mag-squared f-ext))))))))))
-    ;; (cl-mpm::iterate-over-mps
-    ;;  (cl-mpm:sim-mps sim)
-    ;;  (lambda (mp)
-    ;;    (cl-mpm:iterate-over-neighbours
-    ;;     (cl-mpm:sim-mesh sim)
-    ;;     mp
-    ;;     (lambda (mesh mp node svp grads fsvp fgrads)
-    ;;       (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
-    ;;                        (f-int cl-mpm/mesh::node-internal-force))
-    ;;           node
-    ;;         (sb-thread:with-mutex (lock)
-    ;;           (setf nmax
-    ;;                 (+
-    ;;                  nmax
-    ;;                  (*
-    ;;                   svp
-    ;;                   (cl-mpm/fastmath::mag-squared
-    ;;                    (magicl:.+ f-ext f-int))))
-    ;;                 dmax
-    ;;                 (+
-    ;;                  dmax
-    ;;                  (*
-    ;;                   svp
-    ;;                   (cl-mpm/fastmath::mag-squared f-ext))))))))))
-    ;; (let ((mass-total (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
-    ;;   (setf
-    ;;    nmax (/ nmax mass-total)
-    ;;    dmax (/ dmax mass-total)))
     (when (> dmax 0d0)
-      (setf oobf (/ nmax dmax)))
+      (setf oobf (sqrt (/ nmax dmax))))
     ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
     ;; (setf oobf oobf-norm)
     oobf))
@@ -208,7 +180,7 @@
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
     (if (> dmax 0d0)
-      (setf oobf (/ nmax dmax))
+        (setf oobf (sqrt (/ nmax dmax)))
       ;;Odd case where we have no forces?
       (setf oobf sb-ext:double-float-negative-infinity))
 
@@ -331,7 +303,8 @@
                    (format t "Took ~D steps to converge~%" i)
                    (setf converged t))
                  (when (= i (round (* conv-steps 0.5)))
-                   (setf dt-scale (* dt-scale 0.5d0)))
+                   (setf dt-scale (* dt-scale 0.25d0))
+                   (format t "Dropped dt-scale to ~E ~%" dt-scale))
                  (when post-iter-step
                    (funcall post-iter-step i fnorm oobf))
                  (swank.live:update-swank))))
@@ -379,11 +352,7 @@
                  (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                  (when (= 0 rank)
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
-                 ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
-                 ;;   (when (= 0 rank)
-                 ;;     (format t "CFL dt estimate: ~f~%" dt-e)
-                 ;;     (format t "CFL step count estimate: ~D~%" substeps-e))
-                 ;;   )
+
                  (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
                  (setf oobf (estimate-oobf sim))
 
@@ -397,7 +366,10 @@
                        (format t "Took ~D steps to converge~%" i))
                      (setf converged t))
                    (when (= i (round (* conv-steps 0.5)))
-                     (setf dt-scale (* dt-scale 0.5d0)))
+                     (setf dt-scale (* dt-scale 0.25d0))
+                     (when (= 0 rank)
+                       (format t "Dropped dt-scale to ~E ~%" dt-scale))
+                     )
                    (when post-iter-step
                      (funcall post-iter-step i fnorm oobf)))
                  (swank.live:update-swank))))
