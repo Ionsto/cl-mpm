@@ -703,7 +703,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                      (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
                                                      ;; #+cl-mpm-fbar
                                                      (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                                     (weight-fbar 0d0)
+                                                     (weight-fbar (* weights-fbar-x weights-fbar-y))
                                                      )
                                                 (when (< 0d0 weight)
                                                   (let* ((node (cl-mpm/mesh:get-node mesh id))
@@ -715,8 +715,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                          (grads-fbar
                                                            (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
                                                                  (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                                                 0d0
-                                                                 ))
+                                                                 0d0))
                                                          )
                                                     (declare (double-float gradx grady))
                                                     ;; (when (sb-vm:current-float-trap :underflow :overflow :invalid :divide-by-zero)

@@ -86,17 +86,17 @@
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
-  (velocity
+   (velocity
     :accessor node-velocity
     :initarg :velocity
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
-  (local-list
-   :accessor node-local-list
-   :initform (make-array 0 :fill-pointer 0 :adjustable t))
-  (jacobian-inc
-   :accessor node-jacobian-inc
-   :initform 0d0)
+   (local-list
+    :accessor node-local-list
+    :initform (make-array 0 :fill-pointer 0 :adjustable t))
+   (jacobian-inc
+    :accessor node-jacobian-inc
+    :initform 0d0)
    (jacobian
     :accessor node-jacobian
     :initform 0d0)
@@ -121,7 +121,6 @@
     :type double-float
     :initform 0d0
     )
-
    (sdf
     :accessor node-sdf
     :initform 0d0)
@@ -129,7 +128,7 @@
     :accessor node-damage
     :initform 0d0
     :type double-float)
-  (lock
+   (lock
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
   (:documentation "A node on the computational mesh"))
@@ -375,7 +374,8 @@
                                   :shape-func shape-function
                                   :boundary-order boundary-order
                                   )))
-        (setf (mesh-nodes mesh) (make-nodes mesh meshcount resolution))
+        (setf (mesh-nodes mesh)
+              (make-nodes mesh meshcount resolution))
         (if (= nD 2)
             (setf (mesh-cells mesh) (make-cells-2d mesh meshcount resolution))
             (setf (mesh-cells mesh) (make-cells mesh meshcount resolution)))
