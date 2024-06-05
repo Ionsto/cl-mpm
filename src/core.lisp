@@ -338,13 +338,12 @@
                     (g2p mesh mps dt)
 
                     ;;2nd round of momentum mapping
-                    (reset-grid mesh)
+                    (reset-grid-velocity mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
-                     (filter-grid mesh (sim-mass-filter sim)))
+                     (filter-grid-velocity mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
-
                     ;;Update stress last
                     (update-stress mesh mps dt fbar)
 

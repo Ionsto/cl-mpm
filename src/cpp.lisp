@@ -124,6 +124,7 @@
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
 (defun kirchoff-update (strain df)
   (kirchoff-expt-step strain df)
+  ;; (kirchoff-expt-step-lisp strain df)
   ;; (kirchoff-svd-lisp strain df)
   )
 

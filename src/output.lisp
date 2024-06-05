@@ -450,7 +450,7 @@
   (:documentation "Save vtk depending on type")
    (:method (f s)))
 
-(defmethod save-vtk (filename (sim cl-mpm::mpm-sim-usf))
+(defmethod save-vtk (filename (sim cl-mpm::mpm-sim))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)

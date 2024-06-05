@@ -26,7 +26,7 @@
          (sb-thread:with-mutex (lock)
            (incf energy
                  (*
-                  (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                  ;(/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                   (cl-mpm/mesh::node-mass n)
                   (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
                   ))))))
