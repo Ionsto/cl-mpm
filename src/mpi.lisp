@@ -1658,6 +1658,6 @@
 (defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/mpi:mpm-sim-mpi))
   (cl-mpm/mpi::mpi-min
    (call-next-method)))
-(defmethod cl-mpm/setup::estimate-critical-damping ((sim cl-mpm:mpm-sim-mpi))
+(defmethod cl-mpm/setup::estimate-critical-damping ((sim cl-mpm/mpi:mpm-sim-mpi))
   (cl-mpm/mpi::mpi-min
    (call-next-method)))
