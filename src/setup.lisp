@@ -310,13 +310,15 @@
 
 (defgeneric estimate-critical-damping (sim))
 (defmethod estimate-critical-damping ((sim cl-mpm:mpm-sim))
-  (if (> (length mps) 0)
-      (loop for mp across mps
-            minimize
-            (estimate-critical-damping-mp
-             sim
-             (cl-mpm/particle::mp-e mp)
-             (/ (cl-mpm/particle:mp-mass mp)
-                (cl-mpm/particle:mp-volume mp)))
-            )
-      sb-ext:double-float-positive-infinity))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (if (> (length mps) 0)
+        (loop for mp across mps
+              minimize
+              (estimate-critical-damping-mp
+               sim
+               (cl-mpm/particle::mp-e mp)
+               (/ (cl-mpm/particle:mp-mass mp)
+                  (cl-mpm/particle:mp-volume mp)))
+              )
+        sb-ext:double-float-positive-infinity)))
