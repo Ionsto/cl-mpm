@@ -308,11 +308,15 @@
              (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
                    (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))) density)))))
 
-(defun estimate-critical-damping (sim)
-  (loop for mp across (cl-mpm:sim-mps sim)
-        minimize
-        (estimate-critical-damping-mp
-         sim
-         (cl-mpm/particle::mp-e mp)
-         (/ (cl-mpm/particle:mp-mass mp)
-            (cl-mpm/particle:mp-volume mp)))))
+(defgeneric estimate-critical-damping (sim))
+(defmethod estimate-critical-damping ((sim cl-mpm:mpm-sim))
+  (if (> (length mps) 0)
+      (loop for mp across mps
+            minimize
+            (estimate-critical-damping-mp
+             sim
+             (cl-mpm/particle::mp-e mp)
+             (/ (cl-mpm/particle:mp-mass mp)
+                (cl-mpm/particle:mp-volume mp)))
+            )
+      sb-ext:double-float-positive-infinity))
