@@ -2914,16 +2914,17 @@ Calls the function with the mesh mp and node"
             (setf damage 1d0)
             ;(setf damage-inc 0d0)
             )
-          (setf p (/ (* (- 1d0 damage) E) (* (+ 1d0 nu) (- 1d0 nu))))
-          (incf eng-inc
-                (* damage-inc
-                   ;volume
-                   0.5d0 (magicl:tref
-                          (magicl:@
-                           (magicl:transpose strain)
-                           undamaged-stress
-                           ) 0 0)))
-          (incf eng-int eng-inc))
+          ;; (setf p (/ (* (- 1d0 damage) E) (* (+ 1d0 nu) (- 1d0 nu))))
+          ;; (incf eng-inc
+          ;;       (* damage-inc
+          ;;          ;volume
+          ;;          0.5d0 (magicl:tref
+          ;;                 (magicl:@
+          ;;                  (magicl:transpose strain)
+          ;;                  undamaged-stress
+          ;;                  ) 0 0)))
+          ;; (incf eng-int eng-inc)
+          )
   (values)))
 
 (defun estimate-ductility-jirsek2004 (GF R ft E &optional (k 1d0))
