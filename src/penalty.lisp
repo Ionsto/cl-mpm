@@ -270,63 +270,74 @@
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
     (magicl:.- pos
-               (magicl:.* normal (magicl:scale domain 0.5d0))
-               )))
+               (magicl:.* normal (magicl:scale domain 0.5d0)))))
 
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   (declare (double-float datum dt epsilon friction))
-  (lparallel:pdotimes
-      (i (length mps))
-    (let ((mp (aref mps i)))
-      (let* ((penetration-dist (disp-distance mp datum normal)))
-        (declare (double-float penetration-dist))
-        (when t;(> (abs penetration-dist) 0d0)
-          (with-accessors ((volume cl-mpm/particle:mp-volume)
-                           (pressure cl-mpm/particle::mp-pressure)
-                           (mp-vel cl-mpm/particle::mp-velocity)
-                           (mp-mass cl-mpm/particle::mp-mass)
-                           )
-              mp
-            (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
-                   (normal-force (* (signum penetration-dist) (expt (abs penetration-dist) 1d0) epsilon
-                                    ;(sqrt volume)
-                                    )))
-              (sb-thread:with-mutex (*debug-mutex*)
-                (incf *debug-force* (* normal-force 1d0))
-                (incf *debug-force-count* 1))
-              ;;Iterate over neighbour nodes
-              (cl-mpm::iterate-over-neighbours-point-linear-3d
-               mesh pen-point
-               (lambda (mesh node svp grads)
-                 (when (cl-mpm/mesh:node-active node)
-                   (with-accessors ((node-force cl-mpm/mesh:node-force)
-                                    (node-ext-force cl-mpm/mesh::node-external-force)
-                                    (node-lock  cl-mpm/mesh:node-lock)
-                                    (node-vel  cl-mpm/mesh:node-velocity)
-                                    (node-mass  cl-mpm/mesh:node-mass)
-                                    (node-boundary cl-mpm/mesh::node-boundary-node)
-                                    (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-                       node
-                     (declare (double-float volume svp))
-                     ;;Lock node for multithreading
-                     (let* ((force (cl-mpm/utils:vector-zeros))
-                            (rel-vel (magicl::sum (magicl::.* normal mp-vel)))
-                            (tang-vel (magicl:.- mp-vel (magicl:scale normal rel-vel)))
-                            (normal-damping 0d0)
-                            (damping-force (* normal-damping rel-vel)))
-                       (declare (double-float rel-vel normal-damping damping-force))
+  (cl-mpm:iterate-over-mps
+   mps
+   (lambda (mp)
+     (let* ((penetration-dist (disp-distance mp datum normal)))
+       (declare (double-float penetration-dist))
+       (when t;(> (abs penetration-dist) 0d0)
+         (with-accessors ((volume cl-mpm/particle:mp-volume)
+                          (pressure cl-mpm/particle::mp-pressure)
+                          (mp-vel cl-mpm/particle::mp-velocity)
+                          (mp-mass cl-mpm/particle::mp-mass)
+                          )
+             mp
+           (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
+                  (h (cl-mpm/mesh:mesh-resolution mesh))
+                  (normal-force (* (signum penetration-dist)
+                                   (expt (abs penetration-dist) 1d0)
+                                   epsilon
+                                   ;; (/ 1 h)
+                                   ;; (expt volume (/ 1 3))
+                                   ;; h
+                                   ;; (expt h 1)
+                                        ;(/ 1d0 (cl-mpm/mesh:mesh-resolution mesh))
+                                   )))
+             (sb-thread:with-mutex (*debug-mutex*)
+               (incf *debug-force* (* normal-force 1d0))
+               (incf *debug-force-count* 1))
+             ;;Iterate over neighbour nodes
+             (cl-mpm::iterate-over-neighbours-point-linear
+              mesh pen-point
+              (lambda (mesh node svp grads)
+                (when (cl-mpm/mesh:node-active node)
+                  (with-accessors ((node-force cl-mpm/mesh:node-force)
+                                   (node-ext-force cl-mpm/mesh::node-external-force)
+                                   (node-lock  cl-mpm/mesh:node-lock)
+                                   (node-vel  cl-mpm/mesh:node-velocity)
+                                   (node-mass  cl-mpm/mesh:node-mass)
+                                   (node-boundary cl-mpm/mesh::node-boundary-node)
+                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                      node
+                    (declare (double-float volume svp))
+                    ;;Lock node for multithreading
+                    (let* ((force (cl-mpm/utils:vector-zeros))
+                           (rel-vel (cl-mpm/fastmath::dot normal mp-vel))
+                           ;; (svp (* svp 1))
+                           ;; (normal-force (* dt normal-force))
+                           (normal-damping 0d0)
+                           (damping-force 0d0
+                                          ;(* normal-damping rel-vel)
+                                          ))
+                      (declare (double-float rel-vel normal-damping damping-force))
 
-                       (cl-mpm/fastmath::fast-fmacc force
-                                                    normal
-                                                    (- normal-force
-                                                       damping-force))
+                      (cl-mpm/fastmath::fast-fmacc force
+                                                   normal
+                                                   (- normal-force
+                                                      damping-force))
 
-                       (sb-thread:with-mutex (node-lock)
-                         (cl-mpm/fastmath::fast-fmacc node-force
-                                                      force
-                                                      svp)
-                         (cl-mpm/fastmath::fast-fmacc node-ext-force
-                                                      force
-                                                      svp))
-                       ))))))))))))
+                      (sb-thread:with-mutex (node-lock)
+                        (cl-mpm/fastmath::fast-fmacc
+                         node-force
+                         force
+                         svp)
+                        (cl-mpm/fastmath::fast-fmacc
+                         node-ext-force
+                         force
+                         svp))
+                      ))))))))))))
