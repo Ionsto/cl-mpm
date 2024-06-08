@@ -155,6 +155,12 @@
      :initform 0d0;-9.8d0
      :initarg :gravity
      )
+   (viscous-damping
+    :type double-float
+    :accessor mp-viscous-damping
+    :initform 0d0
+    :initarg :damping
+    )
    (pressure
     :type double-float
     :accessor mp-pressure

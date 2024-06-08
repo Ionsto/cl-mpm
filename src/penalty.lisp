@@ -289,14 +289,13 @@
              mp
            (let* ((pen-point (disp-penetration-point mp penetration-dist datum normal))
                   (h (cl-mpm/mesh:mesh-resolution mesh))
+                  (nd (cl-mpm/mesh:mesh-nd mesh))
                   (normal-force (* (signum penetration-dist)
                                    (expt (abs penetration-dist) 1d0)
                                    epsilon
-                                   ;; (/ 1 h)
-                                   ;; (expt volume (/ 1 3))
                                    ;; h
-                                   ;; (expt h 1)
-                                        ;(/ 1d0 (cl-mpm/mesh:mesh-resolution mesh))
+                                   ;; volume
+                                   ;(expt h (/ 1 nd))
                                    )))
              (sb-thread:with-mutex (*debug-mutex*)
                (incf *debug-force* (* normal-force 1d0))

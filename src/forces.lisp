@@ -140,11 +140,17 @@
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (volume cl-mpm/particle:mp-volume)) mp
+                     (volume cl-mpm/particle:mp-volume)
+                     (vel cl-mpm/particle:mp-velocity)
+                     (damping cl-mpm/particle::mp-viscous-damping)
+                     ) mp
       (declare (type double-float volume))
       ;; (print dsvp)
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
       (@-dsvp-vec-simd dsvp stress volume f-out)
+      ;; (cl-mpm/fastmath::fast-fmacc f-out
+      ;;                              vel
+      ;;                              (* -1d0 damping volume))
       ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
       ;; (mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)

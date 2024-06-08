@@ -758,6 +758,7 @@
            (* (nth 1 weights) (nth 2 weights))
            (* (nth 0 weights) (nth 2 weights))
            (* (nth 0 weights) (nth 1 weights)))))
+
 (defun grads-2d (weights linear-grads)
   (mapcar #'* linear-grads (nreverse weights))
   )

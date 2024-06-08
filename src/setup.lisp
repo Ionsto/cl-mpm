@@ -301,12 +301,12 @@
      (%estimate-elastic-dt sim)))
 
 (defun estimate-critical-damping-mp (sim E density)
-  (*
-   (/ pi 2)
-   (sqrt (/ E
-            (*
-             (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
-                   (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))) density)))))
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+        (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
+    (*
+     (/ pi 2)
+     (sqrt (/ E (* ;; (expt h nd)
+                   density))))))
 
 (defgeneric estimate-critical-damping (sim))
 (defmethod estimate-critical-damping ((sim cl-mpm:mpm-sim))
@@ -319,6 +319,5 @@
                sim
                (cl-mpm/particle::mp-e mp)
                (/ (cl-mpm/particle:mp-mass mp)
-                  (cl-mpm/particle:mp-volume mp)))
-              )
+                  (cl-mpm/particle:mp-volume mp))))
         sb-ext:double-float-positive-infinity)))

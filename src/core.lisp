@@ -553,11 +553,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                  (cl-mpm/shape-function::shape-linear-dsvp d h))
                                                                dist))
                                             (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
-                                       (declare (double-float weight)
-                                                (dynamic-extent dist weights))
+                                       (declare
+                                        (double-float weight)
+                                        (dynamic-extent dist weights))
                                        (when (< 0d0 weight)
-                                         (funcall func mesh node weight grads))))
-                                   )))))))
+                                         (funcall func mesh node weight grads)))))))))))
 
 (declaim (inline iterate-over-neighbours-point-linear-simd)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
@@ -1448,7 +1448,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (magicl:scale! acc 0d0)
           ;;Set acc to f/m
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-          (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) (* mass mass-scale)))
+          (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+          ;; (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) (* mass mass-scale)))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))
