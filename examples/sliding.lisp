@@ -17,6 +17,12 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
+(defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; local-length
+  )
+
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar))
 
@@ -58,95 +64,110 @@
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
-         (ms-y (second ms))
-         )
-  (multiple-value-bind (x y stress-y lx ly)
-    (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (length-from-def sim mp 0) into lx
-          collect (length-from-def sim mp 1) into ly
-          ;; collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
-          ;; collect (cl-mpm/particle:mp-volume mp) into density
-          collect (max-stress mp) into stress-y
-          finally (return (values x y stress-y lx ly)))
+         (ms-y (second ms)))
+    (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
+  (vgplot:format-plot t "set style fill solid")
+  (cl-mpm/plotter:simple-plot
+   *sim*
+   :plot :deformed
+   :colour-func #'cl-mpm/particle::mp-damage
+   ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+   )
+  (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
 
-    (let* ((node-x '())
-           (node-y '())
-           (node-c '())
-           (mesh (cl-mpm:sim-mesh *sim*))
-           (nodes (cl-mpm/mesh:mesh-nodes mesh))
-           )
-      (dotimes (i (array-total-size nodes))
-        (let ((n (row-major-aref nodes i)))
-          (with-accessors ((index cl-mpm/mesh:node-index)
-                           (boundary cl-mpm/mesh::node-boundary-node)
-                           (boundary-s cl-mpm/mesh::node-boundary-scalar)
-                           (active cl-mpm/mesh::node-active)
-                           )
+  ;; (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
+  ;; (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+  ;;        (ms-x (first ms))
+  ;;        (ms-y (second ms))
+  ;;        )
+  ;; (multiple-value-bind (x y stress-y lx ly)
+  ;;   (loop for mp across (cl-mpm:sim-mps sim)
+  ;;         collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
+  ;;         collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+  ;;         collect (length-from-def sim mp 0) into lx
+  ;;         collect (length-from-def sim mp 1) into ly
+  ;;         ;; collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
+  ;;         ;; collect (cl-mpm/particle:mp-volume mp) into density
+  ;;         collect (max-stress mp) into stress-y
+  ;;         finally (return (values x y stress-y lx ly)))
 
-              n
-            (let ((n-ratio (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))))
-              (when active
-                (if boundary
-                    ;; (print index)
-                    (destructuring-bind (x y z) (cl-mpm/mesh:index-to-position mesh index)
-                      ;; (push (nth 0 index) node-x)
-                      ;; (push (nth 1 index) node-y)
-                      (push x node-x)
-                      (push y node-y)
-                      (push 2 node-c)
-                      ;; (push n-ratio node-c)
-                      ;; (push boundary-s node-c)
-                      )
-                    (destructuring-bind (x y z) (cl-mpm/mesh:index-to-position mesh index)
-                      (push x node-x)
-                      (push y node-y)
-                      ;; (push n-ratio node-c)
-                      (push 0 node-c)
-                      ;; (push boundary-s node-c)
-                      ))
-                ;; (push (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n)) node-c)
-                )))))
-      (cond
-        ((eq plot :point)
-         ;; (vgplot:format-plot t "set cbrange [0:1]")
-         ;; (vgplot:plot x y ";;with points pt 7")
-                                        ;(vgplot:format-plot t "set cbrange [0:2]")
-         (when node-c
-           (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min node-c) (+ 0.01 (apply #'max node-c))))
-         (if node-x
-             ;; (multiple-value-bind (xp yp) (max-spacial (map 'list #'identity (cl-mpm::sim-mps *sim*)))
-               (vgplot:plot
-                ;; x y ";;with points pt 7"
-                x y lx ly ";;with ellipses"
-                ;; node-x node-y node-c ";;with points pt 7 lc palette"
-                ;; (list xp) (list yp) ";;with points"
-                )
-               ;)
-             (vgplot:plot x y ";;with points pt 7"))
-         )
-        ((eq plot :stress)
-         (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
-         (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
-        ((eq plot :deformed)
-         ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-         (vgplot:plot x y lx ly ";;with ellipses"))
-         ))
-    )
-  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
-         (ms-x (first ms))
-         (ms-y (second ms))
-         )
-    (vgplot:axis (list 0 ms-x
-                       0 ms-y))
-    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h))
+  ;;   (let* ((node-x '())
+  ;;          (node-y '())
+  ;;          (node-c '())
+  ;;          (mesh (cl-mpm:sim-mesh *sim*))
+  ;;          (nodes (cl-mpm/mesh:mesh-nodes mesh))
+  ;;          )
+  ;;     (dotimes (i (array-total-size nodes))
+  ;;       (let ((n (row-major-aref nodes i)))
+  ;;         (with-accessors ((index cl-mpm/mesh:node-index)
+  ;;                          (boundary cl-mpm/mesh::node-boundary-node)
+  ;;                          (boundary-s cl-mpm/mesh::node-boundary-scalar)
+  ;;                          (active cl-mpm/mesh::node-active)
+  ;;                          )
 
-    (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
-  (vgplot:replot)))
+  ;;             n
+  ;;           (let ((n-ratio (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))))
+  ;;             (when active
+  ;;               (if boundary
+  ;;                   ;; (print index)
+  ;;                   (destructuring-bind (x y z) (cl-mpm/mesh:index-to-position mesh index)
+  ;;                     ;; (push (nth 0 index) node-x)
+  ;;                     ;; (push (nth 1 index) node-y)
+  ;;                     (push x node-x)
+  ;;                     (push y node-y)
+  ;;                     (push 2 node-c)
+  ;;                     ;; (push n-ratio node-c)
+  ;;                     ;; (push boundary-s node-c)
+  ;;                     )
+  ;;                   (destructuring-bind (x y z) (cl-mpm/mesh:index-to-position mesh index)
+  ;;                     (push x node-x)
+  ;;                     (push y node-y)
+  ;;                     ;; (push n-ratio node-c)
+  ;;                     (push 0 node-c)
+  ;;                     ;; (push boundary-s node-c)
+  ;;                     ))
+  ;;               ;; (push (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n)) node-c)
+  ;;               )))))
+  ;;     (cond
+  ;;       ((eq plot :point)
+  ;;        ;; (vgplot:format-plot t "set cbrange [0:1]")
+  ;;        ;; (vgplot:plot x y ";;with points pt 7")
+  ;;                                       ;(vgplot:format-plot t "set cbrange [0:2]")
+  ;;        (when node-c
+  ;;          (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min node-c) (+ 0.01 (apply #'max node-c))))
+  ;;        (if node-x
+  ;;            ;; (multiple-value-bind (xp yp) (max-spacial (map 'list #'identity (cl-mpm::sim-mps *sim*)))
+  ;;              (vgplot:plot
+  ;;               ;; x y ";;with points pt 7"
+  ;;               x y lx ly ";;with ellipses"
+  ;;               ;; node-x node-y node-c ";;with points pt 7 lc palette"
+  ;;               ;; (list xp) (list yp) ";;with points"
+  ;;               )
+  ;;              ;)
+  ;;            (vgplot:plot x y ";;with points pt 7"))
+  ;;        )
+  ;;       ((eq plot :stress)
+  ;;        (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 1e-20 (apply #'max stress-y)))
+  ;;        (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
+  ;;       ((eq plot :deformed)
+  ;;        ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+  ;;        (vgplot:plot x y lx ly ";;with ellipses"))
+  ;;        ))
+  ;;   )
+  ;; (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+  ;;        (ms-x (first ms))
+  ;;        (ms-y (second ms))
+  ;;        )
+  ;;   (vgplot:axis (list 0 ms-x
+  ;;                      0 ms-y))
+  ;;   (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+  ;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+  ;;     (vgplot:format-plot t "set ytics ~f" h)
+  ;;     (vgplot:format-plot t "set xtics ~f" h))
+
+  ;;   (vgplot:format-plot t "replot (~f*x + ~f)" *sliding-slope* *sliding-offset*)
+  ;; (vgplot:replot))
+)
 
 (defun remove-sdf (sim sdf)
       (setf (cl-mpm:sim-mps sim)
@@ -271,17 +292,19 @@
 
                :ft 1d0
                :ft 10d0
-               :kt-res-ratio 1d-5
-               :kc-res-ratio 1d-2
-               :g-res-ratio 6.5d-3
-               :initiation-stress 500d3
-               :delay-time 1d0
+               :kt-res-ratio 1d-9
+               :kc-res-ratio 1d0
+               :g-res-ratio 1d-2
+               :initiation-stress 1d6
+               :delay-time 0.1d0
+               :delay-exponent 2d0
                :ductility 10d0
-               :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
-               :local-length 10.0d0;(* 0.20d0 (sqrt 7))
+               :damage-domain-rate 1.0d0;This slider changes how GIMP update turns to uGIMP under damage
+               :local-length h-x;(* 0.20d0 (sqrt 7))
                :local-length-damaged 10d-10
                :critical-damage 1.0d0;(- 1.0d0 1d-6)
                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
+               :enable-plasticity nil
                :psi (* 00d0 (/ pi 180))
                :phi (* 42d0 (/ pi 180))
                :c 131d3
@@ -299,11 +322,11 @@
               ;; (* 0.00000001d0 mass-scale)
               ;; 0.1d0
               ;; 0.01d0
-              0.0d0
+              (* 1d3 (expt h-x 2))
               ;; 0.1d0
               )
         )
-      ;; (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
@@ -330,7 +353,8 @@
                 ;; (magicl:.- (magicl:from-list block-offset '(2 1) :type 'double-float)
                 ;;            (magicl:from-list (list 0d0 0d0) '(2 1) :type 'double-float))
                 (* density 1d6)
-                1d1
+                ;; 1d1
+                0d0
                 )
                (cl-mpm/penalty::make-bc-penalty-point-normal
                 sim
@@ -368,7 +392,7 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let* ((mesh-size 25)
+  (let* ((mesh-size 10)
          (mps-per-cell 2)
          (block-length 200)
          (shelf-aspect 15)
@@ -464,9 +488,10 @@
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
  (let* ((target-time 1d0)
-         (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.8d0)
-         (substeps (floor target-time dt)))
+        (dt (cl-mpm:sim-dt *sim*))
+        (dt-scale 0.9d0)
+        (settle-steps 30)
+        (substeps (floor target-time dt)))
 
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -475,18 +500,23 @@
       (format t "CFL step count estimate: ~D~%" substeps-e)
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
-   (plot *sim*)
+   ;; (plot *sim*)
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn
-                     (when (> steps 10)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t))
+                     (when (> steps settle-steps)
+                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       (loop for mp across (cl-mpm:sim-mps *sim*)
+                             do (setf (cl-mpm/particle::mp-enable-plasticity mp) t))
+                       (setf (cl-mpm:sim-damping-factor *sim*)
+                             (* 1d0 (expt (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)) 2))
+                             target-time 1d0))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_~5,'0d.csv" *sim-step*)) *sim*)
 
                      (push *t* *time*)
                      ;; (let ((cfl (find-max-cfl *sim*)))
@@ -498,30 +528,30 @@
                       *x*
                       *x-pos*)
                      (let ((cfl 0))
-                       (time (dotimes (i substeps)
-                               ;; (increase-load *sim* *terminus-mps*
-                               ;;                (magicl:from-list (list (* (cl-mpm:sim-dt *sim*) 1d4) 0d0) '(2 1)))
-                               ;; (pescribe-velocity *sim* *terminus-mps* '(1d0 nil))
-                               (cl-mpm::update-sim *sim*)
-                               ;; (setf cfl (max cfl (find-max-cfl *sim*)))
-                               (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
+                       (time
+                        (dotimes (i substeps)
+                          ;; (increase-load *sim* *terminus-mps*
+                          ;;                (magicl:from-list (list (* (cl-mpm:sim-dt *sim*) 1d4) 0d0) '(2 1)))
+                          ;; (pescribe-velocity *sim* *terminus-mps* '(1d0 nil))
+                          (cl-mpm::update-sim *sim*)
+                          ;; (setf cfl (max cfl (find-max-cfl *sim*)))
+                          (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
                        ;; (setf cfl (find-max-cfl *sim*))
                        (format t "CFL: ~f~%" cfl)
-                       (push cfl *cfl-max*)
-                       ;; (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-                       ;;        (substeps-e (floor target-time dt-e)))
-                       ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                       ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                       ;;   (setf (cl-mpm:sim-dt *sim*) dt-e)
-                       ;;   (setf substeps substeps-e))
+                       ;; (push cfl *cfl-max*)
+                       (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+                              (substeps-e (floor target-time dt-e)))
+                         (format t "CFL dt estimate: ~f~%" dt-e)
+                         (format t "CFL step count estimate: ~D~%" substeps-e)
+                         (setf (cl-mpm:sim-dt *sim*) dt-e)
+                         (setf substeps substeps-e))
                          )
-                     (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
-                       (format stream "~f, ~f ~%" *t* *x*))
+                     ;; (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
+                     ;;   (format stream "~f, ~f ~%" *t* *x*))
                      (incf *sim-step*)
                      (plot *sim*)
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080"
-                                        )
+                                        :terminal "png size 1920,1080")
                      (swank.live:update-swank)
                      (sleep .01)
                      ))))

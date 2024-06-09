@@ -261,16 +261,15 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d6))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim) 
-              (* 0.1d0
-                 (expt h 3)
-                 (cl-mpm::sim-mass-scale sim)
+              (* 1d0
+                 (sqrt (cl-mpm::sim-mass-scale sim))
                  (cl-mpm/setup::estimate-critical-damping sim)))
         ;; (setf (cl-mpm:sim-damping-factor sim) (* 5d0 (sqrt (/ 1d9 (* (expt h 2) 1.7d3)))))
         ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
@@ -513,11 +512,8 @@
 
 
 (defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
-                               *sim*)
-
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk") *sim*)
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
@@ -533,8 +529,7 @@
          (last-e 0d0)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (damping-0
-           (* 0.000d0
-              (expt h 3)
+           (* 1.00d0
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -1104,7 +1099,7 @@
 
 
 
-(defun setup (&optional (notch-length 0d0) &key (mesh-size 0.5d0) (mps 2))
+(defun setup (&optional (notch-length 0d0) &key (mesh-size 1.0d0) (mps 2))
   (let* ((mesh-size mesh-size)
          (mps-per-cell mps)
          (shelf-height 15.0)

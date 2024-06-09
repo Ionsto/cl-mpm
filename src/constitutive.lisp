@@ -532,8 +532,8 @@
 (defun glen-viscosity-stress (stress visc-factor visc-power)
   (declare (double-float visc-factor visc-power))
   "Get the viscosity for a given strain state"
-  (let* ((A (expt visc-factor (- visc-power)))
-         (effective-strain (sqrt (* 0.5d0 (expt (cl-mpm/utils::trace-voigt (deviatoric stress)) 2d0)))))
+  (let* ((A (expt visc-factor (/ -1d0 visc-power)))
+         (effective-strain (+ 1d-30 (sqrt (* 0.5d0 (expt (cl-mpm/utils::trace-voigt (deviatoric-voigt stress)) 2d0))))))
     (declare (type double-float effective-strain A))
     (if (> effective-strain 0d0)
         (/ 1d0 (* 2d0 A (the double-float (expt effective-strain (- visc-power 1d0)))))

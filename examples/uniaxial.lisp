@@ -1076,6 +1076,7 @@
                         (cl-mpm/dynamic-relaxation::converge-quasi-static
                          *sim*
                          :energy-crit 1d-2
+                         :oobf-crit 1d-2
                          :dt-scale 0.8d0
                          :conv-steps 20
                          :substeps (* 50 1)
