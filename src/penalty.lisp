@@ -294,7 +294,7 @@
                                    (expt (abs penetration-dist) 1d0)
                                    epsilon
                                    ;; h
-                                   ;; volume
+                                   (expt volume (/ (- nd 1) nd))
                                    ;(expt h (/ 1 nd))
                                    )))
              (sb-thread:with-mutex (*debug-mutex*)
