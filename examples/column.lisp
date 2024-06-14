@@ -135,9 +135,11 @@
                            (round  (* e mp-s) h-x)
                            ) block-size
                              (list
+                              ;; mp-scale
+                              1
                               mp-scale
-                              mp-scale
-                              mp-scale
+                              1
+                              ;; mp-scale
                                         ;mp-scale
                                         ;mp-scale
                                    ))
@@ -147,13 +149,16 @@
                  'cl-mpm/particle::particle-elastic
                  :E 1d5
                  :nu 0.0d0
-                 :gravity -10.0d0
+                 :gravity -00.0d0
                  :damping (/ (* 0.00d0
                                 density
                                 (cl-mpm/setup::estimate-critical-damping-mp sim 1d5 density)) (expt h 1))
                  )))
 
-        (setf (cl-mpm:sim-damping-factor sim) 0.0d0)
+        (setf (cl-mpm:sim-damping-factor sim)
+              (* 
+               0.1d0
+               (cl-mpm/setup::estimate-critical-damping sim)))
         (setf (cl-mpm:sim-mass-filter sim) 1d-15)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (setf (cl-mpm:sim-bcs sim)
@@ -161,7 +166,7 @@
                                               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
                                               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
                                               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
-                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+                                              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
                                               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
                                               (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
                                               ))
@@ -196,15 +201,15 @@
                         sim
                       (let ((datum (- (+ *initial-surface* *target-displacement*)))
                             (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
-                        ;; (cl-mpm/penalty::apply-displacement-control-mps
-                        ;;  ;; cl-mpm/penalty::apply-force-mps
-                        ;;  mesh
-                        ;;  (coerce *terminus-mps* 'vector)
-                        ;;  dt
-                        ;;  normal
-                        ;;  datum
-                        ;;  (* 1d5 0)
-                        ;;  0d0)
+                        (cl-mpm/penalty::apply-displacement-control-mps
+                         ;; cl-mpm/penalty::apply-force-mps
+                         mesh
+                         (coerce *terminus-mps* 'vector)
+                         dt
+                         normal
+                         datum
+                         (* 1d5 0.1)
+                         0d0)
                         ))))))))
 
         sim))))
@@ -218,7 +223,7 @@
 (defun setup (&key (refine 0d0) (mps 2d0))
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
   (let* ((e (expt 2 (+ 4 refine)))
-         (L 16d0)
+         (L 50d0)
          (h (/ L e)))
     (format t "H:~E~%" h)
     (defparameter
@@ -240,8 +245,8 @@
   (defparameter *time* '())
   (defparameter *t* 0)
   (defparameter *sim-step* 0)
-  (defparameter *run-sim* nil)
-  (defparameter *run-sim* t)
+  ;; (defparameter *run-sim* nil)
+  ;; (defparameter *run-sim* t)
 
   ;; (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
   ;; (defparameter *load-mps-top*
@@ -267,24 +272,60 @@
 
 (defparameter *run-sim* nil)
 (defun run-conv ()
-  (loop for i from 2 to 10
+  (setf *run-sim* t)
+  (loop for i from 2 to 6;10
+        while *run-sim*
         do
            (let ((elements (expt 2 i))
                  (final-time 15))
-             (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
-             (setf (cl-mpm:sim-dt *sim*) (* 1d-2 (/ 16 elements)))
+             (let* ((e elements)
+                    (L 32d0)
+                    (h (/ L e)))
+               (format t "H:~E~%" h)
+               (defparameter
+                   *sim*
+                 (setup-test-column (list
+                                     h
+                                     (+ L h)
+                                     )
+                                    (list
+                                     h
+                                     L
+                                     )
+                                    (/ 1d0 h)
+                                    2
+                                    )))
+             ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
+             (setf (cl-mpm:sim-dt *sim*)
+                   (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.8d0)
+                   ;; (* 1d-2 (/ 16 elements))
+                   )
              (format t "Running sim size ~a ~%" elements)
              (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
              (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
-             (time
-              (loop for steps from 0 to (round (/ final-time (cl-mpm:sim-dt *sim*)))
-                    do
-                       (cl-mpm::update-sim *sim*)))
-             (plot *sim*)
+             (vgplot:figure)
+             (let ((load-steps 10)
+                   (substeps (round 1d0 (cl-mpm:sim-dt *sim*))))
+               (time
+                (loop for steps from 0 to load-steps;(round (/ final-time (cl-mpm:sim-dt *sim*)))
+                      while *run-sim*
+                      do
+                         (progn
+                           (dotimes (i substeps)
+                             (cl-mpm::update-sim *sim*))
+                           (plot-sigma-yy)
+                           (swank.live:update-swank)
+                           ))))
+             ;; (plot *sim*)
+             (plot-sigma-yy)
              (sleep .01)
              (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
              (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)))
   )
+
+(defun stop ()
+  (setf *run-sim* nil))
+
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (asdf:system-relative-pathname "cl-mpm" "output/mesh.vtk")
                           *sim*)
@@ -306,7 +347,7 @@
       (vgplot:format-plot t "set xtics ~f" h))
   (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.8d0)
+         (dt-scale 0.1d0)
          (substeps (floor target-time dt)))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -353,7 +394,8 @@
                      (swank.live:update-swank)
                      (sleep .01)
                      ))))
-    ;; (vgplot:figure)
+  (vgplot:figure)
+  (plot-sigma-yy)
     ;; (vgplot:title "Velocity over time")
     ;; (vgplot:plot *time* *velocity*)
     )
@@ -377,7 +419,7 @@
            (max-y (+ (reduce #'max y-ref) (magicl:tref (cl-mpm/particle::mp-domain-size-0 (first mp-list)) 1 0)))
            (syy-ref (mapcar (lambda (x) (* rho g (- x max-y))) y-ref))
            )
-      (vgplot:figure)
+      ;; (vgplot:figure)
       (vgplot:plot syy y-ref "first";"first;;with points pt 7"
                    syy-ref y-ref "reference";"Ref;;with points pt 7"
                    )
@@ -456,12 +498,12 @@
 
 
 (defun cundall-test ()
-  (let ((test-refines (list 0 1 2 3 4 )))
+  (let ((test-refines (list 0 1 2 3)))
     (defparameter *data-conv-energy* (list))
     (defparameter *data-conv-strain-energy* (list))
     (defparameter *data-conv-kinetic-energy* (list))
     (defparameter *data-conv-step* (list))
-
+    (setf *run-sim* t)
     (loop for refine in test-refines
           do
              (let* ((step 0)
@@ -501,7 +543,6 @@
                (format t "Critical dt ~E~%" (cl-mpm:sim-dt *sim*))
                (vgplot:close-all-plots)
                (vgplot:figure)
-               (setf *run-sim* t)
                (let*
                    ((top-y
                       (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -516,7 +557,7 @@
                     (substeps (* 1 (expt 2 refine)))
                     (disp-inc (/ total-disp (* load-steps substeps)))
                     )
-                 ;; (incf *target-displacement* -1d-3)
+                 (setf *target-displacement* -1d0)
 
                  (format t "possible substeps?: ~E~%" (round 0.1d0 (cl-mpm:sim-dt *sim*)))
                  (time

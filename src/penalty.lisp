@@ -77,7 +77,8 @@
                  (let* ((pen-point (penetration-point mp penetration-dist datum normal))
                         (normal-force (* (expt penetration-dist 1d0)
                                          epsilon
-                                         (expt volume (/ (- nd 1) nd)))))
+                                         ;; (expt volume (/ (- nd 1) nd))
+                                         )))
                    (sb-thread:with-mutex (*debug-mutex*)
                      ;; (format t "Pen dist ~E - Normal Force ~E~%" penetration-dist normal-force)
                      (incf *debug-force* (* normal-force 1d0))
@@ -108,34 +109,42 @@
                                    (tang-vel (cl-mpm/fastmath:fast-.- mp-vel (magicl:scale normal rel-vel)))
                                    (tang-vel-norm-squared (cl-mpm/fastmath::mag-squared tang-vel))
                                    (normal-damping 0d0)
+                                   (svp (* svp (expt volume (/ (- nd 1) nd))))
                                    (damping-force (* normal-damping rel-vel))
                                    (force-friction mp-friction)
                                    (stick-friction (* friction (abs normal-force))))
 
-                              ;; Add in the trial sliding force
+                              ;; update trial frictional force
                               (when (> tang-vel-norm-squared 0d0)
-                                (let* ((tang-vel-norm (sqrt tang-vel-norm-squared))
-                                       (tang-normal (cl-mpm/fastmath:norm tang-vel))
+                                ;; We have sliding behaviour
+                                (let* (;(tang-vel-norm (sqrt tang-vel-norm-squared))
+                                       ;; (tang-normal (cl-mpm/fastmath:norm tang-vel))
                                        ;;Trial friction
-                                       (trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
+                                       ;(trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
                                        )
                                   (cl-mpm/fastmath::fast-fmacc
                                    force-friction
-                                   tang-normal
-                                   (* -1d0 trial-friction-force))))
+                                   tang-vel
+                                   (* -1d0 (/ epsilon 2d0) dt))))
                               (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
-                                (when (> (cl-mpm/fastmath::mag force-friction) stick-friction)
-                                  (setf force-friction
-                                        (magicl:scale
-                                         (cl-mpm/fastmath:norm force-friction)
-                                         0d0)))
-                                (cl-mpm/fastmath::fast-.+ force force-friction force))
+                                (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
+                                    (progn
+                                      (setf force-friction
+                                            (magicl:scale
+                                             (cl-mpm/fastmath:norm force-friction)
+                                             stick-friction))
+                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
+                                      (cl-mpm/fastmath::fast-.+ force force-friction force))
+                                    (progn
+                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
+                                      )
+                                    ))
+
                               (setf mp-friction force-friction)
 
                               (cl-mpm/fastmath::fast-fmacc force
                                                            normal
-                                                           (- normal-force
-                                                              damping-force))
+                                                           normal-force)
                               (cl-mpm/fastmath::fast-fmacc node-force
                                                            force
                                                            svp)

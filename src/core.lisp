@@ -316,6 +316,7 @@
                (nonlocal-damage nonlocal-damage)
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
+               (bcs-force-list bcs-force-list)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -329,7 +330,9 @@
                     ;;Turn momentum into velocity
                     (update-node-kinematics mesh dt)
                     (p2g-force mesh mps)
-                    (apply-bcs mesh bcs-force dt)
+                    (loop for bcs-f in bcs-force-list
+                          do (apply-bcs mesh bcs-f dt))
+                    ;; (apply-bcs mesh bcs-force dt)
                     ;;Update our nodes after force mapping
                     (update-node-forces sim)
                     ;;Apply velocity bcs

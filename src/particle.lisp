@@ -236,10 +236,14 @@
     :accessor mp-penalty-frictional-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::vector-zeros))
+   (penalty-friction-stick
+    :accessor mp-penalty-friction-stick
+    :type boolean
+    :initform nil)
    (penalty-contact
     :accessor mp-penalty-contact
     :type boolean
-    :initform t)
+    :initform nil)
    )
   (:documentation "A single material point"))
 

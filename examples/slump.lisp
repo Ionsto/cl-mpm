@@ -569,7 +569,7 @@
                 :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d2
+                :delay-time 1d3
                 :delay-exponent 2d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
@@ -578,7 +578,7 @@
                 :local-length length-scale;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
-                :enable-plasticity nil
+                :enable-plasticity t
                 :psi (* 00d0 (/ pi 180))
                 :phi (* 40d0 (/ pi 180))
                 :c 1000d3
@@ -589,7 +589,7 @@
                 ;; :slope slope
                 )))
         )
-      (let ((mass-scale 1d8)
+      (let ((mass-scale 1d4)
             (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
         (setf (cl-mpm::sim-mass-scale sim) mass-scale)
         (setf (cl-mpm:sim-damping-factor sim)
@@ -690,12 +690,12 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
-  (let* ((mesh-size (* 10 refine))
+  (let* ((mesh-size (* 20 refine))
          (mps-per-cell 2)
          (slope 0d0)
          (shelf-height 100)
-         (shelf-aspect 1)
-         (runout-aspect 1)
+         (shelf-aspect 2)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length)))
          (shelf-height-terminus shelf-height)
@@ -883,10 +883,10 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d3)
+ (let* ((target-time 1d1)
         (dt (cl-mpm:sim-dt *sim*))
         (dt-0 0d0)
-        (dt-scale 0.90d0)
+        (dt-scale 0.50d0)
         (settle-steps 15)
         (damp-steps 10)
         (collapse-target-time 1d0)
@@ -983,11 +983,11 @@
 
                         (when (>= steps settle-steps)
                           ;; (loop for mp across (cl-mpm:sim-mps *sim*) do (setf (cl-mpm/particle::mp-damage mp) 1d0))
-                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
-                               ;; (> energy-estimate 1d-4)
+                               (> energy-estimate 1d-3)
                                ;; (> *oobf* 1d0)
-                               nil
+                               ;; nil
                                ;; t
                                )
                               (progn
@@ -999,8 +999,8 @@
                               (progn
                                 (format t "Accelerate timestep~%")
                                 (setf
-                                 target-time 1d3
-                                 (cl-mpm::sim-mass-scale *sim*) 1d8)
+                                 target-time 1d1
+                                 (cl-mpm::sim-mass-scale *sim*) 1d4)
                                 )))
                         (when (>= steps damp-steps)
                           (setf (cl-mpm:sim-damping-factor *sim*)
