@@ -2747,7 +2747,6 @@ Calls func with only the node"
                   )
              (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
                  (when (< nf inner-factor)
-                   ;; (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol (/ pmod svp-sum))
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))

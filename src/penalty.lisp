@@ -1,4 +1,3 @@
-
 (defpackage :cl-mpm/penalty
   (:use :cl
         :cl-mpm
@@ -51,11 +50,6 @@
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   ;;If we lose contact we need to zero out our friction force
-  ;; (cl-mpm:iterate-over-mps
-  ;;  mps
-  ;;  (lambda (mp)
-  ;;    (setf (cl-mpm/particle::mp-penalty-contact mp) nil)))
-
   (with-accessors ((nd cl-mpm/mesh::mesh-nd))
       mesh
     (cl-mpm:iterate-over-mps
@@ -117,15 +111,11 @@
                               ;; update trial frictional force
                               (when (> tang-vel-norm-squared 0d0)
                                 ;; We have sliding behaviour
-                                (let* (;(tang-vel-norm (sqrt tang-vel-norm-squared))
-                                       ;; (tang-normal (cl-mpm/fastmath:norm tang-vel))
-                                       ;;Trial friction
-                                       ;(trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
-                                       )
-                                  (cl-mpm/fastmath::fast-fmacc
-                                   force-friction
-                                   tang-vel
-                                   (* -1d0 (/ epsilon 2d0) dt))))
+                                (cl-mpm/fastmath::fast-fmacc
+                                 force-friction
+                                 tang-vel
+                                 (* -1d0 (/ epsilon 10d0) dt)))
+
                               (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
                                 (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
                                     (progn
@@ -136,18 +126,18 @@
                                       (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
                                       (cl-mpm/fastmath::fast-.+ force force-friction force))
                                     (progn
-                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
-                                      )
-                                    ))
+                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil))))
 
                               (setf mp-friction force-friction)
 
                               (cl-mpm/fastmath::fast-fmacc force
                                                            normal
                                                            normal-force)
+
                               (cl-mpm/fastmath::fast-fmacc node-force
                                                            force
                                                            svp)
+
                               (cl-mpm/fastmath::fast-fmacc node-ext-force
                                                            force
                                                            svp)
@@ -177,43 +167,28 @@
       bc
     (collect-contact-points mesh mps normal datum)))
 
-;; (declaim (notinline apply-non-conforming-nuemann))
-;; (defun apply-non-conforming-nuemann (sim func-stress func-div)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh)
-;;                    (mps cl-mpm::sim-mps))
-;;       sim
-;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-;;         ;; mesh
-;;       ;; (locate-mps-cells mesh mps)
-;;       (populate-nodes-volume mesh)
-;;       ;; (populate-nodes-domain mesh)
-;;       (apply-force-mps mesh mps
-;;                        (lambda (mp) (calculate-val-mp mp func-stress))
-;;                        (lambda (mp) (calculate-val-mp mp func-div)))
-;;       (apply-force-cells mesh
-;;                          func-stress
-;;                          func-div
-;;                          )
-;;       )))
 (defun apply-penalty (sim normal datum epsilon friction)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps)
                    (dt cl-mpm::sim-dt)
                    )
       sim
-    (apply-force-mps mesh mps dt normal datum epsilon friction)))
+    (apply-force-mps mesh mps dt
+                     normal
+                     datum
+                     epsilon
+                     friction
+                     )))
 
 (defclass bc-penalty (cl-mpm/bc::bc)
   ((normal
     :accessor bc-penalty-normal
     :initarg :normal
-    :initform (magicl:zeros '(3 1))
-    )
+    :initform (cl-mpm/utils:vector-zeros))
    (datum
     :accessor bc-penalty-datum
     :initarg :datum
-    :initform 0d0
-    )
+    :initform 0d0)
    (sim
     :accessor bc-penalty-sim
     :initarg :sim)
@@ -223,8 +198,12 @@
    (epsilon
     :accessor bc-penalty-epsilon
     :initarg :epsilon)
-
-   )
+   (load
+    :accessor bc-penalty-load
+    :initform 0d0)
+   (load-lock
+    :accessor bc-penalty-load-lock
+    :initform (sb-thread:make-mutex)))
   (:documentation "A nonconforming neumann bc"))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty) node mesh dt)
@@ -240,8 +219,7 @@
      normal
      datum
      epsilon
-     friction)
-    ))
+     friction)))
 
 (defun make-bc-penalty (sim datum epsilon friction)
   (let ((normal (cl-mpm/fastmath::norm (cl-mpm/utils:vector-zeros))))
