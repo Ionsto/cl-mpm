@@ -383,7 +383,6 @@
                 (push (funcall front (list x y z)) outlist))
               (when (= z zsize)
                 (push (funcall back (list x y z)) outlist))))
-
           (delete nil outlist)))))
 (defun make-outside-bc-var (mesh left right top bottom
                             ;; front back

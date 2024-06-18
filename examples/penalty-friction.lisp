@@ -50,18 +50,9 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                ;; 'cl-mpm/particle::particle-elastic-damage
                 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-vm
                 :E 1d9
                 :nu 0.30d0
-                ;; :rho 20d3
-                ;; :initiation-stress 1d3
-                ;; :damage-rate 1d-6
-                ;; :critical-damage 0.50d0
-                ;; :local-length 2d0
-                ;; :local-length-damaged 0.01d0
-                ;; :damage 0.0d0
                 :gravity -10.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list (list
                                                               (- (sin angle-rad))
@@ -76,7 +67,7 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.01d0 (cl-mpm/setup::estimate-critical-damping sim))))
+              (* 0d0 (cl-mpm/setup::estimate-critical-damping sim))))
 
       (let ((dt-scale 1d0))
         (setf
@@ -274,7 +265,7 @@
   (loop for refine from 0d0 upto 1d0 by 0.1d0
         do
            (progn
-             (setup :angle 10d0 :refine 2)
+             (setup :angle 10d0 :refine 1)
              (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) refine)
              ;; (setup :angle 10d0 :mps (+ refine 1))
              (defparameter *data-t* (list))
@@ -317,7 +308,77 @@
                                          (length (cl-mpm:sim-mps *sim*))))
 
                                   (push *t* *data-t*)
-                                  (push disp-av *data-v*))
+                                  (push v-av *data-v*))
+                                (apply #'vgplot:plot (reduce #'append (mapcar #'list
+                                                                              (append *conv-data-t* (list *data-t*))
+                                                                              (append *conv-data-v* (list *data-v*))
+                                                                              (mapcar (lambda (x) (format nil "~A" x)) (append *conv-data-refine* (list refine)))
+                                                                              )))
+                                (swank.live:update-swank)
+                                )))))
+
+             (push *data-t* *conv-data-t*)
+             (push *data-v* *conv-data-v*)
+             (push refine *conv-data-refine*)
+             (apply #'vgplot:plot (reduce #'append (mapcar #'list
+                                                           *conv-data-t*
+                                                           *conv-data-v*
+                                                           (mapcar (lambda (x) (format nil "~A" x)) *conv-data-refine*)
+                                                           )))
+             ))
+(defun test-varying-angle ()
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
+  (defparameter *conv-data-t* (list))
+  (defparameter *conv-data-v* (list))
+  (defparameter *conv-data-refine* (list))
+  (vgplot:figure)
+  (loop for refine in (list 5d0 10d0 20d0 30d0 40d0)
+        do
+           (progn
+             (setup :angle refine :refine 1)
+             (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0.2d0)
+             ;; (setup :angle 10d0 :mps (+ refine 1))
+             (defparameter *data-t* (list))
+             (defparameter *data-v* (list))
+             (defparameter *sim-step* 0)
+             (let* ((target-time 0.1d0)
+                    (dt (cl-mpm/setup::estimate-elastic-dt *sim*))
+                    (substeps (floor target-time dt)))
+               (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+               (format t "Substeps ~D~%" substeps)
+               (time (loop for steps from 0 to 10
+                           while *run-sim*
+                           do
+                              (progn
+                                (format t "Step ~d ~%" steps)
+                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~2,'0d_~5,'0d.vtk" refine *sim-step*)) *sim*)
+                                (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_~2,'0d_nodes_~5,'0d.vtk" refine *sim-step*)) *sim*)
+                                (incf *sim-step*)
+                                (let ((v-av 0d0)
+                                      (disp-av 0d0))
+                                  (time
+                                   (dotimes (i substeps)
+                                     (cl-mpm::update-sim *sim*)
+                                     (incf v-av
+                                           (/
+                                            (lparallel:pmap-reduce
+                                             (lambda (mp)
+                                               (magicl:tref (cl-mpm/particle::mp-velocity mp) 0 0))
+                                             #'+
+                                             (cl-mpm:sim-mps *sim*))
+                                            (* (length (cl-mpm:sim-mps *sim*)) substeps)))
+                                     (incf *t* (cl-mpm::sim-dt *sim*))))
+                                  (setf disp-av
+                                        (/
+                                         (lparallel:pmap-reduce
+                                          (lambda (mp)
+                                            (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
+                                          #'+
+                                          (cl-mpm:sim-mps *sim*))
+                                         (length (cl-mpm:sim-mps *sim*))))
+
+                                  (push *t* *data-t*)
+                                  (push v-av *data-v*))
                                 (apply #'vgplot:plot (reduce #'append (mapcar #'list
                                                                               (append *conv-data-t* (list *data-t*))
                                                                               (append *conv-data-v* (list *data-v*))

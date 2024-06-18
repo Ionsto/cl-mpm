@@ -9,7 +9,8 @@
   (:import-from
     :magicl tref .+ .-)
   (:export
-    ))
+   #:make-bc-penalty
+   #:bc-penalty-friction))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;    #:make-shape-function
 (in-package :cl-mpm/penalty)
@@ -114,7 +115,7 @@
                                 (cl-mpm/fastmath::fast-fmacc
                                  force-friction
                                  tang-vel
-                                 (* -1d0 (/ epsilon 10d0) dt)))
+                                 (* -1d0 (/ epsilon 2d0) dt)))
 
                               (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
                                 (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
@@ -123,11 +124,10 @@
                                             (magicl:scale
                                              (cl-mpm/fastmath:norm force-friction)
                                              stick-friction))
-                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
-                                      (cl-mpm/fastmath::fast-.+ force force-friction force))
+                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
                                     (progn
-                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil))))
-
+                                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)))
+                                (cl-mpm/fastmath::fast-.+ force force-friction force))
                               (setf mp-friction force-friction)
 
                               (cl-mpm/fastmath::fast-fmacc force
@@ -329,5 +329,4 @@
                         (cl-mpm/fastmath::fast-fmacc
                          node-ext-force
                          force
-                         svp))
-                      ))))))))))))
+                         svp))))))))))))))
