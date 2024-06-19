@@ -1,4 +1,4 @@
-(defpackage :cl-mpm
+(defpackage :cl-mpm
   (:use :cl
         :cl-mpm/particle
         :cl-mpm/mesh
