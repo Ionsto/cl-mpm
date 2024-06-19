@@ -3,6 +3,8 @@
   (:export
    #:save-vtk-mesh
    #:save-vtk
+   #:save-vtk-nodes
+   #:save-vtk-cells
    #:save-csv
    ))
 

@@ -538,3 +538,13 @@
 
   (values))
 
+(declaim
+  (ftype (function (double-float) magicl::matrix/double-float) voigt-eye))
+(defun voigt-eye (value)
+  (voigt-from-list (list value value value 0d0 0d0 0d0)))
+
+(defun rotation-matrix (degrees)
+  (let ((angle (/ (* pi degrees) 180)))
+    (matrix-from-list (list (cos angle) (- (sin angle)) 0d0
+                            (sin angle) (cos angle) 0d0
+                            0d0 0d0 1d0))))

@@ -46,9 +46,6 @@
     (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
     (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-z)
     (vgplot:format-plot t "set zrange [~f:~f]" 0d0 ms-y)
-    ;; (vgplot::axis-3d (list 0 ms-x
-    ;;                       0 ms-y
-    ;;                       0 ms-z))
     (vgplot:format-plot t "set ticslevel 0")
     (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
     (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))

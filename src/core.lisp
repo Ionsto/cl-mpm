@@ -182,17 +182,17 @@
                       (when (> (abs (magicl:tref vel i 0)) 1e10)
                         (pprint mp)
                         (error "High velocity found"))))))))
-    ;; (remove-mps-func
-    ;;    sim
-    ;;    (lambda (mp)
-    ;;      (with-accessors ((damage cl-mpm/particle:mp-damage)
-    ;;                       (def cl-mpm/particle::mp-deformation-gradient))
-    ;;          mp
-    ;;        (or
-    ;;         (gimp-removal-criteria mp h)
-    ;;         ;; (cl-mpm/mesh::in-bounds-array mesh (magicl::matrix/double-float-storage
-    ;;         ;;                                     (cl-mpm/particle::mp-position mp)))
-    ;;         ))))
+    (remove-mps-func
+       sim
+       (lambda (mp)
+         (with-accessors ((damage cl-mpm/particle:mp-damage)
+                          (def cl-mpm/particle::mp-deformation-gradient))
+             mp
+           (or
+            (gimp-removal-criteria mp h)
+            ;; (cl-mpm/mesh::in-bounds-array mesh (magicl::matrix/double-float-storage
+            ;;                                     (cl-mpm/particle::mp-position mp)))
+            ))))
     )))
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'speed  3 3)
@@ -2747,7 +2747,6 @@ Calls func with only the node"
                   )
              (let ((nf (/ mass (* vol (/ pmod svp-sum)))))
                  (when (< nf inner-factor)
-                   ;; (format t "Mass: ~a - Vol: ~a - Pmod: ~a~%" mass vol (/ pmod svp-sum))
                    (setf inner-factor nf)))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))

@@ -2172,27 +2172,11 @@
 
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
-    ;; (cl-mpm/utils::stretch-to-sym D strain-rate)
-    ;; (cl-mpm/fastmath::fast-scale D dt)
-    ;;Viscous relaxation
-    ;; (let* ((viscosity
-    ;;          (cl-mpm/constitutive::glen-viscosity-strain strain-rate visc-factor visc-power)
-    ;;          ;; (cl-mpm/constitutive::glen-viscosity-stress stress-u visc-factor visc-power)
-    ;;          )
-    ;;        (visc-u viscosity)
-    ;;        ;; (viscosity (* viscosity (max 1d-10 (expt (- 1d0 damage) 1))))
-    ;;        ;; (viscosity (* viscosity 0.1d0))
-    ;;        )
-    ;;   (setf stress-u
-    ;;         (cl-mpm/constitutive:maxwell-exp-v
-    ;;          strain-rate
-    ;;          stress-u
-    ;;          E nu de
-    ;;          viscosity dt))
-    ;;   (setf strain (magicl:linear-solve de stress-u))
-    ;;   ;; (setf stress (magicl:scale stress-u 1d0))
-    ;;   )
-    ;; (setf stress (magicl:scale stress-u 1d0))
+
+    ;; (cl-mpm/fastmath::fast-.+ stress-u
+    ;;                           (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
+    ;; (setf strain (magicl:linear-solve de stress-u))
+
 
 
     (if enable-plasticity
@@ -2239,24 +2223,25 @@
     ;; ;;                                              (cl-mpm/utils::matrix-from-diag l)
     ;; ;;                                              (magicl:transpose v))))))
     (when (> damage 0.0d0)
-      (let* ((pressure (* pressure damage 0d0)))
+      (let* ((pressure (* pressure damage)))
         (declare (double-float damage))
-        (let* ((pressure pressure)
-               (p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
+        (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+          ;; (incf p (* -1d0 pressure damage))
           (setf
            p
-           (+ pressure
+           (+ 0d0;pressure
               (if (> p 0d0)
                   (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
                   ;; (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
-                  p
-                  )))
+                  p)))
           (cl-mpm/fastmath:fast-.+
            (cl-mpm/constitutive::voight-eye p)
            (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))
            stress)
           )))
+    ;; (cl-mpm/fastmath::fast-.+ stress
+    ;;                           (cl-mpm/utils::voigt-eye (/ (* pressure damage) 3d0)))
 
     ;; (when (> damage 0.0d0)
     ;;   (let* ((pressure (* pressure damage)))

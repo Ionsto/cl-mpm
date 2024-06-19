@@ -110,16 +110,16 @@
          (when active
            (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
-               (setf oobf-norm
-                     (+
-                      oobf-norm
-                      (*
-                       (cl-mpm/mesh:node-mass node)
-                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                       (/
-                        (cl-mpm/fastmath::mag-squared
-                         (magicl:.+ f-ext f-int))
-                        (cl-mpm/fastmath::mag-squared f-ext)))))
+               ;(setf oobf-norm
+               ;      (+
+               ;       oobf-norm
+               ;       (*
+               ;        (cl-mpm/mesh:node-mass node)
+               ;        ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+               ;        (/
+               ;         (cl-mpm/fastmath::mag-squared
+               ;          (magicl:.+ f-ext f-int))
+               ;         (cl-mpm/fastmath::mag-squared f-ext)))))
 
                (setf nmax (+
                            nmax
@@ -274,39 +274,20 @@
                  (setf fnorm 0d0
                        load 0d0)
                  (dotimes (j substeps)
-                   ;; (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
-                   ;; (incf fnorm (/ (estimate-energy-norm sim) substeps))
-                   ;; (incf load (/ cl-mpm/penalty::*debug-force* substeps))
-                   (incf *work* (estimate-power-norm sim))
-                   )
+                   (incf *work* (estimate-power-norm sim)))
                  (setf load cl-mpm/penalty::*debug-force*)
                  (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
-                 ;; (setf fnorm (estimate-energy-norm sim))
-                 ;; (incf fnorm (estimate-energy-norm sim))
-                 ;; (when t;live-plot
-                 ;;   (plot-time-disp full-step full-load full-energy))
-                 ;; (plot-time-disp)
                  (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                 (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
-                 ;; (format t "")
-                 ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
-                 ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                 ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                 ;;   ;; (setf substeps substeps-e)
-                 ;;   )
-
                  (setf oobf (estimate-oobf sim))
+                 (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                  (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                          load)
                  (when (and (< fnorm energy-crit)
                             (< oobf oobf-crit))
                    (format t "Took ~D steps to converge~%" i)
                    (setf converged t))
-                 ;; (when (= i (round (* conv-steps 0.5)))
-                 ;;   (setf dt-scale (* dt-scale 0.25d0))
-                 ;;   (format t "Dropped dt-scale to ~E ~%" dt-scale))
                  (when post-iter-step
                    (funcall post-iter-step i fnorm oobf))
                  (swank.live:update-swank))))
@@ -336,7 +317,8 @@
          (target-time 1d-4)
          ;; (work 0d0)
         (converged nil))
-    (format t "Substeps ~D~%" substeps)
+    (when (= rank 0)
+      (format t "Substeps ~D~%" substeps))
     (setf *work* 0d0)
     (let ((full-load (list))
           (full-step (list))
@@ -349,30 +331,26 @@
                  (dotimes (j substeps)
                    (setf cl-mpm/penalty::*debug-force* 0d0)
                    (cl-mpm:update-sim sim)
-                   (setf load (cl-mpm/mpi:mpi-sum cl-mpm/penalty::*debug-force*))
                    (incf *work* (estimate-power-norm sim)))
+
+                 (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
+                 (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
+                 (setf oobf (estimate-oobf sim))
                  (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+
                  (when (= 0 rank)
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
 
-                 (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
-                 (setf oobf (estimate-oobf sim))
 
-                 (let ((force (cl-mpm/mpi:mpi-sum cl-mpm/penalty::*debug-force*)))
+                 (when (= 0 rank)
+                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
+                 (when (and (< fnorm energy-crit)
+                            (< oobf oobf-crit))
                    (when (= 0 rank)
-                     (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
-                             force))
-                   (when (and (< fnorm energy-crit)
-                              (< oobf oobf-crit))
-                     (when (= 0 rank)
-                       (format t "Took ~D steps to converge~%" i))
-                     (setf converged t))
-                   ;; (when (= i (round (* conv-steps 0.5)))
-                   ;;   (setf dt-scale (* dt-scale 0.25d0))
-                   ;;   (when (= 0 rank)
-                   ;;     (format t "Dropped dt-scale to ~E ~%" dt-scale)))
-                   (when post-iter-step
-                     (funcall post-iter-step i fnorm oobf)))
+                     (format t "Took ~D steps to converge~%" i))
+                   (setf converged t))
+                 (when post-iter-step
+                   (funcall post-iter-step i fnorm oobf))
                  (swank.live:update-swank))))
     (when (not converged)
       (error (make-instance 'non-convergence-error

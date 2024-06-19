@@ -121,7 +121,7 @@
 
 (defun setup ()
   (let ((mps-per-dim 2))
-    (defparameter *sim* (setup-test-column '(16 16 16) '(8 8 8) *refine* mps-per-dim)))
+    (defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
