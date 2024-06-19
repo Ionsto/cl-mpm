@@ -13,6 +13,7 @@
     #:make-bc-friction
     #:make-bc-buoyancy
     #:make-bc-fixed-temp
+    #:make-bc-closure
     )
   )
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -426,6 +427,7 @@
                    (funcall make-bc (list x y))))))))
 
 (defun make-bc-closure (index func)
+  "Make a closure bc that calls a lambda function"
   (make-instance 'bc-closure
                  :index index
                  :func func))

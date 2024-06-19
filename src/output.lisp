@@ -536,8 +536,8 @@
 
         (cl-mpm/output::save-parameter
          "rho"
-         (if (slot-exists-p mp 'cl-mpm/particle::c)
-             (cl-mpm/particle::mp-c mp)
+         (if (slot-exists-p mp 'cl-mpm/particle::rho)
+             (cl-mpm/particle::mp-rho mp)
              0d0))
          ;; (multiple-value-bind (l v)
          ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
