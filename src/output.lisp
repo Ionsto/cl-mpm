@@ -480,7 +480,8 @@
       ;; (with-parameter-list fs mps
       ;;   ("mass" (lambda (mp) (cl-mpm/particle:mp-mass mp))))
 
-      (let ((id 1))
+      (let ((id 1)
+            (nd (cl-mpm/mesh:mesh-nd mesh)))
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
 
@@ -502,21 +503,28 @@
 
         (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
-        (cl-mpm/output::save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
-        (cl-mpm/output::save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
-        (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0))
         (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
+        (when (= nd 3)
+          (cl-mpm/output::save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+          (cl-mpm/output::save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
+          (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0)))
 
         (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-strain mp) 0 0))
         (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
-        (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
-        (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
-        (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0))
         (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
+
+
+        (when (= nd 3)
+          (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
+          (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
+          (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0)))
+
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+        (when (= nd 3)
+          (save-parameter "size_z" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0)))
         (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact mp) 1 0))
         (cl-mpm/output::save-parameter "fric-contact-stick" (if (cl-mpm/particle::mp-penalty-friction-stick mp) 1 0))
         (cl-mpm/output::save-parameter "fric-x" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
@@ -541,6 +549,17 @@
          (if (slot-exists-p mp 'cl-mpm/particle::rho)
              (cl-mpm/particle::mp-rho mp)
              0d0))
+        (cl-mpm/output::save-parameter
+         "c"
+         (if (slot-exists-p mp 'cl-mpm/particle::c)
+             (cl-mpm/particle::mp-c mp)
+             0d0))
+        (cl-mpm/output::save-parameter
+         "phi"
+         (if (slot-exists-p mp 'cl-mpm/particle::phi)
+             (* (cl-mpm/particle::mp-phi mp) (/ 180 pi))
+             0d0))
+
          ;; (multiple-value-bind (l v)
          ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
          ;;   (destructuring-bind (s1 s2 s3) l

@@ -2765,6 +2765,16 @@ This modifies the dt of the simulation in the process
     (values dt-e substeps-e)
     )
   )
+(defgeneric add-mps (sim mps-array))
+(defmethod add-mps (sim mps-array)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+      (if (> (length mps) 0)
+          (progn
+            (loop for mp across mps-array
+                  do (vector-push-extend mp mps (length mps-array))))
+          (setf (cl-mpm:sim-mps sim) mps-array))))
+
 #||
 (progn
 (ql:quickload :cl-mpm/examples/fracture)
@@ -2775,3 +2785,4 @@ This modifies the dt of the simulation in the process
 
 
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+

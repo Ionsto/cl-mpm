@@ -275,6 +275,12 @@
     )
    )
   (:documentation "A linear-elastic material point"))
+(defclass particle-plastic (particle)
+  ((enable-plasticity
+    :accessor mp-enable-plasticity
+    :initarg :enable-plasticity
+    :initform t
+    )))
 
 (defclass particle-vm (particle-elastic)
   ((rho
@@ -297,7 +303,7 @@
    )
   (:documentation "A vm perfectly plastic material point"))
 
-(defclass particle-mc (particle-elastic)
+(defclass particle-mc (particle-elastic particle-plastic)
   ((phi
     :accessor mp-phi
     :initarg :phi
@@ -708,55 +714,59 @@
 
     ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
     ;; (setf pressure (funcall calc-pressure pos))
-    (cl-mpm/fastmath::fast-.+
-     stress-undamaged
-     (objectify-stress-logspin
-      (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
-      stress-undamaged
-      def
-      vorticity
-      D)
-     stress-undamaged)
+    ;; (cl-mpm/fastmath::fast-.+
+    ;;  stress-undamaged
+    ;;  (objectify-stress-logspin
+    ;;   (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
+    ;;   stress-undamaged
+    ;;   def
+    ;;   vorticity
+    ;;   D)
+    ;;  stress-undamaged)
 
-    (setf stress (magicl:scale stress-undamaged 1d0))
+    ;; (setf stress (magicl:scale stress-undamaged 1d0))
 
-    (when (> damage 0.0d0)
-      (let* ((j 1d0)
-             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-                                (magicl:scale! s (max 1d-3 (expt (- 1d0 damage) 2d0)))
-                                ))
-        (multiple-value-bind (l v) (cl-mpm/utils::eig
-                                    (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
-          (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
-                 (tp (funcall calc-pressure pos))
-                 (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
-                 (degredation (expt (- 1d0 damage) 2d0)))
-            (setf pressure tp)
-            (loop for i from 0 to 2
-                  do
-                     (let* ((sii (nth i l))
+    ;; (when (> damage 0.0d0)
+    ;;   (let* ((j 1d0)
+    ;;          (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+    ;;          (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+    ;;     (setf stress (magicl:.+ (cl-mpm/constitutive::voight-eye p)
+    ;;                             (magicl:scale! s (max 1d-3 (expt (- 1d0 damage) 2d0)))
+    ;;                             ))
+    ;;     (multiple-value-bind (l v) (cl-mpm/utils::eig
+    ;;                                 (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+    ;;       (let* (;(tp (funcall calc-pressure (magicl:tref pos 1 0) datum rho))
+    ;;              (tp (funcall calc-pressure pos))
+    ;;              (driving-pressure (* tp 1d0 (expt (min 1.00d0 damage) 1)))
+    ;;              (degredation (expt (- 1d0 damage) 2d0)))
+    ;;         (setf pressure tp)
+    ;;         (loop for i from 0 to 2
+    ;;               do
+    ;;                  (let* ((sii (nth i l))
 
-                              (esii (- sii driving-pressure)))
-                         (when (> esii 0d0)
-                           ;;Tensile damage -> unbounded
-                           (setf (nth i l) (* esii (max 1d-6 degredation)))
-                           (setf (nth i l) (+ (nth i l) driving-pressure))
-                           )
-                         (when (< esii 1d0)
-                           ;;Bounded compressive damage
-                           (setf (nth i l) (* esii (max 1d0 degredation)))
-                           (setf (nth i l) (+ (nth i l) driving-pressure))
-                           )
-                         ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
-                         )
-                  )
-              (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
-                                                                      (magicl:from-diag l :type 'double-float)
-                                                                      (magicl:transpose v))) j))
-              ))
-        ))
+    ;;                           (esii (- sii driving-pressure)))
+    ;;                      (when (> esii 0d0)
+    ;;                        ;;Tensile damage -> unbounded
+    ;;                        (setf (nth i l) (* esii (max 1d-6 degredation)))
+    ;;                        (setf (nth i l) (+ (nth i l) driving-pressure))
+    ;;                        )
+    ;;                      (when (< esii 1d0)
+    ;;                        ;;Bounded compressive damage
+    ;;                        (setf (nth i l) (* esii (max 1d0 degredation)))
+    ;;                        (setf (nth i l) (+ (nth i l) driving-pressure))
+    ;;                        )
+    ;;                      ;; (setf (nth i l) (* sii (max 0d0 (- 1d0 damage))))
+    ;;                      )
+    ;;               )
+    ;;           (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+    ;;                                                                   (magicl:from-diag l :type 'double-float)
+    ;;                                                                   (magicl:transpose v))) j))
+    ;;           ))
+    ;;     ))
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
+    (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
+    (when (> damage 0d0)
+      (cl-mpm/fastmath::fast-scale stress (- 1d0 (* (- 1d0 1d-9) damage))))
     stress
     ))
 
@@ -1417,27 +1427,29 @@
                    (ps-vm mp-strain-plastic-vm)
                    (strain mp-strain)
                    (yield-func mp-yield-func)
+                   (enabled mp-enable-plasticity)
                    )
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress
           (cl-mpm/constitutive::linear-elastic-mat strain de))
-    (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
-      (setf stress
-            sig
-            plastic-strain (magicl:.- strain eps-e)
-            strain eps-e
-            yield-func f
-            ))
-    (incf ps-vm
-          (multiple-value-bind (l v)
-                     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                   (destructuring-bind (s1 s2 s3) l
-                     (sqrt
-                      (/ (+ (expt (- s1 s2) 2d0)
-                            (expt (- s2 s3) 2d0)
-                            (expt (- s3 s1) 2d0)
-                            ) 2d0)))))
+    (when enabled
+      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
+        (setf stress
+              sig
+              plastic-strain (magicl:.- strain eps-e)
+              strain eps-e
+              yield-func f
+              ))
+      (incf ps-vm
+            (multiple-value-bind (l v)
+                (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+              (destructuring-bind (s1 s2 s3) l
+                (sqrt
+                 (/ (+ (expt (- s1 s2) 2d0)
+                       (expt (- s2 s3) 2d0)
+                       (expt (- s3 s1) 2d0)
+                       ) 2d0))))))
     stress
     ))
 

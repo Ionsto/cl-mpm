@@ -540,6 +540,7 @@
                "cl-mpm/dynamic-relaxation"
                "cl-mpm/ghost"))
 
+
 (defsystem "cl-mpm/examples/uniaxial"
   :depends-on ("cl-mpm/examples/tpb"
                )
@@ -550,3 +551,18 @@
                )
   :serial t
   :components ((:file "examples/brazilian")))
+
+(defsystem "cl-mpm/examples/shear-box"
+  :depends-on ("cl-mpm"
+               "cl-mpm/setup"
+               "cl-mpm/particle"
+               "cl-mpm/output"
+               "cl-mpm/buoyancy"
+               "cl-mpm/penalty"
+               "cl-mpm/damage"
+               "cl-mpm/plotter"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/shear-box")))
+

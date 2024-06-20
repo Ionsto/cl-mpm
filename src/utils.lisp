@@ -156,12 +156,16 @@
     v)
   )
 
+(declaim (ftype (function (magicl::matrix/double-float) magicl::matrix/double-float) voigt-copy))
 (defun voigt-copy (vec)
   (let ((v (voigt-zeros)))
     (aops:copy-into (magicl::matrix/double-float-storage v)
                     (magicl::matrix/double-float-storage vec))
     v))
 
+(declaim (ftype (function (magicl::matrix/double-float
+                           magicl::matrix/double-float
+                           ) magicl::matrix/double-float) voigt-copy-into))
 (defun voigt-copy-into (source target)
   (aops:copy-into (magicl::matrix/double-float-storage target)
                   (magicl::matrix/double-float-storage source)
