@@ -105,7 +105,7 @@
    :colour-func 
    (lambda (mp)
      (if (= 0 (cl-mpm/particle::mp-index mp))
-         (cl-mpm/particle::mp-strain-plastic-vm mp)
+         (cl-mpm/particle::mp-strain-lastic-vm mp)
          0d0)))
   )
 (defun plot-load-disp ()
@@ -119,13 +119,13 @@
   (vgplot:ylabel "Shear stress (kN/m^2)")
   )
 
-(defun apply-penalty-box (left-x right-x height)
+(defun apply-penalty-box (left-x right-x height friction)
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
          (epsilon 1d9)
-         (friction 0.0d0)
+         ;; (friction 0.0d0)
          )
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps)
@@ -212,7 +212,7 @@
     ))
 
 (declaim (notinline setup-test-column))
-(defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1) &key (angle 0d0) (friction 0.1d0))
+(defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1) &key (angle 0d0) (friction 0.1d0) (surcharge-load 72.5d3))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
@@ -271,17 +271,19 @@
                 ;; :local-length-damaged 10d-10
                 :enable-plasticity t
                 :psi 0d0
-                :phi (* 42d0 (/ pi 180))
-                :c 131d3
+                ;; :phi (* 42d0 (/ pi 180))
+                ;; :c 131d3
+                :phi (* 30d0 (/ pi 180))
+                :c 0d3
 
                 :index 0
                 :gravity 0.0d0
                 )))
         )
       (let* ((sur-height (* 1 h-x))
-             (sur-size (list 0.8d0 sur-height))
+             (sur-size (list 0.06d0 sur-height))
              ;(load 72.5d3)
-             (load 184d3)
+             (load surcharge-load)
              (gravity 10d0)
              (density-sur (/ load (* gravity sur-height)))
              )
@@ -359,7 +361,7 @@
       mp
     (let* ((rho-0 200d3)
            (rho-1 200d2)
-           (soft 1000d0)
+           (soft 100d0)
            )
       (setf rho (+ rho-1 (* (- rho-0 rho-1) (exp (- (* soft ps)))))))))
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
@@ -372,16 +374,18 @@
                     (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft 10d0))
+          (soft 1d0))
       (setf
        c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))
+    )
+  )
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0))
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
-         (mesh-size (/ 0.4d0 refine))
-         (sunk-size 0.4d0)
+         (mesh-size (/ 0.03d0 refine))
+         (sunk-size 0.03d0)
          (box-size (* 2d0 sunk-size))
          (domain-size (* 3d0 box-size))
          (offset (list box-size 0))
@@ -401,7 +405,7 @@
              (cl-mpm/bc::make-bc-closure
               nil
               (lambda ()
-                (apply-penalty-box box-size (* 2d0 box-size) sunk-size)
+                (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)
                 ;; (apply-loading-force box-size (* 2d0 box-size) sunk-size)
                 )))))))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
@@ -422,11 +426,11 @@
   (defparameter *data-disp* (list))
   (defparameter *data-v* (list))
   (vgplot:close-all-plots)
-  (let* ((target-time 0.01d0)
+  (let* ((target-time 0.001d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
-         (load-steps 500)
+         (dt-scale 0.8d0)
+         (load-steps 200)
          (displacment 8d-3)
          (disp-inc (/ displacment load-steps)))
 
@@ -445,10 +449,10 @@
 
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :energy-crit 1d-3
+     :energy-crit 1d-2
      :oobf-crit 1d0
      :substeps 10
-     :conv-steps 100)
+     :conv-steps 200)
 
     ;; (loop for steps from 0 below load-steps
     ;;       while *run-sim*
@@ -465,7 +469,7 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.5d0 (cl-mpm/setup::estimate-critical-damping *sim*))
+          (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*))
           ;; (cl-mpm::sim-enable-damage *sim*) t
           )
     (format t "Substeps ~D~%" substeps)

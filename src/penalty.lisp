@@ -58,7 +58,7 @@
      (lambda (mp)
        (let* ((penetration-dist (penetration-distance mp datum normal)))
          (declare (double-float penetration-dist))
-         (if (> penetration-dist 0d0)
+         (when (> penetration-dist 0d0)
              (progn
                ;;Contact
                (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -147,11 +147,7 @@
                                   (cl-mpm/fastmath::fast-fmacc node-ext-force
                                                                force
                                                                svp)
-                                  )))))))))))
-             (progn
-               ;;No contact
-               (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-               (cl-mpm/fastmath::fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp)))))))))
+                                  )))))))))))))))))
 
 (defun collect-contact-points (mesh mps normal datum)
   (loop for mp across mps
