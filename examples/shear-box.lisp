@@ -372,16 +372,10 @@
                     (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft 1000d0))
-      ;; (setf c (+ rho_1
-      ;;            (* (- rho_0 rho_1) (exp (- (* soft ps))))))
+          (soft 10d0))
       (setf
        c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
-       )
-      )
-    )
-  )
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0))
   (defparameter *displacement-increment* 0d0)
@@ -428,26 +422,20 @@
   (defparameter *data-disp* (list))
   (defparameter *data-v* (list))
   (vgplot:close-all-plots)
-  (let* ((target-time 0.005d0)
+  (let* ((target-time 0.01d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
-         (load-steps 100)
+         (load-steps 500)
          (displacment 8d-3)
-         (disp-inc (/ displacment load-steps))
-         )
+         (disp-inc (/ displacment load-steps)))
+
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
-    ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
-    ;;  *sim*
-    ;;  :energy-crit 1d-3
-    ;;  :oobf-crit 1d-3
-    ;;  :substeps 10
-    ;;  :substeps 10)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d0 (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -455,15 +443,22 @@
           do (when (= (cl-mpm/particle::mp-index mp) 0)
                (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
-    (loop for steps from 0 below load-steps
-          while *run-sim*
-          do
-             (progn
-               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_grav_~5,'0d.vtk" steps)) *sim*)
-              (dotimes (i 10)
-                (cl-mpm::update-sim *sim*))
-              (format t "Energy ~F~%" (cl-mpm/dynamic-relaxation:estimate-energy-norm *sim*))
-              (swank.live:update-swank)))
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :energy-crit 1d-3
+     :oobf-crit 1d0
+     :substeps 10
+     :conv-steps 100)
+
+    ;; (loop for steps from 0 below load-steps
+    ;;       while *run-sim*
+    ;;       do
+    ;;          (progn
+    ;;            (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_grav_~5,'0d.vtk" steps)) *sim*)
+    ;;           (dotimes (i 10)
+    ;;             (cl-mpm::update-sim *sim*))
+    ;;           (format t "Energy ~F~%" (cl-mpm/dynamic-relaxation:estimate-energy-norm *sim*))
+    ;;           (swank.live:update-swank)))
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)

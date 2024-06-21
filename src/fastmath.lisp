@@ -12,6 +12,8 @@
    :fast-.+
    :fast-.-
    :fast-.*
+   :fast-scale
+   :fast-zero
     ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))

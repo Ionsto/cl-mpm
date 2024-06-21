@@ -21,6 +21,8 @@
     #:mp-heat-capacity
     #:mp-critical-stress
     #:mp-deformation-gradient
+    #:mp-penalty-contact
+    #:mp-penalty-frictional-force
     #:constitutive-model
     #:particle
     #:particle-damage

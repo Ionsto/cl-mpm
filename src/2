@@ -230,7 +230,8 @@
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
                (bcs-force-list bcs-force-list)
-               (time time))
+               (time time 
+               )
                 sim
     (declare (type double-float mass-filter))
                 (progn

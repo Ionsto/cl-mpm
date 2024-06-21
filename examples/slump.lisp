@@ -357,9 +357,9 @@
             )
     (progn
       (let* ((length-scale (* 1 h))
-             (stress 0.3d6)
+             ;; (stress 0.3d6)
              (stress 0.1d6)
-             (gf 500d0)
+             (gf 1000d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
              ;; (ductility 5d0)
@@ -430,7 +430,7 @@
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm:sim-dt sim) 1d-8)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -448,7 +448,7 @@
              (ocean-x 1000)
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
              (ocean-y (+ (* 2d0 h-y)
-                         (- terminus-size 50d0)))
+                         (- terminus-size 100d0)))
              ;; (ocean-y 0d0)
              ;; (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
@@ -458,7 +458,7 @@
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
 
-        (let ((floor-friction 0.2d0))
+        (let ((floor-friction 0.5d0))
           (defparameter *ocean-floor-bc*
             (cl-mpm/penalty::make-bc-penalty-point-normal
              sim
@@ -526,11 +526,11 @@
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
   (let* ((mesh-size (* 10 refine))
-         (mps-per-cell 4)
+         (mps-per-cell 2)
          (slope 0d0)
-         (shelf-height 100)
-         (shelf-aspect 4)
-         (runout-aspect 4)
+         (shelf-height 400)
+         (shelf-aspect 2)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)
@@ -743,7 +743,7 @@
         (substeps (floor target-time dt))
         (damage-0 0d0)
         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-        (damping-0 (* 1d-3 (cl-mpm/setup::estimate-critical-damping *sim*)))
+        (damping-0 (* 0d-3 (cl-mpm/setup::estimate-critical-damping *sim*)))
         (mass-0
           (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*))))
 
@@ -832,7 +832,7 @@
                           ;; (loop for mp across (cl-mpm:sim-mps *sim*) do (setf (cl-mpm/particle::mp-damage mp) 1d0))
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
-                               (> energy-estimate 1d-4)
+                               (> energy-estimate 1d-3)
                                ;; (> *oobf* 1d0)
                                ;; nil
                                ;; t
