@@ -2242,7 +2242,7 @@
           ;; (incf p (* -1d0 pressure damage))
           (setf
            p
-           (+ 0d0;pressure
+           (+ pressure
               (if (> p 0d0)
                   (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
                   ;; (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
