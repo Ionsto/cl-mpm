@@ -13,15 +13,15 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 ;; (defmethod print-object ((object magicl:matrix) stream)
 ;;   (pprint object stream))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   )
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-visco-elasto-plastic-damage) dt)
@@ -363,8 +363,7 @@
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
              ;; (ductility 5d0)
-             ;; (ductility 20d0)
-             )
+             (ductility 10d0))
         (format t "~%Estimated ductility: ~F~%" ductility)
         (format t "~%Estimated ductility-II: ~F~%" ductility-ii)
         (when (< ductility 1d0)
@@ -389,12 +388,12 @@
 
                 :kt-res-ratio 1d-9
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-2
+                :g-res-ratio 1d-1
 
                 :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d3
+                :delay-time 1d2
                 :delay-exponent 2d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
@@ -525,10 +524,10 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
-  (let* ((mesh-size (* 10 refine))
-         (mps-per-cell 2)
+  (let* ((mesh-size (* 20 refine))
+         (mps-per-cell 4)
          (slope 0d0)
-         (shelf-height 400)
+         (shelf-height 200)
          (shelf-aspect 2)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
@@ -735,7 +734,7 @@
  (let* ((target-time 1d1)
         (dt (cl-mpm:sim-dt *sim*))
         (dt-0 0d0)
-        (dt-scale 0.50d0)
+        (dt-scale 0.80d0)
         (settle-steps 15)
         (damp-steps 10)
         (collapse-target-time 1d0)
@@ -832,9 +831,10 @@
                           ;; (loop for mp across (cl-mpm:sim-mps *sim*) do (setf (cl-mpm/particle::mp-damage mp) 1d0))
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
-                               (> energy-estimate 1d-3)
+                               (> energy-estimate 1d-4)
                                ;; (> *oobf* 1d0)
                                ;; nil
+                               ;; t
                                ;; t
                                )
                               (progn
@@ -858,14 +858,14 @@
                           (format t "CFL dt estimate: ~f~%" dt-e)
                           (format t "CFL step count estimate: ~D~%" substeps-e)
                           (setf substeps substeps-e))
-					              (let* (;(dt-est (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-							                 (dt-est (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
-					 	                   (substeps-est (floor target-time dt-est)))
-					                (when (< substeps-est substeps)
-					 	                (setf (cl-mpm:sim-dt *sim*) dt-est)
-					 	                (setf substeps substeps-est)))
-                        (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-                        (format t "CFL step count estimate: ~D~%" substeps)
+					              ;; (let* (;(dt-est (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+							          ;;        (dt-est (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
+					 	            ;;        (substeps-est (floor target-time dt-est)))
+					              ;;   (when (< substeps-est substeps)
+					 	            ;;     (setf (cl-mpm:sim-dt *sim*) dt-est)
+					 	            ;;     (setf substeps substeps-est)))
+                        ;; (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+                        ;; (format t "CFL step count estimate: ~D~%" substeps)
 					              (cl-mpm/setup:remove-sdf
                          *sim*
                          (lambda (p)

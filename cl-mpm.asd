@@ -553,14 +553,8 @@
   :components ((:file "examples/brazilian")))
 
 (defsystem "cl-mpm/examples/shear-box"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/penalty"
-               "cl-mpm/damage"
-               "cl-mpm/plotter"
+  :depends-on ("cl-mpm/all"
+               "parse-float"
                "vgplot"
                "swank.live")
   :serial t

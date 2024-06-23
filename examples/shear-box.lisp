@@ -1,15 +1,12 @@
 (defpackage :cl-mpm/examples/shear-box
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
-;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
-
 (setf *block-compile-default* t)
+
+(ql:quickload :parse-float)
+
 (in-package :cl-mpm/examples/shear-box)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
@@ -105,26 +102,26 @@
    :colour-func 
    (lambda (mp)
      (if (= 0 (cl-mpm/particle::mp-index mp))
-         (cl-mpm/particle::mp-strain-lastic-vm mp)
+         (cl-mpm/particle::mp-strain-plastic-vm mp)
          0d0)))
   )
 (defun plot-load-disp ()
 
   ;; (vgplot:figure)
-  (let ((width 0.8d0)
+  (let ((width 0.06d0)
         (depth (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
     (vgplot:plot (mapcar (lambda (x) (* x 1d3)) *data-disp*) 
                  (mapcar (lambda (x) (* depth (/ x width) 1d-3)) *data-v*)))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
   )
-
+ 
 (defun apply-penalty-box (left-x right-x height friction)
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
-         (epsilon 1d9)
+         (epsilon (* 10d0 1d9))
          ;; (friction 0.0d0)
          )
     (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -224,7 +221,7 @@
          (h-y (/ h 1d0))
          ;; (floor-offset (* h-y 2))
          (floor-offset 2d0)
-         (density 1d3)
+         (density 1.7d3)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
          )
     (declare (double-float h density))
@@ -284,9 +281,11 @@
              (sur-size (list 0.06d0 sur-height))
              ;(load 72.5d3)
              (load surcharge-load)
-             (gravity 10d0)
-             (density-sur (/ load (* gravity sur-height)))
+             ;; (gravity 10d0)
+             ;; (density (/ load (* gravity sur-height)))
+             (gravity (/ load (* density sur-height)))
              )
+        (format t "Gravity ~F~%" gravity)
         (cl-mpm::add-mps
          sim
          (cl-mpm/setup::make-mps-from-list
@@ -294,10 +293,10 @@
            (mapcar #'+ offset (list 0d0 (second block-size)))
            sur-size
            (mapcar (lambda (e) (* e e-scale mp-scale)) sur-size)
-           density-sur
+           density
            'cl-mpm/particle::particle-elastic-damage
            :E 1d9
-           :nu 0.30d0
+           :nu 0.24d0
            :initiation-stress 1d20
            :index 1
            :gravity (- gravity)))))
@@ -326,7 +325,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
@@ -364,24 +363,23 @@
            (soft 100d0)
            )
       (setf rho (+ rho-1 (* (- rho-0 rho-1) (exp (- (* soft ps)))))))))
+
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
   (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
                    (c cl-mpm/particle::mp-c)
                    (phi cl-mpm/particle::mp-phi)
                    )
       mp
-    (let ((phi_0 (* 42d0
-                    (/ pi 180)))
+    (let ((phi_0 (* 42d0 (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft 1d0))
-      (setf
-       c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))
-    )
-  )
+          (soft 20d0))
+      ;; (setf
+      ;;  c (* c_0 (exp (- (* soft ps))))
+      ;;  phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))
+      )))
 
-(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0))
+(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
          (mesh-size (/ 0.03d0 refine))
@@ -397,7 +395,8 @@
                          (list box-size box-size)
                          (/ 1d0 mesh-size)
                          mps-per-dim
-                         :friction friction))
+                         :friction friction
+                         :surcharge-load surcharge-load))
     (setf (cl-mpm::sim-bcs-force-list *sim*)
           (list
            (cl-mpm/bc:make-bcs-from-list
@@ -418,19 +417,22 @@
 
 (defun stop ()
   (setf *run-sim* nil))
-(defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+
+(defun run (&optional (output-directory "./output/"))
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
                           *sim*)
 
   (defparameter *data-t* (list))
   (defparameter *data-disp* (list))
   (defparameter *data-v* (list))
+  (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
+    (format stream "disp,load~%"))
   (vgplot:close-all-plots)
   (let* ((target-time 0.001d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.8d0)
-         (load-steps 200)
+         (dt-scale 0.9d0)
+         (load-steps 100)
          (displacment 8d-3)
          (disp-inc (/ displacment load-steps)))
 
@@ -474,21 +476,31 @@
           )
     (format t "Substeps ~D~%" substeps)
     (vgplot:figure)
+    (setf cl-mpm/penalty::*debug-force* 0)
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
-                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (time
-                      (dotimes (i substeps)
-                        (cl-mpm::update-sim *sim*)
-                        (incf *displacement-increment* (/ disp-inc substeps))
-                        (incf *t* (cl-mpm::sim-dt *sim*))))
-                     (push *t* *data-t*)
-                     (push *displacement-increment* *data-disp*)
-                     (push cl-mpm/penalty::*debug-force* *data-v*)
+                     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (let ((load-av 0d0)
+                           (disp-av 0d0))
+                       (time
+                        (dotimes (i substeps)
+                          (cl-mpm::update-sim *sim*)
+                          (incf load-av (/ cl-mpm/penalty::*debug-force* substeps))
+                          (incf disp-av (/ *displacement-increment* substeps))
+                          (incf *displacement-increment* (/ disp-inc substeps))
+                          (incf *t* (cl-mpm::sim-dt *sim*))))
+
+                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
+                       ;; (setf disp-av *displacement-increment*)
+                       (push *t* *data-t*)
+                       (push disp-av *data-disp*)
+                       (push load-av *data-v*)
+                       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
+                         (format stream "~f,~f~%" disp-av load-av)))
                      (incf *sim-step*)
                      (plot *sim*)
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
@@ -498,12 +510,11 @@
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
-
-                     (swank.live:update-swank)
-                     ))))
+                     (swank.live:update-swank))))
+    )
   (vgplot:figure)
-  (vgplot:plot *data-t* *data-v*)
-  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
+  (plot-load-disp)
+  )
 
 (defun test-convergance ()
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))

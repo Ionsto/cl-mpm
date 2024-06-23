@@ -2237,7 +2237,7 @@
     ;; ;;                                              (cl-mpm/utils::matrix-from-diag l)
     ;; ;;                                              (magicl:transpose v))))))
     (when (> damage 0.0d0)
-      (let* ((pressure (* pressure damage)))
+      (let* ((pressure (* pressure damage 0d0)))
         (declare (double-float damage))
         (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
