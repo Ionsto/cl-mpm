@@ -1837,8 +1837,8 @@ Calls func with only the node"
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-            ;; (update-domain-corner mesh mp dt)
-            (update-domain-midpoint mesh mp dt)
+            (update-domain-corner mesh mp dt)
+            ;; (update-domain-midpoint mesh mp dt)
           ;; (update-domain-stretch-rate df domain)
 
           )
@@ -2030,8 +2030,7 @@ Calls func with only the node"
                      (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
                      (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
                 (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                      ))
+                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)))
               (let* ((jf  (magicl:det def))
                      (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
                      (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
