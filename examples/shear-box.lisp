@@ -119,7 +119,7 @@
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
-         (epsilon (* 100d0 1d9))
+         (epsilon (* 1d2 1d9))
          ;; (friction 0.0d0)
          )
     (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -302,8 +302,8 @@
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
@@ -323,7 +323,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
@@ -414,7 +414,8 @@
   (defparameter *sim-step* 0))
 
 (defun stop ()
-  (setf *run-sim* nil))
+  (setf *run-sim* nil
+        cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (defun run (&optional (output-directory "./output/"))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
@@ -426,12 +427,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((target-time 0.001d0)
+  (let* ((target-time 0.0001d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
+         ;; (substeps 10)
          (dt-scale 0.8d0)
          (load-steps 100)
-         (displacment 8d-3)
+         (displacment 1d-3)
+         ;; (displacment 1d-5)
          (disp-inc (/ displacment load-steps)))
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
@@ -441,7 +444,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d0 (cl-mpm/setup::estimate-critical-damping *sim*)))
+          (* 10d0 (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
@@ -450,9 +453,12 @@
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :energy-crit 1d-2
-     :oobf-crit 1d0
-     :substeps 10
-     :conv-steps 200)
+     :oobf-crit 1d-2
+     :substeps 20
+     :conv-steps 200
+     :post-iter-step
+     (lambda (i energy oobf)
+       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)))
 
     ;; (loop for steps from 0 below load-steps
     ;;       while *run-sim*
@@ -466,12 +472,13 @@
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
-               (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+               (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*))
           ;; (cl-mpm::sim-enable-damage *sim*) t
           )
+    (defparameter *displacement-increment* 0d0)
     (format t "Substeps ~D~%" substeps)
     (vgplot:figure)
     (setf cl-mpm/penalty::*debug-force* 0)
@@ -494,6 +501,7 @@
 
                        (setf load-av cl-mpm/penalty::*debug-force*)
                        (setf disp-av *displacement-increment*)
+
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
                        (push load-av *data-v*)
@@ -513,146 +521,3 @@
   (vgplot:figure)
   (plot-load-disp)
   )
-
-(defun test-convergance ()
-  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
-  (defparameter *conv-data-t* (list))
-  (defparameter *conv-data-v* (list))
-  (defparameter *conv-data-refine* (list))
-  (vgplot:figure)
-  (loop for refine in (list 1 2 3 4 5)
-        do
-           (progn
-             (setup :angle 10d0 :refine refine :mps 2)
-             ;; (setup :angle 10d0 :mps (+ refine 1))
-             (defparameter *data-t* (list))
-             (defparameter *data-v* (list))
-             (defparameter *sim-step* 0)
-             (let* ((target-time 0.05d0)
-                    (dt-scale 0.8d0)
-                    (dt (* dt-scale (cl-mpm/setup::estimate-elastic-dt *sim*)))
-                    (substeps (floor target-time dt)))
-               (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-               (format t "Substeps ~D~%" substeps)
-               (time (loop for steps from 0 to 40
-                           while *run-sim*
-                           do
-                              (progn
-                                (format t "Step ~d ~%" steps)
-                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~2,'0d_~5,'0d.vtk" refine *sim-step*)) *sim*)
-                                (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_~2,'0d_nodes_~5,'0d.vtk" refine *sim-step*)) *sim*)
-                                (incf *sim-step*)
-                                (let ((v-av 0d0)
-                                      (disp-av 0d0))
-                                  (time
-                                   (dotimes (i substeps)
-                                     (cl-mpm::update-sim *sim*)
-                                     (incf v-av
-                                           (/
-                                            (lparallel:pmap-reduce
-                                             (lambda (mp)
-                                               (magicl:tref (cl-mpm/particle::mp-velocity mp) 0 0))
-                                             #'+
-                                             (cl-mpm:sim-mps *sim*))
-                                            (* (length (cl-mpm:sim-mps *sim*)) substeps)))
-                                     (incf disp-av
-                                           (/
-                                            (lparallel:pmap-reduce
-                                             (lambda (mp)
-                                               (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
-                                             #'+
-                                             (cl-mpm:sim-mps *sim*))
-                                            (* (length (cl-mpm:sim-mps *sim*)) substeps)))
-                                     (incf *t* (cl-mpm::sim-dt *sim*))))
-                                  (push *t* *data-t*)
-                                  (push v-av *data-v*)
-                                  ;; (push disp-av *data-v*)
-                                  )
-                                (apply #'vgplot:plot (reduce #'append (mapcar #'list
-                                                                              (append *conv-data-t* (list *data-t*))
-                                                                              (append *conv-data-v* (list *data-v*))
-                                                                              (mapcar (lambda (x) (format nil "~A" x)) (append *conv-data-refine* (list refine)))
-                                                                              )))
-                                (swank.live:update-swank)
-                                )))))
-
-             (push *data-t* *conv-data-t*)
-             (push *data-v* *conv-data-v*)
-             (push refine *conv-data-refine*)
-             (apply #'vgplot:plot (reduce #'append (mapcar #'list
-                                                           *conv-data-t*
-                                                           *conv-data-v*
-                                                           (mapcar (lambda (x) (format nil "~A" x)) *conv-data-refine*)
-                                                           )))
-             ))
-
-(defun test-varying-friction ()
-  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
-  (defparameter *conv-data-t* (list))
-  (defparameter *conv-data-v* (list))
-  (defparameter *conv-data-refine* (list))
-  (vgplot:figure)
-  (loop for refine from 0d0 upto 1d0 by 0.1d0
-        do
-           (progn
-             (setup :angle 10d0 :refine 2)
-             (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) refine)
-             ;; (setup :angle 10d0 :mps (+ refine 1))
-             (defparameter *data-t* (list))
-             (defparameter *data-v* (list))
-             (defparameter *sim-step* 0)
-             (let* ((target-time 0.1d0)
-                    (dt (cl-mpm/setup::estimate-elastic-dt *sim*))
-                    (substeps (floor target-time dt)))
-               (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-               (format t "Substeps ~D~%" substeps)
-               (time (loop for steps from 0 to 10
-                           while *run-sim*
-                           do
-                              (progn
-                                (format t "Step ~d ~%" steps)
-                                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~2,'0d_~5,'0d.vtk" refine *sim-step*)) *sim*)
-                                (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_~2,'0d_nodes_~5,'0d.vtk" refine *sim-step*)) *sim*)
-                                (incf *sim-step*)
-                                (let ((v-av 0d0)
-                                      (disp-av 0d0))
-                                  (time
-                                   (dotimes (i substeps)
-                                     (cl-mpm::update-sim *sim*)
-                                     (incf v-av
-                                           (/
-                                            (lparallel:pmap-reduce
-                                             (lambda (mp)
-                                               (magicl:tref (cl-mpm/particle::mp-velocity mp) 0 0))
-                                             #'+
-                                             (cl-mpm:sim-mps *sim*))
-                                            (* (length (cl-mpm:sim-mps *sim*)) substeps)))
-                                     (incf *t* (cl-mpm::sim-dt *sim*))))
-                                  (setf disp-av
-                                        (/
-                                         (lparallel:pmap-reduce
-                                          (lambda (mp)
-                                            (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
-                                          #'+
-                                          (cl-mpm:sim-mps *sim*))
-                                         (length (cl-mpm:sim-mps *sim*))))
-
-                                  (push *t* *data-t*)
-                                  (push disp-av *data-v*))
-                                (apply #'vgplot:plot (reduce #'append (mapcar #'list
-                                                                              (append *conv-data-t* (list *data-t*))
-                                                                              (append *conv-data-v* (list *data-v*))
-                                                                              (mapcar (lambda (x) (format nil "~A" x)) (append *conv-data-refine* (list refine)))
-                                                                              )))
-                                (swank.live:update-swank)
-                                )))))
-
-             (push *data-t* *conv-data-t*)
-             (push *data-v* *conv-data-v*)
-             (push refine *conv-data-refine*)
-             (apply #'vgplot:plot (reduce #'append (mapcar #'list
-                                                           *conv-data-t*
-                                                           *conv-data-v*
-                                                           (mapcar (lambda (x) (format nil "~A" x)) *conv-data-refine*)
-                                                           )))
-             ))
