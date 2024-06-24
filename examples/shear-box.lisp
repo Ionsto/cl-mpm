@@ -5,8 +5,6 @@
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
 
-(ql:quickload :parse-float)
-
 (in-package :cl-mpm/examples/shear-box)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
@@ -121,7 +119,7 @@
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
-         (epsilon (* 10d0 1d9))
+         (epsilon (* 100d0 1d9))
          ;; (friction 0.0d0)
          )
     (with-accessors ((mesh cl-mpm:sim-mesh)
@@ -431,7 +429,7 @@
   (let* ((target-time 0.001d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.9d0)
+         (dt-scale 0.8d0)
          (load-steps 100)
          (displacment 8d-3)
          (disp-inc (/ displacment load-steps)))
@@ -494,8 +492,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
-                       ;; (setf disp-av *displacement-increment*)
+                       (setf load-av cl-mpm/penalty::*debug-force*)
+                       (setf disp-av *displacement-increment*)
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
                        (push load-av *data-v*)
