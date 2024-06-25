@@ -541,6 +541,9 @@
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
                           *sim*)
+  (cl-mpm/output::save-simulation-parameters
+   (merge-pathnames output-directory "settings.json")
+   *sim*)
 
   (defparameter *data-t* (list))
   (defparameter *data-disp* (list))

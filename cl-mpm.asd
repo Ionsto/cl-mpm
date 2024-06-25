@@ -24,7 +24,7 @@
   :components ((:file "src/fastmath")))
 
 (defsystem "cl-mpm/mesh"
-  :depends-on ("magic"
+  :depends-on ("magicl"
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
