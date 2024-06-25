@@ -1479,17 +1479,17 @@
    (shear-residual-ratio
     :accessor mp-shear-residual-ratio
     :initarg :g-res-ratio
-    :initform 1d-3
+    :initform 1d-9
     )
    (k-tensile-residual-ratio
     :accessor mp-k-tensile-residual-ratio
     :initarg :kt-res-ratio
-    :initform 1d-6
+    :initform 1d-9
     )
    (k-compressive-residual-ratio
     :accessor mp-k-compressive-residual-ratio
     :initarg :kc-res-ratio
-    :initform 1d-2
+    :initform 1d-9
     )
    )
   (:documentation "A chalk damage model"))

@@ -24,7 +24,7 @@
   :components ((:file "src/fastmath")))
 
 (defsystem "cl-mpm/mesh"
-  :depends-on ("magicl"
+  :depends-on ("magic"
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
@@ -555,6 +555,7 @@
 (defsystem "cl-mpm/examples/shear-box"
   :depends-on ("cl-mpm/all"
                "parse-float"
+               "lisp-stat"
                "vgplot"
                "swank.live")
   :serial t
