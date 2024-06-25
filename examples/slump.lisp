@@ -393,8 +393,8 @@
                 :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d2
-                :delay-exponent 2d0
+                :delay-time 1d4
+                :delay-exponent 5d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
                 :critical-damage 1d0;(- 1.0d0 1d-3)
@@ -525,11 +525,11 @@
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
   (let* ((mesh-size (* 20 refine))
-         (mps-per-cell 4)
+         (mps-per-cell 2)
          (slope 0d0)
          (shelf-height 200)
-         (shelf-aspect 2)
-         (runout-aspect 2)
+         (shelf-aspect 1)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)

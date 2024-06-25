@@ -344,11 +344,9 @@
            (when (every
                   (lambda (n)
                     (and (cl-mpm/mesh:node-active n)
-                         (> (cl-mpm/mesh:node-mass n) 0d0)
-                         ))
+                         (> (cl-mpm/mesh:node-mass n) 0d0)))
                   nodes)
-             (setf mp-count 1)))
-         )))))
+             (setf mp-count 1))))))))
 
 (defun cell-clipping (pos datum)
   (<= (magicl:tref pos 1 0) datum)

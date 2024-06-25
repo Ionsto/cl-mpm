@@ -433,7 +433,7 @@
          ;; (substeps 10)
          (dt-scale 0.8d0)
          (load-steps 100)
-         (displacment 1d-3)
+         (displacment 8d-3)
          ;; (displacment 1d-5)
          (disp-inc (/ displacment load-steps)))
 
