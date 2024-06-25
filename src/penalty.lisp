@@ -73,6 +73,7 @@
                         (normal-force (* (expt penetration-dist 1d0)
                                          epsilon
                                          ;; (expt volume (/ (- nd 1) nd))
+                                         (expt volume (/ (- nd 1) nd))
                                          )))
                    (when (funcall func-clip pen-point)
                      (sb-thread:with-mutex (*debug-mutex*)
@@ -139,15 +140,15 @@
                             (when node-active
                               ;;Lock node for multithreading
                               (sb-thread:with-mutex (node-lock)
-                                (let* ((svp (* svp (expt volume (/ (- nd 1) nd)))))
+                                ;; (let* ((svp (* svp (expt volume (/ (- nd 1) nd))))))
 
-                                  (cl-mpm/fastmath::fast-fmacc node-force
-                                                               force
-                                                               svp)
-                                  (cl-mpm/fastmath::fast-fmacc node-ext-force
-                                                               force
-                                                               svp)
-                                  )))))))))))))))))
+                                (cl-mpm/fastmath::fast-fmacc node-force
+                                                             force
+                                                             svp)
+                                (cl-mpm/fastmath::fast-fmacc node-ext-force
+                                                             force
+                                                             svp)
+                                ))))))))))))))))
 
 (defun collect-contact-points (mesh mps normal datum)
   (loop for mp across mps

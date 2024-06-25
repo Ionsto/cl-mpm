@@ -377,8 +377,7 @@
     ;;    c (* c_0 (exp (- (* soft ps))))
     ;;    phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))
     ;;   )
-    )
-  )
+    ))
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
   (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
