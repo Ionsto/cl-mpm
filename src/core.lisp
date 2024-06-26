@@ -282,7 +282,7 @@
                     (update-node-kinematics mesh dt )
                     (apply-bcs mesh bcs dt)
                     (update-stress mesh mps dt fbar)
-                    ;; ;; Map forces onto nodes
+                    ;; Map forces onto nodes
                     (p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do (apply-bcs mesh bcs-f dt))
@@ -294,8 +294,7 @@
                     (when split
                       (split-mps sim))
                     (check-mps sim)
-                    (incf time dt)
-                    )))
+                    (incf time dt))))
 
 (defmethod update-sim ((sim mpm-sim-usl))
   "Update stress last algorithm"
@@ -394,8 +393,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              :weight-fbar fsvp
              :grads-fbar fgrads)
             nodes)
-           (funcall func mesh mp node svp grads fsvp fgrads)
-           ))
+           (funcall func mesh mp node svp grads fsvp fgrads)))
         (iterate-over-neighbours-shape-gimp-3d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1353,7 +1351,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         ;; (reset-mps-g2p mp)
         (setf temp 0d0)
         )
-      (magicl:scale! acc 0d0)
+      (cl-mpm/fastmath::fast-zero acc)
       ;; Map variables
       (iterate-over-neighbours
        mesh mp
@@ -1362,12 +1360,14 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (ignore mp mesh fsvp fgrads)
           (cl-mpm/mesh::node node)
           (cl-mpm/particle:particle mp)
-          (type double-float svp))
+          ( double-float svp))
          (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                           (node-acc cl-mpm/mesh:node-acceleration)
                           (node-scalar cl-mpm/mesh::node-boundary-scalar)
                           (node-active cl-mpm/mesh:node-active)
                           ) node
+           (declare (double-float node-scalar temp)
+                    (boolean node-active))
            (when node-active
              (cl-mpm/fastmath::fast-fmacc mapped-vel node-vel svp)
              (cl-mpm/fastmath::fast-fmacc acc node-acc svp)
@@ -1385,7 +1385,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
         ;;PIC
         #+ :cl-mpm-pic (cl-mpm/utils::voigt-copy-into mapped-vel vel)
-        (magicl:scale! mapped-vel dt)
+        (cl-mpm/fastmath::fast-scale mapped-vel dt)
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         (unless (cl-mpm/particle::mp-penalty-contact mp)

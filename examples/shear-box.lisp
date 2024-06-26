@@ -54,10 +54,9 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  (plot-load-disp)
-  ;; (plot-conv)
-  ;; (plot-domain *sim*)
   ;; (plot-load-disp)
+  (plot-conv)
+  ;; (plot-domain *sim*)
   )
 (declaim (notinline plot-domain))
 (defun plot-domain (sim)
@@ -268,10 +267,10 @@
                 :enable-plasticity t
 
                 :psi 0d0
-                :phi (* 42d0 (/ pi 180))
-                :c 131d3
-                ;; :phi (* 30d0 (/ pi 180))
-                ;; :c 0d3
+                ;; :phi (* 42d0 (/ pi 180))
+                ;; :c 131d3
+                :phi (* 30d0 (/ pi 180))
+                :c 0d3
 
                 :index 0
                 :gravity 0.0d0
@@ -377,8 +376,8 @@
           (c_0 131d3)
           (soft 10d0))
       (setf
-       c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
+       ;; c (* c_0 (exp (- (* soft ps))))
+       ;; phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
        )
       )))
 
@@ -420,11 +419,10 @@
   (setf *run-sim* nil
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
-(defun run (&optional (output-directory "./output/"))
+(defun run (&optional (output-directory "./output/") &key (total-time 1d-2) (damping 1d0))
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
-                          *sim*)
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
   (cl-mpm/output::save-simulation-parameters
    (merge-pathnames output-directory "settings.json")
    *sim*)
@@ -435,13 +433,13 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((total-time 1d-1)
-        (load-steps 100)
+  (let* ((total-time total-time)
+         (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          ;; (substeps 10)
-         (dt-scale 0.5d0)
+         (dt-scale 0.8d0)
          (displacment 6d-3)
          (enable-plasticity t)
          ;; (displacment 1d-5)
@@ -495,7 +493,7 @@
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d0
+           damping
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*))
           ;; (cl-mpm::sim-enable-damage *sim*) t
@@ -574,7 +572,7 @@
   (let* ((load-steps 20)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.8d0)
-         (displacment 8d-3)
+         (displacment 6d-3)
          (enable-plasticity t)
          (disp-inc (/ displacment load-steps)))
 
@@ -631,13 +629,79 @@
 
 (defun test-conv ()
   (setf *run-sim* t)
-  (loop for refine in (list 1 2 4 8)
+  (loop for refine in ;(list 1 2 4 8)
+        (list 1 5 10 50)
         while *run-sim*
         do (progn
              (format t "Refine: ~D~%" refine)
-             (setup :refine refine :mps 4)
-             ;(run (format nil "output-~D/" refine))
-             (run-static (format nil "output-~D/" refine))
+             (setup
+              :refine 4
+              :mps 3
+              ;:refine refine :mps 2
+              ;; :refine 1 :mps (+ 1 refine)
+                    )
+             (run (format nil "output-~D/" refine)
+                  :total-time (* 1d-2 refine)
+                  )
+             ;; (run-static (format nil "output-~D/" refine))
+             ))
+  (vgplot:close-all-plots)
+  (plot-conv))
+
+(defun test-time ()
+  (setf *run-sim* t)
+  (loop for refine in ;(list 1 2 4 8)
+                   (list 1 5 10 50 100)
+        while *run-sim*
+        do (progn
+             (format t "Refine: ~D~%" refine)
+             (setup
+              :refine 2
+                                        ;:refine refine :mps 2
+              ;; :refine 1 :mps (+ 1 refine)
+              )
+             (run (format nil "output-~D/" refine)
+                  :total-time (* 1d-2 refine)
+                  )
+             ;; (run-static (format nil "output-~D/" refine))
+             ))
+  (vgplot:close-all-plots)
+  (plot-conv))
+
+(defun test-damping ()
+  (setf *run-sim* t)
+  (loop for refine in ;(list 1 2 4 8)
+                   (list 1d0 0.1d0 0.01d0)
+        while *run-sim*
+        do (progn
+             (format t "Refine: ~D~%" refine)
+             (setup
+              :refine 2
+                                        ;:refine refine :mps 2
+              ;; :refine 1 :mps (+ 1 refine)
+              )
+             (run (format nil "output-~D/" refine)
+                  :damping refine
+                  )
+             ;; (run-static (format nil "output-~D/" refine))
+             ))
+  (vgplot:close-all-plots)
+  (plot-conv))
+
+(defun test-frictional ()
+  (setf *run-sim* t)
+  (loop for surcharge
+          in (list 91d3 153d3 277d3)
+        while *run-sim*
+        do (progn
+             (setup
+              :refine 2
+              :surcharge-load surcharge
+                                        ;:refine refine :mps 2
+              ;; :refine 1 :mps (+ 1 refine)
+              )
+             (run (format nil "output-~D/" surcharge))
+             ;; (run-static (format nil "output-~D/" refine))
              ))
   (vgplot:close-all-plots)
   (plot-conv))
