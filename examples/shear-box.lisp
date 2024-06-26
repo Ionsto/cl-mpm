@@ -8,6 +8,12 @@
 (in-package :cl-mpm/examples/shear-box)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
+  )
+
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -262,10 +268,10 @@
                 :enable-plasticity t
 
                 :psi 0d0
-                ;; :phi (* 42d0 (/ pi 180))
-                ;; :c 131d3
-                :phi (* 30d0 (/ pi 180))
-                :c 0d3
+                :phi (* 42d0 (/ pi 180))
+                :c 131d3
+                ;; :phi (* 30d0 (/ pi 180))
+                ;; :c 0d3
 
                 :index 0
                 :gravity 0.0d0
@@ -320,7 +326,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
@@ -369,11 +375,11 @@
     (let ((phi_0 (* 42d0 (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft 20d0))
-      ;; (setf
-      ;;  c (* c_0 (exp (- (* soft ps))))
-      ;; ;;  phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
-      ;;  )
+          (soft 10d0))
+      (setf
+       c (* c_0 (exp (- (* soft ps))))
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
+       )
       )))
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
@@ -419,6 +425,9 @@
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
                           *sim*)
+  (cl-mpm/output::save-simulation-parameters
+   (merge-pathnames output-directory "settings.json")
+   *sim*)
 
   (defparameter *data-t* (list))
   (defparameter *data-disp* (list))
@@ -426,13 +435,13 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((total-time 1d-2)
-         (load-steps 100)
+  (let* ((total-time 1d-1)
+        (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          ;; (substeps 10)
-         (dt-scale 0.1d0)
+         (dt-scale 0.5d0)
          (displacment 6d-3)
          (enable-plasticity t)
          ;; (displacment 1d-5)
@@ -494,6 +503,17 @@
     (defparameter *displacement-increment* 0d0)
     (format t "Substeps ~D~%" substeps)
     (vgplot:figure)
+    (cl-mpm:update-sim *sim*)
+    (let ((disp-av 0d0)
+          (load-av 0d0))
+      (push *t* *data-t*)
+      (push disp-av *data-disp*)
+      (push load-av *data-v*)
+      (setf load-av cl-mpm/penalty::*debug-force*)
+      (setf disp-av *displacement-increment*)
+      (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
+        (format stream "~f,~f~%" disp-av load-av)))
+
     (setf cl-mpm/penalty::*debug-force* 0)
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
@@ -513,8 +533,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       (setf load-av cl-mpm/penalty::*debug-force*)
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
+                       ;; (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
@@ -551,7 +571,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((load-steps 50)
+  (let* ((load-steps 20)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.8d0)
          (displacment 8d-3)
@@ -645,3 +665,24 @@
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
   )
+
+
+(defun profile ()
+  (setup :refine 4)
+  (sb-profile:unprofile)
+  ;; (sb-profile:reset)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM/BC")
+  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  ;; (sb-profile:profile "CL-MPM/PENALTY")
+  (time
+   (loop repeat 100
+         do (progn
+              (cl-mpm::update-sim *sim*)
+              )))
+  (flamegraph:save-flame-graph ("/mnt/d/Temp/foo.stack")
+                               (dotimes (i 100)
+                                 (cl-mpm:update-sim *sim*)))
+  (sb-profile:report))

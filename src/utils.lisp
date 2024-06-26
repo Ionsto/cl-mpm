@@ -69,6 +69,12 @@
 (defun fast-storage (m)
   (magicl::matrix/double-float-storage m))
 
+(declaim (inline vector-tref)
+         (ftype (function (magicl::matrix/double-float fixnum) double-float)
+                vector-tref))
+(defun vector-tref (v index)
+  (the double-float (aref (fast-storage v) index)))
+
 ;; (dotimes (i 100))
 ;; (let ((mat (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-from-list (loop repeat 6 collect (random 1d0))))))
 ;;   (multiple-value-bind (l v) (magicl:hermitian-eig mat)

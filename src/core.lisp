@@ -492,6 +492,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (declaim (inline iterate-over-neighbours-point-linear)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear))
+
 (defun iterate-over-neighbours-point-linear (mesh position func)
   "Iterate over neighbours of an arbitrary point - using FEM linear basis"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
@@ -2067,7 +2068,7 @@ Calls func with only the node"
                              (max 0d0 (min
                                        (the double-float (coerce (nth i mesh-size) 'double-float))
                                        (the double-float (magicl:tref corner i 0))))))
-              (iterate-over-neighbours-point-linear
+              (iterate-over-neighbours-point-linear-simd
                mesh corner
                (lambda (mesh node svp grads)
                  (declare (double-float dt svp))
@@ -2080,12 +2081,16 @@ Calls func with only the node"
               ))
           (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
           (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
-          (let* ((jf  (magicl:det def))
-                 (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-                 (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
-                 (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
-            (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                  (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
+          (let* ((jf  (the double-float (magicl:det def)))
+                 (jl  (* (the double-float (magicl:tref domain 0 0))
+                         (the double-float (magicl:tref domain 1 0))))
+                 (jl0 (* (the double-float (magicl:tref domain-0 0 0))
+                         (the double-float (magicl:tref domain-0 1 0))))
+                 (scaling (the double-float
+                               (expt (the double-float (/ (the double-float (* (the double-float jf) (the double-float jl0))) (the double-float jl)))
+                                     (the double-float (/ 1d0 2d0))))))
+            (setf (magicl:tref domain 0 0) (* (the double-float (magicl:tref domain 0 0)) scaling)
+                  (magicl:tref domain 1 0) (* (the double-float (magicl:tref domain 1 0)) scaling)
                   ))))))
 
 (defun update-domain-corner-3d (mesh mp dt)

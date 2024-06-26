@@ -49,7 +49,7 @@ def get_data(filename):
         return vtk_to_numpy(scalar_data.GetArray(scalar_names.index(scalar_name)))
     lx = GetScalar("size_x")
     ly = GetScalar("size_y")
-    damage = GetScalar("damage")
+    damage = GetScalar("plastic_strain")
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
 
@@ -64,10 +64,12 @@ plt.rc('axes', labelsize=8)
 width = 3.487
 height = width / 1.618
 
+output_dir = "../output/"
+
 water_height = 236
 xlim = [0,2600]
 ylim = [0,500]
-with open("output/settings.json") as f:
+with open(output_dir+"settings.json") as f:
     json_settings = json.load(f)
     #print("Water level:{}".format(json_settings["OCEAN-HEIGHT"]))
     #print("Domain size:{}".format(json_settings["DOMAIN-SIZE"]))
@@ -81,9 +83,8 @@ with open("output/settings.json") as f:
 ice_height = 200
 
 plt.close("all")
-output_dir = "./output/"
 files = os.listdir(output_dir)
-finalcsv = re.compile("sim.*\.vtk")
+finalcsv = re.compile("sim_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
 print("files: {}".format(files_csvs))
 dt = 1e4/60
@@ -120,13 +121,13 @@ def get_plot(i,fname):
         patch_list.append(patch)
     p = PatchCollection(patch_list, cmap=cm.jet, alpha=1)
     p.set_array(df["damage"])
-    p.set_clim([0,1.0])
+    #p.set_clim([0,1.0])
     ax.add_collection(p)
     fig.colorbar(p,location="bottom",label="damage")
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    plt.title("t = {:.2f}s".format(i * dt))
+    # plt.title("t = {:.2f}s".format(i * dt))
     plt.savefig("outframes/frame_{:05}.png".format(i))
     plt.clf()
 
