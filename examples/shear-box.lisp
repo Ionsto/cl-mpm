@@ -91,13 +91,13 @@
                                         ;:colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
      ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
      ;; :colour-func #'cl-mpm/particle::mp-index
-     :colour-func #'cl-mpm/particle::mp-damage
+     ;; :colour-func #'cl-mpm/particle::mp-damage
      ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
      ;; :colour-func 
-     ;; (lambda (mp)
-     ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
-     ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
-     ;;       0d0))
+     (lambda (mp)
+       (if (= 0 (cl-mpm/particle::mp-index mp))
+           (cl-mpm/particle::mp-strain-plastic-vm mp)
+           0d0))
      )))
 (declaim (notinline plot-load-disp))
 (defun plot-load-disp ()
@@ -214,8 +214,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               ;; :sim-type 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-damage
+               :sim-type 'cl-mpm::mpm-sim-usf
+               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -254,18 +254,18 @@
 
                 ;; :enable-plasticity t
 
-                :kt-res-ratio 1d-10
-                :kc-res-ratio 1d0
-                :g-res-ratio 1d-10
+                ;; :kt-res-ratio 1d-10
+                ;; :kc-res-ratio 1d0
+                ;; :g-res-ratio 1d-10
 
-                :friction-angle 43d0
-                :initiation-stress init-stress;18d3
-                ;; :delay-time 1d-3
-                ;; :delay-exponent 1d0
-                ;; :ductility 5d0
-                :ductility ductility
-                :local-length length-scale
-                :local-length-damaged 10d-10
+                ;; :friction-angle 43d0
+                ;; :initiation-stress init-stress;18d3
+                ;; ;; :delay-time 1d-3
+                ;; ;; :delay-exponent 1d0
+                ;; ;; :ductility 5d0
+                ;; :ductility ductility
+                ;; :local-length length-scale
+                ;; :local-length-damaged 10d-10
                 :enable-plasticity t
 
                 :psi 0d0
@@ -368,20 +368,20 @@
   )
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
-  ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-  ;;                  (c cl-mpm/particle::mp-c)
-  ;;                  (phi cl-mpm/particle::mp-phi)
-  ;;                  )
-  ;;     mp
-  ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
-  ;;         (phi_1 (* 30d0 (/ pi 180)))
-  ;;         (c_0 131d3)
-  ;;         (soft 10d0))
-  ;;     (setf
-  ;;      c (* c_0 (exp (- (* soft ps))))
-  ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
-  ;;      )
-  ;;     ))
+  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+                   (c cl-mpm/particle::mp-c)
+                   (phi cl-mpm/particle::mp-phi)
+                   )
+      mp
+    (let ((phi_0 (* 42d0 (/ pi 180)))
+          (phi_1 (* 30d0 (/ pi 180)))
+          (c_0 131d3)
+          (soft 10d0))
+      (setf
+       c (* c_0 (exp (- (* soft ps))))
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
+       )
+      ))
   )
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
@@ -436,14 +436,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
-         (total-time (* 100d0 displacment))
-         (load-steps 1000)
+  (let* ((displacment 6d-3)
+         (total-time (* 10d0 displacment))
+         (load-steps 200)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          ;; (substeps 10)
-         (dt-scale 0.1d0)
+         (dt-scale 0.5d0)
          (enable-plasticity t)
          ;; (displacment 1d-5)
          (disp-inc (/ displacment load-steps)))
