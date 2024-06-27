@@ -54,50 +54,51 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (plot-load-disp)
-  (plot-conv)
-  ;; (plot-domain *sim*)
+  (plot-load-disp)
+  ;; (plot-conv)
+  ;; (plot-domain)
   )
 (declaim (notinline plot-domain))
-(defun plot-domain (sim)
-
-  ;; (vgplot:plot (mapcar (lambda (x) (* x 1d3)) *data-disp*) *data-v*)
-  (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
-         (ms-x (first ms))
-         (ms-y (second ms)))
-    (vgplot:format-plot t "set object 1 rect from 0,~f to ~f,~f fc rgb 'black' fs transparent solid 0.8 noborder behind"
-                        (* 0.5d0 *box-size*)
-                        (+ *box-size* *displacement-increment*)
-                        ms-y)
-    (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
-                        (* 1d0 *box-size*)
-                        (* 0.5d0 *box-size*)
-                        )
-    (vgplot:format-plot t "set object 3 rect from ~f,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
-                        (* 2d0 *box-size*)
-                        ms-x
-                        (* 0.5d0 *box-size*))
-    (vgplot:format-plot t "set object 4 rect from ~f,~f to ~f,~f fc rgb 'black' fs transparent solid 0.8 noborder behind"
-                        (+ (* 2 *box-size*) *displacement-increment*)
-                        (* 0.5d0 *box-size*)
-                        ms-x
-                        ms-y)
-    )
-  (vgplot:format-plot t "set style fill solid")
-  (cl-mpm/plotter:simple-plot
-   *sim*
-   :plot :deformed
-   ;:colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
-   ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
-   ;; :colour-func #'cl-mpm/particle::mp-index
-   ;:colour-func #'cl-mpm/particle::mp-damage
-   :colour-func 
-   (lambda (mp)
-     (if (= 0 (cl-mpm/particle::mp-index mp))
-         (cl-mpm/particle::mp-strain-plastic-vm mp)
-         0d0)))
-  )
+(defun plot-domain ()
+  (let ((sim *sim*))
+    ;; (vgplot:plot (mapcar (lambda (x) (* x 1d3)) *data-disp*) *data-v*)
+    (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
+    (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+           (ms-x (first ms))
+           (ms-y (second ms)))
+      (vgplot:format-plot t "set object 1 rect from 0,~f to ~f,~f fc rgb 'black' fs transparent solid 0.8 noborder behind"
+                          (* 0.5d0 *box-size*)
+                          (+ *box-size* *displacement-increment*)
+                          ms-y)
+      (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
+                          (* 1d0 *box-size*)
+                          (* 0.5d0 *box-size*)
+                          )
+      (vgplot:format-plot t "set object 3 rect from ~f,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
+                          (* 2d0 *box-size*)
+                          ms-x
+                          (* 0.5d0 *box-size*))
+      (vgplot:format-plot t "set object 4 rect from ~f,~f to ~f,~f fc rgb 'black' fs transparent solid 0.8 noborder behind"
+                          (+ (* 2 *box-size*) *displacement-increment*)
+                          (* 0.5d0 *box-size*)
+                          ms-x
+                          ms-y)
+      )
+    (vgplot:format-plot t "set style fill solid")
+    (cl-mpm/plotter:simple-plot
+     *sim*
+     :plot :deformed
+                                        ;:colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
+     ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
+     ;; :colour-func #'cl-mpm/particle::mp-index
+     :colour-func #'cl-mpm/particle::mp-damage
+     ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
+     ;; :colour-func 
+     ;; (lambda (mp)
+     ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
+     ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
+     ;;       0d0))
+     )))
 (declaim (notinline plot-load-disp))
 (defun plot-load-disp ()
 
@@ -207,13 +208,14 @@
        (lambda (mp) (> (magicl:tref mp 1 0) height))))
     ))
 
+
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1) &key (angle 0d0) (friction 0.1d0) (surcharge-load 72.5d3))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -227,7 +229,7 @@
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
-             (init-stress 500d3)
+             (init-stress 50d3)
              (gf 48d0)
              (length-scale 1.5d-2)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -252,25 +254,25 @@
 
                 ;; :enable-plasticity t
 
-                ;; :kt-res-ratio 1d-10
-                ;; :kc-res-ratio 1d0
-                ;; :g-res-ratio 1d-2
+                :kt-res-ratio 1d-10
+                :kc-res-ratio 1d0
+                :g-res-ratio 1d-10
 
-                ;; :friction-angle 43d0
-                ;; :initiation-stress init-stress;18d3
+                :friction-angle 43d0
+                :initiation-stress init-stress;18d3
                 ;; :delay-time 1d-3
                 ;; :delay-exponent 1d0
-                ;; ;; :ductility 5d0
-                ;; :ductility ductility
-                ;; :local-length length-scale
-                ;; :local-length-damaged 10d-10
+                ;; :ductility 5d0
+                :ductility ductility
+                :local-length length-scale
+                :local-length-damaged 10d-10
                 :enable-plasticity t
 
                 :psi 0d0
-                ;; :phi (* 42d0 (/ pi 180))
-                ;; :c 131d3
-                :phi (* 30d0 (/ pi 180))
-                :c 0d3
+                :phi (* 42d0 (/ pi 180))
+                :c 131d3
+                ;; :phi (* 30d0 (/ pi 180))
+                ;; :c 0d3
 
                 :index 0
                 :gravity 0.0d0
@@ -366,20 +368,21 @@
   )
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
-  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-                   (c cl-mpm/particle::mp-c)
-                   (phi cl-mpm/particle::mp-phi)
-                   )
-      mp
-    (let ((phi_0 (* 42d0 (/ pi 180)))
-          (phi_1 (* 30d0 (/ pi 180)))
-          (c_0 131d3)
-          (soft 10d0))
-      (setf
-       ;; c (* c_0 (exp (- (* soft ps))))
-       ;; phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
-       )
-      )))
+  ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+  ;;                  (c cl-mpm/particle::mp-c)
+  ;;                  (phi cl-mpm/particle::mp-phi)
+  ;;                  )
+  ;;     mp
+  ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
+  ;;         (phi_1 (* 30d0 (/ pi 180)))
+  ;;         (c_0 131d3)
+  ;;         (soft 10d0))
+  ;;     (setf
+  ;;      c (* c_0 (exp (- (* soft ps))))
+  ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))
+  ;;      )
+  ;;     ))
+  )
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
   (defparameter *displacement-increment* 0d0)
@@ -419,7 +422,7 @@
   (setf *run-sim* nil
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
-(defun run (&optional (output-directory "./output/") &key (total-time 1d-2) (damping 1d0))
+(defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0))
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -433,14 +436,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((total-time total-time)
-         (load-steps 100)
+  (let* ((displacment 1d-3)
+         (total-time (* 100d0 displacment))
+         (load-steps 1000)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          ;; (substeps 10)
-         (dt-scale 0.8d0)
-         (displacment 6d-3)
+         (dt-scale 0.1d0)
          (enable-plasticity t)
          ;; (displacment 1d-5)
          (disp-inc (/ displacment load-steps)))
@@ -490,7 +493,6 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
     (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf *enable-box-friction* t)
-
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            damping
@@ -537,13 +539,14 @@
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
                        (push load-av *data-v*)
+                       (format t "Disp ~E - Load ~E~%" disp-av load-av)
                        (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
                          (format stream "~f,~f~%" disp-av load-av)))
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080"
-                                        )
+                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                     ;;                    :terminal "png size 1920,1080"
+                     ;;                    )
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -746,7 +749,4 @@
          do (progn
               (cl-mpm::update-sim *sim*)
               )))
-  (flamegraph:save-flame-graph ("/mnt/d/Temp/foo.stack")
-                               (dotimes (i 100)
-                                 (cl-mpm:update-sim *sim*)))
   (sb-profile:report))
