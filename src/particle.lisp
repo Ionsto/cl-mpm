@@ -2184,9 +2184,10 @@
     (setf stress-u
           (cl-mpm/constitutive::linear-elastic-mat strain de))
 
-    ;; (cl-mpm/fastmath::fast-.+ stress-u
-    ;;                           (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
-    ;; (setf strain (magicl:linear-solve de stress-u))
+    ;; (let ((pressure (* pressure (expt damage 1))))
+    ;;   (cl-mpm/fastmath::fast-.+ stress-u
+    ;;                             (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
+    ;;   (setf strain (magicl:linear-solve de stress-u)))
 
 
 
@@ -2234,7 +2235,7 @@
     ;; ;;                                              (cl-mpm/utils::matrix-from-diag l)
     ;; ;;                                              (magicl:transpose v))))))
     (when (> damage 0.0d0)
-      (let* ((pressure (* pressure damage 0d0)))
+      (let* ((pressure (* pressure damage 1d0)))
         (declare (double-float damage))
         (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
@@ -2248,7 +2249,7 @@
                   p)))
           (cl-mpm/fastmath:fast-.+
            (cl-mpm/constitutive::voight-eye p)
-           (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) 1d0))
+           (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
            stress)
           )))
     ;; (cl-mpm/fastmath::fast-.+ stress

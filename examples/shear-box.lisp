@@ -214,8 +214,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -243,29 +243,27 @@
                 density
                 ;; 'cl-mpm/particle::particle-chalk-brittle
                 ;; 'cl-mpm/particle::particle-vm
-                'cl-mpm/particle::particle-mc
-                :E 1d9
-                :nu 0.24d0
-                ;; :rho 100d3
-
-                ;; 'cl-mpm/particle::particle-chalk-delayed
+                ;; 'cl-mpm/particle::particle-mc
                 ;; :E 1d9
                 ;; :nu 0.24d0
+                ;; :rho 100d3
 
-                ;; :enable-plasticity t
+                'cl-mpm/particle::particle-chalk-delayed
+                :E 1d9
+                :nu 0.24d0
 
-                ;; :kt-res-ratio 1d-10
-                ;; :kc-res-ratio 1d0
-                ;; :g-res-ratio 1d-10
+                :kt-res-ratio 1d-10
+                :kc-res-ratio 1d0
+                :g-res-ratio 1d-10
 
-                ;; :friction-angle 43d0
-                ;; :initiation-stress init-stress;18d3
-                ;; ;; :delay-time 1d-3
-                ;; ;; :delay-exponent 1d0
-                ;; ;; :ductility 5d0
-                ;; :ductility ductility
-                ;; :local-length length-scale
-                ;; :local-length-damaged 10d-10
+                :friction-angle 43d0
+                :initiation-stress init-stress;18d3
+                :delay-time 1d-3
+                :delay-exponent 1d0
+                ;; :ductility 5d0
+                :ductility ductility
+                :local-length length-scale
+                :local-length-damaged 10d-10
                 :enable-plasticity t
 
                 :psi 0d0
@@ -369,18 +367,19 @@
   )
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
-  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-                   (c cl-mpm/particle::mp-c)
-                   (phi cl-mpm/particle::mp-phi)
-                   )
-      mp
-    (let ((phi_0 (* 42d0 (/ pi 180)))
-          (phi_1 (* 30d0 (/ pi 180)))
-          (c_0 131d3)
-          (soft (* 1000d0 *mesh-resolution*)))
-      (setf
-       c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
+  ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+  ;;                  (c cl-mpm/particle::mp-c)
+  ;;                  (phi cl-mpm/particle::mp-phi)
+  ;;                  )
+  ;;     mp
+  ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
+  ;;         (phi_1 (* 30d0 (/ pi 180)))
+  ;;         (c_0 131d3)
+  ;;         (soft (* 1000d0 *mesh-resolution*)))
+  ;;     (setf
+  ;;      c (* c_0 (exp (- (* soft ps))))
+  ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
+  )
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
   (defparameter *displacement-increment* 0d0)

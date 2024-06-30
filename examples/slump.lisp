@@ -355,6 +355,8 @@
             block-size
             (mapcar (lambda (e) (floor (* e e-scale mp-scale))) block-size)
             )
+
+    (incf (second block-offset) (* 2 h-x))
     (progn
       (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
@@ -388,13 +390,13 @@
 
                 :kt-res-ratio 1d-9
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-1
+                :g-res-ratio 1d-2
 
                 :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d4
-                :delay-exponent 5d0
+                :delay-time 1d3
+                :delay-exponent 2d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
                 :critical-damage 1d0;(- 1.0d0 1d-3)
@@ -413,6 +415,19 @@
                 ;; :slope slope
                 )))
         )
+      (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
+             (fc (cl-mpm/particle::mp-fc mp-0))
+             (ft (cl-mpm/particle::mp-ft mp-0))
+             (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
+             (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+             (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+             (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+             (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+             )
+        (format t "Chalk plastic virgin angle: ~F~%"
+                (* (/ 180 pi) angle-plastic))
+        (format t "Chalk plastic residual angle: ~F~%"
+                (* (/ 180 pi) angle-plastic-damaged)))
       (let ((mass-scale 1d4)
             (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
         (setf
@@ -438,7 +453,7 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
              ))
@@ -527,9 +542,9 @@
   (let* ((mesh-size (* 20 refine))
          (mps-per-cell 2)
          (slope 0d0)
-         (shelf-height 200)
-         (shelf-aspect 1)
-         (runout-aspect 1)
+         (shelf-height 400)
+         (shelf-aspect 4)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)
@@ -539,7 +554,7 @@
          (offset (list 0d0
                   ;(* 2d0 mesh-size)
                   (+
-                   (* 2d0 mesh-size)
+                   ;(* 2d0 mesh-size)
                    angle-offset))))
     (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
@@ -734,7 +749,7 @@
  (let* ((target-time 1d1)
         (dt (cl-mpm:sim-dt *sim*))
         (dt-0 0d0)
-        (dt-scale 0.80d0)
+        (dt-scale 0.50d0)
         (settle-steps 15)
         (damp-steps 10)
         (collapse-target-time 1d0)
@@ -831,7 +846,7 @@
                           ;; (loop for mp across (cl-mpm:sim-mps *sim*) do (setf (cl-mpm/particle::mp-damage mp) 1d0))
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
-                               (> energy-estimate 1d-4)
+                               (> energy-estimate 1d-3)
                                ;; (> *oobf* 1d0)
                                ;; nil
                                ;; t
@@ -877,7 +892,8 @@
                         (vgplot:title (format nil "Time:~F - Energy ~E - OOBF ~E"  *t* energy-estimate *oobf*))
                         (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                            :terminal "png size 1920,1080"
-                                           ))
+                                           )
+                        )
                       (push *t* *data-full-time*)
                       (push *data-energy* *data-full-energy*)
                       (push *oobf* *data-full-oobf*)
