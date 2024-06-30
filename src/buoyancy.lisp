@@ -10,8 +10,8 @@
     :magicl tref .+ .-)
   (:export
     ))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 ;    #:make-shape-function
 (in-package :cl-mpm/buoyancy)
@@ -122,65 +122,65 @@
                   (cell (cl-mpm/mesh::get-cell mesh id)))
              (incf (cl-mpm/mesh::cell-mp-count cell) 1))))
 
-(defun apply-force-mps (mesh mps func-stress func-div clip-func)
-  "Update force on nodes, with virtual stress field from mps"
-  (declare (function func-stress func-div))
-  (lparallel:pdotimes (i (length mps))
-    (let ((mp (aref mps i)))
-      (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
-        (with-accessors ((volume cl-mpm/particle:mp-volume)
-                         (damage cl-mpm/particle:mp-damage)
-                         (pos cl-mpm/particle::mp-position))
-            mp
-          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
-                (mp-stress (funcall func-stress mp))
-                (mp-div (funcall func-div mp)))
-            ;;Iterate over neighbour nodes
-            (cl-mpm::iterate-over-neighbours
-             mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
-               (with-accessors ((node-force cl-mpm/mesh::node-external-force)
-                                (node-pos cl-mpm/mesh::node-position)
-                                (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                (node-lock  cl-mpm/mesh:node-lock)
-                                (node-boundary cl-mpm/mesh::node-boundary-node)
-                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                (node-active  cl-mpm/mesh:node-active))
-                   node
-                 (declare (double-float volume svp))
-                 (when (and node-active
-                            node-boundary
-                            (funcall clip-func pos)
-                            )
-                   ;;Lock node for multithreading
-                   (let ((volume (* volume (- 1d0 damage))))
-                     (sb-thread:with-mutex (node-lock)
-                       (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-                       ;; Add gradient of stress
-                       ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
-                       ;;                                             (funcall func-stress mp)
-                       ;;                                             (* volume)
-                       ;;                                             node-force)
-                       (cl-mpm/fastmath::fast-fmacc node-force
-                                                    (magicl:@ (magicl:transpose dsvp)
-                                                              mp-stress)
-                                                    volume)
-                       ;; Add divergance of stress
-                       (cl-mpm/fastmath::fast-fmacc node-force
-                                                    mp-div
-                                                    (* svp volume))
-                       ;;Debug buoyancy
-                       (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                    (magicl:@ (magicl:transpose dsvp)
-                                                              (funcall func-stress mp))
-                                                    volume)
-                       ;; Add divergance of stress
-                       (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                    mp-div
-                                                    (* svp volume))
-                       (incf node-boundary-scalar
-                             (* volume svp (calculate-val-mp mp #'melt-rate)))
-                       ))))))))))))
+;; (defun apply-force-mps (mesh mps func-stress func-div clip-func)
+;;   "Update force on nodes, with virtual stress field from mps"
+;;   (declare (function func-stress func-div))
+;;   (lparallel:pdotimes (i (length mps))
+;;     (let ((mp (aref mps i)))
+;;       (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
+;;         (with-accessors ((volume cl-mpm/particle:mp-volume)
+;;                          (damage cl-mpm/particle:mp-damage)
+;;                          (pos cl-mpm/particle::mp-position))
+;;             mp
+;;           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
+;;                 (mp-stress (funcall func-stress mp))
+;;                 (mp-div (funcall func-div mp)))
+;;             ;;Iterate over neighbour nodes
+;;             (cl-mpm::iterate-over-neighbours
+;;              mesh mp
+;;              (lambda (mesh mp node svp grads fsvp fgrads)
+;;                (with-accessors ((node-force cl-mpm/mesh::node-external-force)
+;;                                 (node-pos cl-mpm/mesh::node-position)
+;;                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+;;                                 (node-lock  cl-mpm/mesh:node-lock)
+;;                                 (node-boundary cl-mpm/mesh::node-boundary-node)
+;;                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+;;                                 (node-active  cl-mpm/mesh:node-active))
+;;                    node
+;;                  (declare (double-float volume svp))
+;;                  (when (and node-active
+;;                             node-boundary
+;;                             (funcall clip-func pos)
+;;                             )
+;;                    ;;Lock node for multithreading
+;;                    (let ((volume (* volume (- 1d0 damage))))
+;;                      (sb-thread:with-mutex (node-lock)
+;;                        (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+;;                        ;; Add gradient of stress
+;;                        ;; (cl-mpm/fastmath::mult-transpose-accumulate dsvp
+;;                        ;;                                             (funcall func-stress mp)
+;;                        ;;                                             (* volume)
+;;                        ;;                                             node-force)
+;;                        (cl-mpm/fastmath::fast-fmacc node-force
+;;                                                     (magicl:@ (magicl:transpose dsvp)
+;;                                                               mp-stress)
+;;                                                     volume)
+;;                        ;; Add divergance of stress
+;;                        (cl-mpm/fastmath::fast-fmacc node-force
+;;                                                     mp-div
+;;                                                     (* svp volume))
+;;                        ;;Debug buoyancy
+;;                        (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+;;                                                     (magicl:@ (magicl:transpose dsvp)
+;;                                                               (funcall func-stress mp))
+;;                                                     volume)
+;;                        ;; Add divergance of stress
+;;                        (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+;;                                                     mp-div
+;;                                                     (* svp volume))
+;;                        (incf node-boundary-scalar
+;;                              (* volume svp (calculate-val-mp mp #'melt-rate)))
+;;                        ))))))))))))
 
 (defun melt-rate (pos)
   (if (< (magicl:tref pos 1 0) 300)
@@ -935,7 +935,9 @@
                        (damage cl-mpm/particle::mp-damage)
                        )
           mp
-        (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+        (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
+              (mp-stress (funcall func-stress mp))
+              (mp-div (funcall func-div mp)))
           ;;Iterate over neighbour nodes
           (cl-mpm::iterate-over-neighbours
            mesh mp
@@ -955,37 +957,52 @@
                           ;(funcall clip-func pos)
                           )
                  ;;Lock node for multithreading
-                 (sb-thread:with-mutex (node-lock)
-                   (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-                   ;; Add gradient of stress
-                   (cl-mpm/fastmath::fast-fmacc node-force
-                                                (magicl:@ (magicl:transpose dsvp)
-                                                          (funcall func-stress mp))
-                                                volume)
-                   ;; Add divergance of stress
-                   (cl-mpm/fastmath::fast-fmacc node-force
-                                                (funcall func-div mp)
-                                                (* svp volume))
+                 (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+                 ;; Add gradient of stress
+                 (let* (
+                        (f-stress (magicl:scale
+                                   (magicl:@
+                                    (magicl:transpose dsvp)
+                                    mp-stress)
+                                   volume))
+                        (f-div (magicl:scale
+                                mp-div
+                                (* volume svp)))
+                        (f-total (cl-mpm/fastmath::fast-.+ f-stress f-div))
+                        )
+                   (sb-thread:with-mutex (node-lock)
+                     (cl-mpm/fastmath:fast-.+ node-force f-total node-force)
+                     (cl-mpm/fastmath:fast-.+ node-force-ext f-total node-force-ext)
+                     (cl-mpm/fastmath:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
+                     (incf node-boundary-scalar
+                           (* volume svp (calculate-val-mp mp #'melt-rate))))
 
-                   (cl-mpm/fastmath::fast-fmacc node-force-ext
-                                                (magicl:@ (magicl:transpose dsvp)
-                                                          (funcall func-stress mp))
-                                                volume)
-                   ;; Add divergance of stress
-                   (cl-mpm/fastmath::fast-fmacc node-force-ext
-                                                (funcall func-div mp)
-                                                (* svp volume))
-                   ;;Debug buoyancy
-                   (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                (magicl:@ (magicl:transpose dsvp)
-                                                          (funcall func-stress mp))
-                                                volume)
-                   ;; Add divergance of stress
-                   (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
-                                                (funcall func-div mp)
-                                                (* svp volume))
-                   (incf node-boundary-scalar
-                         (* volume svp (calculate-val-mp mp #'melt-rate)))
+                   ;; (cl-mpm/fastmath::fast-fmacc node-force
+                   ;;                                (magicl:@ (magicl:transpose dsvp)
+                   ;;                                          mp-stress)
+                   ;;                                volume)
+                   ;;   ;; Add divergance of stress
+                   ;;   (cl-mpm/fastmath::fast-fmacc node-force
+                   ;;                                mp-div
+                   ;;                                (* svp volume))
+
+                   ;;   (cl-mpm/fastmath::fast-fmacc node-force-ext
+                   ;;                                (magicl:@ (magicl:transpose dsvp)
+                   ;;                                          mp-stress)
+                   ;;                                volume)
+                   ;;   ;; Add divergance of stress
+                   ;;   (cl-mpm/fastmath::fast-fmacc node-force-ext
+                   ;;                                (funcall func-div mp)
+                   ;;                                (* svp volume))
+                   ;;   ;;Debug buoyancy
+                   ;;   (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                   ;;                                (magicl:@ (magicl:transpose dsvp)
+                   ;;                                          (funcall func-stress mp))
+                   ;;                                volume))
+                   ;; ;; Add divergance of stress
+                   ;; (cl-mpm/fastmath::fast-fmacc node-buoyancy-force
+                   ;;                              (funcall func-div mp)
+                   ;;                              (* svp volume))
                    ))))))))))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-scalar) node mesh dt)
