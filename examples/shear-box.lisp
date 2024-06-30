@@ -6,7 +6,8 @@
 (setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/shear-box)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
@@ -254,7 +255,7 @@
 
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-10
+                :g-res-ratio 1d-2
 
                 :friction-angle 43d0
                 :initiation-stress init-stress;18d3
@@ -330,19 +331,6 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
-      ;; (defparameter *floor-bc*
-      ;;   (cl-mpm/penalty::make-bc-penalty-point-normal
-      ;;    sim
-      ;;    (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
-      ;;    (cl-mpm/utils:vector-from-list (list 0d0 floor-offset 0d0))
-      ;;    (* 1d9 1d0)
-      ;;    friction)
-      ;;   )
-      ;; (setf (cl-mpm::sim-bcs-force-list sim)
-      ;;       (list
-      ;;        (cl-mpm/bc:make-bcs-from-list
-      ;;         (list
-      ;;          *floor-bc*))))
       sim)))
 
 
@@ -351,10 +339,11 @@
 (defparameter *t* 0)
 (defparameter *sim-step* 0)
 (defparameter *refine* (/ 1d0 1d0))
+
 (let ((refine (uiop:getenv "REFINE")))
   (when refine
-    (setf *refine* (parse-integer (uiop:getenv "REFINE")))  
-    ))
+    (setf *refine* (parse-integer (uiop:getenv "REFINE")))))
+
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
   ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
   ;;                  (rho cl-mpm/particle::mp-rho))
@@ -380,6 +369,7 @@
   ;;      c (* c_0 (exp (- (* soft ps))))
   ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
   )
+(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
   (defparameter *displacement-increment* 0d0)
@@ -434,7 +424,7 @@
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
   (let* ((displacment 6d-3)
-         (total-time (* 10d0 displacment))
+         (total-time (* 1d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
@@ -732,15 +722,15 @@
 (defun profile ()
   (setup :refine 4)
   (sb-profile:unprofile)
-  ;; (sb-profile:reset)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; (sb-profile:profile "CL-MPM/BC")
-  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
-  ;; (sb-profile:profile "CL-MPM/PENALTY")
+  (sb-profile:reset)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/MESH")
+  (sb-profile:profile "CL-MPM/BC")
+  (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  (sb-profile:profile "CL-MPM/PENALTY")
   (time
-   (loop repeat 100
+   (loop repeat 1
          do (progn
               (cl-mpm::update-sim *sim*)
               )))
