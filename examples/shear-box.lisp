@@ -4,6 +4,7 @@
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
 (setf *block-compile-default* t)
+(asdf:compile-system :cl-mpm/examples/shear-box :full t)
 
 (in-package :cl-mpm/examples/shear-box)
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -234,7 +235,9 @@
              (gf 48d0)
              (length-scale 1.5d-2)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             (ductility 10d0)
              )
+        (format t "Estimated ductility ~E~%" ductility)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
@@ -255,7 +258,7 @@
 
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-2
+                :g-res-ratio 1d-9
 
                 :friction-angle 43d0
                 :initiation-stress init-stress;18d3
@@ -423,9 +426,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
-         (total-time (* 1d0 displacment))
-         (load-steps 100)
+  (let* ((displacment 4d-3)
+         (total-time (* 50d0 displacment))
+         (load-steps 500)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -720,18 +723,43 @@
 
 
 (defun profile ()
-  (setup :refine 4)
-  (sb-profile:unprofile)
-  (sb-profile:reset)
-  (sb-profile:profile "CL-MPM")
-  (sb-profile:profile "CL-MPM/PARTICLE")
-  (sb-profile:profile "CL-MPM/MESH")
-  (sb-profile:profile "CL-MPM/BC")
-  (sb-profile:profile "CL-MPM/CONSTITUTIVE")
-  (sb-profile:profile "CL-MPM/PENALTY")
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (setup :refine 32)
+  ;; (sb-profile:profile)
+  ;; (sb-profile:reset)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:profile "CL-MPM/BC")
+  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  ;; (sb-profile:profile "CL-MPM/PENALTY")
   (time
-   (loop repeat 1
+   (loop repeat 100
+         while *run-sim*
          do (progn
               (cl-mpm::update-sim *sim*)
+              (swank.live:update-swank)
               )))
-  (sb-profile:report))
+  ;; (sb-profile:report)
+  )
+(defun test-neighbour ()
+  (declare (optimize (speed 3)))
+  (setup :refine 64)
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps))
+      *sim*
+    (time
+     (loop repeat 100
+           while *run-sim*
+           do
+              (progn
+                (swank.live:update-swank)
+                (cl-mpm::iterate-over-mps
+                 mps
+                 (lambda (mp)
+                   (cl-mpm::iterate-over-neighbours-shape-gimp-simd
+                    ;; cl-mpm::iterate-over-neighbours-shape-linear
+                    mesh
+                    mp
+                    (lambda (mesh mp node svp grads fsvp fgrads))))))))))

@@ -542,11 +542,13 @@
                    (volume node-volume)
                    (svp node-svp-sum)
                    (p-mod node-pwave)
+                   (boundary node-boundary-node)
                    (damage node-damage)
                    (vel node-velocity))
       node
     (setf
      active nil
+     boundary nil
      volume 0d0
      svp 0d0
      damage 0d0

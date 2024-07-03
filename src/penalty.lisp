@@ -18,12 +18,26 @@
 (defun ssqrt (a)
   (* (signum a) (sqrt (abs a))))
 
+(declaim
+ (ftype (function
+         (magicl::matrix/double-float
+          double-float
+          magicl::matrix/double-float)
+         double-float)
+        penetration-distance-point))
 (defun penetration-distance-point (point datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot point normal))
          (dist (- datum ypos)))
     (the double-float dist)))
 
+(declaim
+ (ftype (function
+         (cl-mpm/particle::particle
+          double-float
+          magicl::matrix/double-float)
+         double-float)
+        penetration-distance))
 (defun penetration-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmath::dot (cl-mpm/particle:mp-position mp) normal))
@@ -48,6 +62,7 @@
 (defparameter *debug-force-count* 0)
 (defparameter *debug-force-mp-count* 0)
 ;;Only vertical condition
+(declaim (notinline apply-force-mps))
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction &optional (func-clip (lambda (mp) t)))
   "Update force on nodes, with virtual stress field from mps"
   ;;If we lose contact we need to zero out our friction force
@@ -86,7 +101,7 @@
                             (rel-vel (cl-mpm/fastmath:dot normal mp-vel))
                             (tang-vel (cl-mpm/fastmath:fast-.- mp-vel (magicl:scale normal rel-vel)))
                             (tang-vel-norm-squared (cl-mpm/fastmath::mag-squared tang-vel))
-                            (normal-damping 0d0)
+                            (normal-damping (* 1d-1 (sqrt (/ epsilon (/ mp-mass volume)))))
                             (damping-force (* normal-damping rel-vel))
                             (force-friction mp-friction)
                             (stick-friction (* friction (abs normal-force))))
@@ -121,7 +136,7 @@
                        (setf mp-friction force-friction)
                        (cl-mpm/fastmath::fast-fmacc force
                                                     normal
-                                                    normal-force)
+                                                    (- normal-force damping-force))
                        (cl-mpm::iterate-over-neighbours-point-linear-3d
                         mesh
                         pen-point

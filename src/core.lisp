@@ -634,13 +634,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                      (d0 cl-mpm/particle::mp-domain-size))
         mp
       (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
-        ;; (flet ((center-diff (x)
-        ;;          (declare (double-float x h))
-        ;;          (- x (the double-float (* h (the double-float
-        ;;                                           (fround (the double-float (/ x h))))))))
-        ;;        (center-id (x)
-        ;;          (round x h))
-        ;;        ))
         (let* ((pa (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage pos-vec) 0))
                (d0a (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage d0) 0))
                (ia (sb-simd-avx:f64.2-round (sb-simd-avx:f64.2*
@@ -664,8 +657,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                        )
                       h)))
                )
-          ;; (declare ((simple-array double-float *) pa))
-          ;; (declare (dynamic-extent pa))
           (multiple-value-bind (ix iy) (sb-simd-avx:f64.2-values ia)
             (multiple-value-bind (dox doy) (sb-simd-avx:f64.2-values d0a)
               (multiple-value-bind (cx cy) (sb-simd-avx:f64.2-values ca)
@@ -714,14 +705,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                  0d0))
                                                          )
                                                     (declare (double-float gradx grady))
-                                                    ;; (when (sb-vm:current-float-trap :underflow :overflow :invalid :divide-by-zero)
-                                                    ;;   (error "FLOATS FUCKED"))
                                                     (funcall func mesh mp node
                                                              weight (list gradx grady gradz)
-                                                             weight-fbar grads-fbar))
-                                                  )))
-                                            )))))
-                    ))))))))))
+                                                             weight-fbar grads-fbar))))))))))))))))))))
 ;;This is more consise but half as fast
 (defun iterate-over-neighbours-shape-gimp (mesh mp func)
   "Iterate over a gimp domains neighbours in 3D using simple lisp constructs"
@@ -1261,9 +1247,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                     (sb-thread:mutex node-lock)
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
+             (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
-               (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
                (det-int-force mp dsvp node-int-force)
 
                ;; (det-ext-force mp node svp node-force)
@@ -1448,7 +1434,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           ;;Set acc to f/m
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
           (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-          ;; (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) (* mass mass-scale)))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
           )))
   (values))

@@ -2169,7 +2169,8 @@
                    (visc-power mp-visc-power)
                    )
       mp
-    (declare (function calc-pressure))
+    (declare (function calc-pressure)
+             (double-float damage pressure))
     ;;Train elastic strain - plus trail kirchoff stress
 
     ;; (let* ((p (cl-mpm/utils:trace-voigt strain))
@@ -2194,14 +2195,17 @@
     (if enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-              (cl-mpm/constitutive::mc-plastic stress-u
-                                               de
-                                               strain
-                                               E
-                                               nu
-                                               phi
-                                               psi
-                                               coheasion)
+              (cl-mpm/constitutive::mc-plastic-terzaghi
+               stress-u
+               de
+               strain
+               E
+               nu
+               phi
+               psi
+               coheasion
+               (* pressure damage 0d0)
+               )
             (setf stress
                   sig
                   plastic-strain (magicl:.- strain eps-e)
