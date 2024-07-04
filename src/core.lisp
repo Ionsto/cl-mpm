@@ -1374,6 +1374,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::fast-scale mapped-vel dt)
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
+        (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
         (unless (cl-mpm/particle::mp-penalty-contact mp)
           (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp)))
         (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
@@ -2757,7 +2758,9 @@ This modifies the dt of the simulation in the process
       (if (> (length mps) 0)
           (progn
             (loop for mp across mps-array
-                  do (vector-push-extend mp mps (length mps-array))))
+                  do (sim-add-mp sim mp)
+                     ;; (vector-push-extend mp mps (length mps-array))
+                  ))
           (setf (cl-mpm:sim-mps sim) mps-array))))
 
 #||

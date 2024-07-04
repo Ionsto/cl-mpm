@@ -242,6 +242,12 @@
     :accessor mp-penalty-friction-stick
     :type boolean
     :initform nil)
+   ;;This reports whether we had contact over the course of the last timestep
+   (penalty-contact-step
+    :accessor mp-penalty-contact-step
+    :type boolean
+    :initform nil)
+   ;;This is for keeping track of whether we will be having contact coming up
    (penalty-contact
     :accessor mp-penalty-contact
     :type boolean
@@ -287,11 +293,19 @@
     :accessor mp-strain-plastic-vm
     :type DOUBLE-FLOAT
     :initform 0d0)
+   (strain-plastic-vm-inc
+    :accessor mp-strain-plastic-vm-inc
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (strain-plastic
     :accessor mp-strain-plastic
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :strain-plastic
     :initform (cl-mpm/utils:voigt-zeros))
+   (yield-func
+    :accessor mp-yield-func
+    :type double-float
+    :initform 0d0)
    ))
 
 (defclass particle-vm (particle-elastic particle-plastic)
@@ -322,25 +336,44 @@
     :initarg :c
     :initform 0d0
     )
-   (strain-plastic-vm
-    :accessor mp-strain-plastic-vm
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-   (strain-plastic-vm-inc
-    :accessor mp-strain-plastic-vm-inc
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-   (strain-plastic
-    :accessor mp-strain-plastic
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initarg :strain-plastic
-    :initform (cl-mpm/utils:voigt-zeros))
-   (yield-func
-    :accessor mp-yield-func
-    :type double-float
-    :initform 0d0)
-   )
-  (:documentation "A vm perfectly plastic material point"))
+   (phi-0
+    :accessor mp-phi-0
+    :initarg :phi
+    :initform 0d0
+    )
+   (psi-0
+    :accessor mp-psi-0
+    :initarg :psi
+    :initform 0d0
+    )
+   (c-0
+    :accessor mp-c-0
+    :initarg :c
+    :initform 0d0
+    )
+   (phi-r
+    :accessor mp-phi-r
+    :initarg :phi-r
+    :initform 0d0
+    )
+   (psi-r
+    :accessor mp-psi-r
+    :initarg :psi-r
+    :initform 0d0
+    )
+   (c-r
+    :accessor mp-c-r
+    :initarg :c-r
+    :initform 0d0
+    )
+   (softening
+    :accessor mp-softening
+    :initarg :softening
+    :initform 0d0))
+
+  (:documentation "A mohr-coloumb perfectly plastic material point"))
+
+
 
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)
@@ -1431,9 +1464,11 @@
                    (ps-vm mp-strain-plastic-vm)
                    (strain mp-strain)
                    (yield-func mp-yield-func)
+                   (soft mp-softening)
                    (enabled mp-enable-plasticity)
                    )
       mp
+    (declare (double-float soft ps-vm))
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress
           (cl-mpm/constitutive::linear-elastic-mat strain de))
@@ -1454,6 +1489,19 @@
                        (expt (- s2 s3) 2d0)
                        (expt (- s3 s1) 2d0)
                        ) 2d0))))))
+    (when (> soft 0d0)
+      (with-accessors ((c-0 mp-c-0)
+                       (phi-0 mp-phi-0)
+                       (psi-0 mp-psi-0)
+                       (c-r mp-c-r)
+                       (phi-r mp-phi-r)
+                       (psi-r mp-psi-r))
+          mp
+        (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
+          (setf
+           c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
+           phi (+ phi-r (* (- phi-0 phi-r) (exp (- (* soft ps-vm)))))))
+      )
     stress
     ))
 
