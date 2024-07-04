@@ -1261,16 +1261,6 @@ Calls the function with the mesh mp and node"
                                                    (cl-mpm/particle::mp-time-averaged-ybar mp) 0d0)
                                              v)
                                            0))
-        ;; (cl-mpm/output::save-parameter "viscosity" (cl-mpm/particle::mp-time-averaged-visc mp))
-        ;; (save-parameter "visc-plastic" (cl-mpm/particle::mp-visc-plastic mp))
-        ;; (save-parameter "visc-glen" (cl-mpm/particle::mp-visc-glen mp))
-
-        ;; (cl-mpm/output::save-parameter "strain-rate"
-        ;;                                (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
-        ;;                                ;; (multiple-value-bind (l v)
-        ;;                                ;;     (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-velocity-rate mp)))
-        ;;                                ;;   (reduce #'+ (mapcar #'* l l)))
-        ;;                                )
         (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
 
         (cl-mpm/output::save-parameter "s_1"
@@ -1279,42 +1269,11 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "e_1"
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-strain mp)))
                                          (loop for sii in l maximize sii)))
-        ;; (cl-mpm/output::save-parameter "su_1"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
-        ;;                                    (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
-        ;;                                      (loop for sii in l maximize sii))
-        ;;                                    0d0
-        ;;                                    ))
-        ;; (cl-mpm/output::save-parameter "s_vm"
-        ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-
-        ;;                                  (let* ((l (sort l #'>))
-        ;;                                         (s_1 (max 0 (- (first l) (cl-mpm/particle::mp-pressure mp))))
-        ;;                                         (s_2 (max 0 (- (second l) (cl-mpm/particle::mp-pressure mp)))))
-
-        ;;                                    (* (sqrt (/ 3 4)) (- s_1 s_2))
-        ;;                                    )
-        ;;                                  ))
-        ;; (cl-mpm/output::save-parameter "s_vm_t"
-        ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-
-        ;;                                  (let* ((l (sort l #'>))
-        ;;                                         (s_1 (first l))
-        ;;                                         (s_2 (second l)))
-        ;;                                    (* ;(sqrt (/ 3 4))
-        ;;                                     1d0
-        ;;                                     (- s_1 s_2))
-        ;;                                    )
-        ;;                                  ))
 
 
         (cl-mpm/output::save-parameter "EPS"
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
                                          (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
-        ;; (cl-mpm/output::save-parameter "EPS-pd"
-        ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-        ;;                                  (- (loop for sii in l maximize sii) (* (cl-mpm/particle::mp-damage mp)
-        ;;                                                                         (cl-mpm/particle::mp-pressure mp)))))
         (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
         (when (= 3 nd)
@@ -1323,10 +1282,6 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "damage"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
                                            (cl-mpm/particle:mp-damage mp)
-                                           0d0))
-        (cl-mpm/output::save-parameter "damage-2"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-mode-2)
-                                           (cl-mpm/particle::mp-damage-mode-2 mp)
                                            0d0))
         (cl-mpm/output::save-parameter "damage-inc"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-increment)
@@ -1425,12 +1380,9 @@ Calls the function with the mesh mp and node"
         ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
         ;;                                      0d0)))
         (cl-mpm/output::save-parameter "i1"
-                                       (with-accessors ((damage cl-mpm/particle::mp-damage)
-                                                        (stress cl-mpm/particle::mp-undamaged-stress)
-                                                        (def cl-mpm/particle::mp-deformation-gradient)
-                                                        )
-                                           mp
-                                         (cl-mpm/utils::trace-voigt stress)))
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                           (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
+                                           (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))))
         (cl-mpm/output::save-parameter "e_i1"
                                        (with-accessors ((strain cl-mpm/particle::mp-strain))
                                            mp
@@ -1482,10 +1434,10 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter
          "fbar-j-diff"
          (if (> (cl-mpm/particle::mp-debug-j mp) 0d0) 
-           (/ (- (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/particle::mp-debug-j mp)) 
-              (cl-mpm/particle::mp-debug-j mp)
-              )
-           0d0)
+             (/ (- (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/particle::mp-debug-j mp)) 
+                (cl-mpm/particle::mp-debug-j mp)
+                )
+             0d0)
          )
         (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact mp) 1 0))
         (cl-mpm/output::save-parameter "fric-contact-stick" (if (cl-mpm/particle::mp-penalty-friction-stick mp) 1 0))
