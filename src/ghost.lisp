@@ -36,7 +36,7 @@
          (pos-a (cl-mpm/mesh::cell-centroid cell-a))
          (pos-b (cl-mpm/mesh::cell-centroid cell-b))
          (normal (cl-mpm/fastmath:norm (cl-mpm/fastmath:fast-.- pos-a pos-b)))
-         (midpoint (cl-mpm/fastmath::fast-scale (cl-mpm/fastmath:fast-.+ pos-a pos-b) 0.5d0))
+         (midpoint (cl-mpm/fastmath::fast-scale! (cl-mpm/fastmath:fast-.+ pos-a pos-b) 0.5d0))
          (face-basis (cl-mpm/utils:vector-from-list (list (- (tref normal 1 0)) (tref normal 0 0) 0d0))))
     (loop for gp in (list -1d0 1d0)
           do (progn

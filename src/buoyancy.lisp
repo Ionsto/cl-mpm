@@ -1221,7 +1221,7 @@
                    (sb-thread:with-mutex (node-lock)
                      ;; Add gradient of stress
                      ;; Add divergance of stress
-                     (let ((buoyancy-force (cl-mpm/fastmath::fast-scale
+                     (let ((buoyancy-force (cl-mpm/fastmath::fast-scale!
                                             (funcall func-div mp)
                                             (* svp volume))))
                        (cl-mpm/fastmath::fast-.+ node-force

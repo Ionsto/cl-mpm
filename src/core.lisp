@@ -1371,7 +1371,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
         ;;PIC
         #+ :cl-mpm-pic (cl-mpm/utils::voigt-copy-into mapped-vel vel)
-        (cl-mpm/fastmath::fast-scale mapped-vel dt)
+        (cl-mpm/fastmath::fast-scale! mapped-vel dt)
         (cl-mpm/fastmath::simd-add pos mapped-vel)
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
@@ -1416,7 +1416,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass))
         (progn
-          (cl-mpm/fastmath::fast-scale vel (/ 1.0d0 mass))))))
+          (cl-mpm/fastmath::fast-scale! vel (/ 1.0d0 mass))))))
 
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
@@ -1733,10 +1733,10 @@ Calls func with only the node"
             ;; (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
             ;; (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
             ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
-            (cl-mpm/fastmath::fast-scale stretch-tensor dt)
-            (cl-mpm/fastmath::fast-scale stretch-tensor-fbar dt)
-            ;; (cl-mpm/fastmath::fast-scale strain-rate dt)
-            ;; (cl-mpm/fastmath::fast-scale vorticity dt)
+            (cl-mpm/fastmath::fast-scale! stretch-tensor dt)
+            (cl-mpm/fastmath::fast-scale! stretch-tensor-fbar dt)
+            ;; (cl-mpm/fastmath::fast-scale! strain-rate dt)
+            ;; (cl-mpm/fastmath::fast-scale! vorticity dt)
             )))
 
 
@@ -1813,7 +1813,7 @@ Calls func with only the node"
             ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
             ;; (setf eng-strain-rate initial-strain)
 
-            ;; (cl-mpm/fastmath::fast-scale eng-strain-rate (/ 1d0 dt))
+            ;; (cl-mpm/fastmath::fast-scale! eng-strain-rate (/ 1d0 dt))
 
             ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
             )
@@ -2186,7 +2186,7 @@ Calls func with only the node"
           (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
+        (cl-mpm/fastmath::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
         ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
         ))))
 
@@ -2216,7 +2216,7 @@ Calls func with only the node"
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmath::fast-scale stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (cl-mpm/fastmath::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
       )))
 
 (defun update-stress-linear (mesh mp dt fbar)

@@ -418,7 +418,7 @@
   (vgplot:close-all-plots)
   (let* ((displacment 6d-3)
          (total-time (* 10d0 displacment))
-         (load-steps 500)
+         (load-steps 200)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

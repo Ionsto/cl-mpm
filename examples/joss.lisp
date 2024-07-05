@@ -1822,7 +1822,7 @@
     ;;    (magicl:scale! a 0d0)))
     ;; (time
     ;;  (lparallel:pdotimes (i iter)
-    ;;    (cl-mpm/fastmath::fast-scale a 0d0)))
+    ;;    (cl-mpm/fastmath::fast-scale! a 0d0)))
     ;; (time
     ;;  (lparallel:pdotimes (i iter)
     ;;    (cl-mpm/fastmath::fast-zero a)))

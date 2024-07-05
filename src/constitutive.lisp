@@ -720,7 +720,7 @@
                                             (magicl:column v (cdr (nth 1 l-sort)))
                                             (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
-                       (cl-mpm/fastmath::fast-scale
+                       (cl-mpm/fastmath::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
                                                         (- 1d0 nu) nu nu
                                                         nu (- 1d0 nu) nu
@@ -895,7 +895,7 @@
                                             (magicl:column v (cdr (nth 1 l-sort)))
                                             (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
-                       (cl-mpm/fastmath::fast-scale
+                       (cl-mpm/fastmath::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
                                                         (- 1d0 nu) nu nu
                                                         nu (- 1d0 nu) nu

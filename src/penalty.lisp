@@ -57,6 +57,15 @@
                (magicl:.* normal (magicl:scale domain 0.5d0))
                )))
 
+(defun trial-corner (mp normal)
+  "Get linear penetration distance"
+  (let* ((corner (cl-mpm/fastmath:fast-.+
+                  (cl-mpm/particle:mp-position mp)
+                  (cl-mpm/fastmath:fast-.*
+                   (cl-mpm/fastmath::fast-scale-vector (cl-mpm/particle::mp-domain-size mp) -0.5d0)
+                   normal))))
+    corner))
+
 (defparameter *debug-mutex* (sb-thread:make-mutex))
 (defparameter *debug-force* 0d0)
 (defparameter *debug-force-count* 0)
@@ -91,7 +100,10 @@
                                          ;; (expt volume (/ (- nd 1) nd))
                                          (expt volume (/ (- nd 1) nd))
                                          )))
-                   (when (funcall func-clip pen-point)
+                   (when (funcall func-clip
+                                  (trial-corner mp normal)
+                                  ;pen-point
+                                  )
                      (sb-thread:with-mutex (*debug-mutex*)
                        (incf *debug-force* (* normal-force 1d0))
                        (incf *debug-force-count* 1))
@@ -121,7 +133,7 @@
                        (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
                          (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
                              (progn
-                               ;; (cl-mpm/fastmath::fast-scale force-friction
+                               ;; (cl-mpm/fastmath::fast-scale! force-friction
                                ;;                              (/ (cl-mpm/fastmath::mag force-friction)
                                ;;                                 stick-friction))
                                (setf force-friction

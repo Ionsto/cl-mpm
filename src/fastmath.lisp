@@ -12,7 +12,7 @@
    :fast-.+
    :fast-.-
    :fast-.*
-   :fast-scale
+   :fast-scale!
    :fast-zero
     ))
 
@@ -598,13 +598,23 @@
 
 
 (declaim
- (inline fast-scale)
- (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale))
-(defun fast-scale (m scale)
+ (inline fast-scale!)
+ (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale!))
+(defun fast-scale! (m scale)
   (let ((m-s (magicl::matrix/double-float-storage m)))
     (loop for i fixnum from 0 below (length m-s)
           do (setf (aref m-s i) (* (aref m-s i) scale))))
   m)
+
+(declaim
+ (inline fast-scale-voigt)
+ (ftype (function (magicl:matrix/double-float double-float) magicl:matrix/double-float) fast-scale-voigt))
+(defun fast-scale-voigt (m scale)
+  (fast-scale! (cl-mpm/utils:voigt-copy m) scale))
+
+(defun fast-scale-vector (m scale)
+  (fast-scale! (cl-mpm/utils:vector-copy m) scale))
+
 (declaim
  (inline fast-zero)
  (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) fast-zero))

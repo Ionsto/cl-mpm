@@ -802,7 +802,7 @@
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
     (when (> damage 0d0)
-      (cl-mpm/fastmath::fast-scale stress (- 1d0 (* (- 1d0 1d-9) damage))))
+      (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     stress
     ))
 
@@ -2110,7 +2110,7 @@
                              ) 2d0))))))
           (setf stress (cl-mpm/utils:voigt-copy stress-undamaged)))
       (when (> damage 0.0d0)
-        (cl-mpm/fastmath::fast-scale stress (- 1d0 (* (- 1d0 1d-9) damage)))))
+        (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage)))))
     stress))
 
 (defmethod constitutive-model ((mp particle-concrete) strain dt)
@@ -2271,7 +2271,7 @@
         (setf stress (magicl:scale stress-u 1d0)))
 
     ;; ;; (when (> damage 0.0d0)
-    ;; ;;   (cl-mpm/fastmath::fast-scale stress (- 1d0 (* (- 1d0 1d-9) damage))))
+    ;; ;;   (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     ;; ;; (when (> damage 0.0d0)
     ;; ;;   (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix stress))
     ;; ;;     (loop for i from 0 to 2
