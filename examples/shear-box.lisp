@@ -204,8 +204,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               ;; :sim-type 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-damage
+               :sim-type 'cl-mpm::mpm-sim-usl
+               ;; :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -238,11 +238,11 @@
            :E 1d9
            :nu 0.24d0
            :psi 0d0
-           :phi (* 42d0 (/ pi 180))
-           :c 131d3
+           :phi (* 30d0 (/ pi 180))
+           :c 0d0;131d3
            :phi-r (* 30d0 (/ pi 180))
            :c-r 0d0
-           :softening 100d0
+           :softening 000d0
 
            ;; 'cl-mpm/particle::particle-chalk-delayed
            ;; :E 1d9
@@ -418,7 +418,7 @@
   (vgplot:close-all-plots)
   (let* ((displacment 6d-3)
          (total-time (* 10d0 displacment))
-         (load-steps 100)
+         (load-steps 500)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

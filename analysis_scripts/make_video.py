@@ -84,9 +84,15 @@ ice_height = 200
 
 plt.close("all")
 files = os.listdir(output_dir)
+
 finalcsv = re.compile("sim_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
-print("files: {}".format(files_csvs))
+
+framenumber_regex = re.compile("\d+")
+# files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
+files_csvs.sort(key=lambda x: int(framenumber_regex.findall(x)[0]))
+
+# print("files: {}".format(files_csvs))
 dt = 1e4/60
 time = []
 max_stress = []
