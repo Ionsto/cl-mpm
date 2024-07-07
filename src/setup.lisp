@@ -1,15 +1,16 @@
 (defpackage :cl-mpm/setup
   (:use :cl
-        :cl-mpm/utils
-        )
+   :cl-mpm/utils
+   )
   (:export
-    #:make-column
-    #:make-block-mps
-    #:remove-sdf
-    #:ellipse-sdf
-    #:circle-sdf
-    #:rectangle-sdf
-    #:estimate-elastic-dt
+   #:make-column
+   #:make-block-mps
+   #:remove-sdf
+   #:ellipse-sdf
+   #:circle-sdf
+   #:rectangle-sdf
+   #:estimate-elastic-dt
+   #:estimate-critical-damping
   ))
 
 (in-package :cl-mpm/setup)
@@ -305,7 +306,7 @@
         (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
     (*
      (/ pi 2)
-     (sqrt (/ E (* ;; (expt h nd)
+     (sqrt (/ E (* (expt h nd)
                    density))))))
 
 (defgeneric estimate-critical-damping (sim))

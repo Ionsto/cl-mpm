@@ -1376,7 +1376,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         (cl-mpm/fastmath::simd-add disp mapped-vel)
         (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
         (unless (cl-mpm/particle::mp-penalty-contact mp)
-          (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp)))
+          (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
+          (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0)
+          )
         (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
         ;;FLIP
         #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
@@ -1430,7 +1432,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         node
         (declare (double-float mass dt damping mass-scale))
         (progn
-
           (magicl:scale! acc 0d0)
           ;;Set acc to f/m
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))

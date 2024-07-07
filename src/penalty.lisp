@@ -73,7 +73,7 @@
 ;;Only vertical condition
 (declaim (notinline apply-force-mps))
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction &optional (func-clip (lambda (mp) t))
-                                                                    &key (damping 0.1d0))
+                                                                    &key (damping 0d0))
   "Update force on nodes, with virtual stress field from mps"
   ;;If we lose contact we need to zero out our friction force
   (with-accessors ((nd cl-mpm/mesh::mesh-nd))
@@ -92,6 +92,7 @@
                                 (mp-mass cl-mpm/particle::mp-mass)
                                 (mp-contact cl-mpm/particle::mp-penalty-contact)
                                 (mp-friction cl-mpm/particle::mp-penalty-frictional-force)
+                                (mp-normal-force cl-mpm/particle::mp-penalty-normal-force)
                                 )
                    mp
                  (let* ((pen-point (penetration-point mp penetration-dist datum normal))
@@ -109,12 +110,12 @@
                        (incf *debug-force-count* 1))
                      (setf mp-contact t)
                      ;;Iterate over neighbour nodes
-
                      (let* ((force (cl-mpm/utils:vector-zeros))
                             (rel-vel (cl-mpm/fastmath:dot normal mp-vel))
                             (tang-vel (cl-mpm/fastmath:fast-.- mp-vel (magicl:scale normal rel-vel)))
                             (tang-vel-norm-squared (cl-mpm/fastmath::mag-squared tang-vel))
-                            (normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
+                            ;(normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
+                            (normal-damping (* damping (sqrt (/ epsilon mp-mass))))
                             (damping-force (* normal-damping rel-vel))
                             (force-friction mp-friction)
                             (stick-friction (* friction (abs normal-force))))
@@ -130,6 +131,7 @@
                             force-friction
                             tang-vel
                             (* -1d0 (/ epsilon 2d0) dt))))
+                       (incf mp-normal-force (- normal-force damping-force))
                        (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
                          (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
                              (progn

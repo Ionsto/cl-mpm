@@ -238,6 +238,10 @@
     :accessor mp-penalty-frictional-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::vector-zeros))
+   (penalty-normal-force
+    :accessor mp-penalty-normal-force
+    :type double-float
+    :initform 0d0)
    (penalty-friction-stick
     :accessor mp-penalty-friction-stick
     :type boolean
