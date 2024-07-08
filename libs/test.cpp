@@ -3,20 +3,9 @@
 #include <chrono>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/MatrixFunctions>
+#include "src/utils.h"
+#include "src/constitutive.h"
 
-Eigen::Matrix<double,6,1> matrix_to_voigt(Eigen::Matrix<double,3,3> mat) {
-  return (Eigen::Matrix<double,6,1>() <<
-          mat(0,0), mat(1,1),mat(2,2),
-          2.0*mat(1,2), 2.0*mat(0,2),2.0*mat(0,1)
-          ).finished();
-}
-
-Eigen::Matrix<double,3,3> voigt_to_matrix(Eigen::Matrix<double,6,1> voigt) {
-  return (Eigen::Matrix3d() <<
-          voigt(0), 0.5*voigt(5), 0.5*voigt(4),
-          0.5*voigt(5), voigt(1), 0.5*voigt(3),
-          0.5*voigt(4), 0.5*voigt(3), voigt(2)).finished();
-}
 extern "C" {
 
   void test(double * strain_ptr){
@@ -45,10 +34,10 @@ extern "C" {
     auto l = trialeigensolver.eigenvalues();
     auto v = trialeigensolver.eigenvectors();
     if ((l.array() <= 0.0).any())
-    {
-      //Bad news we've got negative or zero eigenvalues - this is not good
-      return false;
-    }
+      {
+        //Bad news we've got negative or zero eigenvalues - this is not good
+        return false;
+      }
     //Nasty hack we may get very small negative eigenvalues - so we take max of 0
     strain = (matrix_to_voigt(v * l.array().log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
     //No clue if this works
@@ -57,9 +46,17 @@ extern "C" {
 
   // bool MC_plastic_model(double * strain_ptr, double )
 
+
+  bool CppDruckerPrager(double * strain_ptr,double E, double nu, double phi, double psi, double c)
+  {
+    // Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
+    Eigen::Matrix<double,6,1> strain {1.0,2.0,3.0, 1.0,2.0,3.0};
+    Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,1.0,0.0,0.1,0.0,1.0);
+    //Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,E,nu,phi,psi,c);
+    // strain = strainE;
+    return true;
+  }
 }
-
-
 int main(int arc,char **args){
   typedef std::chrono::high_resolution_clock Clock;
   std::cout<<"Starting test\n";

@@ -125,10 +125,13 @@
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (epsilon (* 1d2 1d9))
          ;; (friction 0.0d0)
-         (damping 0d0)
+         (damping 0.0d0)
          )
     (unless *enable-box-friction*
-      (setf friction 0d0))
+      (setf friction 0d0
+            damping 0d0
+            )
+      )
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps)
                      (dt cl-mpm:sim-dt))
@@ -191,7 +194,9 @@
        (- (+ right-x *displacement-increment*))
        epsilon
        friction
-       (lambda (mp) (<= (magicl:tref mp 1 0) height)))
+       (lambda (mp) (<= (magicl:tref mp 1 0) height))
+       :damping damping
+       )
       (setf cl-mpm/penalty::*debug-force* 0d0)
       (cl-mpm/penalty::apply-force-mps
        mesh mps dt
@@ -199,7 +204,9 @@
        (+ left-x *displacement-increment*)
        epsilon
        friction
-       (lambda (mp) (<= (magicl:tref mp 1 0) height)))
+       (lambda (mp) (<= (magicl:tref mp 1 0) height))
+       :damping damping
+       )
       )
 
     ))
@@ -397,7 +404,14 @@
              (cl-mpm/bc::make-bc-closure
               nil
               (lambda ()
-                (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction))))))))
+                (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)))))))
+    ;; (cl-mpm/setup::remove-sdf *sim*
+    ;;                           (lambda (p)
+    ;;                             (if (> (magicl:tref p 1 0) sunk-size)
+    ;;                                 0d0
+    ;;                                 1d0)
+    ;;                             ))
+    )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -425,7 +439,7 @@
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
   (let* ((displacment 1d-3)
-         (total-time (* 10d0 displacment))
+         (total-time (* 100d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
@@ -444,7 +458,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d0
+          (* 0.5d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -459,7 +473,7 @@
      *sim*
      :energy-crit 1d-2
      :oobf-crit 1d-2
-     :substeps 20
+     :substeps 50
      :conv-steps 100
      :post-iter-step
      (lambda (i energy oobf)
@@ -473,11 +487,13 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           1d-1
+           1d-3
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*))
           ;; (cl-mpm::sim-enable-damage *sim*) t
           )
+    (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
+      (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
     (defparameter *displacement-increment* 0d0)
     (format t "Substeps ~D~%" substeps)
     (vgplot:figure)
@@ -511,8 +527,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       (setf load-av cl-mpm/penalty::*debug-force*)
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
+                       ;; (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)

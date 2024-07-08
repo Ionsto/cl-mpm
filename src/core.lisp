@@ -1795,42 +1795,17 @@ Calls func with only the node"
       (let ((df (calculate-df mesh mp fbar)))
         (progn
           (setf def (magicl:@ df def))
-
-          ;; (let ((temp (cl-mpm/utils:matrix-zeros)))
-          ;;   (magicl:mult df def :target temp)
-          ;;   (cl-mpm/utils:matrix-copy-into temp def))
-
-          (let (;(initial-strain (cl-mpm/utils::vector-copy strain))
-                )
-            ;; (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-            ;;                 (magicl::matrix/double-float-storage strain))
-            ;;This can may be in lisp or accelerated
-            ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
-            ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-            (cl-mpm/ext:kirchoff-update strain df)
-            ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
-            ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-            ;;Not sure about this engineering strain calculation
-            ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
-            ;; (setf eng-strain-rate initial-strain)
-
-            ;; (cl-mpm/fastmath::fast-scale! eng-strain-rate (/ 1d0 dt))
-
-            ;; (setf eng-strain-rate (magicl:scale! (magicl:.- strain initial-strain) (/ 1d0 dt)))
-            )
-
+          (cl-mpm/ext:kirchoff-update strain df)
           ;;Post multiply to turn to eng strain
           (setf volume (* volume (the double-float (magicl:det df))))
           ;; (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-            (update-domain-corner mesh mp dt)
-            ;; (update-domain-midpoint mesh mp dt)
+          (update-domain-corner mesh mp dt)
+          ;; (update-domain-midpoint mesh mp dt)
           ;; (update-domain-stretch-rate df domain)
-
-          )
-          )))
+          ))))
   (values))
 (declaim
  (inline update-strain-kirchoff-damaged)

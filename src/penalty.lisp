@@ -73,7 +73,7 @@
 ;;Only vertical condition
 (declaim (notinline apply-force-mps))
 (defun apply-force-mps (mesh mps dt normal datum epsilon friction &optional (func-clip (lambda (mp) t))
-                                                                    &key (damping 0d0))
+                                                                    &key (damping 0.1d0))
   "Update force on nodes, with virtual stress field from mps"
   ;;If we lose contact we need to zero out our friction force
   (with-accessors ((nd cl-mpm/mesh::mesh-nd))
@@ -114,8 +114,9 @@
                             (rel-vel (cl-mpm/fastmath:dot normal mp-vel))
                             (tang-vel (cl-mpm/fastmath:fast-.- mp-vel (magicl:scale normal rel-vel)))
                             (tang-vel-norm-squared (cl-mpm/fastmath::mag-squared tang-vel))
-                            ;(normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
-                            (normal-damping (* damping (sqrt (/ epsilon mp-mass))))
+                            ;; (normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
+                            (normal-damping (* (/ pi 2) damping (sqrt (* epsilon mp-mass))))
+                            ;; (normal-damping (* (/ pi 2) damping (sqrt epsilon)))
                             (damping-force (* normal-damping rel-vel))
                             (force-friction mp-friction)
                             (stick-friction (* friction (abs normal-force))))

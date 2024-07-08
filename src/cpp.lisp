@@ -104,6 +104,16 @@
       (defcfun "Kirchoff_Strain_Update" :bool
         (strain-ptr :pointer)
         (df-ptr :pointer))
+
+
+      (defcfun "CppDruckerPrager" :bool
+        (strain-ptr :pointer)
+        (E :double)
+        (nu :double)
+        (phi :double)
+        (psi :double)
+        (c :double))
+
       (defcfun "test" :void
         (flags :pointer))
       (format t "~&Using accelerated kirchoff update~%")
@@ -112,7 +122,14 @@
                                                 (dfp (magicl::matrix/double-float-storage df-matrix)))
           (unless (kirchoff-strain-update sp dfp)
             (error "Kirchoff strain update failed - eigensolver error ~A ~A" strain-matrix df-matrix)))
-        (values)))
+        (values))
+      (defun constitutive-drucker-prager (strain de E nu phi psi c)
+        (declare (double-float E nu phi psi c))
+        (let ((str (cl-mpm/utils::voigt-copy strain)))
+          (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage str)))
+            (unless (CppDruckerPrager sp E nu phi psi c)
+              (error "Drucker-Prager failed")))
+          (values (cl-mpm/constitutive::linear-elastic-mat str de) str 0d0))))
 
     (cffi::load-foreign-library-error (c)
       (progn
@@ -120,6 +137,8 @@
         ;;Use a lisp fallback
         (defun kirchoff-expt-step (strain df)
           (kirchoff-expt-step-lisp strain df))
+        (defun constitutive-drucker-prager (strain de E nu phi psi c)
+          (error "Drucker-Prager not implemented!"))
         )))
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
 (defun kirchoff-update (strain df)
@@ -128,3 +147,33 @@
   ;; (kirchoff-svd-lisp strain df)
   )
 
+
+(defun test-drucker-prager ()
+  (let* ((E 1d0)
+         (nu 0.0d0)
+         (phi 0.1d0)
+         (psi 0.0d0)
+         (c 1d0)
+         (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+         (strain (cl-mpm/utils:voigt-from-list (list  1d0 2d0 3d0 1d0 2d0 3d0)))
+         )
+    (multiple-value-bind (sig eps f) (constitutive-drucker-prager strain de E nu phi psi c)
+      (pprint sig)
+      (pprint eps))))
+
+(defun test-mc ()
+  (let* ((E 1d0)
+         (nu 0.0d0)
+         (phi 0.1d0)
+         (psi 0.0d0)
+         (c 1d0)
+         (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+         (strain (cl-mpm/utils:voigt-from-list (list  1d0 2d0 3d0 1d0 2d0 3d0)))
+         (stress (magicl:@ de strain))
+         )
+    (dotimes (i 100)
+      (time
+       (cl-mpm/constitutive::mc-plastic stress de strain de E nu phi psi c)))
+    (multiple-value-bind (sig eps f) (cl-mpm/constitutive::mc-plastic stress de strain de E nu phi psi c)
+      (pprint sig)
+      (pprint eps))))
