@@ -702,6 +702,10 @@
      (- a)
      (* b p))))
 
+
+;; (defun plastic-dp (trial-elastic-strain de E nu phi psi c)
+;;   (cl-mpm/ext::constitutive-drucker-prager trial-elastic-strain de E nu phi psi c))
+
 (declaim (notinline  mc-plastic))
 (defun mc-plastic (stress de trial-elastic-strain E nu phi psi c)
   (declare (optimize (speed 3) (safety 0) (debug 0)))

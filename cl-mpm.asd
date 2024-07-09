@@ -561,3 +561,20 @@
   :serial t
   :components ((:file "examples/shear-box")))
 
+(defsystem "cl-mpm/models/plastic"
+  :depends-on ("cl-mpm/particle")
+  :description "MPM plastic particle definitions"
+  :serial t
+  :components ((:file "src/models/plastic")))
+
+(defsystem "cl-mpm/models/ice"
+  :depends-on ("cl-mpm/particle"
+               "cl-mpm/models/plastic"
+               "cl-mpm/models/damage"
+               )
+  :description "MPM ice particle definitions"
+  :serial t
+  :components ((:file "src/models/ice")))
+
+
+
