@@ -45,7 +45,7 @@
                )
   :description "MPM boundary conditions"
   :serial t
-  :components ((:file "src/bc")))
+  :components ((:file "src/bc/bc")))
 
 (defsystem "cl-mpm/setup"
   :depends-on ("cl-mpm"
@@ -201,7 +201,7 @@
                "cl-mpm/bc")
   :description ""
   :components (
-               (:file "src/buoyancy")
+               (:file "src/bc/buoyancy")
                ))
 
 (defsystem "cl-mpm/penalty"
@@ -209,7 +209,7 @@
                "cl-mpm/bc")
   :description ""
   :components (
-               (:file "src/penalty")
+               (:file "src/bc/penalty")
                ))
 
 (defsystem "cl-mpm/ghost"
