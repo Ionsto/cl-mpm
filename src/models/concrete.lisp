@@ -1,10 +1,11 @@
-(defpackage :cl-mpm/models/concrete
-  (:use
-   :cl
-   :cl-mpm/utils
-   :cl-mpm/particle)
-  (:export))
-(in-package :cl-mpm/models/concrete)
+;; (defpackage :cl-mpm/models/concrete
+;;   (:use
+;;    :cl
+;;    :cl-mpm/utils
+;;    :cl-mpm/particle)
+;;   (:export))
+;; (in-package :cl-mpm/models/concrete)
+(in-package :cl-mpm/particle)
 
 (defclass particle-concrete (particle-elastic-damage)
   ((fracture-energy

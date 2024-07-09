@@ -1,10 +1,11 @@
-(defpackage :cl-mpm/models/plastic
-  (:use :cl
-   :cl-mpm/utils)
-  (:export
-   )
-  )
-(in-package :cl-mpm/models/plastic)
+;; (defpackage :cl-mpm/models/plastic
+;;   (:use :cl
+;;    :cl-mpm/utils)
+;;   (:export
+;;    )
+;;   )
+;; (in-package :cl-mpm/models/plastic)
+(in-package :cl-mpm/particle)
 
 (defclass particle-plastic (particle)
   ((enable-plasticity
@@ -39,8 +40,7 @@
    (yield-func
     :accessor mp-yield-func
     :type double-float
-    :initform 0d0)
-   )
+    :initform 0d0))
   (:documentation "A vm perfectly plastic material point"))
 
 (defclass particle-mc (particle-elastic particle-plastic)

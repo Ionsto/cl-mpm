@@ -1,10 +1,12 @@
-(defpackage :cl-mpm/models/ice
-  (:use :cl
-   :cl-mpm/utils)
-  (:export
-   )
-  )
-(in-package :cl-mpm/models/ice)
+;; (defpackage :cl-mpm/models/ice
+;;   (:use :cl
+;;    :cl-mpm/utils)
+;;   (:export
+;;    )
+;;   )
+;; (in-package :cl-mpm/models/ice)
+
+(in-package :cl-mpm/particle)
 
 (defclass particle-glen (particle-elastic)
   ((visc-factor

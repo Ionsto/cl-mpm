@@ -369,19 +369,19 @@
 
 
 
-;; (defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
-;;   ()
-;;   (:documentation "A mp with elastic mechanics with variable thermal fields"))
-;; (defclass particle-thermoviscoplastic-damage (particle-viscoplastic particle-damage particle-thermal)
-;;   ()
-;;   (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
+(defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with elastic mechanics with variable thermal fields"))
+(defclass particle-thermoviscoplastic-damage (particle-viscoplastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
 
-;; (defclass particle-thermofluid-damage (particle-fluid particle-damage particle-thermal)
-;;   ()
-;;   (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
-;; (defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
-;;   ()
-;;   (:documentation "A viscoelastic mp with fracture mechanics"))
+(defclass particle-thermofluid-damage (particle-fluid particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
+(defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
+  ()
+  (:documentation "A viscoelastic mp with fracture mechanics"))
 
 
 (defun make-particle (nD &optional (constructor 'particle) &rest args &key  (position nil) (volume 1) (mass 1) &allow-other-keys)

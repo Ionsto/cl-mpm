@@ -1,10 +1,12 @@
-(defpackage :cl-mpm/models/damage
-  (:use
-   :cl
-   :cl-mpm/utils
-   :cl-mpm/particle)
-  (:export))
-(in-package :cl-mpm/models/damage)
+;; (defpackage :cl-mpm/models/damage
+;;   (:use
+;;    :cl
+;;    :cl-mpm/utils
+;;    :cl-mpm/particle)
+;;   (:export))
+;; (in-package :cl-mpm/models/damage)
+
+(in-package :cl-mpm/particle)
 
 (defclass particle-damage (particle)
   (
@@ -400,3 +402,5 @@
                             1) adiabatic-index))))
       (cl-mpm/constitutive:newtonian-fluid strain pressure viscosity)))
   )
+
+

@@ -34,8 +34,7 @@
   :depends-on ("magicl"
                "cl-mpm/utils"
                "cl-mpm/particle"
-               "cl-mpm/mesh"
-               )
+               "cl-mpm/mesh")
   :description "MPM forces calculations"
   :serial t
   :components ((:file "src/forces")))
@@ -71,7 +70,19 @@
                )
   :description "MPM particle definitions"
   :serial t
-  :components ((:file "src/particle")))
+  :components ((:module "src"
+                :serial t
+                :components
+                ((:file "particle")
+                 (:module "models"
+                  :serial t
+                  :components
+                  ((:file "damage")
+                   (:file "plastic")
+                   (:file "concrete")
+                   (:file "limestone")
+                   (:file "ice")
+                   (:file "chalk")))))))
 
 (defsystem "cl-mpm/damage"
   :depends-on ("magicl"
@@ -94,6 +105,7 @@
 (defsystem "cl-mpm/output"
   :depends-on ("magicl"
                "jonathan"
+               "cl-mpm"
                "str")
   :description "MPM output helper functions"
   :serial t
@@ -561,20 +573,50 @@
   :serial t
   :components ((:file "examples/shear-box")))
 
-(defsystem "cl-mpm/models/plastic"
-  :depends-on ("cl-mpm/particle")
-  :description "MPM plastic particle definitions"
-  :serial t
-  :components ((:file "src/models/plastic")))
+;; (defsystem "cl-mpm/models/all"
+;;   :depends-on ("cl-mpm/particle"
+;;                "cl-mpm/models/damage"
+;;                "cl-mpm/models/ice"
+;;                "cl-mpm/models/chalk")
+;;   :description "MPM plastic particle definitions"
+;;   :serial t)
 
-(defsystem "cl-mpm/models/ice"
+;; (defsystem "cl-mpm/models/plastic"
+;;   :depends-on ("cl-mpm/particle")
+;;   :description "MPM plastic particle definitions"
+;;   :serial t
+;;   :components ((:file "src/models/plastic")))
+
+;; (defsystem "cl-mpm/models/damage"
+;;   :depends-on ("cl-mpm/particle")
+;;   :description "MPM plastic particle definitions"
+;;   :serial t
+;;   :components ((:file "src/models/damage")))
+
+;; (defsystem "cl-mpm/models/ice"
+;;   :depends-on ("cl-mpm/particle"
+;;                "cl-mpm/models/plastic"
+;;                "cl-mpm/models/damage"
+;;                )
+;;   :description "MPM ice particle definitions"
+;;   :serial t
+;;   :components ((:file "src/models/ice")))
+
+;; (defsystem "cl-mpm/models/chalk"
+;;   :depends-on ("cl-mpm/particle"
+;;                "cl-mpm/models/plastic"
+;;                "cl-mpm/models/damage"
+;;                )
+;;   :description "MPM ice particle definitions"
+;;   :serial t
+;;   :components ((:file "src/models/chalk")))
+
+
+
+
+(defsystem "cl-mpm/models/limestone"
   :depends-on ("cl-mpm/particle"
-               "cl-mpm/models/plastic"
-               "cl-mpm/models/damage"
-               )
-  :description "MPM ice particle definitions"
+               "cl-mpm/damage")
+  :description "MPM limestone definitions"
   :serial t
-  :components ((:file "src/models/ice")))
-
-
-
+  :components ((:file "src/models/limestone")))

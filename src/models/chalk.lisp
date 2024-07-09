@@ -1,8 +1,10 @@
-(defpackage :cl-mpm/models/chalk
-  (:use :cl
-   :cl-mpm/utils)
-  (:export))
-(in-package :cl-mpm/models/chalk)
+;; (defpackage :cl-mpm/models/chalk
+;;   (:use :cl
+;;    :cl-mpm/utils)
+;;   (:export))
+;; (in-package :cl-mpm/models/chalk)
+
+(in-package :cl-mpm/particle)
 (defclass particle-chalk (particle-elastic-damage)
   (
    (coheasion
@@ -274,3 +276,207 @@
     ;;           ))
     ;;     ))
     stress))
+
+
+(defmethod constitutive-model ((mp particle-chalk-anisotropic) strain dt)
+  (declare (optimize (speed 0) (debug 3)))
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (stress-u mp-undamaged-stress)
+                   (strain mp-strain)
+                   (damage mp-damage)
+                   (pressure mp-pressure)
+                   (def mp-deformation-gradient)
+                   (pos mp-position)
+                   (calc-pressure mp-pressure-func)
+                   (rho mp-rho)
+                   (ps-vm mp-strain-plastic-vm)
+                   (plastic-strain mp-strain-plastic)
+                   (yield-func mp-yield-func)
+                   (enable-plasticity mp-enable-plasticity)
+                   (damage-tensor mp-damage-tensor)
+                   (E mp-E)
+                   (nu mp-nu)
+                   (coheasion mp-c)
+                   (phi mp-phi)
+                   (psi mp-psi)
+                   )
+      mp
+    (declare (function calc-pressure))
+    ;;Train elastic strain - plus trail kirchoff stress
+    (setf stress-u
+          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (call-next-method)
+
+    (if enable-plasticity
+        (progn
+          (multiple-value-bind (sig eps-e f)
+              ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
+            (cl-mpm/constitutive::mc-plastic stress-u de strain
+                                             E
+                                             nu
+                                             phi
+                                             psi
+                                             coheasion)
+            (setf stress
+                  sig
+                  plastic-strain (magicl:.- strain eps-e)
+                  yield-func f
+                  )
+            ;; (cl-mpm/utils:voigt-copy-into stress sig)
+            ;; (magicl:.- strain eps-e plastic-strain)
+            ;; (cl-mpm/utils:voigt-copy-into strain eps-e)
+            (setf strain eps-e)
+            )
+          (incf ps-vm
+                (multiple-value-bind (l v)
+                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                  (destructuring-bind (s1 s2 s3) l
+                    (sqrt
+                     (/ (+ (expt (- s1 s2) 2d0)
+                           (expt (- s2 s3) 2d0)
+                           (expt (- s3 s1) 2d0)
+                           ) 2d0))))))
+        (setf stress (magicl:scale stress-u 1d0))
+        )
+    ;; (setf stress (magicl:scale stress-u 1d0))
+    (when (> damage 0.0d0)
+      (let* ((j (magicl:det def))
+             (degredation (expt (- 1d0 damage) 1d0))
+             (min-strength 1d-6)
+             )
+
+        (let* ((min-damage (- 1d0 0d-6))
+               (d1 (* min-damage (magicl:tref damage-tensor 0 0)))
+               (d2 (* min-damage (magicl:tref damage-tensor 1 1)))
+               (d3 (* min-damage (magicl:tref damage-tensor 2 2)))
+               (d11 (- 1d0 d1))
+               (d22 (- 1d0 d2))
+               (d33 (- 1d0 d3))
+               (d12 (sqrt (* d11 d22)))
+               (d13 (sqrt (* d11 d33)))
+               (d23 (sqrt (* d22 d33)))
+               (g12 d12)
+               (g13 d13)
+               (g23 d23)
+               (damage-effect (cl-mpm/utils:tensor-voigt-4th-from-list
+                               (list
+                                d11 d12 d13 0d0 0d0 0d0
+                                d12 d22 d23 0d0 0d0 0d0
+                                d13 d23 d33 0d0 0d0 0d0
+                                0d0 0d0 0d0 g23 0d0 0d0
+                                0d0 0d0 0d0 0d0 g13 0d0
+                                0d0 0d0 0d0 0d0 0d0 g12
+                                )))
+               (new-de (magicl:.* damage-effect de))
+               )
+          ;; (pprint de)
+          ;; (pprint new-de)
+          ;; (pprint stress)
+          (setf stress (magicl:@ new-de strain))
+          ;; (pprint stress)
+          ;; (break)
+          )
+
+        ;; (let* ((b (magicl:.-
+        ;;            (magicl:from-diag (list 1d0 1d0 1d0) '(3 3))
+        ;;           damage-tensor))
+        ;;        (bsqrt (matrix-sqrt b)))
+        ;;   )
+        ;; (multiple-value-bind (l v)
+        ;;     (cl-mpm/utils:eig damage-tensor)
+        ;;   (let* ((d1 (- 1d0 (nth 0 l)))
+        ;;          (d2 (- 1d0 (nth 1 l)))
+        ;;          (d3 (- 1d0 (nth 2 l)))
+        ;;          (m (magicl:from-diag
+        ;;              (list d1
+        ;;                    d2
+        ;;                    d3
+        ;;                    (sqrt (* d2 d3))
+        ;;                    (sqrt (* d3 d1))
+        ;;                    (sqrt (* d1 d2)))))
+        ;;          (Q
+        ;;            (magicl:transpose!
+        ;;             (magicl:block-matrix (list
+        ;;                                   (magicl:.* (magicl:column v 0)
+        ;;                                              (magicl:column v 0))
+
+        ;;                                   (magicl:.* (magicl:column v 1)
+        ;;                                              (magicl:column v 1))
+        ;;                                   (magicl:.* (magicl:column v 2)
+        ;;                                              (magicl:column v 2))
+
+        ;;                                   (magicl:scale!
+        ;;                                    (magicl:.* (magicl:column v 0)
+        ;;                                               (magicl:column v 1)) 2d0)
+        ;;                                   (magicl:scale!
+        ;;                                    (magicl:.* (magicl:column v 1)
+        ;;                                               (magicl:column v 2)) 2d0)
+        ;;                                   (magicl:scale!
+        ;;                                    (magicl:.* (magicl:column v 2)
+        ;;                                               (magicl:column v 0)) 2d0)
+
+        ;;                                   (magicl:.* (magicl:column v 0)
+        ;;                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 0)))
+        ;;                                   (magicl:.* (magicl:column v 1)
+        ;;                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 1)))
+        ;;                                   (magicl:.* (magicl:column v 2)
+        ;;                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 2)))
+
+        ;;                                   (magicl:scale! (magicl:.+
+        ;;                                                   (magicl:.* (magicl:column v 0)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 1)))
+        ;;                                                   (magicl:.* (magicl:column v 1)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 0)))) 1d0)
+
+        ;;                                   (magicl:scale! (magicl:.+
+        ;;                                                   (magicl:.* (magicl:column v 1)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 2)))
+        ;;                                                   (magicl:.* (magicl:column v 2)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 1)))) 1d0)
+        ;;                                   (magicl:scale! (magicl:.+
+        ;;                                                   (magicl:.* (magicl:column v 2)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 0)))
+        ;;                                                   (magicl:.* (magicl:column v 0)
+        ;;                                                              (cl-mpm/constitutive::rotate-vector (magicl:column v 2)))) 1d0)
+        ;;                                   ) '(2 6))))
+        ;;          )
+        ;;     (setf stress (magicl:@
+        ;;                   (magicl:transpose Q)
+        ;;                   m
+        ;;                   Q
+        ;;                   stress
+        ;;                   )
+        ;;           )
+
+        ;;     ))
+        
+        ;; (magicl:scale! stress degredation)
+        ;; (multiple-value-bind (l v) (cl-mpm/utils::eig
+        ;;                             (magicl:scale! (voight-to-matrix stress) (/ 1d0 j)))
+        ;;   (let* ()
+        ;;     (loop for i from 0 to 2
+        ;;           do
+        ;;              (let* ((sii (nth i l))
+        ;;                       (esii sii)
+        ;;                     (vii (magicl::column v i))
+        ;;                     )
+        ;;                  (when t;(> esii 0d0)
+        ;;                    ;;tensile damage -> unbounded
+        ;;                    (let* (
+        ;;                           (vsi (magicl:@ vii (magicl:transpose vii)))
+        ;;                           (dii (magicl::trace (magicl:@ damage-tensor vsi)))
+        ;;                           (degredation (expt (- 1d0 dii) 2d0)))
+        ;;                      (setf (nth i l) (* sii (max 1d-12) degredation)))
+        ;;                    ;; (setf (nth i l) (* sii (max 1d-8 (- 1d0 damage))))
+        ;;                    )
+        ;;                  )
+        ;;           )
+        ;;       (setf stress (magicl:scale! (matrix-to-voight (magicl:@ v
+        ;;                                                               (magicl:from-diag l :type 'double-float)
+        ;;                                                               (magicl:transpose v))) j))
+        ;;       ))
+        ))
+    stress
+    ))

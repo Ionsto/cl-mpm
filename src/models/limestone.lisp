@@ -6,7 +6,7 @@
   (:export))
 (in-package :cl-mpm/models/limestone)
 
-(defclass particle-limestone (particle-concrete particle-mc)
+(defclass cl-mpm/particle::particle-limestone (cl-mpm/particle::particle-concrete cl-mpm/particle::particle-mc)
   (
    (compression-ratio
     :accessor mp-compression-ratio
@@ -23,7 +23,7 @@
     :initform nil))
   (:documentation "A concrete damage model"))
 
-(defclass particle-limestone-delayed (particle-limestone)
+(defclass cl-mpm/particle::particle-limestone-delayed (particle-limestone)
   ((delay-time
     :accessor mp-delay-time
     :initform 1d0
@@ -31,7 +31,7 @@
     ))
   (:documentation "A time dependant limestone elastic damage model"))
 
-(defmethod constitutive-model ((mp particle-limestone) strain dt)
+(defmethod cl-mpm/particle::constitutive-model ((mp particle-limestone) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-slots ((E E)
                (nu nu)
