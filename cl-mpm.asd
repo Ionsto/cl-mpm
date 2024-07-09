@@ -165,7 +165,9 @@
   :serial t
   :components (
                ;; (:file "src/shape-function")
+               (:file "src/cl-mpm")
                (:file "src/forces")
+               (:file "src/iterate")
                (:file "src/core")
                ))
 (defsystem "cl-mpm/mpi"

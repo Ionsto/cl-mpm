@@ -49,11 +49,12 @@ extern "C" {
 
   bool CppDruckerPrager(double * strain_ptr,double E, double nu, double phi, double psi, double c)
   {
-    // Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
-    Eigen::Matrix<double,6,1> strain {1.0,2.0,3.0, 1.0,2.0,3.0};
+    Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
+    // strain[0] = 0.0;
+    // Eigen::Matrix<double,6,1> strain {1.0,2.0,3.0, 1.0,2.0,3.0};
     Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,1.0,0.0,0.1,0.0,1.0);
     //Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,E,nu,phi,psi,c);
-    // strain = strainE;
+    strain = strainE;
     return true;
   }
 }
