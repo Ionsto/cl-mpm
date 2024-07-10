@@ -147,6 +147,7 @@
   :depends-on ("magicl"
                "cl-mpm/fastmath"
                "cl-mpm/utils"
+               "cl-mpm/forces"
                "alexandria"
                "array-operations"
                "lparallel"
@@ -166,7 +167,7 @@
   :components (
                ;; (:file "src/shape-function")
                (:file "src/cl-mpm")
-               (:file "src/forces")
+               ;; (:file "src/forces")
                (:file "src/iterate")
                (:file "src/core")
                ))

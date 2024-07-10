@@ -236,7 +236,7 @@
              ;; (init-stress 60d3)
              (init-stress 100d3)
              (gf 48d0)
-             (length-scale 1.5d-2)
+             (length-scale h)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              (ductility 20d0)
              )
@@ -249,36 +249,35 @@
            block-size
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
-           'cl-mpm/particle::particle-mc
-           :E 1d9
-           :nu 0.24d0
-           :psi 0d0
-           :phi (* 42d0 (/ pi 180))
-           :c 131d3
-           :phi-r (* 30d0 (/ pi 180))
-           :c-r 0d0
-           :softening 0d0
-
-           ;; 'cl-mpm/particle::particle-chalk-delayed
+           ;; 'cl-mpm/particle::particle-mc
            ;; :E 1d9
            ;; :nu 0.24d0
-
-           ;; :kt-res-ratio 1d-9
-           ;; :kc-res-ratio 1d0
-           ;; :g-res-ratio 1d-9
-
-           ;; :friction-angle 43d0
-           ;; :initiation-stress init-stress;18d3
-           ;; :delay-time 1d-4
-           ;; :delay-exponent 1d0
-           ;; ;; :ductility 5d0
-           ;; :ductility ductility
-           ;; :local-length length-scale
-           ;; :local-length-damaged 10d-10
-           ;; :enable-plasticity nil
            ;; :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
+           ;; :phi-r (* 30d0 (/ pi 180))
+           ;; :c-r 0d0
+           ;; :softening 10d0
+
+           'cl-mpm/particle::particle-chalk-delayed
+           :E 1d9
+           :nu 0.24d0
+
+           :kt-res-ratio 1d-9
+           :kc-res-ratio 1d-9
+           :g-res-ratio 1d-9
+
+           :friction-angle 43d0
+           :initiation-stress init-stress;18d3
+           :delay-time 1d-5
+           :delay-exponent 1d0
+           :ductility ductility
+           :local-length length-scale
+           :local-length-damaged 10d-10
+           :enable-plasticity t
+           :psi 0d0
+           :phi (* 42d0 (/ pi 180))
+           :c 131d3
 
            :index 0
            :gravity 0.0d0
@@ -404,14 +403,7 @@
              (cl-mpm/bc::make-bc-closure
               nil
               (lambda ()
-                (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)))))))
-    ;; (cl-mpm/setup::remove-sdf *sim*
-    ;;                           (lambda (p)
-    ;;                             (if (> (magicl:tref p 1 0) sunk-size)
-    ;;                                 0d0
-    ;;                                 1d0)
-    ;;                             ))
-    )
+                (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction))))))))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -438,14 +430,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
-         (total-time (* 100d0 displacment))
+  (let* ((displacment 3d-3)
+         (total-time (* 10d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
-         (enable-plasticity t)
+         (enable-plasticity nil)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -482,15 +474,14 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
+
     (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           ;; damping
-           1d-3
+           1d-2
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*))
-          ;; (cl-mpm::sim-enable-damage *sim*) t
           )
     (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
@@ -527,8 +518,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
-                       ;; (setf disp-av *displacement-increment*)
+                       (setf load-av cl-mpm/penalty::*debug-force*)
+                       (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
@@ -539,14 +530,12 @@
                      (incf *sim-step*)
                      (plot *sim*)
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080"
-                                        )
+                                        :terminal "png size 1920,1080")
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
-                     (swank.live:update-swank))))
-    )
+                     (swank.live:update-swank)))))
   (vgplot:figure)
   (plot-load-disp))
 
