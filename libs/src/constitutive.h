@@ -91,7 +91,7 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
          - s*s.transpose()/std::pow(rho,3));
       const int maxit = 4;
       const double tolf = 1e-6;
-      for(int iter = 0; (iter < maxit) && ((b(Eigen::seq(0,2)).norm() > tol) || (std::abs(b(3)) > tolf));++iter){
+      for(int iter = 0; (iter < maxit) && ((b.block(0,0,2,1).norm() > tol) || (std::abs(b(3)) > tolf));++iter){
         Eigen::Matrix<double,4,4> A;
         // A.block(0,0,3,3) << Eigen::Matrix<double,3,3>::Identity();
         // // A << Eigen::Matrix<double,3,3>::Identity() << dg;;// << df.transpose() * De3 << 0.0; 
