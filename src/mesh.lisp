@@ -441,20 +441,7 @@
   (let ((h (mesh-resolution mesh))
         (p-a (magicl::matrix/double-float-storage pos)))
     (declare (double-float h))
-    (aops:each (lambda (x) (/ (the double-float x) h)) p-a))
-  ;; (let ((res (make-array 2
-  ;;                        :initial-contents (the (simple-array double-float) (magicl::matrix/double-float-storage pos))
-  ;;                        :element-type 'double-float))
-  ;;       (h (mesh-resolution mesh)))
-  ;;   (declare (type double-float h))
-  ;;   ;; (declare (type (simple-array double-float 2) res))
-  ;;   (loop for i from 0 to 1
-  ;;         do (setf (aref res i) (/ (the double-float (aref res i))
-  ;;                                  h)))
-  ;;   res)
-  ;; (mapcar (lambda (x) (+ (funcall round-operator (/ (magicl:tref pos x 0) (mesh-resolution mesh)))
-  ;;                        (mesh-boundary-order mesh))) '(0 1))
-  )
+    (aops:each (lambda (x) (/ (the double-float x) h)) p-a)))
 
 (declaim
  (inline position-to-index)

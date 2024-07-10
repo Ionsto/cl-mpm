@@ -238,7 +238,7 @@
              (gf 48d0)
              (length-scale h)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 20d0)
+             (ductility 100d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -265,7 +265,7 @@
 
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-1
+           :g-res-ratio 1d-9
 
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
@@ -304,6 +304,7 @@
            :E 1d9
            :nu 0.24d0
            :initiation-stress 1d20
+           :local-length 0d0
            :index 1
            :gravity (- gravity))))
         )
@@ -445,7 +446,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 3d-3)
+  (let* ((displacment 6d-3)
          (total-time (* 10d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
@@ -494,7 +495,7 @@
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d-2
+           1d-1
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*))
           )
@@ -734,7 +735,7 @@
 
 (defun profile ()
   (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (setup :refine 32)
+  (setup :refine 4)
   ;; (sb-profile:profile)
   ;; (sb-profile:reset)
   ;; (sb-profile:profile "CL-MPM")
@@ -744,13 +745,55 @@
   ;; (sb-profile:profile "CL-MPM/BC")
   ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
   ;; (sb-profile:profile "CL-MPM/PENALTY")
-  (time
-   (loop repeat 100
-         while *run-sim*
-         do (progn
-              (cl-mpm::update-sim *sim*)
-              (swank.live:update-swank)
-              )))
+
+  (setf (cl-mpm::sim-enable-damage *sim*) t)
+  (setf (cl-mpm::sim-nonlocal-damage *sim*) t)
+  (setf *enable-box-friction* t)
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (*
+         1d-1
+         (sqrt (cl-mpm:sim-mass-scale *sim*))
+         (cl-mpm/setup::estimate-critical-damping *sim*))
+        )
+  ;; (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
+  ;;   (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
+  ;; (with-accessors ((mesh cl-mpm:sim-mesh)
+  ;;                  (mps cl-mpm:sim-mps))
+  ;;     *sim*
+  ;;   (let* ((mp (aref mps 0)))
+  ;;     (pprint
+  ;;      (cl-mpm/particle::mp-local-length mp))
+  ;;     (cl-mpm/damage::iterate-over-damage-bounds
+  ;;      mesh
+  ;;      mp
+  ;;      (cl-mpm/particle::mp-local-length mp)
+  ;;      (lambda (mesh mp node)))
+  ;;     (time
+  ;;      (loop repeat 1
+  ;;            while *run-sim*
+  ;;            do (progn
+  ;;                 (
+  ;;                  cl-mpm:iterate-over-mps
+  ;;                  mps
+  ;;                  (lambda (mp)
+  ;;                    (cl-mpm/damage::iterate-over-damage-bounds
+  ;;                     mesh
+  ;;                     mp
+  ;;                     (cl-mpm/particle::mp-local-length mp)
+  ;;                     (lambda (mesh mp node)))
+  ;;                    )))))
+  ;;     ))
+
+  (setf *displacement-increment* 0d0)
+  (let ((disp-inc (/ 1d-3 10)))
+    (time
+     (loop repeat 100
+           while *run-sim*
+           do (progn
+                (incf *displacement-increment* disp-inc)
+                (cl-mpm::update-sim *sim*)
+                (swank.live:update-swank)
+                ))))
   ;; (sb-profile:report)
   )
 (defun test-neighbour ()

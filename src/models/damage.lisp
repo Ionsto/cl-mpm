@@ -90,7 +90,7 @@
    (true-local-length
     :accessor mp-true-local-length
     :type DOUBLE-FLOAT
-    :initarg :local-length-t
+    :initarg :local-length
     :initform 1d0)
    (damage-position
     :accessor mp-damage-position

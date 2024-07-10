@@ -112,7 +112,8 @@
   :components ((:file "src/output")))
 ;
 (defsystem "cl-mpm/shape-function"
- :depends-on ("magicl")
+ :depends-on ("magicl"
+              "symbolic-derivation")
  :description "MPM shape function definitions"
  :serial t
  :components ((:file "src/shape-function")))
