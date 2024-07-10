@@ -264,8 +264,8 @@
            :nu 0.24d0
 
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-9
-           :g-res-ratio 1d-9
+           :kc-res-ratio 1d0
+           :g-res-ratio 1d-1
 
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
@@ -307,6 +307,21 @@
            :index 1
            :gravity (- gravity))))
         )
+
+      (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
+             (fc (cl-mpm/particle::mp-fc mp-0))
+             (ft (cl-mpm/particle::mp-ft mp-0))
+             (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+             (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+             (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+             (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+             )
+        (format t "Chalk plastic virgin angle: ~F~%"
+                (* (/ 180 pi) angle-plastic))
+        (format t "Chalk plastic residual angle: ~F~%"
+                (* (/ 180 pi) angle-plastic-damaged)))
+
+
       (defparameter *mesh-resolution* h-x)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
