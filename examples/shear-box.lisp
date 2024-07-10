@@ -56,9 +56,9 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  (plot-load-disp)
+  ;; (plot-load-disp)
   ;; (plot-conv)
-  ;; (plot-domain *sim*)
+  (plot-domain *sim*)
   )
 (declaim (notinline plot-domain))
 (defun plot-domain ()
@@ -137,7 +137,7 @@
                      (dt cl-mpm:sim-dt))
         *sim*
 
-      ;; (cl-mpm/penalty::apply-force-mps
+      ;; (cl-mpm/penalty::apply-penalty-force-gimp-mps
       ;;  mesh mps dt
       ;;  plane-normal
       ;;  (* 2d0 height)
@@ -145,7 +145,7 @@
       ;;  friction)
 
       ;;Slide walls
-      (cl-mpm/penalty::apply-force-mps
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        plane-normal
        (- height)
@@ -153,11 +153,11 @@
        friction
        (lambda (mp) (and
                      ;; (>= (magicl:tref mp 1 0) (- height 1d-3))
-                     (>= (magicl:tref mp 0 0) right-x)))
+                     (>= (magicl:tref mp 0 0) (+ right-x 1d-4))))
        :damping damping
        )
       ;;Sliding wall
-      (cl-mpm/penalty::apply-force-mps
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        plane-normal-left
        height
@@ -165,10 +165,11 @@
        friction
        (lambda (mp) (and
                      ;; (<= (magicl:tref mp 1 0) (+ height 1d-3))
-                     (<= (magicl:tref mp 0 0) (+ left-x 0d0))))
+                     (<= (magicl:tref mp 0 0) (- left-x 1d-4))))
        :damping damping
        )
-      (cl-mpm/penalty::apply-force-mps
+      ;;Top walls
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        right-normal
        (- right-x)
@@ -177,7 +178,7 @@
        (lambda (mp) (> (magicl:tref mp 1 0) height))
        :damping damping
        )
-      (cl-mpm/penalty::apply-force-mps
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        left-normal
        left-x
@@ -188,7 +189,7 @@
        )
 
       (setf cl-mpm/penalty::*debug-force* 0d0)
-      (cl-mpm/penalty::apply-force-mps
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        right-normal
        (- (+ right-x *displacement-increment*))
@@ -198,7 +199,7 @@
        :damping damping
        )
       (setf cl-mpm/penalty::*debug-force* 0d0)
-      (cl-mpm/penalty::apply-force-mps
+      (cl-mpm/penalty::apply-penalty-force-gimp-mps
        mesh mps dt
        left-normal
        (+ left-x *displacement-increment*)

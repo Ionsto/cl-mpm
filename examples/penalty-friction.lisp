@@ -174,11 +174,11 @@
                        (push *t* *data-t*)
                        (push v-av *data-v*))
                      (incf *sim-step*)
-                     (vgplot:plot *data-t* *data-v*)
-                     ;; (plot *sim*)
-                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                     ;;                    :terminal "png size 1920,1080"
-                     ;;                    )
+                     ;; (vgplot:plot *data-t* *data-v*)
+                     (plot *sim*)
+                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                                        :terminal "png size 1920,1080"
+                                        )
 
                      (swank.live:update-swank)
                      ))))

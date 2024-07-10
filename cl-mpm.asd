@@ -4,7 +4,7 @@
   :description "Symbolic derivation library from #TODO"
   :author "Aleksander Ksiazek"
   :serial t
-  :components ((:file "src/symbolic-derivation")))
+  :components ((:file "src/core/symbolic-derivation")))
 
 (defsystem "cl-mpm/utils"
   :depends-on ("magicl"
@@ -28,7 +28,7 @@
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
-  :components ((:file "src/mesh")))
+  :components ((:file "src/core/mesh")))
 
 (defsystem "cl-mpm/forces"
   :depends-on ("magicl"
@@ -37,7 +37,7 @@
                "cl-mpm/mesh")
   :description "MPM forces calculations"
   :serial t
-  :components ((:file "src/forces")))
+  :components ((:file "src/core/forces")))
 
 (defsystem "cl-mpm/bc"
   :depends-on ("magicl"
@@ -116,7 +116,7 @@
               "symbolic-derivation")
  :description "MPM shape function definitions"
  :serial t
- :components ((:file "src/shape-function")))
+ :components ((:file "src/core/shape-function")))
 
 (defsystem "cl-mpm/dynamic-relaxation"
   :depends-on ("cl-mpm"
@@ -127,13 +127,6 @@
   :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"
   :serial t
   :components ((:file "src/dynamic-relaxation")))
-;
-;(defsystem "cl-mpm/mesh"
-;  :depends-on ("magicl")
-;  :description "MPM mesh definitions"
-;  :serial t
-;  :components ((:file "src/mesh")))
-;
 (defsystem "cl-mpm/ext"
   :depends-on ("magicl"
                "cffi"
@@ -169,7 +162,8 @@
                ;; (:file "src/shape-function")
                (:file "src/cl-mpm")
                ;; (:file "src/forces")
-               (:file "src/iterate")
+               (:file "src/core/iterate")
+               (:file "src/core/domain-update")
                (:file "src/core")
                ))
 (defsystem "cl-mpm/mpi"
