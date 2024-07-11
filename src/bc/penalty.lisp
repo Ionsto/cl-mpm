@@ -618,7 +618,7 @@
                    (debug-force bc-penalty-load)
                    (sim bc-penalty-sim))
       bc
-    ;; (setf (bc-penalty-structure-contact-points bc) nil)
+    (setf (bc-penalty-structure-contact-points bc) nil)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
