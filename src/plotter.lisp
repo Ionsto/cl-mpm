@@ -79,11 +79,6 @@
          (ms-x (first ms))
          (ms-y (second ms))
          )
-    ;; (vgplot:axis (list 0d0 ms-x
-    ;;                    0d0 ms-y
-    ;;                    )
-
-    ;;              )
     (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
     (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-y)
 
