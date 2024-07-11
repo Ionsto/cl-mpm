@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/shear-box
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (in-package :cl-mpm/examples/shear-box)
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -299,8 +299,9 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              (init-stress 100d3)
-             (gf 48d0)
-             (length-scale h)
+             ;(gf 48d0)
+             (gf 4d0)
+             (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 100d0)
              )
@@ -328,12 +329,12 @@
            :nu 0.24d0
 
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-9
+           :kc-res-ratio 1d0
            :g-res-ratio 1d-9
 
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d-5
+           :delay-time 1d-3
            :delay-exponent 1d0
            :ductility ductility
            :local-length length-scale
@@ -622,26 +623,24 @@
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
   (let* ((displacment 6d-3)
-         (total-time (* 1d0 displacment))
+         (total-time (* 10d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
-         (enable-plasticity t)
+         (enable-plasticity nil)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
     (format t "Total time: ~E~%" total-time)
+    (format t "Target time: ~E~%" target-time)
 
-    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-    (cl-mpm::update-sim *sim*)
-    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                    (format t "CFL dt estimate: ~f~%" dt-e)
-                    (format t "CFL step count estimate: ~D~%" substeps-e)
-                    (setf substeps substeps-e))
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (when (= (cl-mpm/particle::mp-index mp) 0)
+               (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2))))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.5d0
+          (* 1.0d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -652,15 +651,16 @@
     (setf *enable-box-friction* nil)
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
 
-    ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
-    ;;  *sim*
-    ;;  :energy-crit 1d-2
-    ;;  :oobf-crit 1d-2
-    ;;  :substeps 50
-    ;;  :conv-steps 100
-    ;;  :post-iter-step
-    ;;  (lambda (i energy oobf)
-    ;;    (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)))
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :energy-crit 1d-2
+     :oobf-crit 1d-1
+     :dt-scale 0.5d0
+     :substeps 50
+     :conv-steps 100
+     :post-iter-step
+     (lambda (i energy oobf)
+       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)))
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
@@ -668,12 +668,20 @@
 
     (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf *enable-box-friction* t)
+    (setf dt-scale 0.8d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            1d-2
            (sqrt (cl-mpm:sim-mass-scale *sim*))
-           (cl-mpm/setup::estimate-critical-damping *sim*))
-          )
+           (cl-mpm/setup::estimate-critical-damping *sim*)))
+
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+    (cl-mpm::update-sim *sim*)
+    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+      (format t "CFL dt estimate: ~f~%" dt-e)
+      (format t "CFL step count estimate: ~D~%" substeps-e)
+      (setf substeps substeps-e))
+
     (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
     (defparameter *displacement-increment* 0d0)
@@ -685,7 +693,7 @@
       (push *t* *data-t*)
       (push disp-av *data-disp*)
       (push load-av *data-v*)
-      (setf load-av cl-mpm/penalty::*debug-force*)
+      (setf load-av (get-load))
       (setf disp-av *displacement-increment*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
         (format stream "~f,~f~%" disp-av load-av)))
@@ -704,14 +712,14 @@
                        (time
                         (dotimes (i substeps)
                           (cl-mpm::update-sim *sim*)
-                          (incf load-av (/ cl-mpm/penalty::*debug-force* substeps))
+                          (incf load-av (/ (get-load) substeps))
                           (incf disp-av (/ *displacement-increment* substeps))
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
                        ;; (setf load-av cl-mpm/penalty::*debug-force*)
-                       (setf load-av (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*))
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av (get-load))
+                       ;; (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)

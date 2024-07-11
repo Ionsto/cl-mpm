@@ -1086,10 +1086,12 @@
                                                         nu (- 1d0 nu) nu
                                                         nu nu (- 1d0 nu)))
                         (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+                     (Ce (magicl:inv De3))
                      (epsTr (cl-mpm/utils:vector-from-list l))
                      (sig (magicl:.-
                            (cl-mpm/utils:@-mat-vec De3 epsTr)
                            (/ xsic (sqrt 3))))
+                     (epsE (magicl:@ Ce sig))
                      (xi (cl-mpm/fastmath:fast-sum sig))
                      (s (magicl:.-
                          sig
@@ -1099,35 +1101,12 @@
                      (initial-f f))
 
                 (if (> f tol)
-                    (let* (
-                           (Ce (magicl:inv De3))
-                           (eps-e (cl-mpm/utils::vector-copy epsTr))
-                           ;; (eps-e epsTr)
-                           (k (/ (+ 1 (sin phi)) (- 1d0 (sin phi))))
-                           (sigc (* 2d0 c (sqrt k)))
-                           (m (/ (+ 1 (sin psi)) (- 1d0 (sin psi))))
-                           (siga (magicl:scale! (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
-                                                (/ sigc (- k 1d0))
-                                                ))
-                           (r1 (vector-from-list (list 1d0 1d0 k)))
-                           (r2 (vector-from-list (list 1d0 k k)))
-                           (rg1 (vector-from-list (list 1d0 1d0 m)))
-                           (rg2 (vector-from-list (list 1d0 m m)))
-                           (df (vector-from-list (list k 0d0 -1d0)))
-                           (dg (vector-from-list (list m 0d0 -1d0)))
-                           (rp (magicl:scale! (cl-mpm/utils:@-mat-vec De3 dg)
-                                              (/ 1d0 (the double-float
-                                                          (magicl:tref (magicl:@ (magicl:transpose dg) De3 df) 0 0)
-                                                          ))))
-                           (t1 (/ (magicl:tref (magicl:@ (magicl:transpose rg1) Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
-                           (t2 (/ (magicl:tref (magicl:@ (magicl:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
-                                  (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
-                           (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r1))
-                                                       (magicl:.- sig siga)) 0 0))
-                           (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r2))
-                                                       (magicl:.- sig siga)) 0 0))
-                           (path :no-return)
+                    (let* ((epsTr (cl-mpm/utils:vector-copy epsE))
+                           (fap (+
+                                 (* rho (sqrt (+ 1 nu)))
+                                 (* xi (sqrt (+ 1 nu)))
+                                 ))
+                           (path :no-path)
                            (Q
                              (magicl:transpose!
                               (magicl:block-matrix (list
@@ -1174,43 +1153,10 @@
                                                                                               (rotate-vector (magicl:column v 2)))) 1d0)
                                                     ) '(2 6)))))
                       (declare (double-float t1 t2 f12 f13))
-                      (cond
-                        ((and
-                          (> t1 tol)
-                          (> t2 tol)
-                          )
-                         ;;Apex stress return
-                         (setf sig siga)
-                         (setf path :apex)
-                         )
-                        ((and
-                          (< f12 tol)
-                          (< f13 tol)
-                          )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r1 t1)))
-                         (setf path :line-1)
-                         ;;line 1
-                         )
-                        ((and
-                          (> f12 tol)
-                          (> f13 tol)
-                          )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r2 t2)))
-                         ;;line 2
-                         (setf path :line-2)
-                         )
-                        (t
-                         (setf sig (magicl:.- sig (magicl:scale! rp f)))
-                         (setf path :main)
-                                        ;main
-                         )
-                        )
+
                       (setf eps-e (magicl:@ Ce sig))
-
-
-                      (setf f (mc-yield-func sig phi c))
                       (when (> f (* 10000d0 tol))
-                        (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
+                        (error "Drucker-Prager return misscalculated on path: ~A with an error of f: ~F" path f))
 
                       ;; (break)
                       (let ((pad-eps (magicl:block-matrix (list eps-e

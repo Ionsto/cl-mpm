@@ -245,18 +245,21 @@
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf p
               (if (> p 0d0)
-                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) 1d0) p)
-                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) 1d0) p)
+                  (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
+                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
                   ;; p
                   ))
-        ;; (magicl:.+ (cl-mpm/constitutive::voight-eye p)
-        ;;            (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
-        ;;            stress)
-        (setf
-         stress
-         (cl-mpm/fastmath:fast-.+
-          (cl-mpm/constitutive::voight-eye p)
-          (cl-mpm/fastmath:fast-scale! s (- 1d0 damage)))))
+        (setf stress
+              (cl-mpm/fastmath:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
+               stress))
+        ;; (setf
+        ;;  stress
+        ;;  (cl-mpm/fastmath:fast-.+
+        ;;   (cl-mpm/constitutive::voight-eye p)
+        ;;   (cl-mpm/fastmath:fast-scale! s (- 1d0 damage))))
+        )
       )
     stress))
 
