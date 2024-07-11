@@ -1231,10 +1231,7 @@
              (magicl:from-list (list
                                 (- shelf-length notched-depth)
                                 soil-boundary)
-                               '(2 1) :type 'double-float)
-
-             )
-           )
+                               '(2 1) :type 'double-float)))
 
       (cl-mpm/setup:remove-sdf *sim*
                                (lambda (p)

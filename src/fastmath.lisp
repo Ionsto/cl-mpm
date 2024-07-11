@@ -12,8 +12,10 @@
    :fast-.+
    :fast-.-
    :fast-.*
+   :fast-scale
    :fast-scale!
    :fast-zero
+   :fast-sum
     ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -759,7 +761,15 @@
    double-float)
   dot))
 (defun dot (a b)
-  (the double-float (magicl::sum (fast-.* a b))))
+  ;; (let ((as (cl-mpm/utils:fast-storage a))
+  ;;       (bs (cl-mpm/utils:fast-storage b)))
+  ;;   (declare ((simple-array double-float (*)) as bs))
+  ;;   (the double-float
+  ;;        (loop for va across as
+  ;;              for vb across bs
+  ;;              sum (the double-float (* va vb)))))
+  (the double-float (fast-sum (fast-.* a b)))
+  )
 
 (declaim
  (ftype
@@ -804,3 +814,49 @@
                                     (- (* (aref as 1) (aref bs 2)) (* (aref as 2) (aref bs 1)))
                                     (- (* (aref as 2) (aref bs 0)) (* (aref as 0) (aref bs 2)))
                                     (- (* (aref as 0) (aref bs 1)) (* (aref as 1) (aref bs 0)))))))
+
+
+(declaim
+ (inline fast-sum)
+ (ftype (function (magicl::matrix/double-float)
+                  double-float) fast-sum))
+(defun fast-sum (matrix)
+  (let ((s (cl-mpm/utils:fast-storage matrix)))
+    (declare ((simple-array double-float (*)) s))
+    (loop for v double-float across s
+          sum v)))
+(declaim
+ (inline fast-sum-vector)
+ (ftype (function (magicl::matrix/double-float)
+                  double-float) fast-sum-vector))
+(defun fast-sum-vector (matrix)
+  (let ((s (cl-mpm/utils:fast-storage matrix)))
+    (declare ((simple-array double-float (3)) s))
+    (loop for v double-float across s
+          sum v)))
+(declaim
+ (inline fast-sum-voigt)
+ (ftype (function (magicl::matrix/double-float)
+                  double-float) fast-sum-voigt))
+(defun fast-sum-voigt (matrix)
+  (declare (optimize (speed 3)))
+  (let ((s (cl-mpm/utils:fast-storage matrix)))
+    (declare ((simple-array double-float (6)) s))
+    (loop for v double-float across s
+          sum v)))
+
+
+(defun test-sum ()
+  (let ((iters 100000)
+        (data (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0))))
+    (format t "Magicl: ~F~%" (magicl::sum data))
+    (format t "fastmath: ~F~%" (fast-sum data))
+    (time
+     (dotimes (i iters)
+       (magicl::sum data)))
+    (time
+     (dotimes (i iters)
+       (fast-sum data)))
+    (time
+     (dotimes (i iters)
+       (fast-sum-voigt data)))))
