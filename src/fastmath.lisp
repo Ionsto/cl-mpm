@@ -16,6 +16,7 @@
    :fast-scale!
    :fast-zero
    :fast-sum
+   :mag
     ))
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))

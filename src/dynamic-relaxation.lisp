@@ -256,6 +256,7 @@
          ;; (work 0d0)
          (load 0d0)
         (converged nil))
+    (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
     (format t "Substeps ~D~%" substeps)
     ;; (format t "dt ~D~%" dt)
     ;; (setf *full-load* (list)

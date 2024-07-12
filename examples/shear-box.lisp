@@ -86,15 +86,13 @@
       (vgplot:format-plot t "set cbrange [~f:~f]" (reduce #'min c) (+ 1d-5 (reduce #'max c)))
       (cond
         ((eq plot :point)
-         (vgplot:plot x y c ";;with points pt 7 lc palette")
-         )
+         (vgplot:plot x y c ";;with points pt 7 lc palette"))
         ((eq plot :deformed)
          (if (and contact-bcs
                   points)
              (vgplot:plot x y lx ly c ";;with ellipses lc palette"
                           c-x c-y ";;with points pt 7")
-             (vgplot:plot x y lx ly c ";;with ellipses lc palette"
-                          ))))))
+             (vgplot:plot x y lx ly c ";;with ellipses lc palette"))))))
 
   (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*) nil)
   (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*) nil)
@@ -149,12 +147,12 @@
      *sim*
      :plot :deformed
      :colour-func
+     ;; (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0)) 
      (lambda (mp)
        (if (= 0 (cl-mpm/particle::mp-index mp))
            (cl-mpm/particle::mp-strain-plastic-vm mp)
            0d0))
-     :contact-bcs *shear-box-struct-left*
-     )
+     :contact-bcs *shear-box-struct-left*)
     ;; (let* ((points (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*))
     ;;        (c-x (loop for p in points collect (magicl:tref p 0 0)))
     ;;        (c-y (loop for p in points collect (magicl:tref p 1 0)))
@@ -180,100 +178,6 @@
   )
 
 (defparameter *enable-box-friction* t)
-(declaim (notinline apply-penalty-box))
-(defun apply-penalty-box (left-x right-x height friction)
-  (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
-         (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
-         (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
-         (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-         (epsilon (* 1d2 1d9))
-         ;; (friction 0.0d0)
-         (damping 0.0d0)
-         )
-    (unless *enable-box-friction*
-      (setf friction 0d0
-            damping 0d0
-            )
-      )
-    (with-accessors ((mesh cl-mpm:sim-mesh)
-                     (mps cl-mpm:sim-mps)
-                     (dt cl-mpm:sim-dt))
-        *sim*
-
-      ;; (cl-mpm/penalty::apply-penalty-force-gimp-mps
-      ;;  mesh mps dt
-      ;;  plane-normal
-      ;;  (* 2d0 height)
-      ;;  epsilon
-      ;;  friction)
-
-      ;;Slide walls
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       plane-normal
-       (- height)
-       epsilon
-       friction
-       (lambda (mp) (and
-                     ;; (>= (magicl:tref mp 1 0) (- height 1d-3))
-                     (>= (magicl:tref mp 0 0) (+ right-x 1d-4))))
-       :damping damping
-       )
-      ;;Sliding wall
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       plane-normal-left
-       height
-       epsilon
-       friction
-       (lambda (mp) (and
-                     ;; (<= (magicl:tref mp 1 0) (+ height 1d-3))
-                     (<= (magicl:tref mp 0 0) (- left-x 1d-4))))
-       :damping damping
-       )
-      ;;Top walls
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       right-normal
-       (- right-x)
-       epsilon
-       friction
-       (lambda (mp) (> (magicl:tref mp 1 0) height))
-       :damping damping
-       )
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       left-normal
-       left-x
-       epsilon
-       friction
-       (lambda (mp) (> (magicl:tref mp 1 0) height))
-       :damping damping
-       )
-
-      (setf cl-mpm/penalty::*debug-force* 0d0)
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       right-normal
-       (- (+ right-x *displacement-increment*))
-       epsilon
-       friction
-       (lambda (mp) (<= (magicl:tref mp 1 0) height))
-       :damping damping
-       )
-      (setf cl-mpm/penalty::*debug-force* 0d0)
-      (cl-mpm/penalty::apply-penalty-force-gimp-mps
-       mesh mps dt
-       left-normal
-       (+ left-x *displacement-increment*)
-       epsilon
-       friction
-       (lambda (mp) (<= (magicl:tref mp 1 0) height))
-       :damping damping
-       )
-      )
-
-    ))
 (defparameter *displacement-increment* 0d0)
 (defparameter *box-size* 0d0)
 
@@ -300,7 +204,7 @@
              ;; (init-stress 60d3)
              (init-stress 100d3)
              ;(gf 48d0)
-             (gf 4d0)
+             (gf 48d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 100d0)
@@ -328,9 +232,9 @@
            :E 1d9
            :nu 0.24d0
 
-           :kt-res-ratio 1d-9
+           :kt-res-ratio 1d-20
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
+           :g-res-ratio 1d-20
 
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
@@ -345,7 +249,7 @@
            :c 131d3
 
            :index 0
-           :gravity 0.0d0
+           :gravity 0d0
            )))
         )
       (let* ((sur-height (* 0.5 (second block-size)))
@@ -465,8 +369,9 @@
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (epsilon (* 1d2 1d9))
+         (extra-height 1d-4)
          ;; (friction 0.0d0)
-         (damping 0.0d0))
+         (damping 0d0))
 
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -499,8 +404,13 @@
       (cl-mpm/penalty::make-bc-penalty-distance-point
        sim
        left-normal
-       (cl-mpm/utils:vector-from-list (list left-x (* 0.5d0 height) 0d0))
-       (* 0.5d0 height)
+       (cl-mpm/utils:vector-from-list (list left-x
+                                            (- (* 0.5d0 height)
+                                               extra-height) 0d0))
+       (+
+        (* 0.5d0 height)
+        extra-height
+        )
        epsilon
        friction
        damping))
@@ -508,8 +418,13 @@
       (cl-mpm/penalty::make-bc-penalty-distance-point
        sim
        right-normal
-       (cl-mpm/utils:vector-from-list (list right-x (* 0.5d0 height) 0d0))
-       (* 0.5d0 height)
+       (cl-mpm/utils:vector-from-list (list right-x
+                                            (- (* 0.5d0 height)
+                                               extra-height) 0d0))
+       (+ 
+        (* 0.5d0 height)
+        extra-height
+        )
        epsilon
        friction
        damping))
@@ -552,12 +467,12 @@
          (setf (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*) 0d0)
          (setf (cl-mpm/penalty::bc-penalty-datum *shear-box-left-dynamic*)
                (+ left-x *displacement-increment*))
-         (setf (magicl:tref
-                (cl-mpm/penalty::bc-penalty-distance-center-point *shear-box-left-slide*)
-                0 0)
+
+         (setf (magicl:tref (cl-mpm/penalty::bc-penalty-distance-center-point *shear-box-left-slide*) 0 0)
                (+ (- left-x height) *displacement-increment*))
          (setf (cl-mpm/penalty::bc-penalty-datum *shear-box-right-dynamic*)
-               (- (+ right-x *displacement-increment*))))))
+               (- (+ right-x *displacement-increment*)))))
+      )
     (setf (cl-mpm::sim-bcs-force-list *sim*)
           (list
            (cl-mpm/bc:make-bcs-from-list
@@ -622,14 +537,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
-         (total-time (* 10d0 displacment))
+  (let* ((displacment 1d-3)
+         (total-time (* 1d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
-         (enable-plasticity nil)
+         (dt-scale 0.90d0)
+         (enable-plasticity t)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -651,24 +566,26 @@
     (setf *enable-box-friction* nil)
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
 
+    (vgplot:figure)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :energy-crit 1d-2
-     :oobf-crit 1d-1
+     :oobf-crit 1d-2
      :dt-scale 0.5d0
      :substeps 50
      :conv-steps 100
      :post-iter-step
      (lambda (i energy oobf)
+       ;; (plot-domain)
        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)))
+    (vgplot:figure)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
-    (setf (cl-mpm::sim-enable-damage *sim*) t)
+    (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (setf *enable-box-friction* t)
-    (setf dt-scale 0.8d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            1d-2
