@@ -59,9 +59,13 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
+  ;; (vgplot:subplot 1 2 0)
+  (plot-domain)
+  ;; (vgplot:subplot 1 2 1)
+  ;; (plot-load-disp)
   ;; (plot-load-disp)
   ;; (plot-conv)
-  (plot-domain)
+  ;; (plot-domain)
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
   (declare (function colour-func))
@@ -218,41 +222,42 @@
            block-size
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
-           ;; 'cl-mpm/particle::particle-mc
-           ;; :E 1d9
-           ;; :nu 0.24d0
-           ;; :psi 0d0
-           ;; :phi (* 42d0 (/ pi 180))
-           ;; :c 131d3
-           ;; :phi-r (* 30d0 (/ pi 180))
-           ;; :c-r 0d0
-           ;; :softening 10d0
-
-           'cl-mpm/particle::particle-chalk-delayed
+           'cl-mpm/particle::particle-mc
            :E 1d9
            :nu 0.24d0
-
-           :kt-res-ratio 1d-20
-           :kc-res-ratio 1d0
-           :g-res-ratio 1d-20
-
-           :friction-angle 43d0
-           :initiation-stress init-stress;18d3
-           :delay-time 1d-3
-           :delay-exponent 1d0
-           :ductility ductility
-           :local-length length-scale
-           :local-length-damaged 10d-10
-           :enable-plasticity t
            :psi 0d0
            :phi (* 42d0 (/ pi 180))
            :c 131d3
+           :phi-r (* 30d0 (/ pi 180))
+           :c-r 0d0
+           :softening 10d0
+
+           ;; 'cl-mpm/particle::particle-chalk-delayed
+           ;; :E 1d9
+           ;; :nu 0.24d0
+
+           ;; :kt-res-ratio 1d-20
+           ;; :kc-res-ratio 1d0
+           ;; :g-res-ratio 1d-20
+
+           ;; :friction-angle 43d0
+           ;; :initiation-stress init-stress;18d3
+           ;; :delay-time 1d-3
+           ;; :delay-exponent 1d0
+           ;; :ductility ductility
+           ;; :local-length length-scale
+           ;; :local-length-damaged 10d-10
+           ;; :enable-plasticity t
+           ;; :psi 0d0
+           ;; :phi (* 42d0 (/ pi 180))
+           ;; :c 131d3
 
            :index 0
            :gravity 0d0
            )))
         )
-      (let* ((sur-height (* 0.5 (second block-size)))
+      (let* ((sur-height h-x)
+             ;(sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
@@ -537,7 +542,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
+  (let* ((displacment 6d-3)
          (total-time (* 1d0 displacment))
          (load-steps 100)
          (target-time (/ total-time load-steps))
@@ -551,11 +556,11 @@
     (format t "Total time: ~E~%" total-time)
     (format t "Target time: ~E~%" target-time)
 
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do (when (= (cl-mpm/particle::mp-index mp) 0)
-               (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2))))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       do (when (= (cl-mpm/particle::mp-index mp) 0)
+    ;;            (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2))))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1.0d0
+          (* 0.5d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -588,7 +593,7 @@
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d-2
+           1d-1
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 

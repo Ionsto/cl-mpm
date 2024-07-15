@@ -228,11 +228,7 @@
 
 (defsystem "cl-mpm/examples/column"
   :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/forces"
-               "cl-mpm/output"
-               "cl-mpm/eigenerosion"
+               "cl-mpm/all"
                "vgplot"
                "swank.live"
                "magicl")

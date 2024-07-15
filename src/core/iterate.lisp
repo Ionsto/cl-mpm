@@ -293,6 +293,48 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        (when (< 0d0 weight)
                                          (funcall func mesh node weight grads)))))))))))
 
+(defun iterate-over-neighbours-point-linear-2d (mesh position func)
+  "Iterating over basis functions in 3D"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec position)
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+      (declare (dynamic-extent pos pos-index pos-vec))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
+                          (declare (dynamic-extent id))
+                          (when (cl-mpm/mesh:in-bounds mesh id)
+                            (destructuring-bind (dist-x dist-y) (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id))
+                              (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                     (weight-x (cl-mpm/shape-function::shape-linear dist-x h))
+                                     (weight-y (cl-mpm/shape-function::shape-linear dist-y h))
+                                     (weight (* weight-x weight-y))
+                                     (grad-x (* weight-y (cl-mpm/shape-function::shape-linear-dsvp dist-x h)))
+                                     (grad-y (* weight-x (cl-mpm/shape-function::shape-linear-dsvp dist-y h)))
+                                    )
+                                (when (< 0d0 weight)
+                                  (funcall func mesh node weight (list grad-x grad-y 0d0)))
+                                ))
+                            ;; (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                            ;;        (node (cl-mpm/mesh:get-node mesh id))
+                            ;;        (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                            ;;        (weight (reduce #'* weights))
+                            ;;        (lin-grads (mapcar (lambda (d)
+                            ;;                             (cl-mpm/shape-function::shape-linear-dsvp d h))
+                            ;;                           dist))
+                            ;;        (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
+                            ;;   (declare
+                            ;;    (double-float weight)
+                            ;;    (dynamic-extent dist weights))
+                            ;;   (when (< 0d0 weight)
+                            ;;     (funcall func mesh node weight grads)))
+                            )))))))
+
+
+
 (declaim (inline iterate-over-neighbours-point-linear-simd)
          (ftype (function (cl-mpm/mesh::mesh magicl:matrix/double-float function) (values))
                 iterate-over-neighbours-point-linear-simd)

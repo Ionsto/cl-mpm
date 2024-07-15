@@ -58,38 +58,86 @@
   ;; (multiple-value-bind (l v) (magicl:hermitian-eig (cl-mpm::voight-to-matrix (cl-mpm/particle:mp-stress mp)))
   ;;   (apply #'max l))
   )
-(defun plot (sim &optional (plot :deformed))
-  (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
-  (multiple-value-bind (x y stress-y lx ly e)
+
+(defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
+  (declare (function colour-func))
+  "A simple GIMP plot that display only the position and size of the MPs in a sim"
+  (vgplot:format-plot t "set palette defined (0 'blue', 2 'red')")
+  (vgplot:format-plot t "set ticslevel 0")
+  (multiple-value-bind (x y lx ly c)
     (loop for mp across (cl-mpm:sim-mps sim)
           collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
           collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (length-from-def sim mp 0) into lx
-          collect (length-from-def sim mp 1) into ly
-          ;; collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
-          collect (max-stress mp) into stress-y
-          finally (return (values x y stress-y lx ly)))
-    (cond
-      (
-       (eq plot :stress)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
-      ((eq plot :deformed)
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y lx ly ";;with ellipses")))
-    )
+          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
+          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
+          collect (funcall colour-func mp) into c
+          finally (return (values x y lx ly c)))
+    (let* ((points (cl-mpm/penalty::bc-penalty-contact-points contact-bcs))
+           (c-x (loop for p in points collect (magicl:tref p 0 0)))
+           (c-y (loop for p in points collect (magicl:tref p 1 0)))
+           (c-v (loop for p in points collect 1d0)))
+      (vgplot:format-plot t "set cbrange [~f:~f]" (reduce #'min c) (+ 1d-5 (reduce #'max c)))
+      (cond
+        ((eq plot :point)
+         (vgplot:plot x y c ";;with points pt 7 lc palette"))
+        ((eq plot :deformed)
+         (if (and contact-bcs
+                  points)
+             (vgplot:plot x y lx ly c ";;with ellipses lc palette"
+                          c-x c-y ";;with points pt 7")
+             (vgplot:plot x y lx ly c ";;with ellipses lc palette"))))))
 
+  (setf (cl-mpm/penalty::bc-penalty-contact-points contact-bcs) nil)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
-         (ms-y (second ms))
-         )
-    (vgplot:axis (list 0 ms-x
-                       0 ms-y))
+         (ms-y (second ms)))
+    (vgplot:format-plot t "set xrange [~f:~f]" 0d0 ms-x)
+    (vgplot:format-plot t "set yrange [~f:~f]" 0d0 ms-y)
     (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h))
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+    (vgplot:format-plot t "set ytics ~f" h)
+    (vgplot:format-plot t "set xtics ~f" h))
   (vgplot:replot))
+
+
+(defun plot (sim &optional (plot :deformed))
+  (simple-plot-contact
+   sim
+   :plot :deformed
+   :contact-bcs *penalty-bc*
+   )
+  ;; (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
+  ;; (multiple-value-bind (x y stress-y lx ly e)
+  ;;   (loop for mp across (cl-mpm:sim-mps sim)
+  ;;         collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
+  ;;         collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+  ;;         collect (length-from-def sim mp 0) into lx
+  ;;         collect (length-from-def sim mp 1) into ly
+  ;;         ;; collect (/ (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0) 1e0) into stress-y
+  ;;         collect (max-stress mp) into stress-y
+  ;;         finally (return (values x y stress-y lx ly)))
+  ;;   (cond
+  ;;     (
+  ;;      (eq plot :stress)
+  ;;      (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+  ;;      (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
+  ;;     ((eq plot :deformed)
+  ;;      ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
+  ;;      (vgplot:plot x y lx ly ";;with ellipses")))
+  ;;   )
+
+  ;; (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
+  ;;        (ms-x (first ms))
+  ;;        (ms-y (second ms))
+  ;;        )
+  ;;   (vgplot:axis (list 0 ms-x
+  ;;                      0 ms-y))
+  ;;   (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
+  ;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+  ;;     (vgplot:format-plot t "set ytics ~f" h)
+  ;;     (vgplot:format-plot t "set xtics ~f" h))
+  ;; (vgplot:replot)
+  )
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
@@ -135,8 +183,8 @@
                            (round  (* e mp-s) h-x)
                            ) block-size
                              (list
-                              ;; mp-scale
-                              1
+                              mp-scale
+                              ;; 1
                               mp-scale
                               1
                               ;; mp-scale
@@ -150,14 +198,11 @@
                  :E 1d5
                  :nu 0.0d0
                  :gravity -00.0d0
-                 :damping (/ (* 0.00d0
-                                density
-                                (cl-mpm/setup::estimate-critical-damping-mp sim 1d5 density)) (expt h 1))
                  )))
 
         (setf (cl-mpm:sim-damping-factor sim)
               (* 
-               0.1d0
+               0.01d0
                (cl-mpm/setup::estimate-critical-damping sim)))
         (setf (cl-mpm:sim-mass-filter sim) 1d-15)
         (setf (cl-mpm:sim-dt sim) 1d-2)
@@ -189,28 +234,61 @@
                                                  1 0))))
           (defparameter *target-displacement* 0d0))
 
+
+        (defparameter *penalty-bc*
+          (cl-mpm/penalty::make-bc-penalty-point-normal
+           sim
+           (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))
+           (cl-mpm/utils:vector-from-list  (list 0d0 (- *initial-surface* 1d0) 0d0))
+           (* 1d5 0.1)
+           ;; (* 1d5 10)
+           0d0))
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
                (cl-mpm/bc:make-bcs-from-list
                 (list
-                 (cl-mpm/bc::make-bc-closure
-                  nil
-                  (lambda ()
-                    (with-accessors ((mesh cl-mpm:sim-mesh)
-                                     (dt cl-mpm::sim-dt))
-                        sim
-                      (let ((datum (- (+ *initial-surface* *target-displacement*)))
-                            (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
-                        (cl-mpm/penalty::apply-displacement-control-mps
-                         ;; cl-mpm/penalty::apply-force-mps
-                         mesh
-                         (coerce *terminus-mps* 'vector)
-                         dt
-                         normal
-                         datum
-                         (* 1d5 0.1)
-                         0d0)
-                        ))))))))
+                 *penalty-bc*
+                 ;; (cl-mpm/bc::make-bc-closure
+                 ;;  nil
+                 ;;  (lambda ()
+                 ;;    (with-accessors ((mesh cl-mpm:sim-mesh)
+                 ;;                     (dt cl-mpm::sim-dt))
+                 ;;        sim
+                 ;;      (let ((datum (- (+ *initial-surface* *target-displacement*)))
+                 ;;            (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+                 ;;        (cl-mpm/penalty::apply-displacement-control-mps
+                 ;;         ;; cl-mpm/penalty::apply-force-mps
+                 ;;         mesh
+                 ;;         (coerce *terminus-mps* 'vector)
+                 ;;         dt
+                 ;;         normal
+                 ;;         datum
+                 ;;         (* 1d5 0.1)
+                 ;;         0d0)
+                 ;;        ))))
+                 ))))
+        ;; (setf (cl-mpm::sim-bcs-force-list sim)
+        ;;       (list
+        ;;        (cl-mpm/bc:make-bcs-from-list
+        ;;         (list
+        ;;          (cl-mpm/bc::make-bc-closure
+        ;;           nil
+        ;;           (lambda ()
+        ;;             (with-accessors ((mesh cl-mpm:sim-mesh)
+        ;;                              (dt cl-mpm::sim-dt))
+        ;;                 sim
+        ;;               (let ((datum (- (+ *initial-surface* *target-displacement*)))
+        ;;                     (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+        ;;                 (cl-mpm/penalty::apply-displacement-control-mps
+        ;;                  ;; cl-mpm/penalty::apply-force-mps
+        ;;                  mesh
+        ;;                  (coerce *terminus-mps* 'vector)
+        ;;                  dt
+        ;;                  normal
+        ;;                  datum
+        ;;                  (* 1d5 0.1)
+        ;;                  0d0)
+        ;;                 ))))))))
 
         sim))))
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
@@ -387,10 +465,10 @@
                      (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
                                              *sim*)
 
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:print-plot (asdf:system-relative-pathname "cl-mpm" (format nil "output/frame_~5,'0d.png" steps)))
+                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" steps)))
                      (swank.live:update-swank)
                      (sleep .01)
                      ))))
@@ -529,15 +607,9 @@
                  (format t "ND: ~D~%" nd)
                  (setf
                   (cl-mpm:sim-damping-factor *sim*)
-                  (* ;10d0
-                   ;; 55d0
-                   ;; (expt h nd)
-                   ;; (expt h 4)
-                   ;; (expt h 1)
-                   ;; 1d4
+                  (*
                    0.1d0
-                   (cl-mpm/setup::estimate-critical-damping *sim*)
-                   )))
+                   (cl-mpm/setup::estimate-critical-damping *sim*))))
 
                (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
                (format t "Critical dt ~E~%" (cl-mpm:sim-dt *sim*))
@@ -711,4 +783,15 @@
   ;;              (nth 3 *data-conv-step*) (nth 3 *data-conv-energy*) "3"
   ;;              (nth 4 *data-conv-step*) (nth 4 *data-conv-energy*) "4"
   ;;              )
+  )
+
+
+(let ((h (* 0.3d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (iter 1000000))
+  (time (dotimes (i iter)
+          (cl-mpm::iterate-over-neighbours-point-linear-3d (cl-mpm:sim-mesh *sim*) (cl-mpm/utils:vector-from-list (list h h 0d0)) (lambda (m n w g)))))
+  (time (dotimes (i iter)
+          (cl-mpm::iterate-over-neighbours-point-linear-2d (cl-mpm:sim-mesh *sim*) (cl-mpm/utils:vector-from-list (list h h 0d0)) (lambda (m n w g)))))
+  (time (dotimes (i iter)
+          (cl-mpm::iterate-over-neighbours-point-linear-simd (cl-mpm:sim-mesh *sim*) (cl-mpm/utils:vector-from-list (list h h 0d0)) (lambda (m n w g)))))
   )
