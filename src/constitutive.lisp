@@ -1152,18 +1152,45 @@
                                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 0)
                                                                                               (rotate-vector (magicl:column v 2)))) 1d0)
                                                     ) '(2 6)))))
-                      (declare (double-float t1 t2 f12 f13))
+                      (cond
+                        ((< fap tol)
+                         (setf path :apex-return)
+                         (setf sig (cl-mpm/fastmath:fast-scale!
+                                    (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
+                                    (/ xsic (sqrt 3)))))
 
-                      (setf eps-e (magicl:@ Ce sig))
+                        (t
+                         (setf path :surface-return)
+                         (let* ((b (magicl:zeros '(4 1)))
+                                (df (magicl:.-
+                                     (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                     (/ alfa (sqrt 3))))
+                                (dg (magicl:.-
+                                     (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                     (/ bta (sqrt 3))))
+                                (dgg
+                                  (magicl:.-
+                                   (cl-mpm/fastmath:fast-scale! 
+                                    (magicl:.-
+                                     (magicl:eye 3 :value 3)
+                                     (magicl:ones 3)
+                                     )
+                                    (/ 1d0 (* 3d0 rho)))
+                                   (cl-mpm/fastmath:fast-scale!
+                                    (magicl:@ s (magicl:transpose s))
+                                    (/ 1d0 (expt rho 3)))))
+                                )
+                           )
+                         )
+                        )
+
+                      (setf epsE (magicl:@ Ce sig))
                       (when (> f (* 10000d0 tol))
                         (error "Drucker-Prager return misscalculated on path: ~A with an error of f: ~F" path f))
-
-                      ;; (break)
-                      (let ((pad-eps (magicl:block-matrix (list eps-e
+                      (let ((pad-eps (magicl:block-matrix (list epsE
                                                                 (cl-mpm/utils:vector-zeros))
                                                           '(2 1))))
-                        ;; (setf eps-e (magicl:@ (magicl:inv Q) pad-eps))
-                        (setf eps-e (magicl:linear-solve Q pad-eps))
+                        (setf epsE (magicl:linear-solve Q pad-eps))
                         )
 
                       (setf sig (magicl:@ (magicl:transpose! Q)
@@ -1177,7 +1204,8 @@
                       (values
                        ;; sig
                        (swizzle-coombs->voigt sig)
-                       (swizzle-coombs->voigt eps-e) initial-f)
+                       (swizzle-coombs->voigt epsE)
+                       initial-f)
                       )
                     ;;No MC yield - just return
                     (values stress

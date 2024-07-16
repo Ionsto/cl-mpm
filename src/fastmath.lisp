@@ -12,7 +12,8 @@
    :fast-.+
    :fast-.-
    :fast-.*
-   :fast-scale
+   :fast-scale-vector
+   :fast-scale-voigt
    :fast-scale!
    :fast-zero
    :fast-sum
