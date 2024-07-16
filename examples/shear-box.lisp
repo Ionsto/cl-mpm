@@ -518,6 +518,7 @@
                          :friction friction
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction)
+    (defparameter *true-load-bc* *shear-box-left-dynamic*)
     ;; (setf (cl-mpm::sim-bcs-force-list *sim*)
     ;;       (list
     ;;        (cl-mpm/bc:make-bcs-from-list
@@ -550,7 +551,6 @@
   (defparameter *data-t* (list))
   (defparameter *data-disp* (list))
   (defparameter *data-v* (list))
-  (defparameter *true-load-bc* *shear-box-left-dynamic*)
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
