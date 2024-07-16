@@ -178,7 +178,8 @@
                              (max 0d0 (min
                                        (the double-float (coerce (nth i mesh-size) 'double-float))
                                        (the double-float (magicl:tref corner i 0))))))
-              (iterate-over-neighbours-point-linear-simd
+              (;iterate-over-neighbours-point-linear-simd
+               iterate-over-neighbours-point-linear
                mesh corner
                (lambda (mesh node svp grads)
                  (declare (double-float dt svp))

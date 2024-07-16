@@ -817,7 +817,8 @@
               (when in-contact
                 (let ((load (apply-penalty-point mesh (contact-sub-bc closest-point) mp (contact-point closest-point) dt)))
                    (sb-thread:with-mutex (debug-mutex)
-                     (incf debug-force (* load 1d0))))
+                     (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
+                     (incf debug-force load))))
 
                 ;; (with-accessors ((nd cl-mpm/mesh:mesh-nd))
                 ;;     mesh
