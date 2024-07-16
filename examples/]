@@ -229,12 +229,12 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             (init-stress 200d3)
+             (init-stress 100d3)
              ;(gf 48d0)
              (gf 48d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 5d0)
+             (ductility 1d3)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -266,12 +266,13 @@
            :delay-time 1d-3
            :delay-exponent 1d0
            :ductility ductility
+           ;; :damage (- 1d0 1d-3)
            :local-length length-scale
            :local-length-damaged 10d-10
            :enable-plasticity t
            :psi 0d0
            :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 10d0)
+           :c (* 131d3 1d0)
 
            :index 0
            :gravity 0d0
@@ -644,7 +645,6 @@
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
       (format t "CFL dt estimate: ~f~%" dt-e)

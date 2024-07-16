@@ -1404,11 +1404,18 @@ Calls the function with the mesh mp and node"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
              (cl-mpm/particle::mp-yield-func mp)
              0d0))
+
         (cl-mpm/output::save-parameter
-         "rho"
+         "plastic-c"
          (if (slot-exists-p mp 'cl-mpm/particle::c)
              (cl-mpm/particle::mp-c mp)
              0d0))
+        (cl-mpm/output::save-parameter
+         "plastic-phi"
+         (if (slot-exists-p mp 'cl-mpm/particle::phi)
+             (* (cl-mpm/particle::mp-phi mp) (/ 180 pi))
+             0d0))
+
         (cl-mpm/output::save-parameter
          "energy"
          (* (cl-mpm/particle::mp-mass mp)

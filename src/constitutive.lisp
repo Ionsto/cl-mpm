@@ -875,11 +875,11 @@
                        (swizzle-coombs->voigt eps-e) initial-f)
                       )
                     ;;No MC yield - just return
-                    (values stress
-                            trial-elastic-strain initial-f)))))
+                    (values (cl-mpm/utils:voigt-copy stress)
+                            (cl-mpm/utils:voigt-copy trial-elastic-strain) initial-f)))))
           ;;No DP yield - just return
-          (values stress
-                  trial-elastic-strain f-dp)))))
+          (values (cl-mpm/utils:voigt-copy stress)
+                  (cl-mpm/utils:voigt-copy trial-elastic-strain) f-dp)))))
 (defun mc-plastic-terzaghi (stress de trial-elastic-strain E nu phi psi c pore-pressure)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (declare (double-float E nu phi psi c)

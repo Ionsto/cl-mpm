@@ -211,6 +211,9 @@
     ;;Train elastic strain - plus trail kirchoff stress
     ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de))
+    ;; (setf stress (magicl:scale stress-u 1d0))
+    ;; (setf stress (cl-mpm/utils:voigt-copy stress-u))
+    ;; (setf stress (magicl:scale stress-u 1d0))
 
     (if enable-plasticity
         (progn
