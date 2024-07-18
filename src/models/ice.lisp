@@ -215,36 +215,34 @@
 
 
 
-    (if enable-plasticity
-        (progn
-          (multiple-value-bind (sig eps-e f)
-              (cl-mpm/constitutive::mc-plastic-terzaghi
-               stress-u
-               de
-               strain
-               E
-               nu
-               phi
-               psi
-               coheasion
-               (* pressure damage 0d0)
-               )
-            (setf stress
-                  sig
-                  plastic-strain (magicl:.- strain eps-e)
-                  yield-func f)
-            (setf strain eps-e))
-          (incf ps-vm
-                (multiple-value-bind (l v)
-                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                  (destructuring-bind (s1 s2 s3) l
-                    (sqrt
-                     (/ (+ (expt (- s1 s2) 2d0)
-                           (expt (- s2 s3) 2d0)
-                           (expt (- s3 s1) 2d0)
-                           ) 2d0))))))
-        (setf stress (magicl:scale stress-u 1d0)))
-
+    (when enable-plasticity
+      (multiple-value-bind (sig eps-e f)
+          (cl-mpm/constitutive::mc-plastic-terzaghi
+           stress-u
+           de
+           strain
+           E
+           nu
+           phi
+           psi
+           coheasion
+           (* pressure damage 0d0)
+           )
+        (setf stress-u
+              sig
+              plastic-strain (magicl:.- strain eps-e)
+              yield-func f)
+        (setf strain eps-e))
+      (incf ps-vm
+            (multiple-value-bind (l v)
+                (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+              (destructuring-bind (s1 s2 s3) l
+                (sqrt
+                 (/ (+ (expt (- s1 s2) 2d0)
+                       (expt (- s2 s3) 2d0)
+                       (expt (- s3 s1) 2d0)
+                       ) 2d0))))))
+    (setf stress (magicl:scale stress-u 1d0))
     ;; ;; (when (> damage 0.0d0)
     ;; ;;   (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     ;; ;; (when (> damage 0.0d0)
