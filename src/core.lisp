@@ -1449,6 +1449,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
     (let ((inner-factor most-positive-double-float))
+      (declare (double-float inner-factor mass-scale))
       (iterate-over-nodes-serial
        mesh
        (lambda (node)
@@ -1495,15 +1496,4 @@ This modifies the dt of the simulation in the process
                      ;; (vector-push-extend mp mps (length mps-array))
                   ))
           (setf (cl-mpm:sim-mps sim) mps-array))))
-
-#||
-(progn
-(ql:quickload :cl-mpm/examples/fracture)
-(in-package :cl-mpm/examples/fracture))
-||#
-
-
-
-
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 

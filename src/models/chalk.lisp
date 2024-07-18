@@ -214,8 +214,7 @@
     ;; (setf stress (magicl:scale stress-u 1d0))
     ;; (setf stress (cl-mpm/utils:voigt-copy stress-u))
     ;; (setf stress (magicl:scale stress-u 1d0))
-
-    (if enable-plasticity
+    (when enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
               (cl-mpm/constitutive::mc-plastic stress-u
@@ -226,8 +225,9 @@
                                                phi
                                                psi
                                                coheasion)
-            (setf stress sig
-                  plastic-strain (magicl:.- strain eps-e)
+            (cl-mpm/fastmath:fast-.- strain eps-e plastic-strain)
+            ;; (cl-mpm/fastmath:fast-.+ plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e) plastic-strain)
+            (setf stress-u sig
                   yield-func f)
             (setf strain eps-e))
           (let ((inc (multiple-value-bind (l v)
@@ -239,26 +239,20 @@
                                 (expt (- s3 s1) 2d0)
                                 ) 2d0))))))
             (incf ps-vm inc)
-            (setf ps-vm-inc inc)))
-        (setf stress (cl-mpm/utils:voigt-copy stress-u)))
-
+            (setf ps-vm-inc inc))))
+    (setf stress (cl-mpm/utils:voigt-copy stress-u))
     (when (> damage 0.0d0)
-      ;; (cl-mpm/fastmath:fast-scale! stress (- 1d0 (* (- 1d0 1d-1) damage)))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf p
               (if (> p 0d0)
                   (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
-                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
-                  ;; p
-                  ))
+                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)))
         (setf stress
               (cl-mpm/fastmath:fast-.+
                (cl-mpm/constitutive::voight-eye p)
-               (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
-               stress))
-        )
-      )
+               (cl-mpm/fastmath:fast-scale! s (- 1d0 (* (- 1d0 g-r) damage)))
+               stress))))
     stress))
 
 
