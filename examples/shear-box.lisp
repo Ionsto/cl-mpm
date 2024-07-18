@@ -20,8 +20,8 @@
   )
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 
 
@@ -56,16 +56,16 @@
           ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
           ;;                                            strain
           ;;                                            plastic-strain) E de))
-          (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
-                                                             de)))
-            (setf damage-increment
-                  (max 0d0
-                       (cl-mpm/damage::drucker-prager-criterion
-                        (magicl:scale es (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))))))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::drucker-prager-criterion
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+          ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
+          ;;                                                    de)))
+          ;;   (setf damage-increment
+          ;;         (max 0d0
+          ;;              (cl-mpm/damage::drucker-prager-criterion
+          ;;               (magicl:scale es (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))))))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::drucker-prager-criterion
+                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
           ;; (incf damage-increment
           ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
 
@@ -244,7 +244,7 @@
              (gf 48d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 1d1)
+             (ductility 100d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -281,10 +281,10 @@
            :local-length-damaged 10d-10
            :enable-plasticity t
            :psi 0d0
-           ;; :phi (* 42d0 (/ pi 180))
-           ;; :c (* 131d3 1d0)
-           :phi (* 50d0 (/ pi 180))
-           :c (* 131d3 10d0)
+           :phi (* 42d0 (/ pi 180))
+           :c (* 131d3 1d0)
+           ;; :phi (* 50d0 (/ pi 180))
+           ;; :c (* 131d3 10d0)
 
            :index 0
            :gravity 0d0
@@ -599,9 +599,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
-         (total-time (* 100d0 displacment))
-         (load-steps (round (* 500 (/ displacment 1d-3))))
+  (let* ((displacment 6d-3)
+         (total-time (* 10d0 displacment))
+         (load-steps (round (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -617,7 +617,7 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-1)))))
+                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2)))))
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.5d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
