@@ -1439,6 +1439,7 @@ Calls the function with the mesh mp and node"
          )
         (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact-step mp) 1 0))
         (cl-mpm/output::save-parameter "fric-contact-stick" (if (cl-mpm/particle::mp-penalty-friction-stick mp) 1 0))
+        (cl-mpm/output::save-parameter "fric-normal" (cl-mpm/particle::mp-penalty-normal-force mp))
         (cl-mpm/output::save-parameter "fric-x" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
         (cl-mpm/output::save-parameter "fric-y" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 1 0))
         )
@@ -1663,6 +1664,17 @@ Calls the function with the mesh mp and node"
              (cl-mpm/utils::deviatoric-voigt stress))))
     (* (/ 3d0 (+ 3 (tan angle)))
        (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))
+
+
+(defun criterion-dp (stress angle)
+  (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress)))
+        (B (/ (* 2 (sin angle))
+              (* (sqrt 3) (- 3d0 (sin angle)))))
+        )
+    (*  (+ (* B p) (sqrt j2)))))
+
 
 
 ;; (defun criterion-dp-strain (stress ft fc)
