@@ -427,17 +427,17 @@
   t)
 (defmethod penalty-contact-valid ((bc bc-penalty-distance) point)
   (let* ((normal (bc-penalty-normal bc))
+         (center-point (bc-penalty-distance-center-point bc))
+         (p-d (cl-mpm/fastmath:dot point normal))
+         (c-d (cl-mpm/fastmath:dot center-point normal))
          (diff
           (cl-mpm/fastmath::fast-.-
-           point
-           (bc-penalty-distance-center-point bc))))
+           (cl-mpm/fastmath:fast-.- point (cl-mpm/fastmath:fast-scale-vector normal p-d))
+           (cl-mpm/fastmath:fast-.- center-point (cl-mpm/fastmath:fast-scale-vector normal c-d))
+           )))
     (<=
      (cl-mpm/fastmath::mag
-      (cl-mpm/fastmath:fast-.-
-       diff
-       (cl-mpm/fastmath:fast-.*
-        diff
-        normal)))
+      diff)
      (bc-penalty-distance-radius bc))))
 
 
@@ -468,7 +468,7 @@
                    :epsilon epsilon
                    :friction friction)))
 
-(defun make-bc-penalty-point-normal (sim normal point epsilon friction)
+(defun make-bc-penalty-point-normal (sim normal point epsilon friction &optional (damping 0d0))
   (let* ((normal (cl-mpm/fastmath::norm normal))
          ;(datum (cl-mpm/fastmath::dot normal point))
          (datum (- (penetration-distance-point point 0d0 normal)))
@@ -481,6 +481,7 @@
                    :normal normal
                    :epsilon epsilon
                    :friction friction
+                   :damping damping
                    )))
 
 (defun disp-distance (mp datum normal)
@@ -756,7 +757,7 @@
                                              :point corner
                                              :penetration penetration-dist))))))))
            (when in-contact
-             (push (contact-point closest-point) (bc-penalty-contact-points bc))
+             ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
              (apply-penalty-point mesh bc mp (contact-point closest-point) dt))))))))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty-structure) node mesh dt)

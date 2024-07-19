@@ -471,20 +471,31 @@
         ;;Invalidate shapefunction/gradient cache
         (setf (fill-pointer nc) 0)
 
-        ;;PIC
-        #+ :cl-mpm-pic (cl-mpm/utils::voigt-copy-into mapped-vel vel)
-        (cl-mpm/fastmath::fast-scale! mapped-vel dt)
-        (cl-mpm/fastmath::simd-add pos mapped-vel)
-        (cl-mpm/fastmath::simd-add disp mapped-vel)
-        (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
-        (unless (cl-mpm/particle::mp-penalty-contact mp)
-          (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
-          (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0)
-          )
-        (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-        ;;FLIP
-        #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
-        ))))
+        (let ((pic-value 0d-3)
+              (pic-vel (cl-mpm/utils:vector-copy mapped-vel)))
+
+          ;;PIC
+          ;; #+ :cl-mpm-pic (cl-mpm/utils::vector-copy-into mapped-vel vel)
+          (cl-mpm/fastmath::fast-scale! mapped-vel dt)
+          (cl-mpm/fastmath::simd-add pos mapped-vel)
+          (cl-mpm/fastmath::simd-add disp mapped-vel)
+          (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
+          (unless (cl-mpm/particle::mp-penalty-contact mp)
+            (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
+            (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0))
+          (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
+          ;;FLIP
+          ;; #- :cl-mpm-pic (cl-mpm/fastmath:fast-fmacc vel acc dt)
+          ;;Blended pic-flip
+          (cl-mpm/fastmath:fast-.+
+           (cl-mpm/fastmath:fast-scale-vector
+            ;;New FLIP value
+            (cl-mpm/fastmath:fast-.+ vel (cl-mpm/fastmath:fast-scale-vector acc dt))
+            (- 1d0 pic-value))
+           (cl-mpm/fastmath:fast-scale-vector
+            ;;New FLIP value
+           (cl-mpm/fastmath:fast-scale-vector pic-vel) pic-value)
+           vel))))))
 (defgeneric pre-particle-update-hook (particle dt)
   )
 (defmethod pre-particle-update-hook (particle dt))
