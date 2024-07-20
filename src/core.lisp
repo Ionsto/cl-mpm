@@ -471,7 +471,7 @@
         ;;Invalidate shapefunction/gradient cache
         (setf (fill-pointer nc) 0)
 
-        (let ((pic-value 0d-3)
+        (let ((pic-value 1d-3)
               (pic-vel (cl-mpm/utils:vector-copy mapped-vel)))
 
           ;;PIC

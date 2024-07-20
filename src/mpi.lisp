@@ -22,8 +22,8 @@
    #:mpi-sum
    ))
 
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/mpi)
 
 (defclass mpm-sim-mpi (cl-mpm::mpm-sim-usf)
@@ -568,7 +568,7 @@
                                                                    :volume (mpi-object-damage-mp-volume mp)
                                                                    :position (mpi-object-damage-mp-position mp)
                                                                    :damage-y (mpi-object-damage-mp-y mp)
-                                                                   :local-length-t (mpi-object-damage-mp-local-length mp))
+                                                                   :local-length (mpi-object-damage-mp-local-length mp))
                                                     damage-mps))))))))))))
         damage-mps))))
 
