@@ -154,6 +154,20 @@
   ()
   (:documentation "A mp with damage mechanics"))
 
+(defclass particle-thermoelastic-damage (particle-elastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with elastic mechanics with variable thermal fields"))
+(defclass particle-thermoviscoplastic-damage (particle-viscoplastic particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
+
+(defclass particle-thermofluid-damage (particle-fluid particle-damage particle-thermal)
+  ()
+  (:documentation "A mp with viscoplastic mechanics with variable thermal fields"))
+(defclass particle-viscoelastic-fracture (particle-viscoelastic particle-fracture)
+  ()
+  (:documentation "A viscoelastic mp with fracture mechanics"))
+
 ;; (defmethod constitutive-model :before ((mp particle-damage) strain dt)
 ;;   "For rate-based equations we want them to see the undamaged stress"
 ;;   (with-slots ((stress stress)
