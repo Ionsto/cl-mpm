@@ -270,8 +270,8 @@
            (+ pressure
               (if (> p 0d0)
                   (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
-                  ;; (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
-                  p)))
+                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
+                  )))
           (cl-mpm/fastmath:fast-.+
            (cl-mpm/constitutive::voight-eye p)
            (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
