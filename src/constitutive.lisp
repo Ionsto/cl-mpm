@@ -1028,7 +1028,7 @@
                       (when (> f (* 10000d0 tol))
                         (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
 
-                      (cl-mpm/fastmath:fast-.- sig (cl-mpm/utils::voigt-eye pore-pressure) sig)
+                      ;; (cl-mpm/fastmath:fast-.- sig (cl-mpm/utils::voigt-eye pore-pressure) sig)
                       (setf eps-e (magicl:@ Ce sig))
 
                       ;; (break)

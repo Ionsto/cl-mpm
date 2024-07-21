@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
@@ -18,7 +18,7 @@
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-brittle) dt fbar)
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
@@ -31,7 +31,7 @@
 
 
 
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
                      (strain cl-mpm/particle::mp-strain)
@@ -107,11 +107,16 @@
           collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
           collect (funcall colour-func mp) into c
           finally (return (values x y lx ly c)))
-    (let* ((points (append
-                    (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*)
-                    ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*)
-                    ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*)
-                    ))
+    (let* ((points
+             (reduce #'append
+                     (mapcar #'cl-mpm/penalty::bc-penalty-structure-contact-points contact-bcs)
+                     )
+             ;; (append
+             ;;        ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*)
+             ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*)
+             ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*)
+             ;;        )
+             )
            (c-x (loop for p in points collect (magicl:tref p 0 0)))
            (c-y (loop for p in points collect (magicl:tref p 1 0)))
            (c-v (loop for p in points collect 1d0)))
@@ -126,9 +131,9 @@
                           c-x c-y ";;with points pt 7")
              (vgplot:plot x y lx ly c ";;with ellipses lc palette"))))))
 
-  (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*) nil)
-  ;; (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*) nil)
-  ;; (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*) nil)
+  ;; (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*) nil)
+  (loop for bcs in contact-bcs
+        do (setf (cl-mpm/penalty::bc-penalty-structure-contact-points bcs) nil))
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms)))
@@ -153,11 +158,11 @@
                           (+ (* 0.5d0 *box-size*) offset)
                           *box-size*
                           ms-y)
-      (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
+      (vgplot:format-plot t "set object 2 rect from 0,0 to ~f,~f fc rgb 'green' fs transparent solid 0.8 noborder behind"
                           (+ (* 1d0 *box-size*) *displacement-increment*)
                           (+ (* 0.5d0 *box-size*) offset)
                           )
-      (vgplot:format-plot t "set object 3 rect from ~f,0 to ~f,~f fc rgb 'red' fs transparent solid 0.8 noborder behind"
+      (vgplot:format-plot t "set object 3 rect from ~f,0 to ~f,~f fc rgb 'green' fs transparent solid 0.8 noborder behind"
                           (+ (* 2 *box-size*) *displacement-increment*)
                           ms-x
                           (+ (* 0.5d0 *box-size*) offset))
@@ -186,7 +191,16 @@
      ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
      ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
      ;;       0d0))
-     :contact-bcs *shear-box-struct-left*)
+     :contact-bcs
+     (list
+      ;; *shear-box-struct-left*
+      ;; *shear-box-struct-right*
+      ;; *shear-box-struct-left-static*
+      ;; *shear-box-struct-right-dynamic*
+      ;; *shear-box-struct-floor*
+      *shear-box-struct*
+      )
+     )
     ;; (let* ((points (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*))
     ;;        (c-x (loop for p in points collect (magicl:tref p 0 0)))
     ;;        (c-y (loop for p in points collect (magicl:tref p 1 0)))
@@ -253,7 +267,7 @@
              (gf 48d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0)
+             (ductility 100d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -279,7 +293,7 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
+           :g-res-ratio 1d-3
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
@@ -288,7 +302,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-plasticity nil
+           :enable-plasticity t
            :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c (* 131d3 1d0)
@@ -417,7 +431,8 @@
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
          (epsilon (* 1d2 1d9))
-         (extra-height 1d-4)
+         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+         (extra-height 0d0)
          ;; (friction 0.0d0)
          (damping 0d0))
 
@@ -458,7 +473,7 @@
                                                offset) 0d0))
        (+
         (* 0.5d0 height)
-        extra-height
+        (* 1 extra-height)
         )
        epsilon
        friction
@@ -468,13 +483,13 @@
        sim
        right-normal
        (cl-mpm/utils:vector-from-list (list right-x
-                                            (+ 
+                                            (+
                                              (- (* 0.5d0 height)
                                                 extra-height)
                                              offset) 0d0))
        (+
         (* 0.5d0 height)
-        extra-height
+        (* 1 extra-height)
         )
        epsilon
        friction
@@ -489,40 +504,63 @@
        friction
        damping))
     (defparameter *shear-box-floor*
-      (cl-mpm/penalty::make-bc-penalty-distance-point
+      (cl-mpm/penalty::make-bc-penalty-point-normal
        sim
        plane-normal-left
-       (cl-mpm/utils:vector-from-list (list (+ left-x (* height 0.5d0)) offset 0d0))
-       (* 2d0 height)
+       (cl-mpm/utils:vector-from-list (list 0d0 offset 0d0))
        epsilon
        friction
        damping))
 
-    ;; (defparameter *shear-box-struct-left*
-    ;;   (cl-mpm/penalty::make-bc-penalty-structure
-    ;;    sim
-    ;;    epsilon
-    ;;    friction
-    ;;    damping
-    ;;    (list
-    ;;     *shear-box-left-static*
-    ;;     *shear-box-left-dynamic*
-    ;;     *shear-box-left-slide*
-    ;;     *shear-box-floor*
-    ;;     )))
+    (defparameter *shear-box-struct-left*
+      (cl-mpm/penalty::make-bc-penalty-structure
+       sim
+       epsilon
+       friction
+       damping
+       (list
+        ;; *shear-box-left-static*
+        *shear-box-left-dynamic*
+        *shear-box-left-slide*
+        ;; *shear-box-floor*
+        )))
 
-    ;; (defparameter *shear-box-struct-right*
-    ;;   (cl-mpm/penalty::make-bc-penalty-structure
-    ;;    sim
-    ;;    epsilon
-    ;;    friction
-    ;;    damping
-    ;;    (list
-    ;;     *shear-box-right-static*
-    ;;     *shear-box-right-dynamic*
-    ;;     *shear-box-right-slide*
-    ;;     *shear-box-floor*
-    ;;     )))
+    (defparameter *shear-box-struct-right*
+      (cl-mpm/penalty::make-bc-penalty-structure
+       sim
+       epsilon
+       friction
+       damping
+       (list
+        *shear-box-right-static*
+        ;; *shear-box-right-dynamic*
+        *shear-box-right-slide*
+        ;; *shear-box-floor*
+        )))
+    (defparameter *shear-box-struct-left-static*
+      (cl-mpm/penalty::make-bc-penalty-structure
+       sim
+       epsilon
+       friction
+       damping
+       (list
+        *shear-box-left-static*)))
+    (defparameter *shear-box-struct-right-dynamic*
+      (cl-mpm/penalty::make-bc-penalty-structure
+       sim
+       epsilon
+       friction
+       damping
+       (list
+        *shear-box-right-dynamic*)))
+    (defparameter *shear-box-struct-floor*
+      (cl-mpm/penalty::make-bc-penalty-structure
+       sim
+       epsilon
+       friction
+       damping
+       (list
+        *shear-box-floor*)))
     (defparameter *shear-box-struct*
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
@@ -552,6 +590,7 @@
 
          (setf (magicl:tref (cl-mpm/penalty::bc-penalty-distance-center-point *shear-box-left-slide*) 0 0)
                (+ (- left-x height) *displacement-increment*))
+
          (setf (cl-mpm/penalty::bc-penalty-datum *shear-box-right-dynamic*)
                (- (+ right-x *displacement-increment*)))))
       )
@@ -560,8 +599,11 @@
            (cl-mpm/bc:make-bcs-from-list
             (list
              *shear-box-controller*
+             ;; *shear-box-struct-left-static*
              ;; *shear-box-struct-left*
              ;; *shear-box-struct-right*
+             ;; *shear-box-struct-right-dynamic*
+             ;; *shear-box-struct-floor*
              *shear-box-struct*
              ))))))
 
@@ -673,17 +715,18 @@
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
 
     (vgplot:figure)
+    (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :energy-crit 1d-2
      :oobf-crit 1d-2
-     :dt-scale 0.5d0
+     :dt-scale 0.50d0
      :substeps 50
      :conv-steps 100
      :post-iter-step
      (lambda (i energy oobf)
        ;; (plot-domain)
-       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)))
+       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)))
     (vgplot:figure)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)

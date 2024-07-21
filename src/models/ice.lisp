@@ -226,7 +226,7 @@
            phi
            psi
            coheasion
-           (* pressure damage 0d0)
+           (* pressure damage 1d0)
            )
         (setf stress-u
               sig

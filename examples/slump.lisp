@@ -4,7 +4,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;(sb-ext:restrict-compiler-policy 'speed  0 0)
 ;(sb-ext:restrict-compiler-policy 'debug  3 3)
@@ -258,13 +258,15 @@
          (ms-y (second ms)))
     (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*)
     (vgplot:format-plot t "set style fill solid")
+    (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
      :colour-func #'cl-mpm/particle::mp-damage
-     ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+     ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
      )
     (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
+    (vgplot:format-plot t "set size ratio ~f" (/ (- ms-y (* 2 h)) ms-x))
     (let* ((normal (cl-mpm/penalty::bc-penalty-normal *floor-bc*))
            (datum (cl-mpm/penalty::bc-penalty-datum *floor-bc*))
            (dy (if (= (magicl:tref normal 1 0) 0)
@@ -272,10 +274,10 @@
                    (- (/ (magicl:tref normal 0 0) (magicl:tref normal 1 0)))))
            (offset datum )
            )
-      (pprint dy)
+      ;; (pprint dy)
       (vgplot:format-plot t "replot (~f*x + ~f)~%" dy offset))
     (vgplot:format-plot t "replot (~f*x + ~f)~%" 0 (* 2 h))
-    (vgplot:replot)
+    ;; (vgplot:replot)
     ))
 
 
@@ -357,7 +359,7 @@
             (mapcar (lambda (e) (floor (* e e-scale mp-scale))) block-size)
             )
 
-    (incf (second block-offset) (* 2 h-x))
+    ;; (incf (second block-offset) (* 2 h-x))
 
     (progn
       (let* ((length-scale (* 1 h))
@@ -389,17 +391,17 @@
                 :E 1d9
                 :nu 0.325d0
 
-                :friction-angle 50.0d0
+                :friction-angle 40.0d0
 
                 :kt-res-ratio 1d-10
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-3
+                :g-res-ratio 1d-2
 
                 :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d3
-                :delay-exponent 2d0
+                :delay-time 1d4
+                :delay-exponent 3d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
                 :critical-damage 1d0;(- 1.0d0 1d-3)
@@ -436,7 +438,7 @@
         (setf
          (cl-mpm::sim-mass-scale sim) mass-scale
          (cl-mpm:sim-damping-factor sim)
-              (* 0.01d0
+              (* 0.1d0
                  (sqrt mass-scale)
                  (cl-mpm/setup::estimate-critical-damping sim))))
       (format t "Est dt: ~f~%" (cl-mpm/setup::estimate-elastic-dt sim))
@@ -472,6 +474,7 @@
             ;(angle -1d0)
             )
 
+        (pprint block-size)
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
 
@@ -483,7 +486,7 @@
              (cl-mpm/utils:vector-from-list (list 0d0
                                                   (* 2 h-y)
                                                   0d0))
-             (* 1d9 0.1d0)
+             (* 1d9 0.01d0)
              floor-friction))
           (let ((ang (* angle (/ pi 180))))
             (defparameter *floor-bc*
@@ -491,7 +494,7 @@
                sim
                (cl-mpm/utils:vector-from-list (list (sin ang) (cos ang) 0d0))
                (cl-mpm/utils:vector-from-list (list (first block-offset) (second block-offset) 0d0))
-               (* 1d9 1d-1)
+               (* 1d9 1d-2)
                floor-friction))))
         (defparameter *melt-bc*
           (make-bc-water-damage
@@ -545,8 +548,8 @@
   (let* ((mesh-size (* 10 refine))
          (mps-per-cell 2)
          (slope 0d0)
-         (shelf-height 300)
-         (shelf-aspect 1)
+         (shelf-height 200)
+         (shelf-aspect 2)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
@@ -557,7 +560,7 @@
          (offset (list 0d0
                   ;(* 2d0 mesh-size)
                   (+
-                   ;(* 2d0 mesh-size)
+                   (* 2d0 mesh-size)
                    angle-offset))))
     (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
@@ -749,28 +752,29 @@
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
- (let* ((target-time 1d1)
-        (dt (cl-mpm:sim-dt *sim*))
-        (dt-0 0d0)
-        (dt-scale 0.5d0)
-        (settle-steps 30)
-        (damp-steps 20)
-        (collapse-target-time 1d0)
-        (collapse-mass-scale 1d0)
-        (substeps (floor target-time dt))
-        (sim-state :accelerate)
-        (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-        (damping-0 (* 1d-5 (cl-mpm/setup::estimate-critical-damping *sim*)))
-        (damage-0 0d0)
-        (mass-0
-          (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*))))
+  (let* ((target-time 1d1)
+         (dt (cl-mpm:sim-dt *sim*))
+         (dt-0 0d0)
+         (dt-scale 0.5d0)
+         (settle-steps 20)
+         (damp-steps 10)
+         (collapse-target-time 1d0)
+         (collapse-mass-scale 1d0)
+         (substeps (floor target-time dt))
+         (sim-state :accelerate)
+         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+         (damping-0 (* 0d-3 (cl-mpm/setup::estimate-critical-damping *sim*)))
+         (damage-0 0d0)
+         (mass-0
+           (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*))))
 
-   (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
-                                              *sim*
-                                              (list :dt target-time
-                                                    :ocean-height *water-height*
-                                                    ))
+    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
+                                               *sim*
+                                               (list :dt target-time
+                                                     :ocean-height *water-height*
+                                                     ))
 
+    (setf (cl-mpm/penalty::bc-penalty-damping *floor-bc*) 0d0)
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e)))
@@ -848,11 +852,11 @@
                         (format t "OOBF estimate: ~E~%" *oobf*)
 
                         (when (>= steps settle-steps)
-                          ;; (loop for mp across (cl-mpm:sim-mps *sim*) do (setf (cl-mpm/particle::mp-damage mp) 1d0))
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
                                ;; t
                                (> energy-estimate 1d-2)
+                               ;; nil
                                ;(> work 1d6)
                                )
                               (setf sim-state :collapse)
