@@ -107,6 +107,10 @@
     :type boolean
     :accessor sim-mp-damage-removal-instant
     :initform nil)
+   (velocity-algorithm
+    :type symbol
+    :accessor sim-velocity-algorithm
+    :initform :flip)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

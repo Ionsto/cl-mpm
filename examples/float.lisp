@@ -13,21 +13,22 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 ;; (asdf:compile-system :cl-mpm)
 
-
-(defun max-v-sum (mp)
-  (with-accessors ((vel cl-mpm/particle:mp-velocity))
+(defmethod cl-mpm/particle::constitutive-model ((mp cl-mpm/particle::particle-elastic-damage) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de cl-mpm/particle::mp-elastic-matrix)
+                   (d cl-mpm/particle::mp-damage)
+                   (p cl-mpm/particle::mp-pressure)
+                   (def cl-mpm/particle::mp-deformation-gradient))
       mp
-    (magicl::sum (magicl:map #'abs vel))))
+    (cl-mpm/fastmath:fast-.+
+     (cl-mpm/fastmath:fast-scale-voigt
+      (cl-mpm/constitutive::linear-elastic-mat strain de) (- 1d0 d))
+     ;; (cl-mpm/utils:voigt-zeros)
+     (cl-mpm/utils::voigt-eye (* 1d0 p (cl-mpm/fastmath:det def))))
+    )
+  )
 
-(defun find-max-cfl (sim)
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps)
-                   (dt cl-mpm:sim-dt))
-      sim
-    (let ((max-v (lparallel:preduce #'max
-                                    (lparallel:pmapcar #'max-v-sum
-                                                    mps))))
-      (* dt (/ max-v (cl-mpm/mesh:mesh-resolution mesh))))))
+
 
 (defun pescribe-velocity (sim load-mps vel)
   (let ((mps (cl-mpm:sim-mps sim)))
@@ -70,63 +71,13 @@
          (ms-y (second ms))
          )
     (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
-  (multiple-value-bind (x y c stress-y lx ly e density temp vx)
-    (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (magicl:tref (cl-mpm::mp-velocity mp) 0 0) into vx
-          collect (length-from-def sim mp 0) into lx
-          collect (length-from-def sim mp 1) into ly
-          collect (if (slot-exists-p mp 'cl-mpm/particle::damage) (cl-mpm/particle:mp-damage mp) 0) into c
-          collect (if (slot-exists-p mp 'cl-mpm/particle::temperature) (cl-mpm/particle:mp-temperature mp) 0) into temp
-          collect (if (slot-exists-p mp 'cl-mpm/particle::strain-energy-density) (cl-mpm/particle::mp-strain-energy-density mp) 0) into e
-          collect (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)) into density
-          ;; collect (cl-mpm/particle:mp-volume mp) into density
-          collect (max-stress mp) into stress-y
-          finally (return (values x y c stress-y lx ly e density temp vx)))
-    (cond
-      ((eq plot :damage)
-       ;; (vgplot:format-plot t "set cbrange [0:1]")
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 1e-6 (apply #'max c)))
-       (vgplot:format-plot t "set cbrange [~f:~f]" 0d0 (+ 1e-6 (apply #'max c)))
-       (vgplot:plot x y c ";;with points pt 7 lc palette")
-       )
-      ((eq plot :velocity)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min vx) (+ 0.01 (apply #'max vx)))
-       (vgplot:plot x y vx ";;with points pt 7 lc palette")
-       )
-      ((eq plot :temperature)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min temp) (+ 0.01 (apply #'max temp)))
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min c) (+ 0.01 (apply #'max c)))
-       (vgplot:plot x y temp ";;with points pt 7 lc palette")
-       )
-      ((eq plot :energy)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min e) (+ 0.01 (apply #'max e)))
-       (vgplot:plot x y e ";;with points pt 7 lc palette")
-       )
-      (
-       (eq plot :stress)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y stress-y ";;with points pt 7 lc palette"))
-      ((eq plot :deformed)
-       ;; (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min stress-y) (+ 0.01 (apply #'max stress-y)))
-       (vgplot:plot x y lx ly ";;with ellipses"))
-      ((eq plot :density)
-       (vgplot:format-plot t "set cbrange [~f:~f]" (apply #'min density) (+ 0.01 (apply #'max density)))
-       (vgplot:plot x y e ";;with points pt 7 lc palette")
-       ))
-    )
-  (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
-         (ms-x (first ms))
-         (ms-y (second ms))
-         )
-    (vgplot:axis (list 0 ms-x
-                       0 ms-y))
-    (vgplot:format-plot t "set size ratio ~f" (/ ms-y ms-x)))
-    (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-      (vgplot:format-plot t "set ytics ~f" h)
-      (vgplot:format-plot t "set xtics ~f" h))
-  (vgplot:replot))
+  (cl-mpm/plotter:simple-plot
+   sim
+   :plot :deformed
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:varef (cl-mpm/particle:mp-stress mp) 1))
+   :colour-func #'cl-mpm/particle::mp-boundary
+   )
+)
 
 (defun remove-sdf (sim sdf)
   (delete-if (lambda (mp)
@@ -258,8 +209,8 @@
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
                ;; 'cl-mpm::make-particle
-               'cl-mpm/particle::particle-elastic
-               ;; 'cl-mpm/particle::particle-elastic-damage
+               ;; 'cl-mpm/particle::particle-elastic
+               'cl-mpm/particle::particle-elastic-damage
                ;; 'cl-mpm/particle::particle-viscoplastic-damage
                ;; 'cl-mpm/particle::particle-glen
                :E 1d9
@@ -273,6 +224,7 @@
                ;; :critical-damage 0.5d0
                ;; :local-length 50d0
 
+               :damage 0d0
                :gravity -9.8d0
                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                ;; :gravity-axis (magicl:from-list (list (cos (* gravity-angle (/ pi 180)))
@@ -359,22 +311,52 @@
                block-size
                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                density
-               ;; 'cl-mpm::make-particle
-               ;; 'cl-mpm/particle::particle-elastic-logspin
+               ;; ;; 'cl-mpm::make-particle
+               ;; ;; 'cl-mpm/particle::particle-elastic-logspin
                ;; 'cl-mpm/particle::particle-elastic-damage
-               'cl-mpm/particle::particle-elastic
-               ;; 'cl-mpm/particle::particle-viscoplastic-damage
-               ;; 'cl-mpm/particle::particle-glen
-               :E 1d9
-               :nu 0.3250d0
+               ;; ;; 'cl-mpm/particle::particle-elastic
+               ;; ;; 'cl-mpm/particle::particle-viscoplastic-damage
+               ;; ;; 'cl-mpm/particle::particle-glen
+               ;; :E 1d9
+               ;; :nu 0.3250d0
 
-               ;; :visc-factor 11d6
-               ;; :visc-power 3d0
+               ;; :damage (- 1d0 0.999d0)
+               ;; ;; :visc-factor 11d6
+               ;; ;; :visc-power 3d0
 
-               ;; :initiation-stress 0.33d6
-               ;; :damage-rate 1d-25
-               ;; :critical-damage 0.5d0
-               ;; :local-length 50d0
+               ;; ;; :initiation-stress 0.33d6
+               ;; ;; :damage-rate 1d-25
+               ;; ;; :critical-damage 0.5d0
+               ;; ;; :local-length 50d0
+
+                'cl-mpm/particle::particle-visco-elasto-plastic-damage
+                :E 1d9
+                :nu 0.325d0
+
+                :friction-angle 30.0d0
+
+                :kt-res-ratio 1d-10
+                :kc-res-ratio 1d-2
+                :g-res-ratio 1d-3
+
+                ;; :fracture-energy 3000d0
+                ;; :initiation-stress stress
+                :damage 0d0
+
+                ;; :delay-time 1d2
+                ;; :delay-exponent 3d0
+                ;; :ductility ductility
+                ;; :ductility-mode-2 ductility-ii
+                ;; :critical-damage 1d0;(- 1.0d0 1d-3)
+                :damage-domain-rate 0.1d0;This slider changes how GIMP update turns to uGIMP under damage
+                ;; :local-length length-scale;(* 0.20d0 (sqrt 7))
+                ;; :local-length-damaged 10d-10
+
+                :enable-plasticity t
+                :psi (* 00d0 (/ pi 180))
+                :phi (* 40d0 (/ pi 180))
+                :c 1000d3
+
 
                :gravity -9.8d0
                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -383,7 +365,7 @@
                :index 0
                )))
 
-      (setf (cl-mpm:sim-damping-factor sim) (* 0.001d0 density))
+      (setf (cl-mpm:sim-damping-factor sim) (* 0d-2 (cl-mpm/setup:estimate-critical-damping sim)))
       (setf (cl-mpm:sim-mass-filter sim) 1d-15)
       (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -422,7 +404,8 @@
                   ocean-y
                   1000d0
                   (lambda (pos datum)
-                    t;(>= (magicl:tref pos 1 0) h-y)
+                    ;; t;(>= (magicl:tref pos 1 0) h-y)
+                    (< (cl-mpm/utils:varef pos 1) datum)
                     )
                   )
                  ))
@@ -480,9 +463,14 @@
 ;Setup
 (defun setup ()
   (defparameter *run-sim* nil)
-  (let ((mesh-size 50)
-        (mps-per-cell 2))
-    (defparameter *sim* (setup-test-column '(300 500) '(200 100) '(0 200) (/ 1 mesh-size) mps-per-cell))
+  (let ((mesh-size 25)
+        (mps-per-cell 4)
+        (block-size (list 100 100))
+        (block-offset (list 100 200))
+        )
+    (defparameter *sim* (setup-test-column '(300 500)
+                                           block-size
+                                           block-offset (/ 1 mesh-size) mps-per-cell))
     ;; (defparameter *sim* (setup-pressure '(200 200) '(100 200) '(0 0) (/ 1 mesh-size) mps-per-cell))
     )
   ;; (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -494,6 +482,7 @@
   ; (remove-sdf *sim* (rectangle-sdf '(250 100) '(20 40)))
   ;; (remove-sdf *sim* (ellipse-sdf (list 1.5 3) 0.25 0.5))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
   (print (cl-mpm:sim-dt *sim*))
   (defparameter *velocity* '())
   (defparameter *time* '())

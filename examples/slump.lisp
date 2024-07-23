@@ -58,12 +58,25 @@
           ;; (setf damage-increment (cl-mpm/damage::criterion-j2 stress))
           ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
 
-          (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+          ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
           ;; (setf damage-increment
           ;;       (max 0d0
           ;;            (cl-mpm/damage::drucker-prager-criterion
           ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
           ;;             (* 50d0 (/ pi 180d0)))))
+          ;; (setf damage-increment
+          ;;       (max 0d0
+          ;;            (cl-mpm/damage::criterion-dp
+          ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+          ;;             (* angle (/ pi 180d0)))))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::criterion-dp-pressure
+                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))
+                      ;; 0d0;pressure
+                      0d0
+                      ;; (- pressure)
+                      )))
           )
         (when (>= damage 1d0)
           (setf damage-increment 0d0))
@@ -364,8 +377,8 @@
     (progn
       (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
-             (stress 0.1d6)
-             (gf 5000d0)
+             (stress 100d3)
+             (gf 10000d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
              ;; (ductility 5d0)
@@ -391,21 +404,20 @@
                 :E 1d9
                 :nu 0.325d0
 
-                :friction-angle 40.0d0
+                :friction-angle 30.0d0
 
                 :kt-res-ratio 1d-10
-                :kc-res-ratio 1d0
+                :kc-res-ratio 1d-1
                 :g-res-ratio 1d-2
 
-                :fracture-energy 3000d0
                 :initiation-stress stress
 
-                :delay-time 1d4
+                :delay-time 1d2
                 :delay-exponent 3d0
                 :ductility ductility
                 :ductility-mode-2 ductility-ii
                 :critical-damage 1d0;(- 1.0d0 1d-3)
-                :damage-domain-rate 0.2d0;This slider changes how GIMP update turns to uGIMP under damage
+                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
                 :local-length length-scale;(* 0.20d0 (sqrt 7))
                 :local-length-damaged 10d-10
 
@@ -468,7 +480,7 @@
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
              (ocean-y (+ (* 2d0 h-y)
                          (- terminus-size 100d0)))
-             ;; (ocean-y 0d0)
+             (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
             ;(angle -1d0)
@@ -478,7 +490,7 @@
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
 
-        (let ((floor-friction 0.5d0))
+        (let ((floor-friction 0.8d0))
           (defparameter *ocean-floor-bc*
             (cl-mpm/penalty::make-bc-penalty-point-normal
              sim
@@ -486,7 +498,7 @@
              (cl-mpm/utils:vector-from-list (list 0d0
                                                   (* 2 h-y)
                                                   0d0))
-             (* 1d9 0.01d0)
+             (* 1d9 0.1d0)
              floor-friction))
           (let ((ang (* angle (/ pi 180))))
             (defparameter *floor-bc*
@@ -516,7 +528,7 @@
                   sim
                   ocean-y
                   *water-density*
-                  (lambda (pos datum)
+                  (lambda (pos)
                     (>= (magicl:tref pos 1 0) (* h-y 0))))))
                (cl-mpm/bc:make-bcs-from-list
                 (list *floor-bc*)
@@ -546,9 +558,9 @@
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
   (let* ((mesh-size (* 10 refine))
-         (mps-per-cell 2)
+         (mps-per-cell 4)
          (slope 0d0)
-         (shelf-height 200)
+         (shelf-height 150)
          (shelf-aspect 2)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
@@ -756,14 +768,14 @@
          (dt (cl-mpm:sim-dt *sim*))
          (dt-0 0d0)
          (dt-scale 0.5d0)
-         (settle-steps 20)
-         (damp-steps 10)
+         (settle-steps 30)
+         (damp-steps 20)
          (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (substeps (floor target-time dt))
-         (sim-state :accelerate)
+         (sim-state :damp)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-         (damping-0 (* 0d-3 (cl-mpm/setup::estimate-critical-damping *sim*)))
+         (damping-0 (* 0d-4 (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0 0d0)
          (mass-0
            (lparallel:pmap-reduce #'cl-mpm/particle::mp-mass #'+ (cl-mpm:sim-mps *sim*))))
@@ -802,7 +814,7 @@
                     (progn
                       (format t "Step ~d ~%" steps)
                       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                       ;; (cl-mpm/output::save-vtk-cells (merge-pathnames (format nil "output/sim_cells_~5,'0d.vtk" *sim-step*)) *sim*)
                       (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :append)
                         (format stream "~D,~f,~f,~f,~f~%"
@@ -851,31 +863,41 @@
                         (format t "Energy estimate: ~E~%" energy-estimate)
                         (format t "OOBF estimate: ~E~%" *oobf*)
 
+                        (when (= steps damp-steps)
+                          (setf sim-state :settle)
+                          (setf (cl-mpm:sim-damping-factor *sim*)
+                                damping-0))
                         (when (>= steps settle-steps)
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
                                ;; t
-                               (> energy-estimate 1d-2)
+                               (> energy-estimate 1d-3)
+                               (> *oobf* 1d-2)
                                ;; nil
-                               ;(> work 1d6)
+                               ;; (> work 1d6)
                                )
-                              (setf sim-state :collapse)
-                              (setf sim-state :accelerate)
-                              )
+                              (when (not (eq sim-state :collapse))
+                                (setf sim-state :collapse)
+                                (format t "Changed to collapse~%"))
+                              (progn
+                                (when (not (eq sim-state :accelerate))
+                                  (format t "Changed to accelerate~%")
+                                  (setf sim-state :accelerate)
+                                  (cl-mpm:iterate-over-mps
+                                   (cl-mpm:sim-mps *sim*)
+                                   (lambda (mp)
+                                     (cl-mpm/fastmath::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
                           (case sim-state
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d1
+                              target-time 1d2
                               (cl-mpm::sim-mass-scale *sim*) 1d4))
                             (:collapse
                              (format t "Collapse timestep~%")
                              (setf
                               target-time collapse-target-time
                               (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale))))
-                        (when (>= steps damp-steps)
-                          (setf (cl-mpm:sim-damping-factor *sim*)
-                                damping-0))
                         (print "calc adaptive")
                         (multiple-value-bind (dt-e substeps-e)
                             (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
