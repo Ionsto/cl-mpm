@@ -847,6 +847,11 @@
     (loop for v double-float across s
           sum v)))
 
+(declaim (inline det)
+         (ftype (function (magicl::matrix/double-float) (double-float)) det))
+(defun det (m)
+  (magicl:det m))
+
 
 (defun test-sum ()
   (let ((iters 100000)

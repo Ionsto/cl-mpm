@@ -226,7 +226,7 @@
            phi
            psi
            coheasion
-           (* pressure damage 1d0)
+           (* pressure damage 0d0)
            )
         (setf stress-u
               sig
@@ -242,7 +242,13 @@
                        (expt (- s2 s3) 2d0)
                        (expt (- s3 s1) 2d0)
                        ) 2d0))))))
+
     (setf stress (magicl:scale stress-u 1d0))
+
+    ;; (let ((pressure (* pressure (expt damage 1))))
+    ;;   (cl-mpm/fastmath::fast-.+ stress
+    ;;                             (cl-mpm/utils::voigt-eye (/ pressure 3d0))
+    ;;                             stress))
     ;; ;; (when (> damage 0.0d0)
     ;; ;;   (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     ;; ;; (when (> damage 0.0d0)
@@ -259,15 +265,21 @@
     ;; ;;     (setf stress (matrix-to-voight (magicl:@ v
     ;; ;;                                              (cl-mpm/utils::matrix-from-diag l)
     ;; ;;                                              (magicl:transpose v))))))
+    ;; (setf (cl-mpm/particle::mp-body-force mp)
+    ;;       (cl-mpm/utils:vector-from-list (list 0d0 (* -1d0 1d3 -9.8d0) 0d0)))
+    ;; (let ((pressure (* pressure damage (magicl:det def))))
+    ;;   (cl-mpm/fastmath::fast-.+ stress
+    ;;                             (cl-mpm/utils::voigt-eye pressure)
+    ;;                             stress))
     (when (> damage 0.0d0)
-      (let* ((pressure (* pressure damage 1d0)))
+      (let* ((d-p (* pressure damage 0d0 (magicl:det def))))
         (declare (double-float damage))
-        (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) pressure))
+        (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
           ;; (incf p (* -1d0 pressure damage))
           (setf
            p
-           (+ pressure
+           (+ d-p
               (if (> p 0d0)
                   (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
                   (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
@@ -277,6 +289,19 @@
            (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
            stress)
           )))
+
+    (let ((pressure (* pressure damage (magicl:det def))))
+      (cl-mpm/fastmath::fast-.+ stress
+                                (cl-mpm/utils::voigt-eye pressure)
+                                stress))
+    (let ((damping-coeff 1d-4))
+      (setf (cl-mpm/particle::mp-body-force mp)
+            (cl-mpm/fastmath::fast-scale-vector (cl-mpm/particle::mp-velocity mp)
+                                                (*  1d0
+                                                    damping-coeff
+                                                    (cl-mpm/particle::mp-boundary mp)
+                                                    (cl-mpm/particle::mp-mass mp)
+                                                    ))))
     ;; (cl-mpm/fastmath::fast-.+ stress
     ;;                           (cl-mpm/utils::voigt-eye (/ (* pressure damage) 3d0)))
 
@@ -297,7 +322,7 @@
     ;;        (cl-mpm/constitutive::voight-eye p)
     ;;        (magicl:scale! s (- 1d0 damage))
     ;;        stress
-    ;;        ))))
+    ;;        ))))0
 
     ;; (when (> damage 0.0d0)
     ;;   (let* ((beta-I (cl-mpm/damage::damage-response-exponential-beta E initiation-stress ductility-I))

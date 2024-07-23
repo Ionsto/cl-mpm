@@ -322,6 +322,7 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/plotter"
                "vgplot"
                "swank.live"
                "magicl")

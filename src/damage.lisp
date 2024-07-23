@@ -648,7 +648,7 @@ Calls the function with the mesh mp and node"
     (declare (double-float damage-inc mass-total))
     (iterate-over-neighour-mps
      mesh mp length
-     (lambda (mesh mp mp-other node dist)
+     (lambda (mesh mp mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
                         (m cl-mpm/particle:mp-volume)
                         (ll cl-mpm/particle::mp-true-local-length)
@@ -1253,6 +1253,7 @@ Calls the function with the mesh mp and node"
                                              v)
                                            0))
         (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
+        (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
 
         (cl-mpm/output::save-parameter "s_1"
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
@@ -1668,6 +1669,15 @@ Calls the function with the mesh mp and node"
 
 (defun criterion-dp (stress angle)
   (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress)))
+        (B (/ (* 2 (sin angle))
+              (* (sqrt 3) (- 3d0 (sin angle)))))
+        )
+    (*  (+ (* B p) (sqrt j2)))))
+
+(defun criterion-dp-pressure (stress angle pressure)
+  (let ((p (+ (cl-mpm/utils::trace-voigt stress) pressure))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
         (B (/ (* 2 (sin angle))

@@ -39,6 +39,7 @@
    #:vector-copy-into
    #:voigt-copy-into
    #:fast-storage
+   #:varef
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -68,6 +69,15 @@
                           (simple-array double-float (*))) fast-storage))
 (defun fast-storage (m)
   (magicl::matrix/double-float-storage m))
+
+(declaim (inline varef)
+         (ftype (function (magicl:matrix/double-float fixnum)
+                          (double-float)) varef))
+(defun varef (m i)
+  (aref (fast-storage m) i))
+
+(defun (setf varef) (new-value m i)
+  (setf (aref (fast-storage m) i) new-value))
 
 (declaim (inline vector-tref)
          (ftype (function (magicl::matrix/double-float fixnum) double-float)
@@ -161,6 +171,9 @@
                     (magicl::matrix/double-float-storage vec))
     v)
   )
+(defun vector-copy-into (source target)
+  (aops:copy-into (magicl::matrix/double-float-storage target)
+                  (magicl::matrix/double-float-storage source)))
 
 (declaim (ftype (function (magicl::matrix/double-float) magicl::matrix/double-float) voigt-copy))
 (defun voigt-copy (vec)

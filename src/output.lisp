@@ -409,6 +409,7 @@
                                                 ))
               (save-parameter-nodes "buoyancy_node" (if
                                                      (cl-mpm/mesh::node-boundary-node node) 1 0))
+              (save-parameter-nodes "buoyancy-scalar" (cl-mpm/mesh::node-boundary-scalar node))
               ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
               ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
 
@@ -514,6 +515,8 @@
         (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
         (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
 
+        (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
+
 
         (when (= nd 3)
           (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
@@ -531,6 +534,7 @@
         (cl-mpm/output::save-parameter "fric-normal" (cl-mpm/particle::mp-penalty-normal-force mp))
         (cl-mpm/output::save-parameter "fric-x" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 0 0))
         (cl-mpm/output::save-parameter "fric-y" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 1 0))
+        (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         ;; (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         ;; (when (= (cl-mpm/mesh:mesh-nd mesh) 3)
         ;;   (save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))

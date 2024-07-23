@@ -34,13 +34,13 @@
                           ) mp
            (loop for i from 0 to 2
                  do (progn
-                      (when (sb-ext:float-nan-p (magicl:tref pos i 0)) 
+                      (when (sb-ext:float-nan-p (varef pos i)) 
                         (pprint mp)
                         (error "NaN location found for ~A" mp))
-                      (when (equal (abs (magicl:tref vel i 0)) #.sb-ext:double-float-positive-infinity)
+                      (when (equal (abs (varef vel i)) #.sb-ext:double-float-positive-infinity)
                         (pprint mp)
                         (error "Infinite velocity found"))
-                      (when (> (abs (magicl:tref vel i 0)) 1e10)
+                      (when (> (abs (varef vel i)) 1e10)
                         (pprint mp)
                         (error "High velocity found"))))))))
     (remove-mps-func
@@ -413,6 +413,97 @@
                 g2p-mp))
 
 
+(macrolet ((def-g2p-mp (name &body update)
+             `(defun ,name (mesh mp dt)
+                (declare (cl-mpm/mesh::mesh mesh)
+                         (cl-mpm/particle:particle mp)
+                         (double-float dt))
+                "Map one MP from the grid"
+                (with-accessors ((mass mp-mass)
+                                 (vel mp-velocity)
+                                 (pos mp-position)
+                                 (disp cl-mpm/particle::mp-displacement)
+                                 (acc cl-mpm/particle::mp-acceleration)
+                                 (temp cl-mpm/particle::mp-boundary)
+                                 (strain-rate mp-strain-rate)
+                                 (vorticity cl-mpm/particle:mp-vorticity)
+                                 (nc cl-mpm/particle::mp-cached-nodes)
+                                 (fixed-velocity cl-mpm/particle::mp-fixed-velocity)
+                                 )
+                    mp
+                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
+                    (progn
+                      ;;With special operations we need to reset some params for g2p
+                      ;; (reset-mps-g2p mp)
+                      (setf temp 0d0))
+                    (cl-mpm/fastmath::fast-zero acc)
+                    ;; Map variables
+                    (iterate-over-neighbours
+                     mesh mp
+                     (lambda (mesh mp node svp grads fsvp fgrads)
+                       (declare
+                        (ignore mp mesh fsvp fgrads)
+                        (cl-mpm/mesh::node node)
+                        (cl-mpm/particle:particle mp)
+                        ( double-float svp))
+                       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                                        (node-acc cl-mpm/mesh:node-acceleration)
+                                        (node-scalar cl-mpm/mesh::node-boundary-scalar)
+                                        (node-active cl-mpm/mesh:node-active)
+                                        ) node
+                         (declare (double-float node-scalar temp)
+                                  (boolean node-active))
+                         (when node-active
+                           (cl-mpm/fastmath::fast-fmacc mapped-vel node-vel svp)
+                           (cl-mpm/fastmath::fast-fmacc acc node-acc svp)
+                           (incf temp (* svp node-scalar))
+                           ;;With special operations we want to include this operation
+                           #+cl-mpm-special (special-g2p mesh mp node svp grads)
+                           )
+                         )
+                       ;; (g2p-mp-node mp node svp grads)
+                       ))
+                    ;;Update particle
+                    (progn
+                      ;;Invalidate shapefunction/gradient cache
+                      (setf (fill-pointer nc) 0)
+                      (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
+                      (unless (cl-mpm/particle::mp-penalty-contact mp)
+                        (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
+                        (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0))
+                      (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
+                      ,@update))))
+
+             ))
+
+  (def-g2p-mp g2p-mp-flip
+      (progn
+        (cl-mpm/fastmath::fast-scale! mapped-vel dt)
+        (cl-mpm/fastmath::fast-.+-vector pos mapped-vel pos)
+        (cl-mpm/fastmath::fast-.+-vector disp mapped-vel disp)
+        (cl-mpm/fastmath:fast-fmacc vel acc dt)))
+  (def-g2p-mp g2p-mp-pic
+      (progn
+        (cl-mpm/utils::vector-copy-into mapped-vel vel)
+        (cl-mpm/fastmath::fast-scale! mapped-vel dt)
+        (cl-mpm/fastmath::fast-.+-vector pos mapped-vel pos)
+        (cl-mpm/fastmath::fast-.+-vector disp mapped-vel disp)))
+  (def-g2p-mp g2p-mp-blend
+      (let ((pic-value 1d-2)
+            (pic-vel (cl-mpm/utils:vector-copy mapped-vel)))
+        (cl-mpm/fastmath::fast-scale! mapped-vel dt)
+        (cl-mpm/fastmath::fast-.+-vector pos mapped-vel pos)
+        (cl-mpm/fastmath::fast-.+-vector disp mapped-vel disp)
+        (cl-mpm/fastmath:fast-.+
+         (cl-mpm/fastmath:fast-scale-vector
+          ;; FLIP value
+          (cl-mpm/fastmath:fast-.+ vel (cl-mpm/fastmath:fast-scale-vector acc dt))
+          (- 1d0 pic-value))
+         ;; PIC update
+         (cl-mpm/fastmath:fast-scale-vector pic-vel pic-value)
+         vel)))
+  )
+
 (defun g2p-mp (mesh mp dt)
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
@@ -430,15 +521,11 @@
                    (fixed-velocity cl-mpm/particle::mp-fixed-velocity)
                    )
     mp
-    (let* (
-           (mapped-vel (cl-mpm/utils:vector-zeros))
-           )
-      ;; (declare (dynamic-extent mapped-vel))
+    (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
       (progn
         ;;With special operations we need to reset some params for g2p
         ;; (reset-mps-g2p mp)
-        (setf temp 0d0)
-        )
+        (setf temp 0d0))
       (cl-mpm/fastmath::fast-zero acc)
       ;; Map variables
       (iterate-over-neighbours
@@ -471,7 +558,7 @@
         ;;Invalidate shapefunction/gradient cache
         (setf (fill-pointer nc) 0)
 
-        (let ((pic-value 1d-3)
+        (let ((pic-value 0d-3)
               (pic-vel (cl-mpm/utils:vector-copy mapped-vel)))
 
           ;;PIC
@@ -501,14 +588,32 @@
 (defmethod pre-particle-update-hook (particle dt))
 
 (declaim (notinline g2p))
-(defun g2p (mesh mps dt)
-  (declare (cl-mpm/mesh::mesh mesh) (array mps))
-  "Map grid values to all particles"
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (g2p-mp mesh mp dt))))
+;; (defun g2p-flip (mesh mps dt)
+;;   (declare (cl-mpm/mesh::mesh mesh) (array mps))
+;;   "Map grid values to all particles"
+;;   (iterate-over-mps
+;;    mps
+;;    (lambda (mp)
+;;      (g2p-mp mesh mp dt))))
 
+(defun g2p (mesh mps dt &optional (update-type :BLEND))
+  (ecase update-type
+    (:FLIP
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-flip mesh mp dt))))
+    (:PIC
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-pic mesh mp dt))))
+    (:BLEND
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-blend mesh mp dt))))
+    ))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
@@ -875,8 +980,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (setf volume (* volume (the double-float (magicl:det df))))
           (when (<= volume 0d0)
             (error "Negative volume"))
-          ;; (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
-          ;;                                    (cl-mpm/particle::mp-damage-domain-update-rate mp))
+          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
+                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
           )))
     )
   (values))
@@ -1271,8 +1376,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         ;; ((< ef (tref strain 0 0)) :x)
         ;; ((< ef (tref strain 1 0)) :y)
         ;; ((< ef (tref strain 2 0)) :z)
-        ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
-        ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
+        ((< (* l-factor (varef lens-0 0)) (varef lens 0)) :x)
+        ((< (* l-factor (varef lens-0 1)) (varef lens 1)) :y)
         ;; ((and (< (* l-factor (tref lens-0 2 0)) (tref lens 2 0))
         ;;       (> (tref lens-0 2 0) 0d0)
         ;;       ) :z)
@@ -1293,9 +1398,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (h-factor (* 0.6d0 h))
             (s-factor 1.5d0))
         (cond
-          ((< h-factor (tref lens 0 0)) :x)
-          ((< h-factor (tref lens 1 0)) :y)
-          ((< h-factor (tref lens 2 0)) :z)
+          ((< h-factor (varef lens 0)) :x)
+          ((< h-factor (varef lens 1)) :y)
+          ((< h-factor (varef lens 2)) :z)
           ;; ((< (* l-factor (tref lens-0 0 0)) (tref lens 0 0)) :x)
           ;; ((< (* l-factor (tref lens-0 1 0)) (tref lens 1 0)) :y)
           ;; ((< (* l-factor (tref lens-0 2 0)) (tref lens 2 0)) :z)
@@ -1507,4 +1612,3 @@ This modifies the dt of the simulation in the process
                      ;; (vector-push-extend mp mps (length mps-array))
                   ))
           (setf (cl-mpm:sim-mps sim) mps-array))))
-
