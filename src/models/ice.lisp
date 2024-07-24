@@ -294,7 +294,7 @@
       (cl-mpm/fastmath::fast-.+ stress
                                 (cl-mpm/utils::voigt-eye pressure)
                                 stress))
-    (let ((damping-coeff 1d-4))
+    (let ((damping-coeff 1d-5))
       (setf (cl-mpm/particle::mp-body-force mp)
             (cl-mpm/fastmath::fast-scale-vector (cl-mpm/particle::mp-velocity mp)
                                                 (*  1d0
