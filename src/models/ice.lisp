@@ -272,7 +272,7 @@
     ;;                             (cl-mpm/utils::voigt-eye pressure)
     ;;                             stress))
     (when (> damage 0.0d0)
-      (let* ((d-p (* pressure damage 0d0 (magicl:det def))))
+      (let* ((d-p (* pressure damage 1d0 (magicl:det def))))
         (declare (double-float damage))
         (let* ((p (- (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
                (s (cl-mpm/constitutive::deviatoric-voigt stress)))
@@ -290,11 +290,12 @@
            stress)
           )))
 
-    (let ((pressure (* pressure damage (magicl:det def))))
-      (cl-mpm/fastmath::fast-.+ stress
-                                (cl-mpm/utils::voigt-eye pressure)
-                                stress))
-    (let ((damping-coeff 1d-5))
+    ;; (let ((pressure (* pressure damage (magicl:det def))))
+    ;;   (cl-mpm/fastmath::fast-.+ stress
+    ;;                             (cl-mpm/utils::voigt-eye pressure)
+    ;;                             stress))
+
+    (let ((damping-coeff 0d-5))
       (setf (cl-mpm/particle::mp-body-force mp)
             (cl-mpm/fastmath::fast-scale-vector (cl-mpm/particle::mp-velocity mp)
                                                 (*  1d0
@@ -302,6 +303,7 @@
                                                     (cl-mpm/particle::mp-boundary mp)
                                                     (cl-mpm/particle::mp-mass mp)
                                                     ))))
+
     ;; (cl-mpm/fastmath::fast-.+ stress
     ;;                           (cl-mpm/utils::voigt-eye (/ (* pressure damage) 3d0)))
 

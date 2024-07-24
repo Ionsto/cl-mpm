@@ -485,7 +485,10 @@
     :initarg :clip-func
     :initform (lambda (&rest args) t)
     )
-   )
+   (viscous-damping
+    :accessor bc-viscous-damping
+    :initarg :visc-damping
+    :initform 0d0))
   (:documentation "A nonconforming buoyancy bc"))
 
 (defclass bc-scalar (cl-mpm/bc::bc)
@@ -504,6 +507,7 @@
     :initarg :scalar-func
     :initform (lambda (pos) 1d0)
     )
+
    (clip-func
     :accessor bc-buoyancy-clip-func
     :type function
@@ -606,9 +610,9 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim clip-function)
+      (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume mesh clip-function)
-      (populate-nodes-volume mesh clip-function)
+      ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
 

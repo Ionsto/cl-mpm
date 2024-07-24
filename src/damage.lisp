@@ -1677,7 +1677,7 @@ Calls the function with the mesh mp and node"
     (*  (+ (* B p) (sqrt j2)))))
 
 (defun criterion-dp-pressure (stress angle pressure)
-  (let ((p (+ (cl-mpm/utils::trace-voigt stress) pressure))
+  (let ((p (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
         (B (/ (* 2 (sin angle))
