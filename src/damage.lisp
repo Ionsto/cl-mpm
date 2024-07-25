@@ -1375,6 +1375,10 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
                                            (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
                                            (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))))
+        (cl-mpm/output::save-parameter "stress-pressure"
+                                       (/ (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                              (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
+                                              (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))) 3))
         (cl-mpm/output::save-parameter "e_i1"
                                        (with-accessors ((strain cl-mpm/particle::mp-strain))
                                            mp
@@ -1677,13 +1681,24 @@ Calls the function with the mesh mp and node"
     (*  (+ (* B p) (sqrt j2)))))
 
 (defun criterion-dp-pressure (stress angle pressure)
-  (let ((p (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
+  (let ((i1 (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress)))
+        (B (/ (* 2 (sin angle))
+              (* (sqrt 3) (- 3d0 (sin angle))))))
+    (*  (+ (* B i1) (sqrt j2)))))
+
+(defun criterion-dp-pressure-tensile (stress angle pressure tension)
+  (let ((i1 (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
         (B (/ (* 2 (sin angle))
               (* (sqrt 3) (- 3d0 (sin angle)))))
         )
-    (*  (+ (* B p) (sqrt j2)))))
+    (if nil;(> i1 (* tension 3))
+        (/ i1 3)
+        (*  (+ (* B i1) (sqrt j2)))
+        )))
 
 
 
