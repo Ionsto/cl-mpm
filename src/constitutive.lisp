@@ -2,15 +2,16 @@
   (:use :cl
         :cl-mpm/utils)
   (:export
-    #:linear-elastic
-    #:newtonian-fluid
-    #:maxwell
-    #:maxwell-exp
-    #:maxwell-exp-v
-    #:maxwell-exp-v-simd
-    #:norton-hoff
-    )
-  )
+   #:linear-elastic
+   #:linear-elastic-mat
+   #:linear-elastic-matrix
+   #:newtonian-fluid
+   #:maxwell
+   #:maxwell-exp
+   #:maxwell-exp-v
+   #:maxwell-exp-v-simd
+   #:norton-hoff
+   ))
 (in-package :cl-mpm/constitutive)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
