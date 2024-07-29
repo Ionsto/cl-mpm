@@ -274,18 +274,20 @@
       (let* ((d-p (* pressure damage 0d0 (magicl:det def))))
         (declare (double-float damage))
         (let* ((p (+ (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
-               (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+               (s (cl-mpm/constitutive::deviatoric-voigt stress))
+               (ex 2)
+               )
           ;; (incf p (* -1d0 pressure damage))
           (setf
            p
            (+ d-p
               (if (> p 0d0)
-                  (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
-                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)
+                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
+                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)
                   )))
           (cl-mpm/fastmath:fast-.+
            (cl-mpm/constitutive::voight-eye p)
-           (magicl:scale! s (- 1d0 (* (- 1d0 g-r) damage)))
+           (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
            stress))))
 
     ;; (let ((pressure (* pressure (expt damage 2) (magicl:det def))))

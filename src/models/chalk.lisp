@@ -225,9 +225,10 @@
                                                phi
                                                psi
                                                coheasion)
-            (cl-mpm/fastmath:fast-.- strain eps-e plastic-strain)
+            ;; (cl-mpm/fastmath:fast-.- strain eps-e plastic-strain)
             ;; (cl-mpm/fastmath:fast-.+ plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e) plastic-strain)
             (setf stress-u sig
+                  plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
                   yield-func f)
             (setf strain eps-e))
           (let ((inc (multiple-value-bind (l v)
@@ -243,15 +244,17 @@
     (setf stress (cl-mpm/utils:voigt-copy stress-u))
     (when (> damage 0.0d0)
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress))
+            (ex 2)
+            )
         (setf p
               (if (> p 0d0)
-                  (* (- 1d0 (* (- 1d0 kt-r) damage)) p)
-                  (* (- 1d0 (* (- 1d0 kc-r) damage)) p)))
+                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
+                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
         (setf stress
               (cl-mpm/fastmath:fast-.+
                (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmath:fast-scale! s (- 1d0 (* (- 1d0 g-r) damage)))
+               (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
                stress))))
     stress))
 

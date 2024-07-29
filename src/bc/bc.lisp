@@ -1,5 +1,7 @@
 (defpackage :cl-mpm/bc
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils
+        )
   (:export
     #:apply-bc
     #:bc-index
@@ -93,7 +95,7 @@
 
 (defun make-bc-surface (index normal)
   (make-instance 'bc-surface
-                 :index index 
+                 :index index
                  :normal normal))
 
 (defun make-bc-friction (index normal friction-coefficent)
@@ -121,12 +123,13 @@
         (loop for d from 0 below (length value)
               do
                  (when (nth d value)
-                   (sb-thread:with-mutex (lock)
-                     (setf (magicl:tref (cl-mpm/mesh:node-velocity node) d 0) (nth d value))
-                     (setf (magicl:tref (cl-mpm/mesh:node-acceleration node) d 0) (nth d value))
-                     (setf (magicl:tref (cl-mpm/mesh::node-external-force node) d 0) (nth d value))
-                     (setf (magicl:tref (cl-mpm/mesh::node-internal-force node) d 0) (nth d value))
-                     (setf (magicl:tref (cl-mpm/mesh::node-force node) d 0) (nth d value))))))))
+                   (let ((v (nth d value)))
+                     (sb-thread:with-mutex (lock)
+                       (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
+                       (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
+                       (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
+                       (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
+                       (setf (varef (cl-mpm/mesh::node-force node) d) 0d0))))))))
 
 
 (defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)

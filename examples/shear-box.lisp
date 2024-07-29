@@ -57,10 +57,11 @@
       (declare (double-float pressure damage))
       (progn
         (when (< damage 1d0)
-          ;; (setf damage-increment
-          ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
-          ;;                                            strain
-          ;;                                            plastic-strain) E de))
+          (setf damage-increment
+                (* (- 1d0 damage)
+                   (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
+                                                        strain
+                                                        plastic-strain) E de)))
           ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
           ;;                                                    de)))
           ;;   (setf damage-increment
@@ -72,10 +73,10 @@
           ;;            (cl-mpm/damage::drucker-prager-criterion
           ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
-          (setf damage-increment
-                (max 0d0
-                     (cl-mpm/damage::criterion-dp
-                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+          ;; (setf damage-increment
+          ;;       (max 0d0
+          ;;            (cl-mpm/damage::criterion-dp
+          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
           ;; (incf damage-increment
           ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
@@ -90,9 +91,9 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (plot-load-disp)
+  (plot-load-disp)
   ;; (plot-conv)
-  (plot-domain)
+  ;; (plot-domain)
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
   (declare (function colour-func))
@@ -228,9 +229,9 @@
      (mapcar (lambda (x) (* x 1d3)) *data-disp*)
      (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
      "Damage"
-     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
-     "Plastic"
+     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     ;; (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
+     ;; "Plastic"
      ))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
@@ -262,12 +263,12 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             (init-stress 100d3)
+             (init-stress 300d3)
              ;(gf 48d0)
              (gf 48d0)
-             (length-scale (* 1 h))
+             (length-scale (* 2 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 100d0)
+             (ductility 1d3)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -293,7 +294,7 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-3
+           :g-res-ratio 1d-2
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
@@ -683,9 +684,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 20d-3)
-         (total-time (* 10d0 displacment))
-         (load-steps (round (* 10 (/ displacment 1d-3))))
+  (let* ((displacment 1d-3)
+         (total-time (* 100d0 displacment))
+         (load-steps (round (* 500 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

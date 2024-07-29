@@ -56,6 +56,13 @@
           ;;                                                                     ;; pressure
           ;;                                                                     ;; 0d0
           ;;                                                                     ))
+          (setf damage-increment
+                (* (- 1d0 damage)
+                   (cl-mpm/damage::tensile-energy-norm-pressure
+                    (cl-mpm/fastmath:fast-.+ strain strain-plastic)
+                    E nu
+                    de
+                    (* damage pressure 0d0))))
           ;; (setf damage-increment (cl-mpm/damage::criterion-j2 stress))
           ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
 
@@ -84,15 +91,16 @@
           ;;               (* angle (/ pi 180d0))
           ;;               0d0))))
 
-          (setf damage-increment
-                (max 0d0
-                     (cl-mpm/damage::criterion-dp-pressure
-                      ;(magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))
-                      stress (* angle (/ pi 180d0))
-                      ;; (* (- pressure) damage)
-                      ;; (- pressure)
-                      0d0
-                      )))
+          ;; (setf damage-increment
+          ;;       (max 0d0
+          ;;            (cl-mpm/damage::criterion-dp-pressure
+          ;;             ;(magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))
+          ;;             stress
+          ;;             (* angle (/ pi 180d0))
+          ;;             ;; (* (- pressure) damage)
+          ;;             ;; (- pressure)
+          ;;             0d0
+          ;;             )))
           )
         (when (>= damage 1d0)
           (setf damage-increment 0d0))
@@ -290,15 +298,15 @@
          (ms-y (second ms)))
     (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*)
     (vgplot:format-plot t "set style fill solid")
-    (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
+    (vgplot:format-plot t "set yrange [~f:~f]" *floor-datum* ms-y)
+    (vgplot:format-plot t "set size ratio ~f" (/ (- ms-y *floor-datum*) ms-x))
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
      :colour-func #'cl-mpm/particle::mp-damage
      ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
      )
-    (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
-    (vgplot:format-plot t "set size ratio ~f" (/ (- ms-y (* 2 h)) ms-x))
+    ;; (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
     (let* ((normal (cl-mpm/penalty::bc-penalty-normal *floor-bc*))
            (datum (cl-mpm/penalty::bc-penalty-datum *floor-bc*))
            (dy (if (= (magicl:tref normal 1 0) 0)
@@ -308,7 +316,6 @@
            )
       ;; (pprint dy)
       (vgplot:format-plot t "replot (~f*x + ~f)~%" dy offset))
-    (vgplot:format-plot t "replot (~f*x + ~f)~%" 0 (* 2 h))
     ;; (vgplot:replot)
     ))
 
@@ -394,9 +401,9 @@
     ;; (incf (second block-offset) (* 2 h-x))
 
     (progn
-      (let* ((length-scale (* 1 h))
+      (let* ((length-scale (* 2 h))
              ;; (stress 0.3d6)
-             (stress 50d3)
+             (stress 200d3)
              (gf 5000d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
@@ -430,18 +437,18 @@
            :friction-angle 40.0d0
 
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-1
-           :g-res-ratio 1d-2
+           :kc-res-ratio 1d0
+           :g-res-ratio 1d-3
 
            :initiation-stress stress
 
            ;; :damage 1d0
-           :delay-time 1d1
-           :delay-exponent 2d0
+           :delay-time 1d2
+           :delay-exponent 1d0
            :ductility ductility
            :ductility-mode-2 ductility-ii
            :critical-damage 1d0;(- 1.0d0 1d-3)
-           :damage-domain-rate 1.0d0;This slider changes how GIMP update turns to uGIMP under damage
+           :damage-domain-rate 0.5d0;This slider changes how GIMP update turns to uGIMP under damage
            :local-length length-scale;(* 0.20d0 (sqrt 7))
            :local-length-damaged 10d-10
 
@@ -480,7 +487,7 @@
       (format t "Est dt: ~f~%" (cl-mpm/setup::estimate-elastic-dt sim))
 
       (setf (cl-mpm:sim-mass-filter sim) 1d-10)
-      (setf (cl-mpm::sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -494,7 +501,7 @@
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
+             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0 nil)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
              ))
@@ -504,7 +511,7 @@
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
              (ocean-y (+ (* 2d0 h-y)
                          (- terminus-size 100d0)))
-             ;; (ocean-y 0d0)
+             (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
             ;(angle -1d0)
@@ -592,7 +599,7 @@
 ;; (defparameter *ice-density* 900)
 ;; (defparameter *water-density* 1000)
 ;Setup
-(defun setup (&key (refine 1d0) (angle 0d0) (mps 4))
+(defun setup (&key (refine 1d0) (angle 0d0) (mps 2))
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
@@ -613,6 +620,7 @@
                   (+
                    (* 2d0 mesh-size)
                    angle-offset))))
+    (defparameter *floor-datum* (second offset))
     (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* runout-aspect shelf-height))
@@ -906,6 +914,7 @@
                         (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
                         (setf *oobf* (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
                         (setf energy-estimate (abs (/ energy-estimate work)))
+
                         ;; (setf energy-estimate (abs (/ energy-estimate work)))
                         ;; (setf energy-estimate (abs energy-estimate))
 
@@ -934,8 +943,8 @@
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
                                ;; t
-                               (> energy-estimate 1d-2)
-                               (> *oobf* 1d-2)
+                               ;; (> energy-estimate 1d0)
+                               (> *oobf* 1d-1)
                                ;; t
                                ;; nil
                                ;; (> work 1d6)
