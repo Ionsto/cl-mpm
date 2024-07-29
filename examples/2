@@ -14,8 +14,8 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 ;; (defmethod print-object ((object magicl:matrix) stream)
 ;;   (pprint object stream))
@@ -396,7 +396,7 @@
     (progn
       (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
-             (stress 50d3)
+             (stress 100d3)
              (gf 5000d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
@@ -427,16 +427,16 @@
            :E 1d9
            :nu 0.325d0
 
-           :friction-angle 40.0d0
+           :friction-angle 30.0d0
 
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-1
+           :kc-res-ratio 1d0
            :g-res-ratio 1d-2
 
            :initiation-stress stress
 
            ;; :damage 1d0
-           :delay-time 1d1
+           :delay-time 1d2
            :delay-exponent 2d0
            :ductility ductility
            :ductility-mode-2 ductility-ii
@@ -560,15 +560,15 @@
 
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
-               ;; (cl-mpm/bc:make-bcs-from-list
-               ;;  (list
-               ;;   (cl-mpm/buoyancy::make-bc-buoyancy-clip
-               ;;    ;; cl-mpm/buoyancy::make-bc-buoyancy-body
-               ;;    sim
-               ;;    ocean-y
-               ;;    *water-density*
-               ;;    (lambda (pos)
-               ;;      (>= (magicl:tref pos 1 0) (* h-y 0))))))
+               (cl-mpm/bc:make-bcs-from-list
+                (list
+                 (cl-mpm/buoyancy::make-bc-buoyancy-clip
+                  ;; cl-mpm/buoyancy::make-bc-buoyancy-body
+                  sim
+                  ocean-y
+                  *water-density*
+                  (lambda (pos)
+                    (>= (magicl:tref pos 1 0) (* h-y 0))))))
                (cl-mpm/bc:make-bcs-from-list
                 (list *floor-bc*)
                 )

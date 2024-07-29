@@ -396,6 +396,7 @@
     :accessor bc-penalty-load-lock
     :initform (sb-thread:make-mutex)))
   (:documentation "A nonconforming neumann bc"))
+
 (defclass bc-penalty-distance (bc-penalty)
   ((center-point
     :accessor bc-penalty-distance-center-point
@@ -404,8 +405,7 @@
    (radius
     :accessor bc-penalty-distance-radius
     :initarg :radius
-    :initform 0d0)
-   ))
+    :initform 0d0)))
 
 (defun make-bc-penalty-distance-point (sim normal point radius epsilon friction damping)
   (let* ((normal (cl-mpm/fastmath::norm normal))
@@ -433,8 +433,7 @@
          (diff
           (cl-mpm/fastmath::fast-.-
            (cl-mpm/fastmath:fast-.- point (cl-mpm/fastmath:fast-scale-vector normal p-d))
-           (cl-mpm/fastmath:fast-.- center-point (cl-mpm/fastmath:fast-scale-vector normal c-d))
-           )))
+           (cl-mpm/fastmath:fast-.- center-point (cl-mpm/fastmath:fast-scale-vector normal c-d)))))
     (<=
      (cl-mpm/fastmath::mag
       diff)
@@ -642,9 +641,7 @@
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force)
                        )
           mp
-        ;; (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
-        (let* (
-               (penetration (penetration-distance-point point datum normal))
+        (let* ((penetration (penetration-distance-point point datum normal))
                (normal-force (* (expt penetration 1d0)
                                 epsilon
                                 (expt volume (/ (- nd 1) nd)))))
@@ -665,7 +662,9 @@
               (cl-mpm/fastmath::fast-fmacc
                force-friction
                tang-vel
-               (* -1d0 (/ epsilon 2d0) dt)))
+               ;(* -1d0 (/ epsilon 2d0) dt)
+               (* -1d0 epsilon dt)
+               ))
             (incf mp-normal-force (- normal-force damping-force))
             (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
               (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
