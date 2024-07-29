@@ -2349,7 +2349,7 @@ Calls the function with the mesh mp and node"
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) damage-inc)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
           (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
           (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
           ;;Transform to log damage

@@ -42,7 +42,9 @@
    (damage-mode-2
     :accessor mp-damage-mode-2
     :initform 0d0)
-   )
+   (visc-water-damping
+    :accessor mp-visc-water-damping
+    :initform 0d0))
   (:documentation "A ice mp with viscoplastic damage and viscoelastic relaxation "))
 
 (defclass particle-glen-damage (particle-glen particle-damage)
@@ -283,8 +285,7 @@
            (+ d-p
               (if (> p 0d0)
                   (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
-                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)
-                  )))
+                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p))))
           (cl-mpm/fastmath:fast-.+
            (cl-mpm/constitutive::voight-eye p)
            (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
@@ -295,7 +296,7 @@
     ;;                             (cl-mpm/utils::voigt-eye pressure)
     ;;                             stress))
 
-    (let ((damping-coeff 1d-5)
+    (let ((damping-coeff (mp-visc-water-damping mp))
           (vabs (cl-mpm/particle:mp-velocity mp)))
       (loop for a across (fast-storage vabs)
             do (setf a (* a (abs a))))

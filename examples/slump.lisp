@@ -14,8 +14,8 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 ;; (defmethod print-object ((object magicl:matrix) stream)
 ;;   (pprint object stream))
@@ -401,7 +401,7 @@
     ;; (incf (second block-offset) (* 2 h-x))
 
     (progn
-      (let* ((length-scale (* 2 h))
+      (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
              (stress 200d3)
              (gf 5000d0)
@@ -443,12 +443,12 @@
            :initiation-stress stress
 
            ;; :damage 1d0
-           :delay-time 1d2
+           :delay-time 1d3
            :delay-exponent 1d0
            :ductility ductility
            :ductility-mode-2 ductility-ii
            :critical-damage 1d0;(- 1.0d0 1d-3)
-           :damage-domain-rate 0.5d0;This slider changes how GIMP update turns to uGIMP under damage
+           :damage-domain-rate 0.2d0;This slider changes how GIMP update turns to uGIMP under damage
            :local-length length-scale;(* 0.20d0 (sqrt 7))
            :local-length-damaged 10d-10
 
@@ -487,7 +487,7 @@
       (format t "Est dt: ~f~%" (cl-mpm/setup::estimate-elastic-dt sim))
 
       (setf (cl-mpm:sim-mass-filter sim) 1d-10)
-      (setf (cl-mpm::sim-allow-mp-split sim) t)
+      (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
