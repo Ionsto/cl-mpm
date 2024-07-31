@@ -151,10 +151,8 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-               "cl-mpm/ext"
-               ;"cl-mpm/damage"
-               )
-  :description ""
+               "cl-mpm/ext")
+  :description "An explicit Material Point Method implementation"
   :in-order-to ((test-op (load-op "test/all")))
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
   :serial t

@@ -435,7 +435,8 @@
                     (progn
                       ;;With special operations we need to reset some params for g2p
                       ;; (reset-mps-g2p mp)
-                      (setf temp 0d0))
+                      ;(setf temp 0d0)
+                      )
                     (cl-mpm/fastmath::fast-zero acc)
                     ;; Map variables
                     (iterate-over-neighbours
@@ -456,7 +457,7 @@
                          (when node-active
                            (cl-mpm/fastmath::fast-fmacc mapped-vel node-vel svp)
                            (cl-mpm/fastmath::fast-fmacc acc node-acc svp)
-                           (incf temp (* svp node-scalar))
+                           ;; (incf temp (* svp node-scalar))
                            ;;With special operations we want to include this operation
                            #+cl-mpm-special (special-g2p mesh mp node svp grads)
                            )
@@ -1612,3 +1613,29 @@ This modifies the dt of the simulation in the process
                      ;; (vector-push-extend mp mps (length mps-array))
                   ))
           (setf (cl-mpm:sim-mps sim) mps-array))))
+
+(defun add-bcs (sim bcs-array)
+  "Add nodal essential bcs"
+  (with-accessors ((bcs cl-mpm:sim-bcs))
+      sim
+    (if (> (length bcs) 0)
+        (progn
+          (loop for bc across bcs-array
+                do (vector-push-extend bcs bc)))
+        (setf bcs bcs-array))))
+(defun add-bcs-force-list (sim new-bcs)
+  "Add bcs that apply forces, ordered in a FILO"
+  (with-accessors ((bcs-force-list cl-mpm:sim-bcs-force-list))
+      sim
+    ;; (when (= (length bcs-force-list 0)))
+    (typecase new-bcs
+      (list
+       ;;Common case, we have a list, or arrays of BCs, running bcs in serial down the list, but in parrallel over the array
+       (setf bcs-force-list (nconc new-bcs bcs-force-list)))
+      (array
+       ;;We have an array of bcs, that we want to add to the list -> add it to the back in its own list
+       (setf bcs-force-list (nconc (list new-bcs) bcs-force-list)))
+      (cl-mpm/bc::bc
+       ;;Uncommon case we have a singluar bc we wish to add, so double wrap it
+       (setf bcs-force-list (nconc (list (cl-mpm/bc:make-bcs-from-list (list new-bcs))) bcs-force-list)))
+      (t (error "BCs must be a list, array or singluar bc")))))
