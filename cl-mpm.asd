@@ -522,6 +522,7 @@
                "cl-mpm/plotter"
                "cl-mpm/dynamic-relaxation"
                "parse-float"
+               ;; "cl-mpm/models/limestone"
                "vgplot"
                "swank.live")
   :serial t
