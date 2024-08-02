@@ -1433,7 +1433,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           )))
     (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
     ;; (setf alone t)
-    
     ;; alone
     ))
 (defun gimp-removal-criteria (mp h)
@@ -1522,9 +1521,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    ;; (volume cl-mpm/particle::mp-volume-0)
                    )
       mp
-    (let ((l-factor 1.50d0)
-          (h-factor (* 0.8d0 h)))
-      (split-cases direction))))
+    (split-cases direction)))
+
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
