@@ -18,6 +18,7 @@
    #:sim-mesh
    #:sim-mps
    #:sim-bcs
+   #:sim-bcs-force-list
    #:sim-dt
    #:sim-damping-factor
    #:sim-mass-filter
@@ -30,7 +31,9 @@
    #:iterate-over-mps
    #:iterate-over-neighbours-point-linear
    #:calculate-adaptive-time
-   ))
+   #:add-mps
+   #:add-bcs
+   #:add-bcs-force-list))
 ;; System definition for cl-mpm
 (in-package :cl-mpm)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))

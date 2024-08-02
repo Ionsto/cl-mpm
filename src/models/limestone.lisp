@@ -5,7 +5,7 @@
    :cl-mpm/particle)
   (:export))
 (in-package :cl-mpm/models/limestone)
-
+(in-package :cl-mpm/particle)
 (defclass cl-mpm/particle::particle-limestone (cl-mpm/particle::particle-concrete cl-mpm/particle::particle-mc)
   (
    (compression-ratio
@@ -68,7 +68,7 @@
       ;; Non-objective stress intergration
       (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
       ;; (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de))
-      (if enable-plasticity
+      (when enable-plasticity
           (progn
             (multiple-value-bind (sig eps-e f)
                 (cl-mpm/constitutive::mc-plastic stress-undamaged
@@ -79,21 +79,100 @@
                                                  phi
                                                  psi
                                                  coheasion)
-              (setf stress
+              (setf stress-undamaged
                     sig
                     plastic-strain (magicl:.- strain eps-e)
                     yield-func f)
               (setf strain eps-e))
             (incf ps-vm
-                  (multiple-value-bind (l v)
-                      (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                    (destructuring-bind (s1 s2 s3) l
-                      (sqrt
-                       (/ (+ (expt (- s1 s2) 2d0)
-                             (expt (- s2 s3) 2d0)
-                             (expt (- s3 s1) 2d0)
-                             ) 2d0))))))
-          (setf stress (cl-mpm/utils:voigt-copy stress-undamaged)))
+                  (cl-mpm/fastmath::voigt-von-mises plastic-strain))))
+      (setf stress (cl-mpm/utils:voigt-copy-into stress-undamaged stress))
       (when (> damage 0.0d0)
-        (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage)))))
+        (cl-mpm/fastmath::fast-scale! stress (expt (- 1d0 (* (- 1d0 1d-9) damage)) 1))))
     stress))
+
+(defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-limestone) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (volume cl-mpm/particle::mp-volume)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;(length cl-mpm/particle::mp-internal-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (eng-inc cl-mpm/particle::mp-dissipated-energy-inc)
+                     (eng-int cl-mpm/particle::mp-dissipated-energy)
+                     (p cl-mpm/particle::mp-p-modulus)
+                     (nu cl-mpm/particle::mp-nu)
+                     (ductility cl-mpm/particle::mp-ductility)
+                     (tav-damage-inc cl-mpm/particle::mp-time-averaged-damage-inc)
+                     (tav-ybar cl-mpm/particle::mp-time-averaged-ybar)
+                     (tav-counter cl-mpm/particle::mp-time-averaged-counter)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage tav-damage-inc tav-ybar k ybar))
+        (progn
+          ;;Damage increment holds the delocalised driving factor
+          (setf ybar damage-inc)
+          (setf k (max k ybar))
+          (let ((new-damage (max damage (cl-mpm/damage::damage-response-exponential k E Gf (/ length (sqrt 7)) init-stress ductility))))
+            (setf damage-inc (- new-damage damage)))
+          ;; (let ((new-damage (max damage (max 0d0 (/ (- k init-stress) (* init-stress ductility))))))
+          ;;   (setf damage-inc (- new-damage damage)))
+          (when (>= damage 1d0)
+            ;; (setf damage-inc 0d0)
+            ;; (setf ybar 0d0)
+            )
+          (incf tav-damage-inc damage-inc)
+          (incf tav-ybar ybar)
+          (incf tav-counter)
+          ;;Transform to log damage
+          (incf damage damage-inc)
+          ;;Transform to linear damage
+          (setf damage (max 0d0 (min 1d0 damage)))
+          (when (> damage critical-damage)
+            (setf damage 1d0)))
+  (values)
+  ))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
+  (let ((damage-increment 0d0))
+    (with-accessors ((strain cl-mpm/particle::mp-strain)
+                     (stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     (de cl-mpm/particle::mp-elastic-matrix)
+                     (E cl-mpm/particle::mp-e)
+                     (nu cl-mpm/particle::mp-nu)
+                     (k cl-mpm/particle::mp-compression-ratio)
+                     ) mp
+      (declare (double-float pressure damage E k nu))
+        (progn
+          (when t;(< damage 1d0)
+            ;; (setf damage-increment (tensile-energy-norm strain E de))
+            ;; (setf damage-increment (* (- 1d0 (* (- 1d0 1d-9) damage)) E (cl-mpm/damage::modified-vm-criterion strain nu k)))
+            (setf damage-increment (* E (cl-mpm/damage::modified-vm-criterion strain nu k)))
+            ;; (setf damage-increment
+            ;;       (* (- 1d0 damage)
+            ;;          (cl-mpm/damage:: tensile-energy-norm strain E de)))
+            ))
+              ;; (when (>= damage 1d0)
+              ;;   (setf damage-increment 0d0))
+              ;;Delocalisation switch
+              (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+              (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+              )))

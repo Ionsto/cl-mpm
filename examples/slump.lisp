@@ -14,8 +14,8 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 ;; (defmethod print-object ((object magicl:matrix) stream)
 ;;   (pprint object stream))
@@ -24,6 +24,7 @@
   (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   )
+
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-visco-elasto-plastic-damage) dt)
   (let ((damage-increment 0d0))
@@ -401,7 +402,7 @@
     ;; (incf (second block-offset) (* 2 h-x))
 
     (progn
-      (let* ((length-scale (* 2 h))
+      (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
              (stress 200d3)
              (gf 5000d0)
@@ -438,17 +439,17 @@
 
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-3
+           :g-res-ratio 1d-2
 
            :initiation-stress stress
 
            ;; :damage 1d0
-           :delay-time 1d2
+           :delay-time 1d3
            :delay-exponent 1d0
            :ductility ductility
            :ductility-mode-2 ductility-ii
            :critical-damage 1d0;(- 1.0d0 1d-3)
-           :damage-domain-rate 0.5d0;This slider changes how GIMP update turns to uGIMP under damage
+           :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
            :local-length length-scale;(* 0.20d0 (sqrt 7))
            :local-length-damaged 10d-10
 
@@ -487,7 +488,7 @@
       (format t "Est dt: ~f~%" (cl-mpm/setup::estimate-elastic-dt sim))
 
       (setf (cl-mpm:sim-mass-filter sim) 1d-10)
-      (setf (cl-mpm::sim-allow-mp-split sim) t)
+      (setf (cl-mpm::sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -537,7 +538,7 @@
                sim
                (cl-mpm/utils:vector-from-list (list (sin ang) (cos ang) 0d0))
                (cl-mpm/utils:vector-from-list (list (first block-offset) (second block-offset) 0d0))
-               (* 1d9 1d0)
+               (* 1d9 1d-2)
                floor-friction))))
         (setf (cl-mpm/penalty::bc-penalty-damping *floor-bc*) 0.1d0)
         (defparameter *melt-bc*
@@ -838,7 +839,7 @@
   (let* ((target-time 1d1)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-0 0d0)
-         (dt-scale 0.25d0)
+         (dt-scale 0.5d0)
          (settle-steps 30)
          (damp-steps 20)
          (collapse-target-time 1d0)
@@ -897,7 +898,7 @@
                       (let ((energy-estimate 0d0)
                             (work 0d0))
                         (time
-                         (dotimes (i substeps)
+                         (dotimes (i (1+ substeps))
                            (cl-mpm::update-sim *sim*)
                            ;; (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
                            (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
@@ -943,7 +944,7 @@
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
                           (if (or
                                ;; t
-                               ;; (> energy-estimate 1d0)
+                               (> energy-estimate 1d0)
                                (> *oobf* 1d-1)
                                ;; t
                                ;; nil
@@ -964,8 +965,8 @@
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d1
-                              (cl-mpm::sim-mass-scale *sim*) 1d4))
+                              target-time 1d2
+                              (cl-mpm::sim-mass-scale *sim*) 1d6))
                             (:collapse
                              (format t "Collapse timestep~%")
                              (setf

@@ -80,7 +80,7 @@
                   ((:file "damage")
                    (:file "plastic")
                    (:file "concrete")
-                   (:file "limestone")
+                   ;; (:file "limestone")
                    (:file "ice")
                    (:file "chalk")))))))
 
@@ -151,10 +151,8 @@
                "cl-mpm/shape-function"
                "cl-mpm/bc"
                "cl-mpm/mesh"
-               "cl-mpm/ext"
-               ;"cl-mpm/damage"
-               )
-  :description ""
+               "cl-mpm/ext")
+  :description "An explicit Material Point Method implementation"
   :in-order-to ((test-op (load-op "test/all")))
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
   :serial t
@@ -523,7 +521,9 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/dynamic-relaxation"
+               "cl-mpm/models/limestone"
                "parse-float"
+               ;; "cl-mpm/models/limestone"
                "vgplot"
                "swank.live")
   :serial t
