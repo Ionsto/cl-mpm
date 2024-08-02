@@ -571,14 +571,3 @@
     (matrix-from-list (list (cos angle) (- (sin angle)) 0d0
                             (sin angle) (cos angle) 0d0
                             0d0 0d0 1d0))))
-(defun voigt-j2 (s)
-  "Calculate j2 invarient from deviatoric stress"
-  (let ((storage (magicl::matrix/double-float-storage s)))
-    (/ (+ (the double-float (cl-mpm/fastmath:dot s s))
-          (the double-float (expt (aref storage 3) 2))
-          (the double-float (expt (aref storage 4) 2))
-          (the double-float (expt (aref storage 5) 2))
-          ) 2d0)))
-
-(defun voigt-von-mises (stress)
-  (sqrt (* 3 (voigt-j2 (deviatoric-voigt stress)))))

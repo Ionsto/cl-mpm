@@ -25,9 +25,9 @@
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (node)
-       (cl-mpm::calculate-forces-cundall-conservative node damping dt mass-scale)
+       ;; (cl-mpm::calculate-forces-cundall-conservative node damping dt mass-scale)
        ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
-       ;; (cl-mpm::calculate-forces node damping dt mass-scale)
+       (cl-mpm::calculate-forces node damping dt mass-scale)
        ))))
 
 (declaim (notinline plot))
@@ -626,8 +626,7 @@
     (setf (cl-mpm::sim-mass-scale *sim*) ms)
     ;; (setf (cl-mpm::sim-damping-factor *sim*) (* ms 0.001d0))
     (* 1d-3 (cl-mpm::sim-mass-scale *sim*)
-       (cl-mpm/setup::estimate-critical-damping *sim*))
-    )
+       (cl-mpm/setup::estimate-critical-damping *sim*)))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
@@ -860,13 +859,15 @@
     (format stream "disp,load,load-mps~%"))
 
   (let* ((dt (cl-mpm:sim-dt *sim*))
-         (load-steps 25)
-         (dt-scale 0.9d0)
+         (load-steps 50)
+         (dt-scale 0.5d0)
          (disp-step (/ -0.2d-3 load-steps))
          )
 
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+    (setf (cl-mpm::sim-damping-factor *sim*) 
+      (* 1d-2 (cl-mpm/setup::estimate-critical-damping *sim*)))
     (setf cl-mpm/penalty::*debug-force* 0d0)
     (setf cl-mpm/penalty::*debug-force-count* 0d0)
     (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) 0)
@@ -898,8 +899,8 @@
                                            )))
                           (cl-mpm/dynamic-relaxation::converge-quasi-static
                            *sim*
-                           :energy-crit 1d-4
-                           :oobf-crit 1d-4
+                           :energy-crit 1d-2
+                           :oobf-crit 1d-1
                            :dt-scale dt-scale
                            :conv-steps 200
                            :substeps 50

@@ -31,6 +31,13 @@
        ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
        ))))
 
+(defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
+  )
+
+
 
 (defun setup-visc-damping ()
   (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
@@ -45,11 +52,11 @@
          (cl-mpm::calculate-forces node damping dt mass-scale))))))
 
 (defun plot-3d (sim)
-  (cl-mpm/plotter:simple-plot-3d
+  (cl-mpm/plotter:simple-plot
    *sim*
    :plot :point
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :zz))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
@@ -222,6 +229,7 @@
                  ;; :ductility 6.0d0
                  ;; :ductility 12d0
                  :ductility 26.85d0
+                 ;; :ductility 1.5d0
                  :compression-ratio 10d0
                  :gravity 0.0d0
                  :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))
@@ -237,6 +245,7 @@
       ;; (cl-mpm/examples/tpb::calculate-ductility-param 21d9 95d0 (/ 25d-3 (sqrt 1)) 2.7d6)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -285,7 +294,9 @@
            ))))
 
       ;;Right most mp
-      (let* ((crack-width (/ 0.05d0 4))
+      (let* ((crack-width 0d0
+                          ;(/ 0.05d0 4)
+                          )
              (crack-pos
                (loop for mp across (cl-mpm:sim-mps sim)
                      when
@@ -538,7 +549,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; 1d4
-           0.5d0
+           0.1d0
            (sqrt mass-scale)
            (cl-mpm/setup::estimate-critical-damping *sim*)
            )))
@@ -560,6 +571,10 @@
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (cl-mpm::update-sim *sim*)
     (setf cl-mpm/penalty::*debug-force* 0d0)
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (when (typep mp 'cl-mpm/particle::particle-damage)
+               (when (= (cl-mpm/particle::mp-index mp) 0)
+                 (setf (cl-mpm/particle::mp-delay-time mp) (* (/ target-time load-steps) 1d-1)))))
 
     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
     ;;                 (format t "CFL dt estimate: ~f~%" dt-e)
@@ -704,12 +719,13 @@
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
-         (load-steps 10)
+         (load-steps 25)
          (disp-step (/ 0.8d-3 load-steps))
+         ;; (disp-step (/ 1.2d-3 load-steps))
          )
     ;; (setf (cl-mpm:sim-damping-factor *sim*) 0.7d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1.0d0
+          (* 1d-2
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -1103,7 +1119,7 @@
   (defparameter *timesteps* (list))
   (defparameter *loads* (list))
   (setf *run-sim* t)
-  (loop for refine in (list 1 2 3)
+  (loop for refine in (list 1)
         do
            (let ((disp-step (/ 0.8d-3 50))
                  (target 1d2)
@@ -1130,11 +1146,11 @@
                    (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
                (setf (cl-mpm::sim-mass-scale *sim*) mass-scale)
                (setf (cl-mpm:sim-damping-factor *sim*)
-                     0.5d0
+                     0.01d0
                      ))
              (setup-visc-damping)
              (setf (cl-mpm:sim-damping-factor *sim*)
-                   (* 1.0d0
+                   (* 1d-2
                       (cl-mpm/setup::estimate-critical-damping *sim*)))
 
              (incf *target-displacement* disp-step)
@@ -1147,11 +1163,11 @@
                (cl-mpm/dynamic-relaxation::converge-quasi-static
                 *sim*
                 ;; :energy-crit target
-                :energy-crit 1d-3
-                :oobf-crit 1d-3
+                :energy-crit 1d-2
+                :oobf-crit 1d-2
                 :dt-scale dt-scale
-                :conv-steps 100
-                :substeps 50            ;(* 50 refine)
+                :conv-steps 200
+                :substeps 10            ;(* 50 refine)
                 :post-iter-step
                 (lambda (&rest args)
                   (let ((av (get-disp *terminus-mps*))
@@ -1189,3 +1205,4 @@
    data-visc-step data-visc-energy "Visc"
                )
   )
+

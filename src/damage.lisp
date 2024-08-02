@@ -654,7 +654,7 @@ Calls the function with the mesh mp and node"
                         (ll cl-mpm/particle::mp-true-local-length)
                         (p cl-mpm/particle:mp-position))
            mp-other
-         (when (< (the double-float d) 1d0)
+         (when t;(< (the double-float d) 1d0)
            (let (
                  ;;Nodally averaged local funcj
                  ;; (weight (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll))))
@@ -1037,7 +1037,8 @@ Calls the function with the mesh mp and node"
                     (setf damage-increment s_1)
                     )))))
           (when (>= damage 1d0)
-            (setf damage-increment 0d0))
+            ;; (setf damage-increment 0d0)
+            )
           ;;Delocalisation switch
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
           ))))
@@ -1132,7 +1133,7 @@ Calls the function with the mesh mp and node"
         (setf ybar damage-inc)
         (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
         (when (>= damage 1d0)
-          (setf damage-inc 0d0)
+          ;; (setf damage-inc 0d0)
           (setf ybar 0d0))
         (incf damage damage-inc)
         (setf damage (max 0d0 (min 1d0 damage)))
@@ -1164,7 +1165,7 @@ Calls the function with the mesh mp and node"
         (setf y-history (max y-history ybar))
         (setf damage (/ (- y-history init-stress) crit-stress))
         (when (>= damage 1d0)
-          (setf damage-inc 0d0)
+          ;; (setf damage-inc 0d0)
           (setf ybar 0d0))
 
         (incf damage damage-inc)
@@ -1473,7 +1474,7 @@ Calls the function with the mesh mp and node"
           ;; (setf damage-inc (* dt (- critical-damage damage) (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (setf damage-inc (* dt (damage-rate-profile damage-inc damage damage-rate init-stress)))
           (when (>= damage 1d0)
-            (setf damage-inc 0d0)
+            ;; (setf damage-inc 0d0)
             (setf ybar 0d0))
           (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
           (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
@@ -1509,7 +1510,7 @@ Calls the function with the mesh mp and node"
                                 ;; (/ 1d0 (- 1d0 damage))
                                 (damage-rate-profile-chalk damage-inc damage damage-rate init-stress))))
           (when (>= damage 1d0)
-            (setf damage-inc 0d0)
+            ;; (setf damage-inc 0d0)
             (setf ybar 0d0))
           (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
           (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
@@ -1565,7 +1566,8 @@ Calls the function with the mesh mp and node"
                     (setf damage-increment s_1)
                     )))))
           (when (>= damage 1d0)
-            (setf damage-increment 0d0))
+            ;; (setf damage-increment 0d0)
+            )
           ;;Delocalisation switch
           (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
           ))))

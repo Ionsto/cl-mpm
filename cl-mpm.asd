@@ -80,7 +80,7 @@
                   ((:file "damage")
                    (:file "plastic")
                    (:file "concrete")
-                   (:file "limestone")
+                   ;; (:file "limestone")
                    (:file "ice")
                    (:file "chalk")))))))
 
@@ -521,6 +521,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/dynamic-relaxation"
+               "cl-mpm/models/limestone"
                "parse-float"
                ;; "cl-mpm/models/limestone"
                "vgplot"
