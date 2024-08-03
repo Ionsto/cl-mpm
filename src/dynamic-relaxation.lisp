@@ -330,57 +330,75 @@
                                     conv-steps
                                     post-iter-step)
   (setf *run-convergance* t)
-  (let* ((fnorm 0d0)
-         (oobf 0d0)
-         (rank (cl-mpi:mpi-comm-rank))
-         (load 0d0)
-         ;; (estimated-t 0.5d0)
-         (target-time 1d-4)
-         ;; (work 0d0)
-        (converged nil))
-    (setf (cl-mpm:sim-dt sim)
-          (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
-    (when (= rank 0)
-      (format t "Substeps ~D~%" substeps))
-    (setf *work* 0d0)
-    (let ((full-load (list))
-          (full-step (list))
-          (full-energy (list)))
-      (loop for i from 0 to conv-steps
-            while (and *run-convergance*
-                   (not converged))
-            do
-               (progn
-                 (dotimes (j substeps)
-                   (setf cl-mpm/penalty::*debug-force* 0d0)
-                   (cl-mpm:update-sim sim)
-                   (incf *work* (estimate-power-norm sim)))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (let* ((fnorm 0d0)
+           (oobf 0d0)
+           (rank (cl-mpi:mpi-comm-rank))
+           (load 0d0)
+           ;; (estimated-t 0.5d0)
+           (target-time 1d-4)
+           ;; (work 0d0)
+           (converged nil))
+      (setf (cl-mpm:sim-dt sim)
+            (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
+      (when (= rank 0)
+        (format t "Substeps ~D~%" substeps))
+      (setf *work* 0d0)
+      (let ((full-load (list))
+            (full-step (list))
+            (energy-list (list)))
+        (loop for i from 0 to conv-steps
+              while (and *run-convergance*
+                         (not converged))
+              do
+                 (progn
+                   (dotimes (j substeps)
+                     (setf cl-mpm/penalty::*debug-force* 0d0)
+                     (cl-mpm:update-sim sim)
+                     (incf *work* (estimate-power-norm sim)))
 
-                 (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
-                 (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
-                 (setf oobf (estimate-oobf sim))
-                 (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                   (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
+                   (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
+                   (setf oobf (estimate-oobf sim))
+                   (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
 
-                 (when (= 0 rank)
-                   (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
-
-
-                 (when (= 0 rank)
-                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
-                 (when (and (< fnorm energy-crit)
-                            (< oobf oobf-crit))
                    (when (= 0 rank)
-                     (format t "Took ~D steps to converge~%" i))
-                   (setf converged t))
-                 (when post-iter-step
-                   (funcall post-iter-step i fnorm oobf))
-                 (swank.live:update-swank))))
-    (when (not converged)
-      (error (make-instance 'non-convergence-error
-                            :text "System failed to converge"
-                            :ke-norm fnorm
-                            :oobf-norm 0d0))
-      (when (= 0 rank)
-        (format t "System didn't converge~%"))
-      )
-    (values load fnorm oobf)))
+                     (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
+
+
+                   (when (= 0 rank)
+                     (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
+
+                   (push fnorm energy-list)
+                   (when (> (length energy-list) 2)
+                     (when (and
+                            (< (nth 0 energy-list) (nth 1 energy-list))
+                            (> (nth 1 energy-list) (nth 2 energy-list))
+                                        ;(> (nth 2 energy-list) (nth 3 energy-list))
+                            )
+                       (when (= rank 0)
+                         (format t "Peak found resetting KE~%"))
+                       (cl-mpm:iterate-over-mps
+                        mps
+                        (lambda (mp)
+                          (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-velocity mp))
+                          (cl-mpm/fastmath:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
+
+                   (when (and (< fnorm energy-crit)
+                              (< oobf oobf-crit))
+                     (when (= 0 rank)
+                       (format t "Took ~D steps to converge~%" i))
+                     (setf converged t))
+                   (when post-iter-step
+                     (funcall post-iter-step i fnorm oobf))
+                   (swank.live:update-swank))))
+      (when (not converged)
+        (error (make-instance 'non-convergence-error
+                              :text "System failed to converge"
+                              :ke-norm fnorm
+                              :oobf-norm 0d0))
+        (when (= 0 rank)
+          (format t "System didn't converge~%"))
+        )
+      (values load fnorm oobf))))
