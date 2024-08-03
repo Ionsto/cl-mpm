@@ -91,9 +91,9 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  (plot-load-disp)
+  ;; (plot-load-disp)
   ;; (plot-conv)
-  ;; (plot-domain)
+  (plot-domain)
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
   (declare (function colour-func))
@@ -266,10 +266,13 @@
              (init-stress 300d3)
              ;(gf 48d0)
              (gf 48d0)
-             (length-scale (* 2 h))
+             (gf 100d0)
+             (length-scale (* 4 h))
+             ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 1d3)
+             ;; (ductility 1d3)
              )
+        (pprint length-scale)
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
          sim
@@ -356,7 +359,7 @@
 
 
       (defparameter *mesh-resolution* h-x)
-      (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
@@ -614,7 +617,10 @@
   (lparallel:pmap-reduce
    (lambda (mp)
      (if (= (cl-mpm/particle::mp-index mp) 0)
-         (cl-mpm/particle:mp-damage mp)
+         (*
+          1d2
+          (cl-mpm/particle::mp-mass mp)
+          (cl-mpm/particle:mp-damage mp))
          0d0))
    #'+
    (cl-mpm:sim-mps *sim*)))
@@ -684,9 +690,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
-         (total-time (* 100d0 displacment))
-         (load-steps (round (* 500 (/ displacment 1d-3))))
+  (let* ((displacment 20d-3)
+         (total-time (* 1d0 displacment))
+         (load-steps (round (* 10 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -780,7 +786,7 @@
                    (progn
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
                            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
@@ -1122,3 +1128,16 @@
                     mesh
                     mp
                     (lambda (mesh mp node svp grads fsvp fgrads))))))))))
+
+(defun run-conv ()
+  (setf *run-sim* t)
+  (loop for r in (list 1 2 4 8)
+        while *run-sim*
+        do
+           (progn
+             (setup :refine r :mps 4)
+             (run)
+             (vgplot:title (format nil "~D" r))
+             (vgplot:print-plot (merge-pathnames (format nil "refine_~5,'0d.png" r)) :terminal "png size 1920,1080")
+             (sleep 1d0)
+             )))

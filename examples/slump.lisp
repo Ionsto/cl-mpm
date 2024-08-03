@@ -58,7 +58,7 @@
           ;;                                                                     ;; 0d0
           ;;                                                                     ))
           (setf damage-increment
-                (* (- 1d0 damage)
+                (* ;(- 1d0 damage)
                    (cl-mpm/damage::tensile-energy-norm-pressure
                     (cl-mpm/fastmath:fast-.+ strain strain-plastic)
                     E nu

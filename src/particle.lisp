@@ -34,11 +34,27 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defstruct node-cache
-  node
-  weight
-  grads
-  weight-fbar
-  grads-fbar)
+  (node nil :type cl-mpm/mesh::node)
+  (weight 0d0 :type double-float)
+  (grad-x 0d0 :type double-float)
+  (grad-y 0d0 :type double-float)
+  (grad-z 0d0 :type double-float)
+  (weight-fbar 0d0 :type double-float)
+  (grad-fbar-x 0d0 :type double-float)
+  (grad-fbar-y 0d0 :type double-float)
+  (grad-fbar-z 0d0 :type double-float))
+
+;(defun make-node-cache (&key node weight grads weight-fbar grads-fbar))
+
+;; (defun push-mp-cache-node (mp &key node weight grads weight-fbar grads-fbar)
+;;   (declare (particle mp))
+;;   (with-slots ((nc cached-nodes))
+;;       mp
+;;     (when (< (fill-pointer nc) (array-total-size nc))
+;;       ()
+;;       ))
+
+;;   )
 
 (defclass particle ()
   ((mass

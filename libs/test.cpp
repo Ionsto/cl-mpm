@@ -52,8 +52,8 @@ extern "C" {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
     // strain[0] = 0.0;
     // Eigen::Matrix<double,6,1> strain {1.0,2.0,3.0, 1.0,2.0,3.0};
-    Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,1.0,0.0,0.1,0.0,1.0);
-    //Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,E,nu,phi,psi,c);
+    //Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,1.0,0.0,0.1,0.0,1.0);
+    Eigen::Matrix<double,6,1> strainE = DruckerPrager(strain,E,nu,phi,psi,c);
     strain = strainE;
     return true;
   }

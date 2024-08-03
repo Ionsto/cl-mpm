@@ -24,7 +24,7 @@
 function [sig,epsE,Dalg] = DPconst(epsTr)
 
 E = 1;
-v = 0.0;
+v = 0.1;
 
 tol=1e-12;                                                                  % convergence tolerance for NR iterations
 tolf=1e-6;                                                                  % yield function tolerance
@@ -32,7 +32,6 @@ maxit=5;                                                                    % ma
 phi=0.1;                                                                   % friction angle (opening angle of yield surface)
 psi=0;                                                                  % dilation angle (set equal to phi for associated flow)
 c=1;                                                                        % cohesion
-             
 alfa=-tan(phi);                                                             % yield surface slope (xi-rho space)
 bta=-tan(psi);                                                              % plastic potential slope (xi-rho space)
 xsic=sqrt(3)*cot(phi)*c;                                                    % apex hydrostatic stress
@@ -41,9 +40,6 @@ Ce=(-ones(3)*v+(1+v)*eye(3))/E;                                             % pr
 De=E/(1+v)/(1-2*v)*[ones(3)*v+eye(3)*(1-2*v) zeros(3);                      % elastic stiffness matrix 
                     zeros(3)                 (1-2*v)/2*eye(3)];
 De3=De(1:3,1:3)                                                            % principal elastic stiffness matrix
-[epsTr(1) epsTr(4)/2 epsTr(6)/2;                             % principal strains & directions
- epsTr(4)/2 epsTr(2) epsTr(5)/2; 
- epsTr(6)/2 epsTr(5)/2 epsTr(3)]
 [t,epsVal]=eig([epsTr(1) epsTr(4)/2 epsTr(6)/2;                             % principal strains & directions
                 epsTr(4)/2 epsTr(2) epsTr(5)/2; 
                 epsTr(6)/2 epsTr(5)/2 epsTr(3)]);
@@ -67,6 +63,7 @@ s=sig-xi/sqrt(3)
 rho=sqrt(sum(s.^2))                                     % deviatoric stress
 f=rho-alfa*xi;                                                              % yield function
 if f>tol                                                                    % if yielded
+  disp("Yeilding")
   fap=rho*sqrt(1+v)+xi*sqrt(1-2*v)/(bta*sqrt(1+v)/sqrt(1-2*v));             % apex retunr surface 
   if fap<tol                                                                % apex return
     sig=xsic/sqrt(3)*ones(3,1);                                             % updated stress
@@ -105,6 +102,7 @@ if f>tol                                                                    % if
   sig
   epsE=Ce*sig;                                                              % updated elastic strains
 else                                                                        % elastic behaviour
+  disp("elastic")
   sig=De3*epsTr; epsE=epsTr; Dalg=De;                                       % stress, elastic strains and Dalg for elastic behaviour
 end
 sig=Q.'*[sig; zeros(3,1)];

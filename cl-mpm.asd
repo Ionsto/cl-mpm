@@ -6,8 +6,12 @@
   :serial t
   :components ((:file "src/core/symbolic-derivation")))
 
+(defsystem "cl-mpm/magicl"
+  :depends-on ("magicl")
+  :description "Dummy package that can be used to prune magicl dependancies, i.e. lisp only implementation")
+
 (defsystem "cl-mpm/utils"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "array-operations"
                )
   :description "MPM utility functions definitions"
@@ -15,7 +19,7 @@
   :components ((:file "src/utils")))
 
 (defsystem "cl-mpm/fastmath"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
                :sb-simd
                )
@@ -24,14 +28,16 @@
   :components ((:file "src/fastmath")))
 
 (defsystem "cl-mpm/mesh"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
+               "cl-mpm/utils"
+               "cl-mpm/fastmath"
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
   :components ((:file "src/core/mesh")))
 
 (defsystem "cl-mpm/forces"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
                "cl-mpm/particle"
                "cl-mpm/mesh")
@@ -40,7 +46,7 @@
   :components ((:file "src/core/forces")))
 
 (defsystem "cl-mpm/bc"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/mesh"
                )
   :description "MPM boundary conditions"
@@ -57,7 +63,7 @@
 
 
 (defsystem "cl-mpm/constitutive"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
                "cl-mpm/fastmath")
   :description "Various constitutive models"
@@ -65,9 +71,9 @@
   :components ((:file "src/constitutive")))
 ;
 (defsystem "cl-mpm/particle"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
-               )
+               "cl-mpm/mesh")
   :description "MPM particle definitions"
   :serial t
   :components ((:module "src"
@@ -85,7 +91,7 @@
                    (:file "chalk")))))))
 
 (defsystem "cl-mpm/damage"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
                "cl-mpm/constitutive"
                "cl-mpm/output"
@@ -94,7 +100,7 @@
   :serial t
   :components ((:file "src/damage")))
 (defsystem "cl-mpm/eigenerosion"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm"
                "cl-mpm/utils"
                "cl-mpm/particle")
@@ -103,7 +109,7 @@
   :components ((:file "src/eigenerosion")))
 
 (defsystem "cl-mpm/output"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "jonathan"
                "cl-mpm"
                "str")
@@ -112,7 +118,7 @@
   :components ((:file "src/output")))
 ;
 (defsystem "cl-mpm/shape-function"
- :depends-on ("magicl"
+ :depends-on ("cl-mpm/magicl"
               "symbolic-derivation")
  :description "MPM shape function definitions"
  :serial t
@@ -128,7 +134,7 @@
   :serial t
   :components ((:file "src/dynamic-relaxation")))
 (defsystem "cl-mpm/ext"
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cffi"
                "cl-mpm/utils"
                "array-operations")
@@ -138,7 +144,7 @@
   )
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
-  :depends-on ("magicl"
+  :depends-on ("cl-mpm/magicl"
                "cl-mpm/fastmath"
                "cl-mpm/utils"
                "cl-mpm/forces"
@@ -227,7 +233,7 @@
                "cl-mpm/all"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/column")))
 
@@ -247,7 +253,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/fracture")))
 
@@ -259,7 +265,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/plate-with-hole")))
 
@@ -279,7 +285,7 @@
                "vgplot"
                "swank.live"
                "lisp-stat"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/slump")))
 (defsystem "cl-mpm/examples/notch"
@@ -294,7 +300,7 @@
                "vgplot"
                "lisp-stat"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/notch")))
 
@@ -310,7 +316,7 @@
                "vgplot"
                "lisp-stat"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/single-crack")))
 
@@ -323,7 +329,7 @@
                "cl-mpm/plotter"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/float")))
 (defsystem "cl-mpm/examples/flow"
@@ -334,7 +340,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/flow")))
 
@@ -346,7 +352,7 @@
                "cl-mpm/eigenerosion"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/beam")))
 
@@ -357,7 +363,7 @@
                "cl-mpm/output"
                "vgplot"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/shear")))
 
@@ -374,7 +380,7 @@
                "vgplot"
                "lisp-stat"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/pullout")))
 
@@ -391,7 +397,7 @@
                "vgplot"
                "lisp-stat"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/split-test")))
 
@@ -408,7 +414,7 @@
                "vgplot"
                "lisp-stat"
                "swank.live"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/creep")))
 
@@ -424,7 +430,7 @@
                "vgplot"
                "swank.live"
                "lisp-stat"
-               "magicl")
+               "cl-mpm/magicl")
   :serial t
   :components ((:file "examples/sliding")))
 
@@ -494,7 +500,7 @@
 
 (defsystem "cl-mpm/examples/tpb"
   :depends-on ("cl-mpm"
-               "magicl"
+               "cl-mpm/magicl"
                "lisp-stat"
                "cl-mpm/setup"
                "cl-mpm/particle"
@@ -511,7 +517,7 @@
 
 (defsystem "cl-mpm/examples/lbar"
   :depends-on ("cl-mpm"
-               "magicl"
+               "cl-mpm/magicl"
                "lisp-stat"
                "cl-mpm/setup"
                "cl-mpm/particle"

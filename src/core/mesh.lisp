@@ -514,12 +514,12 @@
 ;;                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
 ;;       (progn 
 ;;         (setf vel (cl-mpm/fastmath::fast-.+ vel (magicl:scale node-vel svp)))))))
-(defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
-  (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
-    (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
-      (progn 
-        (setf temp (+ temp (* node-temp svp))))))
-  (call-next-method))
+;; (defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
+;;   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
+;;     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
+;;       (progn 
+;;         (setf temp (+ temp (* node-temp svp))))))
+;;   (call-next-method))
 
 
 (defun reset-node-velocity (node)

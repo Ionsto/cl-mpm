@@ -58,6 +58,7 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
       /* return false; */
     }
   Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues().reverse();
+  std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
   Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
   Eigen::Matrix<double,3,1> sig = ((De3 * eigen_values).array() - (xsic / std::sqrt(3))).matrix();
   const double tol = 1e-12;
@@ -89,6 +90,9 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
           ((3*Eigen::Matrix<double,3,3>::Identity()) -
            Eigen::Matrix<double,3,3>::Constant(1.0)))
          - s*s.transpose()/std::pow(rho,3));
+      std::cout<<"df\n"<<df<<"\n";
+      std::cout<<"dg\n"<<dg<<"\n";
+      std::cout<<"ddg\n"<<ddg<<"\n";
       const int maxit = 4;
       const double tolf = 1e-6;
       for(int iter = 0; (iter < maxit) && ((b.block(0,0,2,1).norm() > tol) || (std::abs(b(3)) > tolf));++iter){
@@ -99,6 +103,7 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
         A.block(0,3,3,1) << dg;
         A.block(3,0,1,3) << df.transpose() * De3;
         A(3,3) = 0.0;
+        //A.transposeInPlace();
 
         auto dx = A.partialPivLu().solve(b) * -1.0;
         epsE += dx.block(0,0,3,1);

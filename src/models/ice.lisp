@@ -215,11 +215,26 @@
     ;;                             (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
     ;;   (setf strain (magicl:linear-solve de stress-u)))
     (when enable-plasticity
+      ;; (multiple-value-bind (sig eps-e f)
+      ;;     (cl-mpm/constitutive::mc-plastic
+      ;;      stress-u
+      ;;      de
+      ;;      strain
+      ;;      E
+      ;;      nu
+      ;;      phi
+      ;;      psi
+      ;;      coheasion)
+      ;;   (setf stress-u
+      ;;         sig
+      ;;         plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
+      ;;         yield-func f)
+      ;;   (setf strain eps-e))
       (multiple-value-bind (sig eps-e f)
-          (cl-mpm/constitutive::mc-plastic
-           stress-u
-           de
+          (cl-mpm/ext::constitutive-drucker-prager
+           ;; stress-u
            strain
+           de
            E
            nu
            phi
@@ -278,7 +293,7 @@
         (declare (double-float damage))
         (let* ((p (+ (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
                (s (cl-mpm/constitutive::deviatoric-voigt stress))
-               (ex 2)
+               (ex 1)
                )
           ;; (incf p (* -1d0 pressure damage))
           (setf

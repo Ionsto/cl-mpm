@@ -176,3 +176,81 @@
               (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
               (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
               )))
+
+(defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-limestone-delayed) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (volume cl-mpm/particle::mp-volume)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;(length cl-mpm/particle::mp-internal-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (eng-inc cl-mpm/particle::mp-dissipated-energy-inc)
+                     (eng-int cl-mpm/particle::mp-dissipated-energy)
+                     (p cl-mpm/particle::mp-p-modulus)
+                     (nu cl-mpm/particle::mp-nu)
+                     (ductility cl-mpm/particle::mp-ductility)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage))
+        (progn
+          ;;Damage increment holds the delocalised driving factor
+
+          (setf ybar damage-inc)
+
+          ;; (let ((new-damage
+          ;;         (max damage
+          ;;              (damage-response-exponential ybar E Gf (/ length (sqrt 7)) init-stress ductility))))
+          ;;   (declare (double-float new-damage))
+          ;;   (setf damage-inc (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage damage)))))))))
+
+          ;; (setf k (max k ybar))
+          (incf k (the double-float (* dt (/ (the double-float (max 0d0 (- ybar k))) tau))))
+          (let ((new-damage
+                  (max
+                   damage
+                   (cl-mpm/damage::damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility))))
+            (declare (double-float new-damage))
+            (setf damage-inc (- new-damage damage))
+            )
+
+          ;; (let ((new-damage (max damage (damage-response-exponential k E Gf length init-stress ductility))))
+          ;;   (setf damage-inc (- new-damage damage)))
+
+          (when (>= damage 1d0)
+            (setf damage-inc 0d0)
+            (setf ybar 0d0))
+          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+          ;;Transform to log damage
+          (incf damage damage-inc)
+          ;;Transform to linear damage
+          (setf damage (max 0d0 (min 1d0 damage)))
+          (when (> damage critical-damage)
+            (setf damage 1d0)
+            ;(setf damage-inc 0d0)
+            )
+          ;; (setf p (/ (* (- 1d0 damage) E) (* (+ 1d0 nu) (- 1d0 nu))))
+          ;; (incf eng-inc
+          ;;       (* damage-inc
+          ;;          ;volume
+          ;;          0.5d0 (magicl:tref
+          ;;                 (magicl:@
+          ;;                  (magicl:transpose strain)
+          ;;                  undamaged-stress
+          ;;                  ) 0 0)))
+          ;; (incf eng-int eng-inc)
+          )
+  (values)))

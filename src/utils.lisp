@@ -389,7 +389,7 @@
            (s result)
            )
 
-      (declare (double-float exx eyy exy eyx ezy ez))
+      (declare (double-float exx eyy ezz exy eyx ezy ezy exz ezx))
       (setf
        (magicl:tref s 0 0) exx
        (magicl:tref s 0 1) exy

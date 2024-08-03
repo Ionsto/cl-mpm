@@ -122,26 +122,41 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          ;; iterate-over-neighbours-shape-linear
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
-           (vector-push-extend
-            (cl-mpm/particle::make-node-cache
-             :node node
-             :weight svp
-             :grads grads
-             :weight-fbar fsvp
-             :grads-fbar fgrads)
-            nodes)
+           (destructuring-bind (gx gy gz) grads
+             (declare (ignore gz))
+             (destructuring-bind (gfx gfy gfz) fgrads
+               (declare (ignore gfz))
+               (vector-push-extend
+                (cl-mpm/particle::make-node-cache
+                 :node node
+                 :weight svp
+                 :grad-x gx
+                 :grad-y gy
+                 :grad-z 0d0
+                 :weight-fbar fsvp
+                 :grad-fbar-x gfx
+                 :grad-fbar-y gfy
+                 :grad-fbar-z 0d0)
+                nodes)))
            (funcall func mesh mp node svp grads fsvp fgrads)))
         (iterate-over-neighbours-shape-gimp-3d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
-           (vector-push-extend
-            (cl-mpm/particle::make-node-cache
-             :node node
-             :weight svp
-             :grads grads
-             :weight-fbar fsvp
-             :grads-fbar fgrads)
-            nodes)
+           (destructuring-bind (gx gy gz) grads
+             (destructuring-bind (gfx gfy gfz) fgrads
+               (vector-push-extend
+                (cl-mpm/particle::make-node-cache
+                 :node node
+                 :weight svp
+                 :grad-x gx
+                 :grad-y gy
+                 :grad-z gz
+                 :weight-fbar fsvp
+                 :grad-fbar-x gfx
+                 :grad-fbar-y gfy
+                 :grad-fbar-z gfz
+                 )
+                nodes)))
            (funcall func mesh mp node svp grads fsvp fgrads))))))
 
 (declaim (inline iterate-over-neighbours-cached))
@@ -153,9 +168,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          (funcall func mesh mp
                   (cl-mpm/particle::node-cache-node nc)
                   (cl-mpm/particle::node-cache-weight nc)
-                  (cl-mpm/particle::node-cache-grads nc)
+                  (list
+                   (cl-mpm/particle::node-cache-grad-x nc)
+                   (cl-mpm/particle::node-cache-grad-y nc)
+                   (cl-mpm/particle::node-cache-grad-z nc))
                   (cl-mpm/particle::node-cache-weight-fbar nc)
-                  (cl-mpm/particle::node-cache-grads-fbar nc)
+                  (list
+                   (cl-mpm/particle::node-cache-grad-fbar-x nc)
+                   (cl-mpm/particle::node-cache-grad-fbar-y nc)
+                   (cl-mpm/particle::node-cache-grad-fbar-z nc))
                   )))
 
 ;;This is one method of dispatching over different types of shape functions
@@ -565,7 +586,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
                  (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
                  )
-            (declare ((simple-array double-float (3)) pa da))
+            (declare ((simple-array double-float (3)) pa))
             ;; (declare (dynamic-extent pa))
             (declare (type double-float h cx cy dox doy px py )
                      (type integer dxf dxc dyf dyc ix iy )
