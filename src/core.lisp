@@ -335,8 +335,7 @@
          (declare
           (cl-mpm/particle:particle mp)
           (cl-mpm/mesh::node node)
-          (double-float svp)
-          )
+          (double-float svp))
          (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
                           (node-active  cl-mpm/mesh:node-active)
                           (node-mass  cl-mpm/mesh:node-mass)
@@ -353,20 +352,7 @@
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
                (det-int-force mp dsvp node-int-force)
-
-               ;; (det-ext-force mp node svp node-force)
-               ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-               ;; (det-int-force mp dsvp node-force)
-
-               ;; (cl-mpm/fastmath::fast-zero node-force)
-               ;; (cl-mpm/fastmath::fast-.+ node-force node-int-force)
-               ;; (cl-mpm/fastmath::fast-.+ node-force node-ext-force)
-
-               (cl-mpm/fastmath::fast-.+-vector node-int-force node-ext-force node-force)
-               ;; (magicl:.+ node-int-force node-ext-force node-force)
-               ))
-           )
-         ))))
+               (cl-mpm/fastmath::fast-.+-vector node-int-force node-ext-force node-force))))))))
   (values))
 
 (declaim (inline p2g-force))
@@ -1182,7 +1168,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                                   (magicl:det df)))
                              (the double-float (/ 1d0 (float nd)))))
           (when (= nd 2)
-            (setf (magicl:tref df 2 2) 1d0))
+            (setf (mtref df 2 2) 1d0))
           ))
 
       ;; (when fbar

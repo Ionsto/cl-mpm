@@ -21,8 +21,7 @@
 (defsystem "cl-mpm/fastmath"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               :sb-simd
-               )
+               :sb-simd)
   :description "MPM fast maths operations definitions"
   :serial t
   :components ((:file "src/fastmath")))
@@ -73,6 +72,7 @@
 (defsystem "cl-mpm/particle"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
+               "cl-mpm/ext"
                "cl-mpm/mesh")
   :description "MPM particle definitions"
   :serial t

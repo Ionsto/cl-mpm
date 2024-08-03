@@ -876,18 +876,21 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt )
                     (cl-mpm::apply-bcs mesh bcs dt)
+
                     (cl-mpm::update-stress mesh mps dt fbar)
+
                     (when enable-damage
                      (cl-mpm/damage::calculate-damage sim))
-                    ;Map forces onto nodes
+                    ;; ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
+
                     (loop for bcs-f in bcs-force-list
-                          do
-                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                          do (cl-mpm::apply-bcs mesh bcs-f dt))
+
                     (cl-mpm::update-node-forces sim)
-                    ;Reapply velocity BCs
+                    ;; ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    ;Also updates mps inline
+                    ;; ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt)
 
                     (when remove-damage

@@ -1,5 +1,6 @@
 (defpackage :cl-mpm/forces
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils)
   (:export
    #:det-int-force
    #:det-ext-force
@@ -176,13 +177,12 @@
     (declare (type double-float svp mass gravity volume)
              (type magicl:matrix/double-float body-force))
     (let* ((f-out (if f-out f-out (cl-mpm/utils::vector-zeros)))
-           (f-s (magicl::matrix/double-float-storage f-out))
-           (b-s (magicl::matrix/double-float-storage body-force))
-           (g-s (magicl::matrix/double-float-storage gravity-axis))
+           (f-s (fast-storage f-out))
+           (b-s (fast-storage body-force))
+           (g-s (fast-storage gravity-axis))
            )
       (declare (type (simple-array double-float (3)) f-s b-s g-s))
       ;;Manually unrolled
-
       (setf
        (sb-simd-avx:f64.2-aref f-s 0)
        (sb-simd-avx:f64.2+

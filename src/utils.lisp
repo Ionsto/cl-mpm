@@ -40,6 +40,7 @@
    #:voigt-copy-into
    #:fast-storage
    #:varef
+   #:mtref
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -74,10 +75,36 @@
          (ftype (function (magicl:matrix/double-float fixnum)
                           (double-float)) varef))
 (defun varef (m i)
+  (declare (magicl:matrix/double-float m)
+           (fixnum i))
   (aref (fast-storage m) i))
+
+(declaim (inline mtref)
+         (ftype (function (magicl:matrix/double-float fixnum fixnum)
+                          (double-float)) mtref))
+(defun mtref (m row col)
+  ;; (magicl:tref m row col)
+  (declare (magicl:matrix/double-float m)
+           (fixnum row col))
+  (policy-cond:with-expectations (> speed safety)
+      ((assertion (eq (magicl::matrix/double-float-layout m) :column-major)))
+    (let ((numrows (magicl::matrix-nrows m)))
+      (declare (type fixnum numrows))
+      (aref (fast-storage m) (+ row (the fixnum (* col numrows))))))
+  )
 
 (defun (setf varef) (new-value m i)
   (setf (aref (fast-storage m) i) new-value))
+
+(defun (setf mtref) (value m row col)
+  ;; (setf (magicl:tref m row col) value)
+  (declare (magicl:matrix/double-float m)
+           (fixnum row col))
+  (assert (eq (magicl::matrix/double-float-layout m) :column-major))
+  (let ((numrows (magicl::matrix-nrows m)))
+    (declare (type fixnum numrows))
+    (setf (aref (fast-storage m) (+ row (the fixnum (* col numrows)))) value))
+  )
 
 (declaim (inline vector-tref)
          (ftype (function (magicl::matrix/double-float fixnum) double-float)
@@ -286,12 +313,12 @@
                           magicl:matrix/double-float) matrix-to-voight))
 (defun matrix-to-voight (matrix)
   "Stress matrix to voigt"
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (ezz (magicl:tref matrix 2 2))
-          (eyz (magicl:tref matrix 2 1))
-          (exy (magicl:tref matrix 1 0))
-          (ezx (magicl:tref matrix 2 0))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (ezz (mtref matrix 2 2))
+          (eyz (mtref matrix 2 1))
+          (exy (mtref matrix 1 0))
+          (ezx (mtref matrix 2 0))
           )
     (voigt-from-list (list exx eyy ezz eyz ezx exy))))
 
@@ -301,12 +328,12 @@
 
 (defun voight-to-matrix (vec)
   "Stress format voight to matrix"
-  (let* ((exx (magicl:tref vec 0 0))
-         (eyy (magicl:tref vec 1 0))
-         (ezz (magicl:tref vec 2 0))
-         (eyz (magicl:tref vec 3 0))
-         (ezx (magicl:tref vec 4 0))
-         (exy (magicl:tref vec 5 0)))
+  (let* ((exx (mtref vec 0 0))
+         (eyy (mtref vec 1 0))
+         (ezz (mtref vec 2 0))
+         (eyz (mtref vec 3 0))
+         (ezx (mtref vec 4 0))
+         (exy (mtref vec 5 0)))
     (matrix-from-list (list exx exy ezx
                             exy eyy eyz
                             ezx eyz ezz))))
@@ -315,12 +342,12 @@
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) voigt-to-matrix))
 (defun voigt-to-matrix (vec)
-  (let* ( (exx (magicl:tref vec 0 0))
-          (eyy (magicl:tref vec 1 0))
-          (ezz (magicl:tref vec 2 0))
-          (eyz (* 0.5d0 (the double-float (magicl:tref vec 3 0))))
-          (ezx (* 0.5d0 (the double-float (magicl:tref vec 4 0))))
-          (exy (* 0.5d0 (the double-float (magicl:tref vec 5 0))))
+  (let* ( (exx (mtref vec 0 0))
+          (eyy (mtref vec 1 0))
+          (ezz (mtref vec 2 0))
+          (eyz (* 0.5d0 (the double-float (mtref vec 3 0))))
+          (ezx (* 0.5d0 (the double-float (mtref vec 4 0))))
+          (exy (* 0.5d0 (the double-float (mtref vec 5 0))))
           )
     (matrix-from-list (list exx exy ezx
                             exy eyy eyz
@@ -330,24 +357,24 @@
          (ftype (function (magicl:matrix/double-float)
                           magicl:matrix/double-float) matrix-to-voigt))
 (defun matrix-to-voigt (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (ezz (magicl:tref matrix 2 2))
-          (exy (magicl:tref matrix 1 0))
-          (exz (magicl:tref matrix 2 0))
-          (ezy (magicl:tref matrix 2 1))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (ezz (mtref matrix 2 2))
+          (exy (mtref matrix 1 0))
+          (exz (mtref matrix 2 0))
+          (ezy (mtref matrix 2 1))
           )
     (voigt-from-list (list exx eyy ezz
                            (* 2d0 ezy)
                            (* 2d0 exz)
                            (* 2d0 exy)))))
 (defun matrix-to-voigt-inplace (matrix vec)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (ezz (magicl:tref matrix 2 2))
-          (exy (magicl:tref matrix 1 0))
-          (exz (magicl:tref matrix 2 0))
-          (ezy (magicl:tref matrix 2 1))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (ezz (mtref matrix 2 2))
+          (exy (mtref matrix 1 0))
+          (exz (mtref matrix 2 0))
+          (ezy (mtref matrix 2 1))
           (s (magicl::matrix/double-float-storage vec))
           )
     (setf (aref s 0) exx)
@@ -358,10 +385,10 @@
     (setf (aref s 5) (* 2 exy))))
 
 (defun stretch-to-voight (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (exy (magicl:tref matrix 1 0))
-          (eyx (magicl:tref matrix 1 0))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (exy (mtref matrix 1 0))
+          (eyx (mtref matrix 1 0))
           )
     (magicl:from-list (list exx eyy
                             exy eyx)
@@ -391,73 +418,73 @@
 
       (declare (double-float exx eyy ezz exy eyx ezy ezy exz ezx))
       (setf
-       (magicl:tref s 0 0) exx
-       (magicl:tref s 0 1) exy
-       (magicl:tref s 1 0) eyx
-       (magicl:tref s 1 1) eyy
+       (mtref s 0 0) exx
+       (mtref s 0 1) exy
+       (mtref s 1 0) eyx
+       (mtref s 1 1) eyy
 
-       (magicl:tref s 0 2) exz
-       (magicl:tref s 2 0) ezx
+       (mtref s 0 2) exz
+       (mtref s 2 0) ezx
 
-       (magicl:tref s 2 1) ezy
-       (magicl:tref s 1 2) eyz
+       (mtref s 2 1) ezy
+       (mtref s 1 2) eyz
 
-       (magicl:tref s 2 2) ezz
+       (mtref s 2 2) ezz
        )))
   result)
 
 (defun matrix-to-voight-strain (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (exy (magicl:tref matrix 1 0)))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (exy (mtref matrix 1 0)))
     (magicl:from-list (list exx exy exy eyy)
                       '(4 1) :type 'double-float)))
 
 (defun voight-to-matrix-strain (vec)
-  (let* ( (exx (magicl:tref vec 0 0))
-          (eyy (magicl:tref vec 1 0))
-          (exy (* 0.5d0 (magicl:tref vec 2 0))))
+  (let* ( (exx (mtref vec 0 0))
+          (eyy (mtref vec 1 0))
+          (exy (* 0.5d0 (mtref vec 2 0))))
     (magicl:from-list (list exx exy
                             exy eyy)
                       '(2 2) :type 'double-float)))
 
 (defun voigt-to-voight-strain (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 0))
-          (exy (magicl:tref matrix 2 0)))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 0))
+          (exy (mtref matrix 2 0)))
     (magicl:from-list (list exx exy exy eyy)
                       '(4 1) :type 'double-float)))
 
 (defun voigt-strain-to-voight (matrix)
-  (let* ( (e0 (magicl:tref matrix 0 0))
-          (e1 (magicl:tref matrix 1 0))
-          (e3 (magicl:tref matrix 3 0)))
+  (let* ( (e0 (mtref matrix 0 0))
+          (e1 (mtref matrix 1 0))
+          (e3 (mtref matrix 3 0)))
     (magicl:from-list (list (- e0 e3) (- e1 e3) e3)
                       '(3 1) :type 'double-float)))
 
 (defun voigt-to-mandel (voigt)
-  (let* ( (exx (magicl:tref voigt 0 0))
-          (eyy (magicl:tref voigt 1 0))
-          (exy (* (/ (sqrt 2) 1) (magicl:tref voigt 2 0))))
+  (let* ( (exx (mtref voigt 0 0))
+          (eyy (mtref voigt 1 0))
+          (exy (* (/ (sqrt 2) 1) (mtref voigt 2 0))))
     (magicl:from-list (list exx eyy exy)
                       '(3 1) :type 'double-float)))
 (defun mandel-to-voigt (voigt)
-  (let* ( (exx (magicl:tref voigt 0 0))
-          (eyy (magicl:tref voigt 1 0))
-          (exy (* (/ 1 (sqrt 2)) (magicl:tref voigt 2 0))))
+  (let* ( (exx (mtref voigt 0 0))
+          (eyy (mtref voigt 1 0))
+          (exy (* (/ 1 (sqrt 2)) (mtref voigt 2 0))))
     (magicl:from-list (list exx eyy exy)
                       '(3 1) :type 'double-float)))
 
 (defun matrix-to-mandel (matrix)
-  (let* ( (exx (magicl:tref matrix 0 0))
-          (eyy (magicl:tref matrix 1 1))
-          (exy (* (sqrt 2) (magicl:tref matrix 1 0))))
+  (let* ( (exx (mtref matrix 0 0))
+          (eyy (mtref matrix 1 1))
+          (exy (* (sqrt 2) (mtref matrix 1 0))))
     (magicl:from-list (list exx eyy exy)
                       '(3 1) :type 'double-float)))
 (defun mandel-to-matrix (vec)
-  (let* ( (exx (magicl:tref vec 0 0))
-          (eyy (magicl:tref vec 1 0))
-          (exy (/ (magicl:tref vec 2 0) (sqrt 2))))
+  (let* ( (exx (mtref vec 0 0))
+          (eyy (mtref vec 1 0))
+          (exy (/ (mtref vec 2 0) (sqrt 2))))
     (magicl:from-list (list exx exy
                             exy eyy)
                       '(2 2) :type 'double-float)))
@@ -490,9 +517,9 @@
                            (aref arr 5)))))
 
 (defun plane-strain-transform (stress)
-  (magicl:from-list (list (magicl:tref stress 0 0)
-                          (magicl:tref stress 1 0)
-                          (magicl:tref stress 5 0))
+  (magicl:from-list (list (mtref stress 0 0)
+                          (mtref stress 1 0)
+                          (mtref stress 5 0))
                     '(3 1)
                     :type 'double-float))
 
@@ -508,27 +535,27 @@
     ;;   result)
     (loop for i from 0 below 3
           do
-             (setf (magicl:tref result  i 0)
-                   (magicl:tref stretch i i)))
-    (setf (magicl:tref result 3 0)
-          (* 1d0 (+ (the double-float (magicl:tref stretch 2 1))
-                    (the double-float (magicl:tref stretch 1 2)))))
-    (setf (magicl:tref result 4 0)
-          (* 1d0 (+ (the double-float (magicl:tref stretch 0 2))
-                    (the double-float (magicl:tref stretch 2 0)))))
-    (setf (magicl:tref result 5 0)
-          (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
-                    (the double-float (magicl:tref stretch 1 0)))))
-    ;; (setf (magicl:tref result  i 0) (magicl:tref result  i 0))
-    ;; (setf (magicl:tref result  0 0)
-    ;;       (magicl:tref stretch 0 0))
+             (setf (mtref result  i 0)
+                   (mtref stretch i i)))
+    (setf (mtref result 3 0)
+          (* 1d0 (+ (the double-float (mtref stretch 2 1))
+                    (the double-float (mtref stretch 1 2)))))
+    (setf (mtref result 4 0)
+          (* 1d0 (+ (the double-float (mtref stretch 0 2))
+                    (the double-float (mtref stretch 2 0)))))
+    (setf (mtref result 5 0)
+          (* 1d0 (+ (the double-float (mtref stretch 0 1))
+                    (the double-float (mtref stretch 1 0)))))
+    ;; (setf (mtref result  i 0) (mtref result  i 0))
+    ;; (setf (mtref result  0 0)
+    ;;       (mtref stretch 0 0))
 
-    ;; (setf (magicl:tref result  1 0)
-    ;;       (magicl:tref stretch 1 1))
+    ;; (setf (mtref result  1 0)
+    ;;       (mtref stretch 1 1))
     ;; ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
-    ;; (setf (magicl:tref result 5 0)
-    ;;       (* 1d0 (+ (the double-float (magicl:tref stretch 0 1))
-    ;;                 (the double-float (magicl:tref stretch 1 0)))))
+    ;; (setf (mtref result 5 0)
+    ;;       (* 1d0 (+ (the double-float (mtref stretch 0 1))
+    ;;                 (the double-float (mtref stretch 1 0)))))
     )
   (values))
 
@@ -539,25 +566,25 @@
   ;; (magicl:.- stretch (magicl:transpose stretch) result)
   ;; (loop for i from 0 below 3
   ;;       do
-  ;;          (setf (magicl:tref result  i 0) 0d0))
+  ;;          (setf (mtref result  i 0) 0d0))
   ;; (unless result
   ;;   (setf result (cl-mpm/utils:voigt-zeros)))
-  (setf (magicl:tref result  0 0)
+  (setf (mtref result  0 0)
         0)
-  (setf (magicl:tref result  1 0)
+  (setf (mtref result  1 0)
         0)
-  (setf (magicl:tref result  2 0)
+  (setf (mtref result  2 0)
         0)
   ;; Since off diagonal components get halved, then voigt doubles them this is net 1d0
-  (setf (magicl:tref result 3 0)
-        (- (the double-float (magicl:tref stretch 2 1))
-                  (the double-float (magicl:tref stretch 1 2))))
-  (setf (magicl:tref result 4 0)
-        (- (the double-float (magicl:tref stretch 0 2))
-                  (the double-float (magicl:tref stretch 2 0))))
-  (setf (magicl:tref result 5 0)
-        (- (the double-float (magicl:tref stretch 0 1))
-                  (the double-float (magicl:tref stretch 1 0))))
+  (setf (mtref result 3 0)
+        (- (the double-float (mtref stretch 2 1))
+                  (the double-float (mtref stretch 1 2))))
+  (setf (mtref result 4 0)
+        (- (the double-float (mtref stretch 0 2))
+                  (the double-float (mtref stretch 2 0))))
+  (setf (mtref result 5 0)
+        (- (the double-float (mtref stretch 0 1))
+                  (the double-float (mtref stretch 1 0))))
 
   (values))
 
@@ -571,3 +598,18 @@
     (matrix-from-list (list (cos angle) (- (sin angle)) 0d0
                             (sin angle) (cos angle) 0d0
                             0d0 0d0 1d0))))
+
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (dotimes (i ,it)
+         ,form)
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         dt))))

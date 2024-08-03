@@ -4,10 +4,10 @@
 
 (defun update-domain-deformation-rate (domain df)
   "Update the domain length based on the increment of defomation rate"
-  (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                             (the double-float (tref df 0 0))))
-  (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                             (the double-float (tref df 1 1))))
+  (setf (varef domain 0) (* (the double-float (varef domain 0))
+                             (the double-float (mtref df 0 0))))
+  (setf (varef domain 1) (* (the double-float (varef domain 1))
+                             (the double-float (mtref df 1 1))))
   )
 (defun update-domain-stretch-rate (df domain)
   "Update the domain length based on the increment of the stretch rate"
@@ -24,12 +24,12 @@
                (magicl:transpose v)))
             )
         (declare (type magicl:matrix/double-float stretch))
-        (setf (tref domain 0 0) (* (the double-float (tref domain 0 0))
-                                   (the double-float (tref stretch 0 0))))
-        (setf (tref domain 1 0) (* (the double-float (tref domain 1 0))
-                                   (the double-float (tref stretch 1 1))))
-        (setf (tref domain 2 0) (* (the double-float (tref domain 2 0))
-                                   (the double-float (tref stretch 2 2))))
+        (setf (varef domain 0) (* (the double-float (varef domain 0))
+                                   (the double-float (mtref stretch 0 0))))
+        (setf (varef domain 1) (* (the double-float (varef domain 1))
+                                   (the double-float (mtref stretch 1 1))))
+        (setf (varef domain 2) (* (the double-float (varef domain 2))
+                                   (the double-float (mtref stretch 2 2))))
         ))))
 
 
@@ -66,12 +66,12 @@
                     (magicl:transpose v)))
                  )
             (declare (type magicl:matrix/double-float stretch))
-            (setf (aref domain-array 0) (* (the double-float (tref domain 0 0))
-                                       (the double-float (tref stretch 0 0))))
-            (setf (aref domain-array 1) (* (the double-float (tref domain 1 0))
-                                       (the double-float (tref stretch 1 1))))
-            (setf (aref domain-array 2) (* (the double-float (tref domain 2 0))
-                                       (the double-float (tref stretch 2 2))))
+            (setf (aref domain-array 0) (* (the double-float (varef domain 0))
+                                       (the double-float (mtref stretch 0 0))))
+            (setf (aref domain-array 1) (* (the double-float (varef domain 1))
+                                       (the double-float (mtref stretch 1 1))))
+            (setf (aref domain-array 2) (* (the double-float (varef domain 2))
+                                       (the double-float (mtref stretch 2 2))))
             ))))))
 
 (defun update-domain-stretch (def domain domain-0)
@@ -89,12 +89,12 @@
                (magicl:transpose v)))
             )
         (declare (type magicl:matrix/double-float stretch))
-        (setf (tref domain 0 0) (* (the double-float (tref domain-0 0 0))
-                                   (the double-float (tref stretch 0 0))))
-        (setf (tref domain 1 0) (* (the double-float (tref domain-0 1 0))
-                                   (the double-float (tref stretch 1 1))))
-        (setf (tref domain 2 0) (* (the double-float (tref domain-0 2 0))
-                                   (the double-float (tref stretch 2 2))))
+        (setf (varef domain 0) (* (the double-float (varef domain-0 0))
+                                   (the double-float (mtref stretch 0 0))))
+        (setf (varef domain 1) (* (the double-float (varef domain-0 1))
+                                   (the double-float (mtref stretch 1 1))))
+        (setf (varef domain 2) (* (the double-float (varef domain-0 2))
+                                   (the double-float (mtref stretch 2 2))))
         ))))
 (defun update-domain-midpoint (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
@@ -115,7 +115,7 @@
                      (loop for direction in (list 1d0 -1d0)
                            do
                               (let ((corner (cl-mpm/utils::vector-copy position)))
-                                (incf (magicl:tref corner d 0)
+                                (incf (varef corner d)
                                       (* direction 0.5d0 (aref domain-storage d)))
                                 (iterate-over-neighbours-point-linear
                                  mesh corner
@@ -127,7 +127,7 @@
                                      )))
                                 (cl-mpm/fastmath:fast-fmacc disp corner direction)
                                 ))
-                     (setf (aref diff d) (magicl:tref disp d 0))))
+                     (setf (aref diff d) (varef disp d))))
           (setf
            (aref domain-storage 0) (aref diff 0)
            (aref domain-storage 1) (aref diff 1)
@@ -137,18 +137,18 @@
           ;; (incf (aref domain-storage 2) (aref diff 2))
           (if (= 2 nd)
               (let* ((jf  (magicl:det def))
-                     (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0)))
-                     (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0)))
+                     (jl  (* (varef domain 0) (varef domain 1)))
+                     (jl0 (* (varef domain-0 0) (varef domain-0 1)))
                      (scaling (expt (/ (* jf jl0) jl) (/ 1d0 2d0))))
-                (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)))
+                (setf (varef domain 0) (* (varef domain 0) scaling)
+                      (varef domain 1) (* (varef domain 1) scaling)))
               (let* ((jf  (magicl:det def))
-                     (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
-                     (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
+                     (jl  (* (varef domain 0) (varef domain 1) (varef domain 2)))
+                     (jl0 (* (varef domain-0 0) (varef domain-0 1) (varef domain-0 2)))
                      (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
-                (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                      (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                      (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
+                (setf (varef domain 0) (* (varef domain 0) scaling)
+                      (varef domain 1) (* (varef domain 1) scaling)
+                      (varef domain 2) (* (varef domain 2) scaling)
                       ))))))))
 
 (defun update-domain-corner-2d (mesh mp dt)
@@ -174,10 +174,10 @@
                  domain
                  ) 0.5d0) corner)
               (loop for i from 0 to 1
-                    do (setf (the double-float (magicl:tref corner i 0))
+                    do (setf (the double-float (varef corner i))
                              (max 0d0 (min
                                        (the double-float (coerce (nth i mesh-size) 'double-float))
-                                       (the double-float (magicl:tref corner i 0))))))
+                                       (the double-float (varef corner i))))))
               (;iterate-over-neighbours-point-linear-simd
                iterate-over-neighbours-point-linear
                mesh corner
@@ -187,21 +187,21 @@
                      node
                    (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
 
-              (incf (the double-float (aref diff 0)) (* 1.0d0 (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 1)) (* 1.0d0 (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 0)) (* 1.0d0 (the double-float (varef disp 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 1)) (* 1.0d0 (the double-float (varef disp 1)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
               ))
           (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
           (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
           (let* ((jf  (the double-float (magicl:det def)))
-                 (jl  (* (the double-float (magicl:tref domain 0 0))
-                         (the double-float (magicl:tref domain 1 0))))
-                 (jl0 (* (the double-float (magicl:tref domain-0 0 0))
-                         (the double-float (magicl:tref domain-0 1 0))))
+                 (jl  (* (the double-float (varef domain 0))
+                         (the double-float (varef domain 1))))
+                 (jl0 (* (the double-float (varef domain-0 0))
+                         (the double-float (varef domain-0 1))))
                  (scaling (the double-float
                                (expt (the double-float (/ (the double-float (* (the double-float jf) (the double-float jl0))) (the double-float jl)))
                                      (the double-float (/ 1d0 2d0))))))
-            (setf (magicl:tref domain 0 0) (* (the double-float (magicl:tref domain 0 0)) scaling)
-                  (magicl:tref domain 1 0) (* (the double-float (magicl:tref domain 1 0)) scaling)
+            (setf (varef domain 0) (* (the double-float (varef domain 0)) scaling)
+                  (varef domain 1) (* (the double-float (varef domain 1)) scaling)
                   ))))))
 
 (defun update-domain-corner-3d (mesh mp dt)
@@ -226,10 +226,10 @@
                                       domain
                                       ) 0.5d0) corner)
               (loop for i from 0 to 2
-                    do (setf (the double-float (magicl:tref corner i 0))
+                    do (setf (the double-float (varef corner i))
                              (max 0d0 (min
                                        (the double-float (coerce (nth i mesh-size) 'double-float))
-                                       (the double-float (magicl:tref corner i 0))))))
+                                       (the double-float (varef corner i))))))
               (iterate-over-neighbours-point-linear
                mesh corner
                (lambda (mesh node svp grads)
@@ -238,21 +238,21 @@
                      node
                    (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
 
-              (incf (the double-float (aref diff 0)) (* (the double-float (magicl:tref disp 0 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 1)) (* (the double-float (magicl:tref disp 1 0)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
-              (incf (the double-float (aref diff 2)) (* (the double-float (magicl:tref disp 2 0)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 0)) (* (the double-float (varef disp 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 1)) (* (the double-float (varef disp 1)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
+              (incf (the double-float (aref diff 2)) (* (the double-float (varef disp 2)) (- (* 2d0 (coerce z 'double-float)) 1d0)))
               ))
           (let ((nd (the fixnum (cl-mpm/mesh:mesh-nd mesh))))
             (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
             (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
             (incf (the double-float (aref domain-storage 2)) (* 0.5d0 (the double-float (aref diff 2))))
             (let* ((jf  (magicl:det def))
-                   (jl  (* (magicl:tref domain 0 0) (magicl:tref domain 1 0) (magicl:tref domain 2 0)))
-                   (jl0 (* (magicl:tref domain-0 0 0) (magicl:tref domain-0 1 0) (magicl:tref domain-0 2 0)))
+                   (jl  (* (varef domain 0) (varef domain 1) (varef domain 2)))
+                   (jl0 (* (varef domain-0 0) (varef domain-0 1) (varef domain-0 2)))
                    (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
-              (setf (magicl:tref domain 0 0) (* (magicl:tref domain 0 0) scaling)
-                    (magicl:tref domain 1 0) (* (magicl:tref domain 1 0) scaling)
-                    (magicl:tref domain 2 0) (* (magicl:tref domain 2 0) scaling)
+              (setf (varef domain 0) (* (varef domain 0) scaling)
+                    (varef domain 1) (* (varef domain 1) scaling)
+                    (varef domain 2) (* (varef domain 2) scaling)
                     ))
             )
           ))))

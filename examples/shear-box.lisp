@@ -3,7 +3,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+(setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
@@ -58,7 +58,7 @@
       (progn
         (when (< damage 1d0)
           (setf damage-increment
-                (* (- 1d0 damage)
+                (* ;(- 1d0 damage)
                    (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
                                                         strain
                                                         plastic-strain) E de)))
@@ -267,7 +267,7 @@
              ;(gf 48d0)
              (gf 48d0)
              (gf 100d0)
-             (length-scale (* 4 h))
+             (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 1d3)
@@ -327,21 +327,21 @@
              (gravity (/ load (* density sur-height)))
              )
         (format t "Gravity ~F~%" gravity)
-        (cl-mpm::add-mps
-         sim
-         (cl-mpm/setup::make-mps-from-list
-          (cl-mpm/setup::make-block-mps-list
-           (mapcar #'+ offset (list 0d0 (second block-size)))
-           sur-size
-           (mapcar (lambda (e) (* e e-scale 2)) sur-size)
-           density
-           'cl-mpm/particle::particle-elastic-damage
-           :E 1d9
-           :nu 0.24d0
-           :initiation-stress 1d20
-           :local-length 0d0
-           :index 1
-           :gravity (- gravity))))
+        ;; (cl-mpm::add-mps
+        ;;  sim
+        ;;  (cl-mpm/setup::make-mps-from-list
+        ;;   (cl-mpm/setup::make-block-mps-list
+        ;;    (mapcar #'+ offset (list 0d0 (second block-size)))
+        ;;    sur-size
+        ;;    (mapcar (lambda (e) (* e e-scale 2)) sur-size)
+        ;;    density
+        ;;    'cl-mpm/particle::particle-elastic-damage
+        ;;    :E 1d9
+        ;;    :nu 0.24d0
+        ;;    :initiation-stress 1d20
+        ;;    :local-length 0d0
+        ;;    :index 1
+        ;;    :gravity (- gravity))))
         )
 
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
@@ -388,6 +388,26 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
+      (defparameter *pressure-bc*
+        (cl-mpm/buoyancy::make-bc-pressure
+         sim
+         0d0
+         (- surcharge-load)
+         :clip-func
+         (lambda (pos)
+           (and
+            (> (cl-mpm/utils:varef pos 1)
+               (+ (second offset) (* 0.5d0 (second block-size))))
+            (> (cl-mpm/utils:varef pos 0)
+               (first offset))
+            (< (cl-mpm/utils:varef pos 0)
+               (+ (first offset) (first block-size)))
+            )
+
+           )))
+      (cl-mpm:add-bcs-force-list
+       sim
+       *pressure-bc*)
       sim)))
 
 
@@ -598,18 +618,19 @@
          (setf (cl-mpm/penalty::bc-penalty-datum *shear-box-right-dynamic*)
                (- (+ right-x *displacement-increment*)))))
       )
-    (setf (cl-mpm::sim-bcs-force-list *sim*)
-          (list
-           (cl-mpm/bc:make-bcs-from-list
-            (list
-             *shear-box-controller*
-             ;; *shear-box-struct-left-static*
-             ;; *shear-box-struct-left*
-             ;; *shear-box-struct-right*
-             ;; *shear-box-struct-right-dynamic*
-             ;; *shear-box-struct-floor*
-             *shear-box-struct*
-             ))))))
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     (list
+      (cl-mpm/bc:make-bcs-from-list
+       (list
+        *shear-box-controller*
+        ;; *shear-box-struct-left-static*
+        ;; *shear-box-struct-left*
+        ;; *shear-box-struct-right*
+        ;; *shear-box-struct-right-dynamic*
+        ;; *shear-box-struct-floor*
+        *shear-box-struct*
+        ))))))
 
 (defun get-load ()
    (cl-mpm/penalty::bc-penalty-load *true-load-bc*))
@@ -644,7 +665,7 @@
          (offset (list box-size box-offset)))
     (setf *box-size* box-size)
     (defparameter *sim* (setup-test-column
-                         (list domain-size (+ (* 2 box-size) box-offset))
+                         (list domain-size (+ (* 1.5 box-size) box-offset))
                          offset
                          (list box-size box-size)
                          (/ 1d0 mesh-size)
@@ -690,9 +711,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 20d-3)
-         (total-time (* 1d0 displacment))
-         (load-steps (round (* 10 (/ displacment 1d-3))))
+  (let* ((displacment 8d-3)
+         (total-time (* 10d0 displacment))
+         (load-steps (round (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -733,7 +754,9 @@
      :post-iter-step
      (lambda (i energy oobf)
        ;; (plot-domain)
-       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)))
+       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
+       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
+       ))
     (vgplot:figure)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -786,7 +809,7 @@
                    (progn
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
                            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
@@ -1141,3 +1164,80 @@
              (vgplot:print-plot (merge-pathnames (format nil "refine_~5,'0d.png" r)) :terminal "png size 1920,1080")
              (sleep 1d0)
              )))
+
+(declaim (notinline tref-test))
+;; (defun tref-test (x)
+;;   (declare (cl-mpm/particle::particle x))
+;;   (with-accessors ((pos cl-mpm/particle::mp-position))
+;;       x
+;;     (magicl:tref pos 0 0)))
+
+(declaim (notinline tref-test-t))
+(defun tref-test (x)
+  (declare (optimize (speed 3)))
+  (declare (cl-mpm/particle::particle x))
+  (;with-accessors ((pos cl-mpm/particle::mp-position))
+   with-slots ((pos cl-mpm/particle::position))
+      x
+    (declare (magicl::matrix/double-float pos))
+    (magicl:tref pos 0 0)
+    ))
+
+(defun tref-test-t (x)
+  (declare (optimize (speed 3)))
+  (declare (cl-mpm/particle::particle x))
+  (;with-accessors ((pos cl-mpm/particle::mp-position))
+   with-slots ((pos cl-mpm/particle::position))
+   x
+   (declare (magicl::matrix/double-float pos))
+   (cl-mpm/utils::mtref pos 0 0)
+   ))
+
+
+
+;; (let ((x (make-instance 'cl-mpm/particle::particle))
+;;       (iters 100000000))
+;;   (time
+;;    (dotimes (i iters)
+;;      (tref-test x)))
+;;   (time
+;;    (dotimes (i iters)
+;;      (tref-test-t x))))
+
+
+;; (defun row-major-mp (mp)
+;;   (let* ((class (class-of mp))
+;;          (all-slots (sb-mop:class-slots class)))
+;;     (loop for slot in all-slots
+;;           do
+;;              (when (sb-mop:slot-boundp-using-class class mp slot)
+;;                (let* ((value (sb-mop:slot-value-using-class class mp slot)))
+;;                  (when value
+;;                    (when (typep value 'magicl::matrix/double-float)
+;;                      (pprint (magicl::matrix-layout value)))))))))
+
+;; (loop for mp across (cl-mpm:sim-mps *sim*)
+;;       do (row-major-mp mp))
+
+(defun test-tref ()
+  (let ((average-throughput 0d0)
+        (iters 100)
+        (runs 3)
+        )
+    (dotimes (i runs)
+      (setup :refine 16 :mps 2)
+      (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.1d0))
+      (setf (cl-mpm:sim-damping-factor *sim*)
+            (* 0.1d0
+               (sqrt (cl-mpm:sim-mass-scale *sim*))
+               (cl-mpm/setup::estimate-critical-damping *sim*)))
+      (setf (cl-mpm::sim-enable-damage *sim*) nil)
+      (let ((dt (cl-mpm/utils::time-form
+                 iters
+                 (cl-mpm:update-sim *sim*))))
+        (incf average-throughput (* dt iters))
+        (format t "Throughput: ~F~%" dt)
+        (format t "Throughput per mp: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))))
+    (let ((time-per-mp (/ average-throughput (* iters runs (length (cl-mpm:sim-mps *sim*))))))
+      (format t "Average time per mp: ~E~%" time-per-mp)
+      (format t "Average throughput per mp: ~E~%" (/ 1d0 time-per-mp)))))

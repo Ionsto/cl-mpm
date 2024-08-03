@@ -99,10 +99,8 @@
    (position
      :accessor mp-position
      :type MAGICL:MATRIX/DOUBLE-FLOAT
+     :initform (cl-mpm/utils:vector-zeros)
      :initarg :position)
-   (corners
-    :accessor mp-corners
-    :type (array MAGICL:MATRIX/DOUBLE-FLOAT 4))
    (velocity
      :accessor mp-velocity
      :type MAGICL:MATRIX/DOUBLE-FLOAT

@@ -3,8 +3,7 @@
    :cl-mpm/particle
    :cl-mpm/mesh
    :cl-mpm/utils
-   :cl-mpm/fastmath
-        )
+   :cl-mpm/fastmath)
   (:import-from
    :magicl tref .+ .-
    )

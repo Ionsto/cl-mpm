@@ -1,5 +1,7 @@
 (defpackage :cl-mpm/mesh
-  (:use :cl)
+  (:use
+   :cl
+   :cl-mpm/utils)
   (:export
     #:make-mesh
     #:mesh-mesh-size
@@ -453,12 +455,12 @@
            (type magicl:matrix/double-float pos))
   "Turn a vector position into a list of indexes with rounding"
   (list
-   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 0 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
-   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 1 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
-   (coerce (funcall round-operator (/ (the double-float (magicl:tref pos 2 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   (coerce (funcall round-operator (/ (the double-float (mtref pos 0 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   (coerce (funcall round-operator (/ (the double-float (mtref pos 1 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
+   (coerce (funcall round-operator (/ (the double-float (mtref pos 2 0)) (the double-float (mesh-resolution mesh)))) 'fixnum)
    )
   ;; (mapcar (lambda (x) (funcall round-operator (/
-  ;;                                                 (the double-float (magicl:tref pos x 0))
+  ;;                                                 (the double-float (mtref pos x 0))
   ;;                                                 (the double-float (mesh-resolution mesh))))
   ;;                        ) '(0 1 2))
   )
@@ -672,7 +674,7 @@
                    (with-accessors ((n-pos node-position))
                        node
                      (let* ((dist-vec (magicl:.- quad n-pos))
-                            (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
+                            (dist (list (mtref dist-vec 0 0) (mtref dist-vec 1 0)))
                             (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                             (weight (reduce #'* weights))
                             ;; (weight 1d0)
@@ -708,7 +710,7 @@
                (with-accessors ((n-pos node-position))
                    node
                  (let* ((dist-vec (magicl:.- centroid n-pos))
-                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0)))
+                        (dist (list (mtref dist-vec 0 0) (mtref dist-vec 1 0)))
                         (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                         (weight (reduce #'* weights))
                         ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
@@ -742,7 +744,7 @@
                (with-accessors ((n-pos node-position))
                    node
                  (let* ((dist-vec (magicl:.- centroid n-pos))
-                        (dist (list (magicl:tref dist-vec 0 0) (magicl:tref dist-vec 1 0) (magicl:tref dist-vec 2 0)))
+                        (dist (list (mtref dist-vec 0 0) (mtref dist-vec 1 0) (mtref dist-vec 2 0)))
                         (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                         (weight (reduce #'* weights))
                         ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
