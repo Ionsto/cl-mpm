@@ -525,7 +525,7 @@
   (make-instance 'bc-pressure
                  :index nil
                  :sim sim
-                 :pressures (list pressure-x pressure-y)
+                 :pressures (list (float pressure-x 0d0) (float pressure-y 0d0))
                  :clip-func clip-func))
 
 (defun prune-buoyancy-nodes (mesh origin datum)
