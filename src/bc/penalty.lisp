@@ -174,9 +174,9 @@
                               (sb-thread:with-mutex (node-lock)
                                 ;; (let* ((svp (* svp (expt volume (/ (- nd 1) nd))))))
 
-                                (cl-mpm/fastmath::fast-fmacc node-force
-                                                             force
-                                                             svp)
+                                ;; (cl-mpm/fastmath::fast-fmacc node-force
+                                ;;                              force
+                                ;;                              svp)
                                 (cl-mpm/fastmath::fast-fmacc node-ext-force
                                                              force
                                                              svp)

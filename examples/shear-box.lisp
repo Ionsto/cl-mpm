@@ -449,6 +449,7 @@
   )
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
+(declaim (notinline make-penalty-box))
 (defun make-penalty-box (sim left-x right-x height friction offset)
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
@@ -543,7 +544,7 @@
        friction
        damping
        (list
-        ;; *shear-box-left-static*
+        *shear-box-left-static*
         *shear-box-left-dynamic*
         *shear-box-left-slide*
         ;; *shear-box-floor*
@@ -557,7 +558,7 @@
        damping
        (list
         *shear-box-right-static*
-        ;; *shear-box-right-dynamic*
+        *shear-box-right-dynamic*
         *shear-box-right-slide*
         ;; *shear-box-floor*
         )))
@@ -623,7 +624,9 @@
      (list
       (cl-mpm/bc:make-bcs-from-list
        (list
-        *shear-box-controller*
+        *shear-box-controller*))
+      (cl-mpm/bc:make-bcs-from-list
+       (list
         ;; *shear-box-struct-left-static*
         ;; *shear-box-struct-left*
         ;; *shear-box-struct-right*
