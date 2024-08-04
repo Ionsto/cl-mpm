@@ -352,7 +352,8 @@
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
                (det-int-force mp dsvp node-int-force)
-               (cl-mpm/fastmath::fast-.+-vector node-int-force node-ext-force node-force))))))))
+               ;; (cl-mpm/fastmath::fast-.+-vector node-int-force node-ext-force node-force)
+               )))))))
   (values))
 
 (declaim (inline p2g-force))
@@ -630,15 +631,18 @@
 (defun calculate-forces (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
   (when (cl-mpm/mesh:node-active node)
-      (with-accessors ( (mass  node-mass)
-                        (vel   node-velocity)
-                        (force node-force)
-                        (acc   node-acceleration))
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (force node-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     (force-int cl-mpm/mesh::node-internal-force)
+                     (acc   node-acceleration))
         node
         (declare (double-float mass dt damping mass-scale))
         (progn
           (magicl:scale! acc 0d0)
           ;;Set acc to f/m
+          (cl-mpm/fastmath::fast-.+-vector force-int force-ext force)
           (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
           (cl-mpm/fastmath:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
           (cl-mpm/fastmath:fast-fmacc vel acc dt)
@@ -651,12 +655,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (with-accessors ( (mass  node-mass)
                      (vel   node-velocity)
                      (force node-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     (force-int cl-mpm/mesh::node-internal-force)
                      (acc   node-acceleration))
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
         (magicl:scale! acc 0d0)
         ;;Set acc to f/m
+        (cl-mpm/fastmath::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmath:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (cl-mpm/fastmath:fast-fmacc acc vel (* damping -1d0))
         (cl-mpm/fastmath:fast-fmacc vel acc dt)
@@ -669,6 +676,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (with-accessors ((mass  node-mass)
                      (vel   node-velocity)
                      (force node-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     (force-int cl-mpm/mesh::node-internal-force)
                      (acc   node-acceleration)
                      )
         node
@@ -676,7 +685,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (progn
         (magicl:scale! acc 0d0)
         ;;Set acc to f/m
-
+        (cl-mpm/fastmath::fast-.+-vector force-int force-ext force)
         (let* ((vel-sign (cl-mpm/utils:vector-zeros))
                (f-s (magicl::matrix/double-float-storage force))
                (v-s (magicl::matrix/double-float-storage vel))

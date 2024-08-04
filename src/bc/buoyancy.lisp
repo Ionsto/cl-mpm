@@ -799,7 +799,7 @@
      ;;Iterate over a cells nodes
      (with-accessors ((pos cl-mpm/mesh::cell-centroid))
          cell
-       (when (funcall clip-func pos)
+       (when t;(funcall clip-func pos)
          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
                (cell-stress (funcall func-stress pos))
                (cell-div (funcall func-div pos)))
@@ -819,7 +819,8 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           (funcall clip-func pos))
+                           (funcall clip-func node-pos)
+                           )
                   ;;Lock node
                   ;;Subtract gradient of stress from node force
                   (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
@@ -833,7 +834,7 @@
                                  (* volume svp)))
                          (f-total (cl-mpm/fastmath::fast-.+ f-stress f-div)))
                     (sb-thread:with-mutex (node-lock)
-                      (cl-mpm/fastmath:fast-.- node-force f-total node-force)
+                      ;; (cl-mpm/fastmath:fast-.- node-force f-total node-force)
                       (cl-mpm/fastmath:fast-.- node-force-ext f-total node-force-ext)
                       (cl-mpm/fastmath:fast-.- node-buoyancy-force f-total node-buoyancy-force)
                       (incf node-boundary-scalar
@@ -849,7 +850,7 @@
                        (pos cl-mpm/particle::mp-position)
                        (damage cl-mpm/particle::mp-damage))
           mp
-        (when (funcall clip-func pos)
+        (when t;(funcall clip-func pos)
           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
                 (mp-stress (funcall func-stress mp))
                 (mp-div (funcall func-div mp)))
@@ -868,7 +869,8 @@
                                   (node-active  cl-mpm/mesh:node-active))
                      node
                    (declare (double-float volume svp))
-                   (when node-boundary
+                   (when (and node-boundary
+                              (funcall clip-func node-pos))
                      ;;Lock node for multithreading
                      (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
                      ;; Add gradient of stress
@@ -883,7 +885,7 @@
                                     (* volume svp)))
                             (f-total (cl-mpm/fastmath::fast-.+ f-stress f-div)))
                        (sb-thread:with-mutex (node-lock)
-                         (cl-mpm/fastmath:fast-.+ node-force f-total node-force)
+                         ;; (cl-mpm/fastmath:fast-.+ node-force f-total node-force)
                          (cl-mpm/fastmath:fast-.+ node-force-ext f-total node-force-ext)
                          (cl-mpm/fastmath:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
                          (incf node-boundary-scalar

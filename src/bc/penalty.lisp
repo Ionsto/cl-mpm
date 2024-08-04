@@ -320,12 +320,13 @@
                              (when node-active
                                ;;Lock node for multithreading
                                (sb-thread:with-mutex (node-lock)
-                                 (cl-mpm/fastmath::fast-fmacc node-force
-                                                              force
-                                                              svp)
+                                 ;; (cl-mpm/fastmath::fast-fmacc node-force
+                                 ;;                              force
+                                 ;;                              svp)
                                  (cl-mpm/fastmath::fast-fmacc node-ext-force
                                                               force
-                                                              svp)))))))))))))))))))
+                                                              svp)
+                                 ))))))))))))))))))
 
 (defun collect-contact-points (mesh mps normal datum)
   (loop for mp across mps

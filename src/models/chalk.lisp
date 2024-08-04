@@ -245,7 +245,7 @@
     (when (> damage 0.0d0)
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress))
-            (ex 2)
+            (ex 1)
             )
         (setf p
               (if (> p 0d0)
