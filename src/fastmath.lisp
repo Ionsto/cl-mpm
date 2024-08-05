@@ -178,13 +178,6 @@
              (fixnum offset))
     (multiple-value-bind (iter remain) (floor (length a) 2)
       (declare (fixnum iter remain))
-      ;; (loop for offset fixnum from 0 by 2
-      ;;       repeat iter
-      ;;       do
-      ;;          (setf (sb-simd-avx:f64.2-aref target offset)
-      ;;                (sb-simd-avx:f64.2+
-      ;;                 (sb-simd-avx:f64.2-aref a offset)
-      ;;                 (sb-simd-avx:f64.2-aref b offset))))
       (dotimes (i iter)
         (setf (sb-simd-avx:f64.2-aref target offset)
               (sb-simd-avx:f64.2+
@@ -195,12 +188,7 @@
         (dotimes (i remain)
           (setf (aref target offset)
                 (+ (aref a offset) (aref b offset)))
-          (incf offset 1))
-        )
-      ))
-
-  ;; (loop for i from 0 below (length a)
-  ;;       do (setf (aref target i) (+ (aref a i) (aref b i))))
+          (incf offset 1)))))
   target)
 (declaim
  (inline simd-any-)

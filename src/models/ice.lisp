@@ -215,26 +215,11 @@
     ;;                             (cl-mpm/utils::voigt-eye (/ pressure 3d0)))
     ;;   (setf strain (magicl:linear-solve de stress-u)))
     (when enable-plasticity
-      ;; (multiple-value-bind (sig eps-e f)
-      ;;     (cl-mpm/constitutive::mc-plastic
-      ;;      stress-u
-      ;;      de
-      ;;      strain
-      ;;      E
-      ;;      nu
-      ;;      phi
-      ;;      psi
-      ;;      coheasion)
-      ;;   (setf stress-u
-      ;;         sig
-      ;;         plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
-      ;;         yield-func f)
-      ;;   (setf strain eps-e))
       (multiple-value-bind (sig eps-e f)
-          (cl-mpm/ext::constitutive-drucker-prager
-           ;; stress-u
-           strain
+          (cl-mpm/constitutive::mc-plastic
+           stress-u
            de
+           strain
            E
            nu
            phi
@@ -245,6 +230,21 @@
               plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
               yield-func f)
         (setf strain eps-e))
+      ;; (multiple-value-bind (sig eps-e f)
+      ;;     (cl-mpm/ext::constitutive-drucker-prager
+      ;;      ;; stress-u
+      ;;      strain
+      ;;      de
+      ;;      E
+      ;;      nu
+      ;;      phi
+      ;;      psi
+      ;;      coheasion)
+      ;;   (setf stress-u
+      ;;         sig
+      ;;         plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
+      ;;         yield-func f)
+      ;;   (setf strain eps-e))
       (incf ps-vm
             (multiple-value-bind (l v)
                 (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
