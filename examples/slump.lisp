@@ -444,7 +444,7 @@
            :initiation-stress stress
 
            ;; :damage 1d0
-           :delay-time 1d3
+           :delay-time 1d1
            :delay-exponent 1d0
            :ductility ductility
            :ductility-mode-2 ductility-ii
@@ -510,9 +510,9 @@
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
-             (ocean-y (+ (* 2d0 h-y)
-                         (- terminus-size 100d0)))
-             (ocean-y 0d0)
+             (ocean-y (+ (second block-offset)
+                         (* terminus-size 0.9d0)))
+             ;; (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
             ;(angle -1d0)
@@ -568,18 +568,18 @@
 
         (setf (cl-mpm::sim-bcs-force-list sim)
               (list
-               ;; (cl-mpm/bc:make-bcs-from-list
-               ;;  (list
-               ;;   (cl-mpm/buoyancy::make-bc-buoyancy-clip
-               ;;    ;; cl-mpm/buoyancy::make-bc-buoyancy-body
-               ;;    sim
-               ;;    ocean-y
-               ;;    *water-density*
-               ;;    (lambda (pos)
-               ;;      (>= (magicl:tref pos 1 0) (* h-y 0))))))
                (cl-mpm/bc:make-bcs-from-list
-                (list *floor-bc*)
-                )
+                (list
+                 (cl-mpm/buoyancy::make-bc-buoyancy-clip
+                  ;; cl-mpm/buoyancy::make-bc-buoyancy-body
+                  sim
+                  ocean-y
+                  *water-density*
+                  (lambda (pos)
+                    (>= (magicl:tref pos 1 0) (* h-y 0))))))
+               ;; (cl-mpm/bc:make-bcs-from-list
+               ;;  (list *floor-bc*)
+               ;;  )
                ;; (cl-mpm/bc:make-bcs-from-list
                ;;  (list *ocean-floor-bc*)
                ;;  )
@@ -607,9 +607,9 @@
   (let* ((mesh-size (* 10 refine))
          (mps-per-cell mps)
          (slope 0d0)
-         (shelf-height 100d0)
-         (shelf-aspect 2.0)
-         (runout-aspect 3.0)
+         (shelf-height 400d0)
+         (shelf-aspect 8.0)
+         (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)
@@ -619,13 +619,14 @@
          (offset (list 0d0
                   ;(* 2d0 mesh-size)
                   (+
-                   (* 2d0 mesh-size)
+                   shelf-height
+                   ;; (* 2d0 mesh-size)
                    angle-offset))))
     (defparameter *floor-datum* (second offset))
     (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
       (setup-test-column (list (+ shelf-length (* runout-aspect shelf-height))
-                               (+ (* shelf-height 2)
+                               (+ (* shelf-height 3)
                                   ;; (* shelf-height
                                   ;;    (cos (* angle (/ pi 180))))
                                   )
@@ -669,7 +670,7 @@
     ;;                                    )
     ;;                              (list
     ;;                               200d0
-    ;;                               120d0)) p)))
+    ;;                               60d0)) p)))
     
     ;; (damage-sdf *sim* (lambda (p)
     ;;                     (line-sdf (magicl:from-list

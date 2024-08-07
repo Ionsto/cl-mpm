@@ -2268,8 +2268,7 @@ Calls the function with the mesh mp and node"
           (setf k (max k ybar))
           (setf damage-inc 0d0)
           (let ((new-damage (max damage
-                                 (damage-response-exponential k E Gf length init-stress ductility)
-                                 )))
+                                 (damage-response-exponential k E Gf length init-stress ductility))))
             (setf damage-inc (- new-damage damage)))
           (when (>= damage 1d0)
             (setf damage-inc 0d0)

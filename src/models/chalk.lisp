@@ -210,10 +210,7 @@
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
     ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
-    (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de))
-    ;; (setf stress (magicl:scale stress-u 1d0))
-    ;; (setf stress (cl-mpm/utils:voigt-copy stress-u))
-    ;; (setf stress (magicl:scale stress-u 1d0))
+    (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (when enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
@@ -241,21 +238,23 @@
                                 ) 2d0))))))
             (incf ps-vm inc)
             (setf ps-vm-inc inc))))
-    (setf stress (cl-mpm/utils:voigt-copy stress-u))
+    (cl-mpm/utils:voigt-copy-into stress-u stress)
     (when (> damage 0.0d0)
-      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (s (cl-mpm/constitutive::deviatoric-voigt stress))
-            (ex 1)
-            )
-        (setf p
-              (if (> p 0d0)
-                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
-                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
-        (setf stress
-              (cl-mpm/fastmath:fast-.+
-               (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
-               stress))))
+      (cl-mpm/fastmath:fast-scale! stress (- 1d0 damage))
+      ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+      ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress))
+      ;;       (ex 1)
+      ;;       )
+      ;;   (setf p
+      ;;         (if (> p 0d0)
+      ;;             (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
+      ;;             (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
+      ;;   (setf stress
+      ;;         (cl-mpm/fastmath:fast-.+
+      ;;          (cl-mpm/constitutive::voight-eye p)
+      ;;          (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
+      ;;          stress)))
+      )
     stress))
 
 

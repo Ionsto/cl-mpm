@@ -28,6 +28,15 @@
   ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   local-length
   )
+(defmethod cl-mpm/particle::constitutive-model ((mp cl-mpm/particle::particle-elastic-damage) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-slots ((stress cl-mpm/particle::stress)
+               (stress-undamaged cl-mpm/particle::undamaged-stress)
+               (de cl-mpm/particle::elastic-matrix))
+      mp
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
+    (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
+    stress))
 
 
 
@@ -56,38 +65,35 @@
         mp
       (declare (double-float pressure damage))
       (progn
-        (when (< damage 1d0)
-          ;; (setf damage-increment
-          ;;       (* ;(- 1d0 damage)
-          ;;          (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
-          ;;                                               strain
-          ;;                                               plastic-strain) E de)))
-          (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
-                                                             de)))
-            (setf damage-increment
-                  (max 0d0
-                       (cl-mpm/damage::drucker-prager-criterion
-                        es
-                        ;(magicl:scale es (/ 1d0 (magicl:det def)))
-                        (* angle (/ pi 180d0))))))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::drucker-prager-criterion
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+        (setf damage-increment
+              (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf damage-increment
+        ;;       (* ;(- 1d0 damage)
+        ;;          (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
+        ;;                                               strain
+        ;;                                               plastic-strain) E de)))
+        ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
+        ;;                                                    de)))
+        ;;   (setf damage-increment
+        ;;         (max 0d0
+        ;;              (cl-mpm/damage::drucker-prager-criterion
+        ;;               es
+        ;;               ;(magicl:scale es (/ 1d0 (magicl:det def)))
+        ;;               (* angle (/ pi 180d0))))))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::drucker-prager-criterion
+        ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::criterion-dp
-          ;;             ;(magicl:scale stress (/ 1d0 (magicl:det def)))
-          ;;             stress
-          ;;             (* angle (/ pi 180d0)))))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp
+        ;;                                 ;(magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             stress
+        ;;             (* angle (/ pi 180d0)))))
 
-          ;; (incf damage-increment
-          ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
-
-          )
-        (when (>= damage 1d0)
-          (setf damage-increment 0d0))
+        ;; (incf damage-increment
+        ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
         ;;Delocalisation switch
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
@@ -95,9 +101,9 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (plot-load-disp)
+  (plot-load-disp)
   ;; (plot-conv)
-  (plot-domain)
+  ;; (plot-domain)
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
   (declare (function colour-func))
@@ -270,10 +276,11 @@
              (init-stress 300d3)
              ;(gf 48d0)
              (gf 48d0)
-             (gf 100d0)
-             (length-scale (* 1 h))
+             ;; (gf 100d0)
+             (length-scale (* 2 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             (ductility 10d0)
              ;; (ductility 1d3)
              )
         (pprint length-scale)
@@ -300,8 +307,8 @@
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d0
-           :g-res-ratio 1d-2
+           :kc-res-ratio 1d-9
+           :g-res-ratio 1d-9
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
@@ -310,7 +317,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-plasticity t
+           :enable-plasticity nil
            :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c (* 131d3 1d0)
@@ -363,9 +370,9 @@
               )
 
              )))
-        (cl-mpm:add-bcs-force-list
-         sim
-         *pressure-bc*)
+        ;; (cl-mpm:add-bcs-force-list
+        ;;  sim
+        ;;  *pressure-bc*)
         )
 
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
@@ -719,13 +726,13 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 8d-3)
-         (total-time (* 1000d0 displacment))
-         (load-steps (round (* 100 (/ displacment 1d-3))))
+  (let* ((displacment 0.5d-3)
+         (total-time (* 100d0 displacment))
+         (load-steps (round (* 1000 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.80d0)
+         (dt-scale 0.50d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
@@ -739,7 +746,7 @@
               (when (= (cl-mpm/particle::mp-index mp) 0)
                 (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-1)))))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.1d0
+          (* 0.05d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -757,7 +764,7 @@
      :energy-crit 1d-3
      :oobf-crit 1d-3
      :dt-scale 0.50d0
-     :substeps 50
+     :substeps 10
      :conv-steps 100
      :post-iter-step
      (lambda (i energy oobf)
@@ -914,13 +921,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((load-steps 500)
+  (let* ((load-steps 100)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.5d0)
-         (displacment 6d-3)
-         (enable-plasticity t)
+         (displacment 1d-3)
+         (enable-plasticity nil)
          (disp-inc (/ displacment load-steps)))
     (loop for mp across (cl-mpm:sim-mps *sim*)
+          when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
           do (change-class mp 'cl-mpm/particle::particle-chalk-brittle))
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
@@ -946,15 +954,31 @@
                      (let ((load-av 0d0)
                            (disp-av 0d0))
                        (incf *displacement-increment* disp-inc)
-                       (cl-mpm/dynamic-relaxation:converge-quasi-static
-                        *sim*
-                        :energy-crit 1d-2
-                        :oobf-crit 1d-2
-                        :substeps 50
-                        :conv-steps 200
-                        :post-iter-step
-                        (lambda (i energy oobf)))
-                       (cl-mpm/damage::calculate-damage *sim*)
+                       (let ((damage-0 0d0)
+                             (damage-1 0d0))
+                         (loop for i from 0 to 100
+                               while (or (= i 0) (> damage-1 damage-0)
+                                         )
+                               do
+                                  (progn
+                                    (setf damage-0 damage-1)
+                                    (format t "Staggered solve: ~D~%" i)
+                                    (cl-mpm/dynamic-relaxation:converge-quasi-static
+                                     *sim*
+                                     :energy-crit 1d-3
+                                     :oobf-crit 1d-3
+                                     :substeps 10
+                                     :conv-steps 200
+                                     :post-iter-step
+                                     (lambda (i energy oobf)))
+                                    (cl-mpm/damage::calculate-damage *sim*)
+                                    (plot *sim*)
+                                    (setf damage-1 (get-damage))
+                                    (format t "Staggered damage diff: ~E~%" (- damage-1 damage-0))
+                                    ))
+                         (when (> damage-1 damage-0)
+                           (break "Staggered error"))
+                         )
 
                        (setf load-av (get-load))
                        (setf disp-av *displacement-increment*)
@@ -1251,3 +1275,85 @@
     (let ((time-per-mp (/ average-throughput (* iters runs (length (cl-mpm:sim-mps *sim*))))))
       (format t "Average time per mp: ~E~%" time-per-mp)
       (format t "Average throughput per mp: ~E~%" (/ 1d0 time-per-mp)))))
+
+(defun test-staggered ()
+  (setup :refine 4 :mps 2)
+  (let* ((disp-inc 1d-3)
+         (data-load (list))
+         (data-disp (list))
+         (data-damage (list))
+         (data-iter (list))
+         (load 0d0)
+         (disp 0d0)
+         (dt-scale 0.5d0)
+         (enable-plasticity nil)
+         (damage-0 0d0)
+         (damage-new 0d0)
+         )
+    (vgplot:figure)
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (change-class mp 'cl-mpm/particle::particle-chalk-brittle))
+
+    (setf (cl-mpm::sim-enable-damage *sim*) nil)
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.05d0
+             ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
+             (cl-mpm/setup::estimate-critical-damping *sim*)))
+
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (when (= (cl-mpm/particle::mp-index mp) 0)
+               (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :energy-crit 1d-2
+     :oobf-crit 1d-2
+     :dt-scale 0.50d0
+     :substeps 10
+     :conv-steps 100
+     :post-iter-step
+     (lambda (i energy oobf)
+       ))
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (when (= (cl-mpm/particle::mp-index mp) 0)
+               (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+    (incf *displacement-increment* disp-inc)
+    (loop for i from 0 to 50
+          while (and *run-sim*
+                     (or (= i 0) (> damage-new damage-0)))
+          do
+             (progn
+               (setf damage-0 (get-damage))
+               (cl-mpm/dynamic-relaxation:converge-quasi-static
+                *sim*
+                :energy-crit 1d-2
+                :oobf-crit 1d-2
+                :dt-scale 0.50d0
+                :substeps 10
+                :conv-steps 100
+                :post-iter-step
+                (lambda (i energy oobf)))
+               (cl-mpm/damage::calculate-damage *sim*)
+               (setf damage-new (get-damage))
+               (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "sim_~5,'0d.vtk" i)) *sim*)
+               (plot *sim*)
+               (setf load (get-load))
+               (setf disp *displacement-increment*)
+               (push load data-load)
+               (push disp data-disp)
+               (push (get-damage) data-damage)
+               (push i data-iter)
+               ;; (vgplot:plot data-iter data-load)
+               (pprint load)
+               (pprint disp)))
+    (vgplot:figure)
+    (vgplot:title "Load")
+    (vgplot:plot data-iter data-load)
+    (vgplot:figure)
+    (vgplot:title "Disp")
+    (vgplot:plot data-iter data-disp)
+    (vgplot:figure)
+    (vgplot:title "Damage")
+    (vgplot:plot data-iter data-damage)
+    )
+  )
