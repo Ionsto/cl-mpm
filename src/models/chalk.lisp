@@ -240,20 +240,32 @@
             (setf ps-vm-inc inc))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     (when (> damage 0.0d0)
-      (cl-mpm/fastmath:fast-scale! stress (- 1d0 damage))
+      ;; (cl-mpm/fastmath:fast-scale! stress (- 1d0 damage))
       ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
       ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress))
-      ;;       (ex 1)
       ;;       )
-      ;;   (setf p
-      ;;         (if (> p 0d0)
-      ;;             (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
-      ;;             (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
+      ;;   (when (> p 0d0)
+      ;;     (setf p
+      ;;           (* (- 1d0 (* (- 1d0 kt-r) damage)) p)))
       ;;   (setf stress
       ;;         (cl-mpm/fastmath:fast-.+
       ;;          (cl-mpm/constitutive::voight-eye p)
-      ;;          (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
+      ;;          (cl-mpm/fastmath:fast-scale! s (- 1d0 (* (- 1d0 g-r) damage)))
       ;;          stress)))
+
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress))
+            (ex 1)
+            )
+        (setf p
+              (if (> p 0d0)
+                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
+                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
+        (setf stress
+              (cl-mpm/fastmath:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
+               stress)))
       )
     stress))
 
