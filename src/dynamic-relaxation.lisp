@@ -251,6 +251,7 @@
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (let* ((fnorm 0d0)
+           (energy-total 0d0)
            (oobf 0d0)
            (target-time 1d-4)
            (estimated-t 1d-5)
@@ -284,15 +285,16 @@
                      (cl-mpm:update-sim sim)
                      (incf *work* (estimate-power-norm sim)))
                    (setf load cl-mpm/penalty::*debug-force*)
+                   (setf energy-total (estimate-energy-norm sim))
                    (if (> *work* 0d0)
-                       (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
+                       (setf fnorm (abs (/ energy-total *work*)))
                        (setf fnorm 0d0))
                    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                    (setf oobf (estimate-oobf sim))
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
-                   (push fnorm energy-list)
+                   (push energy-total energy-list)
                    (when (> (length energy-list) 2)
                      (when (and
                             (< (nth 0 energy-list) (nth 1 energy-list))
