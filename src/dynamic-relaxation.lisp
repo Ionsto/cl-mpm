@@ -349,7 +349,9 @@
       (setf *work* 0d0)
       (let ((full-load (list))
             (full-step (list))
-            (energy-list (list)))
+            (energy-list (list))
+            (energy-total 0d0)
+            )
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
                          (not converged))
@@ -361,7 +363,10 @@
                      (incf *work* (estimate-power-norm sim)))
 
                    (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
-                   (setf fnorm (abs (/ (estimate-energy-norm sim) *work*)))
+                   (setf energy-total (estimate-energy-norm sim))
+                   (if (> *work* 0d0)
+                       (setf fnorm (abs (/ energy-total *work*)))
+                       (setf fnorm 0d0))
                    (setf oobf (estimate-oobf sim))
                    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
 
@@ -372,7 +377,7 @@
                    (when (= 0 rank)
                      (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
 
-                   (push fnorm energy-list)
+                   (push energy-total energy-list)
                    (when (> (length energy-list) 2)
                      (when (and
                             (< (nth 0 energy-list) (nth 1 energy-list))
