@@ -25,8 +25,8 @@
   )
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  local-length
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; local-length
   )
 (defmethod cl-mpm/particle::constitutive-model ((mp cl-mpm/particle::particle-elastic-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -273,7 +273,7 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             (init-stress 300d3)
+             (init-stress 100d3)
              ;(gf 48d0)
              (gf 48d0)
              ;; (gf 100d0)
@@ -307,7 +307,7 @@
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-9
+           :kc-res-ratio 1d-2
            :g-res-ratio 1d-9
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
@@ -732,7 +732,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.50d0)
+         (dt-scale 1.00d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
