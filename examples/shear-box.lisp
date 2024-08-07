@@ -65,8 +65,8 @@
         mp
       (declare (double-float pressure damage))
       (progn
-        (setf damage-increment
-              (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf damage-increment
+        ;;       (cl-mpm/damage::tensile-energy-norm strain E de))
         ;; (setf damage-increment
         ;;       (* ;(- 1d0 damage)
         ;;          (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
@@ -85,12 +85,12 @@
         ;;            (cl-mpm/damage::drucker-prager-criterion
         ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
-        ;; (setf damage-increment
-        ;;       (max 0d0
-        ;;            (cl-mpm/damage::criterion-dp
-        ;;                                 ;(magicl:scale stress (/ 1d0 (magicl:det def)))
-        ;;             stress
-        ;;             (* angle (/ pi 180d0)))))
+        (setf damage-increment
+              (max 0d0
+                   (cl-mpm/damage::criterion-dp
+                                        ;(magicl:scale stress (/ 1d0 (magicl:det def)))
+                    stress
+                    (* angle (/ pi 180d0)))))
 
         ;; (incf damage-increment
         ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
@@ -273,7 +273,7 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             (init-stress 100d3)
+             (init-stress 80d3)
              ;(gf 48d0)
              (gf 48d0)
              ;; (gf 100d0)
@@ -307,7 +307,7 @@
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-2
+           :kc-res-ratio 1d0
            :g-res-ratio 1d-9
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
@@ -328,14 +328,16 @@
            :gravity 0d0
            )))
         )
-      (let* (;(sur-height h-x)
+      (let* (;; (sur-height h-x)
              (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
              ;; (gravity 10d0)
              ;; (density (/ load (* gravity sur-height)))
-             (gravity (/ load (* density sur-height)))
+             (gravity (if (> sur-height 0d0)
+                          (/ load (* density sur-height))
+                          0d0))
              )
         (format t "Gravity ~F~%" gravity)
         ;; (cl-mpm::add-mps
@@ -370,9 +372,9 @@
               )
 
              )))
-        ;; (cl-mpm:add-bcs-force-list
-        ;;  sim
-        ;;  *pressure-bc*)
+        (cl-mpm:add-bcs-force-list
+         sim
+         *pressure-bc*)
         )
 
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
@@ -648,7 +650,11 @@
         ))))))
 
 (defun get-load ()
-   (cl-mpm/penalty::bc-penalty-load *true-load-bc*))
+  ;(cl-mpm/penalty::bc-penalty-load *true-load-bc*)
+  (-
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
+
 (defun get-damage ()
   (lparallel:pmap-reduce
    (lambda (mp)
@@ -726,7 +732,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 0.1d-3)
          (total-time (* 100d0 displacment))
          (load-steps (round (* 1000 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
