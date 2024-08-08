@@ -1763,7 +1763,8 @@ Calls the function with the mesh mp and node"
      ))
 (defun criterion-max-principal-stress (stress)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
-    (max 0d0 s_1)))
+    (declare (double-float s_1 s_2 s_3))
+    (max 0d0 s_1 s_2 s_3)))
 
 ;; (defun modified-vm-strain (strain nu k E)
 ;;   (multiple-value-bind (e1 e2 e3)
