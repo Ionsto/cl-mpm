@@ -1614,7 +1614,7 @@ This modifies the dt of the simulation in the process
     (if (> (length bcs) 0)
         (progn
           (loop for bc across bcs-array
-                do (vector-push-extend bcs bc)))
+                do (vector-push-extend bc bcs)))
         (setf bcs bcs-array))))
 (defun add-bcs-force-list (sim new-bcs)
   "Add bcs that apply forces, ordered in a FILO"

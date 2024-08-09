@@ -333,6 +333,43 @@
    (lambda (i) (make-bc-fixed i '(nil nil 0))))
   )
 
+(defun make-outside-bc-varfix (mesh left right top bottom front back)
+  "Construct reflection bcs over the outside of a mesh"
+  (let  ((bcs (make-outside-bc-var
+               mesh
+               (lambda (i) (make-bc-fixed i '(0 nil nil)))
+               (lambda (i) (make-bc-fixed i '(0 nil nil)))
+               (lambda (i) (make-bc-fixed i '(nil 0 nil)))
+               (lambda (i) (make-bc-fixed i '(nil 0 nil)))
+               (lambda (i) (make-bc-fixed i '(nil nil 0)))
+               (lambda (i) (make-bc-fixed i '(nil nil 0))))))
+    (collate-bcs-fixed bcs)))
+(defun collate-bcs-fixed (bcs)
+  (loop for i from 0 below (- (length bcs) 1)
+        do (loop for j from (1+ i) below (length bcs)
+                 do
+                    (let ((bc (aref bcs i))
+                          (bc-other (aref bcs j))
+                          )
+                      (when bc
+                        (when bc-other
+                          (when (not (eq bc bc-other))
+                            (when (every #'=
+                                           (bc-index bc)
+                                           (bc-index bc-other))
+                              ;;Collate fixities
+                              (setf (bc-value bc)
+                                    (mapcar (lambda (a b)
+                                              (if a
+                                                  a
+                                                  b))
+                                            (bc-value bc)
+                                            (bc-value bc-other)))
+                              ;;Remove other bc
+                              (setf (aref bcs j) nil))
+                            ))))))
+  (delete-if-not #'identity bcs))
+
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"
     (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
