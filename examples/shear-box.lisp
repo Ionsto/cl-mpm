@@ -54,7 +54,7 @@
                      (def cl-mpm/particle::mp-deformation-gradient)
                      (angle cl-mpm/particle::mp-friction-angle)
                      (c cl-mpm/particle::mp-coheasion)
-                     (nu cl-mpm/particle::mp-nu)
+ (nu cl-mpm/particle::mp-nu)
                      (ft cl-mpm/particle::mp-ft)
                      (fc cl-mpm/particle::mp-fc)
                      (E cl-mpm/particle::mp-e)
@@ -67,16 +67,16 @@
       (progn
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        (setf damage-increment
-              (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
-                                                   strain
-                                                   (cl-mpm/fastmath:fast-scale-voigt
-                                                    plastic-strain
-                                                    1d0
-                                                    ;; (- 1d0 damage)
-                                                    ))
-                                                  E
-                                                  de))
+        ;; (setf damage-increment
+        ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
+        ;;                                            strain
+        ;;                                            (cl-mpm/fastmath:fast-scale-voigt
+        ;;                                             plastic-strain
+        ;;                                             1d0
+        ;;                                             ;; (- 1d0 damage)
+        ;;                                             ))
+        ;;                                           E
+        ;;                                           de))
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
         ;;                                                    de)))
         ;;   (setf damage-increment
@@ -97,8 +97,10 @@
         ;;             stress
         ;;             (* angle (/ pi 180d0)))))
 
-        ;; (incf damage-increment
-        ;;       (* E (cl-mpm/particle::mp-strain-plastic-vm mp)))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
+        ;; (setf damage-increment 0d0)
+        (setf damage-increment
+              (* E (cl-mpm/utils:trace-voigt plastic-strain)))
         ;;Delocalisation switch
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
@@ -278,15 +280,16 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             (init-stress 100d3)
+             ;(init-stress 100d3)
+             (init-stress 1d0)
              ;(gf 48d0)
              (gf 48d0)
              ;; (gf 100d0)
-             (length-scale (* 2 h))
+             (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0)
-             ;; (ductility 1d3)
+             ;; (ductility 10d0)
+             (ductility 1d8)
              )
         (pprint length-scale)
         (format t "Estimated ductility ~E~%" ductility)
@@ -313,7 +316,8 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 0.8d0
+           :g-res-ratio 1d-9
+           :damage 0.9d0
            :friction-angle 43d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
@@ -345,41 +349,41 @@
                           0d0))
              )
         (format t "Gravity ~F~%" gravity)
-        (cl-mpm::add-mps
-         sim
-         (cl-mpm/setup::make-mps-from-list
-          (cl-mpm/setup::make-block-mps-list
-           (mapcar #'+ offset (list 0d0 (second block-size)))
-           sur-size
-           (mapcar (lambda (e) (* e e-scale 2)) sur-size)
-           density
-           'cl-mpm/particle::particle-elastic-damage
-           :E 1d9
-           :nu 0.24d0
-           :initiation-stress 1d20
-           :local-length 0d0
-           :index 1
-           :gravity (- gravity))))
-        ;; (defparameter *pressure-bc*
-        ;;   (cl-mpm/buoyancy::make-bc-pressure
-        ;;    sim
-        ;;    0d0
-        ;;    (- surcharge-load)
-        ;;    :clip-func
-        ;;    (lambda (pos)
-        ;;      (and
-        ;;       (> (cl-mpm/utils:varef pos 1)
-        ;;          (+ (second offset) (* 0.5d0 (second block-size))))
-        ;;       ;; (> (cl-mpm/utils:varef pos 0)
-        ;;       ;;    (first offset))
-        ;;       ;; (< (cl-mpm/utils:varef pos 0)
-        ;;       ;;    (+ (first offset) (first block-size)))
-        ;;       )
-
-        ;;      )))
-        ;; (cl-mpm:add-bcs-force-list
+        ;; (cl-mpm::add-mps
         ;;  sim
-        ;;  *pressure-bc*)
+        ;;  (cl-mpm/setup::make-mps-from-list
+        ;;   (cl-mpm/setup::make-block-mps-list
+        ;;    (mapcar #'+ offset (list 0d0 (second block-size)))
+        ;;    sur-size
+        ;;    (mapcar (lambda (e) (* e e-scale 2)) sur-size)
+        ;;    density
+        ;;    'cl-mpm/particle::particle-elastic-damage
+        ;;    :E 1d9
+        ;;    :nu 0.24d0
+        ;;    :initiation-stress 1d20
+        ;;    :local-length 0d0
+        ;;    :index 1
+        ;;    :gravity (- gravity))))
+        (defparameter *pressure-bc*
+          (cl-mpm/buoyancy::make-bc-pressure
+           sim
+           0d0
+           (- surcharge-load)
+           :clip-func
+           (lambda (pos)
+             (and
+              (> (cl-mpm/utils:varef pos 1)
+                 (+ (second offset) (* 0.5d0 (second block-size))))
+              ;; (> (cl-mpm/utils:varef pos 0)
+              ;;    (first offset))
+              ;; (< (cl-mpm/utils:varef pos 0)
+              ;;    (+ (first offset) (first block-size)))
+              )
+
+             )))
+        (cl-mpm:add-bcs-force-list
+         sim
+         *pressure-bc*)
         )
 
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
@@ -417,15 +421,14 @@
 
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
       (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-outside-bc-var
+            (cl-mpm/bc::make-outside-bc-varfix
              (cl-mpm:sim-mesh sim)
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-            ))
+             '(0 nil nil)
+             '(0 nil nil)
+             '(nil 0 nil)
+             '(nil nil nil)
+             '(nil nil 0)
+             '(nil nil 0)))
       
       sim)))
 
@@ -655,10 +658,11 @@
         ))))))
 
 (defun get-load ()
-  ;(cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  (-
-   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
+  (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
+  ;; (-
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  )
 
 (defun get-damage ()
   (lparallel:pmap-reduce
@@ -738,7 +742,7 @@
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
   (let* ((displacment 0.1d-3)
-         (total-time (* 1000d0 displacment))
+         (total-time (* 100d0 displacment))
          (load-steps (round (* 1000 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
@@ -847,9 +851,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
-                       ;; (setf load-av (get-load))
-                       ;; (setf disp-av *displacement-increment*)
+                       (setf load-av (get-load))
+                       (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
