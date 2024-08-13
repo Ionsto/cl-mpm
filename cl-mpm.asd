@@ -72,6 +72,7 @@
 (defsystem "cl-mpm/particle"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
+               ;; "cl-mpm/damage"
                "cl-mpm/ext"
                "cl-mpm/mesh")
   :description "MPM particle definitions"
@@ -87,8 +88,9 @@
                    (:file "plastic")
                    (:file "concrete")
                    ;; (:file "limestone")
-                   (:file "ice")
-                   (:file "chalk")))))))
+                   ;; (:file "ice")
+                   ;(:file "chalk")
+                   ))))))
 
 (defsystem "cl-mpm/damage"
   :depends-on ("cl-mpm/magicl"
@@ -281,6 +283,7 @@
                "cl-mpm/mpi"
                "cl-mpm/dynamic-relaxation"
                "cl-mpm/plotter"
+               "cl-mpm/models/ice"
                "lfarm-client"
                "vgplot"
                "swank.live"
@@ -492,6 +495,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/mpi"
+               "cl-mpm/models/chalk"
                "cl-mpm/dynamic-relaxation"
                "cl-mpm/examples/chalk")
   :serial t
@@ -567,6 +571,7 @@
   :depends-on ("cl-mpm/all"
                "parse-float"
                "lisp-stat"
+               "cl-mpm/models/chalk"
                "vgplot"
                "swank.live")
   :serial t
@@ -601,17 +606,25 @@
 ;;   :serial t
 ;;   :components ((:file "src/models/ice")))
 
-;; (defsystem "cl-mpm/models/chalk"
-;;   :depends-on ("cl-mpm/particle"
-;;                "cl-mpm/models/plastic"
-;;                "cl-mpm/models/damage"
-;;                )
-;;   :description "MPM ice particle definitions"
-;;   :serial t
-;;   :components ((:file "src/models/chalk")))
+(defsystem "cl-mpm/models/chalk"
+  :depends-on ("cl-mpm/particle"
+               ;; "cl-mpm/models/plastic"
+               ;; "cl-mpm/models/damage"
+               "cl-mpm/damage"
+               )
+  :description "MPM chalk particle definitions"
+  :serial t
+  :components ((:file "src/models/chalk")))
 
 
-
+(defsystem "cl-mpm/models/ice"
+  :depends-on ("cl-mpm/particle"
+               "cl-mpm/models/chalk"
+               "cl-mpm/damage"
+               )
+  :description "MPM ice particle definitions"
+  :serial t
+  :components ((:file "src/models/ice")))
 
 (defsystem "cl-mpm/models/limestone"
   :depends-on ("cl-mpm/particle"

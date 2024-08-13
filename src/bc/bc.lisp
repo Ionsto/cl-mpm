@@ -337,12 +337,12 @@
   "Construct reflection bcs over the outside of a mesh"
   (let  ((bcs (make-outside-bc-var
                mesh
-               (lambda (i) (make-bc-fixed i '(0 nil nil)))
-               (lambda (i) (make-bc-fixed i '(0 nil nil)))
-               (lambda (i) (make-bc-fixed i '(nil 0 nil)))
-               (lambda (i) (make-bc-fixed i '(nil 0 nil)))
-               (lambda (i) (make-bc-fixed i '(nil nil 0)))
-               (lambda (i) (make-bc-fixed i '(nil nil 0))))))
+               (lambda (i) (make-bc-fixed i left))
+               (lambda (i) (make-bc-fixed i right))
+               (lambda (i) (make-bc-fixed i top))
+               (lambda (i) (make-bc-fixed i bottom))
+               (lambda (i) (make-bc-fixed i front))
+               (lambda (i) (make-bc-fixed i back)))))
     (collate-bcs-fixed bcs)))
 (defun collate-bcs-fixed (bcs)
   (loop for i from 0 below (- (length bcs) 1)

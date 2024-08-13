@@ -111,6 +111,10 @@
     :accessor mp-damage-model
     :initarg :damage-model
     )
+   (enable-damage
+    :accessor mp-enable-damage
+    :initarg :enable-damage
+    :initform t)
    (damage-domain-update-rate
     :accessor mp-damage-domain-update-rate
     :initarg :damage-domain-rate

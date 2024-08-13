@@ -42,6 +42,10 @@
    (damage-mode-2
     :accessor mp-damage-mode-2
     :initform 0d0)
+   (enable-viscosity
+    :accessor mp-enable-viscosity
+    :initform t
+    :initarg :enable-viscosity)
    (visc-water-damping
     :accessor mp-visc-water-damping
     :initarg :water-damping
@@ -177,6 +181,8 @@
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
+                   (enable-viscosity mp-enable-viscosity)
+                   (enable-damage mp-enable-damage)
                    (D mp-stretch-tensor)
                    (vorticity mp-vorticity)
                    (initiation-stress mp-initiation-stress)
@@ -193,6 +199,7 @@
                    (eng-strain-rate mp-eng-strain-rate)
                    (visc-factor mp-visc-factor)
                    (visc-power mp-visc-power)
+                   (true-visc mp-true-visc)
                    )
       mp
     (declare (function calc-pressure)
@@ -208,7 +215,23 @@
     ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
     ;;          (magicl:scale! q rho))))
 
-    (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    (if enable-viscosity
+        (progn
+          (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
+            (setf true-visc viscosity)
+            (setf stress-u (cl-mpm/constitutive:maxwell-exp-v
+                            strain-rate
+                            stress-u
+                            E
+                            nu
+                            de
+                            viscosity
+                            dt
+                            ))
+            (setf strain (magicl:linear-solve de stress-u))))
+        ;;Fallback is linear elastic
+        (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)))
 
     ;; (let ((pressure (* pressure (expt damage 1))))
     ;;   (cl-mpm/fastmath::fast-.+ stress-u
@@ -288,7 +311,8 @@
     ;;   (cl-mpm/fastmath::fast-.+ stress
     ;;                             (cl-mpm/utils::voigt-eye pressure)
     ;;                             stress))
-    (when (> damage 0.0d0)
+    (when (and enable-damage
+               (> damage 0.0d0))
       (let* ((d-p (* pressure damage 0d0 (magicl:det def))))
         (declare (double-float damage))
         (let* ((p (+ (/ (cl-mpm/constitutive::voight-trace stress) 3d0) d-p))
@@ -307,10 +331,12 @@
            (magicl:scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
            stress))))
 
-    ;; (let ((pressure (* pressure (expt damage 2) (magicl:det def))))
-    ;;   (cl-mpm/fastmath::fast-.+ stress
-    ;;                             (cl-mpm/utils::voigt-eye pressure)
-    ;;                             stress))
+    (let ((pressure (* pressure (expt damage 1)
+                       ;; (magicl:det def)
+                       )))
+      (cl-mpm/fastmath::fast-.+ stress
+                                (cl-mpm/utils::voigt-eye pressure)
+                                stress))
 
     ;; (let ((damping-coeff (mp-visc-water-damping mp))
     ;;       (vabs (cl-mpm/particle:mp-velocity mp)))
@@ -370,3 +396,72 @@
     ;;              )))))
     stress
     ))
+
+(in-package :cl-mpm/damage)
+(defmethod update-damage ((mp cl-mpm/particle::particle-visco-elasto-plastic-damage) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;; (length-t cl-mpm/particle::mp-true-local-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     (tau-exp cl-mpm/particle::mp-delay-exponent)
+                     (ductility cl-mpm/particle::mp-ductility)
+                     (nu cl-mpm/particle::mp-nu)
+                     (p cl-mpm/particle::mp-p-modulus)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage k ybar tau dt))
+        (progn
+          ;;Damage increment holds the delocalised driving factor
+          (setf ybar damage-inc)
+          (setf damage-inc 0d0)
+          ;; (setf k (max k ybar))
+
+          (let ((a tau-exp)
+                (k0 init-stress))
+            (incf k
+                  (the double-float
+                       (*
+                        dt
+                        (/
+                         (* k0
+                            (expt
+                             (/ (the double-float (max 0d0 (- ybar k)))
+                                k0)
+                             a))
+                         tau)))))
+
+          (let ((new-damage
+                  (max
+                   damage
+                   (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility))))
+            (declare (double-float new-damage))
+            (setf damage-inc (- new-damage damage))
+            )
+
+          (when (>= damage 1d0)
+            (setf damage-inc 0d0)
+            (setf ybar 0d0))
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) damage-inc)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+          ;;Transform to log damage
+          (incf damage damage-inc)
+          ;;Transform to linear damage
+          (setf damage (max 0d0 (min 1d0 damage)))
+          (when (> damage critical-damage)
+            (setf damage 1d0)
+            (setf damage-inc 0d0))
+          )
+  (values)))

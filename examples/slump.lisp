@@ -453,7 +453,9 @@
            :local-length length-scale;(* 0.20d0 (sqrt 7))
            :local-length-damaged 10d-10
 
-           :enable-plasticity t
+           :enable-plasticity nil
+           :enable-damage nil
+           :enable-viscosity nil
            :psi (* 00d0 (/ pi 180))
            :phi (* 40d0 (/ pi 180))
            :c 1000d3
@@ -488,7 +490,7 @@
       (format t "Est dt: ~f~%" (cl-mpm/setup::estimate-elastic-dt sim))
 
       (setf (cl-mpm:sim-mass-filter sim) 1d-10)
-      (setf (cl-mpm::sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -497,14 +499,17 @@
       (setf (cl-mpm:sim-dt sim) 1d-8)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
-            (cl-mpm/bc::make-outside-bc-var
+            (cl-mpm/bc::make-outside-bc-varfix
              (cl-mpm:sim-mesh sim)
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 nil nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(0 0 nil)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
-             (lambda (i) (cl-mpm/bc:make-bc-fixed i '(nil nil 0)))
+             '(0 nil nil)
+             '(0 nil nil)
+             '(nil 0 nil)
+             '(nil 0 nil)
+             ;;Front back
+             '(nil nil 0)
+             '(nil nil 0)
+             ;; '(0 nil 0)
+             ;; '(0 nil 0)
              ))
       (format t "Bottom level ~F~%" h-y)
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
@@ -512,7 +517,7 @@
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
              (ocean-y (+ (second block-offset)
                          (* terminus-size 0.9d0)))
-             ;; (ocean-y 0d0)
+             (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
             ;(angle -1d0)
@@ -522,7 +527,7 @@
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
 
-        (let ((floor-friction 0.9d0));0.8
+        (let ((floor-friction 0.8d0));0.8
           (defparameter *ocean-floor-bc*
             (cl-mpm/penalty::make-bc-penalty-point-normal
              sim
@@ -577,9 +582,9 @@
                   *water-density*
                   (lambda (pos)
                     (>= (magicl:tref pos 1 0) (* h-y 0))))))
-               ;; (cl-mpm/bc:make-bcs-from-list
-               ;;  (list *floor-bc*)
-               ;;  )
+               (cl-mpm/bc:make-bcs-from-list
+                (list *floor-bc*)
+                )
                ;; (cl-mpm/bc:make-bcs-from-list
                ;;  (list *ocean-floor-bc*)
                ;;  )
@@ -607,21 +612,23 @@
   (let* ((mesh-size (* 10 refine))
          (mps-per-cell mps)
          (slope 0d0)
-         (shelf-height 400d0)
-         (shelf-aspect 8.0)
-         (runout-aspect 1.0)
+         (shelf-height 100d0)
+         (shelf-aspect 4.0)
+         (runout-aspect 4.0)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)
          (shelf-height shelf-end-height)
-         (depth 400)
+         (depth 200)
          (angle-offset (* shelf-length (sin (* angle (/ pi 180)))))
          (offset (list 0d0
                   ;(* 2d0 mesh-size)
                   (+
-                   shelf-height
-                   ;; (* 2d0 mesh-size)
-                   angle-offset))))
+                   ;shelf-height
+                   (* 2d0 mesh-size)
+                   angle-offset)
+                  0d0
+                  )))
     (defparameter *floor-datum* (second offset))
     (defparameter *removal-point* (- (+ shelf-length (* runout-aspect shelf-height)) (* 2 mesh-size)))
     (defparameter *sim*
@@ -860,6 +867,12 @@
                                                      ))
 
     ;; (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0d0)
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (setf
+        (cl-mpm/particle::mp-enable-viscosity mp) nil
+        (cl-mpm/particle::mp-enable-plasticity mp) nil)))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
            (substeps-e (floor target-time dt-e)))
@@ -941,11 +954,19 @@
                           (setf sim-state :settle)
                           (setf (cl-mpm:sim-damping-factor *sim*)
                                 damping-0))
-                        (when (>= steps settle-steps)
+                        (when (= steps settle-steps)
                           (setf (cl-mpm::sim-enable-damage *sim*) t)
+                          (cl-mpm:iterate-over-mps
+                           (cl-mpm:sim-mps *sim*)
+                           (lambda (mp)
+                             (setf
+                              (cl-mpm/particle::mp-enable-viscosity mp) t
+                              (cl-mpm/particle::mp-enable-damage mp) t
+                              (cl-mpm/particle::mp-enable-plasticity mp) t))))
+                        (when (>= steps settle-steps)
                           (if (or
                                ;; t
-                               (> energy-estimate 1d0)
+                               (> energy-estimate 1d-3)
                                (> *oobf* 1d-1)
                                ;; t
                                ;; nil
@@ -966,7 +987,7 @@
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d2
+                              target-time 1d1
                               (cl-mpm::sim-mass-scale *sim*) 1d6))
                             (:collapse
                              (format t "Collapse timestep~%")

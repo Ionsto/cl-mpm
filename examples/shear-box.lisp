@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/shear-box
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (in-package :cl-mpm/examples/shear-box)
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -77,14 +77,14 @@
         ;;                                             ))
         ;;                                           E
         ;;                                           de))
-        ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
-        ;;                                                    de)))
-        ;;   (setf damage-increment
-        ;;         (max 0d0
-        ;;              (cl-mpm/damage::drucker-prager-criterion
-        ;;               es
-        ;;               ;(magicl:scale es (/ 1d0 (magicl:det def)))
-        ;;               (* angle (/ pi 180d0))))))
+        (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
+                                                           de)))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::drucker-prager-criterion
+                      es
+                      ;(magicl:scale es (/ 1d0 (magicl:det def)))
+                      (* angle (/ pi 180d0))))))
         ;; (setf damage-increment
         ;;       (max 0d0
         ;;            (cl-mpm/damage::drucker-prager-criterion
@@ -99,8 +99,8 @@
 
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
         ;; (setf damage-increment 0d0)
-        (setf damage-increment
-              (* E (cl-mpm/utils:trace-voigt plastic-strain)))
+        ;; (setf damage-increment
+        ;;       (* E (cl-mpm/utils:trace-voigt plastic-strain)))
         ;;Delocalisation switch
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
@@ -280,16 +280,18 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
-             ;(init-stress 100d3)
-             (init-stress 1d0)
-             ;(gf 48d0)
+                                        ;(init-stress 100d3)
+             (init-stress 131d3)
+                                        ;(gf 48d0)
              (gf 48d0)
              ;; (gf 100d0)
              (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 10d0)
-             (ductility 1d8)
+             ;(ductility 1d8)
+             ;; (ductility 1d1)
+             (ductility 1d4)
              )
         (pprint length-scale)
         (format t "Estimated ductility ~E~%" ductility)
@@ -316,9 +318,10 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
+           ;:g-res-ratio 5d-1
            :g-res-ratio 1d-9
-           :damage 0.9d0
-           :friction-angle 43d0
+           ;; :damage 0.9d0
+           :friction-angle 42d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
            :delay-exponent 1d0
@@ -326,7 +329,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-plasticity t
+           :enable-plasticity nil
            :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c (* 131d3 1d0)
@@ -349,41 +352,41 @@
                           0d0))
              )
         (format t "Gravity ~F~%" gravity)
-        ;; (cl-mpm::add-mps
-        ;;  sim
-        ;;  (cl-mpm/setup::make-mps-from-list
-        ;;   (cl-mpm/setup::make-block-mps-list
-        ;;    (mapcar #'+ offset (list 0d0 (second block-size)))
-        ;;    sur-size
-        ;;    (mapcar (lambda (e) (* e e-scale 2)) sur-size)
-        ;;    density
-        ;;    'cl-mpm/particle::particle-elastic-damage
-        ;;    :E 1d9
-        ;;    :nu 0.24d0
-        ;;    :initiation-stress 1d20
-        ;;    :local-length 0d0
-        ;;    :index 1
-        ;;    :gravity (- gravity))))
-        (defparameter *pressure-bc*
-          (cl-mpm/buoyancy::make-bc-pressure
-           sim
-           0d0
-           (- surcharge-load)
-           :clip-func
-           (lambda (pos)
-             (and
-              (> (cl-mpm/utils:varef pos 1)
-                 (+ (second offset) (* 0.5d0 (second block-size))))
-              ;; (> (cl-mpm/utils:varef pos 0)
-              ;;    (first offset))
-              ;; (< (cl-mpm/utils:varef pos 0)
-              ;;    (+ (first offset) (first block-size)))
-              )
-
-             )))
-        (cl-mpm:add-bcs-force-list
+        (cl-mpm::add-mps
          sim
-         *pressure-bc*)
+         (cl-mpm/setup::make-mps-from-list
+          (cl-mpm/setup::make-block-mps-list
+           (mapcar #'+ offset (list 0d0 (second block-size)))
+           sur-size
+           (mapcar (lambda (e) (* e e-scale 2)) sur-size)
+           density
+           'cl-mpm/particle::particle-elastic-damage
+           :E 1d9
+           :nu 0.24d0
+           :initiation-stress 1d20
+           :local-length 0d0
+           :index 1
+           :gravity (- gravity))))
+        ;; (defparameter *pressure-bc*
+;;           (cl-mpm/buoyancy::make-bc-pressure
+;;            sim
+;;            0d0
+;;            (- surcharge-load)
+;;            :clip-func
+;;            (lambda (pos)
+;;              (and
+;;               (> (cl-mpm/utils:varef pos 1)
+;;                  (+ (second offset) (* 0.5d0 (second block-size))))
+;;               ;; (> (cl-mpm/utils:varef pos 0)
+;;               ;;    (first offset))
+;;               ;; (< (cl-mpm/utils:varef pos 0)
+;;               ;;    (+ (first offset) (first block-size)))
+;;               )
+
+;;              )))
+;;         (cl-mpm:add-bcs-force-list
+;;          sim
+;;          *pressure-bc*)
         )
 
       (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
@@ -401,7 +404,7 @@
 
 
       (defparameter *mesh-resolution* h-x)
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
@@ -426,10 +429,25 @@
              '(0 nil nil)
              '(0 nil nil)
              '(nil 0 nil)
-             '(nil nil nil)
+             '(nil 0 nil)
              '(nil nil 0)
              '(nil nil 0)))
-      
+      ;; (cl-mpm:iterate-over-mps
+      ;;  (cl-mpm:sim-mps sim)
+      ;;       do
+      ;;       (let* ((pressure surcharge-load)
+      ;;              (E 1d9)
+      ;;              (nu 0.24d0)
+      ;;              (strain (cl-mpm/utils:voigt-from-list (list 0d0 (- (/ pressure E))
+      ;;                                                          0d0
+      ;;                                                          0d0
+      ;;                                                          0d0
+      ;;                                                          0d0)))
+      ;;              (stress (cl-mpm))
+      ;;              )
+      ;;         )
+      ;;         (setf )
+      ;;       )
       sim)))
 
 
@@ -480,7 +498,7 @@
          (epsilon (* 1d2 1d9))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
-         ;; (friction 0.0d0)
+         (friction 0.5d0)
          (damping 0d0))
 
     (defparameter *shear-box-left-static*
@@ -490,7 +508,7 @@
        (cl-mpm/utils:vector-from-list (list left-x (+ (* 3d0 height) offset) 0d0))
        (* 2d0 height)
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-right-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -499,7 +517,7 @@
        (cl-mpm/utils:vector-from-list (list right-x (+ (* 3d0 height) offset) 0d0))
        (* 2d0 height)
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-left-slide*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -508,7 +526,7 @@
        (cl-mpm/utils:vector-from-list (list (- left-x height) (+ height offset) 0d0))
        (* 1d0 height)
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-left-dynamic*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -523,7 +541,7 @@
         (* 1 extra-height)
         )
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-right-dynamic*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -539,7 +557,7 @@
         (* 1 extra-height)
         )
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-right-slide*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -548,7 +566,7 @@
        (cl-mpm/utils:vector-from-list (list (+ right-x height) (+ height offset) 0d0))
        (* 1d0 height)
        epsilon
-       friction
+       0d0
        damping))
     (defparameter *shear-box-floor*
       (cl-mpm/penalty::make-bc-penalty-point-normal
@@ -556,14 +574,14 @@
        plane-normal-left
        (cl-mpm/utils:vector-from-list (list 0d0 offset 0d0))
        epsilon
-       friction
+       0d0
        damping))
 
     (defparameter *shear-box-struct-left*
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-left-static*
@@ -576,7 +594,7 @@
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-right-static*
@@ -588,7 +606,7 @@
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-left-static*)))
@@ -596,7 +614,7 @@
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-right-dynamic*)))
@@ -604,7 +622,7 @@
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-floor*)))
@@ -612,7 +630,7 @@
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
        epsilon
-       friction
+       0d0
        damping
        (list
         *shear-box-right-static*
@@ -639,7 +657,19 @@
                (+ (- left-x height) *displacement-increment*))
 
          (setf (cl-mpm/penalty::bc-penalty-datum *shear-box-right-dynamic*)
-               (- (+ right-x *displacement-increment*)))))
+               (- (+ right-x *displacement-increment*)))
+         (let ((friction-bcs (list
+                              *shear-box-right-static*
+                              *shear-box-right-dynamic*
+                              *shear-box-left-static*
+                              *shear-box-left-dynamic*
+                              )))
+           (loop for bc in friction-bcs
+                 do (setf (cl-mpm/penalty::bc-penalty-friction bc)
+                          (if *enable-box-friction*
+                              friction
+                              0d0)))));)
+       )
       )
     (cl-mpm:add-bcs-force-list
      *sim*
@@ -658,10 +688,10 @@
         ))))))
 
 (defun get-load ()
-  (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  ;; (-
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
+  (-
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
 
 (defun get-damage ()
@@ -741,9 +771,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.1d-3)
+  (let* ((displacment 1d-3)
          (total-time (* 100d0 displacment))
-         (load-steps (round (* 1000 (/ displacment 1d-3))))
+         (load-steps (round (* 500 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

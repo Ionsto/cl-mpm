@@ -923,7 +923,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (let ((df (calculate-df mesh mp fbar)))
         (progn
           (setf def (magicl:@ df def))
+          (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
+          (cl-mpm/fastmath:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
           (setf volume (* volume (the double-float (magicl:det df))))
           ;; (setf volume (* volume-0 (magicl:det def)))
@@ -967,9 +969,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
+          (cl-mpm/fastmath:fast-.- strain strain-rate strain-rate)
           ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
           ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-          (cl-mpm/fastmath:fast-.- strain-rate strain strain-rate)
           ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
           ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
           ;;Post multiply to turn to eng strain
