@@ -1453,11 +1453,10 @@
                               (setf (aref bcs i) nil)))))))
                   (setf bcs (delete nil bcs))
                   (format t "Rank ~D - Pruned ~D orphan bcs~%" rank prune-count))
-                (loop for bc across (cl-mpm:sim-bcs *sim*)
+                (loop for bc across (cl-mpm:sim-bcs sim)
                       do
                         (when bc (when (equal (cl-mpm/mesh:get-node mesh (cl-mpm/bc:bc-index bc)) nil)
-                                   (error "How on earth has bc ~A got a nil node rank ~D" bc rank)))
-                      )
+                                   (error "How on earth has bc ~A got a nil node rank ~D" bc rank))))
                 ;;Cells
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size cells))
