@@ -1401,23 +1401,25 @@
                      (buffer-size (1+ (ceiling min-domain-length h))))
                 (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
                 (format t "Domain size ~A~%" domain-sizes)
+                (setf bcs (delete nil bcs))
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size bcs))
                     (let ((bc (aref bcs i)))
-                      (let ((index (cl-mpm/bc:bc-index bc)))
-                        ;;nil indexes indiciate global bcs
-                        (when index
-                          (progn
-                            ;;SBCL is very sure that the result cannot be nil!
-                            (when (not (equal (cl-mpm/mesh:get-node mesh index) nil))
-                              (let ((node (cl-mpm/mesh:get-node mesh index)))
-                                ;; (format t "Pruning BC at index: ~A node: ~A~%" index node)
-                                (when (not (in-computational-domain-buffer
-                                            sim
-                                            (cl-mpm/mesh::node-position node)
-                                            (* 1.1 buffer-size)))
-                                  (incf prune-count)
-                                  (setf (row-major-aref bcs i) nil)))))))))
+                      (when bc
+                        (let ((index (cl-mpm/bc:bc-index bc)))
+                          ;;nil indexes indiciate global bcs
+                          (when index
+                            (progn
+                              ;;SBCL is very sure that the result cannot be nil!
+                              (when (not (equal (cl-mpm/mesh:get-node mesh index) nil))
+                                (let ((node (cl-mpm/mesh:get-node mesh index)))
+                                  ;; (format t "Pruning BC at index: ~A node: ~A~%" index node)
+                                  (when (not (in-computational-domain-buffer
+                                              sim
+                                              (cl-mpm/mesh::node-position node)
+                                              (* 1.1 buffer-size)))
+                                    (incf prune-count)
+                                    (setf (row-major-aref bcs i) nil))))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
                 (setf bcs (delete nil bcs))
