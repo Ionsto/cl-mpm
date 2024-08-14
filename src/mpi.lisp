@@ -1403,7 +1403,7 @@
                 (format t "Domain size ~A~%" domain-sizes)
                 (setf bcs (delete nil bcs))
                 (let ((prune-count 0))
-                  (dotimes (i (array-total-size bcs))
+                  (dotimes (i (length bcs))
                     (let ((bc (aref bcs i)))
                       (when bc
                         (let ((index (cl-mpm/bc:bc-index bc)))
@@ -1438,7 +1438,7 @@
 
                 ;;Prune orphan bcs
                 (let ((prune-count 0))
-                  (dotimes (i (array-total-size bcs))
+                  (dotimes (i (length bcs))
                     (let ((bc (aref bcs i)))
                       (when bc
                         (let ((index (cl-mpm/bc:bc-index bc)))
