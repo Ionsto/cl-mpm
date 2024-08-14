@@ -21,8 +21,8 @@
 ;;   (pprint object stream))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-visco-elasto-plastic-damage) dt fbar)
-  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   )
 
 
@@ -51,60 +51,60 @@
                      ) mp
       (declare (double-float pressure damage))
       (progn
-        (when (< damage 1d0)
-          ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm-pressure strain E nu de
-          ;;                                                                     (* damage pressure 0d0)
-          ;;                                                                     ;; pressure
-          ;;                                                                     ;; 0d0
-          ;;                                                                     ))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm-pressure strain E nu de
+        ;;                                                                     (* damage pressure 0d0)
+        ;;                                                                     ;; pressure
+        ;;                                                                     ;; 0d0
+        ;;                                                                     ))
+        ;; (setf damage-increment
+        ;;       (* ;(- 1d0 damage)
+        ;;          (cl-mpm/damage::tensile-energy-norm-pressure
+        ;;           (cl-mpm/fastmath:fast-.+ strain strain-plastic)
+        ;;           E nu
+        ;;           de
+        ;;           (* damage pressure 0d0))))
+        ;; (setf damage-increment (cl-mpm/damage::criterion-j2 stress))
+        ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
+
+        ;; (setf damage-increment
+        ;;       (* 
+        ;;        ;(- 1d0 damage)
+        ;;        1d0
+        ;;        (cl-mpm/damage::tensile-energy-norm strain E de)))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::jrucker-prager-criterion
+        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             (* 50d0 (/ pi 180d0)))))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp
+        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             (* angle (/ pi 180d0)))))
+
+        (let ((total-stress (cl-mpm/constitutive:linear-elastic-mat
+                             (cl-mpm/fastmath:fast-.+
+                              strain
+                              (magicl:scale strain-plastic (- 1d0 damage))) de)))
           (setf damage-increment
-                (* ;(- 1d0 damage)
-                   (cl-mpm/damage::tensile-energy-norm-pressure
-                    (cl-mpm/fastmath:fast-.+ strain strain-plastic)
-                    E nu
-                    de
-                    (* damage pressure 0d0))))
-          ;; (setf damage-increment (cl-mpm/damage::criterion-j2 stress))
-          ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
+                (max 0d0
+                     (cl-mpm/damage::criterion-dp-pressure
+                      (magicl:scale total-stress (/ 1d0 (magicl:det def)))
+                      ;; total-stress
+                      (* angle (/ pi 180d0))
+                      0d0))))
 
-          ;; (setf damage-increment
-          ;;       (* 
-          ;;        ;(- 1d0 damage)
-          ;;        1d0
-          ;;        (cl-mpm/damage::tensile-energy-norm strain E de)))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::jrucker-prager-criterion
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
-          ;;             (* 50d0 (/ pi 180d0)))))
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::criterion-dp
-          ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
-          ;;             (* angle (/ pi 180d0)))))
-
-          ;; (let ((total-stress (cl-mpm/constitutive:linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain strain-plastic) de)))
-          ;;   (setf damage-increment
-          ;;         (max 0d0
-          ;;              (cl-mpm/damage::criterion-dp-pressure
-          ;;               (magicl:scale total-stress (/ 1d0 (magicl:det def)))
-          ;;               ;; total-stress
-          ;;               (* angle (/ pi 180d0))
-          ;;               0d0))))
-
-          ;; (setf damage-increment
-          ;;       (max 0d0
-          ;;            (cl-mpm/damage::criterion-dp-pressure
-          ;;             ;(magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))
-          ;;             stress
-          ;;             (* angle (/ pi 180d0))
-          ;;             ;; (* (- pressure) damage)
-          ;;             ;; (- pressure)
-          ;;             0d0
-          ;;             )))
-          )
-        (when (>= damage 1d0)
-          (setf damage-increment 0d0))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp-pressure
+        ;;             ;(magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0))
+        ;;             stress
+        ;;             (* angle (/ pi 180d0))
+        ;;             ;; (* (- pressure) damage)
+        ;;             ;; (- pressure)
+        ;;             0d0
+        ;;             )))
+        
         ;;Delocalisation switch
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
@@ -290,8 +290,13 @@
       )))
 
 (declaim (notinline plot))
+(defun plot (sim)
+  (plot-disp-day))
+
+
+(declaim (notinline plot-domain))
 ;; (defun plot (sim &optional (plot :damage)))
-(defun plot (sim &optional (plot :damage))
+(defun plot-domain (sim &optional (plot :damage))
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -304,7 +309,8 @@
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
-     :colour-func #'cl-mpm/particle::mp-damage
+     ;; :colour-func #'cl-mpm/particle::mp-damage
+     :colour-func #'cl-mpm/particle::mp-true-visc
      ;; :colour-func (lambda (mp) (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0))
      )
     ;; (vgplot:format-plot t "set yrange [~f:~f]" (* 2 h) ms-y)
@@ -404,7 +410,7 @@
     (progn
       (let* ((length-scale (* 1 h))
              ;; (stress 0.3d6)
-             (stress 200d3)
+             (stress 30d3)
              (gf 5000d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale stress 1d9))
              (ductility-ii (cl-mpm/damage::estimate-ductility-jirsek2004 (* 0.9d0 gf) length-scale stress 1d9))
@@ -439,7 +445,7 @@
 
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-2
+           :g-res-ratio 1d-1
 
            :initiation-stress stress
 
@@ -515,8 +521,11 @@
       (let* ((terminus-size (+ (second block-size) (* slope (first block-size))))
              (ocean-x 1000)
              ;; (ocean-y (+ h-y (* 0.0d0 terminus-size)))
+             ;; (ocean-y (+ (second block-offset)
+             ;;             (* terminus-size 0.9d0)))
              (ocean-y (+ (second block-offset)
-                         (* terminus-size 0.9d0)))
+                         (* terminus-size 1.0d0)
+                         -50))
              (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
@@ -527,7 +536,7 @@
         (format t "Ocean level ~a~%" ocean-y)
         (defparameter *water-height* ocean-y)
 
-        (let ((floor-friction 0.8d0));0.8
+        (let ((floor-friction 0.0d0));0.8
           (defparameter *ocean-floor-bc*
             (cl-mpm/penalty::make-bc-penalty-point-normal
              sim
@@ -609,12 +618,12 @@
   (declare (optimize (speed 0)))
   (defparameter *run-sim* nil)
   (setf cl-mpm::*max-split-depth* 4)
-  (let* ((mesh-size (* 10 refine))
+  (let* ((mesh-size (* 25 refine))
          (mps-per-cell mps)
          (slope 0d0)
-         (shelf-height 100d0)
+         (shelf-height 125d0)
          (shelf-aspect 4.0)
-         (runout-aspect 4.0)
+         (runout-aspect 2.0)
          (shelf-length (* shelf-height shelf-aspect))
          (shelf-end-height (+ shelf-height (* (- slope) shelf-length )))
          (shelf-height-terminus shelf-height)
@@ -848,8 +857,8 @@
          (dt (cl-mpm:sim-dt *sim*))
          (dt-0 0d0)
          (dt-scale 0.5d0)
-         (settle-steps 30)
-         (damp-steps 20)
+         (settle-steps 15)
+         (damp-steps 7)
          (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (substeps (floor target-time dt))
@@ -887,6 +896,7 @@
    (defparameter *data-energy* 0)
 
    (defparameter *data-full-time* (list))
+   (defparameter *data-full-disp* (list))
    (defparameter *data-full-damage* (list))
    (defparameter *data-full-oobf* (list))
    (defparameter *data-full-energy* (list))
@@ -955,22 +965,19 @@
                           (setf (cl-mpm:sim-damping-factor *sim*)
                                 damping-0))
                         (when (= steps settle-steps)
-                          (setf (cl-mpm::sim-enable-damage *sim*) t)
+                          (setf (cl-mpm::sim-enable-damage *sim*) nil)
                           (cl-mpm:iterate-over-mps
                            (cl-mpm:sim-mps *sim*)
                            (lambda (mp)
                              (setf
                               (cl-mpm/particle::mp-enable-viscosity mp) t
-                              (cl-mpm/particle::mp-enable-damage mp) t
-                              (cl-mpm/particle::mp-enable-plasticity mp) t))))
+                              (cl-mpm/particle::mp-enable-damage mp) nil
+                              (cl-mpm/particle::mp-enable-plasticity mp) nil))))
                         (when (>= steps settle-steps)
                           (if (or
-                               ;; t
-                               (> energy-estimate 1d-3)
-                               (> *oobf* 1d-1)
-                               ;; t
-                               ;; nil
-                               ;; (> work 1d6)
+                               ;; (> energy-estimate 1d-3)
+                               ;; (> *oobf* 1d-1)
+                               nil
                                )
                               (when (not (eq sim-state :collapse))
                                 (setf sim-state :collapse)
@@ -987,8 +994,8 @@
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d1
-                              (cl-mpm::sim-mass-scale *sim*) 1d6))
+                              target-time 1d5
+                              (cl-mpm::sim-mass-scale *sim*) 1d10))
                             (:collapse
                              (format t "Collapse timestep~%")
                              (setf
@@ -1015,15 +1022,21 @@
                                -1d0
                                1d0)))
                         (incf *sim-step*)
+                        (push *t* *data-full-time*)
+                        (push (lparallel:pmap-reduce
+                               (lambda (mp) (cl-mpm/utils:varef (cl-mpm/particle::mp-displacement mp) 0))
+                               #'max
+                               (cl-mpm:sim-mps *sim*))
+                              *data-full-disp*)
+                        (push *data-energy* *data-full-energy*)
+                        (push *oobf* *data-full-oobf*)
                         (plot *sim*)
                         (vgplot:title (format nil "Time:~F - Stage ~A - Energy ~E - OOBF ~E - Work ~E"  *t* sim-state energy-estimate *oobf* work))
                         (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                            :terminal "png size 1920,1080"
                                            )
                         )
-                      (push *t* *data-full-time*)
-                      (push *data-energy* *data-full-energy*)
-                      (push *oobf* *data-full-oobf*)
+                      
                       (format t "Mass loss: ~F~%"
                               (-
                                mass-0
@@ -1298,22 +1311,22 @@
 
 (defun plot-disp-day ()
   (let* ((df (lisp-stat:read-csv
-	            (uiop:read-file-string #P"stokes.csv")))
-         (time-day (mapcar (lambda (x) (/ x (* 24 60 60))) *time*))
+              (uiop:read-file-string #P"./example_data/slump/stokes.csv")))
+         (time-day (mapcar (lambda (x) (/ x (* 24 60 60))) *data-full-time*))
          ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
          )
     ;; (vgplot:figure)
     (vgplot:title "S_{xx} over height")
-    (vgplot:xlabel "Time (s)")
+    (vgplot:xlabel "Time (d)")
     (vgplot:ylabel "Displacment (m)")
     (vgplot:axis (list 0 (reduce #'max time-day)
-                       0 (reduce #'max *x-pos*)))
-    (vgplot:plot time-day *x-pos* "MPM"
+                       0 (reduce #'max *data-full-disp*)))
+    (vgplot:plot time-day *data-full-disp* "MPM"
                  (aops:each (lambda (x) (* x 32d0)) (lisp-stat:column df 'time)) (lisp-stat:column df 'disp) "stokes"
                  )))
 (defun plot-disp ()
   (let* ((df (lisp-stat:read-csv
-	            (uiop:read-file-string #P"stokes.csv")))
+	            (uiop:read-file-string #P"./example_data/slump/stokes.csv")))
          (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
          ;; (time-month (mapcar (lambda (x) (/ x (* 32d0 24 60 60))) *time*))
          )

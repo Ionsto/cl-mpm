@@ -40,7 +40,7 @@
 
 
 
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
                      (strain cl-mpm/particle::mp-strain)
@@ -77,14 +77,16 @@
         ;;                                             ))
         ;;                                           E
         ;;                                           de))
+
         (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
                                                            de)))
           (setf damage-increment
                 (max 0d0
                      (cl-mpm/damage::drucker-prager-criterion
                       es
-                      ;(magicl:scale es (/ 1d0 (magicl:det def)))
+                                        ;(magicl:scale es (/ 1d0 (magicl:det def)))
                       (* angle (/ pi 180d0))))))
+
         ;; (setf damage-increment
         ;;       (max 0d0
         ;;            (cl-mpm/damage::drucker-prager-criterion
@@ -98,6 +100,10 @@
         ;;             (* angle (/ pi 180d0)))))
 
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
+        ;;                         (cl-mpm/fastmath:fast-.+
+        ;;                          strain
+        ;;                          plastic-strain) E de))
         ;; (setf damage-increment 0d0)
         ;; (setf damage-increment
         ;;       (* E (cl-mpm/utils:trace-voigt plastic-strain)))
@@ -283,17 +289,17 @@
                                         ;(init-stress 100d3)
              (init-stress 131d3)
                                         ;(gf 48d0)
-             (gf 48d0)
+             ;; (gf 48d0)
+             (gf 1d0)
              ;; (gf 100d0)
              (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             ;; (ductility 10d0)
+             (ductility 10d0)
              ;(ductility 1d8)
              ;; (ductility 1d1)
-             (ductility 1d4)
+             ;; (ductility 1d4)
              )
-        (pprint length-scale)
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
          sim
@@ -318,8 +324,8 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           ;:g-res-ratio 5d-1
-           :g-res-ratio 1d-9
+           :g-res-ratio 5d-1
+           ;; :g-res-ratio 1d-9
            ;; :damage 0.9d0
            :friction-angle 42d0
            :initiation-stress init-stress;18d3
@@ -329,7 +335,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-plasticity nil
+           :enable-plasticity t
            :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c (* 131d3 1d0)
@@ -771,9 +777,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
+  (let* ((displacment 0.1d-3)
          (total-time (* 100d0 displacment))
-         (load-steps (round (* 500 (/ displacment 1d-3))))
+         (load-steps (round (* 1000 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -806,11 +812,11 @@
     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :energy-crit 1d-3
-     :oobf-crit 1d-3
+     :energy-crit 1d-2
+     :oobf-crit 1d-2
      :dt-scale 0.5d0
      :substeps 10
-     :conv-steps 100
+     :conv-steps 200
      :post-iter-step
      (lambda (i energy oobf)
        ;; (plot-domain)

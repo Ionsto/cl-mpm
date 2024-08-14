@@ -381,14 +381,13 @@
          (lam (* (- 1 exp-rho) (/ rho dt)))
          (stress-inc (magicl:@ (linear-elastic-matrix elasticity nu) strain-increment))
          (stress-inc-pressure (voight-eye (/ (voight-trace stress-inc) 3d0)))
-         (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure))
-         )
+         (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)))
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
-     (cl-mpm/fastmath::fast-.+
-      (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure)
-      (cl-mpm/fastmath::fast-.+ (magicl:scale! dev-stress exp-rho)
-                 (magicl:scale! stress-inc-dev lam)))))
+    (cl-mpm/fastmath::fast-.+
+     (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure)
+     (cl-mpm/fastmath::fast-.+ (cl-mpm/fastmath:fast-scale! dev-stress exp-rho)
+                               (cl-mpm/fastmath:fast-scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
                            magicl:matrix/double-float
@@ -509,11 +508,18 @@
 (defun glen-viscosity (stress visc-factor visc-power)
   "Get the viscosity for a given stress state"
   (let* ((s-dev (deviatoric-voigt stress))
-         (effective-stress (+ 1d-30 (magicl:trace (magicl:@ s-dev (magicl:transpose s-dev))))))
+         (second-invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+         (visc-factor (expt visc-factor (- visc-power)))
+         (effective-stress (+ 1d-50 (* 0.5d0
+                                       (cl-mpm/fastmath::fast-sum
+                                        (cl-mpm/fastmath:fast-.*
+                                         (cl-mpm/fastmath:fast-.* s-dev s-dev)
+                                         second-invar))))))
     (declare (type double-float effective-stress))
     (if (> effective-stress 0d0)
         (/ 1d0 (* 2d0 visc-factor (expt effective-stress (* 0.5d0 (- visc-power 1)))))
         0d0)))
+
 (defun effective-strain-rate (strain)
   (sqrt
    (* 0.5d0

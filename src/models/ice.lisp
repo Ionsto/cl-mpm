@@ -215,11 +215,18 @@
     ;;          (cl-mpm/constitutive::voight-eye (/ p 3d0))
     ;;          (magicl:scale! q rho))))
 
-    ;; (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (if enable-viscosity
         (progn
           (let ((viscosity (cl-mpm/constitutive::glen-viscosity stress-u visc-factor visc-power)))
             (setf true-visc viscosity)
+            ;; (let* ((s-dev (deviatoric-voigt stress-u))
+            ;;        (second-invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
+            ;;        (effective
+            ;;          (cl-mpm/fastmath::fast-sum
+            ;;           (cl-mpm/fastmath:fast-.* (cl-mpm/fastmath:fast-.* s-dev s-dev) second-invar))))
+            ;;   (setf true-visc effective)
+            ;;   )
             (setf stress-u (cl-mpm/constitutive:maxwell-exp-v
                             strain-rate
                             stress-u
