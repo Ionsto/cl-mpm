@@ -1419,7 +1419,7 @@
                                               (cl-mpm/mesh::node-position node)
                                               (* 1.1 buffer-size)))
                                     (incf prune-count)
-                                    (setf (row-major-aref bcs i) nil))))))))))
+                                    (setf (aref bcs i) nil))))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
                 (setf bcs (delete nil bcs))
@@ -1447,7 +1447,7 @@
                             ;;SBCL is very sure that the result cannot be nil!
                             (when (equal (cl-mpm/mesh:get-node mesh index) nil)
                               (incf prune-count)
-                              (setf (row-major-aref bcs i) nil)))))))
+                              (setf (aref bcs i) nil)))))))
                   (setf bcs (delete nil bcs))
                   (format t "Rank ~D - Pruned ~D orphan bcs~%" rank prune-count))
                 ;;Cells
