@@ -1401,6 +1401,8 @@
                      (buffer-size (1+ (ceiling min-domain-length h))))
                 (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
                 (format t "Domain size ~A~%" domain-sizes)
+                ;;Remove nil bcs
+
                 (setf bcs (delete nil bcs))
                 (let ((prune-count 0))
                   (dotimes (i (length bcs))
@@ -1417,12 +1419,13 @@
                                   (when (not (in-computational-domain-buffer
                                               sim
                                               (cl-mpm/mesh::node-position node)
-                                              (* 1.1 buffer-size)))
+                                              (* 1.0 buffer-size)))
                                     (incf prune-count)
                                     (setf (aref bcs i) nil))))))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
                 (setf bcs (delete nil bcs))
+
                 ;;Trim out all nodes that we can get rid of
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size nodes))
@@ -1450,6 +1453,11 @@
                               (setf (aref bcs i) nil)))))))
                   (setf bcs (delete nil bcs))
                   (format t "Rank ~D - Pruned ~D orphan bcs~%" rank prune-count))
+                (loop for bc across (cl-mpm:sim-bcs *sim*)
+                      do
+                        (when bc (when (equal (cl-mpm/mesh:get-node mesh (cl-mpm/bc:bc-index bc)) nil)
+                                   (error "How on earth has bc ~A got a nil node rank ~D" bc rank)))
+                      )
                 ;;Cells
                 (let ((prune-count 0))
                   (dotimes (i (array-total-size cells))
