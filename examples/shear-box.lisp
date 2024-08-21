@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/shear-box
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (in-package :cl-mpm/examples/shear-box)
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -54,7 +54,7 @@
                      (def cl-mpm/particle::mp-deformation-gradient)
                      (angle cl-mpm/particle::mp-friction-angle)
                      (c cl-mpm/particle::mp-coheasion)
- (nu cl-mpm/particle::mp-nu)
+                     (nu cl-mpm/particle::mp-nu)
                      (ft cl-mpm/particle::mp-ft)
                      (fc cl-mpm/particle::mp-fc)
                      (E cl-mpm/particle::mp-e)
@@ -82,7 +82,7 @@
                                                            de)))
           (setf damage-increment
                 (max 0d0
-                     (cl-mpm/damage::drucker-prager-criterion
+                     (cl-mpm/damage::criterion-dp;cl-mpm/damage::drucker-prager-criterion
                       es
                                         ;(magicl:scale es (/ 1d0 (magicl:det def)))
                       (* angle (/ pi 180d0))))))
@@ -287,7 +287,7 @@
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
                                         ;(init-stress 100d3)
-             (init-stress 131d3)
+             (init-stress (* 1.0 131d3))
                                         ;(gf 48d0)
              ;; (gf 48d0)
              (gf 1d0)
@@ -295,7 +295,7 @@
              (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0)
+             (ductility 100d0)
              ;(ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
@@ -324,8 +324,8 @@
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 5d-1
-           ;; :g-res-ratio 1d-9
+           ;; :g-res-ratio 5d-1
+           :g-res-ratio 1d-9
            ;; :damage 0.9d0
            :friction-angle 42d0
            :initiation-stress init-stress;18d3
@@ -335,7 +335,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-plasticity t
+           :enable-plasticity nil
            :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c (* 131d3 1d0)
@@ -395,18 +395,20 @@
 ;;          *pressure-bc*)
         )
 
-      (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
-             (fc (cl-mpm/particle::mp-fc mp-0))
-             (ft (cl-mpm/particle::mp-ft mp-0))
-             (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
-             (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
-             (angle-plastic (cl-mpm/particle::mp-phi mp-0))
-             (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
-             )
-        (format t "Chalk plastic virgin angle: ~F~%"
-                (* (/ 180 pi) angle-plastic))
-        (format t "Chalk plastic residual angle: ~F~%"
-                (* (/ 180 pi) angle-plastic-damaged)))
+      (let ((mp-0 (aref (cl-mpm:sim-mps sim) 0)))
+        (when (typep mp-0 'cl-mpm/particle::particle-chalk-brittle)
+          (let* (
+                 (fc (cl-mpm/particle::mp-fc mp-0))
+                 (ft (cl-mpm/particle::mp-ft mp-0))
+                 (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+                 (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+                 (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+                 (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+                 )
+            (format t "Chalk plastic virgin angle: ~F~%"
+                    (* (/ 180 pi) angle-plastic))
+            (format t "Chalk plastic residual angle: ~F~%"
+                    (* (/ 180 pi) angle-plastic-damaged)))))
 
 
       (defparameter *mesh-resolution* h-x)
@@ -505,6 +507,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction 0.5d0)
+         ;; (friction 0.0d0)
          (damping 0d0))
 
     (defparameter *shear-box-left-static*
@@ -777,9 +780,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.1d-3)
-         (total-time (* 100d0 displacment))
-         (load-steps (round (* 1000 (/ displacment 1d-3))))
+  (let* ((displacment 1d-3)
+         (total-time (* 50d0 displacment))
+         (load-steps (round (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -795,7 +798,7 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-1)))))
+                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2)))))
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
@@ -832,7 +835,7 @@
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d-3
+           1d-4
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -873,9 +876,9 @@
                 while *run-sim*
                 do
                    (progn
-                     (format t "Step ~d ~%" steps)
+                     (format t "Step ~d/~D~%" steps load-steps)
                      (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
                            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
@@ -887,8 +890,8 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       (setf load-av (get-load))
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av (get-load))
+                       ;; (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
@@ -975,7 +978,7 @@
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.5d0)
          (displacment 1d-3)
-         (enable-plasticity nil)
+         (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
     (loop for mp across (cl-mpm:sim-mps *sim*)
           when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
@@ -1007,22 +1010,21 @@
                        (let ((damage-0 0d0)
                              (damage-1 0d0))
                          (loop for i from 0 to 100
-                               while (or (= i 0) (> damage-1 damage-0)
-                                         )
+                               while (or (= i 0) (> damage-1 damage-0))
                                do
                                   (progn
                                     (setf damage-0 damage-1)
                                     (format t "Staggered solve: ~D~%" i)
                                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                                      *sim*
-                                     :energy-crit 1d-3
-                                     :oobf-crit 1d-3
+                                     :energy-crit 1d-2
+                                     :oobf-crit 1d-2
                                      :substeps 10
                                      :conv-steps 200
                                      :post-iter-step
                                      (lambda (i energy oobf)))
                                     (cl-mpm/damage::calculate-damage *sim*)
-                                    (plot *sim*)
+                                    ;; (plot *sim*)
                                     (setf damage-1 (get-damage))
                                     (format t "Staggered damage diff: ~E~%" (- damage-1 damage-0))
                                     ))
@@ -1407,3 +1409,16 @@
     (vgplot:plot data-iter data-damage)
     )
   )
+
+(defun test ()
+  (setf *run-sim* t)
+  (loop for s in (list
+                  10d4
+                  20d4
+                  30d4
+                  )
+        while *run-sim*
+        do
+           (progn
+             (setup :refine 4 :mps 2 :surcharge-load s)
+             (run (format nil "../ham-shear-box/output-4-~F/" s)))))
