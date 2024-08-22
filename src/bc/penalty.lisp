@@ -133,7 +133,7 @@
                             force-friction
                             tang-vel
                             (* -1d0 (/ epsilon 2d0) dt))))
-                       (incf mp-normal-force (- normal-force damping-force))
+                       (setf mp-normal-force (- normal-force damping-force))
                        (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
                          (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
                              (progn
@@ -666,7 +666,7 @@
                ;(* -1d0 (/ epsilon 2d0) dt)
                (* -1d0 epsilon dt)
                ))
-            (incf mp-normal-force (- normal-force damping-force))
+            (setf mp-normal-force (- normal-force damping-force))
             (when (> (cl-mpm/fastmath::mag-squared force-friction) 0d0)
               (if (> (cl-mpm/fastmath::mag force-friction) stick-friction)
                   (progn
@@ -741,7 +741,7 @@
                        (penalty-contact-valid bc corner))
                   (if in-contact
                       (cond
-                        ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-6))
+                        ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-3))
                          (setf (contact-point closest-point)
                                (cl-mpm/fastmath:fast-.+
                                 corner
@@ -780,6 +780,7 @@
           mesh
           mp
           (lambda (corner)
+            (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
             (let ((in-contact nil)
                   (closest-point (make-contact :penetration 0d0)))
               (loop for sub-bc in sub-bcs
@@ -793,14 +794,14 @@
                                   (penalty-contact-valid sub-bc corner))
                              (if in-contact
                                  (cond
-                                   ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-6)
-                                         (< (cl-mpm/fastmath:mag (cl-mpm/fastmath:fast-.- normal (contact-normal closest-point))) 1d-6))
-                                    (setf (contact-point closest-point)
-                                          (cl-mpm/fastmath:fast-.+
-                                           corner
-                                           (contact-point closest-point)))
-                                    (cl-mpm/fastmath:fast-scale! (contact-point closest-point) 0.5d0)
-                                    )
+                                   ;; ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-6)
+                                   ;;       (< (cl-mpm/fastmath:mag (cl-mpm/fastmath:fast-.- normal (contact-normal closest-point))) 1d-6))
+                                   ;;  (setf (contact-point closest-point)
+                                   ;;        (cl-mpm/fastmath:fast-.+
+                                   ;;         corner
+                                   ;;         (contact-point closest-point)))
+                                   ;;  (cl-mpm/fastmath:fast-scale! (contact-point closest-point) 0.5d0)
+                                   ;;  )
                                    ((< (abs penetration-dist) (abs (contact-penetration closest-point)))
                                     (setf closest-point (make-contact
                                                          :point corner
@@ -818,6 +819,8 @@
                                                         :sub-bc sub-bc))))))))
               (when in-contact
                 (let ((load (apply-penalty-point mesh (contact-sub-bc closest-point) mp (contact-point closest-point) dt)))
-                   (sb-thread:with-mutex (debug-mutex)
-                     (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
-                     (incf debug-force load))))))))))))
+                  ;; (when (< (varef (contact-point closest-point) 1) 0d0)
+                  ;;   (break "Corner out of bounds"))
+                  (sb-thread:with-mutex (debug-mutex)
+                    (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
+                    (incf debug-force load))))))))))))

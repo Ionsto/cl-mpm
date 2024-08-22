@@ -209,8 +209,8 @@
      *sim*
      :plot :deformed
      :colour-func
-     #'cl-mpm/particle::mp-damage
-     ;; (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0)) 
+     ;; #'cl-mpm/particle::mp-damage
+     (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
      ;; (lambda (mp)
      ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
      ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
@@ -309,17 +309,23 @@
            block-size
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
-           'cl-mpm/particle::particle-mc
+
+           'cl-mpm/particle::particle-vm
            :E 1d9
            :nu 0.24d0
-           :psi 0d0
+           :rho 100d3
+
+           ;; 'cl-mpm/particle::particle-mc
+           ;; :E 1d9
+           ;; :nu 0.24d0
+           ;; :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
-           :phi (* 30d0 (/ pi 180))
-           :c 0d0
-           :phi-r (* 30d0 (/ pi 180))
-           :c-r 0d0
-           :softening 0d0
+           ;; ;; :phi (* 30d0 (/ pi 180))
+           ;; ;; :c 0d0
+           ;; :phi-r (* 30d0 (/ pi 180))
+           ;; :c-r 0d0
+           ;; :softening 0d0
 
            ;; 'cl-mpm/particle::particle-chalk-delayed
            ;; :E 1d9
@@ -369,7 +375,7 @@
            (mapcar (lambda (e) (* e e-scale 2)) sur-size)
            density
            'cl-mpm/particle::particle-elastic-damage
-           :E 10d9
+           :E 1d9
            :nu 0.24d0
            :initiation-stress 1d20
            :local-length 0d0
@@ -650,7 +656,7 @@
         *shear-box-left-static*
         *shear-box-left-dynamic*
         *shear-box-left-slide*
-        *shear-box-floor*
+        ;; *shear-box-floor*
         )))
 
     (defparameter *shear-box-controller*
@@ -731,7 +737,7 @@
          (sunk-size 0.03d0)
          (box-size (* 2d0 sunk-size))
          (domain-size (* 3d0 box-size))
-         (box-offset (* mesh-size 1d0))
+         (box-offset (* mesh-size 0d0))
          (offset (list box-size box-offset)))
     (setf *box-size* box-size)
     (defparameter *sim* (setup-test-column
@@ -796,7 +802,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.8d0)
+         (dt-scale 0.5d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
@@ -825,14 +831,14 @@
     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :energy-crit 1d-2
-     :oobf-crit 1d-2
-     :dt-scale 0.25d0
+     :energy-crit 1d-3
+     :oobf-crit 1d-3
+     :dt-scale 0.250d0
      :substeps 10
-     :conv-steps 200
+     :conv-steps 500
      :post-iter-step
      (lambda (i energy oobf)
-       ;; (plot-domain)
+       (plot-domain)
        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        ))
@@ -1440,23 +1446,24 @@
 
 (defun test ()
   (setf *run-sim* t)
-  (loop for s in (list
-                  10d4
-                  20d4
-                  30d4
-                  )
-        while *run-sim*
-        do
-           (progn
-             (setup :refine 4 :mps 2 :surcharge-load s)
-             (run (format nil "../ham-shear-box/output-4-~F/" s)))))
+  (let ((refine 4))
+    (loop for s in (list
+                    10d4
+                    20d4
+                    30d4
+                    )
+          while *run-sim*
+          do
+             (progn
+               (setup :refine refine :mps 2 :surcharge-load s)
+               (run (format nil "../ham-shear-box/output-~D-~F/" refine s))))))
 
 (defun test-refine ()
   (setf *run-sim* t)
   (loop for s in (list
-                  2
                   4
                   8
+                  ;; 16
                   )
         while *run-sim*
         do
