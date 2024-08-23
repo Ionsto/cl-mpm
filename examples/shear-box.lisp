@@ -1,4 +1,4 @@
-(defpackage :cl-mpm/exmples/shear-box
+(defpackage :cl-mpm/examples/shear-box
   (:use :cl))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
@@ -45,6 +45,7 @@
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
                      (strain cl-mpm/particle::mp-strain)
                      (plastic-strain cl-mpm/particle::mp-strain-plastic)
+                     (plastic-vm cl-mpm/particle::mp-strain-plastic-vm)
                      (damage cl-mpm/particle:mp-damage)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -78,20 +79,20 @@
         ;;                                           E
         ;;                                           de))
 
-        (let ((es (cl-mpm/constitutive::linear-elastic-mat
-                   (cl-mpm/fastmath:fast-.+
-                    strain
-                    (magicl:scale plastic-strain
-                                  1d0
-                                  ;; (- 1d0 damage)
-                                  )
-                    )
-                                                           de)))
-          (setf damage-increment
-                (max 0d0
-                     (cl-mpm/damage::criterion-dp
-                      es
-                      (* angle (/ pi 180d0))))))
+        ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat
+        ;;            (cl-mpm/fastmath:fast-.+
+        ;;             strain
+        ;;             (magicl:scale plastic-strain
+        ;;                           0d0
+        ;;                           ;; (- 1d0 damage)
+        ;;                           )
+        ;;             )
+        ;;                                                    de)))
+        ;;   (setf damage-increment
+        ;;         (max 0d0
+        ;;              (cl-mpm/damage::criterion-dp
+        ;;               es
+        ;;               (* angle (/ pi 180d0))))))
 
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
         ;;                                                    de)))
@@ -107,12 +108,15 @@
         ;;            (cl-mpm/damage::drucker-prager-criterion
         ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
-        ;; (setf damage-increment
-        ;;       (max 0d0
-        ;;            (cl-mpm/damage::criterion-dp
-        ;;                                 ;(magicl:scale stress (/ 1d0 (magicl:det def)))
-        ;;             stress
-        ;;             (* angle (/ pi 180d0)))))
+        (setf damage-increment
+              (+ 
+               ;; (max 0d0
+               ;;      (cl-mpm/damage::criterion-dp
+               ;;                          ;(magicl:scale stress (/ 1d0 (magicl:det def)))
+               ;;       stress
+               ;;       (* angle (/ pi 180d0))))
+               (* E plastic-vm)
+               ))
 
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
@@ -267,9 +271,9 @@
      (mapcar (lambda (x) (* x 1d3)) *data-disp*)
      (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
      "Damage"
-     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     ;; (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
-     ;; "Plastic"
+     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
+     "Plastic"
      ))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
@@ -310,8 +314,8 @@
              (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0)
-             (ductility 1d8)
+             (ductility 5d0)
+             ;; (ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
              )
@@ -342,12 +346,12 @@
            ;; :c-r 0d0
            ;; :softening 0d0
 
-           'cl-mpm/particle::particle-chalk-delayed
+           'cl-mpm/particle::particle-chalk-delayed-grassl
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 3d-1
+           :g-res-ratio 1d-2
            ;; :g-res-ratio 1d-9
            ;; :damage 0.9d0
            :friction-angle 42d0
@@ -360,10 +364,12 @@
            :local-length-damaged 10d-10
            :enable-plasticity t
            :psi 0d0
-           ;; :phi (* 42d0 (/ pi 180))
-           ;; :c (* 131d3 1d0)
-           :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 1d0)
+           ;; :psi (* 42d0 (/ pi 180))
+           :phi (* 50d0 (/ pi 180))
+           :c 131d3
+
+           ;; :phi (* 50d0 (/ pi 180))
+           ;; :c (* 131d3 100d0)
 
            :index 0
            :gravity 0d0
@@ -379,43 +385,46 @@
              (gravity (if (> sur-height 0d0)
                           (/ load (* density sur-height))
                           0d0))
+             (mp-surcharge t)
              )
         (format t "Gravity ~F~%" gravity)
-        ;; (cl-mpm::add-mps
-        ;;  sim
-        ;;  (cl-mpm/setup::make-mps-from-list
-        ;;   (cl-mpm/setup::make-block-mps-list
-        ;;    (mapcar #'+ offset (list 0d0 (second block-size)))
-        ;;    sur-size
-        ;;    (mapcar (lambda (e) (* e e-scale 2)) sur-size)
-        ;;    density
-        ;;    'cl-mpm/particle::particle-elastic-damage
-        ;;    :E 1d9
-        ;;    :nu 0.24d0
-        ;;    :initiation-stress 1d20
-        ;;    :local-length 0d0
-        ;;    :index 1
-        ;;    :gravity (- gravity))))
-        (defparameter *pressure-bc*
-          (cl-mpm/buoyancy::make-bc-pressure
-           sim
-           0d0
-           (- surcharge-load)
-           :clip-func
-           (lambda (pos)
-             (and
-              (> (cl-mpm/utils:varef pos 1)
-                 (+ (second offset) (* 0.5d0 (second block-size))))
-              ;; (> (cl-mpm/utils:varef pos 0)
-              ;;    (first offset))
-              ;; (< (cl-mpm/utils:varef pos 0)
-              ;;    (+ (first offset) (first block-size)))
-              )
+        (if mp-surcharge
+            (cl-mpm::add-mps
+             sim
+             (cl-mpm/setup::make-mps-from-list
+              (cl-mpm/setup::make-block-mps-list
+               (mapcar #'+ offset (list 0d0 (second block-size)))
+               sur-size
+               (mapcar (lambda (e) (* e e-scale 2)) sur-size)
+               density
+               'cl-mpm/particle::particle-elastic-damage
+               :E 1d9
+               :nu 0.24d0
+               :initiation-stress 1d20
+               :local-length 0d0
+               :index 1
+               :gravity (- gravity))))
+            (progn
+              (defparameter *pressure-bc*
+                (cl-mpm/buoyancy::make-bc-pressure
+                 sim
+                 0d0
+                 (- surcharge-load)
+                 :clip-func
+                 (lambda (pos)
+                   (and
+                    (> (cl-mpm/utils:varef pos 1)
+                       (+ (second offset) (* 0.5d0 (second block-size))))
+                    ;; (> (cl-mpm/utils:varef pos 0)
+                    ;;    (first offset))
+                    ;; (< (cl-mpm/utils:varef pos 0)
+                    ;;    (+ (first offset) (first block-size)))
+                    )
 
-             )))
-        (cl-mpm:add-bcs-force-list
-         sim
-         *pressure-bc*)
+                   )))
+              (cl-mpm:add-bcs-force-list
+               sim
+               *pressure-bc*)))
         )
 
       (let ((mp-0 (aref (cl-mpm:sim-mps sim) 0)))
@@ -530,9 +539,8 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
-         ;; (friction 0.0d0)
+         (friction 0.0d0)
          (damping 0d0))
-
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
        sim
@@ -720,10 +728,11 @@
         ))))))
 
 (defun get-load ()
-  ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  (-
-   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
+  (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
+  ;; (-
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  )
 
 (defun get-damage ()
   (lparallel:pmap-reduce
@@ -794,6 +803,7 @@
   (setf *run-sim* nil
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
+(declaim (notinline run))
 (defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0))
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
@@ -810,10 +820,11 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 6d-3)
          ;(total-time (* 50d0 displacment))
-         (total-time (* 10d0 displacment))
-         (load-steps (round (* 100 (/ displacment 1d-3))))
+         (time-per-mm 10d0)
+         (total-time (* time-per-mm displacment))
+         (load-steps (round (* 10 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -829,7 +840,7 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2)))))
+                (setf (cl-mpm/particle::mp-delay-time mp) (* (* time-per-mm 1d-3) 1d-3)))))
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
@@ -866,7 +877,7 @@
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d-2
+           1d-3
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
