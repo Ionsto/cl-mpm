@@ -85,6 +85,9 @@
     )
    )
   (:documentation "A chalk damage model"))
+(defclass particle-chalk-delayed-grassl (particle-chalk-delayed)
+  ()
+  (:documentation "A chalk damage model based on grassl"))
 (defclass particle-chalk-anisotropic (particle-chalk-delayed)
   ()
   (:documentation "A chalk damage model"))
@@ -226,7 +229,9 @@
             ;; (cl-mpm/fastmath:fast-.- strain eps-e plastic-strain)
             ;; (cl-mpm/fastmath:fast-.+ plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e) plastic-strain)
             (setf stress-u sig
-                  plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
+                  ;; plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
+                  ;;Plastic strain increment
+                  plastic-strain (magicl:.- strain eps-e)
                   yield-func f)
             (setf strain eps-e))
           (let ((inc (multiple-value-bind (l v)
@@ -523,8 +528,9 @@
 (defun plastic-damage-response-exponential (stress E length ductility)
   (declare (double-float stress E length ductility))
   "Function that controls how damage evolves with principal stresses"
-  (let* ((ef (* ductility length)))
-    (- 1d0 (* (exp (- (/ stress ef)))))))
+  (let* ((ef (* ductility length E)))
+    (- 1d0 (exp (- (/ stress ef))))))
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -567,8 +573,8 @@
           (let ((new-damage
                   (max
                    damage
-                   ;; (plastic-damage-response-exponential k E (/ length (the double-float (sqrt 7d0))) ductility)
-                   (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   (plastic-damage-response-exponential k E (/ length (the double-float (sqrt 7d0))) ductility)
+                   ;; (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))
@@ -1177,3 +1183,67 @@
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
+
+(defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed-grassl) dt)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (Gf cl-mpm/particle::mp-Gf)
+                     (log-damage cl-mpm/particle::mp-log-damage)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     ;; (length-t cl-mpm/particle::mp-true-local-length)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     (tau-exp cl-mpm/particle::mp-delay-exponent)
+                     (ductility cl-mpm/particle::mp-ductility)
+                     (nu cl-mpm/particle::mp-nu)
+                     (p cl-mpm/particle::mp-p-modulus)
+                     ) mp
+      (declare (double-float damage damage-inc critical-damage k ybar tau dt))
+        (progn
+          ;;Damage increment holds the delocalised driving factor
+          (setf ybar damage-inc)
+          (setf damage-inc 0d0)
+          (let ((a tau-exp)
+                (k0 init-stress))
+            (incf k (the double-float
+                         (*
+                          dt
+                          (/
+                           (* k0
+                              (expt
+                               (/ (the double-float (max 0d0 (- ybar k)))
+                                  k0) a))
+                             tau)))))
+          (let ((new-damage
+                  (max
+                   damage
+                   (plastic-damage-response-exponential k E (/ length (the double-float (sqrt 7d0))) ductility)
+                   ;; (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   )))
+            (declare (double-float new-damage))
+            (setf damage-inc (- new-damage damage))
+            )
+
+          (when (>= damage 1d0)
+            (setf damage-inc 0d0))
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+          (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+          ;;Transform to log damage
+          (incf damage damage-inc)
+          ;;Transform to linear damage
+          (setf damage (max 0d0 (min 1d0 damage)))
+          (when (> damage critical-damage)
+            (setf damage 1d0)
+            (setf damage-inc 0d0))
+          )
+  (values)))
