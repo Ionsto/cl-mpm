@@ -31,8 +31,9 @@
   local-length
   )
 
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed-grassl) dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-ugimp mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
@@ -113,6 +114,7 @@
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
    :colour-func #'cl-mpm/particle::mp-damage
+   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
    ;;                (let ((drive 
    ;;                        (*
@@ -202,13 +204,14 @@
              (length-scale h)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             ;; (ductility 1.5d0)
+             (ductility 10000d0)
+             (ductility 0.001d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
         (format t "Estimated init stress ~E~%" init-stress)
-        (when (< ductility 1d0)
-          (error "Ductility too low ~A" ductility))
+        ;; (when (< ductility 1d0)
+        ;;   (error "Ductility too low ~A" ductility))
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
@@ -216,7 +219,7 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                'cl-mpm/particle::particle-chalk-delayed
+                'cl-mpm/particle::particle-chalk-delayed-grassl
                 :E 1d9
                 :nu 0.24d0
 
@@ -244,9 +247,13 @@
                 :local-length length-scale
                 :local-length-damaged 10d-10
 
+                ;; :psi 0d0
+                ;; :phi (* 42d0 (/ pi 180))
+                ;; :c 131d3
                 :psi 0d0
-                :phi (* 42d0 (/ pi 180))
-                :c 131d3
+                :phi (* 40d0 (/ pi 180))
+                ;; :c 131d3
+                :c (* 131d3 0.5d0)
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -530,7 +537,7 @@
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 1d0)
+         (collapse-target-time 0.1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
@@ -675,8 +682,7 @@
                          (setf (cl-mpm::sim-enable-damage *sim*) t)
                          (cl-mpm::iterate-over-mps
                           (cl-mpm:sim-mps *sim*)
-                          (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled)))
-                         )
+                          (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled))))
                         (when (>= steps settle-steps)
                           (if (or
                                ;; t
@@ -701,7 +707,7 @@
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d1
+                              target-time 1d0
                               (cl-mpm::sim-mass-scale *sim*) 1d4))
                             (:collapse
                              (format t "Collapse timestep~%")
@@ -1137,8 +1143,8 @@
          (mps-per-cell mps)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 1)
-         (runout-aspect 2.0)
+         (shelf-aspect 1.0)
+         (runout-aspect 0.5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)

@@ -30,7 +30,7 @@ tol=1e-12;                                                                  % co
 tolf=1e-6;                                                                  % yield function tolerance
 maxit=5;                                                                    % maximum NR iterations for convergence
 phi=0.1;                                                                   % friction angle (opening angle of yield surface)
-psi=0;                                                                  % dilation angle (set equal to phi for associated flow)
+psi=0.1;                                                                  % dilation angle (set equal to phi for associated flow)
 c=1;                                                                        % cohesion
 alfa=-tan(phi);                                                             % yield surface slope (xi-rho space)
 bta=-tan(psi);                                                              % plastic potential slope (xi-rho space)
@@ -64,11 +64,14 @@ rho=sqrt(sum(s.^2))                                     % deviatoric stress
 f=rho-alfa*xi;                                                              % yield function
 if f>tol                                                                    % if yielded
   disp("Yeilding")
-  fap=rho*sqrt(1+v)+xi*sqrt(1-2*v)/(bta*sqrt(1+v)/sqrt(1-2*v));             % apex retunr surface 
+  fap=rho*sqrt(1+v)+xi*sqrt(1-2*v)/( ...
+      bta*sqrt(1+v)/sqrt(1-2*v));             % apex retunr surface 
   if fap<tol                                                                % apex return
+      disp("Apex")
     sig=xsic/sqrt(3)*ones(3,1);                                             % updated stress
     Dalg=zeros(6);                                                          % Algorithmic tangent
   else                                                                      % standard surface return
+      disp("Standard")
     b=zeros(4,1); b(4)=f; itnum=0; dgam=0;                                  % set initial NR parameters
     df=s/rho-alfa/sqrt(3);                                                  % derivative of the YS wrt. stress
     dg=s/rho-bta/sqrt(3);                                                   % flow direction
@@ -86,6 +89,7 @@ if f>tol                                                                    % if
       dg=s/rho-bta/sqrt(3);                                                 % flow direction
       ddg=1/3*(3*eye(3)-ones(3))/rho-s*s.'/rho^3;                           % derivative of the flow direction wrt. stress 
       b=[epsE-epsEtr+dgam*dg; rho-alfa*xi];                                 % residuals
+      b
       itnum=itnum+1;                                                        % increment iteration number 
     end
     B=inv([Ce+dgam*ddg dg; df.' 0]);                                        % linearisation for Dalg

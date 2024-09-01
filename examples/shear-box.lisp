@@ -67,7 +67,7 @@
       (declare (double-float pressure damage))
       (progn
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
-        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
         ;; (setf damage-increment
         ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
         ;;                                            strain
@@ -108,15 +108,15 @@
         ;;            (cl-mpm/damage::drucker-prager-criterion
         ;;             (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
 
-        (setf damage-increment
-              (+ 
-               ;; (max 0d0
-               ;;      (cl-mpm/damage::criterion-dp
-               ;;                          ;(magicl:scale stress (/ 1d0 (magicl:det def)))
-               ;;       stress
-               ;;       (* angle (/ pi 180d0))))
-               (* E plastic-vm)
-               ))
+        ;; (setf damage-increment
+        ;;       (+ 
+        ;;        ;; (max 0d0
+        ;;        ;;      (cl-mpm/damage::criterion-dp
+        ;;        ;;                          ;(magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;        ;;       stress
+        ;;        ;;       (* angle (/ pi 180d0))))
+        ;;        (* E plastic-vm)
+        ;;        ))
 
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
@@ -346,12 +346,12 @@
            ;; :c-r 0d0
            ;; :softening 0d0
 
-           'cl-mpm/particle::particle-chalk-delayed-grassl
+           'cl-mpm/particle::particle-chalk-delayed;-grassl
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-2
+           :g-res-ratio 1d-1
            ;; :g-res-ratio 1d-9
            ;; :damage 0.9d0
            :friction-angle 42d0
@@ -365,7 +365,7 @@
            :enable-plasticity t
            :psi 0d0
            ;; :psi (* 42d0 (/ pi 180))
-           :phi (* 50d0 (/ pi 180))
+           :phi (* 60d0 (/ pi 180))
            :c 131d3
 
            ;; :phi (* 50d0 (/ pi 180))
@@ -539,7 +539,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
-         (friction 0.0d0)
+         ;; (friction 0.0d0)
          (damping 0d0))
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -820,11 +820,11 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
+  (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
-         (time-per-mm 10d0)
+         (time-per-mm 100d0)
          (total-time (* time-per-mm displacment))
-         (load-steps (round (* 10 (/ displacment 1d-3))))
+         (load-steps (round (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

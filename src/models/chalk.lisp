@@ -573,7 +573,6 @@
           (let ((new-damage
                   (max
                    damage
-                   (plastic-damage-response-exponential k E (/ length (the double-float (sqrt 7d0))) ductility)
                    ;; (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
@@ -1247,3 +1246,35 @@
             (setf damage-inc 0d0))
           )
   (values)))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed-grassl) dt)
+  (let ((damage-increment 0d0))
+    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
+                     (plastic-strain cl-mpm/particle::mp-strain-plastic)
+                     (plastic-vm cl-mpm/particle::mp-strain-plastic-vm)
+                     (damage cl-mpm/particle:mp-damage)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (damage-rate cl-mpm/particle::mp-damage-rate)
+                     (pressure cl-mpm/particle::mp-pressure)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     (angle cl-mpm/particle::mp-friction-angle)
+                     (c cl-mpm/particle::mp-coheasion)
+                     (nu cl-mpm/particle::mp-nu)
+                     (ft cl-mpm/particle::mp-ft)
+                     (fc cl-mpm/particle::mp-fc)
+                     (E cl-mpm/particle::mp-e)
+                     (de cl-mpm/particle::mp-elastic-matrix)
+                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                     (g-r cl-mpm/particle::mp-shear-residual-ratio))
+        mp
+      (declare (double-float pressure damage E plastic-vm damage-increment))
+      (progn
+        (setf damage-increment (* E plastic-vm))
+        ;;Delocalisation switch
+        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+        ))))
