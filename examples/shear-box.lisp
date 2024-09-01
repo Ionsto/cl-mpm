@@ -67,7 +67,7 @@
       (declare (double-float pressure damage))
       (progn
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
         ;; (setf damage-increment
         ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
         ;;                                            strain
@@ -88,11 +88,11 @@
         ;;                           )
         ;;             )
         ;;                                                    de)))
-        ;;   (setf damage-increment
-        ;;         (max 0d0
-        ;;              (cl-mpm/damage::criterion-dp
-        ;;               es
-        ;;               (* angle (/ pi 180d0))))))
+        (setf damage-increment
+              (max 0d0
+                   (cl-mpm/damage::criterion-dp
+                    stress
+                    (* angle (/ pi 180d0)))))
 
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
         ;;                                                    de)))
@@ -306,7 +306,8 @@
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
                                         ;(init-stress 100d3)
-             (init-stress (* 1.0 131d3))
+             ;; (init-stress (* 1.0 131d3))
+             (init-stress (* 1 131d3))
                                         ;(gf 48d0)
              ;; (gf 48d0)
              (gf 1d0)
@@ -314,7 +315,9 @@
              (length-scale (* 1 h))
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 5d0)
+             ;; (ductility 5d0)
+             ;; (ductility 20d0)
+             (ductility *ductility*)
              ;; (ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
@@ -338,13 +341,13 @@
            ;; ;; 'cl-mpm/particle::particle-dp
            ;; :E 1d9
            ;; :nu 0.24d0
-           ;; ;; :psi 0d0
-           ;; :psi (* 42d0 (/ pi 180))
+           ;; :psi 0d0
+           ;; ;; :psi (* 42d0 (/ pi 180))
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
-           ;; :softening 0d0
+           ;; :softening 100d0
 
            'cl-mpm/particle::particle-chalk-delayed;-grassl
            :E 1d9
@@ -362,11 +365,12 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
+           :enable-damage nil
            :enable-plasticity t
            :psi 0d0
            ;; :psi (* 42d0 (/ pi 180))
-           :phi (* 60d0 (/ pi 180))
-           :c 131d3
+           :phi (* 42d0 (/ pi 180))
+           :c (* 131d3 1d0)
 
            ;; :phi (* 50d0 (/ pi 180))
            ;; :c (* 131d3 100d0)
@@ -795,9 +799,7 @@
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (defparameter *run-sim* t)
   (defparameter *t* 0)
-  (defparameter *sim-step* 0)
-  
-  )
+  (defparameter *sim-step* 0))
 
 (defun stop ()
   (setf *run-sim* nil
@@ -820,7 +822,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
+  (let* ((displacment 0.5d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm 100d0)
          (total-time (* time-per-mm displacment))
@@ -1483,6 +1485,27 @@
              (progn
                (setup :refine refine :mps 2 :surcharge-load s)
                (run (format nil "../ham-shear-box/output-~D-~F/" refine s))))))
+
+(defparameter *ductility* 10d0)
+(defun test-ductility ()
+  (defparameter *ductility* 10d0)
+  (setf *run-sim* t)
+  (let ((refine 2)
+        (s 10d4))
+    (loop for d in (list
+                    10d0
+                    50d0
+                    100d0
+                    )
+          while *run-sim*
+          do
+             (progn
+               (setf *ductility* d)
+               (format t "Test: ~D ~F ~E~%" refine s d)
+               (setup :refine refine :mps 2 :surcharge-load s)
+               (run (format nil "../ham-shear-box/output-~D-~F/" refine s))))))
+
+
 
 (defun test-refine ()
   (setf *run-sim* t)
