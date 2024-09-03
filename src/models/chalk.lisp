@@ -517,6 +517,21 @@
   (let* ((ef (* ductility length E)))
     (- 1d0 (exp (- (/ stress ef))))))
 
+(defun damage-response-linear (stress E Gf length init-stress ductility)
+  (declare (double-float stress E Gf length init-stress ductility))
+  "Function that controls how damage evolves with principal stresses"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (* ft ductility))
+         (k (/ stress E)))
+    (if (> k e0)
+        (- 1d0 (min 1d0
+                    (/ (max 0d0 (- k e0))
+                       (- ef e0))))
+        0d0)))
+
+
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -560,6 +575,7 @@
                   (max
                    damage
                    (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))

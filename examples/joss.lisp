@@ -37,6 +37,12 @@
   ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-ugimp mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
+  )
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   (let ((damage-increment 0d0))
@@ -113,8 +119,8 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   :colour-func #'cl-mpm/particle::mp-damage
-   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+   ;; :colour-func #'cl-mpm/particle::mp-damage
+   :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
    ;;                (let ((drive 
    ;;                        (*
@@ -219,63 +225,77 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                'cl-mpm/particle::particle-chalk-delayed-grassl
+
+                'cl-mpm/particle::particle-mc
+                ;; 'cl-mpm/particle::particle-dp
                 :E 1d9
                 :nu 0.24d0
-
-                :enable-plasticity t
-
-                :ft 1d0
-                :fc 10d0
-
-                :friction-angle 42.0d0
-                :kt-res-ratio 1d-10
-                :kc-res-ratio 1d0
-                :g-res-ratio 5d-1
-
-                :fracture-energy 3000d0
-                :initiation-stress init-stress;18d3
-                :delay-time 1d1
-                :delay-exponent 1d0
-
-                ;; :ductility 5d0
-                :ductility ductility
-
-                :critical-damage 1d0;(- 1.0d0 1d-3)
-                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
-
-                :local-length length-scale
-                :local-length-damaged 10d-10
-
-                ;; :psi 0d0
-                ;; :phi (* 42d0 (/ pi 180))
-                ;; :c 131d3
                 :psi 0d0
-                :phi (* 40d0 (/ pi 180))
-                ;; :c 131d3
-                :c (* 131d3 0.5d0)
+                ;; :psi (* 42d0 (/ pi 180))
+                :phi (* 42d0 (/ pi 180))
+                :c (* 131d3 0.1d0)
+                :phi-r (* 30d0 (/ pi 180))
+                :c-r 0d0
+                :softening 10d0
+                ;; 'cl-mpm/particle::particle-chalk-delayed
+                ;; :E 1d9
+                ;; :nu 0.24d0
+
+                ;; :enable-plasticity t
+
+                ;; :ft 1d0
+                ;; :fc 10d0
+
+                ;; :friction-angle 42.0d0
+                ;; :kt-res-ratio 1d-10
+                ;; :kc-res-ratio 1d0
+                ;; :g-res-ratio 5d-1
+
+                ;; :fracture-energy 3000d0
+                ;; :initiation-stress init-stress;18d3
+                ;; :delay-time 1d1
+                ;; :delay-exponent 1d0
+
+                ;; ;; :ductility 5d0
+                ;; :ductility ductility
+
+                ;; :critical-damage 1d0;(- 1.0d0 1d-3)
+                ;; :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
+
+                ;; :local-length length-scale
+                ;; :local-length-damaged 10d-10
+
+                ;; ;; :psi 0d0
+                ;; ;; :phi (* 42d0 (/ pi 180))
+                ;; ;; :c 131d3
+                ;; :psi 0d0
+                ;; :phi (* 40d0 (/ pi 180))
+                ;; ;; :c 131d3
+                ;; :c (* 131d3 0.5d0)
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
-      (let* ((mp-0 (aref (cl-mpm:sim-mps sim) 0))
-             (fc (cl-mpm/particle::mp-fc mp-0))
-             (ft (cl-mpm/particle::mp-ft mp-0))
-             (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
-             (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
-             (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
-             (angle-plastic (cl-mpm/particle::mp-phi mp-0))
-             (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
-             )
-        (format t "Estimated Gf ~F~%" (estimate-gf (cl-mpm/particle::mp-ductility mp-0)
-                                                   (cl-mpm/particle::mp-initiation-stress mp-0)
-                                                   (cl-mpm/particle::mp-local-length mp-0)))
-        (format t "Chalk damage growth angle: ~F~%"
-                angle-d)
-        (format t "Chalk plastic virgin angle: ~F~%"
-                (* (/ 180 pi) angle-plastic))
-        (format t "Chalk plastic residual angle: ~F~%"
-                (* (/ 180 pi) angle-plastic-damaged)))
+      (let ((mp-0 (aref (cl-mpm:sim-mps sim) 0)))
+        (when (typep mp-0 'cl-mpm/particle::particle-chalk-brittle)
+          (let* (
+                 (fc (cl-mpm/particle::mp-fc mp-0))
+                 (ft (cl-mpm/particle::mp-ft mp-0))
+                 (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
+                 (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+                 (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+                 (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+                 (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+                 )
+            (format t "Estimated Gf ~F~%" (estimate-gf (cl-mpm/particle::mp-ductility mp-0)
+                                                       (cl-mpm/particle::mp-initiation-stress mp-0)
+                                                       (cl-mpm/particle::mp-local-length mp-0)))
+            (format t "Chalk damage growth angle: ~F~%"
+                    angle-d)
+            (format t "Chalk plastic virgin angle: ~F~%"
+                    (* (/ 180 pi) angle-plastic))
+            (format t "Chalk plastic residual angle: ~F~%"
+                    (* (/ 180 pi) angle-plastic-damaged)))))
 
       ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 47.5d0 0.05d0 20d3)
 
@@ -1144,7 +1164,7 @@
          (shelf-height 15.0)
          (soil-boundary 2)
          (shelf-aspect 1.0)
-         (runout-aspect 0.5)
+         (runout-aspect 1.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)

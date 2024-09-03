@@ -81,7 +81,8 @@
 
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat
         ;;            (cl-mpm/fastmath:fast-.+
-        ;;             strain
+        ;;             strai
+        ;;             n
         ;;             (magicl:scale plastic-strain
         ;;                           0d0
         ;;                           ;; (- 1d0 damage)
@@ -91,7 +92,8 @@
         (setf damage-increment
               (max 0d0
                    (cl-mpm/damage::criterion-dp
-                    stress
+                    ;; stress
+                    (magicl:scale stress (/ 1d0 (magicl:det def)))
                     (* angle (/ pi 180d0)))))
 
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
@@ -316,12 +318,14 @@
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 5d0)
-             (ductility *ductility*)
-             (init-stress 100d3)
-             (ductility 100d0)
+             ;; (ductility *ductility*)
+             ;; (init-stress 100d3)
+             (ductility 5d0)
              ;; (ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
+             (residual-g 1d-9)
+             (residual-k 1d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -348,14 +352,14 @@
            ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
-           ;; :softening 000d0
+           ;; :softening 100d0
 
            'cl-mpm/particle::particle-chalk-delayed;
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-1
+           :g-res-ratio 1d-9
            ;; :g-res-ratio 1d-9
            ;; :damage 0.9d0
            :friction-angle 42d0
@@ -366,7 +370,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-damage nil
+           :enable-damage t
            :enable-plasticity t
 
            ;; :psi 0d0
@@ -376,11 +380,13 @@
            ;; :softening 0d0
 
            :psi 0d0
+           ;:phi (* 80d0 (/ pi 180))
            :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 1d0)
+           :c (* 131d3 ductility)
+
            :phi-r (* 30d0 (/ pi 180))
            :c-r 0d0
-           :softening 0d0
+           :softening 100d0
 
            :index 0
            :gravity 0d0
@@ -396,7 +402,7 @@
              (gravity (if (> sur-height 0d0)
                           (/ load (* density sur-height))
                           0d0))
-             (mp-surcharge t)
+             (mp-surcharge nil)
              )
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
@@ -550,7 +556,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
-         (friction 0.0d0)
+         ;; (friction 0.0d0)
          (damping 0d0))
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -830,7 +836,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.1d-3)
+  (let* ((displacment 0.5d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1549,5 +1555,5 @@
              (progn
                (setup :refine refine :mps 2 :surcharge-load s)
                (run (format nil "../ham-shear-box/output-~D-~F/" refine s)
-                    :time-scale 1d0
+                    :time-scale 0.5d0
                     )))))
