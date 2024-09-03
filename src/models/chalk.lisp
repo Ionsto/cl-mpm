@@ -202,6 +202,7 @@
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
+                   (enable-damage mp-enable-damage)
                    (E mp-E)
                    (nu mp-nu)
                    (phi mp-phi)
@@ -226,14 +227,11 @@
                                                phi
                                                psi
                                                coheasion)
-            ;; (cl-mpm/fastmath:fast-.- strain eps-e plastic-strain)
-            ;; (cl-mpm/fastmath:fast-.+ plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e) plastic-strain)
             (setf stress-u sig
-                  ;; plastic-strain (cl-mpm/fastmath:fast-.+ plastic-strain (magicl:.- strain eps-e) plastic-strain)
-                  ;;Plastic strain increment
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f)
-            (setf strain eps-e))
+            (setf strain eps-e)
+            )
           (let ((inc (multiple-value-bind (l v)
                          (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
                        (destructuring-bind (s1 s2 s3) l
@@ -245,24 +243,12 @@
             (incf ps-vm inc)
             (setf ps-vm-inc inc))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
-    (when (> damage 0.0d0)
-      ;; (cl-mpm/fastmath:fast-scale! stress (- 1d0 damage))
-      ;; (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-      ;;       (s (cl-mpm/constitutive::deviatoric-voigt stress))
-      ;;       )
-      ;;   (when (> p 0d0)
-      ;;     (setf p
-      ;;           (* (- 1d0 (* (- 1d0 kt-r) damage)) p)))
-      ;;   (setf stress
-      ;;         (cl-mpm/fastmath:fast-.+
-      ;;          (cl-mpm/constitutive::voight-eye p)
-      ;;          (cl-mpm/fastmath:fast-scale! s (- 1d0 (* (- 1d0 g-r) damage)))
-      ;;          stress)))
-
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress))
-            (ex 1)
-            )
+            (ex 1))
         (setf p
               (if (> p 0d0)
                   (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)

@@ -155,12 +155,12 @@
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
-        (setf stress
-              sig
+        (setf stress sig
               plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e)
-              strain eps-e
               yield-func f
-              ))
+              )
+        (setf strain eps-e)
+        )
       (incf ps-vm
             (multiple-value-bind (l v)
                 (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
@@ -207,7 +207,7 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (when enabled
-      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::plastic-dp strain de E nu phi psi c)
+      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e)

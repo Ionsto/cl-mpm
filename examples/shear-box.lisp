@@ -268,12 +268,12 @@
      (mapcar (lambda (x) (* x 1d3)) *data-disp*)
      (mapcar (lambda (x) (* depth (/ x width) 1d-3)) *data-v*)
      "Load"
-     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
-     "Damage"
-     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
-     "Plastic"
+     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     ;; (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
+     ;; "Damage"
+     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     ;; (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
+     ;; "Plastic"
      ))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
@@ -316,8 +316,9 @@
              ;; (length-scale 0.015d0)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 5d0)
-             ;; (ductility 20d0)
              (ductility *ductility*)
+             (init-stress 100d3)
+             (ductility 100d0)
              ;; (ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
@@ -347,9 +348,9 @@
            ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
-           ;; :softening 100d0
+           ;; :softening 000d0
 
-           'cl-mpm/particle::particle-chalk-delayed;-grassl
+           'cl-mpm/particle::particle-chalk-delayed;
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
@@ -361,19 +362,25 @@
            :initiation-stress init-stress;18d3
            :delay-time 1d-3
            :delay-exponent 1d0
-           :damage 0d0
+           :damage 0.0d0
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
            :enable-damage nil
            :enable-plasticity t
-           :psi 0d0
+
+           ;; :psi 0d0
            ;; :psi (* 42d0 (/ pi 180))
+           ;; ;; :phi (* 60d0 (/ pi 180))
+           ;; :c (* 131d3 1d0)
+           ;; :softening 0d0
+
+           :psi 0d0
            :phi (* 42d0 (/ pi 180))
            :c (* 131d3 1d0)
-
-           ;; :phi (* 50d0 (/ pi 180))
-           ;; :c (* 131d3 100d0)
+           :phi-r (* 30d0 (/ pi 180))
+           :c-r 0d0
+           :softening 0d0
 
            :index 0
            :gravity 0d0
@@ -543,7 +550,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
-         ;; (friction 0.0d0)
+         (friction 0.0d0)
          (damping 0d0))
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -732,10 +739,10 @@
         ))))))
 
 (defun get-load ()
-  (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  ;; (-
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
+  (-
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
 
 (defun get-damage ()
@@ -758,6 +765,7 @@
    #'+
    (cl-mpm:sim-mps *sim*)))
 
+(declaim (notinline setup))
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3))
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
@@ -806,7 +814,7 @@
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (declaim (notinline run))
-(defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0))
+(defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0) (time-scale 1d0))
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -822,9 +830,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
-         (time-per-mm 100d0)
+         (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
          (load-steps (round (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
@@ -1472,19 +1480,7 @@
     )
   )
 
-(defun test ()
-  (setf *run-sim* t)
-  (let ((refine 4))
-    (loop for s in (list
-                    10d4
-                    20d4
-                    30d4
-                    )
-          while *run-sim*
-          do
-             (progn
-               (setup :refine refine :mps 2 :surcharge-load s)
-               (run (format nil "../ham-shear-box/output-~D-~F/" refine s))))))
+
 
 (defparameter *ductility* 10d0)
 (defun test-ductility ()
@@ -1539,3 +1535,19 @@
       ;; (format t "Recalculated f ~E~%" (cl-mpm/constitutive::mc-yield-func (cl-mpm/utils:vector-from-list (multiple-value-list (cl-mpm/damage::principal-stresses-3d sig))) angle c))
       )
     ))
+
+(defun test ()
+  (setf *run-sim* t)
+  (let ((refine 4))
+    (loop for s in (list
+                    10d4
+                    20d4
+                    30d4
+                    )
+          while *run-sim*
+          do
+             (progn
+               (setup :refine refine :mps 2 :surcharge-load s)
+               (run (format nil "../ham-shear-box/output-~D-~F/" refine s)
+                    :time-scale 1d0
+                    )))))
