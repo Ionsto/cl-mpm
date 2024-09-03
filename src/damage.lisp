@@ -1516,14 +1516,18 @@ Calls the function with the mesh mp and node"
        (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))
 
 
-(defun criterion-dp (stress angle)
+(defun criterion-dp (stress angle c)
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
-        (B (/ (* 2 (sin angle))
+        (A (/ (* 6
+                 ;; c
+                 (cos angle)
+                 )
               (* (sqrt 3) (- 3d0 (sin angle)))))
-        )
-    (* (+ (* B p) (sqrt j2)))))
+        (B (/ (* 2 (sin angle))
+              (* (sqrt 3) (- 3d0 (sin angle))))))
+    (* (/ 1d0 A) (+ (* B p) (sqrt j2)))))
 
 (defun criterion-dp-pressure (stress angle pressure)
   (let ((i1 (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
@@ -1893,8 +1897,7 @@ Calls the function with the mesh mp and node"
 
 
 (declaim (ftype (function (double-float double-float double-float double-float double-float double-float )
-                          double-float 
-                          ) damage-response-exponential))
+                          double-float) damage-response-exponential))
 (defun damage-response-exponential (stress E Gf length init-stress ductility)
   (declare (double-float stress E Gf length init-stress ductility))
   "Function that controls how damage evolves with principal stresses"
