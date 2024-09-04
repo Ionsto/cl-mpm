@@ -320,7 +320,7 @@
              ;; (ductility 5d0)
              ;; (ductility *ductility*)
              ;; (init-stress 100d3)
-             (ductility 5d0)
+             (ductility 10d0)
              ;; (ductility 1d8)
              ;; (ductility 1d1)
              ;; (ductility 1d4)
@@ -371,7 +371,7 @@
            :local-length length-scale
            :local-length-damaged 10d-10
            :enable-damage t
-           :enable-plasticity t
+           :enable-plasticity nil
 
            ;; :psi 0d0
            ;; :psi (* 42d0 (/ pi 180))
@@ -402,7 +402,7 @@
              (gravity (if (> sur-height 0d0)
                           (/ load (* density sur-height))
                           0d0))
-             (mp-surcharge nil)
+             (mp-surcharge t)
              )
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
@@ -836,11 +836,11 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
-         (load-steps (round (* 100 (/ displacment 1d-3))))
+         (load-steps (round (* 500 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -1555,5 +1555,11 @@
              (progn
                (setup :refine refine :mps 2 :surcharge-load s)
                (run (format nil "../ham-shear-box/output-~D-~F/" refine s)
-                    :time-scale 0.5d0
+                    :time-scale 2.0d0
                     )))))
+
+;; (let ((angle (* 42 (/ pi 180)))
+;;       (coheasion 132d3)
+;;       (stress (cl-mpm/utils:voigt-from-list (list 100d0 0d0 0d0 0d0 0d0 0d0))))
+;;   (pprint (cl-mpm/damage::drucker-prager-criterion stress angle))
+;;   )

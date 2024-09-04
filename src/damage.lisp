@@ -1516,7 +1516,7 @@ Calls the function with the mesh mp and node"
        (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))))
 
 
-(defun criterion-dp (stress angle c)
+(defun criterion-dp (stress angle)
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
@@ -1527,7 +1527,9 @@ Calls the function with the mesh mp and node"
               (* (sqrt 3) (- 3d0 (sin angle)))))
         (B (/ (* 2 (sin angle))
               (* (sqrt 3) (- 3d0 (sin angle))))))
-    (* (/ 1d0 A) (+ (* B p) (sqrt j2)))))
+    (* ;(/ 1d0 A)
+     ;; (/ 1d0 (- (/ 1d0 (sqrt 3)) B))
+       (+ (* B p) (sqrt j2)))))
 
 (defun criterion-dp-pressure (stress angle pressure)
   (let ((i1 (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
@@ -1535,7 +1537,7 @@ Calls the function with the mesh mp and node"
              (cl-mpm/utils::deviatoric-voigt stress)))
         (B (/ (* 2 (sin angle))
               (* (sqrt 3) (- 3d0 (sin angle))))))
-    (*  (+ (* B i1) (sqrt j2)))))
+    (* (+ (* B i1) (sqrt j2)))))
 
 (defun criterion-dp-pressure-tensile (stress angle pressure tension)
   (let ((i1 (+ (cl-mpm/utils::trace-voigt stress) (* 3d0 pressure)))
