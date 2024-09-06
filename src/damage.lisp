@@ -1527,7 +1527,7 @@ Calls the function with the mesh mp and node"
               (* (sqrt 3) (- 3d0 (sin angle)))))
         (B (/ (* 2 (sin angle))
               (* (sqrt 3) (- 3d0 (sin angle))))))
-    (* ;(/ 1d0 A)
+    (* (/ 1d0 A)
      ;; (/ 1d0 (- (/ 1d0 (sqrt 3)) B))
        (+ (* B p) (sqrt j2)))))
 
