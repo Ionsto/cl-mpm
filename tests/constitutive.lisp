@@ -26,11 +26,11 @@
 (defun test (strain-list result-list)
   (let* ((out (apply #'test-plastic-dp strain-list))
          (err
-           (cl-mpm/fastmath:fast-.-
+           (cl-mpm/fastmaths:fast-.-
             (voigt-from-list result-list)
             out))
          (norm
-           (cl-mpm/fastmath:mag err)))
+           (cl-mpm/fastmaths:mag err)))
     (pprint norm)
     (if (< norm 1d-4)
         (format t "~%Pass:~%~A~%~A~%~A~%" result-list (loop for i from 0 below 6 collect (varef out i))
@@ -40,17 +40,17 @@
 
 (defun dp-test (strain-list result-list)
   (let* ((out (apply #'test-plastic-dp strain-list))
-         (err (cl-mpm/fastmath:fast-.-
+         (err (cl-mpm/fastmaths:fast-.-
                (voigt-from-list result-list)
                out))
-         (norm (cl-mpm/fastmath:mag err)))
+         (norm (cl-mpm/fastmaths:mag err)))
     (< norm 1d-4)))
 (defun mc-test (strain-list result-list)
   (let* ((out (apply #'test-plastic-mc strain-list))
-         (err (cl-mpm/fastmath:fast-.-
+         (err (cl-mpm/fastmaths:fast-.-
                (voigt-from-list result-list)
                out))
-         (norm (cl-mpm/fastmath:mag err)))
+         (norm (cl-mpm/fastmaths:mag err)))
     (< norm 1d-4)))
 
 ;; (pprint (test-plastic-dp 1d0 0d0 0d0 0d0 0d0 0d0))
