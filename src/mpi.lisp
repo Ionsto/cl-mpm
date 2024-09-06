@@ -5,7 +5,7 @@
    :cl-mpm/particle
    :cl-mpm/mesh
    :cl-mpm/utils
-   :cl-mpm/fastmath
+   :cl-mpm/fastmaths
    )
   (:import-from
    :magicl tref .+ .-
@@ -432,7 +432,7 @@
                      (incf svp (mpi-object-node-svp mpi-node))
                      (incf vol (mpi-object-node-vol mpi-node))
                      (incf pmod (mpi-object-node-pmod mpi-node))
-                     (cl-mpm/fastmath::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
+                     (cl-mpm/fastmaths::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
                      ))
                  (error "MPI exchange touched invalid node?")
                  )))
@@ -458,9 +458,9 @@
                                   (force-ext cl-mpm/mesh::node-external-force))
                      node
                    ;; (setf active t)
-                   (cl-mpm/fastmath::fast-.+ force (mpi-object-node-force mpi-node) force)
-                   (cl-mpm/fastmath::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
-                   (cl-mpm/fastmath::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)))
+                   (cl-mpm/fastmaths::fast-.+ force (mpi-object-node-force mpi-node) force)
+                   (cl-mpm/fastmaths::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
+                   (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)))
                (error "MPI force exchange touched invalid node" index)
                )))))))
 

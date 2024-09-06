@@ -205,7 +205,7 @@
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
     (when (> damage 0d0)
-      (cl-mpm/fastmath::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
+      (cl-mpm/fastmaths::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     stress))
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)
@@ -256,7 +256,7 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* (;; (eng-strain-rate (cl-mpm/fastmath::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+    (let* (;; (eng-strain-rate (cl-mpm/fastmaths::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
            ;;                                        (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
            (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
            ;; (viscosity 1d-20)
@@ -273,7 +273,7 @@
 
       (incf time-averaged-visc viscosity)
       ;; (setf stress-u
-      ;;       (cl-mpm/fastmath::fast-.+
+      ;;       (cl-mpm/fastmaths::fast-.+
       ;;        stress-u
       ;;        (objectify-stress-logspin
       ;;         (if (> viscosity 0d0)
@@ -381,7 +381,7 @@
                ;; (stress stress)
                )
       mp
-    ;; (cl-mpm/fastmath::fast-.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu) (objectify-stress-jaumann stress vorticity))
+    ;; (cl-mpm/fastmaths::fast-.+ stress (cl-mpm/constitutive:linear-elastic strain-rate E nu) (objectify-stress-jaumann stress vorticity))
                                         ;(cl-mpm/constitutive:maxwell strain-rate (magicl:scale stress (magicl:det def)) E nu viscosity dt vorticity)
     (cl-mpm/constitutive:maxwell-exp strain-rate stress E nu viscosity dt vorticity)
     ))

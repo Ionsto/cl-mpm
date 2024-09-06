@@ -380,7 +380,7 @@
   (loop for mp across (cl-mpm:sim-mps sim)
             maximizing (* (cl-mpm/particle::mp-mass mp)
                    ;; (cl-mpm/particle::mp-damage mp)
-                   (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
+                   (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp))))
   ;; (cl-mpm::sim-mass-scale sim)
   ;; (* (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;          summing (cl-mpm/particle::mp-mass mp))
@@ -392,12 +392,12 @@
   (cl-mpm/mpi::mpi-sum
    (loop for mp across (cl-mpm:sim-mps sim)
          maximizing (* (cl-mpm/particle::mp-mass mp)
-                (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+                (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   ;; (/
   ;;  (cl-mpm/mpi::mpi-sum
   ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;                            summing (* (cl-mpm/particle::mp-mass mp)
-  ;;                                       (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+  ;;                                       (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   ;;  (* (cl-mpm/mpi:mpi-sum
   ;;      (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;            summing (cl-mpm/particle::mp-mass mp)))
@@ -419,9 +419,9 @@
          (when active
            ;; (setf imax iter)
            (setf nmax (+ nmax
-                         (cl-mpm/fastmath::mag-squared
+                         (cl-mpm/fastmaths::mag-squared
                           (magicl:.- f-ext f-int)))
-                 dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
+                 dmax (+ dmax (cl-mpm/fastmaths::mag-squared f-ext))))
          )
        (incf iter)
        ))

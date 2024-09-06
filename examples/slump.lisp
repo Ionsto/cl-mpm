@@ -59,7 +59,7 @@
         ;; (setf damage-increment
         ;;       (* ;(- 1d0 damage)
         ;;          (cl-mpm/damage::tensile-energy-norm-pressure
-        ;;           (cl-mpm/fastmath:fast-.+ strain strain-plastic)
+        ;;           (cl-mpm/fastmaths:fast-.+ strain strain-plastic)
         ;;           E nu
         ;;           de
         ;;           (* damage pressure 0d0))))
@@ -83,7 +83,7 @@
         ;;             (* angle (/ pi 180d0)))))
 
         (let ((total-stress (cl-mpm/constitutive:linear-elastic-mat
-                             (cl-mpm/fastmath:fast-.+
+                             (cl-mpm/fastmaths:fast-.+
                               strain
                               (magicl:scale strain-plastic (- 1d0 damage))) de)))
           (setf damage-increment
@@ -269,7 +269,7 @@
     ;(apply #'max l)
     ;; (- (max 0d0 (apply #'max l))
     ;;    (max 0d0 (apply #'min l)))
-    ;; (cl-mpm/fastmath::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
+    ;; (cl-mpm/fastmaths::voigt-tensor-reduce-simd (cl-mpm/particle::mp-velocity-rate mp))
     ;; (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0)
     ;; (cl-mpm/particle::mp-damage-ybar mp)
     ;; (cl-mpm/constitutive::effective-strain-rate (cl-mpm/particle::mp-eng-strain-rate mp))
@@ -372,17 +372,17 @@
          (end (magicl:from-list b '(2 1) :type 'double-float))
          (pa (magicl:.- position start))
          (ba (magicl:.- end start))
-         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmath::dot pa ba)
-                                 (cl-mpm/fastmath::dot ba ba)
+         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmaths::dot pa ba)
+                                 (cl-mpm/fastmaths::dot ba ba)
                                  ))))
          (v (magicl:.- pa (magicl:scale ba h)))
          )
-    (- (sqrt (cl-mpm/fastmath::dot v v)) width)))
+    (- (sqrt (cl-mpm/fastmaths::dot v v)) width)))
 (defun plane-sdf (position normal distance)
-  (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal))))
+  (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal))))
 (defun plane-point-sdf (position normal point)
-  (let ((distance (cl-mpm/fastmath::dot point (cl-mpm/fastmath::norm normal))))
-    (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal)))))
+  (let ((distance (cl-mpm/fastmaths::dot point (cl-mpm/fastmaths::norm normal))))
+    (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal)))))
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size block-offset slope &optional (e-scale 1d0) (mp-scale 1d0)
@@ -570,7 +570,7 @@
         ;;                                                                  ))
         ;;                (scaler 1.0d0)
         ;;                )
-        ;;            (cl-mpm/fastmath:fast-scale!
+        ;;            (cl-mpm/fastmaths:fast-scale!
         ;;             stress
         ;;             scaler)
         ;;            (setf (cl-mpm/particle::mp-strain mp)
@@ -716,7 +716,7 @@
     ;;                              )
     ;;                            ))
 
-    ;; (let* ((normal (cl-mpm/fastmath::norm
+    ;; (let* ((normal (cl-mpm/fastmaths::norm
     ;;                 (magicl:from-list (list
     ;;                                    (- slope)
     ;;                                    1d0) '(2 1))))
@@ -989,7 +989,7 @@
                                   (cl-mpm:iterate-over-mps
                                    (cl-mpm:sim-mps *sim*)
                                    (lambda (mp)
-                                     (cl-mpm/fastmath::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
+                                     (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
                           (case sim-state
                             (:accelerate
                              (format t "Accelerate timestep~%")

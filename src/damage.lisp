@@ -346,7 +346,7 @@
     (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
                            (cl-mpm/particle:mp-position mp-b)))
           )
-      (values (the double-float (magicl::sum (cl-mpm/fastmath::fast-.* dist dist)))))))
+      (values (the double-float (magicl::sum (cl-mpm/fastmaths::fast-.* dist dist)))))))
 
 ;;This is a simd dot product
 #+ :sb-simd
@@ -390,7 +390,7 @@
       ;;                         (cl-mpm/utils::fast-storage b))))
       ;;   (time
       ;;    (dotimes (i iter)
-      ;;      (cl-mpm/fastmath::simd-diff-norm (cl-mpm/utils::fast-storage a) (cl-mpm/utils::fast-storage b)))))
+      ;;      (cl-mpm/fastmaths::simd-diff-norm (cl-mpm/utils::fast-storage a) (cl-mpm/utils::fast-storage b)))))
 
       ))
 
@@ -447,7 +447,7 @@
                     (loop for i fixnum from 0 below steps
                           do
                              (progn
-                               (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
+                               (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                                (let ((damage 0d0))
                                  (declare (double-float damage))
                                  (cl-mpm::iterate-over-neighbours-point-linear-3d
@@ -461,14 +461,14 @@
                                  ;; (print damage)
                                  (incf final-distance (* step-size
                                                          (/ 1d0 (max epsilon (sqrt (- 1d0 damage)))))))
-                               (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
+                               (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                                )
                           )))
                 (let* ((step-size remainder)
                        (dhstep (cl-mpm/utils::vector-copy step-norm)))
                   (magicl:scale! dhstep (* 0.5d0 step-size))
                   (progn
-                    (cl-mpm/fastmath::fast-.+ step-point dhstep step-point)
+                    (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                     (let ((damage 0d0))
                       (cl-mpm::iterate-over-neighbours-point-linear-3d
                        mesh
@@ -1432,7 +1432,7 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter
          "energy"
          (* (cl-mpm/particle::mp-mass mp)
-            (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))
+            (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
          )
         (cl-mpm/output::save-parameter
          "fbar-j"
@@ -1650,7 +1650,7 @@ Calls the function with the mesh mp and node"
               (magicl:@ v
                         (cl-mpm/utils::matrix-from-diag l)
                         (magicl:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
 
 (defun tensile-energy-norm-pressure (strain E nu de pressure)
   (let* ((K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
@@ -1665,7 +1665,7 @@ Calls the function with the mesh mp and node"
                v
                (cl-mpm/utils::matrix-from-diag l)
                (magicl:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
 
 (defun criterion-effective-principal-stress (stress pressure)
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
@@ -1682,7 +1682,7 @@ Calls the function with the mesh mp and node"
   ;;              v
   ;;              (cl-mpm/utils::matrix-from-diag l)
   ;;              (magicl:transpose v))))))
-  ;;   (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
+  ;;   (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+))))))
   )
 
 (defun criterion-enhanced-bi-energy-norm (stress strain E nu k)

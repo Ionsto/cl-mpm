@@ -49,8 +49,8 @@
         (domain-array (cl-mpm/utils:fast-storage domain))
         )
 
-    (cl-mpm/fastmath:fast-.+ df (magicl:scale stretch-rate degredation) df)
-    ;; (cl-mpm/fastmath::fast-.+ df (magicl:scale stretch-rate degredation) df)
+    (cl-mpm/fastmaths:fast-.+ df (magicl:scale stretch-rate degredation) df)
+    ;; (cl-mpm/fastmaths::fast-.+ df (magicl:scale stretch-rate degredation) df)
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
       (multiple-value-bind (l v) (cl-mpm/utils::eig F)
@@ -123,9 +123,9 @@
                                    (declare (double-float dt svp))
                                    (with-accessors ((vel cl-mpm/mesh:node-velocity))
                                        node
-                                     (cl-mpm/fastmath:fast-fmacc corner vel (* dt svp))
+                                     (cl-mpm/fastmaths:fast-fmacc corner vel (* dt svp))
                                      )))
-                                (cl-mpm/fastmath:fast-fmacc disp corner direction)
+                                (cl-mpm/fastmaths:fast-fmacc disp corner direction)
                                 ))
                      (setf (aref diff d) (varef disp d))))
           (setf
@@ -166,7 +166,7 @@
           (array-operations/utilities:nested-loop (x y) '(2 2)
             (let ((corner (cl-mpm/utils:vector-zeros))
                   (disp (cl-mpm/utils:vector-zeros)))
-              (cl-mpm/fastmath::fast-.+-vector
+              (cl-mpm/fastmaths::fast-.+-vector
                position
                (magicl:scale!
                 (magicl:.*
@@ -185,7 +185,7 @@
                  (declare (double-float dt svp))
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
                      node
-                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
+                   (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
 
               (incf (the double-float (aref diff 0)) (* 1.0d0 (the double-float (varef disp 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
               (incf (the double-float (aref diff 1)) (* 1.0d0 (the double-float (varef disp 1)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
@@ -219,7 +219,7 @@
           (array-operations/utilities:nested-loop (x y z) '(2 2 2)
             (let ((corner (cl-mpm/utils:vector-zeros))
                   (disp (cl-mpm/utils:vector-zeros)))
-              (cl-mpm/fastmath::fast-.+-vector position
+              (cl-mpm/fastmaths::fast-.+-vector position
                                     (magicl:scale!
                                      (magicl:.*
                                       (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y z)))
@@ -236,7 +236,7 @@
                  (declare (double-float dt svp))
                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
                      node
-                   (cl-mpm/fastmath:fast-fmacc disp vel (* dt svp)))))
+                   (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
 
               (incf (the double-float (aref diff 0)) (* (the double-float (varef disp 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
               (incf (the double-float (aref diff 1)) (* (the double-float (varef disp 1)) (- (* 2d0 (coerce y 'double-float)) 1d0)))

@@ -661,7 +661,7 @@
                               ;;  (lparallel:pmap-reduce (lambda (mp)
                               ;;                           (* 0.5d0
                               ;;                              (cl-mpm/particle::mp-mass mp)
-                              ;;                              (cl-mpm/fastmath::mag-squared
+                              ;;                              (cl-mpm/fastmaths::mag-squared
                               ;;                               (cl-mpm/particle::mp-velocity mp))))
                               ;;                         #'+ (cl-mpm:sim-mps *sim*))
                               ;;  (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -678,7 +678,7 @@
                               (lparallel:pmap-reduce (lambda (mp)
                                                        (* 0.5d0
                                                           (cl-mpm/particle::mp-mass mp)
-                                                          (cl-mpm/fastmath::mag-squared
+                                                          (cl-mpm/fastmaths::mag-squared
                                                            (cl-mpm/particle::mp-velocity mp))))
                                                      #'+ (cl-mpm:sim-mps *sim*))
                               data-visc-kinetic-energy)
@@ -686,7 +686,7 @@
                               (lparallel:pmap-reduce (lambda (mp)
                                                        (* 0.5d0
                                                           (cl-mpm/particle::mp-volume mp)
-                                                          (cl-mpm/fastmath:dot
+                                                          (cl-mpm/fastmaths:dot
                                                            (cl-mpm/particle::mp-stress mp)
                                                            (cl-mpm/particle::mp-strain mp))))
                                                      #'+ (cl-mpm:sim-mps *sim*))

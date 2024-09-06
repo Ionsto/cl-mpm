@@ -18,18 +18,18 @@
   :serial t
   :components ((:file "src/utils")))
 
-(defsystem "cl-mpm/fastmath"
+(defsystem "cl-mpm/fastmaths"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
                :sb-simd)
   :description "MPM fast maths operations definitions"
   :serial t
-  :components ((:file "src/fastmath")))
+  :components ((:file "src/fastmaths")))
 
 (defsystem "cl-mpm/mesh"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               "cl-mpm/fastmath"
+               "cl-mpm/fastmaths"
                "cl-mpm/shape-function")
   :description "MPM boundary conditions"
   :serial t
@@ -64,7 +64,7 @@
 (defsystem "cl-mpm/constitutive"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               "cl-mpm/fastmath")
+               "cl-mpm/fastmaths")
   :description "Various constitutive models"
   :serial t
   :components ((:file "src/constitutive")))
@@ -147,7 +147,7 @@
 (defsystem "cl-mpm"
   ;; :class :package-inferred-system
   :depends-on ("cl-mpm/magicl"
-               "cl-mpm/fastmath"
+               "cl-mpm/fastmaths"
                "cl-mpm/utils"
                "cl-mpm/forces"
                "alexandria"
@@ -175,7 +175,7 @@
                "lfarm-client"
                "lfarm-server"
                "lfarm-admin"
-               "cl-mpm/fastmath"
+               "cl-mpm/fastmaths"
                "cl-mpm/utils"
                "alexandria"
                "array-operations"
@@ -541,7 +541,7 @@
 (defsystem "cl-mpm/all"
   :depends-on ("cl-mpm"
                "cl-mpm/forces"
-               "cl-mpm/fastmath"
+               "cl-mpm/fastmaths"
                "cl-mpm/setup"
                "cl-mpm/bc"
                "cl-mpm/constitutive"

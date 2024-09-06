@@ -39,7 +39,7 @@
    ;; :colour-func #'cl-mpm/particle::mp-damage
    ;; :colour-func (lambda (mp)
    ;;                (* (cl-mpm/particle::mp-mass mp)
-   ;;                   (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))
+   ;;                   (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
    ;;                )
    :colour-func #'cl-mpm/particle::mp-index
    ;:colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
@@ -142,17 +142,17 @@
                 (lambda (mesh mp node svp &rest args)
                   (incf force
                         (* svp
-                           (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force node))
+                           (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force node))
                            )
                         ))))
       (/ force (length load-mps))
       )))
 
 (defun get-reaction-force (load-nodes)
-  ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
+  ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
   (loop for mp in load-nodes
         sum
-        ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
+        ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force mp))
         (/ (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0)) 1
           ; mps
            )
@@ -575,7 +575,7 @@
   (loop for mp across (cl-mpm:sim-mps sim)
         summing (* (cl-mpm/particle::mp-mass mp)
                       ;; (cl-mpm/particle::mp-damage mp)
-                      (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
+                      (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp))))
   ;; (cl-mpm::sim-mass-scale sim)
   ;; (* (loop for mp across (cl-mpm:sim-mps *sim*)
   ;;          summing (cl-mpm/particle::mp-mass mp))
@@ -1330,7 +1330,7 @@
     (multiple-value-bind (e1 e2 e3) (cl-mpm/damage::principal-stresses-3d strain)
       (multiple-value-bind (s1 s2 s3) (cl-mpm/damage::principal-stresses-3d stress)
         (format t "Energy ~F~%"
-                (cl-mpm/fastmath:dot strain stress)
+                (cl-mpm/fastmaths:dot strain stress)
                 ;; (+
                                 ;;  (* (max e1 0d0) s1)
                                 ;;  (* (max e2 0d0) s2)
@@ -1348,7 +1348,7 @@
                                           (magicl:from-diag l :type 'double-float)
                                           (magicl:transpose v))))))
       ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
-      (format t "Energy real ~F~%" (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+)))
+      (format t "Energy real ~F~%" (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))
       )
     )
   )

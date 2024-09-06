@@ -22,7 +22,7 @@
       (loop :repeat (+ steps 1) collect 
               (prog1
                 (funcall get-value (cl-mpm:sim-mesh sim) sample-mp)
-                (setf (cl-mpm/particle:mp-position sample-mp) (cl-mpm/fastmath::fast-.+ (cl-mpm/particle:mp-position sample-mp) direction))))))
+                (setf (cl-mpm/particle:mp-position sample-mp) (cl-mpm/fastmaths::fast-.+ (cl-mpm/particle:mp-position sample-mp) direction))))))
 
 (defun sample-point (sim point get-value)
     (let ((sample-mp (cl-mpm/particle:make-particle 2 :pos point)))
@@ -44,7 +44,7 @@
             (cl-mpm::iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp dsvp  &rest rest) 
-               (setf av (cl-mpm/fastmath::fast-.+ av (magicl:scale (,accessor node) svp)))))
+               (setf av (cl-mpm/fastmaths::fast-.+ av (magicl:scale (,accessor node) svp)))))
             av))))
 
 (defun sample-line-mass (sim start end steps)
@@ -243,7 +243,7 @@
 ;;         (save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
 ;;         ;; (save-parameter "pressure" (/ (+ (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)
 ;;         ;;                                 (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0)) 2d0))
-;;         (labels ((dot (a b) (magicl::sum (cl-mpm/fastmath::fast-.* a b)))
+;;         (labels ((dot (a b) (magicl::sum (cl-mpm/fastmaths::fast-.* a b)))
 ;;                  (norm (a) (magicl:scale a (/ 1d0 (sqrt (dot a a)))))
 ;;                  (radial-stress (mp)
 ;;                    (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -421,16 +421,16 @@
                                     (*
                                      (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                                      (cl-mpm/mesh::node-mass node)
-                                     (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity node))))
+                                     (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
 
               (save-parameter-nodes "oobf-sum"
                                     (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
                                                      (f-int cl-mpm/mesh::node-internal-force))
                                         node
-                                      (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
+                                      (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
                                           (*
                                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                           (cl-mpm/fastmath::mag-squared
+                                           (cl-mpm/fastmaths::mag-squared
                                             (magicl:.+ f-ext f-int))
                                             )
                                           0d0)))
@@ -438,10 +438,10 @@
                                     (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
                                                      (f-int cl-mpm/mesh::node-internal-force))
                                         node
-                                      (if (> (cl-mpm/fastmath::mag-squared f-ext) 0)
+                                      (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
                                           (*
                                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                           (cl-mpm/fastmath::mag-squared
+                                           (cl-mpm/fastmaths::mag-squared
                                             f-ext))
                                           0d0)))
 

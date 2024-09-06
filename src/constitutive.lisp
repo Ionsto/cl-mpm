@@ -77,7 +77,7 @@
                (magicl:scale dev-strain viscosity))))
 
 (defun maxwell-linear (strain-increment stress elasticity viscosity dt)
-  (cl-mpm/fastmath::fast-.+
+  (cl-mpm/fastmaths::fast-.+
    stress
    (magicl:@
     (linear-elastic-matrix elasticity 0d0) strain-increment)))
@@ -108,7 +108,7 @@
            (pressure-matrix (magicl:eye 2 :value p))
            (dev-stress (magicl:.- stress-matrix pressure-matrix)))
       (setf elastic-increment (matrix-to-voight
-                    (cl-mpm/fastmath::fast-.+ pressure-matrix
+                    (cl-mpm/fastmaths::fast-.+ pressure-matrix
                                (magicl:scale! dev-stress (max 0d0 (- 1d0 damage)))))))
     ;; (magicl:scale! elastic-increment (max 1d-3 (- 1d0 damage)))
     (magicl:.-
@@ -178,7 +178,7 @@
                            (H sii))
                           )
                         )
-                   (cl-mpm/fastmath::fast-.+ Q comp Q)
+                   (cl-mpm/fastmaths::fast-.+ Q comp Q)
                    )
               )
       Q))))
@@ -186,7 +186,7 @@
 (defun tensile-projection-Q-cw-mandel (strain)
   (flet ((H (x) (if (> x 0d0) 1d0 0d0)))
     (let ((Q (magicl:zeros '(3 3) :type 'double-float)))
-      (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix (cl-mpm/fastmath::fast-.* strain
+      (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix (cl-mpm/fastmaths::fast-.* strain
                                                                           (magicl:from-list '(1d0 1d0 0.5d0) '(3 1))
                                                                           )))
         (loop for i from 0 to 1
@@ -198,7 +198,7 @@
                                          (matrix-to-mandel vii)
                                          (magicl:transpose (matrix-to-mandel vii)))
                                         (H si))))
-                   (cl-mpm/fastmath::fast-.+ Q comp-prod Q)
+                   (cl-mpm/fastmaths::fast-.+ Q comp-prod Q)
                    )
               )
         (let* ((si (nth 0 l))
@@ -208,14 +208,14 @@
                (vij (magicl:@ vi (magicl:transpose vj)))
                (vji (magicl:@ vj (magicl:transpose vi)))
                (pij (magicl:scale!
-                     (cl-mpm/fastmath::fast-.+ vij vji)
+                     (cl-mpm/fastmaths::fast-.+ vij vji)
                      0.5d0))
                (comp-prod
                  (magicl:scale! (magicl:@
                                 (matrix-to-mandel pij)
                                 (magicl:transpose (matrix-to-mandel pij)))
                                (+ (H si) (H sj)))))
-          (cl-mpm/fastmath::fast-.+ Q comp-prod Q))
+          (cl-mpm/fastmaths::fast-.+ Q comp-prod Q))
           )
       Q)))
 
@@ -229,7 +229,7 @@
   "Generate a mandel form tensile projection matrix A* from stress"
   (let ((Q (tensile-projection-q-cw-mandel strain))
         (I (magicl:from-diag '(1d0 1d0 1d0))))
-    (cl-mpm/fastmath::fast-.+ I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
+    (cl-mpm/fastmaths::fast-.+ I (magicl:scale Q (- (sqrt (- 1d0 damage)) 1d0)))))
 
 ;; (defun test-tensile ()
 ;;   (loop for stress in (list
@@ -272,7 +272,7 @@
                    (when (> sii 0d0)
                      (setf scale (sqrt (- 1d0 damage)))
                      (magicl:scale! A scale))
-                   (cl-mpm/fastmath::fast-.+ damaged-stiffness
+                   (cl-mpm/fastmaths::fast-.+ damaged-stiffness
                               (magicl:@ A stiffness A)
                               damaged-stiffness)
                      )))
@@ -284,7 +284,7 @@
                                 1d0 1d0 (sqrt 2)
                                 (sqrt 2) (sqrt 2) 2d0) '(3 3))))
   (defun voigt-4th-to-mandel (tensor)
-    (cl-mpm/fastmath::fast-.* tensor mandel-constant))
+    (cl-mpm/fastmaths::fast-.* tensor mandel-constant))
   (defun mandel-to-voigt-4th (tensor)
     (magicl:./ tensor mandel-constant))
   )
@@ -303,7 +303,7 @@
          (pressure (* bulk-modulus 0.5 (voight-trace strain)))
          )
     (declare (type double-float pressure))
-    (cl-mpm/fastmath::fast-.+
+    (cl-mpm/fastmaths::fast-.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
     )))
@@ -318,7 +318,7 @@
     (declare (type double-float pressure))
     (when (< pressure 0)
       (setf pressure (* pressure (- 1d0 damage))))
-    (cl-mpm/fastmath::fast-.+
+    (cl-mpm/fastmaths::fast-.+
      (magicl:from-list (list pressure pressure 0d0) '(3 1))
      (magicl:scale! strain-dev (/ (* 2d0 viscosity) dt))
      )))
@@ -364,9 +364,9 @@
          (stress-inc-pressure (magicl:eye 3 :value (/ (magicl:trace stress-inc) 3d0)))
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)
          ))
-    (cl-mpm/fastmath::fast-.+
-     (matrix-to-voight (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure))
-               (cl-mpm/fastmath::fast-.+
+    (cl-mpm/fastmaths::fast-.+
+     (matrix-to-voight (cl-mpm/fastmaths::fast-.+ pressure-matrix stress-inc-pressure))
+               (cl-mpm/fastmaths::fast-.+
                 (magicl:scale! (matrix-to-voight dev-stress) exp-rho)
                 (magicl:scale! (matrix-to-voight stress-inc-dev) lam)))))
 
@@ -384,10 +384,10 @@
          (stress-inc-dev (magicl:.- stress-inc stress-inc-pressure)))
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;(declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
-    (cl-mpm/fastmath::fast-.+
-     (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure)
-     (cl-mpm/fastmath::fast-.+ (cl-mpm/fastmath:fast-scale! dev-stress exp-rho)
-                               (cl-mpm/fastmath:fast-scale! stress-inc-dev lam)))))
+    (cl-mpm/fastmaths::fast-.+
+     (cl-mpm/fastmaths::fast-.+ pressure-matrix stress-inc-pressure)
+     (cl-mpm/fastmaths::fast-.+ (cl-mpm/fastmaths:fast-scale! dev-stress exp-rho)
+                               (cl-mpm/fastmaths:fast-scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
                            magicl:matrix/double-float
@@ -417,16 +417,16 @@
                             (magicl:zeros '(3 1)))))
     (declare (double-float rho exp-rho lam viscosity elasticity dt nu))
     ;; (declare (dynamic-extent pressure-matrix dev-stress stress-inc stress-inc-pressure stress-inc-dev))
-    (cl-mpm/fastmath:fast-add result-stress pressure-matrix)
-    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
-    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
-    (cl-mpm/fastmath:fast-add result-stress stress-inc-pressure)
-    (cl-mpm/fastmath:fast-fmacc result-stress dev-stress exp-rho)
-    (cl-mpm/fastmath:fast-fmacc result-stress stress-inc-dev lam)
+    (cl-mpm/fastmaths:fast-add result-stress pressure-matrix)
+    (cl-mpm/fastmaths:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmaths:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmaths:fast-add result-stress stress-inc-pressure)
+    (cl-mpm/fastmaths:fast-fmacc result-stress dev-stress exp-rho)
+    (cl-mpm/fastmaths:fast-fmacc result-stress stress-inc-dev lam)
     result-stress
-    ;; (cl-mpm/fastmath::fast-.+
-    ;;  (cl-mpm/fastmath::fast-.+ pressure-matrix stress-inc-pressure result-stress)
-    ;;  (cl-mpm/fastmath::fast-.+ (magicl:scale! dev-stress exp-rho)
+    ;; (cl-mpm/fastmaths::fast-.+
+    ;;  (cl-mpm/fastmaths::fast-.+ pressure-matrix stress-inc-pressure result-stress)
+    ;;  (cl-mpm/fastmaths::fast-.+ (magicl:scale! dev-stress exp-rho)
     ;;             (magicl:scale! stress-inc-dev lam) result-stress))
   ))
 
@@ -439,11 +439,11 @@
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
-                                                        (expt (magicl::sum (cl-mpm/fastmath::fast-.* dev-stress dev-stress
+                                                        (expt (magicl::sum (cl-mpm/fastmaths::fast-.* dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
                                                               (* 0.5 (- visc-power 1)))))))
-    (cl-mpm/fastmath::fast-.+ stress
+    (cl-mpm/fastmaths::fast-.+ stress
                (magicl:.-
                 ;;I think this is correct but not sure
                 (magicl:@ (linear-elastic-matrix youngs-modulus poisson-ratio)
@@ -463,7 +463,7 @@
          (dev-stress (matrix-to-voight (magicl:.- (voight-to-matrix stress) pressure-matrix)))
          (glenn-strain-rate (magicl:scale dev-stress (* dt
                                                         visc-factor
-                                                        (expt (magicl::sum (cl-mpm/fastmath::fast-.* dev-stress dev-stress
+                                                        (expt (magicl::sum (cl-mpm/fastmaths::fast-.* dev-stress dev-stress
                                                                                         (magicl:from-list
                                                                                          '(0.5d0 0.5d0 1d0) '(3 1))))
                                                               (- visc-power 1)))))
@@ -479,13 +479,13 @@
          (pressure-increment (* bulk-modulus (magicl:trace (voight-to-matrix strain-increment))))
          (pressure-matrix (magicl:eye 2 :value (+ pressure pressure-increment)))
          (dev-stress (glen-stress strain-increment visc-factor visc-power dt)))
-    (cl-mpm/fastmath::fast-.+ (matrix-to-voight pressure-matrix) dev-stress)))
+    (cl-mpm/fastmaths::fast-.+ (matrix-to-voight pressure-matrix) dev-stress)))
 
 (defun glen-stress (strain visc-factor visc-power dt)
   (let* ((strain-trace (/ (magicl:trace (voight-to-matrix strain)) 3d0))
          (dev-strain (matrix-to-voight (magicl:.- (voight-to-matrix strain) (magicl:eye 2 :value strain-trace))))
          (second-invar (magicl:from-list '(0.5d0 0.5d0 1d0) '(3 1) :type 'double-float))
-         (effective-strain (magicl::sum (cl-mpm/fastmath::fast-.* dev-strain dev-strain second-invar)))
+         (effective-strain (magicl::sum (cl-mpm/fastmaths::fast-.* dev-strain dev-strain second-invar)))
          )
     (if (> effective-strain 0d0)
         (magicl:scale dev-strain (* visc-factor (expt effective-strain
@@ -511,9 +511,9 @@
          (second-invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
          (visc-factor (expt visc-factor (- visc-power)))
          (effective-stress (+ 1d-50 (* 0.5d0
-                                       (cl-mpm/fastmath::fast-sum
-                                        (cl-mpm/fastmath:fast-.*
-                                         (cl-mpm/fastmath:fast-.* s-dev s-dev)
+                                       (cl-mpm/fastmaths::fast-sum
+                                        (cl-mpm/fastmaths:fast-.*
+                                         (cl-mpm/fastmaths:fast-.* s-dev s-dev)
                                          second-invar))))))
     (declare (type double-float effective-stress))
     (if (> effective-stress 0d0)
@@ -523,7 +523,7 @@
 (defun effective-strain-rate (strain)
   (sqrt
    (* 0.5d0
-      (cl-mpm/fastmath::voigt-tensor-reduce-simd
+      (cl-mpm/fastmaths::voigt-tensor-reduce-simd
        (deviatoric strain)))))
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) double-float) glen-viscosity-strain))
@@ -548,9 +548,9 @@
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) (values double-float)) glen-viscosity-strain))
 (defun glen-viscosity-stretch (stretch visc-factor visc-power)
   "Get the viscosity for a given strain state"
-  (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmath::voigt-tensor-reduce-simd (deviatoric strain))))
+  (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmaths::voigt-tensor-reduce-simd (deviatoric strain))))
          (dev-stretch (deviatoric-voigt stretch))
-         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (cl-mpm/fastmath::fast-.* dev-stretch dev-stretch)))))
+         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (cl-mpm/fastmaths::fast-.* dev-stretch dev-stretch)))))
          )
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)
@@ -560,7 +560,7 @@
 (defun voigt-j2 (s)
   "Calculate j2 invarient from deviatoric stress"
   (let ((storage (magicl::matrix/double-float-storage s)))
-    (/ (+ (the double-float (cl-mpm/fastmath:dot s s))
+    (/ (+ (the double-float (cl-mpm/fastmaths:dot s s))
           (the double-float (expt (aref storage 3) 2))
           (the double-float (expt (aref storage 4) 2))
           (the double-float (expt (aref storage 5) 2))
@@ -574,7 +574,7 @@
   (declare (double-float rho))
   (let* ((s (deviatoric-voigt sig))
          (j2 (the double-float (voigt-j2 s)))
-         (dj2 (cl-mpm/fastmath::fast-.* s (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
+         (dj2 (cl-mpm/fastmaths::fast-.* s (cl-mpm/utils::voigt-from-list '(1d0 1d0 1d0 2d0 2d0 2d0))))
          (ddj2 (magicl:block-matrix (list (magicl:.- (magicl:eye 3) (magicl:const (/ 1d0 3d0) '(3 3)))
                                           (magicl:zeros '(3 3))
                                           (magicl:zeros '(3 3))
@@ -622,7 +622,7 @@
                        ;;Calculate backstress
                        (let* ((A (magicl:block-matrix
                                   (list
-                                   (cl-mpm/fastmath::fast-.+ (magicl:eye 6)
+                                   (cl-mpm/fastmaths::fast-.+ (magicl:eye 6)
                                               (magicl:scale! (magicl:@ ddf de) dgam))
                                    df
                                    (magicl:@ (magicl:transpose df) de)
@@ -642,7 +642,7 @@
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
-                         (let ((b-eps (cl-mpm/fastmath::fast-.+ eps-e
+                         (let ((b-eps (cl-mpm/fastmaths::fast-.+ eps-e
                                                  (magicl:scale trial-elastic-strain -1d0)
                                                  (magicl:scale! df dgam)
                                                  )
@@ -728,7 +728,7 @@
                                             (magicl:column v (cdr (nth 1 l-sort)))
                                             (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
-                       (cl-mpm/fastmath::fast-scale!
+                       (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
                                                         (- 1d0 nu) nu nu
                                                         nu (- 1d0 nu) nu
@@ -768,54 +768,54 @@
                                   (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
                            (t2 (/ (magicl:tref (magicl:@ (magicl:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
                                   (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
-                           (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r1))
+                           (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r1))
                                                        (magicl:.- sig siga)) 0 0))
-                           (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r2))
+                           (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r2))
                                                        (magicl:.- sig siga)) 0 0))
                            (path :no-return)
                            (Q
                              (magicl:transpose!
                               (magicl:block-matrix (list
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                               (magicl:column v 0))
 
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                               (magicl:column v 1))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                               (magicl:column v 2))
 
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                (magicl:column v 1)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                (magicl:column v 2)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                (magicl:column v 0)) 2d0)
 
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                               (rotate-vector (magicl:column v 0)))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                               (rotate-vector (magicl:column v 1)))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                               (rotate-vector (magicl:column v 2)))
 
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                               (rotate-vector (magicl:column v 1)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                               (rotate-vector (magicl:column v 0)))) 1d0)
 
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                               (rotate-vector (magicl:column v 2)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                               (rotate-vector (magicl:column v 1)))) 1d0)
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                               (rotate-vector (magicl:column v 0)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                               (rotate-vector (magicl:column v 2)))) 1d0)
                                                     ) '(2 6)))))
                       (declare (double-float t1 t2 f12 f13))
@@ -832,7 +832,7 @@
                           (< f12 tol)
                           (< f13 tol)
                           )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r1 t1)))
+                         (setf sig (cl-mpm/fastmaths::fast-.+ siga (magicl:scale! r1 t1)))
                          (setf path :line-1)
                          ;;line 1
                          )
@@ -840,7 +840,7 @@
                           (> f12 tol)
                           (> f13 tol)
                           )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r2 t2)))
+                         (setf sig (cl-mpm/fastmaths::fast-.+ siga (magicl:scale! r2 t2)))
                          ;;line 2
                          (setf path :line-2)
                          )
@@ -891,7 +891,7 @@
   (let* ((tol 1d-9)
          (initial-f 0d0))
     (let ((f-dp (dp-yield-mc-circumscribe
-                 (cl-mpm/fastmath:fast-.+ stress (cl-mpm/utils::voigt-eye pore-pressure))
+                 (cl-mpm/fastmaths:fast-.+ stress (cl-mpm/utils::voigt-eye pore-pressure))
                  phi c)))
       ;;Early check for if we should yield - DP eval is much faster?
       (if (> f-dp tol)
@@ -903,7 +903,7 @@
                                             (magicl:column v (cdr (nth 1 l-sort)))
                                             (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
-                       (cl-mpm/fastmath::fast-scale!
+                       (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
                                                         (- 1d0 nu) nu nu
                                                         nu (- 1d0 nu) nu
@@ -911,7 +911,7 @@
                         (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
                      (epsTr (cl-mpm/utils:vector-from-list l))
                      (sig (cl-mpm/utils:@-mat-vec De3 epsTr))
-                     (sig (cl-mpm/fastmath:fast-.+ sig (cl-mpm/utils::voigt-eye pore-pressure) sig))
+                     (sig (cl-mpm/fastmaths:fast-.+ sig (cl-mpm/utils::voigt-eye pore-pressure) sig))
                      (f (mc-yield-func sig phi c))
                      (initial-f f))
                 ;; (format t "f: ~E - Fdp: ~E~%" f f-dp)
@@ -944,54 +944,54 @@
                                   (magicl:tref (magicl:@ (magicl:transpose rg1) Ce r1) 0 0)))
                            (t2 (/ (magicl:tref (magicl:@ (magicl:transpose rg2) Ce (magicl:.- sig siga)) 0 0)
                                   (magicl:tref (magicl:@ (magicl:transpose rg2) Ce r2) 0 0)))
-                           (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r1))
+                           (f12 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r1))
                                                        (magicl:.- sig siga)) 0 0))
-                           (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmath::cross-product rp r2))
+                           (f13 (magicl:tref (magicl:@ (magicl:transpose! (cl-mpm/fastmaths::cross-product rp r2))
                                                        (magicl:.- sig siga)) 0 0))
                            (path :no-return)
                            (Q
                              (magicl:transpose!
                               (magicl:block-matrix (list
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                               (magicl:column v 0))
 
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                               (magicl:column v 1))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                               (magicl:column v 2))
 
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                (magicl:column v 1)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                (magicl:column v 2)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                (magicl:column v 0)) 2d0)
 
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                               (rotate-vector (magicl:column v 0)))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                               (rotate-vector (magicl:column v 1)))
-                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                               (rotate-vector (magicl:column v 2)))
 
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                               (rotate-vector (magicl:column v 1)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                               (rotate-vector (magicl:column v 0)))) 1d0)
 
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                                                               (rotate-vector (magicl:column v 2)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                               (rotate-vector (magicl:column v 1)))) 1d0)
-                                                    (magicl:scale! (cl-mpm/fastmath::fast-.+
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                                                               (rotate-vector (magicl:column v 0)))
-                                                                    (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                                                               (rotate-vector (magicl:column v 2)))) 1d0)
                                                     ) '(2 6)))))
                       (declare (double-float t1 t2 f12 f13))
@@ -1008,7 +1008,7 @@
                           (< f12 tol)
                           (< f13 tol)
                           )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r1 t1)))
+                         (setf sig (cl-mpm/fastmaths::fast-.+ siga (magicl:scale! r1 t1)))
                          (setf path :line-1)
                          ;;line 1
                          )
@@ -1016,7 +1016,7 @@
                           (> f12 tol)
                           (> f13 tol)
                           )
-                         (setf sig (cl-mpm/fastmath::fast-.+ siga (magicl:scale! r2 t2)))
+                         (setf sig (cl-mpm/fastmaths::fast-.+ siga (magicl:scale! r2 t2)))
                          ;;line 2
                          (setf path :line-2)
                          )
@@ -1032,7 +1032,7 @@
                       (when (> f (* 10000d0 tol))
                         (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
 
-                      ;; (cl-mpm/fastmath:fast-.- sig (cl-mpm/utils::voigt-eye pore-pressure) sig)
+                      ;; (cl-mpm/fastmaths:fast-.- sig (cl-mpm/utils::voigt-eye pore-pressure) sig)
                       (setf eps-e (magicl:@ Ce sig))
 
                       ;; (break)
@@ -1068,37 +1068,37 @@
   (magicl:transpose!
    (magicl:block-matrix
     (list
-     (cl-mpm/fastmath::fast-.* (magicl:column v 0) (magicl:column v 0))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (magicl:column v 0))
 
-     (cl-mpm/fastmath::fast-.* (magicl:column v 1) (magicl:column v 1))
-     (cl-mpm/fastmath::fast-.* (magicl:column v 2) (magicl:column v 2))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (magicl:column v 1))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (magicl:column v 2))
 
      (magicl:scale!
-      (cl-mpm/fastmath::fast-.* (magicl:column v 0) (magicl:column v 1)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (magicl:column v 1)) 2d0)
      (magicl:scale!
-      (cl-mpm/fastmath::fast-.* (magicl:column v 1) (magicl:column v 2)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (magicl:column v 2)) 2d0)
      (magicl:scale!
-      (cl-mpm/fastmath::fast-.* (magicl:column v 2) (magicl:column v 0)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (magicl:column v 0)) 2d0)
 
-     (cl-mpm/fastmath::fast-.* (magicl:column v 0) (rotate-vector (magicl:column v 0)))
-     (cl-mpm/fastmath::fast-.* (magicl:column v 1) (rotate-vector (magicl:column v 1)))
-     (cl-mpm/fastmath::fast-.* (magicl:column v 2) (rotate-vector (magicl:column v 2)))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (rotate-vector (magicl:column v 0)))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (rotate-vector (magicl:column v 1)))
+     (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (rotate-vector (magicl:column v 2)))
 
-     (magicl:scale! (cl-mpm/fastmath::fast-.+
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+     (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                (rotate-vector (magicl:column v 1)))
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                (rotate-vector (magicl:column v 0)))) 1d0)
 
-     (magicl:scale! (cl-mpm/fastmath::fast-.+
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 1)
+     (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
                                                (rotate-vector (magicl:column v 2)))
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                (rotate-vector (magicl:column v 1)))) 1d0)
-     (magicl:scale! (cl-mpm/fastmath::fast-.+
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 2)
+     (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
                                                (rotate-vector (magicl:column v 0)))
-                     (cl-mpm/fastmath::fast-.* (magicl:column v 0)
+                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
                                                (rotate-vector (magicl:column v 2)))) 1d0)
      ) '(2 6))))
 
@@ -1122,7 +1122,7 @@
                      (bta (- (tan psi)))
                      (xsic (* (sqrt 3) (/ 1d0 (tan phi)) c))
                      (De3
-                       (cl-mpm/fastmath::fast-scale!
+                       (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
                                                         (- 1d0 nu) nu nu
                                                         nu (- 1d0 nu) nu
@@ -1134,11 +1134,11 @@
                            (cl-mpm/utils:@-mat-vec De3 epsTr)
                            (/ xsic (sqrt 3))))
                      (epsE (magicl:@ Ce sig))
-                     (xi (/ (cl-mpm/fastmath:fast-sum sig) (sqrt 3)))
+                     (xi (/ (cl-mpm/fastmaths:fast-sum sig) (sqrt 3)))
                      (s (magicl:.-
                          sig
                          (/ xi (sqrt 3))))
-                     (rho (sqrt (cl-mpm/fastmath:dot s s)))
+                     (rho (sqrt (cl-mpm/fastmaths:dot s s)))
                      (f (- rho (* alfa xi)))
                      (initial-f f))
 
@@ -1163,7 +1163,7 @@
                       (cond
                         ((< fap tol)
                          (setf path :apex-return)
-                         (setf sig (cl-mpm/fastmath:fast-scale!
+                         (setf sig (cl-mpm/fastmaths:fast-scale!
                                     (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0))
                                     (/ xsic (sqrt 3))))
                          (setf epsE (magicl:@ Ce sig)))
@@ -1173,20 +1173,20 @@
                                (b (magicl:zeros '(4 1)))
                                (dgam 0d0)
                                (df (magicl:.-
-                                    (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                    (cl-mpm/fastmaths:fast-scale-vector s (/ 1d0 rho))
                                     (/ alfa (sqrt 3))))
                                (dg (magicl:.-
-                                    (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                    (cl-mpm/fastmaths:fast-scale-vector s (/ 1d0 rho))
                                     (/ bta (sqrt 3))))
                                (dgg
                                  (magicl:.-
-                                  (cl-mpm/fastmath:fast-scale! 
+                                  (cl-mpm/fastmaths:fast-scale! 
                                    (magicl:.-
                                     (magicl:eye 3 :value 3)
                                     (magicl:ones (list 3 3))
                                     )
                                    (/ 1d0 (* 3d0 rho)))
-                                  (cl-mpm/fastmath:fast-scale!
+                                  (cl-mpm/fastmaths:fast-scale!
                                    (magicl:@ s (magicl:transpose s))
                                    (/ 1d0 (expt rho 3)))))
                                )
@@ -1204,38 +1204,38 @@
                                     (let* ((A (magicl:block-matrix (list
                                                                     (magicl:.+
                                                                      (magicl:eye 3)
-                                                                     (cl-mpm/fastmath:fast-scale! (magicl:@ dgg De3) dgam)
+                                                                     (cl-mpm/fastmaths:fast-scale! (magicl:@ dgg De3) dgam)
                                                                      )
                                                                     dg
                                                                     (magicl:@ (magicl:transpose df) De3)
                                                                     (magicl:zeros '(1 1)))
                                                                    (list 2 2)
                                                 ))
-                                           (dx (cl-mpm/fastmath:fast-scale! (magicl:linear-solve A b) -1d0)))
+                                           (dx (cl-mpm/fastmaths:fast-scale! (magicl:linear-solve A b) -1d0)))
                                       (loop for i from 0 to 2 do 
                                         (incf (varef epsE i) (varef dx i)))
                                       (incf dgam (varef dx 3))
                                       (setf sig (magicl:@ De3 epsE))
-                                      (setf xi (/ (cl-mpm/fastmath:fast-sum sig) (sqrt 3)))
+                                      (setf xi (/ (cl-mpm/fastmaths:fast-sum sig) (sqrt 3)))
                                       (setf s (magicl:.-
                                                sig
                                                (/ xi (sqrt 3))))
-                                      (setf rho (sqrt (cl-mpm/fastmath:dot s s)))
+                                      (setf rho (sqrt (cl-mpm/fastmaths:dot s s)))
                                       (setf df (magicl:.-
-                                                (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                                (cl-mpm/fastmaths:fast-scale-vector s (/ 1d0 rho))
                                                 (/ alfa (sqrt 3))))
                                       (setf dg (magicl:.-
-                                           (cl-mpm/fastmath:fast-scale-vector s (/ 1d0 rho))
+                                           (cl-mpm/fastmaths:fast-scale-vector s (/ 1d0 rho))
                                            (/ bta (sqrt 3))))
                                       (setf dgg
                                        (magicl:.-
-                                        (cl-mpm/fastmath:fast-scale!
+                                        (cl-mpm/fastmaths:fast-scale!
                                          (magicl:.-
                                           (magicl:eye 3 :value 3)
                                           (magicl:ones (list 3 3))
                                           )
                                          (/ 1d0 (* 3d0 rho)))
-                                        (cl-mpm/fastmath:fast-scale!
+                                        (cl-mpm/fastmaths:fast-scale!
                                          (magicl:@ s (magicl:transpose s))
                                          (/ 1d0 (expt rho 3)))))
 

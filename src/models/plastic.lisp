@@ -156,7 +156,7 @@
     (when enabled
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
         (setf stress sig
-              plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e)
+              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
               yield-func f
               )
         (setf strain eps-e)
@@ -210,7 +210,7 @@
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
         (setf stress
               sig
-              plastic-strain (cl-mpm/fastmath:fast-.- strain eps-e)
+              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
               strain eps-e
               yield-func f
               ))

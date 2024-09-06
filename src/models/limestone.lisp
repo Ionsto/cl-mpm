@@ -85,10 +85,10 @@
                     yield-func f)
               (setf strain eps-e))
             (incf ps-vm
-                  (cl-mpm/fastmath::voigt-von-mises plastic-strain))))
+                  (cl-mpm/fastmaths::voigt-von-mises plastic-strain))))
       (setf stress (cl-mpm/utils:voigt-copy-into stress-undamaged stress))
       (when (> damage 0.0d0)
-        (cl-mpm/fastmath::fast-scale! stress (expt (- 1d0 (* (- 1d0 1d-9) damage)) 1))))
+        (cl-mpm/fastmaths::fast-scale! stress (expt (- 1d0 (* (- 1d0 1d-9) damage)) 1))))
     stress))
 
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-limestone) dt)

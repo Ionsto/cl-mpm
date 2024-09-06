@@ -467,7 +467,7 @@
                )
       mp
     ;; Non-objective stress intergration
-    ;; (cl-mpm/fastmath::fast-.+
+    ;; (cl-mpm/fastmaths::fast-.+
     ;;  stress
     ;;  (cl-mpm/constitutive::linear-elastic-mat strain-rate de))
     (magicl:.+ stress (magicl:@ de strain-rate))
@@ -488,7 +488,7 @@
                )
       mp
     ;;Jaumann rate equation
-    (cl-mpm/fastmath::fast-.+
+    (cl-mpm/fastmaths::fast-.+
      stress
      (objectify-stress-jaumann
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -511,7 +511,7 @@
                )
       mp
     ;; Truesdale rate
-    (cl-mpm/fastmath::fast-.+
+    (cl-mpm/fastmaths::fast-.+
      stress
      (objectify-stress-kirchoff-truesdale
       (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -536,7 +536,7 @@
           ;; (strain-rate (magicl:scale strain-rate (/ 1d0 dt)))
           ;; (vorticity (magicl:scale vorticity (/ 1d0 dt)))
           )
-      (cl-mpm/fastmath::fast-.+
+      (cl-mpm/fastmaths::fast-.+
        stress
        (objectify-stress-logspin
         (cl-mpm/constitutive::linear-elastic-mat strain-rate de)
@@ -592,14 +592,14 @@
                )
       mp
     (declare (double-float E visc-factor visc-power))
-    (let* ((eng-strain-rate (cl-mpm/fastmath::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
+    (let* ((eng-strain-rate (cl-mpm/fastmaths::fast-.* (magicl:map (lambda (x) (* x (exp x))) strain) velocity-rate
                                                   (cl-mpm/utils:voigt-from-list '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))
           (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power))
           ;(viscosity (cl-mpm/constitutive::glen-viscosity-stress stress visc-factor visc-power))
           )
       ;; stress
       (setf temp viscosity)
-      (cl-mpm/fastmath::fast-.+
+      (cl-mpm/fastmaths::fast-.+
        stress
        (objectify-stress-logspin
         (if (> viscosity 0d0)
@@ -662,7 +662,7 @@
     (let ((b (magicl:@ def (magicl:transpose def)))
           ;; (omega (assemble-vorticity-matrix vorticity))
           (omega (magicl:scale! (magicl:.- D (magicl:transpose D)) 0.5d0))
-          (D (magicl:scale! (cl-mpm/fastmath::fast-.+ D (magicl:transpose D)) 0.5d0))
+          (D (magicl:scale! (cl-mpm/fastmaths::fast-.+ D (magicl:transpose D)) 0.5d0))
           ;; (D (cl-mpm/utils::voigt-to-matrix D))
           )
         (multiple-value-bind (l v) (cl-mpm/utils::eig b)
@@ -684,7 +684,7 @@
                                        )
                                   ;; When we have pairs of unique nonzero eigenvalues
                                   (setf omega
-                                        (cl-mpm/fastmath::fast-.+ omega
+                                        (cl-mpm/fastmaths::fast-.+ omega
                                                    (magicl:scale!
                                                     (magicl:@
                                                      (magicl:@

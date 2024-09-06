@@ -4,7 +4,7 @@
    :cl-mpm/particle
    :cl-mpm/mesh
    :cl-mpm/utils
-   :cl-mpm/fastmath
+   :cl-mpm/fastmaths
    )
   (:import-from
    :magicl tref .+ .-)
@@ -35,12 +35,12 @@
   (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
          (pos-a (cl-mpm/mesh::cell-centroid cell-a))
          (pos-b (cl-mpm/mesh::cell-centroid cell-b))
-         (normal (cl-mpm/fastmath:norm (cl-mpm/fastmath:fast-.- pos-a pos-b)))
-         (midpoint (cl-mpm/fastmath::fast-scale! (cl-mpm/fastmath:fast-.+ pos-a pos-b) 0.5d0))
+         (normal (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- pos-a pos-b)))
+         (midpoint (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.+ pos-a pos-b) 0.5d0))
          (face-basis (cl-mpm/utils:vector-from-list (list (- (tref normal 1 0)) (tref normal 0 0) 0d0))))
     (loop for gp in (list -1d0 1d0)
           do (progn
-               (let ((gp-loc (cl-mpm/fastmath:fast-.+
+               (let ((gp-loc (cl-mpm/fastmaths:fast-.+
                               midpoint
                               (magicl:scale face-basis (/ (* 0.5d0 h) (sqrt 3)))))
                      (gp-weight (* (/ (expt h 3) 3) (/ h 2d0))))
@@ -87,7 +87,7 @@
      normal
      (lambda (node)
        (let* ((node-pos (cl-mpm/mesh::node-position node))
-              (dist (cl-mpm/fastmath::fast-.- gp-point node-pos))
+              (dist (cl-mpm/fastmaths::fast-.- gp-point node-pos))
               (weights (list
                         (cl-mpm/shape-function::shape-linear (tref dist 0 0) h)
                         (cl-mpm/shape-function::shape-linear (tref dist 1 0) h)))
@@ -127,7 +127,7 @@
                                           (* (nth 1 grads-b) (tref normal 1 0))
                                           0d0))
                         (dsvp-b (cl-mpm/shape-function::assemble-dsvp-3d grad-adjust)))
-                   (cl-mpm/fastmath:fast-.+
+                   (cl-mpm/fastmaths:fast-.+
                     ghost
                     (magicl:scale!
                      (magicl:@

@@ -15,7 +15,7 @@
 
 (defun full-recompile ()
   (asdf:compile-system :cl-mpm/utils :force t)
-  (asdf:compile-system :cl-mpm/fastmath :force t)
+  (asdf:compile-system :cl-mpm/fastmaths :force t)
   (asdf:compile-system :cl-mpm/forces :force t)
   (asdf:compile-system :cl-mpm/constitutive :force t)
   (asdf:compile-system :cl-mpm/mesh :force t)
@@ -70,11 +70,11 @@
       (declare (double-float pressure damage))
       (progn
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
-        ;;                         (cl-mpm/fastmath:fast-.+
+        ;;                         (cl-mpm/fastmaths:fast-.+
         ;;                          strain
         ;;                          (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
-        (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
+        (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmaths:fast-.+ strain plastic-strain)
                                                            de)))
           (setf damage-increment
                 (max 0d0
@@ -457,7 +457,7 @@
 (defun estimate-total-energy (sim)
   (loop for mp across (cl-mpm:sim-mps sim)
         sum (* (cl-mpm/particle::mp-mass mp)
-                      (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+                      (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))))
 
 (defgeneric estimate-energy-crit (sim))
 
@@ -467,7 +467,7 @@
   ;;                0.5d0
   ;;                (cl-mpm/particle::mp-mass mp)
   ;;                  ;; (cl-mpm/particle::mp-damage mp)
-  ;;                  (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp))))
+  ;;                  (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp))))
   (let ((energy 0d0)
         (mut (sb-thread:make-mutex)))
     (cl-mpm:iterate-over-nodes
@@ -476,7 +476,7 @@
        (when (cl-mpm/mesh:node-active n)
          (let ((e-inc (*
                        (cl-mpm/mesh::node-mass n)
-                       (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                       (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
                        )))
            (sb-thread:with-mutex (mut)
              (incf energy e-inc))))))
@@ -486,7 +486,7 @@
   ;; (cl-mpm/mpi::mpi-sum
   ;;  (loop for mp across (cl-mpm:sim-mps sim)
   ;;        sum (* (cl-mpm/particle::mp-mass mp)
-  ;;               (cl-mpm/fastmath::mag-squared (cl-mpm/particle::mp-velocity mp)))))
+  ;;               (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))))
   (cl-mpm/mpi::mpi-sum
    (let ((energy 0d0)
          (mut (sb-thread:make-mutex)))
@@ -497,7 +497,7 @@
           (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
             (let ((e-inc (*
                           (cl-mpm/mesh::node-mass n)
-                          (cl-mpm/fastmath::mag (cl-mpm/mesh::node-velocity n))
+                          (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-velocity n))
                           )))
               (sb-thread:with-mutex (mut)
                 (incf energy e-inc)))))))
@@ -532,9 +532,9 @@
          (when active
            ;; (setf imax iter)
            (setf nmax (+ nmax
-                         (cl-mpm/fastmath::mag-squared
+                         (cl-mpm/fastmaths::mag-squared
                           (magicl:.- f-ext f-int)))
-                 dmax (+ dmax (cl-mpm/fastmath::mag-squared f-ext))))
+                 dmax (+ dmax (cl-mpm/fastmaths::mag-squared f-ext))))
          )
        (incf iter)
        ))
@@ -722,7 +722,7 @@
                                   (cl-mpm:iterate-over-mps
                                    (cl-mpm:sim-mps *sim*)
                                    (lambda (mp)
-                                     (cl-mpm/fastmath::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
+                                     (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
                           (case sim-state
                             (:accelerate
                              (format t "Accelerate timestep~%")
@@ -1731,8 +1731,8 @@
                                                         (magicl:from-diag l :type 'double-float)
                                                         (magicl:transpose v)))))
            (strain- (magicl:.- strain strain+))
-           (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
-           (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
+           (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+))))))
+           (e- (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain- (magicl:@ de strain-))))))
            )
       (/
        (+ (* k e+) e-)
@@ -1807,7 +1807,7 @@
 ;;         (res (magicl:zeros '(3 1))))
 ;;     (declare (magicl:matrix/double-float eps res))
 ;;     ;; (magicl:.+ eps eps res)
-;;     ;; (cl-mpm/fastmath::fast-add res eps)
+;;     ;; (cl-mpm/fastmaths::fast-add res eps)
 ;;     ;; (magicl.simd::simd-add (magicl::matrix/double-float-storage eps) 
 ;;     ;;           (magicl::matrix/double-float-storage eps)
 ;;     ;;           (magicl::matrix/double-float-storage res))
@@ -1821,7 +1821,7 @@
 ;;             (magicl.simd::.+-simd eps eps res)))
 ;;     (format t "Test magicl.simd~%")
 ;;     (time (lparallel:pdotimes (i iters)
-;;             (cl-mpm/fastmath:fast-add res eps)))))
+;;             (cl-mpm/fastmaths:fast-add res eps)))))
 ;; (setup)
 ;; (let* ((eps (cl-mpm/constitutive::swizzle-coombs->voigt
 ;;               (cl-mpm/utils:voigt-from-list (list 10d0 0d0 5d0 1d0 0d0 0d0))))
@@ -1857,19 +1857,19 @@
     ;;    (magicl:.+ a b res)))
     (time
      (dotimes (i iter)
-       (cl-mpm/fastmath::fast-.+ a b res)))
+       (cl-mpm/fastmaths::fast-.+ a b res)))
     (time
      (dotimes (i iter)
-       (cl-mpm/fastmath::fast-.+-stretch a b res)))
+       (cl-mpm/fastmaths::fast-.+-stretch a b res)))
     ;; (time
     ;;  (lparallel:pdotimes (i iter)
     ;;    (magicl:scale! a 0d0)))
     ;; (time
     ;;  (lparallel:pdotimes (i iter)
-    ;;    (cl-mpm/fastmath::fast-scale! a 0d0)))
+    ;;    (cl-mpm/fastmaths::fast-scale! a 0d0)))
     ;; (time
     ;;  (lparallel:pdotimes (i iter)
-    ;;    (cl-mpm/fastmath::fast-zero a)))
+    ;;    (cl-mpm/fastmaths::fast-zero a)))
     ))
 
 
@@ -1934,7 +1934,7 @@
 ;;   (magicl:mult a b :target res)
 ;;   (pprint res)
 ;;   (setf res (cl-mpm/utils:vector-zeros))
-;;   (cl-mpm/fastmath::@-m-v a b res)
+;;   (cl-mpm/fastmaths::@-m-v a b res)
 ;;   (pprint res)
 ;;   ;; (time
 ;;   ;;  (dotimes (i iters)
@@ -1957,29 +1957,29 @@
 ;;            (st (cl-mpm/utils::matrix-zeros))
 ;;            (temp (cl-mpm/utils::matrix-zeros))
 ;;            )
-;;        (cl-mpm/fastmath::@-stretch-vec stretch vel res)
+;;        (cl-mpm/fastmaths::@-stretch-vec stretch vel res)
 ;;        (cl-mpm/utils::voight-to-stretch-prealloc res temp)
-;;        (cl-mpm/fastmath::fast-.+-matrix st temp st)
+;;        (cl-mpm/fastmaths::fast-.+-matrix st temp st)
 ;;        )))
 ;;   (time
 ;;    (dotimes (i iters)
 ;;     (let ((st (cl-mpm/utils::matrix-zeros)))
 ;;       (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads vel st))))
 ;;   ;; (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;   ;; (cl-mpm/fastmath::@-stretch-vec stretch vel res)
+;;   ;; (cl-mpm/fastmaths::@-stretch-vec stretch vel res)
 ;;   ;; (pprint res)
 ;;   ;; (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;   ;; (cl-mpm/fastmath::@-stretch-vec-simd stretch vel res)
+;;   ;; (cl-mpm/fastmaths::@-stretch-vec-simd stretch vel res)
 ;;   ;; (pprint res)
 ;;   ;; (time
 ;;   ;;  (dotimes (i iters)
 ;;   ;;    (magicl:mult stretch vel :target res)))
 ;;   ;; (time
 ;;   ;;  (dotimes (i iters)
-;;   ;;    (cl-mpm/fastmath::@-stretch-vec stretch vel res)))
+;;   ;;    (cl-mpm/fastmaths::@-stretch-vec stretch vel res)))
 ;;   ;; (time
 ;;   ;;  (dotimes (i iters)
-;;   ;;    (cl-mpm/fastmath::@-stretch-vec-simd stretch vel res)))
+;;   ;;    (cl-mpm/fastmaths::@-stretch-vec-simd stretch vel res)))
 ;;   )
 
 
@@ -2019,7 +2019,7 @@
 ;;        (strain (cl-mpm/utils:voigt-zeros))
 ;;       )
 
-;;   (cl-mpm/fastmath::fast-.+-matrix df ddF df)
+;;   (cl-mpm/fastmaths::fast-.+-matrix df ddF df)
 ;;   (cl-mpm/ext:kirchoff-update strain df)
 ;;   (pprint (cl-mpm/constitutive::swizzle-voigt->coombs strain))
 ;;   )

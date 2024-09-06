@@ -21,7 +21,7 @@
       (multiple-value-bind (l v) (cl-mpm/utils::eig (voight-to-matrix strain))
         (map-into l (lambda (sii) (max sii 0)) l)
         (let* ((driving-strain (matrix-to-voight (magicl:@ v (magicl:from-diag l :type 'double-float) (magicl:transpose v))))
-               (ss (cl-mpm/fastmath:fast-.* stress driving-strain))
+               (ss (cl-mpm/fastmaths:fast-.* stress driving-strain))
                (energy (* 0.5d0 (+ (magicl:tref ss 0 0) (magicl:tref ss 1 0) (magicl:tref ss 2 0) (magicl:tref ss 2 0)))))
           (values energy))))))
 (defun calculate-strain-energy (mps)
@@ -152,7 +152,7 @@
   (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
                          (cl-mpm/particle:mp-position mp-b)))
         )
-    (values (the double-float (magicl::sum (cl-mpm/fastmath::fast-.* dist dist))))))
+    (values (the double-float (magicl::sum (cl-mpm/fastmaths::fast-.* dist dist))))))
 
 (defparameter *neighbour-queue* nil)
 (defparameter *neighbour-array* nil)

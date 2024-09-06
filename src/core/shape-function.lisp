@@ -606,13 +606,13 @@
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;        (dotimes (i 1000000)
-;;          (setf a (cl-mpm/fastmath::fast-.+ a b))
+;;          (setf a (cl-mpm/fastmaths::fast-.+ a b))
 ;;          )))
 ;; (time
 ;;  (let ((a (magicl:zeros '(1000 1)))
 ;;        (b (magicl:zeros '(1000 1))))
 ;;    (dotimes (i 1000000)
-;;      (cl-mpm/fastmath::fast-.+ a b a)
+;;      (cl-mpm/fastmaths::fast-.+ a b a)
 ;;      )))
 
 (declaim

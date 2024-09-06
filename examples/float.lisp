@@ -23,11 +23,11 @@
                    (p cl-mpm/particle::mp-pressure)
                    (def cl-mpm/particle::mp-deformation-gradient))
       mp
-    ;; (cl-mpm/fastmath:fast-.+
-    ;;  (cl-mpm/fastmath:fast-scale-voigt
+    ;; (cl-mpm/fastmaths:fast-.+
+    ;;  (cl-mpm/fastmaths:fast-scale-voigt
     ;;   (cl-mpm/constitutive::linear-elastic-mat strain de) (- 1d0 d))
     ;;  ;; (cl-mpm/utils:voigt-zeros)
-    ;;  (cl-mpm/utils::voigt-eye (* 1d0 p (cl-mpm/fastmath:det def))))
+    ;;  (cl-mpm/utils::voigt-eye (* 1d0 p (cl-mpm/fastmaths:det def))))
 
     (cl-mpm/constitutive::linear-elastic-mat strain de)
     )

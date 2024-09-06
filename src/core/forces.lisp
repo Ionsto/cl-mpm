@@ -98,7 +98,7 @@
         (dsvp (cl-mpm/shape-function::assemble-dsvp-3d (list 6d0 2d0 1.5d0)))
         (stress (cl-mpm/utils:voigt-from-list (list 9d0 3d0 5d0 3d0 5d0 8d0))))
                                         ;(mult-force dsvp stress volume f-out)
-    ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+    ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
     ;; (@-dsvp-vec-simd dsvp stress volume f-out)
 
     (let ((res (cl-mpm/utils:vector-zeros)))
@@ -147,12 +147,12 @@
                      ) mp
       (declare (type double-float volume))
       ;; (print dsvp)
-      ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+      ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
       (@-dsvp-vec-simd dsvp stress volume f-out)
-      ;; (cl-mpm/fastmath::fast-fmacc f-out
+      ;; (cl-mpm/fastmaths::fast-fmacc f-out
       ;;                              vel
       ;;                              (* -1d0 damping volume))
-      ;; (cl-mpm/fastmath::@-dsvp-vec dsvp stress volume f-out)
+      ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
       ;; (mult-force dsvp stress volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
@@ -208,9 +208,9 @@
              svp))
 
           ;; (magicl:scale!
-          ;;   ;; (cl-mpm/fastmath::fast-.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
+          ;;   ;; (cl-mpm/fastmaths::fast-.+ (magicl:from-array (make-array 2 :initial-contents (list 0d0 (* mass gravity)))
           ;;   ;;                               '(2 1) :type 'double-float :layout :column-major)
-          ;;   (cl-mpm/fastmath::fast-.+ (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
+          ;;   (cl-mpm/fastmaths::fast-.+ (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
           ;;              (magicl:scale body-force mass))
           ;;   svp))
       f-out)))

@@ -254,9 +254,9 @@
                   (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
                   (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
         (setf stress
-              (cl-mpm/fastmath:fast-.+
+              (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmath:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
+               (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
                stress)))
       )
     stress))
@@ -916,8 +916,8 @@
           ;;                                                     (magicl:transpose v)))))
           ;;        (strain- (magicl:.- strain strain+))
           ;;        ;(invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
-          ;;        (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain+ (magicl:@ de strain+))))))
-          ;;        (e- (sqrt (max 0d0 (* E (cl-mpm/fastmath::dot strain- (magicl:@ de strain-))))))
+          ;;        (e+ (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+))))))
+          ;;        (e- (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain- (magicl:@ de strain-))))))
           ;;        (k (/ fc ft)))
           ;;   ;; (format t "Energy real ~A~%" (magicl:@ de strain+))
           ;;   (setf damage-increment
@@ -1079,19 +1079,19 @@
           ;;            ;;         (max 0d0 (cl-mpm/utils::trace-voigt stress))
           ;;            ;;         (cl-mpm/utils::trace-voigt strain))
           ;;            ;;        (* 0.5d0
-          ;;            ;;           (cl-mpm/fastmath:dot (cl-mpm/utils::deviatoric-voigt stress)
+          ;;            ;;           (cl-mpm/fastmaths:dot (cl-mpm/utils::deviatoric-voigt stress)
           ;;            ;;                                (cl-mpm/utils::deviatoric-voigt strain)))))))
           ;;            ;; (p 0d0)
           ;;            ;; (s_1 (sqrt (* E
           ;;            ;;               (+
           ;;            ;;                (* p (cl-mpm/utils::trace-voigt strain))
           ;;            ;;                (* (- 1d0 g-r)
-          ;;            ;;                   (cl-mpm/fastmath:dot (cl-mpm/utils::deviatoric-voigt stress)
+          ;;            ;;                   (cl-mpm/fastmaths:dot (cl-mpm/utils::deviatoric-voigt stress)
           ;;            ;;                                        (cl-mpm/utils::deviatoric-voigt strain)))))))
           ;;            ;; (s_1
           ;;            ;;   (sqrt (max 0d0
           ;;            ;;              (* E
-          ;;            ;;                 (cl-mpm/fastmath:dot (cl-mpm/utils::deviatoric-voigt stress)
+          ;;            ;;                 (cl-mpm/fastmaths:dot (cl-mpm/utils::deviatoric-voigt stress)
           ;;            ;;                                      (cl-mpm/utils::deviatoric-voigt strain))))))
           ;;            ;; (s_1 (- s_1 pressure-effective))
           ;;            ;; (s_2 (- s_2 pressure-effective))

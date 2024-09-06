@@ -625,9 +625,9 @@
         (node-vel (cl-mpm/utils:vector-from-list (list 0d0 0d0 -1d0)))
         )
     (cl-mpm/shape-function::assemble-dstretch-3d-prealloc grads stretch-dsvp)
-    (cl-mpm/fastmath::@-stretch-vec stretch-dsvp node-vel temp-mult)
+    (cl-mpm/fastmaths::@-stretch-vec stretch-dsvp node-vel temp-mult)
     (cl-mpm/utils::voight-to-stretch-prealloc temp-mult temp-add)
-    ;; (cl-mpm/fastmath::fast-.+-matrix
+    ;; (cl-mpm/fastmaths::fast-.+-matrix
     ;;  stretch-tensor
     ;;  temp-add
     ;;  stretch-tensor)

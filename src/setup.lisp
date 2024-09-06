@@ -80,7 +80,7 @@
                                                                          (* (nth 2 spacing) z))
                                                                '(3 1) :type 'double-float))
                                (size-vec (magicl:from-list spacing '(3 1) :type 'double-float))
-                               (position-vec (cl-mpm/fastmath::fast-.+ origin-vec
+                               (position-vec (cl-mpm/fastmaths::fast-.+ origin-vec
                                                         (magicl:@ rot position-vec)))
                                )
                           (flet ((lisp-list (m) (loop for i from 0 to 2 collect (magicl:tref m i 0))))
@@ -190,7 +190,7 @@
     (lambda (pos)
       (let* ((position (cl-mpm/utils:vector-from-list (append
                                                        position '(0d0))))
-             (dist-vec (cl-mpm/fastmath::fast-.*
+             (dist-vec (cl-mpm/fastmaths::fast-.*
                         (magicl:.- position pos)
                         (magicl:from-list (list 1d0 aspect 1d0) '(3 1)
                                                                              :type 'double-float)))
@@ -212,16 +212,16 @@
          (end (vector-from-list b))
          (pa (magicl:.- position start))
          (ba (magicl:.- end start))
-         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmath::dot pa ba)
-                                 (cl-mpm/fastmath::dot ba ba)
+         (h (min 1d0 (max 0d0 (/ (cl-mpm/fastmaths::dot pa ba)
+                                 (cl-mpm/fastmaths::dot ba ba)
                                  ))))
          (v (magicl:.- pa (magicl:scale ba h))))
-    (- (sqrt (cl-mpm/fastmath::dot v v)) width)))
+    (- (sqrt (cl-mpm/fastmaths::dot v v)) width)))
 (defun plane-sdf (position normal distance)
-  (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal))))
+  (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal))))
 (defun plane-point-sdf (position normal point)
-  (let ((distance (cl-mpm/fastmath::dot point (cl-mpm/fastmath::norm normal))))
-    (- distance (cl-mpm/fastmath::dot position (cl-mpm/fastmath::norm normal)))))
+  (let ((distance (cl-mpm/fastmaths::dot point (cl-mpm/fastmaths::norm normal))))
+    (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal)))))
 
 
 

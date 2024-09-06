@@ -249,7 +249,7 @@
   (let ((centroid (cl-mpm/utils:vector-zeros)))
     (loop for node in nodes
           do
-             (cl-mpm/fastmath::fast-.+ centroid (node-position node) centroid))
+             (cl-mpm/fastmaths::fast-.+ centroid (node-position node) centroid))
     (magicl:scale centroid (/ 1d0 (length nodes)))))
 (defun make-cell (mesh index h)
   ;;Get local nodes
@@ -260,7 +260,7 @@
              res))
          (volume (expt h (mesh-nd mesh)))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (cl-mpm/fastmath::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+         (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                                          (magicl:scale! (cl-mpm/utils:vector-from-list (list h h h)) 0.5d0)))
          )
     (loop for n in nodes
@@ -280,7 +280,7 @@
              res))
          (volume (expt h 2))
          ;; (centroid (cell-calculate-centroid nodes))
-         (centroid (cl-mpm/fastmath::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+         (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
                                          (magicl:scale! (cl-mpm/utils:vector-from-list (list h h 0d0)) 0.5d0)))
          )
     (loop for n in nodes
@@ -515,7 +515,7 @@
 ;;                      (temp cl-mpm/particle::mp-temperature)
 ;;                      (strain-rate cl-mpm/particle:mp-strain-rate)) mp
 ;;       (progn 
-;;         (setf vel (cl-mpm/fastmath::fast-.+ vel (magicl:scale node-vel svp)))))))
+;;         (setf vel (cl-mpm/fastmaths::fast-.+ vel (magicl:scale node-vel svp)))))))
 ;; (defmethod node-g2p (mp (node node-thermal) svp dsvp grads)
 ;;   (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
 ;;     (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
@@ -543,7 +543,7 @@
      damage 0d0
      p-mod 0d0
      mass 0d0)
-    (cl-mpm/fastmath::fast-zero vel)))
+    (cl-mpm/fastmaths::fast-zero vel)))
 
 (defgeneric reset-node (node)
   (:documentation "Reset grid to default state"))
@@ -578,12 +578,12 @@
     (setf j-inc 0d0)
     (setf boundary-scalar 0d0)
     (setf pressure 0d0)
-    (cl-mpm/fastmath::fast-zero vel)
-    (cl-mpm/fastmath::fast-zero acc)
-    (cl-mpm/fastmath::fast-zero force)
-    (cl-mpm/fastmath::fast-zero int-force)
-    (cl-mpm/fastmath::fast-zero ext-force)
-    (cl-mpm/fastmath::fast-zero buoyancy-force)
+    (cl-mpm/fastmaths::fast-zero vel)
+    (cl-mpm/fastmaths::fast-zero acc)
+    (cl-mpm/fastmaths::fast-zero force)
+    (cl-mpm/fastmaths::fast-zero int-force)
+    (cl-mpm/fastmaths::fast-zero ext-force)
+    (cl-mpm/fastmaths::fast-zero buoyancy-force)
     ))
 
 (defmethod reset-node ((node node-thermal))
@@ -667,7 +667,7 @@
       (loop for point in (newton-points gp h)
             for gweight in (newton-weights gp h)
             do
-        (let ((quad (cl-mpm/fastmath::fast-.+ centroid point))
+        (let ((quad (cl-mpm/fastmaths::fast-.+ centroid point))
               (volume-ratio (/ 1 (expt gp 2))))
           (loop for node in nodes
                 do

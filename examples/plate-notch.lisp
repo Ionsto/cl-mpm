@@ -108,17 +108,17 @@
                 (lambda (mesh mp node svp &rest args)
                   (incf force
                         (* svp
-                           (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force node))
+                           (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force node))
                            )
                         ))))
       (/ force (length load-mps))
       )))
 
 (defun get-reaction-force (load-nodes)
-  ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
+  ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force (nth 0 load-nodes)))
   (loop for mp in load-nodes
         sum
-        ;; (cl-mpm/fastmath::mag (cl-mpm/mesh::node-force mp))
+        ;; (cl-mpm/fastmaths::mag (cl-mpm/mesh::node-force mp))
         (/ (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0)) 1
           ; mps
            )

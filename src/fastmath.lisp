@@ -1,4 +1,4 @@
-(defpackage :cl-mpm/fastmath
+(defpackage :cl-mpm/fastmaths
   (:use :cl)
   (:import-from
     :magicl tref .+ .-)
@@ -22,7 +22,7 @@
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(in-package :cl-mpm/fastmath)
+(in-package :cl-mpm/fastmaths)
 
 (pushnew :sb-simd *features*)
 (eval-when
@@ -428,7 +428,7 @@
 ;;     (magicl:mult stretch vel :target res-t)
 ;;     (pprint res-t)
 ;;     (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;     (cl-mpm/fastmath::@-stretch-vec stretch vel res)
+;;     (cl-mpm/fastmaths::@-stretch-vec stretch vel res)
 ;;     (pprint res)
 ;;     (format t "~%Pass?: ~A~%"
 ;;      (every #'identity (loop for a across (magicl::storage (magicl:.- res res-t))
@@ -540,10 +540,10 @@
       (magicl:.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::vector-zeros)))
-      (cl-mpm/fastmath::fast-.+ a b res)
+      (cl-mpm/fastmaths::fast-.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::vector-zeros)))
-      (cl-mpm/fastmath::fast-.+-vector a b res)
+      (cl-mpm/fastmaths::fast-.+-vector a b res)
       (pprint res))))
 (defun test-.+-voigt ()
   (let ((a (cl-mpm/utils::voigt-from-list (list 1d0 2d0 3d0 2d0 5d0 7d0)))
@@ -552,10 +552,10 @@
       (magicl:.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::voigt-zeros)))
-      (cl-mpm/fastmath::fast-.+ a b res)
+      (cl-mpm/fastmaths::fast-.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::voigt-zeros)))
-      (cl-mpm/fastmath::fast-.+-voigt a b res)
+      (cl-mpm/fastmaths::fast-.+-voigt a b res)
       (pprint res))))
 
 (defun test-.+-matrix ()
@@ -565,10 +565,10 @@
       (magicl:.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::matrix-zeros)))
-      (cl-mpm/fastmath::fast-.+ a b res)
+      (cl-mpm/fastmaths::fast-.+ a b res)
       (pprint res))
     (let ((res (cl-mpm/utils::matrix-zeros)))
-      (cl-mpm/fastmath::fast-.+-matrix a b res)
+      (cl-mpm/fastmaths::fast-.+-matrix a b res)
       (pprint res))))
 
 
@@ -845,7 +845,7 @@
   (let ((iters 100000)
         (data (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0))))
     (format t "Magicl: ~F~%" (magicl::sum data))
-    (format t "fastmath: ~F~%" (fast-sum data))
+    (format t "fastmaths: ~F~%" (fast-sum data))
     (time
      (dotimes (i iters)
        (magicl::sum data)))

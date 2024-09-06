@@ -16,7 +16,7 @@
 (defmethod estimate-energy-norm ((sim cl-mpm::mpm-sim))
   ;; (loop for mp across (cl-mpm:sim-mps sim)
   ;;           sum (* (cl-mpm/particle:mp-mass mp)
-  ;;                  (cl-mpm/fastmath::mag (cl-mpm/particle:mp-velocity mp))))
+  ;;                  (cl-mpm/fastmaths::mag (cl-mpm/particle:mp-velocity mp))))
   (let ((energy 0d0)
         (lock (sb-thread:make-mutex)))
     (cl-mpm:iterate-over-nodes
@@ -28,7 +28,7 @@
                  (*
                   ;(/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                   (cl-mpm/mesh::node-mass n)
-                  (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
+                  (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
                   ))))))
     energy)
   )
@@ -46,7 +46,7 @@
                     (*
                      ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                      (cl-mpm/mesh::node-mass n)
-                     (cl-mpm/fastmath::mag-squared (cl-mpm/mesh::node-velocity n))
+                     (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
                      )))))))
      energy)
    ))
@@ -66,7 +66,7 @@
                     dt
                     ;; (cl-mpm/mesh::node-volume n)
                     ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
-                    (cl-mpm/fastmath:dot
+                    (cl-mpm/fastmaths:dot
                      (cl-mpm/mesh::node-velocity n)
                      (cl-mpm/mesh::node-external-force n))
                     ))))))
@@ -86,7 +86,7 @@
                       (*
                        dt
                        ;; (cl-mpm/mesh::node-volume n)
-                       (cl-mpm/fastmath:dot
+                       (cl-mpm/fastmaths:dot
                         (cl-mpm/mesh::node-velocity n)
                         (cl-mpm/mesh::node-external-force n))
                        )))))))
@@ -108,7 +108,7 @@
                         (f-int cl-mpm/mesh::node-internal-force))
            node
          (when active
-           (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
+           (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
                ;(setf oobf-norm
                ;      (+
@@ -117,23 +117,23 @@
                ;        (cl-mpm/mesh:node-mass node)
                ;        ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                ;        (/
-               ;         (cl-mpm/fastmath::mag-squared
+               ;         (cl-mpm/fastmaths::mag-squared
                ;          (magicl:.+ f-ext f-int))
-               ;         (cl-mpm/fastmath::mag-squared f-ext)))))
+               ;         (cl-mpm/fastmaths::mag-squared f-ext)))))
 
                (setf nmax (+
                            nmax
                            (*
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmath::mag-squared
+                            (cl-mpm/fastmaths::mag-squared
                              (magicl:.+ f-ext f-int))))
                      dmax (+
                            dmax
                            (*
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmath::mag-squared f-ext))))))))))
+                            (cl-mpm/fastmaths::mag-squared f-ext))))))))))
     (when (> dmax 0d0)
       (setf oobf (sqrt (/ nmax dmax))))
     ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
@@ -155,7 +155,7 @@
            node
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
-             (when t;(> (cl-mpm/fastmath::mag-squared f-ext) 0d0)
+             (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
                (sb-thread:with-mutex (lock)
                  ;; (setf oobf-norm
                  ;;       (+
@@ -164,20 +164,20 @@
                  ;;         ;; (cl-mpm/mesh:node-mass node)
                  ;;         (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                  ;;         (/
-                 ;;          (cl-mpm/fastmath::mag-squared
+                 ;;          (cl-mpm/fastmaths::mag-squared
                  ;;           (magicl:.+ f-ext f-int))
-                 ;;          (cl-mpm/fastmath::mag-squared f-ext)))))
+                 ;;          (cl-mpm/fastmaths::mag-squared f-ext)))))
                  (setf nmax (+
                              nmax
                              (*
                               (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/fastmath::mag-squared
+                              (cl-mpm/fastmaths::mag-squared
                                (magicl:.+ f-ext f-int))))
                        dmax (+
                              dmax
                              (*
                               (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/fastmath::mag-squared f-ext)))))))))))
+                              (cl-mpm/fastmaths::mag-squared f-ext)))))))))))
 
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
     (setf dmax (cl-mpm/mpi::mpi-sum dmax))
@@ -305,8 +305,8 @@
                    ;;     (cl-mpm:iterate-over-mps
                    ;;      mps
                    ;;      (lambda (mp)
-                   ;;        (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-velocity mp))
-                   ;;        (cl-mpm/fastmath:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
+                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
                    (when (and (< fnorm energy-crit)
                               (< oobf oobf-crit))
                      (format t "Took ~D steps to converge~%" i)
@@ -389,8 +389,8 @@
                        (cl-mpm:iterate-over-mps
                         mps
                         (lambda (mp)
-                          (cl-mpm/fastmath:fast-zero (cl-mpm/particle:mp-velocity mp))
-                          (cl-mpm/fastmath:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
+                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
 
                    (when (and (< fnorm energy-crit)
                               (< oobf oobf-crit))

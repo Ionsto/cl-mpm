@@ -69,9 +69,9 @@
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
         ;; (setf damage-increment
-        ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmath:fast-.+
+        ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmaths:fast-.+
         ;;                                            strain
-        ;;                                            (cl-mpm/fastmath:fast-scale-voigt
+        ;;                                            (cl-mpm/fastmaths:fast-scale-voigt
         ;;                                             plastic-strain
         ;;                                             1d0
         ;;                                             ;; (- 1d0 damage)
@@ -80,7 +80,7 @@
         ;;                                           de))
 
         ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat
-        ;;            (cl-mpm/fastmath:fast-.+
+        ;;            (cl-mpm/fastmaths:fast-.+
         ;;             strai
         ;;             n
         ;;             (magicl:scale plastic-strain
@@ -101,7 +101,7 @@
         ;;             (cl-mpm/constitutive::voigt-j2
         ;;              (cl-mpm/utils:deviatoric-voigt stress)))))
 
-        ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmath:fast-.+ strain plastic-strain)
+        ;; (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmaths:fast-.+ strain plastic-strain)
         ;;                                                    de)))
         ;;   (setf damage-increment
         ;;         (max 0d0
@@ -127,7 +127,7 @@
 
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm plastic-strain E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
-        ;;                         (cl-mpm/fastmath:fast-.+
+        ;;                         (cl-mpm/fastmaths:fast-.+
         ;;                          strain
         ;;                          plastic-strain) E de))
         ;; (setf damage-increment 0d0)
@@ -985,8 +985,8 @@
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (progn
-               (cl-mpm/fastmath::fast-zero (cl-mpm/particle::mp-acceleration mp))
-               (cl-mpm/fastmath::fast-zero (cl-mpm/particle:mp-velocity mp))))
+               (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-acceleration mp))
+               (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
     ;; (when nil
     ;;   (defparameter *true-load-bc* *shear-box-right-dynamic*)
     ;;   (time (loop for steps from 0 below load-steps
