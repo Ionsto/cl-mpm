@@ -142,7 +142,8 @@
 (defun plot (sim)
   ;; (plot-load-disp)
   ;; (plot-conv)
-  (plot-domain)
+  ;; (plot-domain)
+  ;; (vgplot:plot '(0) '(0))
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
   (declare (function colour-func))
@@ -235,8 +236,8 @@
      *sim*
      :plot :deformed
      :colour-func
-     #'cl-mpm/particle::mp-damage
-     ;; (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+     ;; #'cl-mpm/particle::mp-damage
+     (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
      ;; (lambda (mp)
      ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
      ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
@@ -310,7 +311,7 @@
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
-             (init-stress 100d3)
+             (init-stress 131d3)
              (gf 1d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -358,7 +359,7 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-damage t
+           :enable-damage t 
            :enable-plasticity nil
 
            :psi 0d0
@@ -386,21 +387,21 @@
                           0d0))
              (mp-surcharge t)
              )
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (let ((s (cl-mpm/utils:voigt-from-list (list
-                                                         (- surcharge-load)
-                                                         (- surcharge-load)
-                                                         (- surcharge-load)
-                                                         0d0
-                                                         0d0
-                                                         0d0))))
-                   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                    (strain cl-mpm/particle:mp-strain)
-                                    (de cl-mpm/particle::mp-elastic-matrix))
-                       mp
-                     (setf stress s
-                           strain (magicl:linear-solve de s)))))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (let ((s (cl-mpm/utils:voigt-from-list (list
+        ;;                                                  (- surcharge-load)
+        ;;                                                  (- surcharge-load)
+        ;;                                                  (- surcharge-load)
+        ;;                                                  0d0
+        ;;                                                  0d0
+        ;;                                                  0d0))))
+        ;;            (with-accessors ((stress cl-mpm/particle:mp-stress)
+        ;;                             (strain cl-mpm/particle:mp-strain)
+        ;;                             (de cl-mpm/particle::mp-elastic-matrix))
+        ;;                mp
+        ;;              (setf stress s
+        ;;                    strain (magicl:linear-solve de s)))))
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
             (cl-mpm::add-mps
@@ -875,6 +876,7 @@
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
                 (setf (cl-mpm/particle::mp-delay-time mp) (* (* time-per-mm 1d-3) 1d-3)))))
+
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
              (sqrt (cl-mpm:sim-mass-scale *sim*))
@@ -898,7 +900,7 @@
      :conv-steps 500
      :post-iter-step
      (lambda (i energy oobf)
-       (plot-domain)
+       ;; (plot-domain)
        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        ))
@@ -1566,7 +1568,7 @@
 
 (defun test ()
   (setf *run-sim* t)
-  (let ((refine 4))
+  (let ((refine 16))
     (loop for s in (list
                     10d4
                     20d4
@@ -1576,8 +1578,7 @@
              (progn
                (setup :refine refine :mps 2 :surcharge-load s)
                (run (format nil "../ham-shear-box/output-~D-~F/" refine s)
-                    :time-scale 0.5d0
-                    )
+                    :time-scale 0.5d0)
                ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
                ))))
 
