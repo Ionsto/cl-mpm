@@ -67,7 +67,15 @@
       (declare (double-float pressure damage))
       (progn
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
-        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+
+        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp
+        ;;             ;; stress
+        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             (* angle (/ pi 180d0)))))
+
         ;; (setf damage-increment
         ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmaths:fast-.+
         ;;                                            strain
@@ -89,12 +97,9 @@
         ;;                           )
         ;;             )
         ;;                                                    de)))
-        (setf damage-increment
-              (max 0d0
-                   (cl-mpm/damage::criterion-dp
-                    ;; stress
-                    (magicl:scale stress (/ 1d0 (magicl:det def)))
-                    (* angle (/ pi 180d0)))))
+
+        
+
         ;; (setf damage-increment
         ;;       (max 0d0
         ;;            (sqrt
@@ -140,7 +145,7 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  ;; (plot-load-disp)
+  (plot-load-disp)
   ;; (plot-conv)
   ;; (plot-domain)
   ;; (vgplot:plot '(0) '(0))
@@ -313,9 +318,9 @@
              ;; (init-stress (* 1 131d3))
              (init-stress 131d3)
              (gf 1d0)
-             (length-scale (* 1 h))
+             (length-scale (* 2 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0))
+             (ductility 2d0))
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
          sim
@@ -337,39 +342,40 @@
            ;; :nu 0.24d0
            ;; :psi 0d0
            ;; ;; :psi (* 42d0 (/ pi 180))
-           ;; :phi (* 00d0 (/ pi 180))
+           ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
-           ;; :softening 100d0
+           ;; :softening 1000d0
 
            'cl-mpm/particle::particle-chalk-delayed;
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
-           ;; :g-res-ratio 1d-9
+           :g-res-ratio 1d-1
+           ;; :g-res-ratio 1d-1
            ;; :damage 0.9d0
            :friction-angle 42d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d-3
+           :delay-time 1d-2
            :delay-exponent 1d0
-           :damage 0.0d0
+           :damage 1.0d0
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-damage t 
-           :enable-plasticity nil
+           :enable-damage nil
+           :enable-plasticity t
 
-           :psi 0d0
-           ;:phi (* 80d0 (/ pi 180))
-           :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 ductility)
+           ;; :psi 0d0
+           :psi (* 30d0 (/ pi 180))
+           :phi (* 30d0 (/ pi 180))
+           ;; :phi (* 42d0 (/ pi 180))
+           :c (* 131d3 0d0)
 
            :phi-r (* 30d0 (/ pi 180))
            :c-r 0d0
-           :softening 100d0
+           :softening 0d0
 
            :index 0
            :gravity 0d0
@@ -554,6 +560,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
+         ;; (friction 1d0)
          (friction 0.0d0)
          (gap-height (* 0 h))
          (damping 0d0))
@@ -862,7 +869,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.1d0)
+         (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
@@ -895,7 +902,7 @@
      *sim*
      :energy-crit 1d-2
      :oobf-crit 1d-2
-     :dt-scale 0.50d0
+     :dt-scale dt-scale
      :substeps 10
      :conv-steps 500
      :post-iter-step
@@ -1051,7 +1058,7 @@
   (vgplot:close-all-plots)
   (let* ((load-steps 5)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.5d0)
+         (dt-scale 0.1d0)
          (displacment 0.1d-3)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
@@ -1117,8 +1124,8 @@
                                     (format t "Staggered solve: ~D~%" i)
                                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                                      *sim*
-                                     :energy-crit 1d-2
-                                     :oobf-crit 1d-2
+                                     :energy-crit 1d-3
+                                     :oobf-crit 1d-3
                                      :substeps 10
                                      :conv-steps 200
                                      :dt-scale dt-scale
@@ -1568,11 +1575,17 @@
 
 (defun test ()
   (setf *run-sim* t)
-  (let ((refine 16))
-    (loop for s in (list
-                    10d4
-                    20d4
-                    30d4)
+  (let ((refine 4))
+    (loop for s
+          ;; from 0d0 to 100d4 by 10d4
+            in (list
+                ;; 0d0
+                10d4
+                20d4
+                30d4
+                ;; 60d4
+                ;; 100d4
+                    )
           while *run-sim*
           do
              (progn
