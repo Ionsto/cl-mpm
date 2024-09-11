@@ -18,8 +18,8 @@
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
-  (let ((inv-nu (- 1d0 nu)))
-    (magicl:scale!
+  (declare (double-float E nu))
+    (cl-mpm/fastmaths:fast-scale!
      (magicl:from-list (list
                         (- 1d0 nu) nu nu 0d0 0d0 0d0
                         nu (- 1d0 nu) nu 0d0 0d0 0d0
@@ -28,7 +28,17 @@
                         0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))) 0d0
                         0d0 0d0 0d0 0d0 0d0 (* 0.5d0 (- 1d0 (* 2d0 nu))))
                        '(6 6) :type 'double-float)
-     (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))))
+     (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+
+(defun linear-elastic-principal-matrix (E nu)
+  "Create an isotropic linear elastic matrix"
+  (declare (double-float E nu))
+  (cl-mpm/fastmaths:fast-scale!
+   (matrix-from-list (list
+                      (- 1d0 nu) nu nu
+                      nu (- 1d0 nu) nu
+                      nu nu (- 1d0 nu)))
+   (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
 
 (defun linear-elastic-matrix-ps (E nu)
   "Create an isotropic linear elastic matrix"
