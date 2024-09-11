@@ -312,6 +312,16 @@
                                         (destructuring-bind (rank tag object) packet
                                           (when object
                                             (funcall func object))))))))))))))))
+
+(defun exchange-domain-bounds (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (domain-bounds mpm-sim-mpi-domain-bounds ))
+      sim
+      (with-accessors ((h mesh-resolution))
+          sim
+          (setf domain-bounds
+                (mapcar (lambda (v) (mapcar (lambda (x) (* (round x h) h)) v))
+                        domain-bounds)))))
 ;; (defun exchange-nodes-nonblocking (sim func)
 ;;   (declare (function func))
 ;;   (let* ((rank (cl-mpi:mpi-comm-rank))
@@ -1317,8 +1327,7 @@
            (slice-count count)
            (bound-lower (* rank slice-size))
            (bound-upper (* (+ 1 rank) slice-size))
-           (comp-size (mpm-sim-mpi-domain-count sim))
-           )
+           (comp-size (mpm-sim-mpi-domain-count sim)))
       (setf (mpm-sim-mpi-domain-bounds sim)
             (mapcar (lambda (domain size) (mapcar (lambda (x) (* x size)) domain))
                     (funcall domain-scaler
@@ -1329,6 +1338,7 @@
                                              (/ (* (/ (nth i mesh-size) (nth i comp-size)) (+ (nth i index) 1)) (nth i mesh-size)))
                                        (list 0d0 1d0))))
                     mesh-size))
+      (exchange-domain-bounds sim)
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
       ;; (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
