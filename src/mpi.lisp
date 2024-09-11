@@ -318,7 +318,7 @@
                    (domain-bounds mpm-sim-mpi-domain-bounds ))
       sim
       (with-accessors ((h mesh-resolution))
-          sim
+          mesh
           (setf domain-bounds
                 (mapcar (lambda (v) (mapcar (lambda (x) (* (round x h) h)) v))
                         domain-bounds)))))
