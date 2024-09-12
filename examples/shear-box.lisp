@@ -145,6 +145,7 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
+  (sleep 1)
   (plot-load-disp)
   ;; (plot-conv)
   ;; (plot-domain)
@@ -318,7 +319,7 @@
              ;; (init-stress (* 1 131d3))
              (init-stress 131d3)
              (gf 1d0)
-             (length-scale (* 1 h))
+             (length-scale (* 2 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              (ductility 10d0))
         (format t "Estimated ductility ~E~%" ductility)
@@ -391,21 +392,21 @@
                           0d0))
              (mp-surcharge t)
              )
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (let ((s (cl-mpm/utils:voigt-from-list (list
-                                                         (- surcharge-load)
-                                                         (- surcharge-load)
-                                                         (- surcharge-load)
-                                                         0d0
-                                                         0d0
-                                                         0d0))))
-                   (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                    (strain cl-mpm/particle:mp-strain)
-                                    (de cl-mpm/particle::mp-elastic-matrix))
-                       mp
-                     (setf stress s
-                           strain (magicl:linear-solve de s)))))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (let ((s (cl-mpm/utils:voigt-from-list (list
+        ;;                                                  (- surcharge-load)
+        ;;                                                  (- surcharge-load)
+        ;;                                                  (- surcharge-load)
+        ;;                                                  0d0
+        ;;                                                  0d0
+        ;;                                                  0d0))))
+        ;;            (with-accessors ((stress cl-mpm/particle:mp-stress)
+        ;;                             (strain cl-mpm/particle:mp-strain)
+        ;;                             (de cl-mpm/particle::mp-elastic-matrix))
+        ;;                mp
+        ;;              (setf stress s
+        ;;                    strain (magicl:linear-solve de s)))))
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
             (cl-mpm::add-mps
@@ -866,7 +867,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -989,8 +990,8 @@
                          (format stream "~f,~f~%" disp-av load-av)))
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080")
+                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                     ;;                    :terminal "png size 1920,1080")
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
@@ -1586,12 +1587,13 @@
             in
                 (list
                  0d0
-                 10d5
-                 20d5
-                 30d5
-                        ;; 60d4
-                        ;; 100d4
-                        )
+                 10d4
+                 20d4
+                 30d4
+                 ;; 60d4
+                 ;; 100d4
+                 ;; 500d4
+                 )
           while *run-sim*
           do
              (progn
@@ -1606,3 +1608,14 @@
 ;;       (stress (cl-mpm/utils:voigt-from-list (list 100d0 0d0 0d0 0d0 0d0 0d0))))
 ;;   (pprint (cl-mpm/damage::drucker-prager-criterion stress angle))
 ;;   )
+
+;; (progn
+;;   (vgplot:figure)
+;;   (dotimes (i 10)
+;;     (format t "~D~%" i)
+;;     (cl-mpm:update-sim *sim*)
+;;     (vgplot:plot (list 0 10) (list 0 i) ";hello")
+;;     (vgplot:xlabel "Displacement (mm)")
+;;     (vgplot:ylabel "Shear stress (kN/m^2)")
+;;     (sleep 0.1)
+;;     (swank.live:update-swank)))
