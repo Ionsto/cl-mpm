@@ -145,7 +145,7 @@
 
 (declaim (notinline plot))
 (defun plot (sim)
-  (sleep 1)
+  ;; (sleep 1)
   (plot-load-disp)
   ;; (plot-conv)
   ;; (plot-domain)
@@ -242,8 +242,8 @@
      *sim*
      :plot :deformed
      :colour-func
-     ;; #'cl-mpm/particle::mp-damage
-     (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
+     #'cl-mpm/particle::mp-damage
+     ;; (lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
      ;; (lambda (mp)
      ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
      ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
@@ -318,10 +318,11 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
              (init-stress 131d3)
+             ;; (init-stress 10d3)
              (gf 1d0)
              (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0))
+             (ductility 100d0))
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
          sim
@@ -347,14 +348,14 @@
            ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
-           ;; :softening 100d0
+           ;; :softening 0d0
 
            'cl-mpm/particle::particle-chalk-delayed;
            :E 1d9
            :nu 0.24d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
+           :g-res-ratio 1d-2
            ;; :g-res-ratio 1d-1
            ;; :damage 0.9d0
            :friction-angle 42d0
@@ -366,7 +367,7 @@
            :local-length length-scale
            :local-length-damaged 10d-10
            :enable-damage t
-           :enable-plasticity nil
+           :enable-plasticity t
 
            :psi 0d0
            :phi (* 42d0 (/ pi 180))
@@ -376,11 +377,11 @@
            :c-r 0d0
            :softening 0d0
 
-           :index 0
-           :gravity 0d0
+           ;; :index 0
+           ;; :gravity 0d0
            )))
         )
-      (let* (;(sur-height h-x)
+      (let* ((sur-height h-x)
              (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
@@ -390,7 +391,7 @@
              (gravity (if (> sur-height 0d0)
                           (/ load (* density sur-height))
                           0d0))
-             (mp-surcharge nil)
+             (mp-surcharge t)
              )
         ;; (loop for mp across (cl-mpm:sim-mps sim)
         ;;       do
@@ -830,13 +831,27 @@
     ;;           nil
     ;;           (lambda ()
     ;;             (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)))))))
-    ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
-    ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
-    ;;                                                                        (magicl:tref p 1 0)) '(2 1))
-    ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
-    ;;                                                (list shelf-length soil-boundary)
-    ;;                                                10d0
-    ;;                                                )) 1.0d0)
+      ;; (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
+      ;;                                              p
+      ;;                                              (list box-size sunk-size 0d0)
+      ;;                                              (list (* 2 box-size) sunk-size 0d0)
+      ;;                                              mesh-size
+      ;;                                              )) 1.0d0)
+    (let ((width (* 2 mesh-size)))
+      (cl-mpm/setup::apply-sdf *sim*
+                               (lambda (p) (cl-mpm/setup::line-sdf
+                                            p
+                                            (list box-size sunk-size 0d0)
+                                            (list (* 2 box-size) sunk-size 0d0)
+                                            width
+                                            ))
+                               (lambda (mp v)
+                                 (when (< v 0d0)
+                                   (setf (cl-mpm/particle:mp-damage mp)
+                                         1d0
+                                         ;; (exp (- (expt (/ (+ width v) width) 8)))
+                                         ))
+                                 )))
     )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -851,7 +866,10 @@
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (declaim (notinline run))
-(defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0) (time-scale 1d0))
+(defun run (&optional (output-directory "./output/") &key (total-time 6d-2) (damping 1d0)
+                                                       (time-scale 1d0)
+                                                       (damage-time-scale 1d0)
+                                                       )
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -867,11 +885,11 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
-         (load-steps (round (* 500 (/ displacment 1d-3))))
+         (load-steps (round (* 10 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -888,7 +906,7 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* (* time-per-mm 1d-3) 1d-3)))))
+                (setf (cl-mpm/particle::mp-delay-time mp) (* damage-time-scale time-scale (* time-per-mm 1d-3) 1d-4)))))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
@@ -958,6 +976,9 @@
         (format stream "~f,~f~%" disp-av load-av)))
     (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf cl-mpm/penalty::*debug-force* 0)
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
+    ;;         do (change-class mp 'cl-mpm/particle::particle-chalk-brittle))
 
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
@@ -1064,7 +1085,7 @@
   (vgplot:close-all-plots)
   (let* ((load-steps 5)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.1d0)
+         (dt-scale 0.5d0)
          (displacment 0.1d-3)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (disp-inc (/ displacment load-steps)))
@@ -1122,8 +1143,7 @@
                        (let ((damage-0 0d0)
                              (damage-1 0d0))
                          (loop for i from 0 to 100
-                               while (or (= i 0) (> damage-1 damage-0)
-                                         )
+                               while (or (= i 0) (> damage-1 damage-0))
                                do
                                   (progn
                                     (setf damage-0 damage-1)
@@ -1586,8 +1606,8 @@
           ;; from 0d0 to 100d4 by 10d4
             in
                 (list
-                 0d0
-                 10d4
+                 ;; 0d0
+                 ;; 10d4
                  20d4
                  30d4
                  ;; 60d4
@@ -1599,7 +1619,9 @@
              (progn
                (setup :refine refine :mps 2 :surcharge-load s)
                (run (format nil "../ham-shear-box/output-~D-~F/" refine s)
-                    :time-scale 0.5d0)
+                    :time-scale 1d0
+                    :damage-time-scale 1d0
+                    )
                ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
                ))))
 

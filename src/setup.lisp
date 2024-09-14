@@ -164,9 +164,10 @@
           do (with-accessors ((pos cl-mpm/particle:mp-position)
                               (damage cl-mpm/particle:mp-damage)) mp
                (let ((sdf-v (funcall sdf pos)))
-                 (when (>= 0 sdf-v)
+                 (when t;(>= 0 sdf-v)
                    (funcall func mp sdf-v)
-                   ))))))
+                   )
+                 )))))
 
 (defun rectangle-sdf (position size)
   (lambda (pos)

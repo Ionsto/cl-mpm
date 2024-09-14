@@ -1518,6 +1518,7 @@ Calls the function with the mesh mp and node"
 
 (defun criterion-dp (stress angle)
   (criterion-dp-coheasion stress angle))
+
 (defun criterion-dp-coheasion (stress angle)
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
