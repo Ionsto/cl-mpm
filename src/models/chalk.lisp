@@ -522,12 +522,12 @@
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
          (e0 (/ ft E))
-         (ef (* ft ductility))
+         (ef (* e0 ductility))
          (k (/ stress E)))
     (if (> k e0)
-        (- 1d0 (min 1d0
-                    (/ (max 0d0 (- k e0))
-                       (- ef e0))))
+        (min 1d0
+             (/ (max 0d0 (- k e0))
+                (- ef e0)))
         0d0)))
 
 
