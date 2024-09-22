@@ -135,6 +135,32 @@ To a von-mises particle with an extra rho field.
 This results in a much greater displacement under plastic deformation
 ![tutorial](https://github.com/Ionsto/cl-mpm/assets/117826225/e3b55ef9-f5aa-419f-8abf-84be209ab2c0)
 
+# Tutorial - 3D
+To run a 3D simulation, we can adjust the setup conditions by simply adjusting the amount of elements in the size and mp count list.
+```lisp
+...
+;;Create a simulation of 10x10x10 nodes with a real size of 1x1x1 meters wide
+(defparameter *sim*
+  (cl-mpm/setup::make-block
+   0.1d0 ;; Resolution h=h_x=h_y
+   (list 10 10 10) ;; Element count  <-- Changed
+   ))
+;;Create a block of elastic material points 0.5x0.5 meters across with 10x10 material points total
+(setf (cl-mpm:sim-mps *sim*)
+      (cl-mpm/setup::make-block-mps
+       (list 0d0 0d0 0d0);; Offset  <-- Changed
+       (list 0.5d0 0.5d0 0.5d0) ;; Size  <-- Changed
+       (list 20 20 20);; Mp count  <-- Changed
+       1000d0 ;Density 1kg/m^3
+       'cl-mpm/particle::particle-elastic
+       :E 1d5 ;; Young's modulus 1GPa
+       :nu 0.35d0 ;; Poission's ratio
+       :gravity -9.8d0 ;;Gravity acting in the y direction
+       ))
+...
+```
+This flexibility is enabled by using different 2d and 3d behaivour when applicable under the hood.
+
 # MPI
 To use mpi you need to compile an image worker with a guide here: https://github.com/samjvsutcliffe/cl-mpm-worker
 You can then use an MPI-ready ```mpm-sim``` class like ```mpm-sim-mpi-nodes```.
