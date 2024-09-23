@@ -393,7 +393,7 @@
              (load surcharge-load)
              ;; (gravity 10d0)
              ;; (density (/ load (* gravity sur-height)))
-             (gravity (if (> sur-height 0d0)
+             (gravity (if (> load 0d0)
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t)
@@ -915,7 +915,7 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
               (when (= (cl-mpm/particle::mp-index mp) 0)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* damage-time-scale time-scale (* time-per-mm 1d-3) 1d-4)))))
+                (setf (cl-mpm/particle::mp-delay-time mp) (* damage-time-scale (* time-per-mm 1d-3) 1d-4)))))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
@@ -1390,8 +1390,8 @@
                     2
                     4
                     8
-                    16
-                    32
+                    ;; 16
+                    ;; 32
                     )
           while *run-sim*
           do
@@ -1431,9 +1431,11 @@
 (defun test ()
   (setf *run-sim* t)
   (loop for refine in (list
-                       4
-                       8
+                       ;; 2
+                       ;; 4
+                       ;; 8
                        ;; 16
+                       ;; 32
                        )
         do
            (progn;let ((refine 16))
