@@ -282,12 +282,12 @@
      (mapcar (lambda (x) (* x 1d3)) *data-disp*)
      (mapcar (lambda (x) (* depth (/ x width) 1d-3)) *data-v*)
      "Load"
-     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     ;; (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
-     ;; "Damage"
-     ;; (mapcar (lambda (x) (* x 1d3)) *data-disp*)
-     ;; (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
-     ;; "Plastic"
+     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     (mapcar (lambda (x) (* x 5d-1)) *data-damage*)
+     "Damage"
+     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     (mapcar (lambda (x) (* x 50d0)) *data-plastic*)
+     "Plastic"
      ))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
@@ -360,8 +360,8 @@
            ;; :nu 0.24d0
            ;; :nu 0.35d0
            :kt-res-ratio 1d-9
-           :kc-res-ratio 1d-1
-           :g-res-ratio 1d-1
+           :kc-res-ratio 1d0
+           :g-res-ratio 1d-9
            ;; :g-res-ratio 1d-1
            ;; :damage 0.9d0
            :friction-angle 30d0
@@ -375,9 +375,9 @@
            :enable-damage t
            :enable-plasticity t
 
-           :psi 0d0
+           :psi (* 5d0 (/ pi 180))
            :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 1d0)
+           :c (* 131d3 1d1)
            ;; :phi (* 30d0 (/ pi 180))
            ;; :c (* 131d3 0d0)
 
@@ -846,24 +846,24 @@
       ;;                                              (list (* 2 box-size) sunk-size 0d0)
       ;;                                              mesh-size
       ;;                                              )) 1.0d0)
-    (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
-      (when (typep mp 'cl-mpm/particle::particle-damage)
-        (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
-               (width (* 1 length-scale)))
-          (cl-mpm/setup::apply-sdf *sim*
-                                   (lambda (p) (cl-mpm/setup::line-sdf
-                                                p
-                                                (list box-size sunk-size 0d0)
-                                                (list (* 2 box-size) sunk-size 0d0)
-                                                width
-                                                ))
-                                   (lambda (mp v)
-                                     (when (< v 0d0)
-                                       (setf (cl-mpm/particle:mp-damage mp)
-                                             1d0
-                                             ;; (exp (- (expt (/ (+ width v) width) 8)))
-                                             ))
-                                     )))))
+    ;; (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
+    ;;   (when (typep mp 'cl-mpm/particle::particle-damage)
+    ;;     (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
+    ;;            (width (* 1 length-scale)))
+    ;;       (cl-mpm/setup::apply-sdf *sim*
+    ;;                                (lambda (p) (cl-mpm/setup::line-sdf
+    ;;                                             p
+    ;;                                             (list box-size sunk-size 0d0)
+    ;;                                             (list (* 2 box-size) sunk-size 0d0)
+    ;;                                             width
+    ;;                                             ))
+    ;;                                (lambda (mp v)
+    ;;                                  (when (< v 0d0)
+    ;;                                    (setf (cl-mpm/particle:mp-damage mp)
+    ;;                                          1d0
+    ;;                                          ;; (exp (- (expt (/ (+ width v) width) 8)))
+    ;;                                          ))
+    ;;                                  )))))
     )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -898,7 +898,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.5d-3)
+  (let* ((displacment 1.0d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1461,6 +1461,46 @@
                       (progn
                         (setup :refine refine :mps 2 :surcharge-load s)
                         (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
+                             :time-scale 0.5d0
+                             :sample-scale 0.1d0
+                             :damage-time-scale 1d0
+                             )
+                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                        )))))
+(defun test-damage ()
+  (setf *run-sim* t)
+  (loop for d in (list
+                  1.0d0
+                  0.1d0
+                  0.5d0
+                  )
+        do
+           (let ((refine 4))
+             (loop for s
+                   ;; from 0d0 to 100d4 by 10d4
+                     in
+                     (list
+                      10d4
+                      30d4
+
+                      ;; 15d4
+                      ;; 25d4
+                      ;; 35d4
+
+                      )
+                   while *run-sim*
+                   do
+                      (progn
+                        (setup :refine refine :mps 2 :surcharge-load s)
+                        (cl-mpm:iterate-over-mps
+                         (cl-mpm:sim-mps *sim*)
+                         (lambda (mp)
+                           (when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
+                             (setf (cl-mpm/particle::mp-shear-residual-ratio mp) d)
+                             (setf (cl-mpm/particle::mp-k-compressive-residual-ratio mp) d)
+                             )
+                           ))
+                        (run (format nil "../ham-shear-box/output-~F-~F/" d s)
                              :time-scale 0.5d0
                              :sample-scale 0.5d0
                              :damage-time-scale 1d0

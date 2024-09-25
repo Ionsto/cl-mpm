@@ -574,8 +574,8 @@
           (let ((new-damage
                   (max
                    damage
-                   (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
-                   ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   ;; (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))
