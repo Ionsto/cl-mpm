@@ -318,13 +318,13 @@
              ;; (init-stress (* 1 131d3))
              (init-stress 131d3)
              ;; (init-stress 30d3)
-             (init-stress 60d3)
+             ;; (init-stress 60d3)
              ;; (init-stress 10d3)
              (gf 5d0)
              ;; (length-scale (* 1 h))
-             (length-scale (* 7.5d-3 1))
+             (length-scale (* 7.5d-3 2))
              ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 100d0)
+             (ductility 10d0)
              ;; (ductility 1d60)
              )
         (format t "Estimated ductility ~E~%" ductility)
@@ -426,7 +426,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d1)
+               :E (* 1d9 1d2)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -959,7 +959,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           1d-2
+           1d-3
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -1457,41 +1457,6 @@
                         )))))
 
 
-
-
-
-
-
-(defun test ()
-  (setf *run-sim* t)
-  (loop for refine in (list
-                       8
-                       )
-        do
-           (let ((scale 1d0))
-             (loop for s
-                   ;; from 0d0 to 100d4 by 10d4
-                     in
-                     (list
-                      10d4
-                      20d4
-                      30d4
-                      ;; 15d4
-                      ;; 25d4
-                      ;; 35d4
-
-                      )
-                   while *run-sim*
-                   do
-                      (progn
-                        (setup :refine refine :mps 2 :surcharge-load s)
-                        (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
-                             :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 5.0d0)
-                             :damage-time-scale 1d0
-                             )
-                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
-                        )))))
 (defun test-damage ()
   (setf *run-sim* t)
   (loop for d in (list
@@ -1533,4 +1498,39 @@
                              )
                         ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
                         )))))
+
+
+
+
+(defun test ()
+  (setf *run-sim* t)
+  (loop for refine in (list
+                       4
+                       )
+        do
+           (let ((scale 1d0))
+             (loop for s
+                   ;; from 0d0 to 100d4 by 10d4
+                     in
+                     (list
+                      10d4
+                      20d4
+                      ;; 30d4
+                      ;; 15d4
+                      ;; 25d4
+                      ;; 35d4
+
+                      )
+                   while *run-sim*
+                   do
+                      (progn
+                        (setup :refine refine :mps 2 :surcharge-load s)
+                        (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
+                             :time-scale (* 1d0 scale)
+                             :sample-scale (* 1d0 5.0d0)
+                             :damage-time-scale 1d0
+                             )
+                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                        )))))
+
 
