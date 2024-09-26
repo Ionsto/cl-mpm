@@ -317,14 +317,14 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
              (init-stress 131d3)
-             (init-stress 30d3)
-             ;; (init-stress 60d3)
+             ;; (init-stress 30d3)
+             (init-stress 60d3)
              ;; (init-stress 10d3)
              (gf 5d0)
              ;; (length-scale (* 1 h))
              (length-scale (* 7.5d-3 1))
              ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 20d0)
+             (ductility 100d0)
              ;; (ductility 1d60)
              )
         (format t "Estimated ductility ~E~%" ductility)
@@ -359,9 +359,9 @@
            :nu 0.24d0
            ;; :nu 0.24d0
            ;; :nu 0.35d0
-           :kt-res-ratio 1d0
+           :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-2
+           :g-res-ratio 1d-9
            ;; :g-res-ratio 1d-1
            ;; :damage 0.9d0
            :friction-angle 30d0
@@ -372,8 +372,8 @@
            :ductility ductility
            :local-length length-scale
            :local-length-damaged 10d-10
-           :enable-damage nil
-           :enable-plasticity t
+           :enable-damage t
+           :enable-plasticity nil
 
            :psi (* 0d0 (/ pi 180))
            :phi (* 42d0 (/ pi 180))
@@ -426,7 +426,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d0)
+               :E (* 1d9 1d1)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -557,13 +557,13 @@
   )
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
-(declaim (notinline make-penalty-box))
-(defun make-penalty-box (sim left-x right-x height friction offset)
+(declaim (notinline make-enalty-box))
+(defun make-penalty-box (sim left-x right-x height friction offset &key (epsilon-scale 1d3))
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-         (epsilon (* 1d1 1d9))
+         (epsilon (* epsilon-scale 1d9))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
@@ -898,7 +898,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6.0d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -909,7 +909,7 @@
          (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
-         (enable-damage nil)
+         (enable-damage t)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -1465,17 +1465,17 @@
 (defun test ()
   (setf *run-sim* t)
   (loop for refine in (list
-                       4
+                       8
                        )
         do
-           (let ((scale 0.5d0))
+           (let ((scale 1d0))
              (loop for s
                    ;; from 0d0 to 100d4 by 10d4
                      in
                      (list
                       10d4
                       20d4
-                      ;; 30d4
+                      30d4
                       ;; 15d4
                       ;; 25d4
                       ;; 35d4
@@ -1487,7 +1487,7 @@
                         (setup :refine refine :mps 2 :surcharge-load s)
                         (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
                              :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 0.1d0)
+                             :sample-scale (* 1d0 5.0d0)
                              :damage-time-scale 1d0
                              )
                         ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
@@ -1505,7 +1505,7 @@
                    ;; from 0d0 to 100d4 by 10d4
                      in
                      (list
-                      10d4
+                      ;; 10d4
                       20d4
                       30d4
 
