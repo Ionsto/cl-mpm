@@ -146,9 +146,9 @@
 (declaim (notinline plot))
 (defun plot (sim)
   ;; (sleep 1)
-  (plot-load-disp)
+  ;; (plot-load-disp)
   ;; (plot-conv)
-  ;; (plot-domain)
+  (plot-domain)
   ;; (vgplot:plot '(0) '(0))
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
@@ -288,6 +288,9 @@
      (mapcar (lambda (x) (* x 1d3)) *data-disp*)
      (mapcar (lambda (x) (* x 500d0)) *data-plastic*)
      "Plastic"
+     (mapcar (lambda (x) (* x 1d3)) *data-disp*)
+     (mapcar (lambda (x) (* x 1d4)) *data-energy*)
+     "Energy"
      ))
   (vgplot:xlabel "Displacement (mm)")
   (vgplot:ylabel "Shear stress (kN/m^2)")
@@ -337,53 +340,53 @@
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
 
-           ;; 'cl-mpm/particle::particle-vm
-           ;; :E 1d9
-           ;; :nu 0.24d0
-           ;; :rho 100d3
+           'cl-mpm/particle::particle-vm
+           :E 1d9
+           :nu 0.24d0
+           :rho 131d3
 
            ;; 'cl-mpm/particle::particle-mc
            ;; ;; 'cl-mpm/particle::particle-dp
            ;; :E 1d9
            ;; :nu 0.24d0
-           ;; :psi 0d0
-           ;; ;; :psi (* 42d0 (/ pi 180))
-           ;; :phi (* 30d0 (/ pi 180))
-           ;; :c 0d0;131d3
+           ;; ;; :psi 0d0
+           ;; :psi (* 0d0 (/ pi 180))
+           ;; :phi (* 0d0 (/ pi 180))
+           ;; :c 131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
            ;; :softening 0d0
 
-           'cl-mpm/particle::particle-chalk-delayed;
-           :E 1d9
-           :nu 0.24d0
+           ;; 'cl-mpm/particle::particle-chalk-delayed;
+           ;; :E 1d9
            ;; :nu 0.24d0
-           ;; :nu 0.35d0
-           :kt-res-ratio 1d-9
-           :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
-           ;; :g-res-ratio 1d-1
-           ;; :damage 0.9d0
-           :friction-angle 30d0
-           :initiation-stress init-stress;18d3
-           :delay-time 1d-2
-           :delay-exponent 1d0
-           :damage 0.0d0
-           :ductility ductility
-           :local-length length-scale
-           :local-length-damaged 10d-10
-           :enable-damage t
-           :enable-plasticity nil
+           ;; ;; :nu 0.24d0
+           ;; ;; :nu 0.35d0
+           ;; :kt-res-ratio 1d-9
+           ;; :kc-res-ratio 1d0
+           ;; :g-res-ratio 1d-9
+           ;; ;; :g-res-ratio 1d-1
+           ;; ;; :damage 0.9d0
+           ;; :friction-angle 30d0
+           ;; :initiation-stress init-stress;18d3
+           ;; :delay-time 1d-2
+           ;; :delay-exponent 1d0
+           ;; :damage 0.0d0
+           ;; :ductility ductility
+           ;; :local-length length-scale
+           ;; :local-length-damaged 10d-10
+           ;; :enable-damage nil
+           ;; :enable-plasticity t
 
-           :psi (* 0d0 (/ pi 180))
-           :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 1d0)
-           ;; :phi (* 30d0 (/ pi 180))
-           ;; :c (* 131d3 0d0)
+           ;; :psi (* 5d0 (/ pi 180))
+           ;; :phi (* 42d0 (/ pi 180))
+           ;; :c (* 131d3 1d0)
+           ;; ;; :phi (* 30d0 (/ pi 180))
+           ;; ;; :c (* 131d3 0d0)
 
-           :phi-r (* 30d0 (/ pi 180))
-           :c-r 0d0
-           :softening 0d0
+           ;; :phi-r (* 30d0 (/ pi 180))
+           ;; :c-r 0d0
+           ;; :softening 0d0
 
            :index 0
            :gravity 0d0
@@ -426,7 +429,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d2)
+               :E (* 1d9 1d0)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -557,8 +560,73 @@
   )
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
+(defun save-vtk-penalty-box (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (with-accessors ((cells cl-mpm/mesh::mesh-cells))
+        mesh
+        (with-open-file (fs filename :direction :output :if-exists :supersede)
+          (format fs "# vtk DataFile Version 2.0~%")
+          (format fs "Lisp generated vtk file, SJVS~%")
+          (format fs "ASCII~%")
+          (format fs "DATASET UNSTRUCTURED_GRID~%")
+
+          (let ((node-count 10))
+            (format fs "POINTS ~d double~%" node-count)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *displacement-increment*) 'single-float)
+                    0e0
+                    0e0)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *displacement-increment*) 'single-float)
+                    (coerce (* 0.5d0 *box-size*) 'single-float)
+                    0e0)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *box-size* *displacement-increment*) 'single-float)
+                    0e0
+                    0e0)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *box-size* *displacement-increment*) 'single-float)
+                    (coerce (* 0.5d0 *box-size*) 'single-float)
+                    0e0)
+
+            ;;Sliding
+            (format fs "~E ~E ~E ~%"
+                    (coerce (- (+ *box-left* *displacement-increment*) *box-size*) 'single-float)
+                    (coerce (* 0.5d0 *box-size*) 'single-float)
+                    0e0)
+
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *box-size* *box-size*) 'single-float)
+                    (coerce (* 0.5d0 *box-size*) 'single-float)
+                    0e0)
+
+
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* ) 'single-float)
+                    (coerce (* 0.5d0 *box-size*) 'single-float)
+                    0e0)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* ) 'single-float)
+                    (coerce (* 1 *box-size*) 'single-float)
+                    0e0)
+
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *box-size* ) 'single-float)
+                    (coerce (* 0.5 *box-size*) 'single-float)
+                    0e0)
+            (format fs "~E ~E ~E ~%"
+                    (coerce (+ *box-left* *box-size*) 'single-float)
+                    (coerce (* 1 *box-size*) 'single-float)
+                    0e0)
+
+            (format fs "~%")
+            (let ((id 1))
+              (declare (special id))
+              (format fs "POINT_DATA ~d~%" node-count)
+              ))))))
+
 (declaim (notinline make-enalty-box))
-(defun make-penalty-box (sim left-x right-x height friction offset &key (epsilon-scale 1d3))
+(defun make-penalty-box (sim left-x right-x height friction offset &key (epsilon-scale 1d2))
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
@@ -571,6 +639,8 @@
          (friction 0.0d0)
          (gap-height (* 0 h))
          (damping 0d0))
+    (defparameter *box-left* left-x)
+    (defparameter *box-size* (* 2d0 height))
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-distance-point
        sim
@@ -895,10 +965,11 @@
   (defparameter *data-v* (list))
   (defparameter *data-damage* (list))
   (defparameter *data-plastic* (list))
+  (defparameter *data-energy* (list))
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.1d-3)
+  (let* ((displacment 6d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -909,7 +980,7 @@
          (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
-         (enable-damage t)
+         (enable-damage nil)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -959,7 +1030,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           1d-3
+           0d-1
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -976,7 +1047,8 @@
     (let ((disp-av 0d0)
           (load-av 0d0)
           (d-av 0d0)
-          (p-av 0d0))
+          (p-av 0d0)
+          (e-av 0d0))
       (setf load-av (get-load))
       (setf load-0 load-0)
       (format t "Load-0 ~E~%" load-0)
@@ -985,6 +1057,7 @@
       (push load-av *data-v*)
       (push d-av *data-damage*)
       (push p-av *data-plastic*)
+      (push e-av *data-energy*)
       (setf load-av (get-load))
       (setf disp-av *displacement-increment*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
@@ -1001,10 +1074,12 @@
                    (progn
                      (format t "Step ~d/~D~%" steps load-steps)
                      (when t;(= (mod steps (ceiling sample-scale)) 0)
-                       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*))
+                       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                       (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*))
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
+                           (e-av 0d0)
                            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
                        (time
                         (dotimes (i substeps)
@@ -1012,6 +1087,7 @@
                           (incf load-av (/ (get-load) substeps))
                           (incf disp-av (/ *displacement-increment* substeps))
                           (incf *displacement-increment* (/ disp-inc substeps))
+                          (incf e-av (/(cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
                        ;; (setf load-av (get-load))
@@ -1022,6 +1098,7 @@
                        (push load-av *data-v*)
                        (setf d-av (get-damage))
                        (setf p-av (get-plastic))
+                       (push e-av *data-energy*)
                        (push (get-damage) *data-damage*)
                        (push (get-plastic) *data-plastic*)
                        (format t "Disp ~E - Load ~E~%" disp-av load-av)
@@ -1508,13 +1585,13 @@
                        4
                        )
         do
-           (let ((scale 1d0))
+           (let ((scale 0.1d0))
              (loop for s
                    ;; from 0d0 to 100d4 by 10d4
                      in
                      (list
                       10d4
-                      20d4
+                      ;; 20d4
                       ;; 30d4
                       ;; 15d4
                       ;; 25d4
@@ -1524,10 +1601,10 @@
                    while *run-sim*
                    do
                       (progn
-                        (setup :refine refine :mps 2 :surcharge-load s)
+                        (setup :refine refine :mps 4 :surcharge-load s)
                         (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
                              :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 5.0d0)
+                             :sample-scale (* 1d0 10d0)
                              :damage-time-scale 1d0
                              )
                         ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))

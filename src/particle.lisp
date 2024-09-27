@@ -270,6 +270,11 @@
     :accessor mp-penalty-contact
     :type boolean
     :initform nil)
+   (penalty-energy
+    :accessor mp-penalty-energy
+    :type double-float
+    :initform 0d0
+    )
    )
   (:documentation "A single material point"))
 

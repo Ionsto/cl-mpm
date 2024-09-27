@@ -824,3 +824,6 @@
                   (sb-thread:with-mutex (debug-mutex)
                     (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
                     (incf debug-force load))))))))))))
+
+(defun apply-penalty-nudge (sim bc)
+  )
