@@ -146,9 +146,9 @@
 (declaim (notinline plot))
 (defun plot (sim)
   ;; (sleep 1)
-  ;; (plot-load-disp)
+  (plot-load-disp)
   ;; (plot-conv)
-  (plot-domain)
+  ;; (plot-domain)
   ;; (vgplot:plot '(0) '(0))
   )
 (defun simple-plot-contact (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (contact-bcs nil))
@@ -340,22 +340,22 @@
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
 
-           'cl-mpm/particle::particle-vm
-           :E 1d9
-           :nu 0.24d0
-           :rho 131d3
-
-           ;; 'cl-mpm/particle::particle-mc
-           ;; ;; 'cl-mpm/particle::particle-dp
+           ;; 'cl-mpm/particle::particle-vm
            ;; :E 1d9
            ;; :nu 0.24d0
-           ;; ;; :psi 0d0
-           ;; :psi (* 0d0 (/ pi 180))
-           ;; :phi (* 0d0 (/ pi 180))
-           ;; :c 131d3
-           ;; :phi-r (* 30d0 (/ pi 180))
-           ;; :c-r 0d0
-           ;; :softening 0d0
+           ;; :rho 131d3
+
+           'cl-mpm/particle::particle-mc
+           ;; 'cl-mpm/particle::particle-dp
+           :E 1d9
+           :nu 0.24d0
+           ;; :psi 0d0
+           :psi (* 5d0 (/ pi 180))
+           :phi (* 42d0 (/ pi 180))
+           :c 131d3
+           :phi-r (* 30d0 (/ pi 180))
+           :c-r 0d0
+           :softening 0d0
 
            ;; 'cl-mpm/particle::particle-chalk-delayed;
            ;; :E 1d9
@@ -403,21 +403,26 @@
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t))
-        ;; (loop for mp across (cl-mpm:sim-mps sim)
-        ;;       do
-        ;;          (let ((s (cl-mpm/utils:voigt-from-list (list
-        ;;                                                  (- surcharge-load)
-        ;;                                                  (- surcharge-load)
-        ;;                                                  (- surcharge-load)
-        ;;                                                  0d0
-        ;;                                                  0d0
-        ;;                                                  0d0))))
-        ;;            (with-accessors ((stress cl-mpm/particle:mp-stress)
-        ;;                             (strain cl-mpm/particle:mp-strain)
-        ;;                             (de cl-mpm/particle::mp-elastic-matrix))
-        ;;                mp
-        ;;              (setf stress s
-        ;;                    strain (magicl:linear-solve de s)))))
+        (loop for mp across (cl-mpm:sim-mps sim)
+              do
+                 (with-accessors ((stress cl-mpm/particle:mp-stress)
+                                  (strain cl-mpm/particle:mp-strain)
+                                  (E cl-mpm/particle::mp-E)
+                                  (nu cl-mpm/particle::mp-nu)
+                                  (de cl-mpm/particle::mp-elastic-matrix))
+                     mp
+                   (let* (
+                          (strains (cl-mpm/utils:voigt-from-list (list
+                                                                  0d0
+                                                                  (- (/ (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+                                                                        (* E (- 1d0 nu))))
+                                                                  0d0
+                                                                  0d0
+                                                                  0d0
+                                                                  0d0)))
+                          )
+                     (setf stress (magicl:@ de strains)
+                           strain strains))))
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
             (cl-mpm::add-mps
@@ -532,33 +537,33 @@
   (when refine
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))))
 
-(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
-  ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-  ;;                  (rho cl-mpm/particle::mp-rho))
-  ;;     mp
-  ;;   (let* ((rho-0 200d3)
-  ;;          (rho-1 200d2)
-  ;;          (soft 100d0)
-  ;;          )
-  ;;     (setf rho (+ rho-1 (* (- rho-0 rho-1) (exp (- (* soft ps))))))))
-  )
+;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
+;;   ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+;;   ;;                  (rho cl-mpm/particle::mp-rho))
+;;   ;;     mp
+;;   ;;   (let* ((rho-0 200d3)
+;;   ;;          (rho-1 200d2)
+;;   ;;          (soft 100d0)
+;;   ;;          )
+;;   ;;     (setf rho (+ rho-1 (* (- rho-0 rho-1) (exp (- (* soft ps))))))))
+;;   )
 
-(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
-  ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-  ;;                  (c cl-mpm/particle::mp-c)
-  ;;                  (phi cl-mpm/particle::mp-phi)
-  ;;                  )
-  ;;     mp
-  ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
-  ;;         (phi_1 (* 30d0 (/ pi 180)))
-  ;;         (c_0 131d3)
-  ;;         (soft 1000d0;(* 100d0 *mesh-resolution*)
-  ;;               ))
-  ;;     (setf
-  ;;      c (* c_0 (exp (- (* soft ps))))
-  ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
-  )
-(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
+;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
+;;   ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+;;   ;;                  (c cl-mpm/particle::mp-c)
+;;   ;;                  (phi cl-mpm/particle::mp-phi)
+;;   ;;                  )
+;;   ;;     mp
+;;   ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
+;;   ;;         (phi_1 (* 30d0 (/ pi 180)))
+;;   ;;         (c_0 131d3)
+;;   ;;         (soft 1000d0;(* 100d0 *mesh-resolution*)
+;;   ;;               ))
+;;   ;;     (setf
+;;   ;;      c (* c_0 (exp (- (* soft ps))))
+;;   ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
+;;   )
+;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
 (defun save-vtk-penalty-box (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
@@ -816,6 +821,8 @@
                               *shear-box-right-dynamic*
                               *shear-box-left-static*
                               *shear-box-left-dynamic*
+                              *shear-box-left-slide*
+                              *shear-box-right-slide*
                               )))
            (loop for bc in friction-bcs
                  do (setf (cl-mpm/penalty::bc-penalty-friction bc)
@@ -844,9 +851,10 @@
 (declaim (notinline get-load))
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  (-
-   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;; (-
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
 (defun reset-load ()
   (setf 
@@ -977,7 +985,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.25d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (enable-damage nil)
@@ -1030,7 +1038,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           0d-1
+           1d-3
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -1073,7 +1081,7 @@
                 do
                    (progn
                      (format t "Step ~d/~D~%" steps load-steps)
-                     (when t;(= (mod steps (ceiling sample-scale)) 0)
+                     (when (= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*))
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -1582,16 +1590,21 @@
 (defun test ()
   (setf *run-sim* t)
   (loop for refine in (list
-                       4
-                       )
+                    ;; 2
+                    4
+                    ;; 8
+                    ;; 16
+                    )
         do
-           (let ((scale 0.1d0))
+           (let ((scale 1d0)
+                 )
              (loop for s
                    ;; from 0d0 to 100d4 by 10d4
                      in
                      (list
+                      ;; 0d4
                       10d4
-                      ;; 20d4
+                      20d4
                       ;; 30d4
                       ;; 15d4
                       ;; 25d4
@@ -1601,10 +1614,11 @@
                    while *run-sim*
                    do
                       (progn
-                        (setup :refine refine :mps 4 :surcharge-load s)
+                        (format t "Test ~D ~F" refine s)
+                        (setup :refine refine :mps 2 :surcharge-load s)
                         (run (format nil "../ham-shear-box/output-~F-~F/" refine s)
                              :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 10d0)
+                             :sample-scale (* 1d0 1d0)
                              :damage-time-scale 1d0
                              )
                         ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
