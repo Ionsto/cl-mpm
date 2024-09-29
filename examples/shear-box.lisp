@@ -340,22 +340,23 @@
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
 
-           ;; 'cl-mpm/particle::particle-vm
-           ;; :E 1d9
-           ;; :nu 0.24d0
-           ;; :rho 131d3
-
-           'cl-mpm/particle::particle-mc
-           ;; 'cl-mpm/particle::particle-dp
+           'cl-mpm/particle::particle-vm
            :E 1d9
            :nu 0.24d0
-           ;; :psi 0d0
-           :psi (* 5d0 (/ pi 180))
-           :phi (* 42d0 (/ pi 180))
-           :c 131d3
-           :phi-r (* 30d0 (/ pi 180))
-           :c-r 0d0
-           :softening 0d0
+           :rho 100d3
+           :enable-plasticity nil
+
+           ;; 'cl-mpm/particle::particle-mc
+           ;; ;; 'cl-mpm/particle::particle-dp
+           ;; :E 1d9
+           ;; :nu 0.24d0
+           ;; ;; :psi 0d0
+           ;; :psi (* 0d0 (/ pi 180))
+           ;; :phi (* 42d0 (/ pi 180))
+           ;; :c 131d3
+           ;; :phi-r (* 30d0 (/ pi 180))
+           ;; :c-r 0d0
+           ;; :softening 0d0
 
            ;; 'cl-mpm/particle::particle-chalk-delayed;
            ;; :E 1d9
@@ -434,7 +435,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d0)
+               :E (* 1d9 1d1)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -977,7 +978,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -985,7 +986,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.25d0)
+         (dt-scale 0.250d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (enable-damage nil)
@@ -1038,7 +1039,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           1d-3
+           1d-2
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -1081,7 +1082,7 @@
                 do
                    (progn
                      (format t "Step ~d/~D~%" steps load-steps)
-                     (when (= (mod steps (ceiling sample-scale)) 0)
+                     (when nil;(= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*))
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -1590,9 +1591,9 @@
 (defun test ()
   (setf *run-sim* t)
   (loop for refine in (list
-                    ;; 2
+                    2
                     4
-                    ;; 8
+                    8
                     ;; 16
                     )
         do
