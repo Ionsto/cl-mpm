@@ -397,7 +397,7 @@
            )))
         )
       (let* ((sur-height h-x)
-             (sur-height (* 0.5 (second block-size)))
+             ;; (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
@@ -438,7 +438,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d1)
+               :E (* 1d9 1d0)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -646,7 +646,7 @@
          (friction (tan (* 30d0 (/ pi 180))))
          ;; (friction 1d0)
          (friction 0.0d0)
-         (gap-height (* 1 h))
+         (gap-height (* 0 h))
          (damping 0d0))
     (defparameter *box-left* left-x)
     (defparameter *box-size* (* 2d0 height))
@@ -984,7 +984,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 0.2d-3)
+  (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -992,7 +992,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.25d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (enable-damage nil)
@@ -1088,7 +1088,7 @@
                 do
                    (progn
                      (format t "Step ~d/~D~%" steps load-steps)
-                     (when nil;(= (mod steps (ceiling sample-scale)) 0)
+                     (when (= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*))
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -1618,13 +1618,13 @@
                        ;; 32
                     )
         do
-           (let ((scale 0.5d0)
+           (let ((scale 1d0)
                  )
              (loop for s
                    ;; from 0d0 to 100d4 by 10d4
                      in
                      (list
-                      30d4
+                      ;; 30d4
                       ;; 20d4
                       10d4
                       ;; 0d0
@@ -1632,14 +1632,13 @@
                       ;; 15d4
                       ;; 25d4
                       ;; 35d4
-
                       )
                    while *run-sim*
                    do
                       (progn
                         (format t "Test ~D ~F" refine s)
-                        (setup :refine refine :mps 2 :surcharge-load s)
-                        (run (format nil "../ham-shear-box/output-gap-stiff-~F/" s)
+                        (setup :refine refine :mps 3 :surcharge-load s)
+                        (run (format nil "../ham-shear-box/output-~f-~F/" refine s)
                              :time-scale (* 1d0 scale)
                              :sample-scale (* 1d0 1d0)
                              :damage-time-scale 1d0
