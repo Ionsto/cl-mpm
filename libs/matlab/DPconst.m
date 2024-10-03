@@ -21,7 +21,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function [sig,epsE,Dalg] = DPconst(epsTr)
+function [epsE] = DPconst(epsTr)
 
 E = 1;
 v = 0.1;
@@ -30,7 +30,7 @@ tol=1e-12;                                                                  % co
 tolf=1e-6;                                                                  % yield function tolerance
 maxit=5;                                                                    % maximum NR iterations for convergence
 phi=0.1;                                                                   % friction angle (opening angle of yield surface)
-psi=0.1;                                                                  % dilation angle (set equal to phi for associated flow)
+psi=0.05;                                                                  % dilation angle (set equal to phi for associated flow)
 c=1;                                                                        % cohesion
 alfa=-tan(phi);                                                             % yield surface slope (xi-rho space)
 bta=-tan(psi);                                                              % plastic potential slope (xi-rho space)

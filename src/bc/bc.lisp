@@ -111,6 +111,12 @@
 (defgeneric apply-bc (bc node mesh dt)
   (:documentation "Apply a boundary condition onto a node"))
 
+(defgeneric calculate-min-dt-bc (sim bc)
+  (:documentation "Aim to estimate a minimum bc if required, nil if not"))
+(defmethod calculate-min-dt-bc (sim (bc bc))
+  nil)
+
+
 (defmethod apply-bc (bc node mesh dt)
   "Natural BC condition is nothing")
 

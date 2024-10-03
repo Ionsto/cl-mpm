@@ -208,8 +208,8 @@
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (when enabled
       (multiple-value-bind (sig eps-e f)
-          ;(cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
-          (cl-mpm/ext::constitutive-drucker-prager strain de E nu phi psi c)
+          (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
+          ;; (cl-mpm/ext::constitutive-drucker-prager strain de E nu phi psi c)
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
