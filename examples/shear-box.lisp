@@ -646,7 +646,7 @@
          (friction (tan (* 30d0 (/ pi 180))))
          ;; (friction 1d0)
          (friction 0.0d0)
-         (gap-height (* 1 h))
+         (gap-height (* 0 h))
          (damping 0d0))
     (defparameter *box-left* left-x)
     (defparameter *box-size* (* 2d0 height))
@@ -992,7 +992,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.25d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (enable-damage nil)
@@ -1634,7 +1634,6 @@
                       ;; 15d4
                       ;; 25d4
                       ;; 35d4
-
                       )
                    while *run-sim*
                    do
