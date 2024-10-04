@@ -207,15 +207,19 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (when enabled
-      (multiple-value-bind (sig eps-e f)
+      (multiple-value-bind (sig eps-e f yield)
           (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
           ;; (cl-mpm/ext::constitutive-drucker-prager strain de E nu phi psi c)
-        (setf stress
-              sig
-              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-              strain eps-e
-              yield-func f
-              ))
+        (if yield
+            (progn
+              (setf stress sig
+                    plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+                    yield-func f
+                    )
+              (setf strain eps-e))
+          (progn
+            (cl-mpm/fastmaths:fast-zero plastic-strain)
+            (setf yield-func 0d0))))
       (incf ps-vm
             (multiple-value-bind (l v)
                 (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
@@ -236,7 +240,5 @@
         (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
           (setf
            c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
-           phi (+ phi-r (* (- phi-0 phi-r) (exp (- (* soft ps-vm)))))))
-      )
-    stress
-    ))
+           phi (+ phi-r (* (- phi-0 phi-r) (exp (- (* soft ps-vm))))))))
+    stress))

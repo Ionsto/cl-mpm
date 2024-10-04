@@ -1275,14 +1275,18 @@
                        ;; sig
                        (swizzle-coombs->voigt sig)
                        (swizzle-coombs->voigt epsE)
-                       initial-f)
+                       initial-f
+                       t
+                       )
                       )
                     ;;No MC yield - just return
                     (values stress
-                            trial-elastic-strain initial-f)))))
+                            trial-elastic-strain initial-f
+                            nil)))))
           ;;No DP yield - just return
           (values stress
-                  trial-elastic-strain f-dp)))))
+                  trial-elastic-strain f-dp
+                  nil)))))
 
 
 (defun maxwell-forwards-fs ()
