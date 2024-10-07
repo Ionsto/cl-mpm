@@ -89,7 +89,8 @@ if f>tol                                                                    % if
       dg=s/rho-bta/sqrt(3);                                                 % flow direction
       ddg=1/3*(3*eye(3)-ones(3))/rho-s*s.'/rho^3;                           % derivative of the flow direction wrt. stress 
       b=[epsE-epsEtr+dgam*dg; rho-alfa*xi];                                 % residuals
-      b
+      disp("B");
+      b(4)
       itnum=itnum+1;                                                        % increment iteration number 
     end
     B=inv([Ce+dgam*ddg dg; df.' 0]);                                        % linearisation for Dalg
@@ -104,6 +105,7 @@ if f>tol                                                                    % if
     Dalg=Q.'*Dalg*Q;                                                        % map Dalg to 6 component stress space
   end
   sig
+  Ce
   epsE=Ce*sig;                                                              % updated elastic strains
 else                                                                        % elastic behaviour
   disp("elastic")

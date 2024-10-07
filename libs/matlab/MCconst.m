@@ -1,4 +1,4 @@
-function [epsE] = MCconst(epsTr,mCst)
+function [epsE] = MCconst(epsTr)
 
 %Mohr-Coulomb linear elastic perfectly plastic constitutive model
 %--------------------------------------------------------------------------
