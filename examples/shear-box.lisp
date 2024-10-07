@@ -349,12 +349,12 @@
            ;; :nu 0.24d0
            ;; :rho 100d3
 
-           'cl-mpm/particle::particle-mc
-           ;; 'cl-mpm/particle::particle-dp
+           ;; 'cl-mpm/particle::particle-mc
+           'cl-mpm/particle::particle-dp
            :E 1d9
            :nu 0.24d0
            ;; :psi 0d0
-           :psi (* 5d0 (/ pi 180))
+           :psi (* 0d0 (/ pi 180))
            :phi (* 30d0 (/ pi 180))
            :c 0d0;131d3
            :phi-r (* 30d0 (/ pi 180))
@@ -397,7 +397,7 @@
            )))
         )
       (let* ((sur-height h-x)
-             ;(sur-height (* 0.5 (second block-size)))
+             ;; (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
@@ -407,26 +407,26 @@
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t))
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                  (strain cl-mpm/particle:mp-strain)
-                                  (E cl-mpm/particle::mp-E)
-                                  (nu cl-mpm/particle::mp-nu)
-                                  (de cl-mpm/particle::mp-elastic-matrix))
-                     mp
-                   (let* (
-                          (strains (cl-mpm/utils:voigt-from-list (list
-                                                                  0d0
-                                                                  (- (/ (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
-                                                                        (* E (- 1d0 nu))))
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0)))
-                          )
-                     (setf stress (magicl:@ de strains)
-                           strain strains))))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (with-accessors ((stress cl-mpm/particle:mp-stress)
+        ;;                           (strain cl-mpm/particle:mp-strain)
+        ;;                           (E cl-mpm/particle::mp-E)
+        ;;                           (nu cl-mpm/particle::mp-nu)
+        ;;                           (de cl-mpm/particle::mp-elastic-matrix))
+        ;;              mp
+        ;;            (let* (
+        ;;                   (strains (cl-mpm/utils:voigt-from-list (list
+        ;;                                                           0d0
+        ;;                                                           (- (/ (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+        ;;                                                                 (* E (- 1d0 nu))))
+        ;;                                                           0d0
+        ;;                                                           0d0
+        ;;                                                           0d0
+        ;;                                                           0d0)))
+        ;;                   )
+        ;;              (setf stress (magicl:@ de strains)
+        ;;                    strain strains))))
         (format t "Gravity ~F~%" gravity)
         (if mp-surcharge
             (cl-mpm::add-mps
@@ -984,7 +984,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
+  (let* ((displacment 0.1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -992,7 +992,7 @@
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.25d0)
+         (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (enable-damage nil)
@@ -1045,7 +1045,7 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            ;; damping
-           1d-1
+           1d-2
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -1615,37 +1615,36 @@
                        4.5
                        ;; 8.5
                     ;; 8
-                    ;; 16
+                    ;; 16.5
                        ;; 32
                     )
         do
-           (let ((scale 0.1d0)
-                 (mps 3)
-                 )
-             (loop for s
-                   ;; from 0d0 to 100d4 by 10d4
-                     in
-                     (list
-                      30d4
-                      20d4
-                      10d4
-                      ;; 0d0
-                      ;; 0d4
-                      ;; 15d4
-                      ;; 25d4
-                      ;; 35d4
-                      )
-                   while *run-sim*
-                   do
-                      (progn
-                        (format t "Test ~D ~F" refine s)
-                        (setup :refine refine :mps mps :surcharge-load s)
-                        (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                             :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 1d0)
-                             :damage-time-scale 1d0
-                             )
-                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
-                        )))))
+           (dolist (scale (list 1d0))
+             (let ((mps 4))
+               (loop for s
+                     ;; from 0d0 to 100d4 by 10d4
+                       in
+                       (list
+                        30d4
+                        20d4
+                        10d4
+                        ;; 0d0
+                        ;; 0d4
+                        ;; 15d4
+                        ;; 25d4
+                        ;; 35d4
+                        )
+                     while *run-sim*
+                     do
+                        (progn
+                          (format t "Test ~D ~F" refine s)
+                          (setup :refine refine :mps mps :surcharge-load s)
+                          (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
+                               :time-scale (* 1d0 scale)
+                               :sample-scale (* 1d0 0.5d0)
+                               :damage-time-scale 1d0
+                               )
+                          ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                          ))))))
 
 

@@ -13,8 +13,8 @@
    #:norton-hoff
    ))
 (in-package :cl-mpm/constitutive)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -1138,7 +1138,14 @@
                                                         nu (- 1d0 nu) nu
                                                         nu nu (- 1d0 nu)))
                         (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
-                     (Ce (magicl:inv De3))
+                     ;; (Ce (magicl:inv De3))
+                     (Ce (cl-mpm/fastmaths:fast-scale!
+                          (cl-mpm/utils:matrix-from-list
+                                                       (list
+                                                        1d0 (- nu) (- nu)
+                                                        (- nu) 1d0 (- nu)
+                                                        (- nu) (- nu) 1d0))
+                          (/ 1d0 E)))
                      (epsTr (cl-mpm/utils:vector-from-list l))
                      (sig (magicl:.-
                            (cl-mpm/utils:@-mat-vec De3 epsTr)
@@ -1154,17 +1161,15 @@
 
                 (if (> f tol)
                     (let* ((epsTr (cl-mpm/utils:vector-copy epsE))
-                           (fap (if (> bta 0d0)
+                           (fap (if (not (= bta 0d0))
                                     (/
                                      (+
                                       (* rho (sqrt (+ 1 nu)))
-                                      (* xi (sqrt (- 1 (* 2 nu))))
-                                      )
+                                      (* xi (sqrt (- 1 (* 2 nu)))))
                                      (* bta
                                         (/
                                          (sqrt (+ 1 nu))
-                                         (sqrt (- 1 (* 2 nu)))
-                                         )
+                                         (sqrt (- 1 (* 2 nu))))
                                         )
                                      )
                                     sb-ext:double-float-positive-infinity))
@@ -1198,8 +1203,7 @@
                                    (/ 1d0 (* 3d0 rho)))
                                   (cl-mpm/fastmaths:fast-scale!
                                    (magicl:@ s (magicl:transpose s))
-                                   (/ 1d0 (expt rho 3)))))
-                               )
+                                   (/ 1d0 (expt rho 3))))))
                            (setf (varef b 3) f)
                            (loop for i from 0 to 4
                                  while (or (> (sqrt
@@ -1222,6 +1226,8 @@
                                                                    (list 2 2)
                                                 ))
                                            (dx (cl-mpm/fastmaths:fast-scale! (magicl:linear-solve A b) -1d0)))
+                                      ;; (pprint A)
+                                      ;; (pprint dx)
                                       (loop for i from 0 to 2 do 
                                         (incf (varef epsE i) (varef dx i)))
                                       (incf dgam (varef dx 3))
@@ -1252,9 +1258,11 @@
                                       (loop for i from 0 to 2 do
                                         (setf (varef b i) (+ (- (varef epsE i) (varef epstr i))
                                                              (* dgam (varef dg i)))))
+                                      ;; (pprint (varef b 3))
                                       (setf (varef b 3) (- rho (* alfa xi))))))
                          (loop for i from 0 to 2 do 
-                           (incf (varef sig i) (/ xsic (sqrt 3))))))
+                           (incf (varef sig i) (/ xsic (sqrt 3))))
+                         ))
 
                       (setf epsE (magicl:@ Ce sig))
                       (let ((pad-eps (magicl:block-matrix (list epsE
