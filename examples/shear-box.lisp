@@ -1620,13 +1620,13 @@
                     )
         do
            (dolist (scale (list 1d0))
-             (let ((mps 4))
+             (let ((mps 3))
                (loop for s
                      ;; from 0d0 to 100d4 by 10d4
                        in
                        (list
                         30d4
-                        20d4
+                        ;; 20d4
                         10d4
                         ;; 0d0
                         ;; 0d4

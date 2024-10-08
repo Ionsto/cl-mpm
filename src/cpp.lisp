@@ -128,7 +128,7 @@
           (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage str)))
             (unless (CppDruckerPrager sp E nu phi psi c)
               (error "Drucker-Prager failed")))
-          (values (magicl:@ de str) str 0d0)))
+          (values (magicl:@ de str) str 0d0 t)))
       )
 
     (cffi::load-foreign-library-error (c)
