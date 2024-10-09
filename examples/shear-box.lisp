@@ -72,8 +72,8 @@
         ;; (setf damage-increment
         ;;       (max 0d0
         ;;            (cl-mpm/damage::criterion-dp
-        ;;             ;; stress
-        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             stress
+        ;;             ;; (magicl:scale stress (/ 1d0 (magicl:det def)))
         ;;             (* angle (/ pi 180d0)))))
 
         ;; (setf damage-increment
@@ -329,9 +329,9 @@
              ;; (init-stress 10d3)
              (gf 5d0)
              ;; (length-scale (* 1 h))
-             (length-scale (* 7.5d-3 2))
+             (length-scale (* 7.5d-3 1))
              ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10d0)
+             (ductility 100d0)
              ;; (ductility 1d60)
              )
         (format t "Estimated ductility ~E~%" ductility)
@@ -350,54 +350,54 @@
            ;; :rho 100d3
 
            ;; 'cl-mpm/particle::particle-mc
-           'cl-mpm/particle::particle-dp
-           :E 1d9
-           :nu 0.24d0
-           ;; :psi 0d0
-           :psi (* 0d0 (/ pi 180))
-           :phi (* 30d0 (/ pi 180))
-           :c 0d0;131d3
-           :phi-r (* 30d0 (/ pi 180))
-           :c-r 0d0
-           :softening 0d0
-
-           ;; 'cl-mpm/particle::particle-chalk-delayed;
+           ;; 'cl-mpm/particle::particle-dp
            ;; :E 1d9
            ;; :nu 0.24d0
-           ;; ;; :nu 0.24d0
-           ;; ;; :nu 0.35d0
-           ;; :kt-res-ratio 1d-9
-           ;; :kc-res-ratio 1d0
-           ;; :g-res-ratio 1d-9
-           ;; ;; :g-res-ratio 1d-1
-           ;; ;; :damage 0.9d0
-           ;; :friction-angle 30d0
-           ;; :initiation-stress init-stress;18d3
-           ;; :delay-time 1d-2
-           ;; :delay-exponent 1d0
-           ;; :damage 0.0d0
-           ;; :ductility ductility
-           ;; :local-length length-scale
-           ;; :local-length-damaged 10d-10
-           ;; :enable-damage nil
-           ;; :enable-plasticity t
-
-           ;; :psi (* 5d0 (/ pi 180))
-           ;; :phi (* 42d0 (/ pi 180))
-           ;; :c (* 131d3 1d0)
-           ;; ;; :phi (* 30d0 (/ pi 180))
-           ;; ;; :c (* 131d3 0d0)
-
+           ;; ;; :psi 0d0
+           ;; :psi (* 0d0 (/ pi 180))
+           ;; :phi (* 30d0 (/ pi 180))
+           ;; :c 0d0;131d3
            ;; :phi-r (* 30d0 (/ pi 180))
            ;; :c-r 0d0
            ;; :softening 0d0
+
+           'cl-mpm/particle::particle-chalk-delayed;
+           :E 1d9
+           :nu 0.24d0
+           ;; :nu 0.24d0
+           ;; :nu 0.35d0
+           :kt-res-ratio 1d-9
+           :kc-res-ratio 1d0
+           :g-res-ratio 1d-2
+           ;; :g-res-ratio 1d-1
+           ;; :damage 0.9d0
+           :friction-angle 30d0
+           :initiation-stress init-stress;18d3
+           :delay-time 1d-2
+           :delay-exponent 1d0
+           :damage 0.0d0
+           :ductility ductility
+           :local-length length-scale
+           :local-length-damaged 10d-10
+           :enable-damage t
+           :enable-plasticity t
+
+           :psi (* 0d0 (/ pi 180))
+           :phi (* 42d0 (/ pi 180))
+           :c (* 131d3 10d0)
+           ;; :phi (* 30d0 (/ pi 180))
+           ;; :c (* 131d3 0d0)
+
+           :phi-r (* 30d0 (/ pi 180))
+           :c-r 0d0
+           :softening 0d0
 
            :index 0
            :gravity 0d0
            )))
         )
       (let* ((sur-height h-x)
-             ;; (sur-height (* 0.5 (second block-size)))
+             (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
@@ -995,7 +995,7 @@
          (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
-         (enable-damage nil)
+         (enable-damage t)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -1544,6 +1544,7 @@
                      in
                      (list
                       10d4
+                      20d4
                       30d4
                       ;; 15d4
                       ;; 25d4
@@ -1612,9 +1613,10 @@
   (setf *run-sim* t)
   (loop for refine in (list
                     ;; 2
+                       4.0
                        4.5
                        ;; 8.5
-                    ;; 8
+                       ;; 8
                     ;; 16.5
                        ;; 32
                     )
@@ -1625,9 +1627,11 @@
                      ;; from 0d0 to 100d4 by 10d4
                        in
                        (list
+                        10d4
+                        20d4
                         30d4
                         ;; 20d4
-                        10d4
+                        ;; 10d4
                         ;; 0d0
                         ;; 0d4
                         ;; 15d4
@@ -1641,7 +1645,7 @@
                           (setup :refine refine :mps mps :surcharge-load s)
                           (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
                                :time-scale (* 1d0 scale)
-                               :sample-scale (* 1d0 0.5d0)
+                               :sample-scale (* 1d0 1d0)
                                :damage-time-scale 1d0
                                )
                           ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
