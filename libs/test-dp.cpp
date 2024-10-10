@@ -9,17 +9,17 @@ int main(int args, char **argv){
   std::cout<<"Starting test\n";
   Eigen::Matrix<double,6,1> strain;// {0.0,0.0,0.0,1.0,0.0,0.0};
   strain = (Eigen::Matrix<double,6,1>()<<
+            10.0,
             0.0,
             0.0,
             0.0,
-            3.0,
             0.0,
             0.0).finished();
-  double E = 1;
-  double nu = 0.1;
+  double E = 10;
+  double nu = 0.25;
   double phi = 0.1;
-  double psi = 0.05;
-  double c = 1;
+  double psi = 0.00;
+  double c = 0;
   std::cout << "Drucker-prager" << "\n";
   auto t1 = Clock::now();
   int iters = 100000;

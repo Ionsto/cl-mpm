@@ -21,17 +21,16 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function [epsE] = DPconst(epsTr)
+function [epsE] = DPconst(epsTr,mcst)
 
-E = 1;
-v = 0.1;
-
+E = mcst(1);
+v = mcst(2);
 tol=1e-12;                                                                  % convergence tolerance for NR iterations
 tolf=1e-6;                                                                  % yield function tolerance
 maxit=5;                                                                    % maximum NR iterations for convergence
-phi=0.1;                                                                   % friction angle (opening angle of yield surface)
-psi=0.05;                                                                  % dilation angle (set equal to phi for associated flow)
-c=1;                                                                        % cohesion
+phi=mcst(3);                                                                   % friction angle (opening angle of yield surface)
+psi=mcst(4);                                                                  % dilation angle (set equal to phi for associated flow)
+c=mcst(5);                                                                        % cohesion
 alfa=-tan(phi);                                                             % yield surface slope (xi-rho space)
 bta=-tan(psi);                                                              % plastic potential slope (xi-rho space)
 xsic=sqrt(3)*cot(phi)*c;                                                    % apex hydrostatic stress
@@ -64,8 +63,11 @@ rho=sqrt(sum(s.^2))                                     % deviatoric stress
 f=rho-alfa*xi;                                                              % yield function
 if f>tol                                                                    % if yielded
   disp("Yeilding")
-  fap=rho*sqrt(1+v)+xi*sqrt(1-2*v)/( ...
-      bta*sqrt(1+v)/sqrt(1-2*v));             % apex retunr surface 
+  rho
+  xi
+  bta
+  fap=rho*sqrt(1+v)+xi*sqrt(1-2*v)/(bta*sqrt(1+v)/sqrt(1-2*v))
+  % apex retunr surface 
   if fap<tol                                                                % apex return
       disp("Apex")
     sig=xsic/sqrt(3)*ones(3,1);                                             % updated stress

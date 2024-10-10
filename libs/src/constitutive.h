@@ -34,6 +34,7 @@ Eigen::Matrix<double,6,6> AssembleQMatrix(Eigen::Matrix<double,3,3> eigen_vector
 */
 Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain,
                     double E, double nu, double phi, double psi, double c) {
+
   const double alfa = -std::tan(phi);
   const double bta = -std::tan(psi);
   const double xsic = std::sqrt(3)*(1.0 / std::tan(phi))*c;
@@ -60,6 +61,7 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
   // std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
   Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
   Eigen::Matrix<double,3,1> sig = ((De3 * eigen_values).array() - (xsic / std::sqrt(3))).matrix();
+  std::cout<<"De3\n"<<De3<<"\n";
   const double tol = 1e-12;
   double xi = sig.sum()/std::sqrt(3);
   Eigen::Matrix<double,3,1> s = (sig.array() - (xi / std::sqrt(3))).matrix();
@@ -70,8 +72,14 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
     Eigen::Matrix<double,3,1> epsE = Ce * sig;
     Eigen::Matrix<double,3,1> epsEtr = epsE;
     auto Q = AssembleQMatrix(eigen_vectors);
-    double fap = rho * std::sqrt(1+nu) + (xi*std::sqrt(1-(2*nu))/(bta*std::sqrt(1+nu)/std::sqrt(1-2*nu)));
-    if(fap<tol) 
+    double fap = 0.0;
+    if(bta != 0.0){
+      fap = rho * std::sqrt(1+nu) + (xi*std::sqrt(1-(2*nu))/(bta*std::sqrt(1+nu)/std::sqrt(1-2*nu)));
+    }
+    else{
+      fap = rho * std::sqrt(1+nu);
+    }
+    if(fap<tol)
       {
         //Apex return
         // std::cout<<"xsic:"<<xsic<<"\n";
@@ -126,7 +134,9 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
       }
       sig.array() += xsic/std::sqrt(3);
     }
+    std::cout<<"Sig\n"<<sig<<"\n";
     epsE = Ce*sig;
+    std::cout<<"EpsE\n"<<epsE<<"\n";
     // std::cout<<"Ce\n"<<Ce<<"\n";
     // Eigen::Matrix<double,6,1> eps_q;
     return swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()

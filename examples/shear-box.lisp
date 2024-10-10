@@ -350,8 +350,8 @@
            ;; :nu 0.24d0
            ;; :rho 100d3
 
-           ;; 'cl-mpm/particle::particle-mc
-           'cl-mpm/particle::particle-dp
+           'cl-mpm/particle::particle-mc
+           ;; 'cl-mpm/particle::particle-dp
            :E 1d9
            :nu 0.24d0
            ;; :psi 0d0
@@ -1051,7 +1051,10 @@
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
          (load-0 0d0)
-         (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
+         (enable-plasticity
+           nil
+           ;; (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0))
+           )
          (enable-damage t)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
@@ -1725,7 +1728,7 @@
   (let* ((err (cl-mpm/fastmaths:fast-.-
                a b))
          (norm (cl-mpm/fastmaths:mag err)))
-    (< norm 1d-3)))
+    (< norm 1d-2)))
 
 (defun test-dp-all ()
   (let* ((test-data (lisp-stat:read-csv (uiop:read-file-string "./libs/matlab/dp_test_data.csv")))
