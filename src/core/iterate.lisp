@@ -927,8 +927,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                         (cl-mpm/fastmaths:fast-.*
                          (vector-from-list
                           (list
-                           (- (* 2d0 (float x 0d0)) 1d0)
-                           (- (* 2d0 (float y 0d0)) 1d0)
+                           x
+                           y
                            0d0))
                          domain
                          ) 0.5d0) corner)
