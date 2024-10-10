@@ -907,3 +907,52 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        (gradz 0d0)
                                        )
                                   (funcall func mesh mp node weight (list gradx grady gradz) 0d0 (list 0d0 0d0 0d0)))))))))))
+
+(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-2d))
+(defun iterate-over-corners-2d (mesh mp func)
+  (declare (cl-mpm/particle::particle mp)
+           (function func))
+  ;; (array-operations/utilities:nested-loop (x y) '(2 2))
+  (loop for x from -1d0 to 1d0 by 2d0
+        do
+           (loop for y from -1d0 to 1d0 by 2d0
+                 do
+                    (let ((domain (cl-mpm/particle::mp-domain-size mp))
+                          (position (cl-mpm/particle:mp-position mp))
+                          (corner (cl-mpm/utils:vector-zeros)))
+                      (declare (double-float x y))
+                      (cl-mpm/fastmaths::fast-.+-vector
+                       position
+                       (cl-mpm/fastmaths:fast-scale!
+                        (cl-mpm/fastmaths:fast-.*
+                         (vector-from-list
+                          (list
+                           (- (* 2d0 (float x 0d0)) 1d0)
+                           (- (* 2d0 (float y 0d0)) 1d0)
+                           0d0))
+                         domain
+                         ) 0.5d0) corner)
+                      (funcall func corner)))))
+
+(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-3d))
+(defun iterate-over-corners-3d (mesh mp func)
+  (declare (cl-mpm/particle::particle mp)
+           (function func))
+  (array-operations/utilities:nested-loop (x y z) '(2 2 2)
+    (let ((domain (cl-mpm/particle::mp-domain-size mp))
+          (position (cl-mpm/particle:mp-position mp))
+          (corner (cl-mpm/utils:vector-zeros)))
+      (cl-mpm/fastmaths::fast-.+-vector
+       position
+       (magicl:scale!
+        (magicl:.*
+         (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y z)))
+         domain
+         ) 0.5d0) corner)
+      (funcall func corner))))
+
+(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners))
+(defun iterate-over-corners (mesh mp func)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (iterate-over-corners-2d mesh mp func)
+      (iterate-over-corners-3d mesh mp func)))

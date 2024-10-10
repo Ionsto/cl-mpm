@@ -28,6 +28,7 @@
    #:iterate-over-nodes-serial
    #:iterate-over-neighbours
    #:iterate-over-mps
+   #:iterate-over-corners
    #:iterate-over-neighbours-point-linear
    #:calculate-adaptive-time
    #:add-mps

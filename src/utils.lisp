@@ -270,6 +270,7 @@
          (ftype (function (list)
                           magicl:matrix/double-float) voigt-from-list))
 (defun voigt-from-list (elements)
+  "Voigt notation exx eyy ezz eyz ezx exy"
   (magicl::make-matrix/double-float 6 1 6 :column-major
                                     (make-array 6 :element-type 'double-float :initial-contents elements)))
 

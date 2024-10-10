@@ -13,6 +13,7 @@
 
 (deftest test-ext-drucker-prager ()
   ;;Not a good test
+  (is (voigt-list-test (test-ext-plastic-dp 0d0 0d0 0d0 0d0 0d0 0d0) (list 0d0 0d0 0d0 0d0 0d0 0d0)))
   (is (voigt-list-test (test-ext-plastic-dp 1d0 0d0 0d0 0d0 0d0 0d0) (list 1d0 0d0 0d0 0d0 0d0 0d0)))
   (is (voigt-list-test (test-ext-plastic-dp -1d0 0d0 0d0 0d0 0d0 0d0) (list -1d0 0d0 0d0 0d0 0d0 0d0)))
   (is (voigt-list-test (test-ext-plastic-dp 1d0 2d0 3d0 1d0 2d0 3d0) (list 1.475498236391475d0 1.954875103787714d0 2.434251971183953d0 0.479376867396238d0 0.958753734792476d0 1.438130602188714d0)))

@@ -125,7 +125,7 @@
       (defun constitutive-drucker-prager (strain de E nu phi psi c)
         (declare (double-float E nu phi psi c))
         (let ((str (cl-mpm/utils::voigt-copy strain)))
-          (magicl.cffi-types:with-array-pointers ((sp (magicl::matrix/double-float-storage str)))
+          (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str)))
             (unless (CppDruckerPrager sp E nu phi psi c)
               (error "Drucker-Prager failed")))
           (values (magicl:@ de str) str 0d0 t)))

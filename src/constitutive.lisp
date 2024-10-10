@@ -13,8 +13,8 @@
    #:norton-hoff
    ))
 (in-package :cl-mpm/constitutive)
-;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (defun linear-elastic-matrix (E nu)
   "Create an isotropic linear elastic matrix"
@@ -1112,8 +1112,10 @@
                                                (rotate-vector (magicl:column v 2)))) 1d0)
      ) '(2 6))))
 
+(declaim (notinline plastic-dp))
 (defun plastic-dp (stress de trial-elastic-strain E nu phi psi c)
-  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  ;; (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (declare (optimize (speed 0) (safety 3) (debug 3)))
   (declare (double-float E nu phi psi c)
            (magicl:matrix/double-float stress de trial-elastic-strain))
   (let* ((tol 1d-9)
@@ -1169,10 +1171,8 @@
                                      (* bta
                                         (/
                                          (sqrt (+ 1 nu))
-                                         (sqrt (- 1 (* 2 nu))))
-                                        )
-                                     )
-                                    sb-ext:double-float-positive-infinity))
+                                         (sqrt (- 1 (* 2 nu))))))
+                                    (* xi sb-ext:double-float-negative-infinity)))
                            (path :no-path)
                            (Q (Q-matrix v)))
                       (cond
@@ -1278,15 +1278,12 @@
                                             (magicl:tref sig 1 0)
                                             (magicl:tref sig 2 0)
                                             0d0 0d0 0d0))))
-
                       (values
                        ;; sig
                        (swizzle-coombs->voigt sig)
                        (swizzle-coombs->voigt epsE)
                        initial-f
-                       t
-                       )
-                      )
+                       t))
                     ;;No MC yield - just return
                     (values stress
                             trial-elastic-strain initial-f
