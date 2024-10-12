@@ -356,8 +356,8 @@
            :nu 0.24d0
            ;; :psi 0d0
            :psi (* 00d0 (/ pi 180))
-           :phi (* 30d0 (/ pi 180))
-           :c 0d0;131d3
+           :phi (* 42d0 (/ pi 180))
+           :c 131d3
            :phi-r (* 30d0 (/ pi 180))
            :c-r 0d0
            :softening 0d0
@@ -659,7 +659,9 @@
     ))
 
 (declaim (notinline make-enalty-box))
-(defun make-penalty-box (sim left-x right-x height friction offset &key (epsilon-scale 1d2))
+(defun make-penalty-box (sim left-x right-x height friction offset &key (epsilon-scale 1d2)
+                                                                     (corner-size 1d0)
+                                                                     )
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
@@ -671,7 +673,11 @@
          ;; (friction 1d0)
          (friction 0.0d0)
          (gap-height (* 0 h))
-         (corner (* 0.5d0 h))
+         ;; (corner (* 0.5d0 h))
+         (corner
+           corner-size
+           ;; (* 1d0 7.5d-3)
+                 )
          (corner-x (* 1d0 corner))
          (corner-y (* 1d0 corner))
          (damping 0d0))
@@ -964,7 +970,8 @@
                          mps-per-dim
                          :friction friction
                          :surcharge-load surcharge-load))
-    (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset)
+    (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
+                      :corner-size mesh-size)
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -1019,7 +1026,7 @@
 
 (declaim (notinline run))
 (defun run (&optional (output-directory "./output/") &key (total-time 6d-2)
-                                                       (damping 1d0)
+                                                       (damping 1d-1)
                                                        (time-scale 1d0)
                                                        (damage-time-scale 1d0)
                                                        (sample-scale 1d0)
@@ -1041,7 +1048,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1.0d-3)
+  (let* ((displacment 6d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1052,7 +1059,8 @@
          (dt-scale 0.5d0)
          (load-0 0d0)
          (enable-plasticity
-           nil
+           ;; nil
+           t
            ;; (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0))
            )
          (enable-damage t)
@@ -1104,8 +1112,7 @@
     (setf *enable-box-friction* t)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           ;; damping
-           1d-1
+           damping
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
@@ -1675,21 +1682,23 @@
 
 (defun test ()
   (setf *run-sim* t)
-  (loop for refine in (list 4.0)
+  (loop for refine in (list
+                       ;; 2
+                       4
+                       8
+                       16)
         do
-           (dolist (mps (list 4
-                              ;; 3
-                              ;; 4
-                                 ))
+           (dolist (mps (list
+                         2))
              (let (;(mps 2)
-                   (scale 1.0d0))
+                   (scale 0.5d0))
                (loop for s
                      ;; from 0d0 to 100d4 by 10d4
                        in
                        (list
                         10d4
                         20d4
-                        30d4
+                        ;; 30d4
                         ;; 20d4
                         ;; 10d4
                         ;; 0d0
@@ -1713,7 +1722,7 @@
                           ;;    ))
                           (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
                                :time-scale (* 1d0 scale)
-                               :sample-scale (* 1d0 1d0)
+                               :sample-scale (* 1d0 0.1d0)
                                :damage-time-scale 1d0
                                )
                           ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
