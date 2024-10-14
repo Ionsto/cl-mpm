@@ -570,6 +570,46 @@
 ;;   )
 ;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
+
+(defun make-penalty-object (bc)
+  )
+(defun save-json-penalty-box (filename sim)
+  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
+      sim
+    (let ((bc-save-list (list)))
+      (loop for bc-list in bcs
+            do
+               (loop for bc across bc-list
+                     do
+                        (typecase bc
+                          (cl-mpm/penalty::bc-penalty-distance
+                           (push bc bc-save-list)
+                           )
+                          (cl-mpm/penalty::bc-penalty-structure
+                           (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
+                                 do
+                                    (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
+                                      (push sub-bc bc-save-list)))) (t ))))
+      (let ((json-object (list)))
+        (loop for bc in bc-save-list
+              do
+                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
+                                  (normal cl-mpm/penalty::bc-penalty-normal)
+                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
+                     bc
+                   (push (list :position (list (cl-mpm/utils:varef center 0)
+                                               (cl-mpm/utils:varef center 1)
+                                               (cl-mpm/utils:varef center 2))
+                               :normal (list (cl-mpm/utils:varef normal 0)
+                                             (cl-mpm/utils:varef normal 1)
+                                             (cl-mpm/utils:varef normal 2))
+                               :radius radius) json-object))
+              )
+        (str:to-file
+         filename
+         (jonathan:to-json
+          json-object
+          ))))))
 (defun save-vtk-penalty-box (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-accessors ((cells cl-mpm/mesh::mesh-cells))
@@ -697,7 +737,7 @@
     (defparameter *shear-box-left-static*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
-       (cl-mpm/utils:vector-from-list (list left-x (* 2 height) 0d0))
+       (cl-mpm/utils:vector-from-list (list left-x (* 4 height) 0d0))
        (cl-mpm/utils:vector-from-list (list left-x (+ corner-y height) 0d0))
        epsilon
        0d0
@@ -714,7 +754,7 @@
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list right-x (+ corner-y height) 0d0))
-       (cl-mpm/utils:vector-from-list (list right-x (* 2 height) 0d0))
+       (cl-mpm/utils:vector-from-list (list right-x (* 4 height) 0d0))
        epsilon
        0d0
        0d0))
@@ -971,7 +1011,7 @@
                          :friction friction
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
-                      :corner-size mesh-size)
+                      :corner-size (* 0.25d0 mesh-size))
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -1048,7 +1088,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
+  (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1157,6 +1197,7 @@
                      (format t "Step ~d/~D~%" steps load-steps)
                      (when (= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                       (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*)
                        ;; (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*)
                        )
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -1686,18 +1727,19 @@
                        ;; 2
                        4
                        8
-                       16)
+                       ;16
+                       )
         do
-           (dolist (mps (list
-                         2))
+           (dolist (mps (list 4))
              (let (;(mps 2)
-                   (scale 0.5d0))
+                   (scale 1d0))
                (loop for s
                      ;; from 0d0 to 100d4 by 10d4
                        in
                        (list
                         10d4
                         20d4
+                        30d4
                         ;; 30d4
                         ;; 20d4
                         ;; 10d4
