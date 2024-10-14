@@ -1088,7 +1088,7 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 1d-3)
+  (let* ((displacment 6d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1732,7 +1732,7 @@
         do
            (dolist (mps (list 4))
              (let (;(mps 2)
-                   (scale 1d0))
+                   (scale 0.5d0))
                (loop for s
                      ;; from 0d0 to 100d4 by 10d4
                        in
