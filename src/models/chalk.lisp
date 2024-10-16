@@ -490,25 +490,26 @@
       (declare (double-float damage damage-inc critical-damage))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
-          (setf k (max k ybar))
-          (setf damage-inc 0d0)
-          (let ((new-damage (max damage
-                                 (damage-response-exponential k E Gf length init-stress ductility))))
-            (setf damage-inc (- new-damage damage)))
-          (when (>= damage 1d0)
+          (when (< damage 1d0)
+            (setf ybar damage-inc)
+            (setf k (max k ybar))
             (setf damage-inc 0d0)
-            (setf ybar 0d0))
-          (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
-          (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
-          (incf (cl-mpm/particle::mp-time-averaged-counter mp))
-          ;;Transform to log damage
-          (incf damage damage-inc)
-          ;;Transform to linear damage
-          (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0)
-            (setf damage-inc 0d0)))
+            (let ((new-damage (max damage
+                                   (damage-response-exponential k E Gf length init-stress ductility))))
+              (setf damage-inc (- new-damage damage)))
+            (when (>= damage 1d0)
+              (setf damage-inc 0d0)
+              (setf ybar 0d0))
+            (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
+            (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
+            (incf (cl-mpm/particle::mp-time-averaged-counter mp))
+            ;;Transform to log damage
+            (incf damage damage-inc)
+            ;;Transform to linear damage
+            (setf damage (max 0d0 (min 1d0 damage)))
+            (when (> damage critical-damage)
+              (setf damage 1d0)
+              (setf damage-inc 0d0))))
   (values)
   ))
 (defun plastic-damage-response-exponential (stress E length ductility)
@@ -556,7 +557,7 @@
                      (p cl-mpm/particle::mp-p-modulus)
                      ) mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
-        (progn
+        (when (< damage 1d0)
           ;;Damage increment holds the delocalised driving factor
           (setf ybar damage-inc)
           (setf damage-inc 0d0)
