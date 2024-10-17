@@ -147,7 +147,7 @@
 (declaim (notinline plot))
 (defun plot (sim)
   ;; (sleep 1)
-  (plot-load-disp)
+  ;; (plot-load-disp)
   ;; (plot-conv)
   ;; (plot-domain)
   ;; (vgplot:plot '(0) '(0))
@@ -440,7 +440,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d1)
+               :E (* 1d9 1d0)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -712,7 +712,7 @@
          (extra-height 0d0)
          (friction (tan (* 30d0 (/ pi 180))))
          ;; (friction 1d0)
-         (friction 0.0d0)
+         ;; (friction 0.0d0)
          (gap-height (* 0 h))
          ;; (corner (* 0.5d0 h))
          (corner
@@ -993,7 +993,7 @@
    (cl-mpm:sim-mps *sim*)))
 
 (declaim (notinline setup))
-(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d3))
+(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d2))
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
          (mesh-size (/ 0.03d0 refine))
@@ -1068,13 +1068,14 @@
         cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (declaim (notinline run))
-(defun run (&optional (output-directory "./output/") &key (total-time 6d-2)
-                                                       (damping 1d-1)
-                                                       (time-scale 1d0)
-                                                       (damage-time-scale 1d0)
-                                                       (sample-scale 1d0)
-                                                       (dt-scale 0.5d0)
-                                                       )
+(defun run (&optional (output-directory "./output/")
+            &key (total-time 6d-2)
+              (damping 1d-1)
+              (time-scale 1d0)
+              (damage-time-scale 1d0)
+              (sample-scale 1d0)
+              (dt-scale 0.5d0)
+              )
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -1090,7 +1091,7 @@
   (defparameter *data-energy* (list))
   (defparameter *data-penalty-energy* (list))
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
-    (format stream "disp,load,plastic,damage~%"))
+    (format stream "disp,load,plastic,damage,energy~%"))
   (vgplot:close-all-plots)
   (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
@@ -1187,7 +1188,7 @@
       (setf load-av (get-load))
       (setf disp-av *displacement-increment*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-        (format stream "~f,~f,~f,~f~%" disp-av load-av p-av d-av)))
+        (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
     (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
     (setf cl-mpm/penalty::*debug-force* 0)
     ;; (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -1230,7 +1231,7 @@
                               (push (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) *data-energy*)
                               (push (get-damage) *data-damage*)
                               (push (get-plastic) *data-plastic*)
-                              (format stream "~f,~f,~f,~f~%" *displacement-increment* (get-load) (get-plastic) (get-damage)))
+                              (format stream "~f,~f,~f,~f,~f~%" *displacement-increment* (get-load) (get-plastic) (get-damage) (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
                             )))
 
                        (setf load-av (get-load))
@@ -1247,7 +1248,7 @@
                          (push p-av *data-plastic*)
                          (format t "Disp ~E - Load ~E~%" disp-av load-av)
                          (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-                           (format stream "~f,~f,~f,~f~%" disp-av load-av p-av d-av)))
+                           (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
                        )
                      (incf *sim-step*)
                      (plot *sim*)
@@ -1735,8 +1736,8 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
-                       ;; 8
+                       ;; 4
+                       8
                        ;16
                        )
         do
@@ -1747,7 +1748,7 @@
                      ;; from 0d0 to 100d4 by 10d4
                        in
                        (list
-                        ;; 10d4
+                        10d4
                         20d4
                         ;; 30d4
                         )
