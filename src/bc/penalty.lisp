@@ -496,8 +496,7 @@
                      (friction bc-penalty-friction)
                      (normal bc-penalty-normal)
                      (debug-mutex bc-penalty-load-lock)
-                     (debug-load bc-penalty-load)
-                     )
+                     (debug-load bc-penalty-load))
         bc
       (with-accessors ((volume cl-mpm/particle:mp-volume)
                        (pressure cl-mpm/particle::mp-pressure)
@@ -505,8 +504,7 @@
                        (mp-mass cl-mpm/particle::mp-mass)
                        (mp-contact cl-mpm/particle::mp-penalty-contact)
                        (mp-friction cl-mpm/particle::mp-penalty-frictional-force)
-                       (mp-normal-force cl-mpm/particle::mp-penalty-normal-force)
-                       )
+                       (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
                (normal-force (* (expt penetration 1d0)
@@ -529,10 +527,11 @@
               (cl-mpm/fastmaths::fast-fmacc
                force-friction
                tang-vel
-               ;(* -1d0 (/ epsilon 2d0) dt)
-               (* -1d0 epsilon dt)
+               (* -1d0 (/ epsilon 2d0) dt)
+               ;; (* -1d0 epsilon dt)
                ))
             (setf mp-normal-force (- normal-force damping-force))
+
             (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
               (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
                   (progn
@@ -540,11 +539,9 @@
                           (magicl:scale
                            (cl-mpm/fastmaths:norm force-friction)
                            stick-friction))
-                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
-                    )
+                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
                   (progn
-                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
-                    ))
+                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)))
               (cl-mpm/fastmaths::fast-.+ force force-friction force))
             (setf mp-friction force-friction)
             (cl-mpm/fastmaths::fast-fmacc force
@@ -680,7 +677,7 @@
                   ;; (when (< (varef (contact-point closest-point) 1) 0d0)
                   ;;   (break "Corner out of bounds"))
                   (sb-thread:with-mutex (debug-mutex)
-                    (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
+                    ;; (push (contact-point closest-point) (bc-penalty-structure-contact-points bc))
                     (incf debug-force load)))))))
          (setf (cl-mpm/particle::mp-penalty-energy mp) (calculate-bc-energy-mp sim bc mp)))))))
 

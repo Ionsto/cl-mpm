@@ -495,7 +495,7 @@
             (setf k (max k ybar))
             (setf damage-inc 0d0)
             (let ((new-damage (max damage
-                                   (damage-response-exponential k E Gf length init-stress ductility))))
+                                   (damage-response-exponential k E init-stress ductility))))
               (setf damage-inc (- new-damage damage)))
             (when (>= damage 1d0)
               (setf damage-inc 0d0)
@@ -534,7 +534,8 @@
 
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
-    (with-accessors ((stress cl-mpm/particle:mp-stress)
+  (declare (optimize (speed 0) (debug 3) (safety 3)))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
@@ -575,7 +576,7 @@
           (let ((new-damage
                   (max
                    damage
-                   (damage-response-exponential k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   (damage-response-exponential k E init-stress ductility)
                    ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
@@ -646,7 +647,7 @@
                              ;;   (setf sii 0d0))
                              ;; (when (> sii 0d0)
                              ;;   (setf sii damage-inc))
-                             (let* ((new-damage (damage-response-exponential sii E Gf length init-stress ductility))
+                             (let* ((new-damage (damage-response-exponential sii E init-stress ductility))
                                     (damage-increment ;(- (max dii new-damage) dii)
                                       (* (/ dt tau) (- 1d0 (exp (- (* 1d0 (abs (- new-damage dii)))))))))
                                (magicl:.+ ybar-tensor

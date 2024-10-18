@@ -11,6 +11,7 @@
 
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
   ((delocal-counter
@@ -204,7 +205,6 @@
       )))
 
 (defun calculate-damage (sim)
-  (declare (fixnum *delocal-counter* *delocal-counter-max*))
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt)
@@ -408,7 +408,6 @@
  (inline diff-damaged)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-damaged))
 (defun diff-damaged (mesh mp-a mp-b)
-  (declare (optimize (speed 3)))
   (flet ((node-dam (node)
            (if (cl-mpm/mesh::node-active node)
                (/ (the double-float (cl-mpm/mesh::node-damage node))
@@ -1519,7 +1518,9 @@ Calls the function with the mesh mp and node"
 
 
 (defun criterion-dp (stress angle)
-  (criterion-dp-coheasion stress angle))
+  ;(criterion-dp-coheasion stress angle)
+  (criterion-dp-tensile stress angle)
+  )
 
 (defun criterion-dp-coheasion (stress angle)
   (let ((p (cl-mpm/utils::trace-voigt stress))
@@ -1917,10 +1918,10 @@ Calls the function with the mesh mp and node"
   ))
 
 
-(declaim (ftype (function (double-float double-float double-float double-float double-float double-float )
+(declaim (ftype (function (double-float double-float double-float double-float )
                           double-float) damage-response-exponential))
-(defun damage-response-exponential (stress E Gf length init-stress ductility)
-  (declare (double-float stress E Gf length init-stress ductility))
+(defun damage-response-exponential (stress E init-stress ductility)
+  (declare (double-float stress E init-stress ductility))
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
          (e0 (/ ft E))
