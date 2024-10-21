@@ -103,7 +103,6 @@
                                          )))
                    (when (funcall func-clip
                                   (trial-corner mp normal)
-                                  ;pen-point
                                   )
                      (sb-thread:with-mutex (*debug-mutex*)
                        (incf *debug-force* (* normal-force 1d0))
@@ -121,35 +120,36 @@
                             (force-friction mp-friction)
                             (stick-friction (* friction (abs normal-force))))
                        ;; update trial frictional force
-                       (when (> tang-vel-norm-squared 0d0)
-                         ;; We have sliding behaviour
-                         (let* (;(tang-vel-norm (sqrt tang-vel-norm-squared))
-                                ;; (tang-normal (cl-mpm/fastmaths:norm tang-vel))
-                                ;;Trial friction
+                       (when (> friction 0d0)
+                         (when (> tang-vel-norm-squared 0d0)
+                           ;; We have sliding behaviour
+                           (let* (;(tang-vel-norm (sqrt tang-vel-norm-squared))
+                                  ;; (tang-normal (cl-mpm/fastmaths:norm tang-vel))
+                                  ;;Trial friction
                                         ;(trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
-                                )
-                           (cl-mpm/fastmaths::fast-fmacc
-                            force-friction
-                            tang-vel
-                            (* -1d0 (/ epsilon 2d0) dt))))
+                                  )
+                             (cl-mpm/fastmaths::fast-fmacc
+                              force-friction
+                              tang-vel
+                              (* -1d0 (/ epsilon 2d0) dt))))
+                         (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
+                           (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
+                               (progn
+                                 ;; (cl-mpm/fastmaths::fast-scale! force-friction
+                                 ;;                              (/ (cl-mpm/fastmaths::mag force-friction)
+                                 ;;                                 stick-friction))
+                                 (setf force-friction
+                                       (magicl:scale
+                                        (cl-mpm/fastmaths:norm force-friction)
+                                        stick-friction))
+                                 (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
+                                 )
+                               (progn
+                                 (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
+                                 ))
+                           (cl-mpm/fastmaths::fast-.+ force force-friction force))
+                         (setf mp-friction force-friction))
                        (setf mp-normal-force (- normal-force damping-force))
-                       (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
-                         (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
-                             (progn
-                               ;; (cl-mpm/fastmaths::fast-scale! force-friction
-                               ;;                              (/ (cl-mpm/fastmaths::mag force-friction)
-                               ;;                                 stick-friction))
-                               (setf force-friction
-                                     (magicl:scale
-                                      (cl-mpm/fastmaths:norm force-friction)
-                                      stick-friction))
-                               (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
-                               )
-                             (progn
-                               (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
-                               ))
-                         (cl-mpm/fastmaths::fast-.+ force force-friction force))
-                       (setf mp-friction force-friction)
                        (cl-mpm/fastmaths::fast-fmacc force
                                                     normal
                                                     (- normal-force damping-force))
@@ -523,27 +523,31 @@
                  (force-friction mp-friction)
                  (stick-friction (* friction (abs normal-force))))
             ;; update trial frictional force
-            (when (> tang-vel-norm-squared 0d0)
-              (cl-mpm/fastmaths::fast-fmacc
-               force-friction
-               tang-vel
-               (* -1d0 (/ epsilon 2d0) dt)
-               ;; (* -1d0 epsilon dt)
-               ))
-            (setf mp-normal-force (- normal-force damping-force))
 
-            (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
-              (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
-                  (progn
-                    (setf force-friction
-                          (magicl:scale
-                           (cl-mpm/fastmaths:norm force-friction)
-                           stick-friction))
-                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
-                  (progn
-                    (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)))
-              (cl-mpm/fastmaths::fast-.+ force force-friction force))
-            (setf mp-friction force-friction)
+            (when (> friction 0d0)
+              (when (> tang-vel-norm-squared 0d0)
+                (cl-mpm/fastmaths::fast-fmacc
+                 force-friction
+                 tang-vel
+                 (* -1d0 (/ epsilon 2d0) dt)
+                 ;; (* -1d0 epsilon dt)
+                 ))
+
+              ;; (break)
+              (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
+                ;; (break)
+                (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
+                    (progn
+                      (setf force-friction
+                            (magicl:scale
+                             (cl-mpm/fastmaths:norm force-friction)
+                             stick-friction))
+                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
+                    (progn
+                      (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)))
+                (cl-mpm/fastmaths::fast-.+ force force-friction force))
+              (setf mp-friction force-friction))
+            (setf mp-normal-force (- normal-force damping-force))
             (cl-mpm/fastmaths::fast-fmacc force
                                          normal
                                          (- normal-force damping-force))
@@ -673,7 +677,12 @@
                                                         :normal (bc-penalty-normal sub-bc)
                                                         :sub-bc sub-bc))))))))
               (when in-contact
-                (let ((load (apply-penalty-point mesh (contact-sub-bc closest-point) mp (contact-point closest-point) dt)))
+                (let ((load (apply-penalty-point mesh
+                                                 (contact-sub-bc closest-point)
+                                                 mp
+                                                 (contact-point closest-point) dt)))
+                  ;; (break
+                  ;;  (contact-sub-bc closest-point))
                   ;; (when (< (varef (contact-point closest-point) 1) 0d0)
                   ;;   (break "Corner out of bounds"))
                   (sb-thread:with-mutex (debug-mutex)

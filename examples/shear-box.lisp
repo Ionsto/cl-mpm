@@ -324,17 +324,19 @@
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
-             (init-stress 131d3)
+             ;(init-stress 131d3)
+             (init-stress 100d3)
              ;; (init-stress 30d3)
              ;; (init-stress 60d3)
              ;; (init-stress 10d3)
              ;; (gf 5d0)
              (gf 5d0)
-             ;; (length-scale (* 1 h))
-             (length-scale (* 7.5d-3 4))
+             (length-scale (* 1 h))
+             ;; (length-scale (* 7.5d-3 4))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 30d0)
              ;; (ductility 1d60)
+             (ductility 5d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (cl-mpm::add-mps
@@ -370,8 +372,8 @@
            ;; :nu 0.35d0
            :kt-res-ratio 1d-9
            :kc-res-ratio 1d0
-           :g-res-ratio 1d-9
-           :friction-angle 42d0
+           :g-res-ratio 5d-1
+           :friction-angle 50d0
            :initiation-stress init-stress;18d3
            :delay-time 1d-2
            :delay-exponent 1d0
@@ -380,11 +382,11 @@
            :local-length length-scale
            :local-length-damaged 10d-10
            :enable-damage t
-           :enable-plasticity nil
+           :enable-plasticity t
 
            :psi (* 0d0 (/ pi 180))
-           :phi (* 42d0 (/ pi 180))
-           :c (* 131d3 1d0)
+           :phi (* 60d0 (/ pi 180))
+           :c (* 131d3 1d1)
            ;; :phi (* 30d0 (/ pi 180))
            ;; :c (* 131d3 0d0)
 
@@ -697,7 +699,7 @@
     (values la bevel lb)
     ))
 
-(declaim (notinline make-enalty-box))
+(declaim (notinline make-penalty-box))
 (defun make-penalty-box (sim left-x right-x height friction-scale offset &key (epsilon-scale 1d2)
                                                                      (corner-size 1d0)
                                                                      )
@@ -710,7 +712,7 @@
          (extra-height 0d0)
          (friction (* friction-scale (tan (* 30d0 (/ pi 180)))))
          ;; (friction 1d0)
-         (friction 0.0d0)
+         ;; (friction 0.0d0)
          (gap-height (* 0 h))
          ;; (corner (* 0.5d0 h))
          (corner
@@ -928,6 +930,10 @@
                               *shear-box-left-slide*
                               *shear-box-left-bevel*
                               )))
+           ;; (break)
+           ;; (pprint (if *enable-box-friction*
+           ;;             friction
+           ;;             0d0))
            (loop for bc in friction-bcs
                  do (setf (cl-mpm/penalty::bc-penalty-friction bc)
                           (if *enable-box-friction*
@@ -1007,7 +1013,6 @@
                          (list box-size box-size)
                          (/ 1d0 mesh-size)
                          mps-per-dim
-                         :friction friction
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
@@ -1073,6 +1078,8 @@
               (sample-scale 1d0)
               (dt-scale 0.25d0)
               )
+
+  ;; (when (not (uiop:file-exists-p output-directory)))
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -1089,8 +1096,8 @@
   (defparameter *data-penalty-energy* (list))
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,plastic,damage,energy~%"))
-  (vgplot:close-all-plots)
-  (let* ((displacment 0.1d-3)
+  ;; (vgplot:close-all-plots)
+  (let* ((displacment 1d-3)
          ;(total-time (* 50d0 displacment))
          (time-per-mm (* 100d0 time-scale))
          (total-time (* time-per-mm displacment))
@@ -1101,8 +1108,8 @@
          (dt-scale dt-scale)
          (load-0 0d0)
          (enable-plasticity
-           nil
-           ;; t
+           ;; nil
+           t
            ;; (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0))
            )
          (enable-damage t)
@@ -1130,7 +1137,7 @@
     (setf *enable-box-friction* nil)
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
 
-    (vgplot:figure)
+    ;; (vgplot:figure)
     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
@@ -1145,7 +1152,7 @@
        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
        ))
-    (vgplot:figure)
+    ;; (vgplot:figure)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
@@ -1166,7 +1173,7 @@
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
     (defparameter *displacement-increment* 0d0)
     (format t "Substeps ~D~%" substeps)
-    (vgplot:figure)
+    ;; (vgplot:figure)
     (cl-mpm:update-sim *sim*)
     (let ((disp-av 0d0)
           (load-av 0d0)
@@ -1301,7 +1308,7 @@
     ;;                      (setf substeps substeps-e))
     ;;                    (swank.live:update-swank)))))
     )
-  (vgplot:figure)
+  ;; (vgplot:figure)
   (plot-load-disp))
 
 
@@ -1430,7 +1437,7 @@
              (format t "Refine: ~D~%" refine)
              (setup
               :refine 4
-              :mps 3
+              :mps 4
               ;:refine refine :mps 2
               ;; :refine 1 :mps (+ 1 refine)
                     )
@@ -1687,8 +1694,9 @@
   (setf *run-sim* t)
   (loop for d in (list
                   1.0d0
-                  0.1d0
+                  0.0d0
                   0.5d0
+                  0.75d0
                   )
         do
            (loop for refine in (list 4)
@@ -1708,18 +1716,19 @@
                              )
                           while *run-sim*
                           do
-                             (progn
+                             (let ((scale 0.5d0))
                                (setup :refine refine :mps 4 :surcharge-load s)
                                (cl-mpm:iterate-over-mps
                                 (cl-mpm:sim-mps *sim*)
                                 (lambda (mp)
                                   (when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
-                                    (setf (cl-mpm/particle::mp-shear-residual-ratio mp) d)
-                                    (setf (cl-mpm/particle::mp-k-compressive-residual-ratio mp) d)
+                                    (setf (cl-mpm/particle::mp-damage mp) d)
+                                    ;; (setf (cl-mpm/particle::mp-shear-residual-ratio mp) d)
+                                    ;; (setf (cl-mpm/particle::mp-k-compressive-residual-ratio mp) d)
                                     )
                                   ))
                                (run (format nil "../ham-shear-box/output-~F_~F-~F/" refine d s)
-                                    :time-scale 1.0d0
+                                    :time-scale scale
                                     :sample-scale 1d0
                                     :damage-time-scale 1d0
                                     )
@@ -1738,31 +1747,27 @@
                        ;; 16
                        )
         do
-           (dolist (angle (list 10d0 20d0 30d0 40d0))
-             (let (;(mps 2)
-                   (mps 2)
-                   (scale 1.0d0))
-               (loop for s
-                     ;; from 0d0 to 100d4 by 10d4
-                       in
-                       (list
-                        10d4
-                        20d4
-                        30d4
-                        )
-                     while *run-sim*
-                     do
-                        (progn
-                          (format t "Test ~D ~F" refine s)
-                          (setup :refine refine :mps mps :surcharge-load s)
-                          (cl-mpm:iterate-over-mps
-                           (cl-mpm:sim-mps *sim*)
-                           (lambda (mp)
-                             (when (= (cl-mpm/particle::mp-index mp) 0)
-                               (setf (cl-mpm/particle::mp-friction-angle mp) angle))))
-                          (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale angle s)
-                               :time-scale (* 1d0 scale)
-                               :sample-scale (* 1d0 1d0)
-                               :damage-time-scale 1d0)
-                          ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
-                          ))))))
+           (let (;(mps 2)
+                 (mps 4)
+                 (scale 0.5d0))
+             (loop for s
+                   ;; from 0d0 to 100d4 by 10d4
+                   ;; from 0d0 to 40d4 by 5d4
+                     in
+                     (list
+                      10d4
+                      20d4
+                      30d4
+                      )
+                   while *run-sim*
+                   do
+                      (progn
+                        (format t "Test ~D ~F" refine s)
+                        (setup :refine refine :mps mps :surcharge-load s
+                               :friction 0d0)
+                        (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
+                             :time-scale (* 1d0 scale)
+                             :sample-scale (* 1d0 1d0)
+                             :damage-time-scale 1d0)
+                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                        )))))

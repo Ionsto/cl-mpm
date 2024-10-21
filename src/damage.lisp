@@ -1523,6 +1523,7 @@ Calls the function with the mesh mp and node"
   )
 
 (defun criterion-dp-coheasion (stress angle)
+  "Return some drucker-prager damage criterion from a stress level and and angle (radians)"
   (let ((p (cl-mpm/utils::trace-voigt stress))
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
