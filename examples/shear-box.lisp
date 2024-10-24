@@ -69,13 +69,13 @@
       (progn
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
 
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;; (setf damage-increment
-        ;;       (max 0d0
-        ;;            (cl-mpm/damage::criterion-dp-coheasion
-        ;;             ;; stress
-        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
-        ;;             (* angle (/ pi 180d0)))))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (setf damage-increment
+              (max 0d0
+                   (cl-mpm/damage::criterion-dp-coheasion
+                    ;; stress
+                    (magicl:scale stress (/ 1d0 (magicl:det def)))
+                    (* angle (/ pi 180d0)))))
 
         ;; (setf damage-increment
         ;;       (cl-mpm/damage::tensile-energy-norm (cl-mpm/fastmaths:fast-.+
@@ -374,7 +374,7 @@
     :kt-res-ratio 1d-9
     :kc-res-ratio 1d0
     :g-res-ratio 1d-9
-    :friction-angle 70d0
+    :friction-angle 42d0
     :initiation-stress init-stress;18d3
     :delay-time 1d-2
     :delay-exponent 1d0
@@ -419,7 +419,12 @@
     ))
 
 (declaim (notinline setup-test-column))
-(defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1) &key (angle 0d0) (friction 0.1d0) (surcharge-load 72.5d3))
+(defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1)
+                          &key
+                            (angle 0d0)
+                            (friction 0.1d0)
+                            (surcharge-load 72.5d3)
+                            (piston-scale 1d0))
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
@@ -439,16 +444,17 @@
              ;(init-stress 131d3)
              ;; (init-stress 100d3)
              ;; (init-stress 30d3)
-             (init-stress 131d3)
+             ;(init-stress 131d3)
+             (init-stress 100d3)
              ;; (init-stress 10d3)
              ;; (gf 5d0)
-             (gf 50d0)
+             (gf 5d0)
              (length-scale (* 1 h))
              ;; (length-scale (* 7.5d-3 1))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 30d0)
              ;; (ductility 1d60)
-             ;; (ductility 5d0)
+             ;; (ductility 1000d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
@@ -557,7 +563,7 @@
                (mapcar (lambda (e) (* e e-scale 2)) sur-size)
                density
                'cl-mpm/particle::particle-elastic-damage
-               :E (* 1d9 1d0)
+               :E (* 1d9 piston-scale)
                :nu 0.24d0
                :initiation-stress 1d20
                :local-length 0d0
@@ -1012,6 +1018,16 @@
         ;; *shear-box-floor*
         )))
 
+    (dolist
+        (bc
+         (list
+          *shear-box-right-static*
+          *shear-box-right-static-bevel*
+          *shear-box-right-static-slide*
+          *shear-box-left-static*
+          *shear-box-left-static-bevel*
+          ))
+      (cl-mpm/penalty::bc-increment-center bc (cl-mpm/utils:vector-from-list (list 0d0 gap-height 0d0))))
     (defparameter *last-pos* 0d0)
     (defparameter *shear-box-controller*
       (cl-mpm/bc::make-bc-closure
@@ -1113,7 +1129,9 @@
    (cl-mpm:sim-mps *sim*)))
 
 (declaim (notinline setup))
-(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d2))
+(defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d2)
+                (piston-scale 1d0)
+                )
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
          (mesh-size (/ 0.03d0 refine))
@@ -1130,14 +1148,22 @@
                          (list box-size box-size)
                          (/ 1d0 mesh-size)
                          mps-per-dim
+                         :piston-scale piston-scale
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.25d0 mesh-size))
+                      :corner-size (* 0.125d0 mesh-size))
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
     ;;  (lambda (p)
     ;;    (if (> (- (cl-mpm/utils:varef p 1) box-offset) sunk-size)
+    ;;        0d0
+    ;;        1d0)))
+
+    ;; (cl-mpm/setup:remove-sdf
+    ;;  *sim*
+    ;;  (lambda (p)
+    ;;    (if (<  (cl-mpm/utils:varef p 1) mesh-size)
     ;;        0d0
     ;;        1d0)))
     (defparameter *true-load-bc* *shear-box-left-dynamic*)
@@ -1856,44 +1882,62 @@
 
 
 
+(defparameter *skip* nil)
 
 (defun test ()
   (setf *run-sim* t)
-  (loop for refine in (list
-                       ;; 2
-                       ;; 4
-                       8
-                       ;; 16
-                       ;; 32
-                       )
-        do
-           (let (;(mps 2)
-                 (mps 2)
-                 (scale 1d0))
-             (loop for s
-                   ;; from 0d0 to 100d4 by 10d4
-                   ;; from 0d0 to 40d4 by 5d4
-                     in
-                     (list
-                      10d4
-                      20d4
-                      30d4
+  (loop for scale in (list
+                      0.1d0
+                      1d0
+                      10d0
+                      100d0
+                      1000d0
                       )
-                   while *run-sim*
-                   do
-                      (progn
-                        (format t "Test ~D ~F" refine s)
-                        (setup :refine refine :mps mps :surcharge-load s
-                               :epsilon-scale 1d2
-                               :friction 0d0)
-                        (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                             :displacment 0.1d-3
-                             :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 1d0)
-                             :dt-scale 0.5d0
-                             :damage-time-scale 1d0)
-                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
-                        )))))
+        do
+           (loop for refine in (list
+                                ;; 2
+                                4
+                                ;; 8
+                                ;; 16
+                                ;; 4.5
+                                ;; 8.5
+                                ;; 16
+                                ;; 32
+                                )
+                 do
+                    (let (;(mps 2)
+                          (mps 2)
+                          ;; (scale 0.5d0)
+                          )
+                      (loop for s
+                            ;; from 0d0 to 100d4 by 10d4
+                            ;; from 0d0 to 40d4 by 5d4
+                              in
+                              (list
+                               10d4
+                               ;; 20d4
+                               ;; 30d4
+                               )
+                            while (and *run-sim*)
+                            do
+                               (let ((piston-scale scale)
+                                     (scale 0.5d0)
+                                     )
+
+                                 (setf *skip* nil)
+                                 (format t "Test ~D ~F" refine s)
+                                 (setup :refine refine :mps mps :surcharge-load s
+                                        :epsilon-scale 1d2
+                                        :piston-scale piston-scale
+                                        :friction 0d0)
+                                 (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale piston-scale s)
+                                      :displacment 0.1d-3
+                                      :time-scale (* 1d0 scale)
+                                      :sample-scale (* 1d0 1d0)
+                                      :dt-scale 0.50d0
+                                      :damage-time-scale 1d0)
+                                 ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                                 ))))))
 
 
 (defun test-damage ()
@@ -1938,6 +1982,58 @@
 
                                  (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale d s)
                                       :displacment 0.5d-3
+                                      :time-scale (* 1d0 scale)
+                                      :sample-scale (* 1d0 1d0)
+                                      :dt-scale 0.3d0
+                                      :damage-time-scale 1d0)
+                                 ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
+                                 ))))))
+
+(defun test-possion ()
+  (setf *run-sim* t)
+  (loop for refine in (list
+                       ;; 2
+                       4
+                       ;; 8
+                       ;; 16
+                       ;; 32
+                       )
+        do
+           (loop for d in (list
+                           0.1d0
+                           0.2d0
+                           0.30d0
+                           ;; 0.25d0
+                           )
+                 do
+                    (let (;(mps 2)
+                          (mps 3)
+                          (scale 1d0))
+                      (loop for s
+                            ;; from 0d0 to 100d4 by 10d4
+                            ;; from 0d0 to 40d4 by 5d4
+                              in
+                              (list
+                               10d4
+                               20d4
+                               30d4
+                               )
+                            while *run-sim*
+                            do
+                               (progn
+                                 (format t "Test ~D ~F" refine s)
+                                 (setup :refine refine :mps mps :surcharge-load s
+                                        :epsilon-scale 1d2
+                                        :friction 1d0)
+
+                                 (cl-mpm:iterate-over-mps
+                                  (cl-mpm:sim-mps *sim*)
+                                  (lambda (mp)
+                                    (when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
+                                      (setf (cl-mpm/particle::mp-nu mp) d))))
+
+                                 (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale d s)
+                                      :displacment 0.10d-3
                                       :time-scale (* 1d0 scale)
                                       :sample-scale (* 1d0 1d0)
                                       :dt-scale 0.3d0
