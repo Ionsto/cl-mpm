@@ -4,8 +4,10 @@
   (:export))
 ;; (in-package :cl-mpm/models/chalk)
 ;;We don't actually want to intern anything in chalk i guess
+(declaim (optimize (speed 3) (debug 0) (safety 0)))
 
 (in-package :cl-mpm/particle)
+(declaim (optimize (speed 3) (debug 0) (safety 0)))
 (defclass particle-chalk (particle-elastic-damage)
   (
    (coheasion
@@ -263,7 +265,7 @@
 
 
 (defmethod constitutive-model ((mp particle-chalk-anisotropic) strain dt)
-  (declare (optimize (speed 0) (debug 3)))
+  ;; (declare (optimize (speed 0) (debug 3)))
   "Strain intergrated elsewhere, just using elastic tensor"
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
@@ -534,7 +536,6 @@
 
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
-  (declare (optimize (speed 0) (debug 3) (safety 3)))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
