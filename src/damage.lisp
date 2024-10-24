@@ -1518,8 +1518,8 @@ Calls the function with the mesh mp and node"
 
 
 (defun criterion-dp (stress angle)
-  ;(criterion-dp-coheasion stress angle)
-  (criterion-dp-tensile stress angle)
+  (criterion-dp-coheasion stress angle)
+  ;; (criterion-dp-tensile stress angle)
   )
 
 (defun criterion-dp-coheasion (stress angle)
@@ -1536,6 +1536,24 @@ Calls the function with the mesh mp and node"
               (* (sqrt 3) (- 3d0 (sin angle))))))
     (* (/ 1d0 A)
      ;; (/ 1d0 (- (/ 1d0 (sqrt 3)) B))
+       (+ (* B p) (sqrt j2)))))
+
+(defun criterion-dp-inscribe-coheasion (stress angle)
+  "Return some drucker-prager damage criterion from a stress level and and angle (radians)"
+  (let ((p (cl-mpm/utils::trace-voigt stress))
+        (j2 (cl-mpm/constitutive::voigt-j2
+             (cl-mpm/utils::deviatoric-voigt stress)))
+        (A (/ (* 3
+                 ;; c
+                 (cos angle)
+                 )
+              (sqrt (+ 9 (* 3 (expt (sin angle) 2))))
+              ))
+        (B (/ (* 2 (sin angle))
+              (sqrt (+ 9 (* 3 (expt (sin angle) 2))))
+              )))
+    (* (/ 1d0 A)
+       ;; (/ 1d0 (- (/ 1d0 (sqrt 3)) B))
        (+ (* B p) (sqrt j2)))))
 
 (defun criterion-dp-tensile (stress angle)
