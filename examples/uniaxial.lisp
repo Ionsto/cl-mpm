@@ -54,8 +54,11 @@
           ;; (setf damage-increment (cl-mpm/damage::smooth-rankine-criterion (magicl:scale stress (/ 1d0 (magicl:det def)))))
           (setf damage-increment
                 (max 0d0
-                     (cl-mpm/damage::drucker-prager-criterion
-                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+                     (cl-mpm/damage::criterion-dp-coheasion
+                      (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))
+                     ;; (cl-mpm/damage::drucker-prager-criterion
+                     ;;  (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))
+                     ))
           )
         (when (>= damage 1d0)
           (setf damage-increment 0d0))
@@ -434,6 +437,15 @@
                         1 0
                         )))
 
+      (defparameter *top-penalty*
+        (cl-mpm/penalty::make-bc-penalty-point-normal
+         sim
+         (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
+         (cl-mpm/utils:vector-from-list (list 0d0
+                                              *initial-surface*
+                                              0d0))
+         (* 1d9 1d0)
+         0d0))
       (format t "~A~%" h-x)
       (setf (cl-mpm::sim-bcs-force-list sim)
             (list
@@ -447,17 +459,22 @@
                                    (dt cl-mpm::sim-dt)
                                    )
                       sim
-                    (let ((datum (* -1d0 (+ *initial-surface* *target-displacement*)))
-                          (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
-                      ;; (format t "Datum: ~F~%" datum)
-                      (cl-mpm/penalty::apply-displacement-control-mps mesh (coerce *terminus-mps* 'vector )
-                                                       dt
-                                                       normal
-                                                       datum
-                                                       (* density 1d5)
-                                                       ;; (* 0d0 density 1d10)
-                                                       0d0))
+                    (setf 
+                     (cl-mpm/penalty::bc-penalty-datum *top-penalty*)
+                     (- (+ *initial-surface* *target-displacement*)))
+                    ;; (cl-mpm/penalty::bc-increment-center *top-penalty* (cl-mpm/utils:vector-from-list))
+                    ;; (let ((datum (* -1d0 (+ *initial-surface* *target-displacement*)))
+                    ;;       (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+                    ;;   ;; (format t "Datum: ~F~%" datum)
+                    ;;   (cl-mpm/penalty::apply-displacement-control-mps mesh (coerce *terminus-mps* 'vector )
+                    ;;                                    dt
+                    ;;                                    normal
+                    ;;                                    datum
+                    ;;                                    (* density 1d5)
+                    ;;                                    ;; (* 0d0 density 1d10)
+                    ;;                                    0d0))
                     )))
+               *top-penalty*
                ))))
 
       ;; (let* ((terminus-size (second block-size))
@@ -833,7 +850,7 @@
     (format t "Substeps ~D~%" substeps)
     ;; (incf *target-displacement* -0.000d-3)
     ;; (incf *target-displacement* disp-step)
-    (time (loop for steps from 0 to 20
+    (time (loop for steps from 0 to 50
                 while *run-sim*
                 do
                    (progn

@@ -536,7 +536,8 @@
 
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
+  (when (cl-mpm/particle::mp-enable-damage mp)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
@@ -557,47 +558,48 @@
                      (ductility cl-mpm/particle::mp-ductility)
                      (nu cl-mpm/particle::mp-nu)
                      (p cl-mpm/particle::mp-p-modulus)
+
                      ) mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
-        (when (< damage 1d0)
-          ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
-          (setf damage-inc 0d0)
-          (let ((a tau-exp)
-                (k0 init-stress))
-            (incf k (the double-float
-                         (*
-                          dt
-                          (/
-                           (* k0
-                              (expt
-                               (/ (the double-float (max 0d0 (- ybar k)))
-                                  k0) a))
-                             tau)))))
-          (let ((new-damage
-                  (max
-                   damage
-                   (damage-response-exponential k E init-stress ductility)
-                   ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
-                   )))
-            (declare (double-float new-damage))
-            (setf damage-inc (- new-damage damage))
-            )
-
-          (when (>= damage 1d0)
-            (setf damage-inc 0d0))
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
-          ;;Transform to log damage
-          (incf damage damage-inc)
-          ;;Transform to linear damage
-          (setf damage (max 0d0 (min 1d0 damage)))
-          (when (> damage critical-damage)
-            (setf damage 1d0)
-            (setf damage-inc 0d0))
+      (when (< damage 1d0)
+        ;;Damage increment holds the delocalised driving factor
+        (setf ybar damage-inc)
+        (setf damage-inc 0d0)
+        (let ((a tau-exp)
+              (k0 init-stress))
+          (incf k (the double-float
+                       (*
+                        dt
+                        (/
+                         (* k0
+                            (expt
+                             (/ (the double-float (max 0d0 (- ybar k)))
+                                k0) a))
+                         tau)))))
+        (let ((new-damage
+                (max
+                 damage
+                 (damage-response-exponential k E init-stress ductility)
+                 ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                 )))
+          (declare (double-float new-damage))
+          (setf damage-inc (- new-damage damage))
           )
-  (values)))
+
+        (when (>= damage 1d0)
+          (setf damage-inc 0d0))
+        (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
+        (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+        (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+        ;;Transform to log damage
+        (incf damage damage-inc)
+        ;;Transform to linear damage
+        (setf damage (max 0d0 (min 1d0 damage)))
+        (when (> damage critical-damage)
+          (setf damage 1d0)
+          (setf damage-inc 0d0))
+        )
+      (values))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-anisotropic) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
