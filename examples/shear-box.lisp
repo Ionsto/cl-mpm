@@ -468,8 +468,8 @@
              )
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
-        (make-mps-mc-peak)
-        ;; (make-mps-damage)
+        ;; (make-mps-mc-peak)
+        (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
@@ -1063,10 +1063,10 @@
 (declaim (notinline get-load))
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;; (-
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  (-
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
 
 (defun reset-load ()
@@ -1255,13 +1255,13 @@
          (dt-scale dt-scale)
          (load-0 0d0)
          (enable-plasticity
-           ;; nil
-           t
+           nil
+           ;; t
            ;; (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0))
            )
          (enable-damage
            ;; nil
-           ;; t
+           t
            )
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
@@ -1372,7 +1372,7 @@
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
-                           (high-resolution nil)
+                           (high-resolution t)
                            (p-av 0d0)
                            (d-av 0d0)
                            (e-av 0d0)
@@ -1919,7 +1919,7 @@
                        )
         do
            (let (;(mps 2)
-                 (mps 3)
+                 (mps 2)
                  ;; (scale 0.5d0)
                  )
              (loop for s
@@ -1931,16 +1931,16 @@
                       )
                    while (and *run-sim*)
                    do
-                      (let ((scale 2d0))
+                      (let ((scale 5d0))
                         (setf *skip* nil)
                         (format t "Test ~D ~F" refine s)
                         (setup :refine refine :mps mps :surcharge-load s
-                               :epsilon-scale 1d2
+                               :epsilon-scale 1d3
                                :piston-scale 1d0
                                :piston-mps 2
                                :friction 0d0)
                         (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                             :displacment 1d-3
+                             :displacment 0.1d-3
                              :time-scale (* 1d0 scale)
                              :sample-scale (* 1d0 1d0)
                              :dt-scale 0.25d0
