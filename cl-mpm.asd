@@ -558,6 +558,7 @@
 
 (defsystem "cl-mpm/examples/uniaxial"
   :depends-on ("cl-mpm/examples/tpb"
+               "cl-mpm/models/chalk"
                )
   :serial t
   :components ((:file "examples/uniaxial")))
