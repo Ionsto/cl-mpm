@@ -311,8 +311,7 @@
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
                    (nu mp-nu)
-                   (p mp-p-modulus)
-                   )
+                   (p mp-p-modulus))
       particle
     (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
@@ -321,6 +320,7 @@
   (update-elastic-matrix p))
 (defmethod (setf mp-nu) :after (value (p particle-elastic))
   (update-elastic-matrix p))
+
 (defmethod initialize-instance :after ((p particle-elastic) &key)
   (update-elastic-matrix p))
 (defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))
