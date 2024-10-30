@@ -355,7 +355,7 @@
     'cl-mpm/particle::particle-mc
     :E 1d9
     :nu 0.24d0
-    :psi (* 0d0 (/ pi 180))
+    :psi (* 5d0 (/ pi 180))
     :phi (* 42d0 (/ pi 180))
     :c 131d3
     :phi-r (* 30d0 (/ pi 180))
@@ -376,11 +376,11 @@
   (defmpgen make-mps-damage
     'cl-mpm/particle::particle-chalk-delayed
     :E 1d9
-    :nu 0.10d0
+    :nu 0.20d0
     :kt-res-ratio 1d-9
     :kc-res-ratio 1d0
     :g-res-ratio 1d-9
-    :friction-angle 40d0
+    :friction-angle 42d0
     :initiation-stress init-stress;18d3
     :delay-time 1d-2
     :delay-exponent 1d0
@@ -405,7 +405,7 @@
     :kt-res-ratio 1d-9
     :kc-res-ratio 1d-2
     :g-res-ratio 1d-3
-    :friction-angle 50d0
+    :friction-angle 40d0
     :initiation-stress init-stress;18d3
     :delay-time 1d-2
     :delay-exponent 1d0
@@ -416,7 +416,7 @@
     :enable-damage t
     :enable-plasticity t
 
-    :psi (* 5d0 (/ pi 180))
+    :psi (* 0d0 (/ pi 180))
     :phi (* 42d0 (/ pi 180))
     :c (* 131d3 10d0)
     :phi-r (* 30d0 (/ pi 180))
@@ -449,12 +449,11 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
              ;(init-stress 131d3)
+             ;; (init-stress 131d3)
+             (init-stress 60d3)
              ;; (init-stress 100d3)
              ;; (init-stress 30d3)
-             ;(init-stress 131d3)
-             ;; (init-stress 131d3)
-             ;; (init-stress 131d3)
-             (init-stress 100d3)
+             ;; (init-stress 60d3)
              ;; (init-stress 10d3)
              ;; (gf 5d0)
              (gf 5d0)
@@ -463,17 +462,17 @@
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 30d0)
              ;; (ductility 1d60)
-             (ductility 10d0)
+             ;; (ductility 10d0)
              ;; (ductility 5d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
-        ;; (make-mps-mc-peak)
-        (make-mps-damage)
+        (make-mps-mc-peak)
+        ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
-             ;; (sur-height (* 0.5 (second block-size)))
+             (sur-height (* 0.5 (second block-size)))
              (sur-size (list 0.06d0 sur-height))
                                         ;(load 72.5d3)
              (load surcharge-load)
@@ -483,27 +482,28 @@
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t))
-        ;; (loop for mp across (cl-mpm:sim-mps sim)
-        ;;       do
-        ;;          (with-accessors ((stress cl-mpm/particle:mp-stress)
-        ;;                           (strain cl-mpm/particle:mp-strain)
-        ;;                           (E cl-mpm/particle::mp-E)
-        ;;                           (nu cl-mpm/particle::mp-nu)
-        ;;                           (de cl-mpm/particle::mp-elastic-matrix))
-        ;;              mp
-        ;;            (let* (
-        ;;                   (strains (cl-mpm/utils:voigt-from-list (list
-        ;;                                                           0d0
-        ;;                                                           (- (/ (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
-        ;;                                                                 (* E (- 1d0 nu))))
-        ;;                                                           0d0
-        ;;                                                           0d0
-        ;;                                                           0d0
-        ;;                                                           0d0)))
-        ;;                   )
-        ;;              (setf stress (magicl:@ de strains)
-        ;;                    strain strains))))
+        (loop for mp across (cl-mpm:sim-mps sim)
+              do
+                 (with-accessors ((stress cl-mpm/particle:mp-stress)
+                                  (strain cl-mpm/particle:mp-strain)
+                                  (E cl-mpm/particle::mp-E)
+                                  (nu cl-mpm/particle::mp-nu)
+                                  (de cl-mpm/particle::mp-elastic-matrix))
+                     mp
+                   (let* (
+                          (strains (cl-mpm/utils:voigt-from-list (list
+                                                                  0d0
+                                                                  (- (/ (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+                                                                        (* E (- 1d0 nu))))
+                                                                  0d0
+                                                                  0d0
+                                                                  0d0
+                                                                  0d0)))
+                          )
+                     (setf stress (magicl:@ de strains)
+                           strain strains))))
         (format t "Gravity ~F~%" gravity)
+
         ;; (if mp-surcharge
         ;;     (cl-mpm::add-mps
         ;;      sim
@@ -514,7 +514,7 @@
         ;;        (mapcar (lambda (e) (* e e-scale piston-mps)) sur-size)
         ;;        density
         ;;        'cl-mpm/particle::particle-elastic-damage
-        ;;        :E (* 1d9 piston-scale)
+        ;;        :E (* 1d9 1d0)
         ;;        :nu 0.24d0
         ;;        :initiation-stress 1d20
         ;;        :local-length 0d0
@@ -1123,6 +1123,7 @@
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.125d0 mesh-size))
+    (progn 
     (defparameter *piston-penalty*
       (cl-mpm/penalty::make-bc-penalty-distance-point 
        *sim*
@@ -1133,39 +1134,47 @@
        (* 1d9 epsilon-scale)
        0d0
        0d0))
-    (defparameter *piston-confinement* 0d0)
-    (let* ((control-stiffness (/ 1d0 (cl-mpm/penalty::bc-penalty-epsilon *piston-penalty*)))
-           (target-load surcharge-load)
-           (window-size 1)
-           (window-index 0)
-           (window (make-array window-size :initial-element 0d0)))
-      (defparameter *window* window)
-      (defparameter *piston-controller*
-        (cl-mpm/bc::make-bc-closure
-         nil
-         (lambda ()
-           (let* ((current-load (/ (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0.06d0)))
-             (setf (aref window (mod window-index window-size))
-                   current-load)
-             (incf window-index)
-             (setf current-load (/ (loop for x across window sum x)
-                                   window-size))
-             ;; (format t "~A~%" window)
-             ;; (format t "~F~%" current-load)
-             (let* ((delta (- (- current-load target-load)))
-                    (penalty-inc (* delta control-stiffness)))
-               (declare (double-float penalty-inc))
-               (incf (the double-float (cl-mpm/penalty::bc-penalty-datum *piston-penalty*)) penalty-inc)
-               (incf *piston-confinement* current-load)
-               (setf (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0d0)
+      (defparameter *piston-confinement* 0d0)
+      (let* ((control-stiffness
+               ;; 1d9
+               ;; 1d-12
+               ;; 1d0
+               ;; 1d-6
+               (/ (* piston-scale 1d6) (cl-mpm/penalty::bc-penalty-epsilon *piston-penalty*))
                )
-             )))))
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *piston-penalty*)
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *piston-controller*)
+             (target-load surcharge-load)
+             (window-size 1)
+             (window-index 0)
+             (window (make-array window-size :initial-element 0d0)))
+        (defparameter *window* window)
+        (defparameter *piston-controller*
+          (cl-mpm/bc::make-bc-closure
+           nil
+           (lambda ()
+             (let* ((inst-load (/ (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0.06d0))
+                    (current-load inst-load))
+               (setf (aref window (mod window-index window-size))
+                     current-load)
+               (incf window-index)
+               (setf current-load (/ (loop for x across window sum x)
+                                     window-size))
+               ;; (format t "~A~%" window)
+               ;; (format t "~F~%" current-load)
+               (let* ((delta (- (- current-load target-load)))
+                      (penalty-inc (* (cl-mpm:sim-dt *sim*) (* delta control-stiffness))))
+                 (declare (double-float penalty-inc))
+                 ;; (incf (the double-float (cl-mpm/penalty::bc-penalty-datum *piston-penalty*)) penalty-inc)
+                 (cl-mpm/penalty::bc-increment-center *piston-penalty* (cl-mpm/utils:vector-from-list  (list 0d0 (- penalty-inc) 0d0)))
+                 (incf *piston-confinement* current-load)
+                 (setf (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0d0)
+                 )
+               )))))
+      (cl-mpm:add-bcs-force-list
+       *sim*
+       *piston-penalty*)
+      (cl-mpm:add-bcs-force-list
+       *sim*
+       *piston-controller*))
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
     ;;  (lambda (p)
@@ -1234,6 +1243,7 @@
               (sample-scale 1d0)
               (dt-scale 0.5d0)
               (displacment 0.5d-3)
+              (skip-level nil)
               )
 
   ;; (when (not (uiop:file-exists-p output-directory)))
@@ -1265,14 +1275,17 @@
          (dt-scale dt-scale)
          (load-0 0d0)
          (enable-plasticity
-           nil
-           ;; t
+           ;; nil
+           t
            ;; (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0))
            )
          (enable-damage
-           ;; nil
-           t
+           nil
+           ;; t
            )
+         (max-load 0d0)
+         (average-surcharge 0d0)
+         (total-steps 0)
          (disp-inc (/ displacment load-steps)))
     ;;Disp rate in test 4d-4mm/s -> 4d-7mm/s
     (format t "Loading rate: ~E~%" (/ displacment (* load-steps target-time)))
@@ -1413,7 +1426,14 @@
                        (setf load-av (get-load))
                        (setf disp-av *displacement-increment*)
 
+                       (setf max-load (max max-load load-av))
+                       (when skip-level
+                         (when (and (< load-av (* max-load skip-level))
+                                    (< 10 steps))
+                           (skip)))
+
                        (format t "Surcharge load ~E~%" (/ *piston-confinement* substeps))
+                       (incf average-surcharge (/ *piston-confinement* substeps))
                        (setf *piston-confinement* 0d0)
                        (unless high-resolution
                          (push *t* *data-t*)
@@ -1438,10 +1458,11 @@
                        (setf substeps substeps-e))
                      (swank.live:update-swank))))
 
-    (loop for mp across (cl-mpm:sim-mps *sim*)
-          do (progn
-               (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-acceleration mp))
-               (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
+    (format t "Average surcharge ~F~%" (/ average-surcharge *sim-step*))
+    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
+    ;;       do (progn
+    ;;            (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-acceleration mp))
+    ;;            (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
     ;; (when nil
     ;;   (defparameter *true-load-bc* *shear-box-right-dynamic*)
     ;;   (time (loop for steps from 0 below load-steps
@@ -1921,7 +1942,7 @@
   (loop for refine in (list
                        ;; 2
                        4
-                       ;; 8
+                       8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -1931,10 +1952,11 @@
                        )
         do
            (let (;(mps 2)
-                 (mps 2)
+                 (mps 3)
                  ;; (scale 0.5d0)
                  )
              (loop for s
+                   ;; from 0d0 to 35d4 by 2.5d4
                      in
                      (list
                       10d4
@@ -1943,24 +1965,23 @@
                       )
                    while (and *run-sim*)
                    do
-                      (let ((scale 0.5d0))
+                      (let ((scale 1d0))
                         (setf *skip* nil)
                         (format t "Test ~D ~F" refine s)
                         (setup :refine refine :mps mps :surcharge-load s
-                               :epsilon-scale 1d3
+                               :epsilon-scale 1d2
                                :piston-scale 1d0
                                :piston-mps 2
                                :friction 0d0)
                         (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                             :displacment 0.1d-3
+                             :displacment 1d-3
                              :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 1d0)
-                             :dt-scale 0.25d0
-                             :damage-time-scale 1d0)
+                             :sample-scale (* 1d0 0.1d0)
+                             :dt-scale 0.10d0
+                             :damage-time-scale 1d0
+                             )
                         (when *skip*
-                          (setf *run-sim* t))
-                        ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
-                        )))))
+                          (setf *run-sim* t)))))))
 
 
 (defun test-damage ()
@@ -2022,14 +2043,14 @@
                        )
         do
            (loop for d in (list
-                           ;; 0.1d0
-                           ;; 0.2d0
-                           ;; 0.30d0
+                           0.1d0
+                           0.2d0
+                           0.30d0
                            0.25d0
                            )
                  do
                     (let (;(mps 2)
-                          (mps 4)
+                          (mps 2)
                           (scale 2d0))
                       (loop for s
                             ;; from 0d0 to 100d4 by 10d4
@@ -2083,7 +2104,7 @@
                        )
         do
            (let (;(mps 2)
-                 (mps 2)
+                 (mps 4)
                  ;; (scale 0.5d0)
                  )
 
