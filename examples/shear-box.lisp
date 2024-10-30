@@ -1096,6 +1096,58 @@
    #'+
    (cl-mpm:sim-mps *sim*)))
 
+(defun make-piston (box-size box-offset surcharge-load epsilon-scale piston-scale)
+  (defparameter *piston-penalty*
+    (cl-mpm/penalty::make-bc-penalty-distance-point 
+     *sim*
+     (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0))
+     (cl-mpm/utils:vector-from-list (list (* 1.5 box-size)
+                                          (+ box-size box-offset) 0d0))
+     (* 1.25d0 0.5d0 0.06d0)
+     (* 1d9 epsilon-scale)
+     0d0
+     0d0))
+  (defparameter *piston-confinement* 0d0)
+  (let* ((control-stiffness
+           ;; 1d9
+           ;; 1d-12
+           ;; 1d0
+           ;; 1d-6
+           (/ (* piston-scale 1d6) (cl-mpm/penalty::bc-penalty-epsilon *piston-penalty*))
+           )
+         (target-load surcharge-load)
+         (window-size 1)
+         (window-index 0)
+         (window (make-array window-size :initial-element 0d0)))
+    (defparameter *window* window)
+    (defparameter *piston-controller*
+      (cl-mpm/bc::make-bc-closure
+       nil
+       (lambda ()
+         (let* ((inst-load (/ (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0.06d0))
+                (current-load inst-load))
+           (setf (aref window (mod window-index window-size))
+                 current-load)
+           (incf window-index)
+           (setf current-load (/ (loop for x across window sum x)
+                                 window-size))
+           ;; (format t "~A~%" window)
+           ;; (format t "~F~%" current-load)
+           (let* ((delta (- (- current-load target-load)))
+                  (penalty-inc (* (cl-mpm:sim-dt *sim*) (* delta control-stiffness))))
+             (declare (double-float penalty-inc))
+             ;; (incf (the double-float (cl-mpm/penalty::bc-penalty-datum *piston-penalty*)) penalty-inc)
+             (cl-mpm/penalty::bc-increment-center *piston-penalty* (cl-mpm/utils:vector-from-list  (list 0d0 (- penalty-inc) 0d0)))
+             (incf *piston-confinement* current-load)
+             (setf (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0d0)
+             )
+           )))))
+  (cl-mpm:add-bcs-force-list
+   *sim*
+   *piston-penalty*)
+  (cl-mpm:add-bcs-force-list
+   *sim*
+   *piston-controller*))
 (declaim (notinline setup))
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d2)
                 (piston-scale 1d0)
@@ -1123,58 +1175,7 @@
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.125d0 mesh-size))
-    (progn 
-    (defparameter *piston-penalty*
-      (cl-mpm/penalty::make-bc-penalty-distance-point 
-       *sim*
-       (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0))
-       (cl-mpm/utils:vector-from-list (list (* 1.5 box-size)
-                                            (+ box-size box-offset) 0d0))
-       (* 1.25d0 0.5d0 0.06d0)
-       (* 1d9 epsilon-scale)
-       0d0
-       0d0))
-      (defparameter *piston-confinement* 0d0)
-      (let* ((control-stiffness
-               ;; 1d9
-               ;; 1d-12
-               ;; 1d0
-               ;; 1d-6
-               (/ (* piston-scale 1d6) (cl-mpm/penalty::bc-penalty-epsilon *piston-penalty*))
-               )
-             (target-load surcharge-load)
-             (window-size 1)
-             (window-index 0)
-             (window (make-array window-size :initial-element 0d0)))
-        (defparameter *window* window)
-        (defparameter *piston-controller*
-          (cl-mpm/bc::make-bc-closure
-           nil
-           (lambda ()
-             (let* ((inst-load (/ (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0.06d0))
-                    (current-load inst-load))
-               (setf (aref window (mod window-index window-size))
-                     current-load)
-               (incf window-index)
-               (setf current-load (/ (loop for x across window sum x)
-                                     window-size))
-               ;; (format t "~A~%" window)
-               ;; (format t "~F~%" current-load)
-               (let* ((delta (- (- current-load target-load)))
-                      (penalty-inc (* (cl-mpm:sim-dt *sim*) (* delta control-stiffness))))
-                 (declare (double-float penalty-inc))
-                 ;; (incf (the double-float (cl-mpm/penalty::bc-penalty-datum *piston-penalty*)) penalty-inc)
-                 (cl-mpm/penalty::bc-increment-center *piston-penalty* (cl-mpm/utils:vector-from-list  (list 0d0 (- penalty-inc) 0d0)))
-                 (incf *piston-confinement* current-load)
-                 (setf (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0d0)
-                 )
-               )))))
-      (cl-mpm:add-bcs-force-list
-       *sim*
-       *piston-penalty*)
-      (cl-mpm:add-bcs-force-list
-       *sim*
-       *piston-controller*))
+    (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
     ;;  (lambda (p)
