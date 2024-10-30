@@ -1957,7 +1957,7 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
+                       ;; 4
                        8
                        ;; 16
                        ;; 32
@@ -1968,7 +1968,7 @@
                        )
         do
            (let (;(mps 2)
-                 (mps 2)
+                 (mps 4)
                  ;; (scale 0.5d0)
                  )
              (loop for s
@@ -1986,17 +1986,17 @@
                         (setf *skip* nil)
                         (format t "Test ~D ~F" refine s)
                         (setup :refine refine :mps mps :surcharge-load s
-                               :epsilon-scale 1d1
+                               :epsilon-scale 1d2
                                :piston-scale 0.25d0
                                :piston-mps 2
                                :friction 0d0)
-                        (run (format nil "../ham-shear-box/output-~f_~D_~f_ic-~F/" refine mps scale s)
-                             :displacment 0.2d-3
+                        (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
+                             :displacment 1d-3
                              :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 2d0)
-                             :dt-scale 0.5000d0
+                             :sample-scale (* 1d0 1d0)
+                             :dt-scale 0.500d0
                              :damage-time-scale 1d0
-                             :skip-level 0.9d0
+                             ;; :skip-level 0.9d0
                              :enable-damage nil
                              :enable-plasticity t 
                              )
