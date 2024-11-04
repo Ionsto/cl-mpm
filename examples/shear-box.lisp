@@ -316,127 +316,140 @@
 
 
 ;;Lazy and unhyginic
-(macrolet ((defmpgen (name &rest args)
-             `(defmacro ,name ()
-                `(cl-mpm::add-mps
-                  sim
-                  (cl-mpm/setup::make-mps-from-list
-                   (cl-mpm/setup::make-block-mps-list
-                    offset
-                    block-size
-                    (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
-                    density
-                    ,@',args
-                    :index 0
-                    :gravity 0d0
-                    ))))))
-  
+(defmacro defmpgen (name &rest args)
+  `(defmacro ,name ()
+     `(cl-mpm::add-mps
+       sim
+       (cl-mpm/setup::make-mps-from-list
+        (cl-mpm/setup::make-block-mps-list
+         offset
+         block-size
+         (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+         density
+         ,@',args
+         :index 0
+         :gravity 0d0
+         )))))
+;; (macrolet ((defmpgen (name &rest args)
+;;              `(defmacro ,name ()
+;;                 `(cl-mpm::add-mps
+;;                   sim
+;;                   (cl-mpm/setup::make-mps-from-list
+;;                    (cl-mpm/setup::make-block-mps-list
+;;                     offset
+;;                     block-size
+;;                     (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+;;                     density
+;;                     ,@',args
+;;                     :index 0
+;;                     :gravity 0d0
+;;                     )))))))
 
-  (defmpgen make-mps-elastic
-    'cl-mpm/particle::particle-elastic
-    :E 1d9
-    :nu 0.24d0
-    )
-  (defmpgen make-mps-vm
+(defmpgen make-mps-elastic
+  'cl-mpm/particle::particle-elastic
+  :E 1d9
+  :nu 0.24d0
+  )
+(defmpgen make-mps-vm
 
-    'cl-mpm/particle::particle-vm
-    :E 1d9
-    :nu 0.24d0
-    :rho 100d3)
-  (defmpgen make-mps-mc-residual
-    'cl-mpm/particle::particle-mc
-    :E 1d9
-    :nu 0.24d0
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 30d0 (/ pi 180))
-    :c 0d0
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 0d0)
+  'cl-mpm/particle::particle-vm
+  :E 1d9
+  :nu 0.24d0
+  :rho 100d3)
+(defmpgen make-mps-mc-residual
+  'cl-mpm/particle::particle-mc
+  :E 1d9
+  :nu 0.24d0
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 30d0 (/ pi 180))
+  :c 0d0
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 0d0)
 
-  (defmpgen make-mps-mc-peak
-    'cl-mpm/particle::particle-mc
-    :E 1d9
-    :nu 0.24d0
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 42d0 (/ pi 180))
-    :c 131d3
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 0d0)
+(defmpgen make-mps-mc-peak
+  'cl-mpm/particle::particle-mc
+  :E 1d9
+  :nu 0.24d0
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 42d0 (/ pi 180))
+  :c 131d3
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 0d0)
 
-  (defmpgen make-mps-dp-peak
-    'cl-mpm/particle::particle-dp
-    :E 1d9
-    :nu 0.24d0
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 42d0 (/ pi 180))
-    :c 131d3
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 0d0)
+(defmpgen make-mps-dp-peak
+  'cl-mpm/particle::particle-dp
+  :E 1d9
+  :nu 0.24d0
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 42d0 (/ pi 180))
+  :c 131d3
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 0d0)
 
-  (defmpgen make-mps-mc-softening
-    'cl-mpm/particle::particle-mc
-    :E 1d9
-    :nu 0.24d0
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 42d0 (/ pi 180))
-    :c 131d3
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 50d0)
+(defmpgen make-mps-mc-softening
+  'cl-mpm/particle::particle-mc
+  :E 1d9
+  :nu 0.24d0
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 42d0 (/ pi 180))
+  :c 131d3
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 50d0)
 
-  (defmpgen make-mps-damage
-    'cl-mpm/particle::particle-chalk-delayed
-    :E 1d9
-    :nu 0.24d0
-    :kt-res-ratio 1d-9
-    :kc-res-ratio 1d0
-    :g-res-ratio 1d-9
-    :friction-angle 42d0
-    :initiation-stress init-stress;18d3
-    :delay-time 1d-2
-    :delay-exponent 1d0
-    :damage 0.0d0
-    :ductility ductility
-    :local-length length-scale
-    :local-length-damaged 10d-10
-    :enable-damage t
-    :enable-plasticity nil
+(defmpgen make-mps-damage
+  'cl-mpm/particle::particle-chalk-delayed
+  :E 1d9
+  :nu 0.24d0
+  :kt-res-ratio 1d-9
+  :kc-res-ratio 1d0
+  :g-res-ratio 1d-9
+  :friction-angle 42d0
+  :initiation-stress init-stress;18d3
+  :delay-time 1d-2
+  :delay-exponent 1d0
+  :damage 0.0d0
+  :ductility ductility
+  :local-length length-scale
+  :local-length-damaged 10d-10
+  :enable-damage t
+  :enable-plasticity nil
 
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 42d0 (/ pi 180))
-    :c 131d3
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 10d0)
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 42d0 (/ pi 180))
+  :c 131d3
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 10d0)
 
-  (defmpgen make-mps-plastic-damage
-    'cl-mpm/particle::particle-chalk-delayed
-    :E 1d9
-    :nu 0.24d0
-    :kt-res-ratio 1d-9
-    :kc-res-ratio 1d-2
-    :g-res-ratio 1d-3
-    :friction-angle 40d0
-    :initiation-stress init-stress;18d3
-    :delay-time 1d-2
-    :delay-exponent 1d0
-    :damage 0.0d0
-    :ductility ductility
-    :local-length length-scale
-    :local-length-damaged 10d-10
-    :enable-damage t
-    :enable-plasticity t
+(defmpgen make-mps-plastic-damage
+  'cl-mpm/particle::particle-chalk-delayed
+  :E 1d9
+  :nu 0.24d0
+  :kt-res-ratio 1d-9
+  :kc-res-ratio 1d-2
+  :g-res-ratio 1d-3
+  :friction-angle 40d0
+  :initiation-stress init-stress;18d3
+  :delay-time 1d-2
+  :delay-exponent 1d0
+  :damage 0.0d0
+  :ductility ductility
+  :local-length length-scale
+  :local-length-damaged 10d-10
+  :enable-damage t
+  :enable-plasticity t
 
-    :psi (* 5d0 (/ pi 180))
-    :phi (* 42d0 (/ pi 180))
-    :c (* 131d3 10d0)
-    :phi-r (* 30d0 (/ pi 180))
-    :c-r 0d0
-    :softening 0d0
-    ))
+  :psi (* 5d0 (/ pi 180))
+  :phi (* 42d0 (/ pi 180))
+  :c (* 131d3 10d0)
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
+  :softening 0d0
+  )
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1)
@@ -1489,6 +1502,7 @@
                               (push (get-plastic) *data-plastic*)
                               (format stream "~f,~f,~f,~f,~f~%" *displacement-increment* (get-load) (get-plastic) (get-damage) (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*)))
                             )))
+                       (sb-ext:gc)
 
                        (setf load-av (get-load))
                        (setf disp-av *displacement-increment*)
@@ -2028,7 +2042,7 @@
                        in
                        (list
                         ;; 5d4
-                        10d4
+                        ;; 10d4
                         20d4
                         30d4
                         )
