@@ -97,8 +97,8 @@
                                 )
                    mp
                  (let* ((pen-point (penetration-point mp penetration-dist datum normal))
-                        (normal-force (* (expt penetration-dist 1d0)
-                                         epsilon
+                        (normal-force (* (expt (* epsilon penetration-dist) 1d0)
+                                         ;; epsilon
                                          ;; (expt volume (/ (- nd 1) nd))
                                          (expt volume (/ (- nd 1) nd))
                                          )))
@@ -282,6 +282,11 @@
                    :friction friction
                    :center-point point
                    :radius radius)))
+
+(defun make-bc-line-segments (sim positions epsilon friction damping)
+  (loop for pa in (butlast positions)
+        for pb in (rest positions)
+        collect (make-bc-penalty-line-segment sim pa pb epsilon friction damping)))
 
 
 (defun bc-set-center (bc new-center)
@@ -508,7 +513,8 @@
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
-               (normal-force (* (expt penetration 1d0)
+               (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
+                                penetration
                                 epsilon
                                 (expt volume (/ (- nd 1) nd)))))
           (sb-thread:with-mutex (debug-mutex)

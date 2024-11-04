@@ -74,14 +74,16 @@
         ;;                          strain
         ;;                          (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
-        (let ((es (cl-mpm/constitutive::linear-elastic-mat (cl-mpm/fastmaths:fast-.+ strain plastic-strain)
-                                                           de)))
-          (setf damage-increment
-                (max 0d0
-                     (cl-mpm/damage::drucker-prager-criterion
-                      es
-                      ;(magicl:scale es (/ 1d0 (magicl:det def)))
-                      (* angle (/ pi 180d0))))))
+        (setf damage-increment
+              (cl-mpm/damage::tensile-energy-norm strain E de))
+
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp-coheasion
+        ;;             ;; cl-mpm/damage::criterion-dp-tensile
+        ;;             ;; stress
+        ;;             (magicl:scale stress (/ 1d0 (magicl:det def)))
+        ;;             (* angle (/ pi 180d0)))))
         ;; (setf damage-increment
         ;;       (sqrt (* 3/2
         ;;                (cl-mpm/constitutive::voigt-j2
@@ -119,8 +121,8 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   ;; :colour-func #'cl-mpm/particle::mp-damage
-   :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+   :colour-func #'cl-mpm/particle::mp-damage
+   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
    ;;                (let ((drive 
    ;;                        (*
@@ -202,16 +204,14 @@
     (declare (double-float h density))
     (progn
       (let* (
-             (init-stress 100d3)
+             (init-stress 60d3)
              (downscale (/ 1d0 1d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
-             (gf 40d0)
+             (gf 5d0)
              ;; (gf 10d0)
              (length-scale h)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
-             (ductility 10000d0)
-             (ductility 0.001d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
@@ -226,52 +226,51 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
 
-                'cl-mpm/particle::particle-mc
-                ;; 'cl-mpm/particle::particle-dp
-                :E 1d9
-                :nu 0.24d0
-                :psi 0d0
-                ;; :psi (* 42d0 (/ pi 180))
-                :phi (* 42d0 (/ pi 180))
-                :c (* 131d3 0.1d0)
-                :phi-r (* 30d0 (/ pi 180))
-                :c-r 0d0
-                :softening 10d0
-                ;; 'cl-mpm/particle::particle-chalk-delayed
+                ;; 'cl-mpm/particle::particle-mc
+                ;; ;; 'cl-mpm/particle::particle-dp
                 ;; :E 1d9
                 ;; :nu 0.24d0
-
-                ;; :enable-plasticity t
-
-                ;; :ft 1d0
-                ;; :fc 10d0
-
-                ;; :friction-angle 42.0d0
-                ;; :kt-res-ratio 1d-10
-                ;; :kc-res-ratio 1d0
-                ;; :g-res-ratio 5d-1
-
-                ;; :fracture-energy 3000d0
-                ;; :initiation-stress init-stress;18d3
-                ;; :delay-time 1d1
-                ;; :delay-exponent 1d0
-
-                ;; ;; :ductility 5d0
-                ;; :ductility ductility
-
-                ;; :critical-damage 1d0;(- 1.0d0 1d-3)
-                ;; :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
-
-                ;; :local-length length-scale
-                ;; :local-length-damaged 10d-10
-
-                ;; ;; :psi 0d0
-                ;; ;; :phi (* 42d0 (/ pi 180))
-                ;; ;; :c 131d3
                 ;; :psi 0d0
-                ;; :phi (* 40d0 (/ pi 180))
-                ;; ;; :c 131d3
-                ;; :c (* 131d3 0.5d0)
+                ;; ;; :psi (* 42d0 (/ pi 180))
+                ;; :phi (* 42d0 (/ pi 180))
+                ;; :c (* 131d3 1d0)
+                ;; :phi-r (* 30d0 (/ pi 180))
+                ;; :c-r 0d0
+                ;; :softening 10d0
+                'cl-mpm/particle::particle-chalk-delayed
+                :E 1d9
+                :nu 0.24d0
+
+                :enable-plasticity t
+
+                :ft 1d0
+                :fc 10d0
+
+                :friction-angle 42.0d0
+                :kt-res-ratio 1d-9
+                :kc-res-ratio 1d-2
+                :g-res-ratio 1d-3
+
+                :fracture-energy 3000d0
+                :initiation-stress init-stress;18d3
+                :delay-time 1d1
+                :delay-exponent 1d0
+
+                ;; :ductility 5d0
+                :ductility ductility
+
+                :critical-damage 1d0;(- 1.0d0 1d-3)
+                :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
+
+                :local-length length-scale
+                :local-length-damaged 10d-10
+
+                ;; :psi 0d0
+                ;; :phi (* 42d0 (/ pi 180))
+                ;; :c 131d3
+                :psi (* 5d0 (/ pi 180))
+                :phi (* 42d0 (/ pi 180))
+                :c (* 131d3 10d0)
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -706,7 +705,7 @@
                         (when (>= steps settle-steps)
                           (if (or
                                ;; t
-                               (> energy-estimate 1d-4)
+                               (> energy-estimate 1d-2)
                                (> oobf 1d-1)
                                ;; t
                                ;; nil
@@ -736,55 +735,14 @@
                               (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale))))
                        (format t "Sim state - ~A~%" sim-state)
 
-                       ;; (when (>= steps settle-steps)
-                       ;;   (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       ;;   (cl-mpm::iterate-over-mps
-                       ;;    (cl-mpm:sim-mps *sim*)
-                       ;;    (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled)))
-                       ;;   (cond
-                       ;;     ((or
-                       ;;       ;; (> work 1d-2)
-                       ;;       (> energy-estimate 1d-7)
-                       ;;       ;; (> total-energy 1d-3)
-                       ;;       ;; (> oobf 5d-1)
-                       ;;       ;; nil
-                       ;;       )
-                       ;;                  ;(> total-energy 5d2)
-                       ;;      (progn
-                       ;;        (format t "Collapse timestep~%")
-                       ;;        (setf
-                       ;;         target-time collapse-target-time
-                       ;;         (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale
-                       ;;         )))
-                       ;;     (t ;(> total-energy 1d1)
-                       ;;      (progn
-                       ;;        (format t "Accelerated timestep~%")
-                       ;;        (setf
-                       ;;         target-time 1d0
-                       ;;         (cl-mpm::sim-mass-scale *sim*) 1d4
-                       ;;         )
-                       ;;        ))
-                       ;;     ;; (t;(> total-energy 1d0)
-                       ;;     ;;  (progn
-                       ;;     ;;    (format t "Bigstep timestep~%")
-                       ;;     ;;    (setf
-                       ;;     ;;     target-time 1d1
-                       ;;     ;;     (cl-mpm::sim-mass-scale *sim*) 1d6
-                       ;;     ;;     )
-                       ;;     ;;    ))
-                       ;;     ))
-                       ;; (when (>= steps damp-steps)
-                       ;;   (let ((ms (cl-mpm::sim-mass-scale *sim*)))
-                       ;;     (setf (cl-mpm:sim-damping-factor *sim*)
-                       ;;           damping-0)))
-
 
                        (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                          (format t "CFL dt estimate: ~f~%" dt-e)
                          (format t "CFL step count estimate: ~D~%" substeps-e)
                          (setf substeps substeps-e))
-                       ;; (setf (cl-mpm:sim-dt *sim*) (* dt-0 (sqrt (cl-mpm::sim-mass-scale *sim*))))
-                       ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
+
+                       (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+                       (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                        (format t "CFL dt estimate: ~f~%" dt)
                        (format t "CFL step count estimate: ~D~%" substeps)
                        ;; (setf (cl-mpm:sim-damping-factor *sim*)
@@ -1163,8 +1121,8 @@
          (mps-per-cell mps)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 1.0)
-         (runout-aspect 1.0)
+         (shelf-aspect 2.0)
+         (runout-aspect 2.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1533,7 +1491,7 @@
                        )
          (soil-boundary 2)
          (shelf-aspect 1.0)
-         (runout-aspect 1.0)
+         (runout-aspect 2.0)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)

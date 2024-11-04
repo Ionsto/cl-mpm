@@ -374,7 +374,7 @@
     :c 131d3
     :phi-r (* 30d0 (/ pi 180))
     :c-r 0d0
-    :softening 10d0)
+    :softening 50d0)
 
   (defmpgen make-mps-damage
     'cl-mpm/particle::particle-chalk-delayed
@@ -394,7 +394,7 @@
     :enable-damage t
     :enable-plasticity nil
 
-    :psi (* 0d0 (/ pi 180))
+    :psi (* 5d0 (/ pi 180))
     :phi (* 42d0 (/ pi 180))
     :c 131d3
     :phi-r (* 30d0 (/ pi 180))
@@ -419,7 +419,7 @@
     :enable-damage t
     :enable-plasticity t
 
-    :psi (* 0d0 (/ pi 180))
+    :psi (* 5d0 (/ pi 180))
     :phi (* 42d0 (/ pi 180))
     :c (* 131d3 10d0)
     :phi-r (* 30d0 (/ pi 180))
@@ -469,8 +469,10 @@
              ;; (ductility 5d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
+        ;; (make-mps-plastic-damage)
         ;; (make-mps-mc-residual)
-        (make-mps-mc-peak)
+        ;; (make-mps-mc-peak)
+        (make-mps-mc-softening)
         ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
@@ -688,73 +690,108 @@
          (jonathan:to-json
           json-object
           ))))))
+
 (defun save-vtk-penalty-box (filename sim)
-  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
-    (with-accessors ((cells cl-mpm/mesh::mesh-cells))
-        mesh
+  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
+      sim
+    (let ((bc-save-list (list)))
+      (loop for bc-list in bcs
+            do
+               (loop for bc across bc-list
+                     do
+                        (typecase bc
+                          (cl-mpm/penalty::bc-penalty-distance
+                           (push bc bc-save-list)
+                           )
+                          (cl-mpm/penalty::bc-penalty-structure
+                           (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
+                                 do
+                                    (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
+                                      (push sub-bc bc-save-list)))) (t ))))
+      (let ((json-object (list)))
+        (loop for bc in bc-save-list
+              do
+                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
+                                  (normal cl-mpm/penalty::bc-penalty-normal)
+                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
+                     bc
+                   (push (list :position (list (cl-mpm/utils:varef center 0)
+                                               (cl-mpm/utils:varef center 1)
+                                               (cl-mpm/utils:varef center 2))
+                               :normal (list (cl-mpm/utils:varef normal 0)
+                                             (cl-mpm/utils:varef normal 1)
+                                             (cl-mpm/utils:varef normal 2))
+                               :radius radius) json-object))
+              )
+        (str:to-file
+         filename
+         (jonathan:to-json
+          json-object
+          ))))))
+
+(defun save-vtk-penalty-box (filename sim)
+  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
+      sim
+    (let ((bc-save-list (list)))
+      (loop for bc-list in bcs
+            do
+               (loop for bc across bc-list
+                     do
+                        (typecase bc
+                          (cl-mpm/penalty::bc-penalty-distance
+                           (push bc bc-save-list)
+                           )
+                          (cl-mpm/penalty::bc-penalty-structure
+                           (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
+                                 do
+                                    (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
+                                      (push sub-bc bc-save-list))))
+                          (t ))))
+      (let ((json-object (list)))
+        (loop for bc in bc-save-list
+              do
+                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
+                                  (normal cl-mpm/penalty::bc-penalty-normal)
+                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
+                     bc
+                   (let* ((line-dir (cl-mpm/penalty::2d-orthog normal))
+                          (p1 (cl-mpm/fastmaths:fast-.+ center (cl-mpm/fastmaths:fast-scale-vector line-dir radius)))
+                          (p2 (cl-mpm/fastmaths:fast-.- center (cl-mpm/fastmaths:fast-scale-vector line-dir radius))))
+                     (push (list (list (cl-mpm/utils:varef p1 0)
+                                       (cl-mpm/utils:varef p1 1)
+                                       (cl-mpm/utils:varef p1 2))
+                                 (list (cl-mpm/utils:varef p2 0)
+                                       (cl-mpm/utils:varef p2 1)
+                                       (cl-mpm/utils:varef p2 2))) json-object))))
         (with-open-file (fs filename :direction :output :if-exists :supersede)
           (format fs "# vtk DataFile Version 2.0~%")
           (format fs "Lisp generated vtk file, SJVS~%")
           (format fs "ASCII~%")
           (format fs "DATASET UNSTRUCTURED_GRID~%")
 
-          (let ((node-count 10))
-            (format fs "POINTS ~d double~%" node-count)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *displacement-increment*) 'single-float)
-                    0e0
-                    0e0)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *displacement-increment*) 'single-float)
-                    (coerce (* 0.5d0 *box-size*) 'single-float)
-                    0e0)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *box-size* *displacement-increment*) 'single-float)
-                    0e0
-                    0e0)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *box-size* *displacement-increment*) 'single-float)
-                    (coerce (* 0.5d0 *box-size*) 'single-float)
-                    0e0)
-
-            ;;Sliding
-            (format fs "~E ~E ~E ~%"
-                    (coerce (- (+ *box-left* *displacement-increment*) *box-size*) 'single-float)
-                    (coerce (* 0.5d0 *box-size*) 'single-float)
-                    0e0)
-
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *box-size* *box-size*) 'single-float)
-                    (coerce (* 0.5d0 *box-size*) 'single-float)
-                    0e0)
-
-
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* ) 'single-float)
-                    (coerce (* 0.5d0 *box-size*) 'single-float)
-                    0e0)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* ) 'single-float)
-                    (coerce (* 1 *box-size*) 'single-float)
-                    0e0)
-
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *box-size* ) 'single-float)
-                    (coerce (* 0.5 *box-size*) 'single-float)
-                    0e0)
-            (format fs "~E ~E ~E ~%"
-                    (coerce (+ *box-left* *box-size*) 'single-float)
-                    (coerce (* 1 *box-size*) 'single-float)
-                    0e0)
+          (let* ((line-count (length json-object))
+                 (point-count (* 2 line-count)))
+            (format fs "POINTS ~d double~%" point-count)
+            (loop for bc in json-object
+                  do (loop for p in bc
+                           do (format fs "~E ~E ~E ~%"
+                                      (coerce (first p) 'single-float)
+                                      (coerce (second p) 'single-float)
+                                      0e0)))
 
             (format fs "~%")
-            (let ((id 1))
-              (declare (special id))
-              (format fs "POINT_DATA ~d~%" node-count)
-              ))))))
+            (format fs "CELLS ~D ~D~%" line-count (* 3 line-count))
+            (loop for bc in json-object
+                  for i from 0
+                  do (format fs "~D ~D ~D~%" 2 (* i 2) (+ 1 (* i 2))))
+
+            (format fs "CELL_TYPES ~D~%" line-count)
+            (loop for bc in json-object
+                  do (format fs "3~%"))
+            ))))))
 
 (defun 2d-orthog (vec)
-  (cl-mpm/utils:vector-from-list (list (varef vec 1) (- (varef vec 0) 0))))
+  (cl-mpm/utils:vector-from-list (list (cl-mpm/utils:varef vec 1) (- (cl-mpm/utils:varef vec 0) 0))))
 
 (defun make-beveled-right-angle (sim epsilon p-a corner p-b bevel-size)
   (let* ((diff-a (cl-mpm/fastmaths:fast-.- p-a corner))
@@ -775,6 +812,7 @@
            (cl-mpm/penalty::make-bc-penalty-line-segment sim corner-a corner-b epsilon 0d0 0d0)))
     (values la bevel lb)
     ))
+
 
 (declaim (notinline make-penalty-box))
 (defun make-penalty-box (sim left-x right-x height friction-scale offset &key (epsilon-scale 1d2)
@@ -799,7 +837,9 @@
                  )
          (corner-x (* 1d0 corner))
          (corner-y (* 1d0 corner))
-         (damping 0d0))
+         (damping 0d0)
+         (all-bcs (list))
+         )
     (defparameter *box-left* left-x)
     (defparameter *box-size* (* 2d0 height))
     ;; (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -901,8 +941,8 @@
       (cl-mpm/penalty::make-bc-penalty-distance-point
        sim
        plane-normal-left
-       (cl-mpm/utils:vector-from-list (list 0d0 offset 0d0))
-       100d0
+       (cl-mpm/utils:vector-from-list (list (+ left-x height) offset 0d0))
+       (* 2 height)
        epsilon
        0d0
        damping))
@@ -1100,9 +1140,11 @@
    (cl-mpm:sim-mps *sim*)))
 
 
-(declaim (notinline get-piston-load))
-(defun get-piston-load ()
+(defgeneric get-piston-load (sim))
+(defmethod get-piston-load ((sim cl-mpm:mpm-sim))
   (cl-mpm/penalty::bc-penalty-load *piston-penalty*))
+(defmethod get-piston-load ((sim cl-mpm/mpi:mpm-sim-mpi))
+  (cl-mpm/mpi:mpi-sum (cl-mpm/penalty::bc-penalty-load *piston-penalty*)))
 
 (defun reset-piston-load ()
   (setf (cl-mpm/penalty::bc-penalty-load *piston-penalty*) 0d0))
@@ -1136,7 +1178,7 @@
       (cl-mpm/bc::make-bc-closure
        nil
        (lambda ()
-         (let* ((inst-load (/ (get-piston-load) 0.06d0))
+         (let* ((inst-load (/ (get-piston-load *sim*) 0.06d0))
                 (current-load inst-load))
            (setf (aref window (mod window-index window-size))
                  current-load)
@@ -1203,38 +1245,31 @@
     ;;        0d0
     ;;        1d0)))
     (defparameter *true-load-bc* *shear-box-left-dynamic*)
-    ;; (setf (cl-mpm::sim-bcs-force-list *sim*)
-    ;;       (list
-    ;;        (cl-mpm/bc:make-bcs-from-list
-    ;;         (list
-    ;;          (cl-mpm/bc::make-bc-closure
-    ;;           nil
-    ;;           (lambda ()
-    ;;             (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)))))))
-      ;; (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
-      ;;                                              p
-      ;;                                              (list box-size sunk-size 0d0)
-      ;;                                              (list (* 2 box-size) sunk-size 0d0)
-      ;;                                              mesh-size
-      ;;                                              )) 1.0d0)
-    ;; (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
-    ;;   (when (typep mp 'cl-mpm/particle::particle-damage)
-    ;;     (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
-    ;;            (width (* 1 length-scale)))
-    ;;       (cl-mpm/setup::apply-sdf *sim*
-    ;;                                (lambda (p) (cl-mpm/setup::line-sdf
-    ;;                                             p
-    ;;                                             (list box-size sunk-size 0d0)
-    ;;                                             (list (* 2 box-size) sunk-size 0d0)
-    ;;                                             width
-    ;;                                             ))
-    ;;                                (lambda (mp v)
-    ;;                                  (when (< v 0d0)
-    ;;                                    (setf (cl-mpm/particle:mp-damage mp)
-    ;;                                          1d0
-    ;;                                          ;; (exp (- (expt (/ (+ width v) width) 8)))
-    ;;                                          ))
-    ;;                                  )))))
+    ;; (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
+    ;;                                              p
+    ;;                                              (list box-size sunk-size 0d0)
+    ;;                                              (list (* 2 box-size) sunk-size 0d0)
+    ;;                                              mesh-size
+    ;;                                              )) 1.0d0)
+
+    (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
+      (when (typep mp 'cl-mpm/particle::particle-damage)
+        (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
+               (width (* 1 length-scale)))
+          (cl-mpm/setup::apply-sdf *sim*
+                                   (lambda (p) (cl-mpm/setup::line-sdf
+                                                p
+                                                (list box-size (+ sunk-size box-offset) 0d0)
+                                                (list (* 2 box-size) (+ sunk-size box-offset) 0d0)
+                                                width
+                                                ))
+                                   (lambda (mp v)
+                                     (when (< v 0d0)
+                                       (setf (cl-mpm/particle:mp-damage mp)
+                                             1d0
+                                             ;; (exp (- (expt (/ (+ width v) width) 8)))
+                                             ))
+                                     )))))
     )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -1251,7 +1286,7 @@
 (declaim (notinline run))
 (defun run (&optional (output-directory "./output/")
             &key (total-time 6d-2)
-              (damping 1d-3)
+              (damping 1d-2)
               (time-scale 1d0)
               (damage-time-scale 1d0)
               (sample-scale 1d0)
@@ -1375,14 +1410,20 @@
     (defparameter *displacement-increment* 0d0)
     (format t "Substeps ~D~%" substeps)
     ;; (vgplot:figure)
-    (cl-mpm:update-sim *sim*)
+    (setf cl-mpm/penalty::*debug-force* 0)
+    (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
+
     (let ((disp-av 0d0)
           (load-av 0d0)
           (d-av 0d0)
           (p-av 0d0)
           (e-av 0d0))
-      (setf load-av (get-load))
-      (setf load-0 load-0)
+      (format t "Running unloaded step ~D~%" substeps)
+      (dotimes (i substeps)
+        (cl-mpm::update-sim *sim*)
+        (incf load-av (/ (get-load) substeps)))
+      ;; (setf load-av (get-load))
+      (setf load-0 load-av)
       (format t "Load-0 ~E~%" load-0)
       (push *t* *data-t*)
       (push disp-av *data-disp*)
@@ -1394,11 +1435,7 @@
       (setf disp-av *displacement-increment*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
         (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
-    (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
     (setf cl-mpm/penalty::*debug-force* 0)
-    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;       when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
-    ;;         do (change-class mp 'cl-mpm/particle::particle-chalk-brittle))
 
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
@@ -1408,6 +1445,7 @@
                      (when (= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*)
+                       (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.vtk" *sim-step*)) *sim*)
                        ;; (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*)
                        )
                      ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -1957,8 +1995,8 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       ;; 4
-                       8
+                       4
+                       ;; 8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -1967,41 +2005,42 @@
                        ;; 32
                        )
         do
-           (let (;(mps 2)
-                 (mps 4)
-                 ;; (scale 0.5d0)
-                 )
-             (loop for s
-                   ;; from 0d0 to 35d4 by 2.5d4
-                     in
-                     (list
-                      5d4
-                      10d4
-                      20d4
-                      30d4
-                      )
-                   while (and *run-sim*)
-                   do
-                      (let ((scale 1d0))
-                        (setf *skip* nil)
-                        (format t "Test ~D ~F" refine s)
-                        (setup :refine refine :mps mps :surcharge-load s
-                               :epsilon-scale 1d2
-                               :piston-scale 0.25d0
-                               :piston-mps 2
-                               :friction 0d0)
-                        (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                             :displacment 1d-3
-                             :time-scale (* 1d0 scale)
-                             :sample-scale (* 1d0 1d0)
-                             :dt-scale 0.500d0
-                             :damage-time-scale 1d0
-                             ;; :skip-level 0.9d0
-                             :enable-damage nil
-                             :enable-plasticity t 
-                             )
-                        (when *skip*
-                          (setf *run-sim* t)))))))
+           (dolist (mps (list 2 4 6 8))
+             (let (;(mps 2)
+                   ;; (mps 2)
+                   ;; (scale 0.5d0)
+                   )
+               (loop for s
+                     ;; from 0d0 to 35d4 by 2.5d4
+                       in
+                       (list
+                        ;; 5d4
+                        10d4
+                        20d4
+                        30d4
+                        )
+                     while (and *run-sim*)
+                     do
+                        (let ((scale 0.1d0))
+                          (setf *skip* nil)
+                          (format t "Test ~D ~F" refine s)
+                          (setup :refine refine :mps mps :surcharge-load s
+                                 :epsilon-scale 1d1
+                                 :piston-scale 0.1d0
+                                 :piston-mps 2
+                                 :friction 0d0)
+                          (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
+                               :displacment 3d-3
+                               :time-scale (* 1d0 scale)
+                               :sample-scale (* 1d0 0.1d0)
+                               :dt-scale 1d0
+                               :damage-time-scale 1d0
+                               ;; :skip-level 0.9d0
+                               :enable-damage nil
+                               :enable-plasticity t
+                               )
+                          (when *skip*
+                            (setf *run-sim* t))))))))
 
 
 (defun test-damage ()
