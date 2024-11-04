@@ -365,6 +365,17 @@
     :c-r 0d0
     :softening 0d0)
 
+  (defmpgen make-mps-dp-peak
+    'cl-mpm/particle::particle-dp
+    :E 1d9
+    :nu 0.24d0
+    :psi (* 5d0 (/ pi 180))
+    :phi (* 42d0 (/ pi 180))
+    :c 131d3
+    :phi-r (* 30d0 (/ pi 180))
+    :c-r 0d0
+    :softening 0d0)
+
   (defmpgen make-mps-mc-softening
     'cl-mpm/particle::particle-mc
     :E 1d9
@@ -472,7 +483,8 @@
         ;; (make-mps-plastic-damage)
         ;; (make-mps-mc-residual)
         ;; (make-mps-mc-peak)
-        (make-mps-mc-softening)
+        (make-mps-mc-peak)
+        ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
@@ -1106,11 +1118,10 @@
 (declaim (notinline get-load))
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;; (-
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
-  )
+  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  (-
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
 
 (defun reset-load ()
   (setf 
@@ -1413,6 +1424,7 @@
     (setf cl-mpm/penalty::*debug-force* 0)
     (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
 
+    (reset-load)
     (let ((disp-av 0d0)
           (load-av 0d0)
           (d-av 0d0)
@@ -1435,7 +1447,7 @@
       (setf disp-av *displacement-increment*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
         (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
-    (setf cl-mpm/penalty::*debug-force* 0)
+    (reset-load)
 
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
@@ -1457,6 +1469,7 @@
                            (e-av 0d0)
                            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
                        (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
+                         (reset-load)
                          (time
                           (dotimes (i substeps)
                             (cl-mpm::update-sim *sim*)
@@ -1995,8 +2008,8 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
-                       ;; 8
+                       ;; 4
+                       8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -2005,7 +2018,7 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 2 4 6 8))
+           (dolist (mps (list 3))
              (let (;(mps 2)
                    ;; (mps 2)
                    ;; (scale 0.5d0)
@@ -2021,19 +2034,19 @@
                         )
                      while (and *run-sim*)
                      do
-                        (let ((scale 0.1d0))
+                        (let ((scale 1d0))
                           (setf *skip* nil)
                           (format t "Test ~D ~F" refine s)
                           (setup :refine refine :mps mps :surcharge-load s
-                                 :epsilon-scale 1d1
+                                 :epsilon-scale 1d2
                                  :piston-scale 0.1d0
                                  :piston-mps 2
                                  :friction 0d0)
                           (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                               :displacment 3d-3
+                               :displacment 1d-3
                                :time-scale (* 1d0 scale)
                                :sample-scale (* 1d0 0.1d0)
-                               :dt-scale 1d0
+                               :dt-scale 0.5d0
                                :damage-time-scale 1d0
                                ;; :skip-level 0.9d0
                                :enable-damage nil
@@ -2207,7 +2220,7 @@
                                     (when (typep mp 'cl-mpm/particle::particle-chalk-delayed)
                                       (setf (cl-mpm/particle::mp-friction-angle mp) d))))
 
-                                 (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps d s)
+                                 (run (format nil "../ham-shear-box/output-~f_~D_~f_MC-~F/" refine mps d s)
                                       :displacment 0.10d-3
                                       :time-scale (* 1d0 scale)
                                       :sample-scale (* 1d0 1d0)
