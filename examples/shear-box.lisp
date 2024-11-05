@@ -76,8 +76,8 @@
                     ;cl-mpm/damage::criterion-dp-inscribe-coheasion
                     cl-mpm/damage::criterion-dp-coheasion
                     ;; cl-mpm/damage::criterion-dp-tensile
-                    ;; stress
-                    (magicl:scale stress (/ 1d0 (magicl:det def)))
+                    stress
+                    ;; (magicl:scale stress (/ 1d0 (magicl:det def)))
                     (* angle (/ pi 180d0)))))
 
         ;; (setf damage-increment
@@ -477,6 +477,7 @@
              ;; (init-stress (* 1 131d3))
              ;(init-stress 131d3)
              (init-stress 131d3)
+             ;; (init-stress (* 131d3 0.5d0))
              ;; (init-stress 60d3)
              ;; (init-stress 100d3)
              ;; (init-stress 30d3)
@@ -495,8 +496,8 @@
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-plastic-damage)
         ;; (make-mps-mc-residual)
-        ;; (make-mps-mc-peak)
         (make-mps-mc-peak)
+        ;; (make-mps-mc-peak)
         ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
@@ -732,44 +733,6 @@
                            (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
                                  do
                                     (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
-                                      (push sub-bc bc-save-list)))) (t ))))
-      (let ((json-object (list)))
-        (loop for bc in bc-save-list
-              do
-                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
-                                  (normal cl-mpm/penalty::bc-penalty-normal)
-                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
-                     bc
-                   (push (list :position (list (cl-mpm/utils:varef center 0)
-                                               (cl-mpm/utils:varef center 1)
-                                               (cl-mpm/utils:varef center 2))
-                               :normal (list (cl-mpm/utils:varef normal 0)
-                                             (cl-mpm/utils:varef normal 1)
-                                             (cl-mpm/utils:varef normal 2))
-                               :radius radius) json-object))
-              )
-        (str:to-file
-         filename
-         (jonathan:to-json
-          json-object
-          ))))))
-
-(defun save-vtk-penalty-box (filename sim)
-  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
-      sim
-    (let ((bc-save-list (list)))
-      (loop for bc-list in bcs
-            do
-               (loop for bc across bc-list
-                     do
-                        (typecase bc
-                          (cl-mpm/penalty::bc-penalty-distance
-                           (push bc bc-save-list)
-                           )
-                          (cl-mpm/penalty::bc-penalty-structure
-                           (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
-                                 do
-                                    (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
                                       (push sub-bc bc-save-list))))
                           (t ))))
       (let ((json-object (list)))
@@ -781,13 +744,16 @@
                      bc
                    (let* ((line-dir (cl-mpm/penalty::2d-orthog normal))
                           (p1 (cl-mpm/fastmaths:fast-.+ center (cl-mpm/fastmaths:fast-scale-vector line-dir radius)))
-                          (p2 (cl-mpm/fastmaths:fast-.- center (cl-mpm/fastmaths:fast-scale-vector line-dir radius))))
-                     (push (list (list (cl-mpm/utils:varef p1 0)
-                                       (cl-mpm/utils:varef p1 1)
-                                       (cl-mpm/utils:varef p1 2))
-                                 (list (cl-mpm/utils:varef p2 0)
-                                       (cl-mpm/utils:varef p2 1)
-                                       (cl-mpm/utils:varef p2 2))) json-object))))
+                          (p2 (cl-mpm/fastmaths:fast-.- center (cl-mpm/fastmaths:fast-scale-vector line-dir radius)))
+                          (load (cl-mpm/penalty::bc-penalty-load bc))
+                          )
+                     (push (list (list (list (cl-mpm/utils:varef p1 0)
+                                             (cl-mpm/utils:varef p1 1)
+                                             (cl-mpm/utils:varef p1 2))
+                                       (list (cl-mpm/utils:varef p2 0)
+                                             (cl-mpm/utils:varef p2 1)
+                                             (cl-mpm/utils:varef p2 2)))
+                                 load) json-object))))
         (with-open-file (fs filename :direction :output :if-exists :supersede)
           (format fs "# vtk DataFile Version 2.0~%")
           (format fs "Lisp generated vtk file, SJVS~%")
@@ -798,7 +764,7 @@
                  (point-count (* 2 line-count)))
             (format fs "POINTS ~d double~%" point-count)
             (loop for bc in json-object
-                  do (loop for p in bc
+                  do (loop for p in (first bc)
                            do (format fs "~E ~E ~E ~%"
                                       (coerce (first p) 'single-float)
                                       (coerce (second p) 'single-float)
@@ -813,6 +779,17 @@
             (format fs "CELL_TYPES ~D~%" line-count)
             (loop for bc in json-object
                   do (format fs "3~%"))
+
+            (format fs "CELL_DATA ~d~%" line-count)
+            (format fs "SCALARS ~a FLOAT ~d~%" "LOAD" 1)
+            (format fs "LOOKUP_TABLE default~%")
+            (loop for bc in json-object
+                  do (progn
+                       (format fs "~E ~%"
+                               (coerce (second bc) 'single-float))
+                       ;; (format fs "~E ~%"
+                       ;;         (coerce (second bc) 'single-float))
+                       ))
             ))))))
 
 (defun 2d-orthog (vec)
@@ -940,14 +917,14 @@
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list left-x (- height corner-x) 0d0))
-       (cl-mpm/utils:vector-from-list (list left-x 0d0 0d0))
+       (cl-mpm/utils:vector-from-list (list left-x (- h) 0d0))
        epsilon
        0d0
        0d0))
     (defparameter *shear-box-right-dynamic*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
-       (cl-mpm/utils:vector-from-list (list right-x 0d0 0d0))
+       (cl-mpm/utils:vector-from-list (list right-x (- h) 0d0))
        (cl-mpm/utils:vector-from-list (list right-x (- height corner-y) 0d0))
        epsilon
        0d0
@@ -1099,10 +1076,6 @@
                               *shear-box-left-slide*
                               *shear-box-left-bevel*
                               )))
-           ;; (break)
-           ;; (pprint (if *enable-box-friction*
-           ;;             friction
-           ;;             0d0))
            (loop for bc in friction-bcs
                  do (setf (cl-mpm/penalty::bc-penalty-friction bc)
                           (if *enable-box-friction*
@@ -1132,9 +1105,11 @@
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
   (-
    (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
+   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  )
 
 (defun reset-load ()
   (setf 
@@ -1197,6 +1172,10 @@
          (window-size 1)
          (window-index 0)
          (window (make-array window-size :initial-element 0d0)))
+
+    (let* ((elastic-estimate (/ (* surcharge-load 0.06d0) (cl-mpm/penalty::bc-penalty-epsilon *piston-penalty*))))
+      (cl-mpm/penalty::bc-increment-center *piston-penalty* (cl-mpm/utils:vector-from-list  (list 0d0 (- elastic-estimate) 0d0)))
+      )
     (defparameter *window* window)
     (defparameter *piston-controller*
       (cl-mpm/bc::make-bc-closure
@@ -1253,7 +1232,7 @@
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.125d0 mesh-size))
+                      :corner-size (* 0.25d0 mesh-size))
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
@@ -1276,24 +1255,24 @@
     ;;                                              mesh-size
     ;;                                              )) 1.0d0)
 
-    (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
-      (when (typep mp 'cl-mpm/particle::particle-damage)
-        (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
-               (width (* 1 length-scale)))
-          (cl-mpm/setup::apply-sdf *sim*
-                                   (lambda (p) (cl-mpm/setup::line-sdf
-                                                p
-                                                (list box-size (+ sunk-size box-offset) 0d0)
-                                                (list (* 2 box-size) (+ sunk-size box-offset) 0d0)
-                                                width
-                                                ))
-                                   (lambda (mp v)
-                                     (when (< v 0d0)
-                                       (setf (cl-mpm/particle:mp-damage mp)
-                                             1d0
-                                             ;; (exp (- (expt (/ (+ width v) width) 8)))
-                                             ))
-                                     )))))
+    ;; (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
+    ;;   (when (typep mp 'cl-mpm/particle::particle-damage)
+    ;;     (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
+    ;;            (width (* 1 length-scale)))
+    ;;       (cl-mpm/setup::apply-sdf *sim*
+    ;;                                (lambda (p) (cl-mpm/setup::line-sdf
+    ;;                                             p
+    ;;                                             (list box-size (+ sunk-size box-offset) 0d0)
+    ;;                                             (list (* 2 box-size) (+ sunk-size box-offset) 0d0)
+    ;;                                             width
+    ;;                                             ))
+    ;;                                (lambda (mp v)
+    ;;                                  (when (< v 0d0)
+    ;;                                    (setf (cl-mpm/particle:mp-damage mp)
+    ;;                                          1d0
+    ;;                                          ;; (exp (- (expt (/ (+ width v) width) 8)))
+    ;;                                          ))
+    ;;                                  )))))
     )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -1504,8 +1483,8 @@
                             )))
                        (sb-ext:gc)
 
-                       (setf load-av (get-load))
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av (get-load))
+                       ;; (setf disp-av *displacement-increment*)
 
                        (setf max-load (max max-load load-av))
                        (when skip-level
@@ -2032,7 +2011,7 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 3))
+           (dolist (mps (list 2))
              (let (;(mps 2)
                    ;; (mps 2)
                    ;; (scale 0.5d0)
@@ -2042,32 +2021,33 @@
                        in
                        (list
                         ;; 5d4
-                        ;; 10d4
+                        10d4
                         20d4
                         30d4
                         )
                      while (and *run-sim*)
                      do
-                        (let ((scale 1d0))
-                          (setf *skip* nil)
-                          (format t "Test ~D ~F" refine s)
-                          (setup :refine refine :mps mps :surcharge-load s
-                                 :epsilon-scale 1d2
-                                 :piston-scale 0.1d0
-                                 :piston-mps 2
-                                 :friction 0d0)
-                          (run (format nil "../ham-shear-box/output-~f_~D_~f-~F/" refine mps scale s)
-                               :displacment 1d-3
-                               :time-scale (* 1d0 scale)
-                               :sample-scale (* 1d0 0.1d0)
-                               :dt-scale 0.5d0
-                               :damage-time-scale 1d0
-                               ;; :skip-level 0.9d0
-                               :enable-damage nil
-                               :enable-plasticity t
-                               )
-                          (when *skip*
-                            (setf *run-sim* t))))))))
+                        (dolist (epsilon-scale (list 1d4))
+                          (let ((scale 0.5d0))
+                            (setf *skip* nil)
+                            (format t "Test ~D ~F" refine s)
+                            (setup :refine refine :mps mps :surcharge-load s
+                                   :epsilon-scale epsilon-scale
+                                   :piston-scale 5.0d0
+                                   :piston-mps 2
+                                   :friction 0d0)
+                            (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
+                                 :displacment 0.5d-3
+                                 :time-scale (* 1d0 scale)
+                                 :sample-scale (* 1d0 1d0)
+                                 :dt-scale 0.10d0
+                                 :damage-time-scale 1d0
+                                 ;; :skip-level 0.9d0
+                                 :enable-damage nil
+                                 :enable-plasticity t
+                                 )
+                            (when *skip*
+                              (setf *run-sim* t)))))))))
 
 
 (defun test-damage ()
@@ -2220,7 +2200,7 @@
                                )
                             while (and *run-sim*)
                             do
-                               (let ((scale 0.5d0))
+                               (let ((scale 1d0))
                                  (setf *skip* nil)
                                  (format t "Test ~D ~F" refine s)
                                  (setup :refine refine :mps mps :surcharge-load s

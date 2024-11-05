@@ -43,7 +43,7 @@
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmaths::dot (cl-mpm/particle:mp-position mp) normal))
          (yheight (cl-mpm/fastmaths::dot
-                   (magicl:scale
+                   (cl-mpm/fastmaths:fast-scale-vector
                     (cl-mpm/particle::mp-domain-size mp) 0.5d0)
                    (cl-mpm/fastmaths::norm
                     (magicl:.* normal normal))))
@@ -55,7 +55,7 @@
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
     (magicl:.- pos
-               (magicl:.* normal (magicl:scale domain 0.5d0))
+               (magicl:.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0))
                )))
 
 (defun trial-corner (mp normal)
@@ -112,7 +112,7 @@
                      ;;Iterate over neighbour nodes
                      (let* ((force (cl-mpm/utils:vector-zeros))
                             (rel-vel (cl-mpm/fastmaths:dot normal mp-vel))
-                            (tang-vel (cl-mpm/fastmaths:fast-.- mp-vel (magicl:scale normal rel-vel)))
+                            (tang-vel (cl-mpm/fastmaths:fast-.- mp-vel (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
                             (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
                             ;; (normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
                             (normal-damping (* (/ pi 2) damping (sqrt (* epsilon mp-mass))))
@@ -140,7 +140,7 @@
                                  ;;                              (/ (cl-mpm/fastmaths::mag force-friction)
                                  ;;                                 stick-friction))
                                  (setf force-friction
-                                       (magicl:scale
+                                       (cl-mpm/fastmaths:fast-scale-vector
                                         (cl-mpm/fastmaths:norm force-friction)
                                         stick-friction))
                                  (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
@@ -359,7 +359,7 @@
 (defun disp-distance (mp datum normal)
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmaths::dot (cl-mpm/particle:mp-position mp) normal))
-         (yheight (cl-mpm/fastmaths::dot (magicl:scale (cl-mpm/particle::mp-domain-size mp) 0.5d0)
+         (yheight (cl-mpm/fastmaths::dot (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/particle::mp-domain-size mp) 0.5d0)
                                         (cl-mpm/fastmaths::norm (magicl:.* normal normal))))
          (dist (- datum (- ypos yheight))))
     (the double-float dist)))
@@ -369,7 +369,7 @@
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
     (magicl:.- pos
-               (magicl:.* normal (magicl:scale domain 0.5d0)))))
+               (magicl:.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0)))))
 
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
@@ -522,10 +522,10 @@
           (setf mp-contact t)
           (let* ((force (cl-mpm/utils:vector-zeros))
                  (rel-vel (cl-mpm/fastmaths:dot normal mp-vel))
-                 (tang-vel (cl-mpm/fastmaths:fast-.- mp-vel (magicl:scale normal rel-vel)))
+                 (tang-vel (cl-mpm/fastmaths:fast-.- mp-vel (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
                  (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
                  ;(normal-damping (* (/ pi 2) damping (sqrt (* epsilon mp-mass))))
-                 (normal-damping (* 2d0 damping (sqrt (* epsilon mp-mass))))
+                 (normal-damping (* 0d0 2d0 damping (sqrt (* epsilon mp-mass))))
                  (damping-force (* normal-damping rel-vel))
                  (force-friction mp-friction)
                  (stick-friction (* friction (abs normal-force))))
@@ -546,7 +546,7 @@
                 (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
                     (progn
                       (setf force-friction
-                            (magicl:scale
+                            (cl-mpm/fastmaths:fast-scale-vector
                              (cl-mpm/fastmaths:norm force-friction)
                              stick-friction))
                       (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
@@ -644,6 +644,8 @@
                    (sim bc-penalty-sim))
       bc
     ;; (setf (bc-penalty-structure-contact-points bc) nil)
+    (loop for bc in sub-bcs
+          do (setf (bc-penalty-load bc) 0d0))
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
