@@ -214,39 +214,42 @@
 ;; (defparameter *run-convergance* nil)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key
-                                     (energy-crit 1d-8)
-                                     (oobf-crit 1d-8)
-                                     (live-plot nil)
-                                     (dt-scale 0.5d0)
-                                     (substeps 50)
-                                     (conv-steps 50)
-                                     (post-iter-step nil)
+                                    (energy-crit 1d-8)
+                                    (oobf-crit 1d-8)
+                                    (live-plot nil)
+                                    (dt-scale 0.5d0)
+                                    (substeps 50)
+                                    (conv-steps 50)
+                                    (post-iter-step nil)
+                                    (convergance-criteria nil)
                                      )
   "Converge a simulation to a quasi-static solution via dynamic relaxation
    This is controlled by a kinetic energy norm"
-  (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step)
+  (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria)
     (continue ())
     (retry-convergence ()
       (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step))))
 
 (defgeneric %converge-quasi-static (sim
-                                   energy-crit
-                                   oobf-crit
-                                   live-plot
-                                   dt-scale
-                                   substeps
-                                   conv-steps
-                                   post-iter-step)
- )
-(defparameter *work* 0d0)
-(defmethod %converge-quasi-static (sim
                                     energy-crit
                                     oobf-crit
                                     live-plot
                                     dt-scale
                                     substeps
                                     conv-steps
-                                    post-iter-step)
+                                    post-iter-step
+                                    convergance-criteria)
+ )
+(defparameter *work* 0d0)
+(defmethod %converge-quasi-static (sim
+                                   energy-crit
+                                   oobf-crit
+                                   live-plot
+                                   dt-scale
+                                   substeps
+                                   conv-steps
+                                   post-iter-step
+                                   convergance-criteria)
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
@@ -307,8 +310,10 @@
                    ;;      (lambda (mp)
                    ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
                    ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
-                   (when (and (< fnorm energy-crit)
-                              (< oobf oobf-crit))
+                   (when (and
+                          (if convergance-criteria (funcall convergance-criteria sim) t)
+                          (< fnorm energy-crit)
+                          (< oobf oobf-crit))
                      (format t "Took ~D steps to converge~%" i)
                      (setf converged t))
                    (when post-iter-step
@@ -324,13 +329,14 @@
         )
       (values load fnorm oobf))))
 (defmethod %converge-quasi-static ((sim cl-mpm/mpi:mpm-sim-mpi)
-                                    energy-crit
-                                    oobf-crit
-                                    live-plot
-                                    dt-scale
-                                    substeps
-                                    conv-steps
-                                    post-iter-step)
+                                   energy-crit
+                                   oobf-crit
+                                   live-plot
+                                   dt-scale
+                                   substeps
+                                   conv-steps
+                                   post-iter-step
+                                   convergance-criteria)
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
@@ -393,7 +399,9 @@
                    ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
 
                    (when (and (< fnorm energy-crit)
-                              (< oobf oobf-crit))
+                              (< oobf oobf-crit)
+                              (if convergance-criteria (funcall convergance-criteria sim) t)
+                              )
                      (when (= 0 rank)
                        (format t "Took ~D steps to converge~%" i))
                      (setf converged t))

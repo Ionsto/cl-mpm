@@ -431,8 +431,8 @@
   :nu 0.24d0
   :kt-res-ratio 1d-9
   :kc-res-ratio 1d-2
-  :g-res-ratio 1d-3
-  :friction-angle 40d0
+  :g-res-ratio 5d-3
+  :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
   :delay-exponent 1d0
@@ -477,16 +477,11 @@
              ;; (init-stress (* 1 131d3))
              ;(init-stress 131d3)
              (init-stress 131d3)
-             ;; (init-stress (* 131d3 0.5d0))
-             ;; (init-stress 60d3)
-             ;; (init-stress 100d3)
-             ;; (init-stress 30d3)
-             ;; (init-stress 60d3)
-             ;; (init-stress 10d3)
+             (init-stress 1d9)
              ;; (gf 5d0)
              (gf 5d0)
-             ;; (length-scale (* 1 h))
-             (length-scale (* 7.5d-3 1))
+             (length-scale (* 1 h))
+             ;; (length-scale (* 7.5d-3 1))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 30d0)
              ;; (ductility 1d60)
@@ -496,11 +491,11 @@
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-plastic-damage)
         ;; (make-mps-mc-residual)
-        (make-mps-mc-peak)
+        ;; (make-mps-mc-peak)
         ;; (make-mps-mc-peak)
         ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
-        ;; (make-mps-plastic-damage)
+        (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
              (sur-height (* 0.5 (second block-size)))
@@ -1105,11 +1100,17 @@
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
   (-
    (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
    (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
+(declaim (notinline get-load-left))
+(defun get-load-left ()
+  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*))
+
+(declaim (notinline get-load-right))
+(defun get-load-right ()
+  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
 
 (defun reset-load ()
   (setf 
@@ -1232,7 +1233,7 @@
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.25d0 mesh-size))
+                      :corner-size (* 0.125d0 mesh-size))
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
@@ -1255,24 +1256,24 @@
     ;;                                              mesh-size
     ;;                                              )) 1.0d0)
 
-    ;; (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
-    ;;   (when (typep mp 'cl-mpm/particle::particle-damage)
-    ;;     (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
-    ;;            (width (* 1 length-scale)))
-    ;;       (cl-mpm/setup::apply-sdf *sim*
-    ;;                                (lambda (p) (cl-mpm/setup::line-sdf
-    ;;                                             p
-    ;;                                             (list box-size (+ sunk-size box-offset) 0d0)
-    ;;                                             (list (* 2 box-size) (+ sunk-size box-offset) 0d0)
-    ;;                                             width
-    ;;                                             ))
-    ;;                                (lambda (mp v)
-    ;;                                  (when (< v 0d0)
-    ;;                                    (setf (cl-mpm/particle:mp-damage mp)
-    ;;                                          1d0
-    ;;                                          ;; (exp (- (expt (/ (+ width v) width) 8)))
-    ;;                                          ))
-    ;;                                  )))))
+    (let ((mp (aref (cl-mpm:sim-mps *sim*) 0)))
+      (when (typep mp 'cl-mpm/particle::particle-damage)
+        (let* ((length-scale (cl-mpm/particle::mp-local-length mp))
+               (width (* 1 length-scale)))
+          (cl-mpm/setup::apply-sdf *sim*
+                                   (lambda (p) (cl-mpm/setup::line-sdf
+                                                p
+                                                (list box-size (+ sunk-size box-offset) 0d0)
+                                                (list (* 2 box-size) (+ sunk-size box-offset) 0d0)
+                                                width
+                                                ))
+                                   (lambda (mp v)
+                                     (when (< v 0d0)
+                                       (setf (cl-mpm/particle:mp-damage mp)
+                                             1d0
+                                             ;; (exp (- (expt (/ (+ width v) width) 8)))
+                                             ))
+                                     )))))
     )
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -1289,7 +1290,7 @@
 (declaim (notinline run))
 (defun run (&optional (output-directory "./output/")
             &key (total-time 6d-2)
-              (damping 1d-2)
+              (damping 1d-3)
               (time-scale 1d0)
               (damage-time-scale 1d0)
               (sample-scale 1d0)
@@ -1298,6 +1299,7 @@
               (skip-level nil)
               (enable-damage t)
               (enable-plasticity t)
+              (surcharge-load 0d0)
               )
 
   ;; (when (not (uiop:file-exists-p output-directory)))
@@ -1316,7 +1318,7 @@
   (defparameter *data-energy* (list))
   (defparameter *data-penalty-energy* (list))
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
-    (format stream "disp,load,plastic,damage,energy~%"))
+    (format stream "disp,load,plastic,damage,energy,l-left,l-right~%"))
   ;; (vgplot:close-all-plots)
   (let* (;(displacment 1d-3)
          ;(total-time (* 50d0 displacment))
@@ -1366,21 +1368,29 @@
 
     ;; (vgplot:figure)
     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
-    (cl-mpm/dynamic-relaxation:converge-quasi-static
-     *sim*
-     :energy-crit 1d-2
-     :oobf-crit 1d-2
-     :dt-scale dt-scale
-     :substeps 10
-     :conv-steps 5000
-     :post-iter-step
-     (lambda (i energy oobf)
-       ;; (plot-domain)
-       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
-       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
-       (format t "Surcharge load ~E~%" (/ *piston-confinement* 10))
-       (setf *piston-confinement* 0d0)
-       ))
+    (let ((conv-steps 50))
+      (cl-mpm/dynamic-relaxation:converge-quasi-static
+       *sim*
+       :energy-crit 1d-2
+       :oobf-crit 1d-2
+       :dt-scale dt-scale
+       :substeps 50
+       :conv-steps 5000
+       :convergance-criteria
+       (lambda (sim)
+         ;; (format t "Surcharge load ~E~%" (/ *piston-confinement* 10))
+         ;; (setf *piston-confinement* 0d0)
+         (<= (abs (- (/ *piston-confinement* conv-steps) surcharge-load)) (* surcharge-load 0.1d0)))
+       :post-iter-step
+       (lambda (i energy oobf)
+         ;; (plot-domain)
+         ;; (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
+         ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_conv_~5,'0d.vtk" (+ 1 i))) *sim*)
+         (format t "Surcharge load ~E~%" (/ *piston-confinement* conv-steps))
+         (setf *piston-confinement* 0d0)
+         ;; (format t "Surcharge load ~E~%" (/ *piston-confinement* 10))
+         ;; (setf *piston-confinement* 0d0)
+         )))
     ;; (vgplot:figure)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -1417,6 +1427,7 @@
     (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
 
     (reset-load)
+
     (let ((disp-av 0d0)
           (load-av 0d0)
           (d-av 0d0)
@@ -1425,8 +1436,12 @@
       (format t "Running unloaded step ~D~%" substeps)
       (dotimes (i substeps)
         (cl-mpm::update-sim *sim*)
-        (incf load-av (/ (get-load) substeps)))
+        (incf load-av (/ (get-load) substeps))
+        (incf disp-av (/ *displacement-increment* substeps)))
+
       ;; (setf load-av (get-load))
+      ;; (setf disp-av *displacement-increment*)
+
       (setf load-0 load-av)
       (format t "Load-0 ~E~%" load-0)
       (push *t* *data-t*)
@@ -1435,10 +1450,14 @@
       (push d-av *data-damage*)
       (push p-av *data-plastic*)
       (push e-av *data-energy*)
-      (setf load-av (get-load))
-      (setf disp-av *displacement-increment*)
+
+
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-        (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
+        (format stream "~f,~f,~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av
+                (get-load-left)
+                (get-load-right)
+                )))
+
     (reset-load)
 
     (time (loop for steps from 0 below load-steps
@@ -1468,6 +1487,7 @@
                             ;; (cl-mpm/penalty::apply-penalty-nudge *sim* *shear-box-struct*)
                             (incf load-av (/ (get-load) substeps))
                             (incf disp-av (/ *displacement-increment* substeps))
+
                             (incf *displacement-increment* (/ disp-inc substeps))
                             (incf e-av (/ (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) substeps))
                             (incf *t* (cl-mpm::sim-dt *sim*))
@@ -1506,7 +1526,10 @@
                          (push p-av *data-plastic*)
                          (format t "Disp ~E - Load ~E~%" disp-av load-av)
                          (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-                           (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
+                           (format stream "~f,~f,~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av
+                                   (get-load-left)
+                                   (get-load-right)
+                                   )))
                        )
                      (incf *sim-step*)
                      (plot *sim*)
@@ -1517,53 +1540,7 @@
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
                      (swank.live:update-swank))))
-
-    (format t "Average surcharge ~F~%" (/ average-surcharge *sim-step*))
-    ;; (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;       do (progn
-    ;;            (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-acceleration mp))
-    ;;            (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
-    ;; (when nil
-    ;;   (defparameter *true-load-bc* *shear-box-right-dynamic*)
-    ;;   (time (loop for steps from 0 below load-steps
-    ;;               while *run-sim*
-    ;;               do
-    ;;                  (progn
-    ;;                    (format t "Step ~d ~%" steps)
-    ;;                    (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-    ;;                    (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-    ;;                    (let ((load-av 0d0)
-    ;;                          (disp-av 0d0)
-    ;;                          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
-    ;;                      (time
-    ;;                       (dotimes (i substeps)
-    ;;                         (cl-mpm::update-sim *sim*)
-    ;;                         (incf load-av (/ (get-load) substeps))
-    ;;                         (incf disp-av (/ *displacement-increment* substeps))
-    ;;                         (incf *displacement-increment* (/ (- disp-inc) substeps))
-    ;;                         (incf *t* (cl-mpm::sim-dt *sim*))))
-
-    ;;                      ;; (setf load-av cl-mpm/penalty::*debug-force*)
-    ;;                      ;; (setf load-av (get-load))
-    ;;                      ;; (setf disp-av *displacement-increment*)
-
-    ;;                      (push *t* *data-t*)
-    ;;                      (push disp-av *data-disp*)
-    ;;                      (push load-av *data-v*)
-    ;;                      (format t "Disp ~E - Load ~E~%" disp-av load-av)
-    ;;                      (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-    ;;                        (format stream "~f,~f~%" disp-av load-av)))
-    ;;                    (incf *sim-step*)
-    ;;                    (plot *sim*)
-    ;;                    (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-    ;;                                       :terminal "png size 1920,1080")
-    ;;                    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-    ;;                      (format t "CFL dt estimate: ~f~%" dt-e)
-    ;;                      (format t "CFL step count estimate: ~D~%" substeps-e)
-    ;;                      (setf substeps substeps-e))
-    ;;                    (swank.live:update-swank)))))
-    )
-  ;; (vgplot:figure)
+    (format t "Average surcharge ~F~%" (/ average-surcharge *sim-step*)))
   (plot-load-disp))
 
 
@@ -2001,8 +1978,8 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       ;; 4
-                       8
+                       4
+                       ;; 8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -2011,7 +1988,7 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 2))
+           (dolist (mps (list 3))
              (let (;(mps 2)
                    ;; (mps 2)
                    ;; (scale 0.5d0)
@@ -2027,23 +2004,25 @@
                         )
                      while (and *run-sim*)
                      do
-                        (dolist (epsilon-scale (list 1d4))
-                          (let ((scale 0.5d0))
+                        (dolist (epsilon-scale (list 1d2))
+                          (let ((scale 1.0d0))
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
                             (setup :refine refine :mps mps :surcharge-load s
                                    :epsilon-scale epsilon-scale
-                                   :piston-scale 5.0d0
+                                   :piston-scale 0.5d0
                                    :piston-mps 2
-                                   :friction 0d0)
+                                   :friction 0d0
+                                   )
                             (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
-                                 :displacment 0.5d-3
+                                 :surcharge-load s
+                                 :displacment 0.6d-3
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 1d0)
-                                 :dt-scale 0.10d0
+                                 :dt-scale 0.250d0
                                  :damage-time-scale 1d0
                                  ;; :skip-level 0.9d0
-                                 :enable-damage nil
+                                 :enable-damage t
                                  :enable-plasticity t
                                  )
                             (when *skip*
