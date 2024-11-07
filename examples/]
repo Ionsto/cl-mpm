@@ -491,9 +491,9 @@
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
         ;; (make-mps-mc-peak)
-        ;; (make-mps-mc-peak)
+        (make-mps-mc-peak)
         ;; (make-mps-dp-peak)
-        (make-mps-damage)
+        ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
@@ -712,25 +712,6 @@
           json-object
           ))))))
 
-
-(defun get-all-bcs (bc-prime)
-  (let ((iter-list (list bc-prime))
-        (bc-save-list (list)))
-    (loop for i from 0 to (length iter-list)
-          do
-             (let ((bc (nth i iter-list)))
-               (typecase bc
-                 (cl-mpm/penalty::bc-penalty-distance
-                  (push bc bc-save-list)
-                  )
-                 (cl-mpm/penalty::bc-penalty-structure
-                  (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
-                        do
-                           (setf bc-save-list (append bc-save-list (get-all-bcs sub-bc)))))
-                 (t ))))
-    bc-save-list
-    ))
-
 (defun save-vtk-penalty-box (filename sim)
   (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
       sim
@@ -744,7 +725,10 @@
                            (push bc bc-save-list)
                            )
                           (cl-mpm/penalty::bc-penalty-structure
-                           (setf bc-save-list (append bc-save-list (get-all-bcs bc))))
+                           (loop for sub-bc in (cl-mpm/penalty::bc-penalty-structure-sub-bcs bc)
+                                 do
+                                    (when (typep sub-bc 'cl-mpm/penalty::bc-penalty-distance)
+                                      (push sub-bc bc-save-list))))
                           (t ))))
       (let ((json-object (list)))
         (loop for bc in bc-save-list
@@ -875,12 +859,10 @@
        0d0
        0d0))
     (defparameter *shear-box-left-static-bevel*
-      (cl-mpm/penalty::make-bc-penalty-smooth-corner
+      (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list left-x (+ corner-y height) 0d0))
-       (cl-mpm/utils:vector-from-list (list left-x height 0d0))
        (cl-mpm/utils:vector-from-list (list (- left-x corner-x) height 0d0))
-       2
        epsilon
        0d0
        0d0))
@@ -893,12 +875,10 @@
        0d0
        0d0))
     (defparameter *shear-box-right-static-bevel*
-      (cl-mpm/penalty::make-bc-penalty-smooth-corner
+      (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list (+ right-x corner-x) height 0d0))
-       (cl-mpm/utils:vector-from-list (list right-x height 0d0))
        (cl-mpm/utils:vector-from-list (list right-x (+ corner-y height) 0d0))
-       2
        epsilon
        0d0
        0d0))
@@ -920,26 +900,14 @@
        0d0
        0d0))
 
-    ;; (defparameter *shear-box-left-bevel*
-    ;;   (cl-mpm/penalty::make-bc-penalty-line-segment
-    ;;    sim
-    ;;    (cl-mpm/utils:vector-from-list (list (- left-x corner-x) height 0d0))
-    ;;    (cl-mpm/utils:vector-from-list (list left-x (- height corner-y) 0d0))
-    ;;    epsilon
-    ;;    0d0
-    ;;    0d0))
-
     (defparameter *shear-box-left-bevel*
-      (cl-mpm/penalty::make-bc-penalty-smooth-corner
+      (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list (- left-x corner-x) height 0d0))
-       (cl-mpm/utils:vector-from-list (list left-x height 0d0))
        (cl-mpm/utils:vector-from-list (list left-x (- height corner-y) 0d0))
-       2
        epsilon
        0d0
        0d0))
-
     (defparameter *shear-box-left-dynamic*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
@@ -958,12 +926,10 @@
        0d0)
       )
     (defparameter *shear-box-right-dynamic-bevel*
-      (cl-mpm/penalty::make-bc-penalty-smooth-corner
+      (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
        (cl-mpm/utils:vector-from-list (list right-x (- height corner-y) 0d0))
-       (cl-mpm/utils:vector-from-list (list right-x height 0d0))
        (cl-mpm/utils:vector-from-list (list (+ right-x corner-x) height 0d0))
-       2
        epsilon
        0d0
        0d0)
@@ -1000,7 +966,6 @@
        damping
        (list
         *shear-box-floor*)))
-
     (defparameter *shear-box-struct*
       (cl-mpm/penalty::make-bc-penalty-structure
        sim
@@ -1134,10 +1099,10 @@
 (declaim (notinline get-load))
 (defun get-load ()
   ;; (cl-mpm/penalty::bc-penalty-load *true-load-bc*)
-  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  (-
-   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
+  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;; (-
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
   )
 (declaim (notinline get-load-left))
 (defun get-load-left ()
@@ -1268,7 +1233,7 @@
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.5d0 mesh-size))
+                      :corner-size (* 0.125d0 mesh-size))
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
@@ -2013,7 +1978,7 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
+                       ;; 4
                        8
                        ;; 16
                        ;; 32
@@ -2023,7 +1988,7 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 4))
+           (dolist (mps (list 3))
              (let (;(mps 2)
                    ;; (mps 2)
                    ;; (scale 0.5d0)
@@ -2039,25 +2004,25 @@
                         )
                      while (and *run-sim*)
                      do
-                        (dolist (epsilon-scale (list 2d2))
+                        (dolist (epsilon-scale (list 1d4))
                           (let ((scale 0.5d0))
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
                             (setup :refine refine :mps mps :surcharge-load s
                                    :epsilon-scale epsilon-scale
-                                   :piston-scale 0.5d0
+                                   :piston-scale 1.0d0
                                    :piston-mps 2
                                    :friction 0d0
                                    )
                             (run (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
                                  :surcharge-load s
-                                 :displacment 1d-3
+                                 :displacment 0.1d-3
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 1d0)
-                                 :dt-scale 0.25d0
+                                 :dt-scale 0.10d0
                                  :damage-time-scale 1d0
-                                 :skip-level 0.9d0
-                                 :enable-damage t
+                                 ;; :skip-level 0.9d0
+                                 :enable-damage nil
                                  :enable-plasticity nil
                                  )
                             (when *skip*
