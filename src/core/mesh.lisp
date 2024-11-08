@@ -196,21 +196,23 @@
      )))
 
 (defclass mesh ()
-  ( (nD
-      :accessor mesh-nd
-      :initarg :nD)
-    (mesh-count
-      :accessor mesh-count
-      :initarg :mesh-count)
-    (mesh-size
-      :accessor mesh-mesh-size
-      :initarg :mesh-size)
-    (mesh-res
-      :accessor mesh-resolution
-      :initarg :mesh-res)
-    (nodes
-      :accessor mesh-nodes
-      :initarg :nodes)
+  (
+   (nodes
+    :accessor mesh-nodes
+    :initarg :nodes)
+   (nD
+    :accessor mesh-nd
+    :initarg :nD)
+   (mesh-count
+    :accessor mesh-count
+    :initarg :mesh-count)
+   (mesh-size
+    :accessor mesh-mesh-size
+    :initarg :mesh-size)
+   (mesh-res
+    :accessor mesh-resolution
+    :initarg :mesh-res)
+   
     (cells
       :accessor mesh-cells
       :initarg :cells)
@@ -484,7 +486,10 @@
                          (if (in-bounds mesh pos)
                              (apply #'aref (mesh-nodes mesh) pos)
                                (error (format nil "Access grid out of bounds at: ~a" pos)))
-                         (apply #'aref (mesh-nodes mesh) pos)))
+                         (apply #'aref
+                                (mesh-nodes mesh)
+                                ;; (sb-mop:standard-instance-access mesh 0)
+                                pos)))
 
 (defun get-node-array (mesh pos)
   "Check bounds and get node"

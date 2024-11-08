@@ -57,11 +57,32 @@
 ;;   )
 
 (defclass particle ()
-  ((mass
+  (
+   (position
+    :accessor mp-position
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros)
+    :initarg :position)
+   (size
+    :accessor mp-domain-size
+    :type magicl:matrix/double-float
+    :initarg :size
+    :initform (cl-mpm/utils:vector-zeros))
+   (mass
      :accessor mp-mass
      :type double-float
      :initarg :mass
      :initform 1d0)
+   (velocity
+    :accessor mp-velocity
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initarg :velocity
+    :initform (cl-mpm/utils:vector-zeros))
+   (volume
+    :accessor mp-volume
+    :type double-float
+    :initarg :volume
+    :initform 1d0)
    (nD
      :accessor mp-nd
      :type integer
@@ -76,11 +97,7 @@
     :type integer
     :initform -1
     :initarg :mpi-index)
-   (volume
-     :accessor mp-volume
-     :type double-float
-     :initarg :volume
-     :initform 1d0)
+   
    (volume-0
     :accessor mp-volume-0
     :type double-float
@@ -91,21 +108,8 @@
     :type magicl:matrix/double-float
     :initarg :size-0
     :initform (cl-mpm/utils:vector-zeros))
-   (size
-     :accessor mp-domain-size
-     :type magicl:matrix/double-float
-     :initarg :size
-     :initform (cl-mpm/utils:vector-zeros))
-   (position
-     :accessor mp-position
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-     :initform (cl-mpm/utils:vector-zeros)
-     :initarg :position)
-   (velocity
-     :accessor mp-velocity
-     :type MAGICL:MATRIX/DOUBLE-FLOAT
-     :initarg :velocity
-     :initform (cl-mpm/utils:vector-zeros))
+   
+   
    (acceleration
     :accessor mp-acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT

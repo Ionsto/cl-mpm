@@ -249,8 +249,9 @@
      mesh
      (lambda (node)
        (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
-    (lparallel:pdotimes (i (length mps))
-      (let ((mp (aref mps i)))
+    (cl-mpm:iterate-over-mps
+     mps
+      (lambda (mp)
         (when (typep mp 'cl-mpm/particle:particle-damage)
             (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
               (when (cl-mpm/mesh:in-bounds mesh node-id)
@@ -302,29 +303,24 @@
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                    (h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (lparallel:pdotimes (i (array-total-size nodes))
-      ;;   (let ((node (row-major-aref nodes i)))
-      ;;     (setf (fill-pointer (cl-mpm/mesh::node-local-list node)) 0)))
-    (lparallel:pdotimes (i (length mps))
-      (let ((mp (aref mps i)))
-        (when (typep mp 'cl-mpm/particle:particle-damage)
-          (if (eq (cl-mpm/particle::mp-damage-position mp) nil)
-              ;;New particle - needs to be added to the mesh
-              (local-list-add-particle mesh mp)
-              ;; Already inserted mesh - sanity check to see if it should be recalced
-              (let* ((delta (diff-squared-mat (cl-mpm/particle:mp-position mp)
-                                              (cl-mpm/particle::mp-damage-position mp)
-                                             )))
-                (declare (double-float delta h))
-                (when (> delta (/ h 4d0))
-                  (when (not (eq
-                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
-                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))
-                              ))
-                  (local-list-remove-particle mesh mp)
-                  (local-list-add-particle mesh mp)))))))
-      
-      )
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (if (eq (cl-mpm/particle::mp-damage-position mp) nil)
+             ;;New particle - needs to be added to the mesh
+             (local-list-add-particle mesh mp)
+             ;; Already inserted mesh - sanity check to see if it should be recalced
+             (let* ((delta (cl-mpm/fastmaths::diff-norm (cl-mpm/particle:mp-position mp)
+                                                        (cl-mpm/particle::mp-damage-position mp))))
+               (declare (double-float delta h))
+               (when (> delta (/ h 4d0))
+                 (when (not (eq
+                             (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
+                             (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))
+                             ))
+                   (local-list-remove-particle mesh mp)
+                   (local-list-add-particle mesh mp))))))))
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (node)
@@ -398,10 +394,14 @@
    (inline diff-squared)
    (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
   (defun diff-squared (mp-a mp-b)
-    (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
-          (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
-          )
-      (values (the double-float (simd-accumulate pos-a pos-b)))))
+    (cl-mpm/fastmaths::diff-norm
+     (cl-mpm/particle:mp-position mp-a)
+     (cl-mpm/particle:mp-position mp-b))
+    ;; (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
+    ;;       (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
+    ;;       )
+    ;;   (values (the double-float (simd-accumulate pos-a pos-b))))
+    )
   )
 
 (declaim
@@ -570,8 +570,7 @@ Calls the function with the mesh mp and node"
            (double-float length))
   (let* ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp)))
          (node-reach (the fixnum (ceiling (* length 1d0) (the double-float (cl-mpm/mesh:mesh-resolution mesh)))))
-         (potentially-in-bounds (patch-in-bounds-2d mesh node-id node-reach))
-         )
+         (potentially-in-bounds (patch-in-bounds-2d mesh node-id node-reach)))
     (declare (dynamic-extent node-id))
     (loop for dx fixnum from (- node-reach) to node-reach
           do (loop for dy fixnum from (- node-reach) to node-reach
@@ -790,11 +789,9 @@ Calls the function with the mesh mp and node"
               (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
                                (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                                (damage cl-mpm/particle::mp-damage)
-                               (local-length-t cl-mpm/particle::mp-true-local-length)
-                               )
+                               (local-length-t cl-mpm/particle::mp-true-local-length))
                   mp
-                (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t))
-                )))))
+                (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
 (declaim
@@ -808,9 +805,9 @@ Calls the function with the mesh mp and node"
 (defun localise-damage (mesh mps dt)
   ;(declare ((array cl-mpm/particle::particle *) mps))
   "Apply local damage model"
-  (lparallel:pdotimes
-      (i (length mps))
-    (let ((mp (aref mps i)))
+  (cl-mpm:iterate-over-mps
+   mps
+    (lambda (mp)
       (when (typep mp 'cl-mpm/particle:particle-damage)
         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)

@@ -427,9 +427,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
            (function func)
-           (optimize (speed 3) (safety 0) (debug 0))
-           )
+           (optimize (speed 3) (safety 0) (debug 0)))
   (progn
+    ;; (let ((pos-vec (sb-mop:standard-instance-access mp 0))
+    ;;       (d0 (sb-mop:standard-instance-access mp 1))
+    ;;       ))
     (with-accessors ((pos-vec cl-mpm/particle:mp-position)
                      (d0 cl-mpm/particle::mp-domain-size))
         mp

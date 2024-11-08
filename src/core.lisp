@@ -255,13 +255,13 @@
   "P2G transfer for one MP"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
+  (with-accessors (
+                   (mp-vel  cl-mpm/particle:mp-velocity)
                    (mp-mass cl-mpm/particle:mp-mass)
                    (mp-volume cl-mpm/particle:mp-volume)
                    (mp-pmod cl-mpm/particle::mp-p-modulus)
                    (mp-damage cl-mpm/particle::mp-damage)
                    ) mp
-    (declare (type double-float mp-mass mp-volume))
     (let (
           (mp-mass mp-mass)
           (mp-vel mp-vel)
@@ -269,6 +269,7 @@
           (mp-pmod mp-pmod)
           (mp-damage mp-damage)
           )
+      (declare (type double-float mp-mass mp-volume))
       (iterate-over-neighbours
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)

@@ -616,6 +616,21 @@
                                                   svp))))))
             (values normal-force)))))))
 
+(defgeneric resolve-load (bc))
+(defmethod resolve-load ((bc bc-penalty))
+  (bc-penalty-load bc))
+(defmethod resolve-load ((bc bc-penalty-structure))
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        sum (resolve-load sub-bc)))
+
+(defgeneric reset-load (bc))
+(defmethod reset-load ((bc bc-penalty))
+  (setf (bc-penalty-load bc) 0d0))
+(defmethod reset-load ((bc bc-penalty-structure))
+  (setf (bc-penalty-load bc) 0d0)
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        sum (reset-load sub-bc)))
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty) node mesh dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
@@ -784,8 +799,10 @@
                    (sim bc-penalty-sim))
       bc
     ;; (setf (bc-penalty-structure-contact-points bc) nil)
-    (loop for bc in sub-bcs
-          do (setf (bc-penalty-load bc) 0d0))
+    (reset-load bc)
+    ;; (loop for bc in sub-bcs
+    ;;       do (setf (bc-penalty-load bc) 0d0))
+    ;; (setf debug-force 0d0)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim

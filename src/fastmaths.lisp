@@ -113,9 +113,10 @@
 (declaim
  (inline simd-diff-norm)
  (ftype (function ((simple-array double-float (3))
-                   (simple-array double-float (3))) (values)) simd-diff-norm))
+                   (simple-array double-float (3))) double-float) simd-diff-norm))
 (defun simd-diff-norm (a b)
   (declare (type (simple-array double-float (3)) a b))
+  (declare (optimize (speed 3) (safety 0)))
   (+
    (the double-float (expt (- (aref a 0) (aref b 0)) 2))
    (the double-float (expt (- (aref a 1) (aref b 1)) 2))
@@ -131,6 +132,9 @@
   ;;                                    temp))
   ;;    (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
   )
+(defun diff-norm (a b)
+  (simd-diff-norm (cl-mpm/utils:fast-storage a)
+                  (cl-mpm/utils:fast-storage b)))
 
 (declaim
  (inline fast-fmacc-array)
