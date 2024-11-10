@@ -1537,9 +1537,9 @@ Calls the function with the mesh mp and node"
         (j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress)))
         (A (/ (* 6 (cos angle))
-              (* (sqrt 3) (- 3d0 (sin angle)))))
+              (* (sqrt 3) (+ 3d0 (sin angle)))))
         (B (/ (* 2 (sin angle))
-              (* (sqrt 3) (- 3d0 (sin angle))))))
+              (* (sqrt 3) (+ 3d0 (sin angle))))))
     (* (/ 1d0 A)
        (+ (* B p) (sqrt j2)))))
 
