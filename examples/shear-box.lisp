@@ -2105,13 +2105,13 @@
                         )
                      while (and *run-sim*)
                      do
-                        (dolist (epsilon-scale (list 1d2))
+                        (dolist (epsilon-scale (list 1d3))
                           (let ()
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
                             (setup :refine refine :mps mps :surcharge-load s
                                    :epsilon-scale epsilon-scale
-                                   :piston-scale 0.5d0
+                                   :piston-scale 5d0
                                    :piston-mps 2
                                    :friction 0d0
                                    )
