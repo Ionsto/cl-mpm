@@ -74,11 +74,11 @@
               (max 0d0
                    (
                     ;; cl-mpm/damage::criterion-dp-inscribe-coheasion
-                    cl-mpm/damage::criterion-dp-middle-circumscribe-coheasion
-                    ;cl-mpm/damage::criterion-dp-coheasion
+                    ;; cl-mpm/damage::criterion-dp-middle-circumscribe-coheasion
+                    cl-mpm/damage::criterion-dp-coheasion
                     ;; cl-mpm/damage::criterion-dp-tensile
-                    stress
-                    ;; (magicl:scale stress (/ 1d0 (magicl:det def)))
+                    ;; stress
+                    (magicl:scale stress (/ 1d0 (magicl:det def)))
                     (* angle (/ pi 180d0)))))
 
         ;; (setf damage-increment
@@ -408,7 +408,7 @@
   :kt-res-ratio 1d-9
   :kc-res-ratio 1d0
   :g-res-ratio 1d-9
-  :friction-angle 50d0
+  :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
   :delay-exponent 1d0
@@ -1152,13 +1152,13 @@
    ;; (cl-mpm/penalty::bc-penalty-load *shear-box-struct-left*)
    ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-  ;; (-
-  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
-  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
-  ;;  )
+  ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
+  (-
+   (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
+   (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
+   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
+   )
   )
 (declaim (notinline get-load-left))
 (defun get-load-left ()
@@ -2089,10 +2089,10 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 4))
+           (dolist (mps (list 2))
              (let (;(mps 2)
                    ;; (mps 2)
-                   (scale 0.5d0)
+                   (scale 1d0)
                    )
                (loop for s
                      ;; from 0d0 to 35d4 by 2.5d4
@@ -2111,7 +2111,7 @@
                             (format t "Test ~D ~F" refine s)
                             (setup :refine refine :mps mps :surcharge-load s
                                    :epsilon-scale epsilon-scale
-                                   :piston-scale 5d0
+                                   :piston-scale 0.5d0
                                    :piston-mps 2
                                    :friction 0d0
                                    )
