@@ -361,7 +361,7 @@
   'cl-mpm/particle::particle-mc
   :E 1d9
   :nu 0.24d0
-  :psi (* 5d0 (/ pi 180))
+  :psi (* 0d0 (/ pi 180))
   :phi (* 30d0 (/ pi 180))
   :c 0d0
   :phi-r (* 30d0 (/ pi 180))
@@ -492,9 +492,9 @@
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
         ;; (make-mps-mc-peak)
-        (make-mps-mc-peak)
+        ;; (make-mps-mc-peak)
         ;; (make-mps-dp-peak)
-        ;; (make-mps-damage)
+        (make-mps-damage)
         ;; (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
@@ -1151,12 +1151,14 @@
 
    ;; (cl-mpm/penalty::bc-penalty-load *shear-box-struct-left*)
    ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-  (-
-   (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-   (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
-   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
-   )
+  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
+  ;; (-
+  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
+  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
+  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
+  ;;  )
   )
 (declaim (notinline get-load-left))
 (defun get-load-left ()
@@ -1497,8 +1499,8 @@
         (incf load-av (/ (get-load) substeps))
         (incf disp-av (/ *displacement-increment* substeps)))
 
-      ;; (setf load-av (get-load))
-      ;; (setf disp-av *displacement-increment*)
+      (setf load-av (get-load))
+      (setf disp-av *displacement-increment*)
 
       (setf load-0 load-av)
       (format t "Load-0 ~E~%" load-0)
@@ -1562,8 +1564,8 @@
                             )))
                        (sb-ext:gc)
 
-                       ;; (setf load-av (get-load))
-                       ;; (setf disp-av *displacement-increment*)
+                       (setf load-av (get-load))
+                       (setf disp-av *displacement-increment*)
 
                        (setf max-load (max max-load load-av))
                        (when skip-level
@@ -2078,7 +2080,7 @@
                        ;; 2
                        4
                        ;; 4.5
-                       8
+                       ;; 8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -2090,7 +2092,7 @@
            (dolist (mps (list 4))
              (let (;(mps 2)
                    ;; (mps 2)
-                   (scale 10d0)
+                   (scale 0.5d0)
                    )
                (loop for s
                      ;; from 0d0 to 35d4 by 2.5d4
@@ -2114,16 +2116,16 @@
                                    :friction 0d0
                                    )
                             (run (format nil "../ham-shear-box/output-dy_~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
-                                 :damping 1d-5
+                                 :damping 1d-2
                                  :surcharge-load s
-                                 :displacment 0.2d-3
+                                 :displacment 0.5d-3
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 1d0)
-                                 :dt-scale 0.25d0
+                                 :dt-scale (/ 0.50d0 (sqrt (* 1d-2 epsilon-scale)))
                                  :damage-time-scale 1d0
-                                 ;; :skip-level 0.9d0
-                                 :enable-damage nil
-                                 :enable-plasticity t
+                                 :skip-level 0.9d0
+                                 :enable-damage t
+                                 :enable-plasticity nil
                                  )
                             ;; (run-static (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
                             ;;      :displacment 0.1d-3
