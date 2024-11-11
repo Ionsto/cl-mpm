@@ -121,7 +121,8 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xx))
-   :colour-func #'cl-mpm/particle::mp-damage
+   ;; :colour-func #'cl-mpm/particle::mp-damage
+   :colour-func #'cl-mpm/particle::mp-damage-ybar
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
    ;;                (let ((drive 
@@ -2118,47 +2119,33 @@
 ;;      (lambda (node)
 ;;        (cl-mpm::calculate-forces-cundall node damping dt mass-scale)))))
 ;; (setf *run-sim* nil)
-(defun estimate-max-stress ()
+(defun estimate-max-stress-good ()
   (vgplot:close-all-plots)
-  (let ((refine 1d0))
-    (setup 0.0d0 :mesh-size 1.00d0 :mps 2)
-    ;; (setup-under :mesh-size (/ 1.00d0 refine)
-    ;;              :height 15.5d0
-    ;;              )
+  (let ((refine 1d0)
+        (dt-scale 0.50d0))
+    (setup :notch-length 0.0d0
+           :mesh-size 1.00d0
+           :mps 4)
     (cl-mpm/output::save-simulation-parameters
      #p"output/settings.json"
      *sim*
      (list :dt 1d0))
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (setf (cl-mpm/particle::mp-initiation-stress mp) 1d10))
+
+    (setf (cl-mpm:sim-mass-scale *sim*) 1d4)
     (setf (cl-mpm:sim-damping-factor *sim*)
-          ;; 0.4d0
-          (* 1d0 (sqrt (/ 1d9 (* (expt 1d0 2) 1.7d3))))
-          ;(* 1d-1 (cl-mpm::sim-mass-scale *sim*))
-          )
+          (* 0.5d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
+    (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm/setup:estimate-elastic-dt *sim*)))
+
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (setf
               (cl-mpm/particle::mp-initiation-stress mp) 1d10
               (cl-mpm/particle::mp-enable-plasticity mp) nil))
+
     (defparameter *damage-data* (list))
+    (defparameter *energy-data* (list))
     (defparameter *time-data* (list))
-    (when nil
-      (setf (cl-mpm::sim-enable-damage *sim*) nil)
-      (cl-mpm/dynamic-relaxation::converge-quasi-static
-       *sim*
-       :energy-crit 1d-2
-       :oobf-crit 1d-2
-       :dt-scale 0.8d0
-       :conv-steps 200
-       :substeps 50)
-      (cl-mpm/damage::calculate-damage *sim*)
-      (let ((dy
-              (lparallel:pmap-reduce (lambda (mp)
-                                       (cl-mpm/particle::mp-damage-ybar mp))
-                                     #'max (cl-mpm:sim-mps *sim*))
-              ))
-        (format t "Max damage-ybar ~E~%" dy))
-      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" 0)) *sim*))
 
     (cl-mpm/output::save-simulation-parameters
      #p"output/settings.json"
@@ -2167,35 +2154,63 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (setf
               (cl-mpm/particle::mp-initiation-stress mp) 1d10
-              (cl-mpm/particle::mp-enable-plasticity mp) nil))
+              (cl-mpm/particle::mp-enable-plasticity mp) nil
+              ;; (cl-mpm/particle::mp-enable-damage mp) nil
+              ))
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
-    (let ((dt-scale 0.9d0))
-      (loop for i from 0 to 400
-            while *run-sim*
-            do
-               (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-               (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-               (loop for j from 0 to (* refine 10)
-                     while *run-sim*
-                     do
-                        (cl-mpm:update-sim *sim*))
-               (cl-mpm/damage::calculate-damage *sim*)
-               (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
-               (format t "Step ~D~%" i)
-               (let ((dy
-                       (lparallel:pmap-reduce (lambda (mp)
-                                                (cl-mpm/particle::mp-damage-ybar mp))
-                                              #'max (cl-mpm:sim-mps *sim*))
-                       ))
-                 (format t "Max damage-ybar ~E~%" dy)
-                 (push dy *damage-data*)
-                 (push i *time-data*))
-               (plot *sim*)
-               (swank.live:update-swank)
-            )
-      ;; (vgplot:figure)
-      ;; (vgplot:plot *time-data* *damage-data*))
-    )))
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :dt-scale dt-scale
+     :energy-crit 1d-2
+     :oobf-crit 1d-2
+     :substeps 50
+     :conv-steps 200
+     :dt-scale dt-scale
+     :post-iter-step
+     (lambda (i e o)
+       (cl-mpm/damage::calculate-damage *sim*)
+       (plot *sim*)
+
+       (let ((dy (lparallel:pmap-reduce (lambda (mp)
+                                        (cl-mpm/particle::mp-damage-ybar mp))
+                                      #'max (cl-mpm:sim-mps *sim*))))
+                    (format t "Max damage-ybar ~E~%" dy)
+                    (push dy *damage-data*)
+                    (push i *time-data*))
+       (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" i))
+                          :terminal "png size 1920,1080"
+                          )))
+    ;; (let ()
+    ;;   (loop for i from 0 to 400
+    ;;         while *run-sim*
+    ;;         do
+    ;;            (loop for j from 0 to (* refine 10)
+    ;;                  while *run-sim*
+    ;;                  do
+    ;;                     (cl-mpm:update-sim *sim*))
+    ;;            (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+    ;;            (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+    ;;            (cl-mpm/damage::calculate-damage *sim*)
+    ;;            (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
+    ;;            (format t "Step ~D~%" i)
+    ;;            (let ((dy
+    ;;                    (lparallel:pmap-reduce (lambda (mp)
+    ;;                                             (cl-mpm/particle::mp-damage-ybar mp))
+    ;;                                           #'max (cl-mpm:sim-mps *sim*))
+    ;;                    ))
+    ;;              (format t "Max damage-ybar ~E~%" dy)
+    ;;              (push dy *damage-data*)
+    ;;              (push i *time-data*))
+    ;;            (plot *sim*)
+    ;;            (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+    ;;                               :terminal "png size 1920,1080"
+    ;;                               )
+    ;;            (swank.live:update-swank)
+    ;;         )
+    ;;   ;; (vgplot:figure)
+    ;;   ;; (vgplot:plot *time-data* *damage-data*))
+    ;; )
+    ))
 ;; (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
 ;;   (with-accessors ((damping cl-mpm::sim-damping-factor)
 ;;                    (mass-scale cl-mpm::sim-mass-scale)
