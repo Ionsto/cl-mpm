@@ -41,7 +41,18 @@
     :initarg :kc-res-ratio
     :initform 1d-9
     )
-   )
+   (damage-tension
+    :accessor mp-damage-tension
+    :initarg :damage-tension
+    :initform 0d0)
+   (damage-compression
+    :accessor mp-damage-compression
+    :initarg :damage-compression
+    :initform 0d0)
+   (damage-shear
+    :accessor mp-damage-shear
+    :initarg :damage-shear
+    :initform 0d0))
   (:documentation "A chalk damage model"))
 
 (defclass particle-chalk-creep (particle-chalk)
@@ -201,6 +212,8 @@
                    (stress-u mp-undamaged-stress)
                    (strain mp-strain)
                    (damage mp-damage)
+                   (damage-c mp-damage-compression)
+                   (damage-s mp-damage-shear)
                    (coheasion mp-c)
                    (ps-vm mp-strain-plastic-vm)
                    (ps-vm-inc mp-strain-plastic-vm-inc)
@@ -214,7 +227,8 @@
                    (psi mp-psi)
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
-                   (g-r mp-shear-residual-ratio))
+                   (g-r mp-shear-residual-ratio)
+                   )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
@@ -256,12 +270,14 @@
             (ex 1))
         (setf p
               (if (> p 0d0)
-                  (* (expt (- 1d0 (* (- 1d0 kt-r) damage)) ex) p)
-                  (* (expt (- 1d0 (* (- 1d0 kc-r) damage)) ex) p)))
+                  (* (expt (- 1d0 damage) ex) p)
+                  (* (expt (- 1d0 damage-c) ex) p)
+                  ;; p
+                  ))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 (* (- 1d0 g-r) damage)) ex))
+               (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 damage-s) ex))
                stress)))
       )
     stress))
@@ -561,8 +577,14 @@
                      (ductility cl-mpm/particle::mp-ductility)
                      (nu cl-mpm/particle::mp-nu)
                      (p cl-mpm/particle::mp-p-modulus)
-
-                     ) mp
+                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
+                     (damage-tension cl-mpm/particle::mp-damage-tension)
+                     (damage-shear cl-mpm/particle::mp-damage-shear)
+                     (damage-compression cl-mpm/particle::mp-damage-compression)
+                     )
+        mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
       (when (< damage 1d0)
         ;;Damage increment holds the delocalised driving factor
@@ -582,12 +604,13 @@
         (let ((new-damage
                 (max
                  damage
-                 (damage-response-exponential k E init-stress ductility)
-                 ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
-                 )))
+                 (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
-          (setf damage-inc (- new-damage damage))
-          )
+          (setf damage-inc (- new-damage damage)))
+        (setf
+         damage-tension (max damage-tension (damage-response-exponential-residual k E init-stress ductility kt-r))
+         damage-shear (max damage-shear (damage-response-exponential-residual k E init-stress ductility g-r))
+         damage-compression (max damage-shear (damage-response-exponential-residual k E init-stress ductility kc-r)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))

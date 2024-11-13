@@ -1965,6 +1965,21 @@ Calls the function with the mesh mp and node"
         (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
         0d0)))
 
+(declaim (ftype (function (double-float double-float double-float double-float )
+                          double-float) damage-response-exponential))
+(defun damage-response-exponential-residual (stress E init-stress ductility residual)
+  (declare (double-float stress E init-stress ductility residual))
+  "Function that controls how damage evolves with principal stresses"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+         (k (/ stress E))
+         (beta (/ 1d0 (- ef e0)))
+         )
+    (if (> k e0)
+        (- 1d0 (* (/ e0 k) (+ (- 1d0 residual) (* residual (exp (- (* beta (- k e0))))))))
+        0d0)))
+
 (defun damage-response-exponential-beta (E init-stress ductility)
   (declare (double-float E init-stress ductility))
   "Function that controls how damage evolves with principal stresses"
