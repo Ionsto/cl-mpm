@@ -460,6 +460,7 @@
                             (surcharge-load 72.5d3)
                             (piston-scale 1d0)
                             (piston-mps 2)
+                            (init-stress 50d3)
                             )
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
@@ -477,7 +478,8 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress (* 1 131d3))
              ;(init-stress 131d3)
-             (init-stress 131d3)
+             ;(init-stress 131d3)
+             ;; (init-stress (* 3d0 131d3))
              ;; (init-stress 1d9)
              ;; (gf 5d0)
              (gf 5d0)
@@ -1272,6 +1274,7 @@
 (defun setup (&key (refine 1d0) (mps 2) (friction 0.0d0) (surcharge-load 72.5d3) (epsilon-scale 1d2)
                 (piston-scale 1d0)
                 (piston-mps 2)
+                (init-stress 90d3)
                 )
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
@@ -1291,7 +1294,8 @@
                          mps-per-dim
                          :piston-scale piston-scale
                          :piston-mps piston-mps
-                         :surcharge-load surcharge-load))
+                         :surcharge-load surcharge-load
+                         :init-stress init-stress))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.25d0 mesh-size))
@@ -2105,7 +2109,7 @@
                         )
                      while (and *run-sim*)
                      do
-                        (dolist (epsilon-scale (list 1d3))
+                        (dolist (epsilon-scale (list 1d2))
                           (let ()
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
@@ -2115,7 +2119,7 @@
                                    :piston-mps 2
                                    :friction 0d0
                                    )
-                            (run (format nil "../ham-shear-box/output-dy_~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
+                            (run (format nil "../ham-shear-box/output-tensile_~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
                                  :damping 1d-2
                                  :surcharge-load s
                                  :displacment 0.5d-3
