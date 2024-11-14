@@ -154,7 +154,7 @@
                     (g2p mesh mps dt)
                     (when split
                       (split-mps sim))
-                    (check-mps sim)
+                    ;; (check-mps sim)
                     (incf time dt))))
 
 (defmethod update-sim ((sim mpm-sim-usl))
@@ -262,13 +262,11 @@
                    (mp-pmod cl-mpm/particle::mp-p-modulus)
                    (mp-damage cl-mpm/particle::mp-damage)
                    ) mp
-    (let (
-          (mp-mass mp-mass)
+    (let ((mp-mass mp-mass)
           (mp-vel mp-vel)
           (mp-volume mp-volume)
           (mp-pmod mp-pmod)
-          (mp-damage mp-damage)
-          )
+          (mp-damage mp-damage))
       (declare (type double-float mp-mass mp-volume))
       (iterate-over-neighbours
        mesh mp
@@ -305,13 +303,14 @@
              )
            ;;Ideally we include these generic functions for special mapping operations, however they are slow
            ;; (special-p2g mp node svp dsvp)
-           )))))
+           )))
+      ))
   (values))
 
 (declaim (notinline p2g))
 (defun p2g (mesh mps)
   "Map particle momentum to the grid"
-  (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+  (declare (type (vector cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
   (iterate-over-mps
    mps
    (lambda (mp)
@@ -407,19 +406,14 @@
                          (cl-mpm/particle:particle mp)
                          (double-float dt))
                 "Map one MP from the grid"
-                (with-accessors ((mass mp-mass)
-                                 (vel mp-velocity)
+                (with-accessors ((vel mp-velocity)
                                  (pos mp-position)
                                  (disp cl-mpm/particle::mp-displacement)
                                  (acc cl-mpm/particle::mp-acceleration)
-                                 (temp cl-mpm/particle::mp-boundary)
-                                 (strain-rate mp-strain-rate)
-                                 (vorticity cl-mpm/particle:mp-vorticity)
-                                 (nc cl-mpm/particle::mp-cached-nodes)
-                                 (fixed-velocity cl-mpm/particle::mp-fixed-velocity)
-                                 )
+                                 (nc cl-mpm/particle::mp-cached-nodes))
                     mp
                   (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
+                    (declare (dynamic-extent mapped-vel))
                     (progn
                       ;;With special operations we need to reset some params for g2p
                       ;; (reset-mps-g2p mp)
@@ -440,7 +434,7 @@
                                         (node-scalar cl-mpm/mesh::node-boundary-scalar)
                                         (node-active cl-mpm/mesh:node-active)
                                         ) node
-                         (declare (double-float node-scalar temp)
+                         (declare (double-float node-scalar)
                                   (boolean node-active))
                          (when node-active
                            (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
@@ -461,7 +455,8 @@
                         (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
                         (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0))
                       (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-                      ,@update))))
+                      ,@update))
+                  ))
 
              ))
 
@@ -601,8 +596,7 @@
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-blend mesh mp dt))))
-    ))
+        (g2p-mp-blend mesh mp dt))))))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
@@ -922,6 +916,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    domain))
     (progn
       (let ((df (calculate-df mesh mp fbar)))
+        (declare (dynamic-extent df))
         (progn
           (setf def (magicl:@ df def))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
@@ -1024,43 +1019,23 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+             (double-float volume))
     (progn
-      ;;   ;;For no FBAR we need to update our strains
       (progn
-        ;; (unless fbar)
         (calculate-strain-rate mesh mp dt)
-
-        ;; (loop for v across (cl-mpm/utils::fast-storage stretch-tensor)
-        ;;       do (when (or (sb-ext::float-nan-p v)
-        ;;                    (> v 1d5)
-        ;;                    (< v -1d5)
-        ;;                    )
-        ;;            (error "Bad stretch tensor found ~A ~A" mp stretch-tensor)))
-
         ;; Turn cauchy stress to kirchoff
-        ;; (setf stress stress-kirchoff)
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; (loop for v across (cl-mpm/utils::fast-storage strain)
-        ;;       do (when (sb-ext::float-nan-p v)
-        ;;            (error "PRE NaN strain found ~A" mp)))
-        ;; (pprint stretch-tensor)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
-        ;; (loop for v across (cl-mpm/utils::fast-storage strain)
-        ;;       do (when (sb-ext::float-nan-p v)
-        ;;            (error "POST NaN strain found ~A" mp)))
         ;; Update our kirchoff stress with constitutive model
-        ;; (setf stress-kirchoff (cl-mpm/particle:constitutive-model mp strain dt))
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-
         ;; Check volume constraint!
         (when (<= volume 0d0)
           (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
-        ;; (setf stress (magicl:scale stress-kirchoff (/ 1.0d0 (the double-float (magicl:det def)))))
         ))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-damaged))
@@ -1234,42 +1209,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                              (the double-float (/ 1d0 (float nd)))))
           (when (= nd 2)
             (setf (mtref df 2 2) 1d0))
-          ))
-
-      ;; (when fbar
-      ;;   (let ((j-inc (magicl:det df))
-      ;;         (j-n (magicl:det def))
-      ;;         (j-n1 0d0)
-      ;;         (wsum 0d0)
-      ;;         )
-      ;;     (declare (double-float j-inc j-n j-n1))
-      ;;     (iterate-over-neighbours
-      ;;      mesh mp
-      ;;      (lambda (mesh mp node svp grads f fb)
-      ;;        (declare (ignore mesh mp  grads f fb))
-      ;;        (with-accessors ((node-active cl-mpm/mesh:node-active)
-      ;;                         (node-j-inc cl-mpm/mesh::node-jacobian-inc))
-      ;;            node
-      ;;          (declare (double-float svp node-j-inc))
-      ;;          (when node-active
-      ;;            (incf j-n1 (* svp node-j-inc))
-      ;;            (incf wsum svp)
-      ;;            ))))
-      ;;     (setf j-n1 (/ j-n1 wsum))
-      ;;     (when (<= (/ j-n1 (* j-n j-inc)) 0d0)
-      ;;       (error "Negative volume"))
-      ;;     (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
-      ;;       (magicl:scale! df
-      ;;                      (expt
-      ;;                       (the double-float (/ j-n1 (* j-n j-inc)))
-      ;;                       (the double-float (/ 1d0 (float nd)))))
-      ;;       (when (= nd 2)
-      ;;         (setf (magicl:tref df 2 2) 1d0))
-      ;;       )
-      ;;     (setf (cl-mpm/particle::mp-debug-j mp) j-inc
-      ;;           (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df))
-      ;;     ))
-      df)))
+          )) df)))
 (defgeneric post-stress-step (mesh mp dt))
 (defmethod post-stress-step (mesh mp dt)
   )
@@ -1360,6 +1300,24 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (cl-mpm/mesh:reset-node node)
           )))))
 
+(defun delete-mps-func (mps func)
+  (declare (function func)
+           (vector mps))
+  (let* ((mp-count (length mps))
+         (bit-vector (make-array mp-count :element-type 'bit :initial-element 0)))
+    (declare (dynamic-extent bit-vector))
+    (lparallel:pdotimes (i mp-count)
+      (setf (aref bit-vector i) (if (funcall func (aref mps i)) 1 0)))
+    (loop for i fixnum from 0 below mp-count
+          do (when (= 1 (aref bit-vector i))
+              (setf (aref mps i) (aref mps (- mp-count 1)))
+              (decf mp-count)
+              (decf (fill-pointer mps))
+              )))
+  (when (and (not (adjustable-array-p mps))
+             (= (length mps) 0))
+    (setf mps (make-array 0 :adjustable t :fill-pointer 0))))
+
 (defgeneric sim-add-mp (sim mp)
   (:documentation "A function to append an mp to a simulation"))
 (defmethod sim-add-mp (sim mp)
@@ -1373,11 +1331,13 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       sim
     (declare ((vector cl-mpm/particle::particle) mps))
     (when (> (length mps) 0)
-      (setf mps
-            ;;We cant do this in parallel apparently
-            (delete-if func mps)
-                                        ;(lparallel:premove-if func mps)
-            ))
+      (delete-mps-func mps func)
+      ;; (setf mps
+      ;;       ;;We cant do this in parallel apparently
+      ;;       (delete-if func mps)
+      ;;                                   ;(lparallel:premove-if func mps)
+      ;;       )
+      )
     ;;Sometimes when compacting the array; sbcl will just discard make and unadjustable array in place which is a bit wild
     (when (and (not (adjustable-array-p mps))
                (= (length mps) 0))
@@ -1688,3 +1648,6 @@ This modifies the dt of the simulation in the process
        ;;Uncommon case we have a singluar bc we wish to add, so double wrap it
        (setf bcs-force-list (nconc (list (cl-mpm/bc:make-bcs-from-list (list new-bcs))) bcs-force-list)))
       (t (error "BCs must be a list, array or singluar bc")))))
+
+(defun get-mp (sim index)
+  (aref (sim-mps sim) index))

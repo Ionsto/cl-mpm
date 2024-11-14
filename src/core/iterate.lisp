@@ -99,14 +99,14 @@ Calls func with only the node"
 weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  ;; (create-node-cache mesh mp func)
   (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
       (iterate-over-neighbours-cached mesh mp func)
       (create-node-cache mesh mp func))
-  ;;Ideally we should be dispatching over simulation shape function type but its faster to hard code
-  ;; (iterate-over-neighbours-shape-gimp mesh mp func)
-  ;; (iterate-over-neighbours-shape-linear mesh mp func)
-  ;; (iterate-over-neighbours-shape mesh (cl-mpm/mesh:mesh-shape-func mesh) mp func)
+  ;; (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+  ;;       (iterate-over-neighbours-shape-gimp-simd
+  ;;        mesh mp func)
+  ;;       (iterate-over-neighbours-shape-gimp-3d
+  ;;        mesh mp func))
   (values)
   )
 
@@ -128,15 +128,25 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                (declare (ignore gfz))
                (vector-push-extend
                 (cl-mpm/particle::make-node-cache
-                 :node node
-                 :weight svp
-                 :grad-x gx
-                 :grad-y gy
-                 :grad-z 0d0
-                 :weight-fbar fsvp
-                 :grad-fbar-x gfx
-                 :grad-fbar-y gfy
-                 :grad-fbar-z 0d0)
+                 ;; :node node
+                 ;; :weight svp
+                 ;; :grad-x gx
+                 ;; :grad-y gy
+                 ;; :grad-z 0d0
+                 ;; :weight-fbar fsvp
+                 ;; :grad-fbar-x gfx
+                 ;; :grad-fbar-y gfy
+                 ;; :grad-fbar-z 0d0
+                 node
+                 svp
+                 gx
+                 gy
+                 0d0
+                 fsvp
+                 gfx
+                 gfy
+                 0d0
+                 )
                 nodes)))
            (funcall func mesh mp node svp grads fsvp fgrads)))
         (iterate-over-neighbours-shape-gimp-3d
@@ -146,15 +156,24 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
              (destructuring-bind (gfx gfy gfz) fgrads
                (vector-push-extend
                 (cl-mpm/particle::make-node-cache
-                 :node node
-                 :weight svp
-                 :grad-x gx
-                 :grad-y gy
-                 :grad-z gz
-                 :weight-fbar fsvp
-                 :grad-fbar-x gfx
-                 :grad-fbar-y gfy
-                 :grad-fbar-z gfz
+                 ;; :node node
+                 ;; :weight svp
+                 ;; :grad-x gx
+                 ;; :grad-y gy
+                 ;; :grad-z gz
+                 ;; :weight-fbar fsvp
+                 ;; :grad-fbar-x gfx
+                 ;; :grad-fbar-y gfy
+                 ;; :grad-fbar-z gfz
+                 node
+                 svp
+                 gx
+                 gy
+                 gz
+                 fsvp
+                 gfx
+                 gfy
+                 gfz
                  )
                 nodes)))
            (funcall func mesh mp node svp grads fsvp fgrads))))))

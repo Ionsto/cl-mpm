@@ -168,7 +168,7 @@
                   (disp (cl-mpm/utils:vector-zeros)))
               (cl-mpm/fastmaths::fast-.+-vector
                position
-               (magicl:scale!
+               (cl-mpm/fastmaths:fast-scale!
                 (magicl:.*
                  (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0)) (list x y 0)))
                  domain
@@ -178,8 +178,7 @@
                              (max 0d0 (min
                                        (the double-float (coerce (nth i mesh-size) 'double-float))
                                        (the double-float (varef corner i))))))
-              (;iterate-over-neighbours-point-linear-simd
-               iterate-over-neighbours-point-linear
+              (iterate-over-neighbours-point-linear
                mesh corner
                (lambda (mesh node svp grads)
                  (declare (double-float dt svp))
@@ -202,7 +201,8 @@
                                      (the double-float (/ 1d0 2d0))))))
             (setf (varef domain 0) (* (the double-float (varef domain 0)) scaling)
                   (varef domain 1) (* (the double-float (varef domain 1)) scaling)
-                  ))))))
+                  ))
+          ))))
 
 (defun update-domain-corner-3d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

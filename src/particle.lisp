@@ -33,7 +33,18 @@
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-(defstruct node-cache
+(declaim (inline make-node-cache))
+(defstruct (node-cache
+            (:constructor make-node-cache
+                (node
+                 weight
+                 grad-x
+                 grad-y
+                 grad-z
+                 weight-fbar
+                 grad-fbar-x
+                 grad-fbar-y
+                 grad-fbar-z)))
   (node nil :type cl-mpm/mesh::node)
   (weight 0d0 :type double-float)
   (grad-x 0d0 :type double-float)
@@ -42,7 +53,8 @@
   (weight-fbar 0d0 :type double-float)
   (grad-fbar-x 0d0 :type double-float)
   (grad-fbar-y 0d0 :type double-float)
-  (grad-fbar-z 0d0 :type double-float))
+  (grad-fbar-z 0d0 :type double-float)
+  )
 
 ;(defun make-node-cache (&key node weight grads weight-fbar grads-fbar))
 

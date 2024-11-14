@@ -541,7 +541,7 @@
 
 (defun damage-response-linear (stress E Gf length init-stress ductility)
   (declare (double-float stress E Gf length init-stress ductility))
-  "Function that controls how damage evolves with principal stresses"
+  "Linear softening"
   (let* ((ft init-stress)
          (e0 (/ ft E))
          (ef (* e0 ductility))
@@ -551,6 +551,25 @@
              (/ (max 0d0 (- k e0))
                 (- ef e0)))
         0d0)))
+
+(defun damage-response-linear-residual (stress E Gf length init-stress ductility residual)
+  (declare (double-float stress E Gf length init-stress ductility))
+  "Linear softening with plastic residual behaviour"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (* e0 ductility))
+         (k (/ stress E)))
+    (if (> k e0)
+        (min
+         ;; Linear softening
+         (min 1d0
+              (/ (max 0d0 (- k e0))
+                 (- ef e0)))
+         (min 1d0
+              (max 0d0
+                   (- 1d0 (/ e0 k)))))
+        0d0)))
+
 
 
 
@@ -610,7 +629,7 @@
         (setf
          damage-tension (max damage-tension (damage-response-exponential-residual k E init-stress ductility kt-r))
          damage-shear (max damage-shear (damage-response-exponential-residual k E init-stress ductility g-r))
-         damage-compression (max damage-shear (damage-response-exponential-residual k E init-stress ductility kc-r)))
+         damage-compression (max damage-compression (damage-response-exponential-residual k E init-stress ductility kc-r)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
@@ -626,7 +645,7 @@
           (setf damage-inc 0d0))
         )
       (values))))
-(defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
+(defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed-linear) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
@@ -649,9 +668,17 @@
                      (ductility cl-mpm/particle::mp-ductility)
                      (nu cl-mpm/particle::mp-nu)
                      (p cl-mpm/particle::mp-p-modulus)
-
+                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
+                     (damage-tension cl-mpm/particle::mp-damage-tension)
+                     (damage-shear cl-mpm/particle::mp-damage-shear)
+                     (damage-compression cl-mpm/particle::mp-damage-compression)
                      ) mp
-      (declare (double-float damage damage-inc critical-damage k ybar tau dt))
+      (declare (double-float damage damage-inc critical-damage k ybar tau dt
+                             damage-tension damage-shear damage-compression
+                             kt-r kc-r g-r
+                             init-stress ductility))
       (when (< damage 1d0)
         ;;Damage increment holds the delocalised driving factor
         (setf ybar damage-inc)
@@ -663,9 +690,10 @@
                         dt
                         (/
                          (* k0
-                            (expt
-                             (/ (the double-float (max 0d0 (- ybar k)))
-                                k0) a))
+                            (the double-float
+                                 (expt
+                                  (/ (the double-float (max 0d0 (- ybar k)))
+                                     k0) a)))
                          tau)))))
         (let ((new-damage
                 (max
@@ -674,8 +702,11 @@
                  (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                  )))
           (declare (double-float new-damage))
-          (setf damage-inc (- new-damage damage))
-          )
+          (setf damage-inc (- new-damage damage)))
+        (setf
+         damage-tension (max damage-tension (damage-response-linear-residual k E init-stress ductility kt-r))
+         damage-shear (max damage-shear (damage-response-linear-residual k E init-stress ductility g-r))
+         damage-compression (max damage-compression (damage-response-linear-residual k E init-stress ductility kc-r)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
