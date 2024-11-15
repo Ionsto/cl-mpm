@@ -1966,6 +1966,25 @@ Calls the function with the mesh mp and node"
         (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
         0d0)))
 
+(defun get-k-damage (mp damage)
+  (declare (double-float stress E init-stress ductility))
+  (with-accessors
+        ((E cl-mpm/particle::mp-e)
+         (init-stress cl-mpm/particle::mp-initiation-stress)
+         (ductility cl-mpm/particle::mp-ductility))
+      mp
+    (let* ((ft init-stress)
+           (e0 (/ ft E))
+           (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+           (k (/ stress E))
+           (beta (/ 1d0 (- ef e0)))
+           )
+      (declare (double-float ft e0 ef k beta))
+      (if (> k e0)
+          (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
+          0d0))))
+
+
 (declaim (ftype (function (double-float double-float double-float double-float )
                           double-float) damage-response-exponential))
 (defun damage-response-exponential-residual (stress E init-stress ductility residual)
