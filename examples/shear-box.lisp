@@ -73,10 +73,9 @@
         (setf damage-increment
               (max 0d0
                    (
-                    ;; cl-mpm/damage::criterion-dp-inscribe-coheasion
                     ;; cl-mpm/damage::criterion-dp-middle-circumscribe-coheasion
-                    cl-mpm/damage::criterion-dp-coheasion
-                    ;; cl-mpm/damage::criterion-dp-tensile
+                    ;; cl-mpm/damage::criterion-dp-coheasion
+                    cl-mpm/damage::criterion-dp-tensile-circumscribed
                     ;; stress
                     (magicl:scale stress (/ 1d0 (magicl:det def)))
                     (* angle (/ pi 180d0)))))
@@ -405,9 +404,9 @@
   'cl-mpm/particle::particle-chalk-delayed
   :E 1d9
   :nu 0.24d0
-  :kt-res-ratio 1d-9
+  :kt-res-ratio 1d0
   :kc-res-ratio 1d0
-  :g-res-ratio 1d-9
+  :g-res-ratio 1d0
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
@@ -430,9 +429,9 @@
   'cl-mpm/particle::particle-chalk-delayed
   :E 1d9
   :nu 0.24d0
-  :kt-res-ratio 1d-9
-  :kc-res-ratio 1d-2
-  :g-res-ratio 5d-3
+  :kt-res-ratio 1d0
+  :kc-res-ratio 1d0
+  :g-res-ratio 1d0
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
@@ -442,9 +441,9 @@
   :local-length length-scale
   :local-length-damaged 10d-10
   :enable-damage t
-  :enable-plasticity t
+  :enable-plasticity nil
 
-  :psi (* 5d0 (/ pi 180))
+  :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
   :c (* 131d3 100d0)
   :phi-r (* 30d0 (/ pi 180))
@@ -496,8 +495,8 @@
         ;; (make-mps-mc-peak)
         ;; (make-mps-mc-peak)
         ;; (make-mps-dp-peak)
-        (make-mps-damage)
-        ;; (make-mps-plastic-damage)
+        ;; (make-mps-damage)
+        (make-mps-plastic-damage)
         )
       (let* ((sur-height h-x)
              ;; (sur-height (* 0.5 (second block-size)))
@@ -1155,12 +1154,14 @@
    ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
   ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-  (-
-   (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-   (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
-   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
-   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
-   )
+  ;; (-
+  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
+  ;;  (cl-mpm/penalty::resolve-load *shear-box-struct-right*)
+  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
+  ;;  ;; (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)
+  ;;  )
+
+  (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
   )
 (declaim (notinline get-load-left))
 (defun get-load-left ()
@@ -1300,6 +1301,10 @@
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.25d0 mesh-size))
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
+    (setf (cl-mpm:sim-dt *sim*)
+          (*
+           (cl-mpm/setup::estimate-elastic-dt *sim*)
+           (/ 1d0 (sqrt (* 1d-1 epsilon-scale)))))
 
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
@@ -1873,7 +1878,7 @@
 
 (defun profile ()
   (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (setup :refine 2)
+  (setup :refine 4)
   ;; (sb-profile:profile)
   ;; (sb-profile:reset)
   ;; (sb-profile:profile "CL-MPM")
@@ -1884,50 +1889,16 @@
   ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
   ;; (sb-profile:profile "CL-MPM/PENALTY")
 
-  (setf (cl-mpm::sim-enable-damage *sim*) t)
-  (setf (cl-mpm::sim-nonlocal-damage *sim*) t)
-  (setf *enable-box-friction* t)
-  (setf (cl-mpm:sim-damping-factor *sim*)
-        (*
-         1d-2
-         (sqrt (cl-mpm:sim-mass-scale *sim*))
-         (cl-mpm/setup::estimate-critical-damping *sim*))
-        )
-  ;; (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
-  ;;   (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
-  ;; (with-accessors ((mesh cl-mpm:sim-mesh)
-  ;;                  (mps cl-mpm:sim-mps))
-  ;;     *sim*
-  ;;   (let* ((mp (aref mps 0)))
-  ;;     (pprint
-  ;;      (cl-mpm/particle::mp-local-length mp))
-  ;;     (cl-mpm/damage::iterate-over-damage-bounds
-  ;;      mesh
-  ;;      mp
-  ;;      (cl-mpm/particle::mp-local-length mp)
-  ;;      (lambda (mesh mp node)))
-  ;;     (time
-  ;;      (loop repeat 1
-  ;;            while *run-sim*
-  ;;            do (progn
-  ;;                 (
-  ;;                  cl-mpm:iterate-over-mps
-  ;;                  mps
-  ;;                  (lambda (mp)
-  ;;                    (cl-mpm/damage::iterate-over-damage-bounds
-  ;;                     mesh
-  ;;                     mp
-  ;;                     (cl-mpm/particle::mp-local-length mp)
-  ;;                     (lambda (mesh mp node)))
-  ;;                    )))))
-  ;;     ))
-
+  (setf *run-sim* t)
   (setf *displacement-increment* 0d0)
-  (let ((disp-inc (/ 1d-3 10)))
+  (setf (cl-mpm::sim-enable-damage *sim*) nil)
+  (let* ((steps 100)
+         (disp-inc (/ 1d-3 100)))
     (time
-     (loop repeat 100
+     (loop for step from 1 to steps
            while *run-sim*
            do (progn
+                (format t "Step ~D/~D~%" step steps)
                 (incf *displacement-increment* disp-inc)
                 (cl-mpm::update-sim *sim*)
                 (swank.live:update-swank)
@@ -2093,23 +2064,27 @@
                        ;; 32
                        )
         do
-           (dolist (mps (list 2))
-             (let (;(mps 2)
-                   ;; (mps 2)
-                   (scale 1d0)
-                   )
-               (loop for s
-                     ;; from 0d0 to 35d4 by 2.5d4
-                       in
-                       (list
-                        ;; 5d4
-                        10d4
-                        20d4
-                        30d4
-                        )
-                     while (and *run-sim*)
-                     do
-                        (dolist (epsilon-scale (list 1d2))
+           (dolist (epsilon-scale (list 1d3))
+             (dolist (mps (list 3))
+               (let (;(mps 2)
+                     ;; (mps 2)
+                     (scale 10d0)
+                     (sample-scale 1d0)
+                     (name "circumscribed")
+                     ;; (name "middle-circumscribed")
+                     ;; (name "inscribed")
+                     )
+                 (loop for s
+                       ;; from 0d0 to 35d4 by 2.5d4
+                         in
+                         (list
+                          ;; 5d4
+                          10d4
+                          20d4
+                          30d4
+                          )
+                       while (and *run-sim*)
+                       do
                           (let ()
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
@@ -2118,14 +2093,15 @@
                                    :piston-scale 0.5d0
                                    :piston-mps 2
                                    :friction 0d0
+                                   :init-stress (cl-mpm/damage::dp-tension-from-dp-circumscribed (* 42d0 (/ pi 180)) 131d3)
                                    )
-                            (run (format nil "../ham-shear-box/output-tensile_~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
+                            (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f-~F/" name refine mps scale epsilon-scale s)
                                  :damping 1d-2
                                  :surcharge-load s
                                  :displacment 0.5d-3
                                  :time-scale (* 1d0 scale)
-                                 :sample-scale (* 1d0 1d0)
-                                 :dt-scale (/ 0.50d0 (sqrt (* 1d-2 epsilon-scale)))
+                                 :sample-scale (* 1d0 sample-scale)
+                                 :dt-scale (/ 1d0 (sqrt (* 1d-1 epsilon-scale)))
                                  :damage-time-scale 1d0
                                  :skip-level 0.9d0
                                  :enable-damage t

@@ -6,10 +6,10 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
-(setf *block-compile-default* t)
 (in-package :cl-mpm/examples/collapse)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
@@ -17,11 +17,15 @@
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :point
-   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-   ))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   )
+  )
+
+(defun stop ()
+  (setf *run-sim* nil))
 
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-block
@@ -47,11 +51,11 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
                 ;; 'cl-mpm/particle::particle-elastic-damage
-                ;; 'cl-mpm/particle::particle-elastic
-                'cl-mpm/particle::particle-vm
+                'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.3d0
-                :rho 20d3
+                ;; :rho 20d3
                 ;; :initiation-stress 1d3
                 ;; :damage-rate 1d-6
                 ;; :critical-damage 0.50d0
@@ -121,7 +125,9 @@
 
 (defun setup (&key (refine 1))
   (let ((mps-per-dim 2))
-    (defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim)))
+    ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
+    (defparameter *sim* (setup-test-column '(16 16) '(8 8) refine mps-per-dim))
+    )
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -189,17 +195,41 @@
 ;;                           (cl-mpm:sim-mps *sim*)
 ;;                           (cl-mpm:sim-dt *sim*))))
 
-(defun test ()
-  (setup)
-  ;; (sb-profile:profile "CL-MPM")
+
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (time
+        (dotimes (i ,it)
+              ,form))
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
+         dt))))
+(defun profile ()
+  (setup :refine 8)
+  (sb-profile:unprofile)
+  (sb-profile:profile "CL-MPM")
   ;; (sb-profile:profile "CL-MPM/PARTICLE")
   ;; (sb-profile:profile "CL-MPM/MESH")
   ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  ;; (sb-profile:reset)
-  (time
-   (dotimes (i 10)
-         (cl-mpm::update-sim *sim*)))
-  (sb-profile:report)
+  (sb-profile:reset)
+  (time-form 100
+             (progn
+               (format t "~D~%" i)
+                  (cl-mpm::update-sim *sim*)))
+  ;; (time
+  ;;  (dotimes (i 100)
+  ;;    (format t "~D~%" i)
+  ;;    (cl-mpm::update-sim *sim*)))
+  (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  ;; (sb-profile:report)
   )
 ;; (lparallel:end-kernel)
 ;; (sb-ext::exit)
@@ -248,3 +278,23 @@
                 (pprint mp)
                 )
            ))))
+
+
+
+;;Old
+;; Evaluation took:
+;; 7.969 seconds of real time
+;; 71.424494 seconds of total run time (53.687638 user, 17.736856 system)
+;; [ Real times consist of 2.410 seconds GC time, and 5.559 seconds non-GC time. ]
+;; [ Run times consist of 2.467 seconds GC time, and 68.958 seconds non-GC time. ]
+;; 896.27% CPU
+;; 33,467,579,605 processor cycles
+;; 22,937,955,888 bytes consed
+
+;; Total time: 7.969999 
+;; Time per iteration: 0.07969999
+;; Throughput: 12.547053
+;; Time per MP: 4.8645017e-6
+;; MPS 16384
+
+;;New
