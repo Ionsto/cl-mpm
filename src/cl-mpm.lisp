@@ -8,7 +8,13 @@
    :magicl tref .+ .-
    )
   (:import-from
-   :cl-mpm/forces det-int-force det-ext-force)
+   :cl-mpm/forces
+   det-int-force
+   det-ext-force
+   det-ext-force-2d
+   det-int-force-unrolled
+   det-int-force-unrolled-2d
+   )
   (:export
    #:mpm-sim
    #:make-mpm-sim

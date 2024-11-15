@@ -1,7 +1,10 @@
 (defpackage :cl-mpm/forces
-  (:use :cl)
+  (:use :cl
+        :cl-mpm/utils
+        )
   (:export
    #:det-int-force
+   #:det-int-force-unrolled
    #:det-ext-force
    ))
 (in-package :cl-mpm/forces)
@@ -160,6 +163,77 @@
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
       )
     f-out))
+(declaim
+ (inline det-int-force-unrolled)
+ (ftype (function (cl-mpm/particle::particle list
+                                             &optional magicl:matrix/double-float) magicl:matrix/double-float)
+        det-int-force-unrolled))
+(defun det-int-force-unrolled (mp grads &optional f-out)
+  "Calculate internal force contribution from mp at node"
+  (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (volume cl-mpm/particle:mp-volume)
+                     (vel cl-mpm/particle:mp-velocity)
+                     (damping cl-mpm/particle::mp-viscous-damping)
+                     ) mp
+      (declare (type double-float volume))
+      ;; (@-dsvp-vec-simd dsvp stress volume f-out)
+      (let ((f-out-storage (cl-mpm/utils:fast-storage f-out))
+            (stress-storage (cl-mpm/utils:fast-storage stress))
+            )
+        (destructuring-bind (dx dy dz) grads
+          (declare (double-float dx dy dz))
+          (incf (aref f-out-storage 0)
+                (* -1d0 volume
+                   (+
+                    (* dx (aref stress-storage 0))
+                    (* dz (aref stress-storage 4))
+                    (* dy (aref stress-storage 5)))))
+          (incf (aref f-out-storage 1)
+                (* -1d0 volume
+                   (+
+                    (* dy (aref stress-storage 1))
+                    (* dz (aref stress-storage 3))
+                    (* dx (aref stress-storage 5)))))
+          (incf (aref f-out-storage 2)
+                (* -1d0 volume
+                   (+
+                    (* dz (aref stress-storage 2))
+                    (* dy (aref stress-storage 3))
+                    (* dx (aref stress-storage 4))))))))
+    f-out))
+
+(declaim
+ (inline det-int-force-unrolled-2d)
+ (ftype (function (cl-mpm/particle::particle list
+                                             &optional magicl:matrix/double-float) magicl:matrix/double-float)
+        det-int-force-unrolled-2d))
+(defun det-int-force-unrolled-2d (mp grads &optional f-out)
+  "Calculate internal force contribution from mp at node"
+  (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (volume cl-mpm/particle:mp-volume)
+                     (vel cl-mpm/particle:mp-velocity)
+                     (damping cl-mpm/particle::mp-viscous-damping)
+                     ) mp
+      (declare (type double-float volume))
+      ;; (@-dsvp-vec-simd dsvp stress volume f-out)
+      (let ((f-out-storage (cl-mpm/utils:fast-storage f-out))
+            (stress-storage (cl-mpm/utils:fast-storage stress))
+            )
+        (destructuring-bind (dx dy dz) grads
+          (declare (double-float dx dy dz))
+          (incf (aref f-out-storage 0)
+                (* -1d0 volume
+                   (+
+                    (* dx (aref stress-storage 0))
+                    (* dy (aref stress-storage 5)))))
+          (incf (aref f-out-storage 1)
+                (* -1d0 volume
+                   (+
+                    (* dy (aref stress-storage 1))
+                    (* dx (aref stress-storage 5))))))))
+    f-out))
 
 (declaim
  (inline det-ext-force)
@@ -213,4 +287,41 @@
           ;;   (cl-mpm/fastmaths::fast-.+ (magicl:from-list (list 0d0 (* mass gravity)) '(2 1) :type 'double-float)
           ;;              (magicl:scale body-force mass))
           ;;   svp))
+      f-out)))
+
+(declaim
+ (inline det-ext-force-2d)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+        det-ext-force-2d))
+(defun det-ext-force-2d (mp node svp &optional f-out)
+  "Calculate external force contribution from mp at node"
+  (with-accessors ((mass cl-mpm/particle:mp-mass)
+                   (gravity cl-mpm/particle:mp-gravity)
+                   (volume cl-mpm/particle:mp-volume)
+                   (body-force cl-mpm/particle:mp-body-force)
+                   (gravity-axis cl-mpm/particle::mp-gravity-axis)
+                   ) mp
+    (declare (type double-float svp mass gravity volume)
+             (type magicl:matrix/double-float body-force))
+    (let* ((f-out (if f-out f-out (cl-mpm/utils::vector-zeros)))
+           (f-s (magicl::matrix/double-float-storage f-out))
+           (b-s (magicl::matrix/double-float-storage body-force))
+           (g-s (magicl::matrix/double-float-storage gravity-axis))
+           )
+      (declare (type (simple-array double-float (3)) f-s b-s g-s))
+      ;;Manually unrolled
+
+      (setf
+       (sb-simd-avx:f64.2-aref f-s 0)
+       (sb-simd-avx:f64.2+
+        (sb-simd-avx:f64.2-aref f-s 0)
+        (sb-simd-avx:f64.2*
+         (sb-simd-avx:f64.2+
+          (sb-simd-avx:f64.2*
+           (sb-simd-avx:f64.2-aref g-s 0)
+           (* mass gravity))
+          (sb-simd-avx:f64.2*
+           (sb-simd-avx:f64.2-aref b-s 0)
+           volume))
+         svp)))
       f-out)))

@@ -138,6 +138,8 @@
                 (progn
                     (reset-grid mesh)
                     (p2g mesh mps)
+                    ;;
+
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt )
@@ -150,6 +152,8 @@
                     (update-node-forces sim)
                     ;; Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
+
+                    ;;
                     ;; Also updates mps inline
                     (g2p mesh mps dt)
                     (when split
@@ -327,8 +331,9 @@
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-      (declare (dynamic-extent dsvp))
+    (let (;(dsvp (cl-mpm/utils::dsvp-3d-zeros))
+          )
+      ;; (declare (dynamic-extent dsvp))
       (iterate-over-neighbours
        mesh mp
        (lambda (mesh mp node svp grads fsvp fgrads)
@@ -348,22 +353,62 @@
                     (sb-thread:mutex node-lock)
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
-             (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+             ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
-               (det-int-force mp dsvp node-int-force)
-               ;; (cl-mpm/fastmaths::fast-.+-vector node-int-force node-ext-force node-force)
+               ;; (det-int-force mp dsvp node-int-force)
+               (det-int-force-unrolled mp grads node-int-force)
                )))))))
+  (values))
+(declaim (notinline p2g-force-mp-2d)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp-2d)
+         )
+(defun p2g-force-mp-2d (mesh mp)
+  "Map particle forces to the grid for one mp"
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
+                   (mp-mass cl-mpm/particle:mp-mass)
+                   ) mp
+    (declare (type double-float mp-mass))
+    (iterate-over-neighbours
+     mesh mp
+     (lambda (mesh mp node svp grads fsvp fgrads)
+       (declare
+        (cl-mpm/particle:particle mp)
+        (cl-mpm/mesh::node node)
+        (double-float svp))
+       (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                        (node-active  cl-mpm/mesh:node-active)
+                        (node-mass  cl-mpm/mesh:node-mass)
+                        (node-force cl-mpm/mesh:node-force)
+                        (node-int-force cl-mpm/mesh::node-internal-force)
+                        (node-ext-force cl-mpm/mesh::node-external-force)
+                        (node-lock  cl-mpm/mesh:node-lock)) node
+         (declare (double-float node-mass)
+                  (boolean node-active)
+                  (sb-thread:mutex node-lock)
+                  (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
+         (when node-active
+           (sb-thread:with-mutex (node-lock)
+             (det-ext-force-2d mp node svp node-ext-force)
+             (det-int-force-unrolled-2d mp grads node-int-force)
+             ))))))
   (values))
 
 (declaim (inline p2g-force))
 (defun p2g-force (mesh mps)
   "Map particle forces to the grid"
   (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (p2g-force-mp mesh mp))))
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (iterate-over-mps
+       mps
+       (lambda (mp)
+         (p2g-force-mp-2d mesh mp)))
+      (iterate-over-mps
+       mps
+       (lambda (mp)
+         (p2g-force-mp mesh mp)))))
 
 (defgeneric special-g2p (mesh mp node svp grads)
   (:documentation "G2P behaviour for specific features")
@@ -625,23 +670,22 @@
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
-  (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((mass  node-mass)
-                     (vel   node-velocity)
-                     (force node-force)
-                     (force-ext cl-mpm/mesh::node-external-force)
-                     (force-int cl-mpm/mesh::node-internal-force)
-                     (acc   node-acceleration))
-        node
-        (declare (double-float mass dt damping mass-scale))
-        (progn
-          (magicl:scale! acc 0d0)
-          ;;Set acc to f/m
-          (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
-          (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-          (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-          (cl-mpm/fastmaths:fast-fmacc vel acc dt)
-          )))
+  (with-accessors ((mass  node-mass)
+                   (vel   node-velocity)
+                   (force node-force)
+                   (force-ext cl-mpm/mesh::node-external-force)
+                   (force-int cl-mpm/mesh::node-internal-force)
+                   (acc   node-acceleration))
+      node
+    (declare (double-float mass dt damping mass-scale))
+    (progn
+      (magicl:scale! acc 0d0)
+      ;;Set acc to f/m
+      (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+      (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+      (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+      ))
   (values))
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping - except without scaling by mass
@@ -748,7 +792,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (iterate-over-nodes
      mesh
      (lambda (node)
-       (calculate-forces node damping dt mass-scale)))))
+       (when (cl-mpm/mesh:node-active node)
+         (calculate-forces node damping dt mass-scale))))))
 
 (defmethod update-node-forces ((sim mpm-sim-quasi-static))
   (with-accessors ((damping sim-damping-factor)
