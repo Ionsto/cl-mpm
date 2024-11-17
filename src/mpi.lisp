@@ -38,7 +38,7 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
-    :initform 1d0
+    :initform 3d0
     )
    (domain-count
     :accessor mpm-sim-mpi-domain-count
@@ -243,7 +243,7 @@
              (index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
-             (halo-depth 2))
+             (halo-depth (mpm-sim-mpi-halo-depth sim)))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
@@ -1359,7 +1359,7 @@
              (index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
-             (halo-depth 2))
+             (halo-depth (cl-mpm/mpi::mpm-sim-mpi-halo-depth sim)))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
