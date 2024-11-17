@@ -617,8 +617,10 @@
             (values normal-force)))))))
 
 (defgeneric resolve-load (bc))
+
 (defmethod resolve-load ((bc bc-penalty))
   (bc-penalty-load bc))
+
 (defmethod resolve-load ((bc bc-penalty-structure))
   (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
         sum (resolve-load sub-bc)))

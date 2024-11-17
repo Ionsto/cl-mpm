@@ -3,10 +3,6 @@
 
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  #+cl-mpm-pic (print "Compiled with PIC")
-  #-cl-mpm-pic (print "Compiled with FLIP")
-  #+cl-mpm-fbar (print "Compiled with FBAR")
-  #-cl-mpm-fbar (print "Compiled without FBAR")
   #+cl-mpm-special (print "Compiled with special hooks")
   #-cl-mpm-special (print "Compiled without special hooks")
   (format t "Compiled with optimize ~A~%" (sb-ext:restrict-compiler-policy)))

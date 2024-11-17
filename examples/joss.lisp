@@ -41,8 +41,8 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed-grassl) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-ugimp mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-ugimp mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
@@ -83,14 +83,19 @@
         ;;                          (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-
         (setf damage-increment
               (max 0d0
-                   (cl-mpm/damage::criterion-dp-coheasion
-                    ;; cl-mpm/damage::criterion-dp-tensile
-                    ;; stress
-                    (cl-mpm/fastmaths:fast-scale-voigt stress (/ 1d0 (magicl:det def)))
+                   (cl-mpm/damage::criterion-mohr-coloumb-stress
+                    stress
                     (* angle (/ pi 180d0)))))
+
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-dp-coheasion
+        ;;             ;; cl-mpm/damage::criterion-dp-tensile
+        ;;             ;; stress
+        ;;             (cl-mpm/fastmaths:fast-scale-voigt stress (/ 1d0 (magicl:det def)))
+        ;;             (* angle (/ pi 180d0)))))
         ;; (setf damage-increment
         ;;       (sqrt (* 3/2
         ;;                (cl-mpm/constitutive::voigt-j2
@@ -128,7 +133,8 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   :colour-func #'cl-mpm/particle::mp-damage
+   ;:colour-func #'cl-mpm/particle::mp-damage
+   :colour-func #'cl-mpm/particle::mp-damage-shear
    ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
    ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
@@ -213,12 +219,13 @@
     (declare (double-float h density))
     (progn
       (let* (
-             (init-stress (* 26d3 0.63d0))
+             ;; (init-stress (* 26d3 0.63d0))
+             (init-stress 26d3)
              (downscale (/ 1d0 1d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
              (gf 5d0)
              ;; (gf 10d0)
-             (length-scale (* h 2d0))
+             (length-scale (* h 1d0))
              ;; (length-scale 1.0d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -251,15 +258,15 @@
                 :E 1d9
                 :nu 0.24d0
 
-                :enable-plasticity t
+                :enable-plasticity nil
 
                 :ft 1d0
                 :fc 10d0
 
-                :friction-angle 42.0d0
-                :kt-res-ratio 1d-9
+                :friction-angle 50.0d0
+                :kt-res-ratio 1d0
                 :kc-res-ratio 1d0
-                :g-res-ratio 1d-9
+                :g-res-ratio 1d0
 
                 :fracture-energy 3000d0
                 :initiation-stress init-stress;18d3
@@ -278,37 +285,37 @@
                 ;; :psi 0d0
                 ;; :phi (* 42d0 (/ pi 180))
                 ;; :c 131d3
-                :psi (* 5d0 (/ pi 180))
-                :phi (* 42d0 (/ pi 180))
-                :c (* 131d3 10d0)
+                :psi (* 0d0 (/ pi 180))
+                :phi (* 50d0 (/ pi 180))
+                :c (* init-stress 10d0)
 
                 :gravity -9.8d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
-      (let ((mp-0 (aref (cl-mpm:sim-mps sim) 0)))
-        (when (typep mp-0 'cl-mpm/particle::particle-chalk-brittle)
-          (let* (
-                 (fc (cl-mpm/particle::mp-fc mp-0))
-                 (ft (cl-mpm/particle::mp-ft mp-0))
-                 (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
-                 (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
-                 (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
-                 (angle-plastic (cl-mpm/particle::mp-phi mp-0))
-                 (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
-                 )
-            (format t "Estimated Gf ~F~%" (estimate-gf (cl-mpm/particle::mp-ductility mp-0)
-                                                       (cl-mpm/particle::mp-initiation-stress mp-0)
-                                                       (cl-mpm/particle::mp-local-length mp-0)))
-            (format t "Chalk damage growth angle: ~F~%"
-                    angle-d)
-            (format t "Chalk plastic virgin angle: ~F~%"
-                    (* (/ 180 pi) angle-plastic))
-            (format t "Chalk plastic residual angle: ~F~%"
-                    (* (/ 180 pi) angle-plastic-damaged)))))
+      ;; (let ((mp-0 (aref (cl-mpm:sim-mps sim) 0)))
+      ;;   (when (typep mp-0 'cl-mpm/particle::particle-chalk-brittle)
+      ;;     (let* (
+      ;;            (fc (cl-mpm/particle::mp-fc mp-0))
+      ;;            (ft (cl-mpm/particle::mp-ft mp-0))
+      ;;            (angle-d (* (/ 180 pi) (atan (* 3 (/ (- fc ft) (+ fc ft))))))
+      ;;            (rc (cl-mpm/particle::mp-k-compressive-residual-ratio mp-0))
+      ;;            (rs (cl-mpm/particle::mp-shear-residual-ratio mp-0))
+      ;;            (angle-plastic (cl-mpm/particle::mp-phi mp-0))
+      ;;            (angle-plastic-damaged (atan (* (/ rs rc) (tan angle-plastic))))
+      ;;            )
+      ;;       (format t "Estimated Gf ~F~%" (estimate-gf (cl-mpm/particle::mp-ductility mp-0)
+      ;;                                                  (cl-mpm/particle::mp-initiation-stress mp-0)
+      ;;                                                  (cl-mpm/particle::mp-local-length mp-0)))
+      ;;       (format t "Chalk damage growth angle: ~F~%"
+      ;;               angle-d)
+      ;;       (format t "Chalk plastic virgin angle: ~F~%"
+      ;;               (* (/ 180 pi) angle-plastic))
+      ;;       (format t "Chalk plastic residual angle: ~F~%"
+      ;;               (* (/ 180 pi) angle-plastic-damaged)))))
 
       ;; (cl-mpm/examples/tpb::calculate-ductility-param 1d9 47.5d0 0.05d0 20d3)
 
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
@@ -565,7 +572,7 @@
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
          (collapse-target-time 1d0)
-         (collapse-mass-scale 1d2)
+         (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -595,7 +602,7 @@
      (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
     (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :supersede)
-      (format stream "steps,time,damage,energy,oobf,step-type~%"))
+      (format stream "steps,time,damage,plastic,energy,oobf,step-type~%"))
 
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -606,6 +613,7 @@
     (format t "Substeps ~D~%" substeps)
     (setf dt-0 (/ (cl-mpm:sim-dt *sim*) (sqrt (cl-mpm::sim-mass-scale *sim*))))
     (defparameter *data-damage* 0d0)
+    (defparameter *data-plastic* 0d0)
     (defparameter *data-energy* 0d0)
     (defparameter *inst-data-oobf* 0d0)
     (setf *data-d* (list))
@@ -647,10 +655,11 @@
                      (format t "MPs ~d ~%" (length (cl-mpm:sim-mps *sim*)))
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :append)
-                       (format stream "~D,~f,~f,~f,~f,~A~%"
+                       (format stream "~D,~f,~f,~f,~f,~f,~A~%"
                                steps
                                *t*
                                *data-damage*
+                               *data-plastic*
                                *data-energy*
                                *inst-data-oobf*
                                sim-state))
@@ -693,6 +702,15 @@
                                                        :initial-value 0d0)
                                 damage-0)))
                          (setf *data-damage* damage-est))
+                       (let ((damage-est
+                               (lparallel:pmap-reduce (lambda (mp)
+                                                        (*
+                                                         1d0
+                                                         (cl-mpm/particle::mp-strain-plastic-vm mp)))
+                                                      #'+ (cl-mpm:sim-mps *sim*)
+                                                      :initial-value 0d0)
+                               ))
+                         (setf *data-plastic damage-est))
                        ;; (setf
                        ;;  energy-estimate
                        ;;  (/
@@ -1157,8 +1175,8 @@
          (shelf-height 15.0)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 5)
-         (shelf-aspect 3)
-         (runout-aspect 3)
+         (shelf-aspect 2)
+         (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1180,7 +1198,7 @@
                          (/ 1d0 mesh-size) mps-per-cell))
 
     ;;Refine around tip
-    (dotimes (i 1)
+    (dotimes (i 0)
       (dolist (dir (list :x
                          :y
                          ))

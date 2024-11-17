@@ -497,9 +497,9 @@
          (ftype (function (magicl:matrix/double-float) double-float) trace-voigt))
 (defun trace-voigt (a)
   "Calculate the product A_{ij}A_{ij}"
-  (let ((arr (magicl::matrix/double-float-storage a)))
-    (declare ((simple-array double-float) arr))
-    (+ (aref arr 0) (aref arr 1) (aref arr 2) )))
+  (let ((arr (cl-mpm/utils:fast-storage a)))
+    (declare ((simple-array double-float (6)) arr))
+    (+ (aref arr 0) (aref arr 1) (aref arr 2))))
 
 (declaim (inline deviatoric-voigt)
          (ftype (function (magicl:matrix/double-float)

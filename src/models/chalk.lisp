@@ -212,6 +212,7 @@
                    (stress-u mp-undamaged-stress)
                    (strain mp-strain)
                    (damage mp-damage)
+                   (damage-t mp-damage-tension)
                    (damage-c mp-damage-compression)
                    (damage-s mp-damage-shear)
                    (coheasion mp-c)
@@ -268,16 +269,17 @@
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress))
             (ex 1))
+        (declare (double-float damage-t damage-c damage-s))
         (setf p
               (if (> p 0d0)
-                  (* (expt (- 1d0 damage) ex) p)
-                  (* (expt (- 1d0 damage-c) ex) p)
-                  ;; p
+                  (* (- 1d0 damage-t) p)
+                  ;; (* (- 1d0 damage-c) p)
+                  p
                   ))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmaths:fast-scale! s (expt (- 1d0 damage-s) ex))
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress)))
       )
     stress))
@@ -633,9 +635,9 @@
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
-        (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
-        (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
-        (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
         ;;Transform to log damage
         (incf damage damage-inc)
         ;;Transform to linear damage
@@ -1311,6 +1313,19 @@
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
+
+;; (defun set-damage-directly (mp damage)
+;;   (let* ((ft init-stress)
+;;          (e0 (/ ft E))
+;;          (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+;;          (k (/ stress E))
+;;          (beta (/ 1d0 (- ef e0)))
+;;          )
+;;     (declare (double-float ft e0 ef k beta))
+;;     (if (> k e0)
+;;         (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
+;;         0d0))
+;;   )
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed-grassl) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
