@@ -1408,7 +1408,7 @@
                                            (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
                      (h (cl-mpm/mesh:mesh-resolution mesh))
                      (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
-                     (buffer-size (1+ (halo-depth (ceiling min-domain-length h)))))
+                     (buffer-size (1+ (max halo-depth (ceiling min-domain-length h)))))
                 (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
                 (format t "Domain size ~A~%" domain-sizes)
                 ;;Remove nil bcs
