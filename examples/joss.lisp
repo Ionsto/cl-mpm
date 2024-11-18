@@ -1,8 +1,8 @@
 (defpackage :cl-mpm/examples/joss
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
@@ -635,8 +635,8 @@
                                           (cl-mpm/particle::mp-damage-ybar mp))
                                         #'max (cl-mpm:sim-mps *sim*))))
          (format t "Max damage-ybar ~E~%" dy)
-         (push dy *damage-data*)
-         (push i *time-data*))
+         
+         )
        (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" i))
                           :terminal "png size 1920,1080")))
 
@@ -688,7 +688,8 @@
 
                        (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
                        (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
-                       (setf energy-estimate (abs (/ energy-estimate work)))
+                       (when (> work 0d0)
+                         (setf energy-estimate (abs (/ energy-estimate work))))
                        ;; (setf total-energy (abs (/ (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) work)))
                        (setf *data-energy* energy-estimate)
                        (setf *inst-data-oobf* oobf)
@@ -1175,7 +1176,7 @@
          (shelf-height 15.0)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 5)
-         (shelf-aspect 2)
+         (shelf-aspect 1)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))

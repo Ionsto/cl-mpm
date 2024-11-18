@@ -14,14 +14,14 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun plot (sim)
-  (cl-mpm/plotter:simple-plot
-   *sim*
-   :plot :point
-   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-   )
+  ;; (cl-mpm/plotter:simple-plot
+  ;;  *sim*
+  ;;  :plot :point
+  ;;  :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+  ;;  )
   )
 
 (defun stop ()
@@ -139,7 +139,7 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
-  (let* ((target-time 0.1d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1.0d0)

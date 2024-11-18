@@ -1,6 +1,7 @@
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   #+cl-mpm-special (print "Compiled with special hooks")
@@ -327,7 +328,8 @@
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (let (;(dsvp (cl-mpm/utils::dsvp-3d-zeros))
+    (let (
+          ;; (dsvp (cl-mpm/utils::dsvp-3d-zeros))
           )
       ;; (declare (dynamic-extent dsvp))
       (iterate-over-neighbours
@@ -454,7 +456,7 @@
                                  (nc cl-mpm/particle::mp-cached-nodes))
                     mp
                   (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
-                    (declare (dynamic-extent mapped-vel))
+                    ;; (declare (dynamic-extent mapped-vel))
                     (progn
                       ;;With special operations we need to reset some params for g2p
                       ;; (reset-mps-g2p mp)
@@ -666,22 +668,23 @@
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
-  (with-accessors ((mass  node-mass)
-                   (vel   node-velocity)
-                   (force node-force)
-                   (force-ext cl-mpm/mesh::node-external-force)
-                   (force-int cl-mpm/mesh::node-internal-force)
-                   (acc   node-acceleration))
-      node
-    (declare (double-float mass dt damping mass-scale))
-    (progn
-      (magicl:scale! acc 0d0)
-      ;;Set acc to f/m
-      (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
-      (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-      (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-      (cl-mpm/fastmaths:fast-fmacc vel acc dt)
-      ))
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (force node-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     (force-int cl-mpm/mesh::node-internal-force)
+                     (acc   node-acceleration))
+        node
+      (declare (double-float mass dt damping mass-scale))
+      (progn
+        (magicl:scale! acc 0d0)
+        ;;Set acc to f/m
+        (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        )))
   (values))
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping - except without scaling by mass
@@ -801,7 +804,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (iterate-over-nodes
      mesh
      (lambda (node)
-       (calculate-forces-cundall node damping dt mass-scale)))))
+       (when (cl-mpm/mesh:node-active node)
+         (calculate-forces-cundall node damping dt mass-scale))))))
 
 
 
@@ -957,7 +961,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    domain))
     (progn
       (let ((df (calculate-df mesh mp fbar)))
-        (declare (dynamic-extent df))
+        ;; (declare (dynamic-extent df))
         (progn
           (setf def (magicl:@ df def))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
