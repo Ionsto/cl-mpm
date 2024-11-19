@@ -1345,25 +1345,25 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (cl-mpm/mesh:reset-node node)
           )))))
 
-(defun delete-mps-func (mps func)
-  (declare (function func)
-           (vector mps))
-  (let* ((mp-count (length mps))
-         (bit-vector (make-array mp-count :element-type 'bit :initial-element 0)))
-    (declare (dynamic-extent bit-vector))
-    (lparallel:pdotimes (i mp-count)
-      (setf (aref bit-vector i) (if (funcall func (aref mps i)) 1 0)))
-    (loop for i fixnum from 0 below mp-count
-          do (when (= 1 (aref bit-vector i))
-              (setf (aref mps i) (aref mps (- mp-count 1)))
-              (setf (aref bit-vector i) (aref bit-vector (- mp-count 1)))
-              (decf mp-count)
-              (decf i)
-              (decf (fill-pointer mps))
-              )))
-  (when (and (not (adjustable-array-p mps))
-             (= (length mps) 0))
-    (setf mps (make-array 0 :adjustable t :fill-pointer 0))))
+;; (defun delete-mps-func (mps func)
+;;   (declare (function func)
+;;            (vector mps))
+;;   (let* ((mp-count (length mps))
+;;          (bit-vector (make-array mp-count :element-type 'bit :initial-element 0)))
+;;     (declare (dynamic-extent bit-vector))
+;;     (lparallel:pdotimes (i mp-count)
+;;       (setf (aref bit-vector i) (if (funcall func (aref mps i)) 1 0)))
+;;     (loop for i fixnum from 0 below mp-count
+;;           do (when (= 1 (aref bit-vector i))
+;;               (setf (aref mps i) (aref mps (- mp-count 1)))
+;;               (setf (aref bit-vector i) (aref bit-vector (- mp-count 1)))
+;;               (decf mp-count)
+;;               (decf i)
+;;               (decf (fill-pointer mps))
+;;               )))
+;;   (when (and (not (adjustable-array-p mps))
+;;              (= (length mps) 0))
+;;     (setf mps (make-array 0 :adjustable t :fill-pointer 0))))
 
 (defgeneric sim-add-mp (sim mp)
   (:documentation "A function to append an mp to a simulation"))
@@ -1378,12 +1378,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       sim
     (declare ((vector cl-mpm/particle::particle) mps))
     (when (> (length mps) 0)
-      (delete-mps-func mps func)
-      ;; (setf mps
-      ;;       ;;We cant do this in parallel apparently
-      ;;       (delete-if func mps)
-      ;;                                   ;(lparallel:premove-if func mps)
-      ;;       )
+      ;; (delete-mps-func mps func)
+      (setf mps
+            ;;We cant do this in parallel apparently
+            (delete-if func mps)
+                                        ;(lparallel:premove-if func mps)
+            )
       )
     ;;Sometimes when compacting the array; sbcl will just discard make and unadjustable array in place which is a bit wild
     (when (and (not (adjustable-array-p mps))

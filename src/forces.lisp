@@ -5,7 +5,9 @@
   (:export
    #:det-int-force
    #:det-int-force-unrolled
+   #:det-int-force-unrolled-2d
    #:det-ext-force
+   #:det-ext-force-2d
    ))
 (in-package :cl-mpm/forces)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
