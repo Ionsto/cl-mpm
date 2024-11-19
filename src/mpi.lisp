@@ -322,6 +322,7 @@
           (setf domain-bounds
                 (mapcar (lambda (v) (mapcar (lambda (x) (* (round x h) h)) v))
                         domain-bounds)))))
+
 ;; (defun exchange-nodes-nonblocking (sim func)
 ;;   (declare (function func))
 ;;   (let* ((rank (cl-mpi:mpi-comm-rank))
@@ -1410,7 +1411,7 @@
                                            (cl-mpm/mpi::mpm-sim-mpi-domain-bounds sim)))
                      (h (cl-mpm/mesh:mesh-resolution mesh))
                      (min-domain-length (reduce #'max (remove 0d0 domain-sizes)))
-                     (buffer-size (1+ (max halo-depth (ceiling min-domain-length h)))))
+                     (buffer-size (+ 1 (max halo-depth (ceiling min-domain-length h)))))
                 (format t "Pruning nodes and BCs up to ~D nodes away~%" buffer-size)
                 (format t "Domain size ~A~%" domain-sizes)
                 ;;Remove nil bcs
@@ -1425,18 +1426,21 @@
                           (when index
                             (progn
                               ;;SBCL is very sure that the result cannot be nil!
-                              (when (not (equal (cl-mpm/mesh:get-node mesh index) nil))
-                                (let ((node (cl-mpm/mesh:get-node mesh index)))
+                              ;; (when (not (equal (cl-mpm/mesh:get-node mesh index) nil))
+                              ;;   (let ((node (cl-mpm/mesh:get-node mesh index)))
                                   ;; (format t "Pruning BC at index: ~A node: ~A~%" index node)
                                   (when (not (in-computational-domain-buffer
                                               sim
-                                              (cl-mpm/mesh::node-position node)
-                                              (* (+ 1d0 1d-9) buffer-size)))
+                                              ;; (cl-mpm/mesh::node-position node)
+                                              (cl-mpm/utils:vector-from-list  (cl-mpm/mesh:index-to-position mesh index))
+                                              buffer-size))
                                     (incf prune-count)
-                                    (setf (aref bcs i) nil))))))))))
+                                    (setf (aref bcs i) nil))
+                                        ;))
+                              ))))))
 
                   (format t "Rank ~D - Pruned ~D bcs~%" rank prune-count))
-                (setf bcs (delete nil bcs))
+                (setf (cl-mpm:sim-bcs sim) (delete nil bcs))
 
                 ;;Trim out all nodes that we can get rid of
                 (let ((prune-count 0))
@@ -1463,8 +1467,9 @@
                             (when (equal (cl-mpm/mesh:get-node mesh index) nil)
                               (incf prune-count)
                               (setf (aref bcs i) nil)))))))
-                  (setf bcs (delete nil bcs))
+                  (setf (cl-mpm:sim-bcs sim) (delete nil bcs))
                   (format t "Rank ~D - Pruned ~D orphan bcs~%" rank prune-count))
+
                 (loop for bc across (cl-mpm:sim-bcs sim)
                       do
                         (when bc (when (equal (cl-mpm/mesh:get-node mesh (cl-mpm/bc:bc-index bc)) nil)

@@ -60,6 +60,17 @@ Calls func with only the node"
           (funcall func cell)))))
   (values))
 
+(defun iterate-over-bcs-serial (sim func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func))
+  (let ((bcs (sim-bcs sim)))
+    (dotimes (i (array-total-size bcs))
+      (let ((bc (aref bcs i)))
+        (when bc 
+          (funcall func bc)))))
+  (values))
+
 (declaim (ftype (function
                  ((vector cl-mpm/particle:particle *)
                   function)

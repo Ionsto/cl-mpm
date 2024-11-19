@@ -36,7 +36,7 @@
   ((value
      :accessor bc-value
      :initarg :value
-     :initform '(nil nil)))
+     :initform '(nil nil nil)))
   (:documentation "A fixed velocity BC can be 1/0 dof"))
 
 (defclass bc-fixed-temp (bc-fixed)
@@ -426,10 +426,11 @@
                 (push (funcall bottom (list x y z)) outlist))
               (when (= y ysize)
                 (push (funcall top (list x y z)) outlist))
-              (when (= z 0)
-                (push (funcall front (list x y z)) outlist))
-              (when (= z zsize)
-                (push (funcall back (list x y z)) outlist))))
+              (when (> zsize 0)
+                (when (= z 0)
+                  (push (funcall front (list x y z)) outlist))
+                (when (= z zsize)
+                  (push (funcall back (list x y z)) outlist)))))
           (delete nil outlist)))))
 (defun make-outside-bc-var (mesh left right top bottom
                             ;; front back

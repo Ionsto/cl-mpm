@@ -458,6 +458,7 @@
               ))
           ))))
 
+
 (defgeneric save-vtk (filename sim)
   (:documentation "Save vtk depending on type")
    (:method (f s)))
@@ -660,6 +661,43 @@
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               ))
+          ))))
+
+(defun save-vtk-bcs (filename sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)) sim
+    (with-accessors ((bcs cl-mpm:sim-bcs))
+        sim
+        (with-open-file (fs filename :direction :output :if-exists :supersede)
+          (format fs "# vtk DataFile Version 2.0~%")
+          (format fs "Lisp generated vtk file, SJVS~%")
+          (format fs "ASCII~%")
+          (format fs "DATASET UNSTRUCTURED_GRID~%")
+
+          (let ((node-count (length bcs))
+                (h (cl-mpm/mesh:mesh-resolution mesh)))
+            ;; (cl-mpm::iterate-over-bc-serial
+            ;;  mesh
+            ;;  (lambda (n)
+            ;;    (declare (ignore n))
+            ;;    (incf node-count)))
+            (format fs "POINTS ~d double~%" node-count)
+            (loop for bc across bcs
+                  do
+                     (let ((index (cl-mpm/bc:bc-index bc)))
+                       (when index 
+                         ;; (incf node-count)
+                         (format fs "~E ~E ~E ~%"
+                                 (coerce (* h (nth 0 index)) 'single-float)
+                                 (coerce (* h (nth 1 index)) 'single-float)
+                                 (coerce (* h (nth 2 index)) 'single-float)))))
+            (format fs "~%")
+            ;; (let ((id 1))
+            ;;   (declare (special id))
+            ;;   (format fs "POINT_DATA ~d~%" node-count)
+            ;;   (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
+            ;;   (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
+            ;;   )
+            )
           ))))
 
 (defun save-vtk-line (filename start end)

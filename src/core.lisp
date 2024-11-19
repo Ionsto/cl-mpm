@@ -809,6 +809,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 
 
+(defparameter *rank* 0)
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"
   (declare (cl-mpm/mesh::mesh mesh))
@@ -816,7 +817,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (nD     mesh-nD)
                    (mc     mesh-count)) mesh
                                         ;each bc is a list (pos value)
-    (lparallel:pdotimes (i (array-total-size bcs))
+    (lparallel:pdotimes (i (length bcs))
       (let ((bc (aref bcs i)))
         (when bc
           (with-accessors ((node cl-mpm/bc::bc-node)
@@ -829,7 +830,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                   (setf node (cl-mpm/mesh:get-node mesh index))
                   (if node
                       (cl-mpm/bc:apply-bc bc node mesh dt)
-                      (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
+                      (error "BC attempted to get a nil node ~A ~A ~D" bc index *rank*))))))))))
 
 
 ;Could include this in p2g but idk
