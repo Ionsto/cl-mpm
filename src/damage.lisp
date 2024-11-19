@@ -6,8 +6,6 @@
     #:post-stress-step
     #:update-damage
     #:damage-model-calculate-y))
-;; (defconstant +damage-exp+ 0.5d0)
-;; (defconstant +stress-exp+ 2d0)
 
 (in-package :cl-mpm/damage)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -1810,21 +1808,21 @@ Calls the function with the mesh mp and node"
         (* (- 1d0 a) (/ 1d0 (cos angle)))))))
 
 
-(let* ((strain (cl-mpm/utils:voigt-from-list (list -3d0 -3d0 0d0
-                                                   0d0 0d0 5d0)))
-       (E 1d9)
-       (nu 0.0d0)
-       (De (cl-mpm/constitutive::linear-elastic-matrix E nu))
-       (stress (magicl:@ De strain))
-       (angle 42d0))
+;; (let* ((strain (cl-mpm/utils:voigt-from-list (list -3d0 -3d0 0d0
+;;                                                    0d0 0d0 5d0)))
+;;        (E 1d9)
+;;        (nu 0.0d0)
+;;        (De (cl-mpm/constitutive::linear-elastic-matrix E nu))
+;;        (stress (magicl:@ De strain))
+;;        (angle 42d0))
 
-  (let ((mc (cl-mpm/damage::criterion-mohr-coloumb-stress stress (* angle (/ pi 180)))))
-    (format t "MC: ~%~E~%" mc)
-    (format t "Insc: ~E~%"  (/ (cl-mpm/damage::criterion-dp-inscribe-coheasion stress (* angle (/ pi 180))) mc))
-    (format t "Shear: ~E~%"  (/ (cl-mpm/damage::criterion-dp-shear-coheasion stress (* angle (/ pi 180))) mc))
-    (format t "Mid: ~E~%"  (/ (cl-mpm/damage::criterion-dp-middle-circumscribe-coheasion stress (* angle (/ pi 180))) mc))
-    (format t "Circ: ~E~%"  (/ (cl-mpm/damage::criterion-dp-coheasion stress (* angle (/ pi 180))) mc)))
-  )
+;;   (let ((mc (cl-mpm/damage::criterion-mohr-coloumb-stress stress (* angle (/ pi 180)))))
+;;     (format t "MC: ~%~E~%" mc)
+;;     (format t "Insc: ~E~%"  (/ (cl-mpm/damage::criterion-dp-inscribe-coheasion stress (* angle (/ pi 180))) mc))
+;;     (format t "Shear: ~E~%"  (/ (cl-mpm/damage::criterion-dp-shear-coheasion stress (* angle (/ pi 180))) mc))
+;;     (format t "Mid: ~E~%"  (/ (cl-mpm/damage::criterion-dp-middle-circumscribe-coheasion stress (* angle (/ pi 180))) mc))
+;;     (format t "Circ: ~E~%"  (/ (cl-mpm/damage::criterion-dp-coheasion stress (* angle (/ pi 180))) mc)))
+;;   )
 
 
 (defun tensile-energy-norm (strain E de)
@@ -2118,28 +2116,28 @@ Calls the function with the mesh mp and node"
 
   )
 
-(defun get-k-damage (mp damage)
-  (with-accessors
-        ((E cl-mpm/particle::mp-e)
-         (init-stress cl-mpm/particle::mp-initiation-stress)
-         (ductility cl-mpm/particle::mp-ductility))
-      mp
-    ;; (declare (double-float stress E init-stress ductility))
-    (let* ((ft init-stress)
-           (e0 (/ ft E))
-           (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
-           ;; (k (/ stress E))
-           (beta (/ 1d0 (- ef e0)))
-           )
-      (if (> damage 0d0)
+;; (defun get-k-damage (mp damage)
+;;   (with-accessors
+;;         ((E cl-mpm/particle::mp-e)
+;;          (init-stress cl-mpm/particle::mp-initiation-stress)
+;;          (ductility cl-mpm/particle::mp-ductility))
+;;       mp
+;;     ;; (declare (double-float stress E init-stress ductility))
+;;     (let* ((ft init-stress)
+;;            (e0 (/ ft E))
+;;            (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+;;            ;; (k (/ stress E))
+;;            (beta (/ 1d0 (- ef e0)))
+;;            )
+;;       (if (> damage 0d0)
 
-          0d0)
-      (if (> k e0)
-          (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
-          0d0))))
+;;           0d0)
+;;       (if (> k e0)
+;;           (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
+;;           0d0))))
 
 
-(declaim (ftype (function (double-float double-float double-float double-float )
+(declaim (ftype (function (double-float double-float double-float double-float double-float)
                           double-float) damage-response-exponential-residual))
 (defun damage-response-exponential-residual (stress E init-stress ductility residual)
   (declare (double-float stress E init-stress ductility residual))

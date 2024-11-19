@@ -456,7 +456,7 @@
                                  (nc cl-mpm/particle::mp-cached-nodes))
                     mp
                   (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
-                    ;; (declare (dynamic-extent mapped-vel))
+                    (declare (dynamic-extent mapped-vel))
                     (progn
                       ;;With special operations we need to reset some params for g2p
                       ;; (reset-mps-g2p mp)
@@ -809,7 +809,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 
 
-(defparameter *rank* 0)
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"
   (declare (cl-mpm/mesh::mesh mesh))
@@ -830,7 +829,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                   (setf node (cl-mpm/mesh:get-node mesh index))
                   (if node
                       (cl-mpm/bc:apply-bc bc node mesh dt)
-                      (error "BC attempted to get a nil node ~A ~A ~D" bc index *rank*))))))))))
+                      (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
 
 
 ;Could include this in p2g but idk

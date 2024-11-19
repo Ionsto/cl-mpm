@@ -273,8 +273,8 @@
         (setf p
               (if (> p 0d0)
                   (* (- 1d0 damage-t) p)
-                  ;; (* (- 1d0 damage-c) p)
-                  p
+                  (* (- 1d0 damage-c) p)
+                  ;; p
                   ))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
@@ -554,8 +554,8 @@
                 (- ef e0)))
         0d0)))
 
-(defun damage-response-linear-residual (stress E Gf length init-stress ductility residual)
-  (declare (double-float stress E Gf length init-stress ductility))
+(defun damage-response-linear-residual (stress E init-stress ductility residual)
+  (declare (double-float stress E init-stress ductility))
   "Linear softening with plastic residual behaviour"
   (let* ((ft init-stress)
          (e0 (/ ft E))
