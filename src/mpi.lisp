@@ -30,11 +30,15 @@
   ((neighbour-node-list)
    (neighbour-ranks
     :initform '())
+   (domain-index
+    :accessor mpm-sim-mpi-domain-index
+    :initform '(0 0 0))
    (domain-bounds
     :accessor mpm-sim-mpi-domain-bounds
-    :initform '((0 0)
-                (0 0)
-                (0 0))
+    :initform nil
+    ;; '((0 0)
+    ;;             (0 0)
+    ;;             (0 0))
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
@@ -45,6 +49,9 @@
     :initform '(1 1 1)
     :initarg :domain-count
     )
+   (load-metric
+    :accessor mpm-sim-mpi-load-metric
+    :initform 0d0)
    (halo-damage-size
     :accessor mpm-sim-mpi-halo-damage-size
     :initform 1d0)
@@ -1308,13 +1315,9 @@
 ;;   0)
 ;; (defun cl-mpi:mpi-comm-size ()
 ;;  4)
-(defun domain-decompose (sim &key (domain-scaler (lambda (x) x)))
-  (%domain-decompose sim domain-scaler)
-  )
-(defgeneric %domain-decompose (sim domain-scaler)
-  )
-(defmethod %domain-decompose (sim domain-scaler)
-  "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
+
+
+(defun setup-domain-bounds (sim &key (domain-scaler (lambda (x) x)))
 
   (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size)
                    (mesh-count cl-mpm/mesh::mesh-count)
@@ -1341,7 +1344,33 @@
                     mesh-size))
       (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
       (exchange-domain-bounds sim)
-      (format t "Rank ~D: Exchanged domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
+      (format t "Rank ~D: Exchanged domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))))
+  )
+
+(defun domain-decompose (sim &key (domain-scaler (lambda (x) x)))
+  (%domain-decompose sim domain-scaler)
+  )
+(defgeneric %domain-decompose (sim domain-scaler)
+  )
+(defmethod %domain-decompose (sim domain-scaler)
+  "The aim of domain decomposition is to take a full simulation and cut it into subsections for MPI"
+
+  (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size)
+                   (mesh-count cl-mpm/mesh::mesh-count)
+                   (h cl-mpm/mesh::mesh-resolution))
+      (cl-mpm:sim-mesh sim)
+    (let* ((rank (cl-mpi:mpi-comm-rank))
+           (count (cl-mpi:mpi-comm-size))
+           (index (mpi-rank-to-index sim rank))
+           (x-length (first mesh-size))
+           (slice-size (/ x-length count))
+           (slice-count count)
+           (bound-lower (* rank slice-size))
+           (bound-upper (* (+ 1 rank) slice-size))
+           (comp-size (mpm-sim-mpi-domain-count sim)))
+      (unless (mpm-sim-mpi-domain-bounds sim)
+        (setup-domain-bounds sim :domain-scaler domain-scaler))
+      (setf (mpm-sim-mpi-domain-index sim) index)
       (set-mp-mpi-index sim)
       (clear-ghost-mps sim)
       ;; (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
@@ -1687,3 +1716,99 @@
 (defmethod cl-mpm/setup::estimate-critical-damping ((sim cl-mpm/mpi:mpm-sim-mpi))
   (cl-mpm/mpi::mpi-min
    (call-next-method)))
+
+
+
+
+(defgeneric load-balance-metric (sim))
+(defmethod load-balance-metric (sim)
+  (let ((rank (cl-mpi:mpi-comm-rank)))
+    (set-mp-mpi-index sim)
+    (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
+                         (cl-mpm:sim-mps sim))))
+
+(defun mpi-vector-sum (values)
+  "Sum a scalar over all mpi nodes"
+  (cl-mpi:mpi-waitall)
+  (let ((size (length values)))
+    (static-vectors:with-static-vector (source size :element-type 'double-float
+                                                    :initial-contents values)
+      (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
+        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
+        (aops:copy-into values dest)))
+    values))
+(defun mpi-vector-max (values)
+  "Sum a scalar over all mpi nodes"
+  (cl-mpi:mpi-waitall)
+  (let ((size (length values)))
+    (static-vectors:with-static-vector (source size :element-type 'double-float
+                                                    :initial-contents values)
+      (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
+        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+        (aops:copy-into values dest)))
+    values))
+
+(defun load-balance-setup (sim)
+  (setf (mpm-sim-mpi-load-metric sim) (float (load-balance-metric sim) 0d0)))
+(defun load-balance-dimension (sim dim &key (step-size 1d-2)
+                                         (exchange nil))
+  (let* ((rank (cl-mpi::mpi-comm-rank))
+         (dim-length (nth dim (mpm-sim-mpi-domain-count sim)))
+         (dim-index (nth dim (mpi-rank-to-index sim rank)))
+         (dim-size (- (apply #'- (nth dim (mpm-sim-mpi-domain-bounds sim)))))
+         (metric-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
+         (size-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
+         (increment-length (- dim-length 1))
+         (increment-array (make-array increment-length :element-type 'double-float :initial-element 0d0)))
+    (setf (aref metric-array dim-index) (float (mpm-sim-mpi-load-metric sim) 0d0))
+    (mpi-vector-sum metric-array)
+    (setf (aref size-array dim-index) (float dim-size 0d0))
+    (mpi-vector-max size-array)
+    (when (< dim-index increment-length)
+      (setf (aref increment-array dim-index)
+            (float
+             (* step-size
+                (min (aref size-array dim-index)
+                     (aref size-array (+ dim-index 1)))
+                (if (or (> (aref metric-array dim-index) 0d0)
+                        (> (aref metric-array (1+ dim-index)) 0d0))
+                    (/ (- (aref metric-array dim-index)
+                          (aref metric-array (+ dim-index 1)))
+                       (max (aref metric-array dim-index)
+                            (aref metric-array (+ dim-index 1))))
+                    0d0
+                    ))
+             0d0
+             )))
+    (mpi-vector-max increment-array)
+
+    (let ((left-index (- dim-index 1)))
+      (when (>= left-index 0)
+        (incf (first (nth dim (mpm-sim-mpi-domain-bounds sim)))
+              (- (aref increment-array left-index)))))
+
+    (let ((right-index dim-index))
+      (when (< right-index increment-length)
+        (incf (second (nth dim (mpm-sim-mpi-domain-bounds sim)))
+              (- (aref increment-array right-index)))))
+
+    )
+  )
+(defun load-balance (sim &key (substeps 10)
+                           (step-size 1d-1))
+  (let ((rank (cl-mpi::mpi-comm-rank)))
+    (load-balance-setup sim)
+    (dotimes (j substeps)
+      (dotimes (i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+        (load-balance-dimension sim i :step-size step-size)
+        (load-balance-setup sim)
+        ))
+    (let ((min-mps (mpi-min (float (mpm-sim-mpi-load-metric sim) 0d0)))
+          (max-mps (mpi-max (float (mpm-sim-mpi-load-metric sim) 0d0)))
+          (balance nil))
+      (when (> min-mps 0)
+        (setf balance (mpi-max (/ max-mps min-mps)))
+        (when (= rank 0)
+          (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
+      (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
+      balance)))
