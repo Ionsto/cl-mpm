@@ -2099,22 +2099,44 @@ Calls the function with the mesh mp and node"
         (- 1d0 (* (/ e0 k) (exp (- (* beta (- k e0))))))
         0d0)))
 
-(defun find-k-damage (mp damage)
+(defun find-k-damage-mp (mp damage)
 
   (with-accessors
         ((E cl-mpm/particle::mp-e)
          (init-stress cl-mpm/particle::mp-initiation-stress)
          (ductility cl-mpm/particle::mp-ductility))
       mp
-    (let* ((e0 (/ init-stress E))
-           (d-est 0d0)
-           (k-est e0))
-      (loop for i from 0 to 100
-            while (> (abs (- damage d-est)) 1d-3)
-            do
-               (setf d-est (damage-response-exponential k-est E init-stress ductility)))))
-
+    (find-k-damage E init-stress ductility damage))
   )
+(defun find-k-damage (E init-stress ductility damage)
+  (let* ((e0 init-stress)
+         (d-est 0d0)
+         (k-est e0)
+         (k-max nil)
+         (k-prev e0)
+         )
+    (loop for i from 0 to 10000
+          while (> (abs (- damage d-est)) 1d-8)
+          do
+             (progn
+               (setf d-est (damage-response-exponential k-est E init-stress ductility))
+               (format t "~F ~F~%" d-est k-est)
+               (when (> damage d-est)
+                 (setf k-prev k-est)
+                 (setf k-est
+                       (if k-max
+                           (/ (+ k-prev k-max) 2d0)
+                           (* k-est 2))))
+               (when (< damage d-est)
+                 (setf k-max k-est)
+                 (setf k-est (/ (+ k-prev k-max) 2d0)))
+               ))
+    k-est))
+;; (let* ((E 1d9)
+;;        (in 20d3)
+;;        (duct 100d0)
+;;        (k-est (cl-mpm/damage::find-k-damage E in duct 0.9999d0)))
+;;   (pprint (damage-response-exponential k-est E in duct)))
 
 ;; (defun get-k-damage (mp damage)
 ;;   (with-accessors
@@ -2139,7 +2161,7 @@ Calls the function with the mesh mp and node"
 
 (declaim (ftype (function (double-float double-float double-float double-float double-float)
                           double-float) damage-response-exponential-residual))
-(defun damage-response-exponential-residual (stress E init-stress ductility residual)
+(defun damage-response-exponential-peerlings-residual (stress E init-stress ductility residual)
   (declare (double-float stress E init-stress ductility residual))
   "Function that controls how damage evolves with principal stresses"
   (let* ((ft init-stress)
@@ -2150,6 +2172,19 @@ Calls the function with the mesh mp and node"
     (declare (double-float ft e0 ef k beta))
     (if (> k e0)
         (- 1d0 (* (/ e0 k) (+ (- 1d0 residual) (* residual (exp (- (* beta (- k e0))))))))
+        0d0)))
+
+(defun damage-response-exponential-residual (stress E init-stress ductility residual)
+  (declare (double-float stress E init-stress ductility residual))
+  "Function that controls how damage evolves with principal stresses"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+         (k (/ stress E))
+         (beta (/ 1d0 (- ef e0))))
+    (declare (double-float ft e0 ef k beta))
+    (if (> k e0)
+        (- 1d0 (+ (- 1d0 residual) (* residual (exp (- (* beta (- k e0)))))))
         0d0)))
 
 (defun damage-response-exponential-beta (E init-stress ductility)

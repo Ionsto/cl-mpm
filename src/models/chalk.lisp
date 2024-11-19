@@ -607,7 +607,7 @@
                      )
         mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
-      (when (< damage 1d0)
+      (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
         (setf ybar damage-inc)
         (setf damage-inc 0d0)
@@ -629,9 +629,13 @@
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
         (setf
-         damage-tension (max damage-tension (damage-response-exponential-residual k E init-stress ductility kt-r))
-         damage-shear (max damage-shear (damage-response-exponential-residual k E init-stress ductility g-r))
-         damage-compression (max damage-compression (damage-response-exponential-residual k E init-stress ductility kc-r)))
+         damage-tension (* kt-r damage)
+         damage-compression (* kc-r damage)
+         damage-shear (* g-r damage))
+        ;; (setf
+        ;;  damage-tension (max damage-tension (damage-response-exponential-residual k E init-stress ductility kt-r))
+        ;;  damage-shear (max damage-shear (damage-response-exponential-residual k E init-stress ductility g-r))
+        ;;  damage-compression (max damage-compression (damage-response-exponential-residual k E init-stress ductility kc-r)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
