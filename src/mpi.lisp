@@ -1257,8 +1257,8 @@
                        (and
                         in-bounds
                         (and
-                         (> bu (magicl:tref pos i 0))
-                         (<= bl (magicl:tref pos i 0)))
+                         (> bu (cl-mpm/utils:varef pos i))
+                         (<= bl (cl-mpm/utils:varef pos i)))
                         )))))
     in-bounds
     ))
@@ -1274,8 +1274,8 @@
                        (and
                         in-bounds
                         (and
-                         (> (+ bu (* node-buffer h)) (magicl:tref pos i 0))
-                         (<= (- bl (* node-buffer h)) (magicl:tref pos i 0)))
+                         (> (+ bu (* node-buffer h)) (cl-mpm/utils:varef pos i))
+                         (<= (- bl (* node-buffer h)) (cl-mpm/utils:varef pos i)))
                         )))))
     in-bounds
     ))

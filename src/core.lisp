@@ -1356,7 +1356,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (loop for i fixnum from 0 below mp-count
           do (when (= 1 (aref bit-vector i))
               (setf (aref mps i) (aref mps (- mp-count 1)))
+              (setf (aref bit-vector i) (aref bit-vector (- mp-count 1)))
               (decf mp-count)
+              (decf i)
               (decf (fill-pointer mps))
               )))
   (when (and (not (adjustable-array-p mps))
