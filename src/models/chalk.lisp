@@ -273,8 +273,8 @@
         (setf p
               (if (> p 0d0)
                   (* (- 1d0 damage-t) p)
-                  ;; (* (- 1d0 damage-c) p)
-                  p
+                  (* (- 1d0 damage-c) p)
+                  ;; p
                   ))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
