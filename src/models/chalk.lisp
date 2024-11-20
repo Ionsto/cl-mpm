@@ -273,8 +273,8 @@
         (setf p
               (if (> p 0d0)
                   (* (- 1d0 damage-t) p)
-                  (* (- 1d0 damage-c) p)
-                  ;; p
+                  ;; (* (- 1d0 damage-c) p)
+                  p
                   ))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
@@ -628,14 +628,14 @@
                  (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
-        (setf
-         damage-tension (* kt-r damage)
-         damage-compression (* kc-r damage)
-         damage-shear (* g-r damage))
         ;; (setf
-        ;;  damage-tension (max damage-tension (damage-response-exponential-residual k E init-stress ductility kt-r))
-        ;;  damage-shear (max damage-shear (damage-response-exponential-residual k E init-stress ductility g-r))
-        ;;  damage-compression (max damage-compression (damage-response-exponential-residual k E init-stress ductility kc-r)))
+        ;;  damage-tension (* kt-r damage)
+        ;;  damage-compression (* kc-r damage)
+        ;;  damage-shear (* g-r damage))
+        (setf
+         damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
+         damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
+         damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
