@@ -28,8 +28,8 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; local-length
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  local-length
   )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
@@ -83,11 +83,21 @@
         ;;                          (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+        ;;             stress
+        ;;             (* angle (/ pi 180d0)))))
         (setf damage-increment
               (max 0d0
-                   (cl-mpm/damage::criterion-mohr-coloumb-stress
+                   (cl-mpm/damage::criterion-y
                     stress
-                    (* angle (/ pi 180d0)))))
+                    strain
+                    damage
+                    E
+                    kc-r
+                    kt-r
+                    g-r)))
 
         ;; (setf damage-increment
         ;;       (max 0d0
@@ -220,7 +230,7 @@
     (progn
       (let* (
              ;; (init-stress (* 26d3 0.63d0))
-             (init-stress 26d3)
+             (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 26d3 (* 42d0 (/ pi 180))))
              (downscale (/ 1d0 1d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
              (gf 5d0)
@@ -229,6 +239,7 @@
              ;; (length-scale 1.0d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             (ductility 10d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
@@ -258,19 +269,20 @@
                 :E 1d9
                 :nu 0.24d0
 
-                :enable-plasticity nil
+                :enable-plasticity t
 
                 :ft 1d0
                 :fc 10d0
 
-                :friction-angle 50.0d0
+                :friction-angle 42.0d0
+
                 :kt-res-ratio 1d0
-                :kc-res-ratio 1d0
-                :g-res-ratio 1d0
+                :kc-res-ratio 1d-3
+                :g-res-ratio 1d-3
 
                 :fracture-energy 3000d0
                 :initiation-stress init-stress;18d3
-                :delay-time 1d1
+                :delay-time 1d0
                 :delay-exponent 1d0
 
                 ;; :ductility 5d0
@@ -286,7 +298,7 @@
                 ;; :phi (* 42d0 (/ pi 180))
                 ;; :c 131d3
                 :psi (* 0d0 (/ pi 180))
-                :phi (* 50d0 (/ pi 180))
+                :phi (* 42d0 (/ pi 180))
                 :c (* init-stress 10d0)
 
                 :gravity -9.8d0
@@ -686,8 +698,11 @@
                                      ))))
 
 
-                       (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                       (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
+                       ;; (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                       ;; (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
+                       (setf
+                        energy-estimate (/ energy-estimate substeps)
+                        oobf (/ oobf substeps))
                        (when (> work 0d0)
                          (setf energy-estimate (abs (/ energy-estimate work))))
                        ;; (setf total-energy (abs (/ (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) work)))
@@ -1177,7 +1192,7 @@
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 5)
          (shelf-aspect 1)
-         (runout-aspect 2)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)

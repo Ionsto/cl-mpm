@@ -9,8 +9,7 @@
 (in-package :cl-mpm/particle)
 (declaim (optimize (speed 3) (debug 0) (safety 0)))
 (defclass particle-chalk (particle-elastic-damage)
-  (
-   (coheasion
+  ((coheasion
     :accessor mp-coheasion
     :initarg :coheasion
     :initform 0d0)
@@ -81,7 +80,10 @@
     :accessor mp-fc
     :initform 200d3
     :initarg :fc)
-   )
+   (peerlings-damage
+    :accessor mp-peerlings-damage
+    :initform t
+    :initarg :peerlings-damage))
   (:documentation "A chalk damage model"))
 
 (defclass particle-chalk-delayed (particle-chalk-brittle)
@@ -229,12 +231,12 @@
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
+                   (peerlings mp-peerlings-damage)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (when enable-plasticity
         (progn
@@ -266,9 +268,12 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
+      (unless peerlings
+        (setf damage-t damage
+              damage-c (* kc-r damage)
+              damage-s (* g-r damage)))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (s (cl-mpm/constitutive::deviatoric-voigt stress))
-            (ex 1))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
               (if (> p 0d0)
