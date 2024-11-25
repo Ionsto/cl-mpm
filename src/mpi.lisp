@@ -42,7 +42,7 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
-    :initform 3d0
+    :initform 2d0
     )
    (domain-count
     :accessor mpm-sim-mpi-domain-count
