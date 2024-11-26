@@ -1770,9 +1770,9 @@
         (mpi-vector-sum metric-array)
         (setf (aref size-array dim-index) (float dim-size 0d0))
         (mpi-vector-max size-array)
-        (when (= rank 0)
-          (format t "Metric array ~A~%" metric-array)
-          (format t "Size array ~A~%" size-array))
+        ;; (when (= rank 0)
+        ;;   (format t "Metric array ~A~%" metric-array)
+        ;;   (format t "Size array ~A~%" size-array))
         (when bottom-rank 
           (when (< dim-index increment-length)
             (setf (aref increment-array dim-index)
@@ -1789,8 +1789,8 @@
                           0d0))
                    0d0))))
         (mpi-vector-sum increment-array)
-        (when (= rank 0)
-          (format t "Inc array ~A~%" increment-array))
+        ;; (when (= rank 0)
+        ;;   (format t "Inc array ~A~%" increment-array))
 
         (let ((left-index (- dim-index 1)))
           (when (>= left-index 0)
