@@ -698,7 +698,6 @@
                   (cl-mpm::check-mps sim)
                   (cl-mpm::check-single-mps sim)
                   (set-mp-mpi-index sim)
-                  
                   (exchange-mps sim 0d0)
                   (set-mp-mpi-index sim)
                   (clear-ghost-mps sim)
@@ -1862,4 +1861,5 @@
               do (setf balance (cl-mpm/mpi::load-balance sim
                                                          :exchange-mps t
                                                          :step-size step-size
-                                                         :substeps substeps)))))))
+                                                         :substeps substeps))))
+      (domain-decompose sim))))
