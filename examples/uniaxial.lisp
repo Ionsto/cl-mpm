@@ -22,9 +22,10 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  local-length
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; local-length
   )
+
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -46,8 +47,14 @@
                      ) mp
       (declare (double-float pressure damage))
       (progn
-        (when (< damage 1d0)
-          (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (when t;(< damage 1d0)
+          ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+          (setf damage-increment
+                (max 0d0
+                     (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                      stress
+                      (* 42d0 (/ pi 180d0))
+                      )))
           ;; (setf damage-increment
           ;;       (max 0d0
           ;;            (cl-mpm/damage::criterion-dp-coheasion
@@ -77,9 +84,9 @@
    ;;                (* (cl-mpm/particle::mp-mass mp)
    ;;                   (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
    ;;                )
-   ;:colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
   ;; (vgplot:format-plot t "replot (~f*x + ~f)~%" 0d0 (+ 0.2d0 *target-displacement*))
   )
@@ -243,12 +250,15 @@
       (let* ()
         (let* (;(crack-scale 7d0)
                (crack-scale 1.0d0)
-               ;; (length-scale 5.3d-3)
-               ;; (length-scale 20d-3) ;;65.15
-               ;; (length-scale 10d-3) ;;47.56
-               (length-scale (/ 0.01d0 (sqrt 7))) ;;
-               (kappa (sqrt 1)))
+               ;; (length-scale (/ 0.01d0 (sqrt 7))) ;;
+               (length-scale h)
+               (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180))))
+               (gf 5d0)
+               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+               )
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
+          (format t "Init-stress ~F~%" init-stress)
+          (format t "Ductility ~F~%" ductility)
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (let ((length-scale h-x))
             (setf (cl-mpm:sim-mps sim)
@@ -262,20 +272,17 @@
                      'cl-mpm/particle::particle-chalk-delayed
                      :E 1d9
                      :nu 0.24d0
-                     ;; :nu 0.00d0
-                     :enable-plasticity nil
-                     :enable-damage nil
+                     :enable-plasticity t
+                     :enable-damage t
                      :friction-angle 42.0d0
-                     :kt-res-ratio 0d-9
-                     :kc-res-ratio 1d0
-                     :g-res-ratio 0d0
+                     :kt-res-ratio 1d0
+                     :kc-res-ratio 0d0;(- 1d0 1d-3)
+                     :g-res-ratio 1d0;(- 1d0 0.5d-3)
 
-                     :fracture-energy 3000d0
-                     :initiation-stress 100d3
+                     :initiation-stress init-stress
                      :delay-time 1d-2
                      :delay-exponent 1d0
-                     :ductility 20d0
-                     ;; :ductility 6.7d0
+                     :ductility ductility
 
                      :critical-damage 1d0;(- 1.0d0 1d-2)
                      :damage-domain-rate 1.0d0;This slider changes how GIMP update turns to uGIMP under damage
@@ -285,12 +292,10 @@
 
                      :psi (* 00d0 (/ pi 180))
                      :phi (* 42d0 (/ pi 180))
-                     ;; :phi (* 70d0 (/ pi 180))
-                     :c 131d3
-                     ;; :c 1000d3
-                     ;; :c 500d3
+                     :c (* 131d3 1d1)
                      :softening 0d0
                      :gravity 0d0
+                     :peerlings-damage nil
                      :index 0d0
                      )
                     ;; impactors
@@ -410,19 +415,18 @@
               (list
                ;; *floor-bc*
                (cl-mpm/bc::make-bc-closure
-                ;; nil
-                '(0 0 0)
+                nil
                 (lambda ()
                   (with-accessors ((mesh cl-mpm:sim-mesh)
-                                   (dt cl-mpm::sim-dt)
-                                   )
+                                   (dt cl-mpm::sim-dt))
                       sim
                     (setf
                      (cl-mpm/penalty::bc-penalty-datum *top-penalty*)
                      (- (+ *initial-surface* *target-displacement*)))
                     ))
                 )
-               *penalty-struct*
+               ;; *penalty-struct*
+               *top-penalty*
                ;; *top-penalty*
                ;; *pressure-bc*
                ))))
@@ -478,10 +482,10 @@
          ;;          0.00d0
          ;;               ))
 
-         (domain-length (+ shelf-length 0.00d0))
+         (domain-length (* 3d0 shelf-length))
          (domain-height (+ shelf-height 0.04d0))
          (offset (list
-                  0.00d0
+                  shelf-length
                   0.00d0
                   ))
          )
@@ -516,7 +520,7 @@
         ;;  )
         5d-3
         )
-       0.1d0
+       0.5d0
        )
       ;; (let* ((width 0.010d0)
       ;;       (length 0.100d0)
@@ -778,7 +782,7 @@
               (time-scale 1d0)
               (sample-scale 1d0)
               (displacment 0.2d-3)
-              (enable-damage nil)
+              (enable-damage t)
               (dt-scale 1d0)
               )
   (vgplot:close-all-plots)
@@ -842,7 +846,7 @@
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
-           1d-3
+           1d-2
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (setf cl-mpm/penalty::*debug-force* 0d0)
@@ -884,11 +888,7 @@
                                       *data-load*)
 
                                      (push
-                                      ;; (get-force-mps *sim* *terminus-mps*)
-                                      (/ (cl-mpm/penalty::bc-penalty-load *top-penalty*)
-                                         0.5d0
-                                         ;; (max 1 cl-mpm/penalty::*debug-force-count*)
-                                         )
+                                      (cl-mpm/penalty::resolve-load *top-penalty*)
                                       *data-mp-load*)
                                      (push
                                       *t*
@@ -900,7 +900,9 @@
                                     *t*
                                     *data-full-time*);)
 
-                                   (incf average-force (/ (cl-mpm/penalty::bc-penalty-load *top-penalty*) substeps))
+                                   (incf average-force (/
+                                                        (cl-mpm/penalty::resolve-load *top-penalty*)
+                                                         substeps))
                                    (incf average-disp (/ (get-disp *terminus-mps*) substeps))
 
                                    (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
@@ -923,28 +925,10 @@
                        (push
                         average-reaction
                         *data-load*)
-                       (let ((ymax
-                               (loop for mp across (cl-mpm:sim-mps *sim*)
-                                     maximize (cl-mpm/particle::mp-damage-y-local mp)))
-                             (ybarmax
-                               (loop for mp across (cl-mpm:sim-mps *sim*)
-                                     maximize (cl-mpm/particle::mp-damage-ybar mp)))
-                             )
-                         (format t "Ybar ratio: ~F~%" (/ ybarmax (max ymax 1d0)))
-                         (push
-                          ymax
-                          *data-y*)
-                         (push
-                          ybarmax
-                          *data-ybar*))
                        (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
                          (format stream "~f,~f,~f,~f,~f~%" average-disp average-force 0d0 0d0 0d0))
                        )
-                     (format t "Target: ~f - Current: ~f Error: ~f - energy ~F~%"
-                             *target-displacement*
-                             (get-disp *terminus-mps*)
-                             (* 100d0 (/ (- *target-displacement* (get-disp *terminus-mps*)) *target-displacement*))
-                             (energy-norm *sim*))
+                     (format t "Disp: ~E~%" *target-displacement*)
 
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
@@ -1125,7 +1109,7 @@
      ;; (lisp-stat:column fem 'disp) (lisp-stat:column fem 'load) "FEM"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) *data-node-load* "node"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-load*) "mpm-reaction"
-     (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-force"
+     (mapcar (lambda (x) (* x 1d3)) *data-displacement*) (mapcar (lambda (x) (* x 0.013)) *data-mp-load*) "mpm-force"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-y*) "mpm-y"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x 1d-4)) *data-ybar*) "mpm-ybar"
      ;; (mapcar (lambda (x) (* x -1d3)) *data-displacement*) (mapcar (lambda (x) (* x -2d9)) *data-displacement*) "LE"
@@ -1593,3 +1577,13 @@
                           (setf *run-sim* t))
                         ;; (run-static (format nil "../ham-shear-box/output-~D-~F/" refine s))
                         )))))
+
+(defun test ()
+  (let ((refine 2)
+        (mps 2))
+    (setup :refine refine)
+    (run
+     ;:output-directory (format nil "../ham-triaxial/output-~f_~D_0.0/" refine mps)
+     :displacment 10d-3
+     :sample-scale 0.1d0
+     :time-scale 0.1d0)))

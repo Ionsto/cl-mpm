@@ -268,10 +268,10 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (unless peerlings
-        (setf damage-t (* kt-r damage)
-              damage-c (* kc-r damage)
-              damage-s (* g-r damage)))
+      ;; (unless peerlings
+      ;;   (setf damage-t (* kt-r damage)
+      ;;         damage-c (* kc-r damage)
+      ;;         damage-s (* g-r damage)))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
@@ -607,6 +607,8 @@
                      (damage-tension cl-mpm/particle::mp-damage-tension)
                      (damage-shear cl-mpm/particle::mp-damage-shear)
                      (damage-compression cl-mpm/particle::mp-damage-compression)
+                     (peerlings cl-mpm/particle::mp-peerlings-damage)
+
                      )
         mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
@@ -631,15 +633,15 @@
                  (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
-        ;; (setf
-        ;;  damage-tension (* kt-r damage)
-        ;;  damage-compression (* kc-r damage)
-        ;;  damage-shear (* g-r damage))
-        (when peerlings
+        (if peerlings
           (setf
            damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
            damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
-           damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))))
+           damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
+          (setf
+           damage-tension (* kt-r damage)
+           damage-compression (* kc-r damage)
+           damage-shear (* g-r damage)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))
