@@ -468,8 +468,8 @@
   :E 1d9
   :nu 0.24d0
   :kt-res-ratio 1d0
-  :kc-res-ratio (- 1d0 1d-3)
-  :g-res-ratio (- 1d0 1d-3)
+  :kc-res-ratio (- 1d0 0.1d0)
+  :g-res-ratio (- 1d0 (* 0.25d0 0.1d0))
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
@@ -868,8 +868,8 @@
 
 (declaim (notinline make-penalty-box))
 (defun make-penalty-box (sim left-x right-x height friction-scale offset &key (epsilon-scale 1d2)
-                                                                     (corner-size 1d0)
-                                                                     )
+                                                                           (corner-size 1d0)
+                                                                           (smoothness 2))
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
@@ -891,7 +891,6 @@
          (corner-y (* 1d0 corner))
          (damping 0d0)
          (all-bcs (list))
-         (smoothness 2)
          )
     (defparameter *box-left* left-x)
     (defparameter *box-size* (* 2d0 height))
@@ -2105,12 +2104,12 @@
                        ;; 32
                        )
         do
-           (dolist (epsilon-scale (list 1d3))
+           (dolist (epsilon-scale (list 1d2))
              (dolist (mps (list 3))
                (let (;(mps 2)
                      ;; (mps 2)
-                     (scale 0.5d0)
-                     (sample-scale 0.5d0)
+                     (scale 0.1d0)
+                     (sample-scale 0.1d0)
                      ;; (name "circumscribed")
                      ;; (name "middle-circumscribed")
                      ;; (name "plastic")
@@ -2143,21 +2142,21 @@
                             ;;  (lambda (mp)
                             ;;    (setf (cl-mpm/particle::mp-damage mp) 1d0)))
 
-                            ;; (let ((k (cl-mpm/damage::find-k-damage-mp (aref (cl-mpm:sim-mps *sim*) 0) 0.9d0)))
-                            ;;   (cl-mpm:iterate-over-mps
-                            ;;    (cl-mpm:sim-mps *sim*)
-                            ;;    (lambda (mp)
-                            ;;      (setf (cl-mpm/particle::mp-history-stress mp)
-                            ;;            k))))
+                            (let ((k (cl-mpm/damage::find-k-damage-mp (aref (cl-mpm:sim-mps *sim*) 0) 0.99d0)))
+                              (cl-mpm:iterate-over-mps
+                               (cl-mpm:sim-mps *sim*)
+                               (lambda (mp)
+                                 (setf (cl-mpm/particle::mp-history-stress mp)
+                                       k))))
                             (setf *damage-model*
                                   ;; :DV
-                                  :MC
+                                  ;; :MC
                                   ;; :SE
-                                  ;; t
+                                  t
                                   )
                             (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale
                                          s)
-                                 :displacment 0.5d-3
+                                 :displacment 4d-3
                                  :surcharge-load s
                                  :damping 1d-3
                                  :time-scale (* 1d0 scale)
@@ -2180,3 +2179,13 @@
                               (setf *run-sim* t)))))))))
 
 
+
+;; (let* ((rc 0d0)
+;;        (rs 0.75)
+;;        (angle-plastic 42d0)
+;;        (angle-plastic-damaged (atan (* (/ (- 1d0 rs) (- 1d0 rc)) (tan angle-plastic))))
+;;        )
+;;    (format t "Chalk plastic virgin angle: ~F~%"
+;;            (* (/ 180 pi) angle-plastic))
+;;    (format t "Chalk plastic residual angle: ~F~%"
+;;            (* (/ 180 pi) angle-plastic-damaged)))

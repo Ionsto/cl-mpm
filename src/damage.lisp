@@ -2247,7 +2247,7 @@ Calls the function with the mesh mp and node"
           do
              (progn
                (setf d-est (damage-response-exponential k-est E init-stress ductility))
-               (format t "~F ~F~%" d-est k-est)
+               ;; (format t "~F ~F~%" d-est k-est)
                (when (> damage d-est)
                  (setf k-prev k-est)
                  (setf k-est
