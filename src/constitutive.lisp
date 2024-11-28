@@ -702,19 +702,22 @@
 
 (defun dp-yield-mc-circumscribe (stress phi c)
   (declare (double-float c phi))
-  (let ((a (/ (* 3d0 c (cos phi))
-              (sqrt (+ 9d0 (* 3d0 (expt (sin phi) 2)))) ))
-        (b (/ (sin phi)
-              (sqrt (+ 9d0 (* 3d0 (expt (sin phi) 2))))))
-        (p (cl-mpm/utils::trace-voigt stress))
-        (j2 (cl-mpm/constitutive::voigt-j2
-             (cl-mpm/utils::deviatoric-voigt stress)))
-        )
+  (let* ((factor (sqrt (+ 9d0 (* 3d0 (expt (sin phi) 2)))))
+         (a (/ (* 3d0 c (cos phi)) factor))
+         (b (/ (sin phi) factor))
+         (p (cl-mpm/utils::trace-voigt stress))
+         (j2 (cl-mpm/constitutive::voigt-j2
+              (cl-mpm/utils::deviatoric-voigt stress)))
+         )
     (declare (double-float a b j2 p))
     (+
      (the double-float (sqrt j2))
      (- a)
      (* b p))))
+
+(defun fast-mc (stress phi c)
+  (multiple-value-bind (s1 s2 s3) (cl-mpm/utils::principal-stresses-3d stress)
+      (mc-yield-func (cl-mpm/utils:vector-from-list (list s1 s2 s3)) phi c)))
 
 
 ;; (defun plastic-dp (trial-elastic-strain de E nu phi psi c)
@@ -727,9 +730,10 @@
            (magicl:matrix/double-float stress de trial-elastic-strain))
   (let* ((tol 1d-9)
          (initial-f 0d0))
-    (let ((f-dp (dp-yield-mc-circumscribe stress phi c)))
+    (let (;(f-dp (dp-yield-mc-circumscribe stress phi c))
+          )
       ;;Early check for if we should yield - DP eval is much faster?
-      (if (> f-dp tol)
+      (if (> (fast-mc stress phi c) tol)
           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix trial-elastic-strain))
             (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
                    (l (mapcar #'car l-sort))

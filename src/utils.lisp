@@ -614,3 +614,15 @@
          (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
          (format t "Throughput: ~f~%" (/ 1 dt))
          dt))))
+
+(defun principal-stresses-3d (stress)
+  (multiple-value-bind (l v) (eig (voight-to-matrix stress))
+    (declare (ignore v))
+    (setf l (sort l #'>))
+    (values (nth 0 l) (nth 1 l) (nth 2 l))))
+
+(defun principal-strains-3d (strain)
+  (multiple-value-bind (l v) (eig (voigt-to-matrix strain))
+    (declare (ignore v))
+    (setf l (sort l #'>))
+    (values (nth 0 l) (nth 1 l) (nth 2 l))))
