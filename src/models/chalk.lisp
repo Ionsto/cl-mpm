@@ -254,14 +254,16 @@
                   yield-func f)
             (setf strain eps-e)
             )
-          (let ((inc (multiple-value-bind (l v)
-                         (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                       (destructuring-bind (s1 s2 s3) l
-                         (sqrt
-                          (/ (+ (expt (- s1 s2) 2d0)
-                                (expt (- s2 s3) 2d0)
-                                (expt (- s3 s1) 2d0)
-                                ) 2d0))))))
+          (let ((inc (cl-mpm/fastmaths::voigt-j2 plastic-strain))
+                ;; (inc (multiple-value-bind (l v)
+                ;;          (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                ;;        (destructuring-bind (s1 s2 s3) l
+                ;;          (sqrt
+                ;;           (/ (+ (expt (- s1 s2) 2d0)
+                ;;                 (expt (- s2 s3) 2d0)
+                ;;                 (expt (- s3 s1) 2d0)
+                ;;                 ) 2d0)))))
+                )
             (incf ps-vm inc)
             (setf ps-vm-inc inc))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
