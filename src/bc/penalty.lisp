@@ -800,11 +800,7 @@
                    (debug-force bc-penalty-load)
                    (sim bc-penalty-sim))
       bc
-    ;; (setf (bc-penalty-structure-contact-points bc) nil)
     (reset-load bc)
-    ;; (loop for bc in sub-bcs
-    ;;       do (setf (bc-penalty-load bc) 0d0))
-    ;; (setf debug-force 0d0)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
@@ -824,7 +820,6 @@
                                                  (contact-point closest-point) dt)))
                   (sb-thread:with-mutex (debug-mutex)
                     (incf debug-force load)))))))
-         ;; (setf (cl-mpm/particle::mp-penalty-energy mp) (calculate-bc-energy-mp sim bc mp))
          )))))
 
 (defun calculate-bc-energy-mp (sim bc mp)

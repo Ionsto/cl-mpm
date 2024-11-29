@@ -57,6 +57,7 @@
   ;;   (values l (magicl:.realpart v)))
   )
 
+
 (defmacro check-nan-matrix (mat &rest body)
   `(loop for vsdadasdsd across (cl-mpm/utils::fast-storage ,mat)
          do (when (or
@@ -145,10 +146,9 @@
 
 
 (declaim (inline deep-copy)
-         (ftype (function ()
-                          magicl:matrix/double-float) vector-zeros))
+         (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) deep-copy))
 (defun deep-copy (m)
-  "Make a vector of 3x1 zeros"
+  "Deep copy a tensor"
   (let* ((rows (magicl::matrix/double-float-nrows m))
          (cols (magicl::matrix/double-float-ncols m))
          (total (* rows cols)))
@@ -626,3 +626,20 @@
     (declare (ignore v))
     (setf l (sort l #'>))
     (values (nth 0 l) (nth 1 l) (nth 2 l))))
+
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (time
+        (dotimes (i ,it)
+          ,form))
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
+         dt))))

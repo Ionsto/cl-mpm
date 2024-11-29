@@ -731,7 +731,6 @@
   (let* ((tol 1d-9)
          (initial-f 0d0))
     (let (;(f-dp (dp-yield-mc-circumscribe stress phi c))
-
           (f-dp (fast-mc stress phi c))
           )
       ;;Early check for if we should yield - DP eval is much faster?

@@ -49,6 +49,9 @@
     :initform '(1 1 1)
     :initarg :domain-count
     )
+   (work-time
+    :accessor mpm-sim-mpi-work-time
+    :initform 0d0)
    (load-metric
     :accessor mpm-sim-mpi-load-metric
     :initform 0d0)

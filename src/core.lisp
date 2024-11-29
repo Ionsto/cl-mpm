@@ -135,8 +135,7 @@
                 (progn
                     (reset-grid mesh)
                     (p2g mesh mps)
-                    ;;
-
+                    
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt )
@@ -150,7 +149,6 @@
                     ;; Reapply velocity BCs
                     (apply-bcs mesh bcs dt)
 
-                    ;;
                     ;; Also updates mps inline
                     (g2p mesh mps dt)
                     (when split
@@ -249,20 +247,19 @@
 
 
 (declaim
- (notinline p2g-mp)
+ (inline p2g-mp)
  (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
                 p2g-mp))
 (defun p2g-mp (mesh mp)
   "P2G transfer for one MP"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (with-accessors (
-                   (mp-vel  cl-mpm/particle:mp-velocity)
+  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
                    (mp-mass cl-mpm/particle:mp-mass)
                    (mp-volume cl-mpm/particle:mp-volume)
                    (mp-pmod cl-mpm/particle::mp-p-modulus)
-                   (mp-damage cl-mpm/particle::mp-damage)
-                   ) mp
+                   (mp-damage cl-mpm/particle::mp-damage))
+      mp
     (let ((mp-mass mp-mass)
           (mp-vel mp-vel)
           (mp-volume mp-volume)
@@ -289,7 +286,7 @@
                           (node-lock  cl-mpm/mesh:node-lock)) node
            (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
                     (type sb-thread:mutex node-lock))
-           (sb-thread:with-mutex (node-lock)
+           (sb-thread:with-mutex (node-lock :wait-p t)
              (setf node-active t)
              (incf node-mass
                    (* mp-mass svp))
@@ -300,7 +297,7 @@
              (incf node-damage
                    (* mp-damage svp))
              (incf node-svp-sum svp)
-             (fast-fmacc node-vel mp-vel (* mp-mass svp))
+             (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))
              )
            ;;Ideally we include these generic functions for special mapping operations, however they are slow
            ;; (special-p2g mp node svp dsvp)
@@ -352,7 +349,7 @@
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
              ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-             (sb-thread:with-mutex (node-lock)
+             (sb-thread:with-mutex (node-lock :wait-p t)
                (det-ext-force mp node svp node-ext-force)
                ;; (det-int-force mp dsvp node-int-force)
                (det-int-force-unrolled mp grads node-int-force)
@@ -388,7 +385,7 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
          (when node-active
-           (sb-thread:with-mutex (node-lock)
+           (sb-thread:with-mutex (node-lock :wait-p t)
              (det-ext-force-2d mp node svp node-ext-force)
              (det-int-force-unrolled-2d mp grads node-int-force)
              ))))))
@@ -471,7 +468,7 @@
                         (ignore mp mesh fsvp fgrads)
                         (cl-mpm/mesh::node node)
                         (cl-mpm/particle:particle mp)
-                        ( double-float svp))
+                        (double-float svp))
                        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                                         (node-acc cl-mpm/mesh:node-acceleration)
                                         (node-scalar cl-mpm/mesh::node-boundary-scalar)
@@ -1069,12 +1066,14 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (progn
         (calculate-strain-rate mesh mp dt)
+
         ;; Turn cauchy stress to kirchoff
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+        ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
         ;; Check volume constraint!
         (when (<= volume 0d0)
           (error "Negative volume"))
@@ -1256,8 +1255,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (setf (mtref df 2 2) 1d0))
           )) df)))
 (defgeneric post-stress-step (mesh mp dt))
-(defmethod post-stress-step (mesh mp dt)
-  )
+(defmethod post-stress-step (mesh mp dt))
 (defmethod post-stress-step (mesh (mp cl-mpm/particle::particle) dt)
   (declare (ignore mesh mp dt)))
 
@@ -1268,29 +1266,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun update-stress (mesh mps dt &optional (fbar nil))
   "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  ;;Update stress
-  ;; (when fbar
-  ;;   (cl-mpm:iterate-over-mps
-  ;;    mps
-  ;;    (lambda (mp)
-  ;;      (calculate-strain-rate mesh mp dt)
-  ;;      (map-jacobian mesh mp dt))))
-
   (iterate-over-mps
    mps
    (lambda (mp)
      (update-stress-mp mesh mp dt fbar)
      (post-stress-step mesh mp dt)
      ))
-
-  ;; (lparallel:pdotimes (i (length mps))
-  ;;   (update-stress-mp mesh (aref mps i) dt fbar)
-  ;;   (post-stress-step mesh (aref mps i) dt)
-  ;;   )
-  ;; (dotimes (i (length mps))
-  ;;   (update-stress-mp mesh (aref mps i) dt fbar)
-  ;;   (post-stress-step mesh (aref mps i) dt)
-  ;;   )
   (values))
 
 (declaim (notinline reset-grid))

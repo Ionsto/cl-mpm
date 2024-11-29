@@ -305,12 +305,13 @@
 
 (defclass particle-elastic (particle)
   ((E
-     :accessor mp-E
-     :initarg :E
-     )
+    :type double-float
+    :accessor mp-E
+    :initarg :E)
    (nu
-     :accessor mp-nu
-     :initarg :nu)
+    :type double-float
+    :accessor mp-nu
+    :initarg :nu)
    (elastic-matrix
     :accessor mp-elastic-matrix
     :type magicl:matrix/double-float)

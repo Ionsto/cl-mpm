@@ -865,7 +865,7 @@ Calls the function with the mesh mp and node"
                 (progn
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
-                    (cl-mpm::check-single-mps sim)
+                    ;; (cl-mpm::check-single-mps sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt )
@@ -891,7 +891,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
-                    (cl-mpm::check-mps sim)
+                    ;; (cl-mpm::check-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
