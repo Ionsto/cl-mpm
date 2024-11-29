@@ -717,15 +717,6 @@ Calls the function with the mesh mp and node"
   local-length
   )
 
-;; (declaim
-;;  (ftype
-;;   (function (cl-mpm/mesh::mesh
-;;              (array cl-mpm/particle::particle)
-;;              double-float
-;;              double-float
-;;              )
-;;             (values))
-;;   delocalise-damage))
 
 (defgeneric delocalise-damage (sim))
 
@@ -747,16 +738,8 @@ Calls the function with the mesh mp and node"
                 (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
-(declaim
- (ftype
-  (function (cl-mpm/mesh::mesh
-             (array cl-mpm/particle::particle)
-             double-float
-             )
-            (values))
-  localise-damage))
+
 (defun localise-damage (mesh mps dt)
-  ;(declare ((array cl-mpm/particle::particle *) mps))
   "Apply local damage model"
   (cl-mpm:iterate-over-mps
    mps
