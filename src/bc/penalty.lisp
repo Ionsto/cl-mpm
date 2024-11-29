@@ -326,7 +326,13 @@
                (push (cl-mpm/fastmaths:fast-.+ p (cl-mpm/fastmaths:fast-scale-vector dir 0.75d0)) new-list)
                ))
     (push (first (last point-list)) new-list)
-    new-list))
+    (reverse new-list)))
+
+;; (pprint
+;;  (cl-mpm/penalty::chaikin-smooth (list (cl-mpm/utils:vector-from-list (list 0d0 0d0 0d0))
+;;                                        (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
+;;                                        (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0))
+;;                                        )))
 
 (defun make-bc-penalty-smooth-corner (sim p-a corner p-b smooth-steps epsilon friction damping)
   (let ((points (list p-a corner p-b)))

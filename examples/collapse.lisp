@@ -14,14 +14,14 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun plot (sim)
-  ;; (cl-mpm/plotter:simple-plot
-  ;;  *sim*
-  ;;  :plot :point
-  ;;  :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-  ;;  ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
-  ;;  )
+  (cl-mpm/plotter:simple-plot
+   *sim*
+   :plot :point
+   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   )
   )
 
 (defun stop ()
@@ -212,18 +212,33 @@
          (format t "Throughput: ~f~%" (/ 1 dt))
          (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
          dt))))
+(defun test-mult ()
+  (time
+   (cl-mpm:iterate-over-mps
+    (cl-mpm:sim-mps *sim*)
+    (lambda (mp)
+      (with-accessors ((strain cl-mpm/particle:mp-strain)
+                       (de cl-mpm/particle::mp-elastic-matrix)
+                       (stress cl-mpm/particle::mp-stress-kirchoff))
+          mp
+        (cl-mpm/constitutive::linear-elastic-mat strain de stress))))))
 (defun profile ()
-  (setup :refine 8)
-  (sb-profile:unprofile)
-  (sb-profile:profile "CL-MPM")
-  ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  (sb-profile:reset)
+  (setup :refine 16)
+  ;; (sb-profile:unprofile)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  ;; (sb-profile:reset)
   (time-form 100
              (progn
                (format t "~D~%" i)
                   (cl-mpm::update-sim *sim*)))
+  ;; (time-form 1000000
+  ;;            (progn
+  ;;              ;; (cl-mpm:iterate-over-neighbours (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (mesh mp &rest args) (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
+  ;;              (cl-mpm::iterate-over-neighbours-shape-gimp-simd (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (&rest args)))
+  ;;              ))
   ;; (time
   ;;  (dotimes (i 100)
   ;;    (format t "~D~%" i)
@@ -231,6 +246,25 @@
   (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
   ;; (sb-profile:report)
   )
+
+(defun profile ()
+  (setup :refine 16)
+  (time-form 100
+             (progn
+               (format t "~D~%" i)
+               (cl-mpm::update-sim *sim*)))
+  ;; (time-form
+  ;;  100
+  ;;  (progn
+  ;;    (cl-mpm::check-mps *sim*)))
+  ;; (time
+  ;;  (dotimes (i 100)
+  ;;    (format t "~D~%" i)
+  ;;    (cl-mpm::update-sim *sim*)))
+  (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  ;; (sb-profile:report)
+  )
+
 ;; (lparallel:end-kernel)
 ;; (sb-ext::exit)
 ;; (uiop:quit)

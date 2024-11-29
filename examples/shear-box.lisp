@@ -478,12 +478,12 @@
   :ductility ductility
   :local-length length-scale
   :local-length-damaged 10d-10
-  :enable-damage t
+  :enable-damage nil
   :enable-plasticity t
 
-  :psi (* 0d0 (/ pi 180))
+  :psi (* 5d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
-  :c (* 131d3 1d1)
+  :c (* 131d3 1d0)
   :phi-r (* 30d0 (/ pi 180))
   :c-r 0d0
   :softening 0d0
@@ -803,6 +803,9 @@
                                              (cl-mpm/utils:varef p2 1)
                                              (cl-mpm/utils:varef p2 2)))
                                  (/ load size)
+                                 (list (cl-mpm/utils:varef normal 0)
+                                       (cl-mpm/utils:varef normal 1)
+                                       (cl-mpm/utils:varef normal 2))
                                  ) json-object))))
         (with-open-file (fs filename :direction :output :if-exists :supersede)
           (format fs "# vtk DataFile Version 2.0~%")
@@ -831,12 +834,25 @@
                   do (format fs "3~%"))
 
             (format fs "CELL_DATA ~d~%" line-count)
-            (format fs "SCALARS ~a FLOAT ~d~%" "LOAD" 1)
-            (format fs "LOOKUP_TABLE default~%")
+            ;; (format fs "SCALARS ~a FLOAT ~d~%" "LOAD" 1)
+            ;; (format fs "LOOKUP_TABLE default~%")
+            ;; (loop for bc in json-object
+            ;;       do (progn
+            ;;            (format fs "~E ~%"
+            ;;                    (coerce (second bc) 'single-float))
+            ;;            ;; (format fs "~E ~%"
+            ;;            ;;         (coerce (second bc) 'single-float))
+            ;;            ))
+            (format fs "NORMALS ~a FLOAT~%" "NORMAL")
+            ;; (format fs "LOOKUP_TABLE default~%")
             (loop for bc in json-object
                   do (progn
-                       (format fs "~E ~%"
-                               (coerce (second bc) 'single-float))
+                       (destructuring-bind (x y z) (third bc)
+                         (format fs "~f ~f ~f~%"
+                                 (coerce x 'single-float)
+                                 (coerce y 'single-float)
+                                 (coerce z 'single-float)
+                                 ))
                        ;; (format fs "~E ~%"
                        ;;         (coerce (second bc) 'single-float))
                        ))
@@ -869,7 +885,7 @@
 (declaim (notinline make-penalty-box))
 (defun make-penalty-box (sim left-x right-x height friction-scale offset &key (epsilon-scale 1d2)
                                                                            (corner-size 1d0)
-                                                                           (smoothness 2))
+                                                                           (smoothness 1))
   (let* ((left-normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
@@ -1166,22 +1182,11 @@
         *shear-box-controller*))
       (cl-mpm/bc:make-bcs-from-list
        (list
-        ;; *shear-box-struct-left-static*
-        ;; *shear-box-struct-right-static*
-        ;; *shear-box-struct-left*
-        ;; *shear-box-struct-right*
-        ;; *shear-box-struct-right-dynamic*
-
-        ;; *shear-box-struct*
-
         *shear-box-struct-floor*
-
         *shear-box-struct-left*
         *shear-box-struct-left-static*
-
         *shear-box-struct-right*
         *shear-box-struct-right-static*
-
         ))))))
 
 (declaim (notinline get-load))
@@ -1194,9 +1199,12 @@
   ;; (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
   ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
   ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-  (-
-   (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
-   (cl-mpm/penalty::resolve-load *shear-box-struct-right*))
+  (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+    ;; (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
+    (-
+     (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
+     (cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal))
+    )
   ;; (cl-mpm/penalty::resolve-load *shear-box-struct-left*)
   )
 (declaim (notinline get-load-left))
@@ -1335,7 +1343,9 @@
                          :init-stress init-stress))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 1d0 mesh-size))
+                      :corner-size (* 0.25d0 mesh-size)
+                                        ;7.5d-3
+                      )
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     (setf (cl-mpm:sim-dt *sim*)
           (*
@@ -1609,8 +1619,8 @@
                             )))
                        (sb-ext:gc)
 
-                       (setf load-av (get-load))
-                       (setf disp-av *displacement-increment*)
+                       ;; (setf load-av (get-load))
+                       ;; (setf disp-av *displacement-increment*)
 
                        (setf max-load (max max-load load-av))
                        (when skip-level
@@ -2108,26 +2118,26 @@
              (dolist (mps (list 3))
                (let (;(mps 2)
                      ;; (mps 2)
-                     (scale 0.1d0)
-                     (sample-scale 0.1d0)
+                     (scale 0.5d0)
+                     (sample-scale 1d0)
                      ;; (name "circumscribed")
                      ;; (name "middle-circumscribed")
                      ;; (name "plastic")
                      )
                  (loop for s
-                       ;; from 0d0 to 35d4 by 2.5d4
-                         in
-                         (list
-                          10d4
-                          20d4
-                          30d4
-                          )
+                       from 10d4 to 30d4 by 5d4
+                         ;; in
+                         ;; (list
+                         ;;  10d4
+                         ;;  20d4
+                         ;;  30d4
+                         ;;  )
                        while (and *run-sim*)
                        do
                           (let (;(piston-scale 10d0)
                                 (piston-scale 1d0)
                                 ;; (name (format nil "~A_~A" "iso" damage))
-                                (name "PD")
+                                (name "SMOOTH1")
                                 )
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
@@ -2142,12 +2152,12 @@
                             ;;  (lambda (mp)
                             ;;    (setf (cl-mpm/particle::mp-damage mp) 1d0)))
 
-                            (let ((k (cl-mpm/damage::find-k-damage-mp (aref (cl-mpm:sim-mps *sim*) 0) 0.99d0)))
-                              (cl-mpm:iterate-over-mps
-                               (cl-mpm:sim-mps *sim*)
-                               (lambda (mp)
-                                 (setf (cl-mpm/particle::mp-history-stress mp)
-                                       k))))
+                            ;; (let ((k (cl-mpm/damage::find-k-damage-mp (aref (cl-mpm:sim-mps *sim*) 0) 0.99d0)))
+                            ;;   (cl-mpm:iterate-over-mps
+                            ;;    (cl-mpm:sim-mps *sim*)
+                            ;;    (lambda (mp)
+                            ;;      (setf (cl-mpm/particle::mp-history-stress mp)
+                            ;;            k))))
                             (setf *damage-model*
                                   ;; :DV
                                   ;; :MC
@@ -2156,16 +2166,16 @@
                                   )
                             (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale
                                          s)
-                                 :displacment 4d-3
+                                 :displacment 3d-3
                                  :surcharge-load s
-                                 :damping 1d-3
+                                 :damping 1d-4
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 sample-scale)
                                  :dt-scale (/ 1d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
                                  :damage-time-scale 1d0
                                  ;; :skip-level 0.9d0
-                                 :enable-damage t
-                                 :enable-plasticity t
+                                 :enable-damage nil
+                                 :enable-plasticity nil
                                  )
                             ;; (run-static (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
                             ;;      :displacment 0.1d-3
@@ -2180,12 +2190,88 @@
 
 
 
-;; (let* ((rc 0d0)
-;;        (rs 0.75)
-;;        (angle-plastic 42d0)
-;;        (angle-plastic-damaged (atan (* (/ (- 1d0 rs) (- 1d0 rc)) (tan angle-plastic))))
+;; (let* ((rc 0.1d0)
+;;        (rs (* 0.25d0 0.1d0))
+;;        (ratio ;0.5d0
+;;               (/ (- 1d0 rs) (- 1d0 rc))
+;;               )
+;;        (angle-plastic 50d0)
+;;        (angle-plastic-damaged (atan (* ratio (tan (* angle-plastic (/ pi 180))))))
 ;;        )
 ;;    (format t "Chalk plastic virgin angle: ~F~%"
 ;;            (* (/ 180 pi) angle-plastic))
 ;;    (format t "Chalk plastic residual angle: ~F~%"
 ;;            (* (/ 180 pi) angle-plastic-damaged)))
+
+;; (let* ((E 1d0)
+;;        (nu 0.24d0)
+;;        (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+;;        ;(strain (cl-mpm/utils:voigt-from-list (loop repeat 6 collect (- (random 100d0) 50d0))))
+;;        (strain (cl-mpm/utils:voigt-from-list (list 10d0 0d0 0d0 20d0 20d0 0d0)))
+;;        (stress (magicl:@ de strain))
+;;        (phi 0.1d0)
+;;        (psi 0d0)
+;;        (c 0.1d0)
+;;        )
+;;   (time
+;;    (lparallel:pdotimes (i 1000000)
+;;      (multiple-value-bind (sig eps fdp)
+;;          (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c))))
+;;   )
+
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (time
+        (dotimes (i ,it)
+          ,form))
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
+         dt))))
+
+(defun profile ()
+  (setup :refine 16)
+  ;; (sb-profile:unprofile)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
+  ;; (sb-profile:reset)
+  (with-accessors ((bcs-force-list cl-mpm::sim-bcs-force-list)
+                   (mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt))
+      *sim*
+    (time-form
+     100
+     (loop for bcs-f in bcs-force-list
+           do (cl-mpm::apply-bcs mesh bcs-f dt))))
+  ;; (time-form
+  ;;  100
+  ;;  (progn
+  ;;    (format t "~D~%" i)
+  ;;    (cl-mpm::update-sim *sim*)))
+  (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  ;; (sb-profile:report)
+  )
+
+(defun profile-penalty ()
+  (let ((mp (aref (cl-mpm:sim-mps *sim*) 0))
+        (mesh (cl-mpm:sim-mesh *sim*))
+        (corner (cl-mpm/utils:vector-from-list '(0d0 0d0 0d0))))
+    (time-form
+     10000
+     (cl-mpm::iterate-over-corners
+      mesh
+      mp
+      (lambda (corner)
+        (cl-mpm/penalty::resolve-closest-contact *shear-box-struct-left* corner)
+        ))
+     ))
+  )
