@@ -27,7 +27,7 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmaths)
 
-(pushnew :sb-simd *features*)
+;; (pushnew :sb-simd *features*)
 (eval-when
     (:compile-toplevel)
   (pushnew :sb-simd *features*)
@@ -758,15 +758,25 @@
    double-float)
   dot))
 (defun dot (a b)
-  ;; (let ((as (cl-mpm/utils:fast-storage a))
-  ;;       (bs (cl-mpm/utils:fast-storage b)))
-  ;;   (declare ((simple-array double-float (*)) as bs))
-  ;;   (the double-float
-  ;;        (loop for va across as
-  ;;              for vb across bs
-  ;;              sum (the double-float (* va vb)))))
   (the double-float (fast-sum (fast-.* a b)))
   )
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float
+    magicl::matrix/double-float
+    )
+   double-float)
+  dot))
+(defun dot-vector (a b)
+  (let ((a-s (cl-mpm/utils:fast-storage a))
+        (b-s (cl-mpm/utils:fast-storage b))
+        )
+    (declare ((simple-array double-float (3)) a-s b-s))
+    (+
+     (the double-float (expt (- (aref a-s 0) (aref b-s 0)) 2))
+     (the double-float (expt (- (aref a-s 1) (aref b-s 1)) 2))
+     (the double-float (expt (- (aref a-s 2) (aref b-s 2)) 2)))))
 
 (declaim
  (ftype

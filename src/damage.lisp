@@ -331,43 +331,13 @@
 ;;                                   (cl-mpm:sim-mps *sim*)))
 
 
-#- :sb-simd
-(progn
-  (declaim
-   (inline diff-squared)
-   (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
-  (defun diff-squared (mp-a mp-b)
-    (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
-                           (cl-mpm/particle:mp-position mp-b)))
-          )
-      (values (the double-float (magicl::sum (cl-mpm/fastmaths::fast-.* dist dist)))))))
-
 ;;This is a simd dot product
-#+ :sb-simd
 (progn
-  (declaim
-   (inline simd-accumulate)
-   (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
-  ;; (defun simd-accumulate (a b)
-  ;;   (declare (type sb-simd:f64vec a b))
-  ;;   (let ((diff
-  ;;           (sb-simd-avx:f64.2-
-  ;;            (sb-simd-avx:f64.2-aref a 0)
-  ;;            (sb-simd-avx:f64.2-aref b 0)
-  ;;            )))
-  ;;     (values (sb-simd-avx::f64.2-horizontal+
-  ;;              (sb-simd-avx:f64.2* diff diff))))
-  ;;   )
-  (defun simd-accumulate (a b)
-    (+
-     (the double-float (expt (- (aref a 0) (aref b 0)) 2))
-     (the double-float (expt (- (aref a 1) (aref b 1)) 2))
-     (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
 
   (defun diff-squared-mat (pos-a pos-b)
     (let ((pos-a (magicl::matrix/double-float-storage pos-a))
           (pos-b (magicl::matrix/double-float-storage pos-b)))
-      (values (the double-float (simd-accumulate pos-a pos-b)))))
+      (values (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)))))
 
   (defun test-simd-acc (a b)
     (let (
@@ -377,15 +347,6 @@
           (b (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0)))
           )
       (pprint (diff-squared-mat a b))
-      ;; (let ((iter 1000000000))
-      ;;   (time
-      ;;    (dotimes (i iter)
-      ;;        (simd-accumulate (cl-mpm/utils::fast-storage a)
-      ;;                         (cl-mpm/utils::fast-storage b))))
-      ;;   (time
-      ;;    (dotimes (i iter)
-      ;;      (cl-mpm/fastmaths::simd-diff-norm (cl-mpm/utils::fast-storage a) (cl-mpm/utils::fast-storage b)))))
-
       ))
 
   (declaim
@@ -395,10 +356,6 @@
     (cl-mpm/fastmaths::diff-norm
      (cl-mpm/particle:mp-position mp-a)
      (cl-mpm/particle:mp-position mp-b))
-    ;; (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
-    ;;       (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
-    ;;       )
-    ;;   (values (the double-float (simd-accumulate pos-a pos-b))))
     )
   )
 
@@ -526,9 +483,7 @@
   )
 
 (defun weight-func-pos (mesh pos-a pos-b length)
-  (let ((ps-a (magicl::matrix/double-float-storage pos-a))
-        (ps-b (magicl::matrix/double-float-storage pos-b)))
-    (weight-func (the double-float (simd-accumulate ps-a ps-b)) length)))
+  (weight-func (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)) length))
 
 (declaim
  (inline weight-func-mps-damaged)
