@@ -286,7 +286,7 @@
                           (node-lock  cl-mpm/mesh:node-lock)) node
            (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
                     (type sb-thread:mutex node-lock))
-           (sb-thread:with-mutex (node-lock :wait-p t)
+           (sb-thread:with-mutex (node-lock)
              (setf node-active t)
              (incf node-mass
                    (* mp-mass svp))
@@ -349,7 +349,7 @@
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
              ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-             (sb-thread:with-mutex (node-lock :wait-p t)
+             (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
                ;; (det-int-force mp dsvp node-int-force)
                (det-int-force-unrolled mp grads node-int-force)
@@ -385,7 +385,7 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
          (when node-active
-           (sb-thread:with-mutex (node-lock :wait-p t)
+           (sb-thread:with-mutex (node-lock)
              (det-ext-force-2d mp node svp node-ext-force)
              (det-int-force-unrolled-2d mp grads node-int-force)
              ))))))

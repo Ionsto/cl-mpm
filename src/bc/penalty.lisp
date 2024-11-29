@@ -616,6 +616,16 @@
                                                   svp))))))
             (values normal-force)))))))
 
+(defgeneric resolve-load-direction (bc direction))
+
+(defmethod resolve-load-direction ((bc bc-penalty) direction)
+  (* (cl-mpm/fastmaths:dot direction (bc-penalty-normal bc))
+     (bc-penalty-load bc)))
+
+(defmethod resolve-load-direction ((bc bc-penalty-structure) direction)
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        sum (resolve-load-direction sub-bc direction)))
+
 (defgeneric resolve-load (bc))
 
 (defmethod resolve-load ((bc bc-penalty))
