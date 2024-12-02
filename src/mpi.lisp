@@ -1063,9 +1063,8 @@
             (bounds-list (mpm-sim-mpi-domain-bounds sim))
             (halo-depth (if halo-depth
                             halo-depth
-                            (* 4 (cl-mpm/mesh:mesh-resolution mesh))))
+                            (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
             )
-        ;; (format t "MPs:~A~%" (length mps))
         (loop for i from 0 to 2
               do
                  (let ((id-delta (list 0 0 0)))
@@ -1092,10 +1091,7 @@
                                 (halo-filter (lambda (pos)
                                                (and
                                                 (>= pos (- bu halo-depth)))
-                                               ))
-                                )
-
-                              )
+                                               ))))
 
 
                            (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
@@ -1103,8 +1099,7 @@
                                   (recv
                                     (cond
                                       ((and (not (= left-neighbor -1))
-                                            (not (= right-neighbor -1))
-                                            )
+                                            (not (= right-neighbor -1)))
                                        (cl-mpi-extensions:mpi-waitall-anything
                                         (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
                                         (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)

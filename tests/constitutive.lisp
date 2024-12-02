@@ -11,6 +11,33 @@
          (stress (magicl:@ de strain)))
     (multiple-value-bind (sig eps f) (cl-mpm/constitutive::plastic-dp stress de strain E nu phi psi c)
       (cl-mpm/constitutive::swizzle-voigt->coombs eps))))
+
+
+(defun test-mc-dp-approx ()
+  (let* ((stress (cl-mpm/utils:voigt-from-list (list (random 10d0)
+                                                     (random 10d0)
+                                                     (random 10d0)
+                                                     (random 10d0)
+                                                     (random 10d0)
+                                                     (random 10d0)
+                                                     )))
+         (angle (random 0.1d0))
+         (c (random 10d0))
+         (f-mc 0d0)
+         (f-dp 0d0)
+         )
+    (multiple-value-bind (s1 s2 s3) (cl-mpm/damage::principal-stresses stress)
+      (setf f-mc
+            (cl-mpm/constitutive::mc-yield-func (cl-mpm/utils:vector-from-list (list s1 s2 s3))
+                                                angle c)))
+    (setf f-dp (cl-mpm/constitutive::dp-yield-mc-circumscribe stress angle c))
+    (if (= (signum f-mc) (signum f-dp))
+        (format t "Pass~%")
+        (format t "Fail ~E ~E~%" f-mc f-dp)
+        )
+    )
+  )
+
 (defun test-plastic-mc (&rest strain-list)
   (let* ((E 1d0)
          (nu 0.1d0)
@@ -92,6 +119,7 @@
                ;; (list 0d0 0d0 0d0 2.6944d0 0d0 0d0)
                ))
   )
+
 
 (deftest test-mohr-coloumb ()
   ;;Not a good test

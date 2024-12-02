@@ -643,3 +643,11 @@
 ;;          (format t "Throughput: ~f~%" (/ 1 dt))
 ;;          (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
 ;;          dt))))
+
+(defmacro track-time ((var) &body body)
+  (alexandria:with-gensyms (timespan result)
+    `(lret (,result)
+           (let ((,timespan
+                   (measure-time (_ (setq ,result (progn ,@body))) 1 t)))
+             (when ,var
+               (incf ,var ,timespan))))))

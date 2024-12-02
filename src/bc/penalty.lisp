@@ -234,11 +234,6 @@
                             (when node-active
                               ;;Lock node for multithreading
                               (sb-thread:with-mutex (node-lock)
-                                ;; (let* ((svp (* svp (expt volume (/ (- nd 1) nd))))))
-
-                                ;; (cl-mpm/fastmaths::fast-fmacc node-force
-                                ;;                              force
-                                ;;                              svp)
                                 (cl-mpm/fastmaths::fast-fmacc node-ext-force
                                                              force
                                                              svp)
@@ -625,7 +620,9 @@
 (defgeneric resolve-load-direction (bc direction))
 
 (defmethod resolve-load-direction ((bc bc-penalty) direction)
-  (* (cl-mpm/fastmaths:dot direction (bc-penalty-normal bc))
+  (* (cl-mpm/fastmaths:dot
+      direction
+      (bc-penalty-normal bc))
      (bc-penalty-load bc)))
 
 (defmethod resolve-load-direction ((bc bc-penalty-structure) direction)
