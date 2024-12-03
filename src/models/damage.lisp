@@ -34,7 +34,9 @@
       :type DOUBLE-FLOAT
       :initarg :damage-y
       :initform 0d0)
-     ))
+     (damage-position
+      :accessor mp-damage-position
+      :initform nil)))
 
 (defclass particle-damage (particle)
   (
