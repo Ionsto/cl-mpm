@@ -86,13 +86,7 @@
                         (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                          stress
                          (* 42d0 (/ pi 180d0))
-                         )))
-             ;; (setf damage-increment
-             ;;       (max 0d0
-             ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress
-             ;;             (cl-mpm/fastmaths:fast-scale-voigt stress (/ 1d0 (magicl:det def)))
-             ;;             (* angle (/ pi 180d0)))))
-             )
+                         ))))
             (:SE
              (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de)))
             (:DV
@@ -418,8 +412,8 @@
   :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
   :c 131d3
-  :phi-r (* 42d0 (/ pi 180))
-  :c-r 131d3
+  :phi-r (* 30d0 (/ pi 180))
+  :c-r 0d0
   :softening 0d0)
 
 (defmpgen make-mps-dp-peak
@@ -509,8 +503,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -527,8 +521,7 @@
              ;; (init-stress 1d9)
              ;; (gf 5d0)
              (gf 5d0)
-             ;(length-scale (* 2 h))
-             (length-scale 7.5d-3)
+             (length-scale (* 1 h))
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              ;; (ductility 30d0)
              ;; (ductility 1d60)
@@ -536,8 +529,8 @@
              )
         (format t "Estimated ductility ~E~%" ductility)
         ;; (make-mps-mc-residual)
-        (make-mps-mc-peak)
-        ;; (make-mps-mc-softening)
+        ;; (make-mps-mc-peak)
+        (make-mps-mc-softening)
         ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
         ;; (make-mps-plastic-damage)
@@ -554,26 +547,27 @@
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t))
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                  (strain cl-mpm/particle:mp-strain)
-                                  (E cl-mpm/particle::mp-E)
-                                  (nu cl-mpm/particle::mp-nu)
-                                  (de cl-mpm/particle::mp-elastic-matrix))
-                     mp
-                   (let* ((strains (cl-mpm/utils:voigt-from-list (list
-                                                                  0d0
-                                                                  (- (/
-                                                                      (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
-                                                                      (* E (- 1d0 nu))))
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0)))
-                          )
-                     (setf stress (magicl:@ de strains)
-                           strain strains))))
+        ;; (loop for mp across (cl-mpm:sim-mps sim)
+        ;;       do
+        ;;          (with-accessors ((stress cl-mpm/particle:mp-stress)
+        ;;                           (strain cl-mpm/particle:mp-strain)
+        ;;                           (E cl-mpm/particle::mp-E)
+        ;;                           (nu cl-mpm/particle::mp-nu)
+        ;;                           (de cl-mpm/particle::mp-elastic-matrix))
+        ;;              mp
+        ;;            (let* (
+        ;;                   (strains (cl-mpm/utils:voigt-from-list (list
+        ;;                                                           0d0
+        ;;                                                           (- (/
+        ;;                                                               (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+        ;;                                                               (* E (- 1d0 nu))))
+        ;;                                                           0d0
+        ;;                                                           0d0
+        ;;                                                           0d0
+        ;;                                                           0d0)))
+        ;;                   )
+        ;;              (setf stress (magicl:@ de strains)
+        ;;                    strain strains))))
         (format t "Gravity ~F~%" gravity)
 
         ;; (if mp-surcharge
@@ -587,8 +581,7 @@
         ;;        density
         ;;        'cl-mpm/particle::particle-elastic-damage
         ;;        :E (* 1d9 1d0)
-        ;;        :nu 0.24
-d0
+        ;;        :nu 0.24d0
         ;;        :initiation-stress 1d20
         ;;        :local-length 0d0
         ;;        :index 1
@@ -635,7 +628,6 @@ d0
       (defparameter *mesh-resolution* h-x)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -903,8 +895,8 @@ d0
          (epsilon (* epsilon-scale 1d9))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
-         (friction (* friction-scale (tan (* 30d0 (/ pi 180)))))
-         ;; (friction (* friction-scale (tan (* 60d0 (/ pi 180)))))
+         ;; (friction (* friction-scale (tan (* 30d0 (/ pi 180)))))
+         (friction (* friction-scale (tan (* 60d0 (/ pi 180)))))
          ;; (friction 0.9d0)
          ;; (friction 1d0)
          ;; (friction 0.0d0)
@@ -1218,14 +1210,11 @@ d0
 
 (declaim (notinline get-load-left))
 (defun get-load-left ()
-  (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
-    (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)))
+  (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*))
 
 (declaim (notinline get-load-right))
 (defun get-load-right ()
-  (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
-    (cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal))
-  )
+  (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*))
 
 (declaim (notinline reset-load))
 (defun reset-load ()
@@ -1334,7 +1323,6 @@ d0
                 (piston-scale 1d0)
                 (piston-mps 2)
                 (init-stress 90d3)
-                (mp-refine 2)
                 )
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
@@ -1358,8 +1346,8 @@ d0
                          :init-stress init-stress))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.125d0 mesh-size)
-                      :smoothness 2
+                      :corner-size (* 0.25 mesh-size)
+                      :smoothness 4
                                         ;7.5d-3
                       )
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
@@ -1367,25 +1355,6 @@ d0
           (*
            (cl-mpm/setup::estimate-elastic-dt *sim*)
            (/ 1d0 (sqrt (* 1d-1 epsilon-scale)))))
-    (dotimes (i mp-refine)
-      (dolist (dir (list :y))
-        (cl-mpm::split-mps-criteria
-         *sim*
-         (lambda (mp h)
-           (when
-               (and
-                (> (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1)
-                   (+ box-offset sunk-size (- mesh-size)))
-                (< (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1)
-                   (+ box-offset sunk-size mesh-size))
-                (or
-                 (< (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 0)
-                    (+ box-size (* 0.5d0 mesh-size)))
-                 (> (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 0)
-                    (- (* 2 box-size) (* 0.5d0 mesh-size))))
-                )
-             dir
-             )))))
 
     ;; (cl-mpm/setup:remove-sdf
     ;;  *sim*
@@ -2140,8 +2109,8 @@ d0
                        ;; 2
                        ;; 2
                        4
-                       ;; 8
-                       ;; 16
+                       8
+                       16
                        ;; 32
                        ;; 4.5
                        ;; 8.5
@@ -2149,27 +2118,24 @@ d0
                        ;; 32
                        )
         do
-           (dolist (epsilon-scale (list 1d1))
+           (dolist (epsilon-scale (list 1d2))
              (dolist (mps (list 2))
                (let (;(mps 2)
                      ;; (mps 2)
-                     (scale 1d0)
+                     (scale 0.5d0)
                      (sample-scale 0.5d0)
                      ;; (name "circumscribed")
                      ;; (name "middle-circumscribed")
                      ;; (name "plastic")
                      )
                  (loop for s
-                       ;; from 0d4 to 30d4 by 5d4
-                       ;; from 5d4 to 50d4 by 5d4
+                       ;; from 10d4 to 30d4 by 5d4
                          in
                          (list
                           ;; 0d0
-                          10d4
-                          20d4
+                          ;; 10d4
+                          ;; 20d4
                           30d4
-                          ;; 40d4
-                          ;; 50d4
                           )
                        while (and *run-sim*)
                        do
@@ -2177,7 +2143,7 @@ d0
                                 (piston-scale 1d0)
                                 ;; (epsilon-scale (* epsilon-scale (/ 1d0 (/ 4 (float refine 1d0)))))
                                 ;; (name (format nil "~A_~A" "iso" damage))
-                                (name "fric")
+                                (name "smooth")
                                 )
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
@@ -2186,11 +2152,7 @@ d0
                                    :piston-scale piston-scale
                                    :piston-mps 2
                                    :friction 0d0
-                                   :mp-refine 1
-                                   :init-stress
-                                   ;; 131d3
-                                   (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180)))
-                                   )
+                                   :init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180))))
                             ;; (cl-mpm:iterate-over-mps
                             ;;  (cl-mpm:sim-mps *sim*)
                             ;;  (lambda (mp)
@@ -2208,15 +2170,16 @@ d0
                                   ;; :SE
                                   ;; t
                                   )
-                            (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
+                            (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale
+                                         s)
                                  :displacment 1d-3
                                  :surcharge-load s
-                                 :damping 1d-2
+                                 :damping 1d-3
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 sample-scale)
-                                 :dt-scale (/ 0.8d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
+                                 :dt-scale (/ 0.5d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
                                  :damage-time-scale 1d0
-                                 ;; :skip-level 0.9d0
+                                 :skip-level 0.9d0
                                  :enable-damage nil
                                  :enable-plasticity t
                                  )
@@ -2233,9 +2196,10 @@ d0
 
 
 
-;; (let* ((rc 0d0)
-;;        (rs 0.5d0)
-;;        (ratio (/ (- 1d0 rs) (- 1d0 rc))
+;; (let* ((rc 0.1d0)
+;;        (rs (* 0.25d0 0.1d0))
+;;        (ratio ;0.5d0
+;;               (/ (- 1d0 rs) (- 1d0 rc))
 ;;               )
 ;;        (angle-plastic 50d0)
 ;;        (angle-plastic-damaged (atan (* ratio (tan (* angle-plastic (/ pi 180))))))

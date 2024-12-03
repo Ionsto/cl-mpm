@@ -965,11 +965,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
          )
     (loop for v from -1d0 to 1d0 by step
           do
-             (progn
-               (integrate v -1d0)
-               (integrate v  1d0)
-               (integrate -1d0 v)
-               (integrate  1d0 v)))))
+             (loop for y from -1d0 to 1d0 by 1d0
+                   do
+                      (progn
+                        (integrate v -1d0)
+                        (integrate v  1d0)
+                        (integrate -1d0 v)
+                        (integrate  1d0 v))))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-2d))
 (defun iterate-over-corners-2d (mesh mp func)
