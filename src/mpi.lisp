@@ -1838,7 +1838,7 @@
         (setf balance (mpi-max (/ max-mps min-mps)))
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
-      (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
+      ;(format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
       balance)))
 
 (defun load-balance-algo (sim &key (substeps 10)
