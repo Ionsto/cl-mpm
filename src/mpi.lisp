@@ -40,6 +40,9 @@
     ;;             (0 0)
     ;;             (0 0))
     )
+   (halo-nd
+    :accessor mpm-sim-mpi-nd
+    :initform 3)
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
     :initform 3d0
@@ -1294,7 +1297,7 @@
 
 (defun in-computational-domain (sim pos)
   (let ((in-bounds t))
-    (loop for i from 0 below (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
+    (loop for i from 0 below 3;(cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
           do
              (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
                (when (not (= bu bl))
@@ -1311,7 +1314,7 @@
 (defun in-computational-domain-buffer (sim pos node-buffer)
   (let ((in-bounds t)
         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
-    (loopfor i from 0 below (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 
+    (loopfor i from 0 below 3;(cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 
           do
              (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
                (when (not (= bu bl))
