@@ -42,7 +42,7 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
-    :initform 2d0
+    :initform 3d0
     )
    (min-size
     :accessor mpm-sim-mpi-min-size
@@ -64,8 +64,7 @@
     :initform 1d0)
    (damage-mps-cache
     :accessor mpm-sim-mpi-damage-mps-cache
-    :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
-   )
+    :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0)))
   (:documentation "Damage sim with only stress update on mpi"))
 
 (defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
@@ -180,6 +179,7 @@
                            sum (serialise-length (first map)))))
     ;; (format t "~A~%" packet-size)
     `(progn
+       (declaim (inline ,mpi-object-constructor))
        (defstruct ,mpi-object-name
          ,@(mapcar (lambda (slot-entry)
                      (destructuring-bind (type var-name accessor-name)
@@ -244,8 +244,7 @@
 
 (make-mpi-ser
  damage-mp
- (
-  (vector position cl-mpm/particle::mp-position)
+ ((vector position cl-mpm/particle::mp-position)
   (float volume cl-mpm/particle::mp-volume)
   (float y cl-mpm/particle::mp-damage-y-local)
   (float local-length cl-mpm/particle::mp-true-local-length)
@@ -275,8 +274,10 @@
              (index (mpi-rank-to-index sim rank))
              (bounds-list (mpm-sim-mpi-domain-bounds sim))
              (h (cl-mpm/mesh:mesh-resolution mesh))
-             (halo-depth (mpm-sim-mpi-halo-depth sim)))
-        (loop for i from 0 to 2
+             (halo-depth (mpm-sim-mpi-halo-depth sim))
+             (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+             )
+        (loop for i from 0 below nd 
               do
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
@@ -309,35 +310,39 @@
                                       (cond
                                         ((and (not (= left-neighbor -1))
                                               (not (= right-neighbor -1)))
-                                         (cl-mpi-extensions:mpi-waitall-anything
-                                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                          (cl-mpi-extensions:mpi-isend-anything
-                                           (active-filter left-filter)
-                                           left-neighbor :tag 1)
-                                          (cl-mpi-extensions:mpi-isend-anything
-                                           (active-filter right-filter)
-                                           right-neighbor :tag 2)
-                                          ))
+                                         (let ((l (active-filter left-filter))
+                                               (r (active-filter right-filter)))
+                                           (cl-mpi-extensions:mpi-waitall-anything
+                                            (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                            (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                            (cl-mpi-extensions:mpi-isend-anything
+                                             l
+                                             left-neighbor :tag 1)
+                                            (cl-mpi-extensions:mpi-isend-anything
+                                             r
+                                             right-neighbor :tag 2)
+                                            )))
                                         ((and
                                           (= left-neighbor -1)
-                                          (not (= right-neighbor -1))
-                                          )
-                                         (cl-mpi-extensions:mpi-waitall-anything
-                                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                          (cl-mpi-extensions:mpi-isend-anything
-                                           (active-filter right-filter)
-                                           right-neighbor :tag 2)
-                                          ))
+                                          (not (= right-neighbor -1)))
+                                         (let ((r (active-filter right-filter)))
+                                           (cl-mpi-extensions:mpi-waitall-anything
+                                            (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                            (cl-mpi-extensions:mpi-isend-anything
+                                             r
+                                             right-neighbor :tag 2)
+                                            )))
                                         ((and
                                           (not (= left-neighbor -1))
                                           (= right-neighbor -1))
-                                         (cl-mpi-extensions:mpi-waitall-anything
-                                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                          (cl-mpi-extensions:mpi-isend-anything
-                                           (active-filter left-filter)
-                                           left-neighbor :tag 1)
-                                          ))
+                                         (let ((l (active-filter left-filter))
+                                               )
+                                           (cl-mpi-extensions:mpi-waitall-anything
+                                            (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                            (cl-mpi-extensions:mpi-isend-anything
+                                             l
+                                             left-neighbor :tag 1)
+                                            )))
                                         (t nil))))
                                (loop for packet in recv
                                      do
@@ -470,6 +475,7 @@
                                     (svp cl-mpm/mesh::node-svp-sum)
                                     )
                        node
+                     (declare (double-float mass svp vol pmod))
                      (setf active t)
                      (incf mass (mpi-object-node-mass mpi-node))
                      (incf svp (mpi-object-node-svp mpi-node))
@@ -477,9 +483,7 @@
                      (incf pmod (mpi-object-node-pmod mpi-node))
                      (cl-mpm/fastmaths::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
                      ))
-                 (error "MPI exchange touched invalid node?")
-                 )))
-         ))))
+                 (error "MPI exchange touched invalid node?"))))))))
 
 
 (defun mpi-sync-force (sim)
@@ -500,13 +504,12 @@
                                   (force-int cl-mpm/mesh::node-internal-force)
                                   (force-ext cl-mpm/mesh::node-external-force))
                      node
-                   ;; (setf active t)
                    (cl-mpm/fastmaths::fast-.+ force (mpi-object-node-force mpi-node) force)
                    (cl-mpm/fastmaths::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
                    (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)))
-               (error "MPI force exchange touched invalid node" index)
-               )))))))
+               (error "MPI force exchange touched invalid node" index))))))))
 
+(defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
 (defun mpi-sync-damage-mps (sim &optional halo-depth)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -519,101 +522,115 @@
             (halo-depth (if halo-depth
                             halo-depth
                             1d0))
-            (damage-mps (mpm-sim-mpi-damage-mps-cache sim))
-            ;; (damage-mps (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0))
-            )
+            (nd (cl-mpm/mesh:mesh-nd mesh))
+            (damage-mps (mpm-sim-mpi-damage-mps-cache sim)))
+        ;; (pprint halo-depth)
         (setf (fill-pointer damage-mps) 0)
-        (loop for i from 0 to 2
+        (setf (fill-pointer *damage-mp-send-cache*) 0)
+        (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
-                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
-                         )
+                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta))))
+                     (declare (double-float halo-depth))
                      (destructuring-bind (bl bu) (nth i bounds-list)
+                       (declare (double-float bl bu))
                        (labels
                            ((halo-filter (test)
                               (let ((res
                                       (lparallel:premove-if-not
                                        (lambda (mp)
-                                         (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
+                                         (funcall test (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) i)))
                                        all-mps))
                                     (res-corners
                                       (lparallel:premove-if-not
                                        (lambda (mp)
-                                         (funcall test (magicl:tref (cl-mpm/particle:mp-position mp) i 0)))
-                                       damage-mps))
-                                    )
-                                ;; res
-                                (concatenate `(vector ,(array-element-type res)) res res-corners)
-                                ))
+                                         (funcall test (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) i)))
+                                       damage-mps)))
+                                (concatenate `(vector ,(array-element-type res)) res res-corners)))
                             (left-filter ()
                               (halo-filter (lambda (pos)
+                                             (declare (double-float pos))
                                              (and
-                                              (<= pos (+ bl halo-depth)))
-                                             ))
-                              )
+                                              (<= pos (+ bl halo-depth))))))
                             (right-filter ()
                               (halo-filter (lambda (pos)
+                                             (declare (double-float pos))
                                              (and
-                                              (> pos (- bu halo-depth)))
-                                             ))
-                              )
-                            )
-                         ;; (format t "Rank ~D - Sending ~D damage mps left~%" rank (length (left-filter)))
-                         ;; (format t "Rank ~D - Sending ~D damage mps right~%" rank (length (right-filter)))
-                         (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-damage-mp)
-                                (cl-mpi-extensions::*standard-decode-function* #'deserialise-damage-mp)
-                                (recv
-                                  (cond
-                                    ((and (not (= left-neighbor -1))
-                                          (not (= right-neighbor -1))
-                                          )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                      (left-filter)
-                                       left-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (right-filter)
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (= left-neighbor -1)
-                                      (not (= right-neighbor -1))
-                                      )
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (right-filter)
-                                       right-neighbor :tag 2)
-                                      ))
-                                    ((and
-                                      (not (= left-neighbor -1))
-                                      (= right-neighbor -1))
-                                     (cl-mpi-extensions:mpi-waitall-anything
-                                      (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
-                                      (cl-mpi-extensions:mpi-isend-anything
-                                       (left-filter)
-                                       left-neighbor :tag 1)
-                                      ))
-                                    (t nil))))
-                           (loop for packet in recv
-                                 do
-                                    (destructuring-bind (rank tag object) packet
-                                      (when object
-                                        (loop for mp across object
-                                              do (progn
-                                                   (vector-push-extend
-                                                    (make-instance 'cl-mpm/particle::particle-damage
-                                                                   :nd 2
-                                                                   :volume (mpi-object-damage-mp-volume mp)
-                                                                   :position (mpi-object-damage-mp-position mp)
-                                                                   :damage-y (mpi-object-damage-mp-y mp)
-                                                                   :local-length (mpi-object-damage-mp-local-length mp))
-                                                    damage-mps))))))))))))
+                                              (> pos (- bu halo-depth)))))))
+                         (let ((l (left-filter))
+                               (r (right-filter)))
+                           ;; (format t "Rank ~D - ~D - Sending ~D damage mps left~%"  rank i (length l))
+                           ;; (format t "Rank ~D - ~D - Sending ~D damage mps right~%" rank i (length r))
+                           (unless (= left-neighbor -1)
+                             (iterate-over-mps
+                              l (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 1))))
+                           (unless (= right-neighbor -1)
+                             (iterate-over-mps
+                              r (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 2))))
+                           )
+                         (when t
+                           (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-damage-mp)
+                                  (cl-mpi-extensions::*standard-decode-function* #'deserialise-damage-mp)
+                                  (recv
+                                    (cond
+                                      ((and (not (= left-neighbor -1))
+                                            (not (= right-neighbor -1)))
+                                       (let ((l (left-filter))
+                                             (r (right-filter)))
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps left~%"  rank i (length l))
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps right~%" rank i (length r))
+                                         (cl-mpi-extensions:mpi-waitall-anything
+                                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                          (cl-mpi-extensions:mpi-isend-anything
+                                           l
+                                           left-neighbor :tag 1)
+                                          (cl-mpi-extensions:mpi-isend-anything
+                                           r
+                                           right-neighbor :tag 2)
+                                          )))
+                                      ((and
+                                        (= left-neighbor -1)
+                                        (not (= right-neighbor -1)))
+                                       (let ((r (right-filter)))
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps left~%"  rank i 0)
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps right~%" rank i (length r))
+                                         (cl-mpi-extensions:mpi-waitall-anything
+                                          (cl-mpi-extensions:mpi-irecv-anything right-neighbor :tag 1)
+                                          (cl-mpi-extensions:mpi-isend-anything
+                                           r
+                                           right-neighbor :tag 2))))
+                                      ((and
+                                        (not (= left-neighbor -1))
+                                        (= right-neighbor -1))
+                                       (let ((l (left-filter)))
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps left~%"  rank i (length l))
+                                         ;; (format t "Rank ~D - ~D - Sending ~D damage mps right~%" rank i 0)
+                                         (cl-mpi-extensions:mpi-waitall-anything
+                                          (cl-mpi-extensions:mpi-irecv-anything left-neighbor :tag 2)
+                                          (cl-mpi-extensions:mpi-isend-anything
+                                           l
+                                           left-neighbor :tag 1))))
+                                      (t nil))))
+                             (loop for packet in recv
+                                   do
+                                      (destructuring-bind (rank tag object) packet
+                                        (when object
+                                          (loop for mp across object
+                                                do (progn
+                                                     (vector-push-extend
+                                                      (make-instance 'cl-mpm/particle::particle-damage-mpi
+                                                                     ;; :nd 2
+                                                                     :volume (mpi-object-damage-mp-volume mp)
+                                                                     :position (mpi-object-damage-mp-position mp)
+                                                                     :damage-y (mpi-object-damage-mp-y mp)
+                                                                     :local-length (mpi-object-damage-mp-local-length mp))
+                                                      damage-mps)))))))))))))
         damage-mps))))
+
+
 
 ;; (defun test-mpi-mp-sync (sim)
 ;;   (let ((mpi-objects (cl-mpm/mpi::deserialise-damage-mp
@@ -699,33 +716,34 @@
                 sim
     (declare (type double-float mass-filter))
                 (progn
-                  (cl-mpm::reset-grid mesh)
-                  (cl-mpm::p2g mesh mps)
-                  (mpi-sync-momentum sim)
-                  (when (> mass-filter 0d0)
-                    (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                  (cl-mpm::update-node-kinematics mesh dt)
-                  (cl-mpm::apply-bcs mesh bcs dt)
-                  (cl-mpm::update-stress mesh mps dt fbar)
-                  (when enable-damage
-                    (cl-mpm/damage::calculate-damage sim))
-                  (cl-mpm::p2g-force mesh mps)
-                  (loop for bcs-f in bcs-force-list
-                        do (cl-mpm::apply-bcs mesh bcs-f dt))
-                  (mpi-sync-force sim)
-                  (cl-mpm::update-node-forces sim)
-                  (cl-mpm::apply-bcs mesh bcs dt)
-                  (cl-mpm::g2p mesh mps dt)
-                  (when remove-damage
-                    (cl-mpm::remove-material-damaged sim))
-                  (when split
-                    (cl-mpm::split-mps sim))
-                  (cl-mpm::check-mps sim)
-                  (cl-mpm::check-single-mps sim)
-                  (set-mp-mpi-index sim)
-                  (exchange-mps sim 0d0)
-                  (set-mp-mpi-index sim)
-                  (clear-ghost-mps sim)
+                  ;; (cl-mpm::reset-grid mesh)
+                  ;; (cl-mpm::p2g mesh mps)
+                  ;; (mpi-sync-momentum sim)
+                  ;; (when (> mass-filter 0d0)
+                  ;;   (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                  ;; (cl-mpm::update-node-kinematics mesh dt)
+                  ;; (cl-mpm::apply-bcs mesh bcs dt)
+                  ;; (cl-mpm::update-stress mesh mps dt fbar)
+                  ;; (when enable-damage
+                  ;;   (cl-mpm/damage::calculate-damage sim))
+                  (mpi-sync-damage-mps sim (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))
+                  ;; (cl-mpm::p2g-force mesh mps)
+                  ;; (loop for bcs-f in bcs-force-list
+                  ;;       do (cl-mpm::apply-bcs mesh bcs-f dt))
+                  ;; (mpi-sync-force sim)
+                  ;; (cl-mpm::update-node-forces sim)
+                  ;; (cl-mpm::apply-bcs mesh bcs dt)
+                  ;; (cl-mpm::g2p mesh mps dt)
+                  ;; (when remove-damage
+                  ;;   (cl-mpm::remove-material-damaged sim))
+                  ;; (when split
+                  ;;   (cl-mpm::split-mps sim))
+                  ;; (cl-mpm::check-mps sim)
+                  ;; (cl-mpm::check-single-mps sim)
+                  ;; (set-mp-mpi-index sim)
+                  ;; (exchange-mps sim 0d0)
+                  ;; (set-mp-mpi-index sim)
+                  ;; (clear-ghost-mps sim)
                     )))
 (defmacro rank-0-time (rank &rest body)
   `(if (= ,rank 0)
@@ -1086,8 +1104,9 @@
             (halo-depth (if halo-depth
                             halo-depth
                             (* 2 (cl-mpm/mesh:mesh-resolution mesh))))
+            (nd (cl-mpm/mesh:mesh-nd mesh))
             )
-        (loop for i from 0 to 2
+        (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
@@ -1276,7 +1295,7 @@
 
 (defun in-computational-domain (sim pos)
   (let ((in-bounds t))
-    (loop for i from 0 to 2
+    (loop for i from 0 below (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))
           do
              (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
                (when (not (= bu bl))
@@ -1293,7 +1312,7 @@
 (defun in-computational-domain-buffer (sim pos node-buffer)
   (let ((in-bounds t)
         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
-    (loop for i from 0 to 2
+    (loopfor i from 0 below (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 
           do
              (destructuring-bind (bl bu) (nth i (mpm-sim-mpi-domain-bounds sim))
                (when (not (= bu bl))
