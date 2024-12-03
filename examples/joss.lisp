@@ -231,7 +231,9 @@
     (progn
       (let* (
              ;; (init-stress (* 26d3 0.63d0))
-             (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 26d3 (* 42d0 (/ pi 180))))
+             (angle 50d0)
+             (init-c 26d3)
+             (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* 42d0 (/ pi 180))))
              (downscale (/ 1d0 1d0))
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
              (gf 5d0)
@@ -280,11 +282,11 @@
 
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
-           :g-res-ratio 0.75d0
+           :g-res-ratio 0.7d0
 
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d1
+           :delay-time 1d2
            :delay-exponent 2d0
 
            ;; :ductility 5d0
@@ -342,30 +344,8 @@
               (* 0.1d0
                  (sqrt ms)
                  (cl-mpm/setup::estimate-critical-damping sim)))
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 5d0 (sqrt (/ 1d9 (* (expt h 2) 1.7d3)))))
-        ;; (setf (cl-mpm:sim-damping-factor sim) 10.0d0)
-        ;; (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 ms))
         )
       (format t "Set damping: ~F~%" (cl-mpm:sim-damping-factor sim))
-
-      ;; (dotimes (i 2)
-      ;;   (dolist (dir (list :x :y))
-      ;;     (cl-mpm::split-mps-criteria
-      ;;      sim
-      ;;      (lambda (mp h)
-      ;;        (when
-      ;;            (and
-      ;;             (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-      ;;                80)
-      ;;             (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-      ;;                200
-      ;;                )
-      ;;             (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-      ;;                50
-      ;;                )
-      ;;             )
-      ;;          dir
-      ;;          )))))
 
       (setf
        (cl-mpm:sim-dt sim)
@@ -582,7 +562,7 @@
   (let* ((target-time 1d1)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (collapse-target-time 0.1d0)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
@@ -654,11 +634,15 @@
        ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" i))
        ;;                    :terminal "png size 1920,1080")
        ))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
     (setf (cl-mpm::sim-mass-scale *sim*) 1d4)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
     (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
     (setf (cl-mpm:sim-damping-factor *sim*) 
-          (* 0.0d0
+          (* 1d-4
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
 
@@ -805,7 +789,7 @@
                             (:accelerate
                              (format t "Accelerate timestep~%")
                              (setf
-                              target-time 1d0
+                              target-time 1d1
                               (cl-mpm::sim-mass-scale *sim*) 1d4))
                             (:collapse
                              (format t "Collapse timestep~%")
@@ -1118,20 +1102,19 @@
     (vgplot:plot x (mapcar (lambda (x) (cl-mpm/damage::weight-func (expt x 2) length)) x))
     ))
 
-(let* ((s (cl-mpm/utils::stress-from-list (list 500d3 0d0 0d0 0d0 0d0 0d0)))
-       (j2 (cl-mpm/constitutive::voigt-j2
-            (cl-mpm/utils::deviatoric-voigt s)))
-       (p (cl-mpm/constitutive::voight-trace s))
-       (ft 300d3)
-       (fc 500d3)
-       (angle (atan (* 3 (/ (- fc ft) (+ fc ft)))))
-       (k (* (/ 2d0 (sqrt 3)) (/ (* ft fc) (+ ft fc))))
-       (s_1 (-
-             (* (/ 3d0 (+ 3 (tan angle)))
-                (+ (sqrt (* 3 j2)) (* 1/3 (tan angle) p)))
-             k
-             )))
-  (format t "~A~%" s_1))
+
+(defun est-angle ()
+  (let* ((rc 0d0)
+         (rs 0.5d0)
+         (ratio (/ (- 1d0 rs) (- 1d0 rc))
+                )
+         (angle-plastic (* 50d0 (/ pi 180)))
+         (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
+         )
+     (format t "Chalk plastic virgin angle: ~F~%"
+             (* (/ 180 pi) angle-plastic))
+     (format t "Chalk plastic residual angle: ~F~%"
+             (* (/ 180 pi) angle-plastic-damaged))))
 
 ;; (defun test (s1 s2 s3)
 ;;   (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
@@ -1238,7 +1221,7 @@
                       15d0
                       ))
                 (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                   (- shelf-length 8d0))
+                   (- shelf-length 6d0))
                 (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
                    (+ shelf-length 2d0))
                 (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
@@ -1284,7 +1267,7 @@
               (cut-back-distance 0.15d0)
               (width                    ;(* 2d0 mesh-size)
                 ;; 0.5d0
-                (* 1.5d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0)))
+                (* 1d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0)))
                 ))
           (cl-mpm/setup::apply-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
                                                       (cl-mpm/utils:vector-from-list (list (magicl:tref p 0 0)
@@ -1298,12 +1281,11 @@
                                                                (* cut-back-distance shelf-height-true))
                                                             (float (- shelf-height cut-height) 0d0)
                                                             0d0)
-                                        ;10d0
-                                                      width
-
-                                                      ))
+                                                      width))
                                    (lambda (mp v)
-                                     (let ((d (* 0.99d0 (exp (- (expt (/ (+ width v) width) 1))))))
+                                     (let ((d ;(* 0.99d0 (exp (- (expt (/ (+ width v) width) 1))))
+                                             (* 0.99d0 (cl-mpm/damage::weight-func (expt (+ v width) 2) width)))
+                                           )
                                        (setf (cl-mpm/particle:mp-damage mp)
                                              d)
                                        (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
@@ -1381,7 +1363,7 @@
 
 (defun setup-3d ()
   (let* ((mesh-size 1.0)
-         (mps-per-cell 2)
+         (mps-per-cell 3)
          (shelf-height 15.0)
          (soil-boundary 2)
          (shelf-aspect 1.0)
