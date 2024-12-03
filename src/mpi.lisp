@@ -42,7 +42,7 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
-    :initform 1d0
+    :initform 2d0
     )
    (min-size
     :accessor mpm-sim-mpi-min-size
