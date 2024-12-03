@@ -42,6 +42,10 @@
     )
    (halo-depth
     :accessor mpm-sim-mpi-halo-depth
+    :initform 1d0
+    )
+   (min-size
+    :accessor mpm-sim-mpi-min-size
     :initform 2d0
     )
    (domain-count
@@ -64,6 +68,29 @@
    )
   (:documentation "Damage sim with only stress update on mpi"))
 
+(defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
+  ())
+(defclass mpm-sim-usl-mpi-nodes-damage (mpm-sim-mpi-nodes-damage)
+  ())
+
+
+
+(defgeneric update-min-domain-size (sim))
+(defmethod update-min-domain-size ((sim mpm-sim-mpi))
+  (setf (mpm-sim-mpi-min-size sim)
+        (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) (mpm-sim-mpi-halo-depth sim))))
+(defmethod update-min-domain-size ((sim mpm-sim-mpi-nodes-damage))
+  (setf (mpm-sim-mpi-min-size sim)
+        (max
+         (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) (mpm-sim-mpi-halo-depth sim))
+         (mpm-sim-mpi-halo-damage-size sim))))
+(defmethod (setf cl-mpm::sim-mesh) :after (value (sim mpm-sim-mpi))
+  (update-min-domain-size sim))
+(defmethod (setf mpm-sim-mpi-halo-depth) :after (value (sim mpm-sim-mpi))
+  (update-min-domain-size sim))
+(defmethod (setf mpm-sim-mpi-halo-damage-size) :after (value (sim mpm-sim-mpi-nodes-damage))
+  (update-min-domain-size sim))
+
 (defclass mpm-sim-mpi-nodes (mpm-sim-mpi)
   ((halo-node-list
     :accessor mpm-sim-mpi-halo-node-list
@@ -71,11 +98,6 @@
                     collect (loop for i from 0 to 1 collect (make-array 0 :element-type t))))
    )
   )
-
-(defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
-  ())
-(defclass mpm-sim-usl-mpi-nodes-damage (mpm-sim-mpi-nodes-damage)
-  ())
 
 (defmacro push-bytes (array bytes index)
   `(progn
@@ -1761,7 +1783,11 @@
          (increment-length (- dim-length 1))
          (increment-array (make-array increment-length :element-type 'double-float :initial-element 0d0)))
     (setf (nth dim index-bottom-rank) 0)
-    (let ((bottom-rank (every #'zerop index-bottom-rank)))
+    (let ((bottom-rank (every #'zerop index-bottom-rank))
+          (min-size (* 2 (mpm-sim-mpi-min-size sim))))
+      (when (= rank 0)
+        (format t "Min size ~F~%" min-size)
+        )
       (when (> dim-length 1)
         (setf (aref metric-array dim-index) (float (mpm-sim-mpi-load-metric sim) 0d0))
         (mpi-vector-sum metric-array)
@@ -1784,7 +1810,16 @@
                              (max (aref metric-array dim-index)
                                   (aref metric-array (+ dim-index 1))))
                           0d0))
-                   0d0))))
+                   0d0))
+            (when (and
+                   (<= (aref size-array dim-index) min-size)
+                   (> (aref increment-array dim-index) 0d0))
+              (setf (aref increment-array dim-index) 0d0))
+            (when (and
+                   (<= (aref size-array (1+ dim-index)) min-size)
+                   (< (aref increment-array dim-index) 0d0))
+              (setf (aref increment-array dim-index) 0d0))
+            ))
         (mpi-vector-sum increment-array)
         ;; (when (= rank 0)
         ;;   (format t "Inc array ~A~%" increment-array))
