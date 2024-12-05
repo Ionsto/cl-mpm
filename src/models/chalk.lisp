@@ -254,7 +254,7 @@
                   yield-func f)
             (setf strain eps-e)
             )
-          (let ((inc (cl-mpm/fastmaths::voigt-j2 plastic-strain))
+          (let ((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain)))
                 ;; (inc (multiple-value-bind (l v)
                 ;;          (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
                 ;;        (destructuring-bind (s1 s2 s3) l

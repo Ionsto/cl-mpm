@@ -127,7 +127,7 @@
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                             (cl-mpm/fastmaths::mag-squared
-                             (magicl:.+ f-ext f-int))))
+                             (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
                      dmax (+
                            dmax
                            (*

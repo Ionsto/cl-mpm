@@ -1376,9 +1376,9 @@ Calls the function with the mesh mp and node"
 
         (cl-mpm/output::save-parameter
          "energy"
-         (cl-mpm/particle::mp-penalty-energy mp)
-         ;; (* (cl-mpm/particle::mp-mass mp)
-         ;;    (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
+         ;; (cl-mpm/particle::mp-penalty-energy mp)
+         (* (cl-mpm/particle::mp-mass mp)
+            (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
          )
 
         (cl-mpm/output::save-parameter
