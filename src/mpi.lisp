@@ -182,7 +182,7 @@
                            sum (serialise-length (first map)))))
     ;; (format t "~A~%" packet-size)
     `(progn
-       (declaim (inline ,mpi-object-constructor))
+       ;; (declaim (inline ,mpi-object-constructor))
        (defstruct ,mpi-object-name
          ,@(mapcar (lambda (slot-entry)
                      (destructuring-bind (type var-name accessor-name)
