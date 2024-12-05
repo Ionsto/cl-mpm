@@ -1824,9 +1824,6 @@
         (mpi-vector-sum metric-array)
         (setf (aref size-array dim-index) (float dim-size 0d0))
         (mpi-vector-max size-array)
-        ;; (when (= rank 0)
-        ;;   (format t "Metric array ~A~%" metric-array)
-        ;;   (format t "Size array ~A~%" size-array))
         (when bottom-rank 
           (when (< dim-index increment-length)
             (setf (aref increment-array dim-index)
@@ -1854,18 +1851,15 @@
               (format t "Rank ~D: hitting min size limit ~%" (1+ rank)))
             ))
         (mpi-vector-sum increment-array)
-        ;; (when (= rank 0)
-        ;;   (format t "Inc array ~A~%" increment-array))
-
         (let ((left-index (- dim-index 1)))
           (when (>= left-index 0)
             (incf (first (nth dim (mpm-sim-mpi-domain-bounds sim)))
                   (- (aref increment-array left-index)))))
-
         (let ((right-index dim-index))
           (when (< right-index increment-length)
             (incf (second (nth dim (mpm-sim-mpi-domain-bounds sim)))
-                  (- (aref increment-array right-index)))))))))
+                  (- (aref increment-array right-index)))))))
+    (every (lambda (x) (= x 0d0)) increment-array)))
 
 (defun load-balance-value (sim)
   (let ((rank (cl-mpi::mpi-comm-rank)))
@@ -1888,17 +1882,22 @@
                            (step-size 1d-1)
                            (exchange-mps t)
                            )
-  (let ((rank (cl-mpi::mpi-comm-rank)))
+  (let ((rank (cl-mpi::mpi-comm-rank))
+        (stagnent nil))
     (load-balance-setup sim)
-    (dotimes (j substeps)
-      (dotimes (i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-        (load-balance-dimension sim i :step-size step-size)
-        (when exchange-mps
-          (set-mp-mpi-index sim)
-          (exchange-mps sim 0d0)
-          (set-mp-mpi-index sim)
-          (clear-ghost-mps sim))
-        (load-balance-setup sim)))
+    (loop for j from 0 to substeps
+          while (not stagnent)
+          do
+             (progn
+               (setf stagnent t)
+               (dotimes (i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+                 (setf stagnent (and stagnent (load-balance-dimension sim i :step-size step-size)))
+                 (when exchange-mps
+                   (set-mp-mpi-index sim)
+                   (exchange-mps sim 0d0)
+                   (set-mp-mpi-index sim)
+                   (clear-ghost-mps sim))
+                 (load-balance-setup sim))))
     (let ((min-mps (mpi-min (float (mpm-sim-mpi-load-metric sim) 0d0)))
           (max-mps (mpi-max (float (mpm-sim-mpi-load-metric sim) 0d0)))
           (balance nil))
@@ -1907,7 +1906,7 @@
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
       ;(format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
-      balance)))
+      (values balance stagnent))))
 
 (defun load-balance-algo (sim &key (substeps 10)
                                 (max-iters 50)
@@ -1921,11 +1920,16 @@
       (format t "Check balance~%"))
     (when (and balance
                (> balance max-bounds))
-      (let ((balance nil))
+      (let ((balance nil)
+            (stag nil))
         (loop repeat max-iters
-              while (if balance (> balance min-bounds) t)
-              do (setf balance (cl-mpm/mpi::load-balance sim
-                                                         :exchange-mps t
-                                                         :step-size step-size
-                                                         :substeps substeps))))
+              while (and (if balance (> balance min-bounds) t)
+                         (not stag))
+              do
+                 (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
+                                                                                   :exchange-mps t
+                                                                                   :step-size step-size
+                                                                                   :substeps substeps)
+                   (setf balance balance
+                         stag stagnent))))
       (domain-decompose sim))))
