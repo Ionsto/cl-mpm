@@ -280,7 +280,7 @@
              (halo-depth (mpm-sim-mpi-halo-depth sim))
              (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
              )
-        (loop for i from 0 below nd 
+        (loop for i from 0 below nd
               do
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
@@ -475,15 +475,14 @@
                                     (velocity cl-mpm/mesh:node-velocity)
                                     (pmod cl-mpm/mesh::node-pwave)
                                     (vol cl-mpm/mesh::node-volume)
-                                    (svp cl-mpm/mesh::node-svp-sum)
-                                    )
+                                    (svp cl-mpm/mesh::node-svp-sum))
                        node
                      (declare (double-float mass svp vol pmod))
                      (setf active t)
-                     (incf mass (mpi-object-node-mass mpi-node))
-                     (incf svp (mpi-object-node-svp mpi-node))
-                     (incf vol (mpi-object-node-vol mpi-node))
-                     (incf pmod (mpi-object-node-pmod mpi-node))
+                     (incf mass (the double-float (mpi-object-node-mass mpi-node)))
+                     (incf svp (the double-float (mpi-object-node-svp mpi-node)))
+                     (incf vol (the double-float (mpi-object-node-vol mpi-node)))
+                     (incf pmod (the double-float (mpi-object-node-pmod mpi-node)))
                      (cl-mpm/fastmaths::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
                      ))
                  (error "MPI exchange touched invalid node?"))))))))
@@ -1079,24 +1078,35 @@
 (defun mpi-index-to-rank (sim index)
   (if (mpi-index-in-bounds sim index)
       (let ((size (mpm-sim-mpi-domain-count sim)))
-        (+ (nth 2 index)
-           (* (nth 2 size)
-              (+ (nth 1 index)
-                 (* (nth 1 size) (nth 0 index))))))
+        (destructuring-bind (s-1 s-2 s-3) size
+          (destructuring-bind (i-1 i-2 i-3) index
+            (declare (fixnum s-1 s-2 s-3)
+                     (fixnum i-1 i-2 i-3))
+            (+ i-3
+               (* s-3
+                  (+ i-2
+                     (* s-2 i-1)))))
+          ;; (+ (nth 2 index)
+          ;;    (* (nth 2 size)
+          ;;       (+ (nth 1 index)
+          ;;          (* (nth 1 size) (nth 0 index)))))
+          ))
       -1))
 (defun mpi-index-in-bounds (sim index)
   (let ((size (mpm-sim-mpi-domain-count sim)))
-    (and
-     (and (>= (nth 0 index) 0) (< (nth 0 index) (nth 0 size)))
-     (and (>= (nth 1 index) 0) (< (nth 1 index) (nth 1 size)))
-     (and (>= (nth 2 index) 0) (< (nth 2 index) (nth 2 size))))))
+    (destructuring-bind (s-1 s-2 s-3) size
+      (destructuring-bind (i-1 i-2 i-3) index
+        (declare (fixnum s-1 s-2 s-3)
+                 (fixnum i-1 i-2 i-3))
+        (and
+         (and (>= i-1 0) (< i-1 s-1))
+         (and (>= i-2 0) (< i-2 s-2))
+         (and (>= i-3 0) (< i-3 s-3)))))))
 
 (defun exchange-mps (sim &optional halo-depth)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))
          )
-    ;; (clear-ghost-mps sim)
-
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
