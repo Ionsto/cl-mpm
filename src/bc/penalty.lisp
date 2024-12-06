@@ -19,31 +19,13 @@
 (defun ssqrt (a)
   (* (signum a) (sqrt (abs a))))
 
-(defclass bc-penalty-structure (cl-mpm/bc::bc)
+(defclass bc-penalty-structure (bc-penalty)
   ((sim
     :accessor bc-penalty-sim
     :initarg :sim)
-   (friction
-    :accessor bc-penalty-friction
-    :initarg :friction)
-   (epsilon
-    :accessor bc-penalty-epsilon
-    :initarg :epsilon)
-   (damping
-    :accessor bc-penalty-damping
-    :initarg :damping)
-   (load
-    :accessor bc-penalty-load
-    :initform 0d0)
-   (load-lock
-    :accessor bc-penalty-load-lock
-    :initform (sb-thread:make-mutex))
    (sub-bcs
     :accessor bc-penalty-structure-sub-bcs
     :initarg :sub-bcs
-    :initform (list))
-   (contact-points
-    :accessor bc-penalty-structure-contact-points
     :initform (list)))
   (:documentation "A single multi-surface structure that should resolve contact through a closest-point algorithm"))
 
@@ -77,6 +59,9 @@
    (load
     :accessor bc-penalty-load
     :initform 0d0)
+   (velocity
+    :accessor bc-penalty-velocity
+    :initform (cl-mpm/utils:vector-zeros))
    (load-lock
     :accessor bc-penalty-load-lock
     :initform (sb-thread:make-mutex)))
@@ -366,6 +351,14 @@
         do (bc-increment-center sub-bc delta-center)))
 
 
+(defmethod (setf bc-penalty-velocity) :after (value (bc bc-penalty-structure))
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        do (setf (bc-penalty-velocity sub-bc) value)))
+
+(defmethod (setf bc-penalty-friction) :after (value (bc bc-penalty-structure))
+  (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+        do (setf (bc-penalty-friction sub-bc) value)))
+
 (defgeneric early-sweep-intersection (bc mp))
 
 (defmethod early-sweep-intersection ((bc bc-penalty) mp)
@@ -573,6 +566,7 @@
                      (epsilon bc-penalty-epsilon)
                      (friction bc-penalty-friction)
                      (normal bc-penalty-normal)
+                     (pen-vel bc-penalty-velocity)
                      (debug-mutex bc-penalty-load-lock)
                      (debug-load bc-penalty-load))
         bc
@@ -593,10 +587,11 @@
             (incf debug-load normal-force))
           (setf mp-contact t)
           (let* ((force (cl-mpm/utils:vector-zeros))
-                 (rel-vel (cl-mpm/fastmaths:dot normal mp-vel))
-                 (tang-vel (cl-mpm/fastmaths:fast-.- mp-vel (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
+                 (resultant-vel (cl-mpm/fastmaths:fast-.- mp-vel pen-vel))
+                 (rel-vel (cl-mpm/fastmaths:dot normal resultant-vel))
+                 (tang-vel (cl-mpm/fastmaths:fast-.- resultant-vel
+                                                     (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
                  (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
-                 ;(normal-damping (* (/ pi 2) damping (sqrt (* epsilon mp-mass))))
                  (normal-damping (* 0d0 2d0 damping (sqrt (* epsilon mp-mass))))
                  (damping-force (* normal-damping rel-vel))
                  (force-friction mp-friction)
@@ -608,13 +603,9 @@
                 (cl-mpm/fastmaths::fast-fmacc
                  force-friction
                  tang-vel
-                 (* -1d0 (/ epsilon 2d0) dt)
-                 ;; (* -1d0 epsilon dt)
-                 ))
+                 (* -1d0 (/ epsilon 2d0) dt)))
 
-              ;; (break)
               (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
-                ;; (break)
                 (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
                     (progn
                       (setf force-friction
