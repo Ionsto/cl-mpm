@@ -355,8 +355,7 @@
         do (loop for j from (1+ i) below (length bcs)
                  do
                     (let ((bc (aref bcs i))
-                          (bc-other (aref bcs j))
-                          )
+                          (bc-other (aref bcs j)))
                       (when bc
                         (when bc-other
                           (when (not (eq bc bc-other))
@@ -374,7 +373,7 @@
                               ;;Remove other bc
                               (setf (aref bcs j) nil))
                             ))))))
-  (delete-if-not #'identity bcs))
+  (setf bcs (delete-if-not #'identity bcs)))
 
 (defun make-outside-bc-nostick (mesh-count)
     "Construct nostick bcs over the outside of a mesh"

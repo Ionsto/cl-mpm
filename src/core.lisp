@@ -351,7 +351,6 @@
              ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
-               ;; (det-int-force mp dsvp node-int-force)
                (det-int-force-unrolled mp grads node-int-force)
                )))))))
   (values))

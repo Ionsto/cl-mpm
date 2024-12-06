@@ -572,7 +572,8 @@ Calls the function with the mesh mp and node"
     (iterate-over-damage-bounds
      mesh mp length
      (lambda (mesh mp node)
-       (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+       (loop for mp-other across (cl-mpm/mesh::node-local-list node)
+                                        ;(the (vector cl-mpm/particle::particle *))
              do
                 (with-accessors ((d cl-mpm/particle::mp-damage)
                                  (m cl-mpm/particle:mp-volume)
@@ -1375,9 +1376,9 @@ Calls the function with the mesh mp and node"
 
         (cl-mpm/output::save-parameter
          "energy"
-         (cl-mpm/particle::mp-penalty-energy mp)
-         ;; (* (cl-mpm/particle::mp-mass mp)
-         ;;    (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
+         ;; (cl-mpm/particle::mp-penalty-energy mp)
+         (* (cl-mpm/particle::mp-mass mp)
+            (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
          )
 
         (cl-mpm/output::save-parameter

@@ -366,6 +366,45 @@
         do (bc-increment-center sub-bc delta-center)))
 
 
+(defgeneric early-sweep-intersection (bc mp))
+
+(defmethod early-sweep-intersection ((bc bc-penalty) mp)
+  (with-accessors ((datum bc-penalty-datum)
+                   (normal bc-penalty-normal))
+      bc
+      (let ((penetration-dist (penetration-distance-point (cl-mpm/particle::mp-position mp) datum normal))
+            (domain (cl-mpm/particle::mp-domain-size mp)))
+        (or
+         (> penetration-dist (max
+                              (* 2 (varef domain 0))
+                              (* 2 (varef domain 1))
+                              (* 2 (varef domain 2))
+                              ))))
+    ))
+(defmethod early-sweep-intersection ((bc bc-penalty-distance) mp)
+  (with-accessors ((datum bc-penalty-datum)
+                   (normal bc-penalty-normal))
+      bc
+    (let ((penetration-dist (penetration-distance-point (cl-mpm/particle::mp-position mp) datum normal))
+          (domain (cl-mpm/particle::mp-domain-size mp)))
+      (or
+       (> penetration-dist (max
+                            (* 2 (varef domain 0))
+                            (* 2 (varef domain 1))
+                            (* 2 (varef domain 2))
+                            ))))))
+(defmethod early-sweep-intersection ((bc bc-penalty-structure) mp)
+  (let ((contact nil))
+    (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+          while (not contact)
+          do (with-accessors ((datum bc-penalty-datum)
+                              (normal bc-penalty-normal))
+                 sub-bc
+               (when (early-sweep-intersection sub-bc mp)
+                 (setf contact t))))
+    contact))
+
+
 
 (defgeneric penalty-contact-valid (bc point))
 
@@ -664,37 +703,38 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (let ((in-contact nil)
-               (closest-point (make-contact :penetration 0d0)))
-           (cl-mpm/penalty::iterate-over-corners
-            mesh
-            mp
-            (lambda (corner)
-              (let* ((penetration-dist (penetration-distance-point corner datum normal)))
-                (declare (double-float penetration-dist))
-                (when (and
-                       (>= penetration-dist 0d0)
-                       (penalty-contact-valid bc corner))
-                  (if in-contact
-                      (cond
-                        ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-3))
-                         (setf (contact-point closest-point)
-                               (cl-mpm/fastmaths:fast-.+
-                                corner
-                                (contact-point closest-point)))
-                         (cl-mpm/fastmaths:fast-scale! (contact-point closest-point) 0.5d0))
-                        ((< (abs penetration-dist) (abs (contact-penetration closest-point)))
-                         (setf closest-point (make-contact
-                                              :point corner
-                                              :penetration penetration-dist))))
-                      (progn
-                        (setf in-contact t)
-                        (setf closest-point (make-contact
-                                             :point corner
-                                             :penetration penetration-dist))))))))
-           (when in-contact
-             ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
-             (apply-penalty-point mesh bc mp (contact-point closest-point) dt))))))))
+         (when t;(early-sweep-intersection bc mp)
+           (let ((in-contact nil)
+                 (closest-point (make-contact :penetration 0d0)))
+             (cl-mpm::iterate-over-corners
+              mesh
+              mp
+              (lambda (corner)
+                (let* ((penetration-dist (penetration-distance-point corner datum normal)))
+                  (declare (double-float penetration-dist))
+                  (when (and
+                         (>= penetration-dist 0d0)
+                         (penalty-contact-valid bc corner))
+                    (if in-contact
+                        (cond
+                          ((and (< (abs (- penetration-dist (contact-penetration closest-point))) 1d-3))
+                           (setf (contact-point closest-point)
+                                 (cl-mpm/fastmaths:fast-.+
+                                  corner
+                                  (contact-point closest-point)))
+                           (cl-mpm/fastmaths:fast-scale! (contact-point closest-point) 0.5d0))
+                          ((< (abs penetration-dist) (abs (contact-penetration closest-point)))
+                           (setf closest-point (make-contact
+                                                :point corner
+                                                :penetration penetration-dist))))
+                        (progn
+                          (setf in-contact t)
+                          (setf closest-point (make-contact
+                                               :point corner
+                                               :penetration penetration-dist))))))))
+             (when in-contact
+               ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
+               (apply-penalty-point mesh bc mp (contact-point closest-point) dt)))))))))
 
 
 (defgeneric resolve-closest-contact (bc corner))
@@ -820,20 +860,20 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (cl-mpm/penalty::iterate-over-corners
-          mesh
-          mp
-          (lambda (corner)
-            (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
-            (multiple-value-bind (in-contact pen closest-point) (resolve-closest-contact bc corner)
-              (when in-contact
-                (let ((load (apply-penalty-point mesh
-                                                 (contact-sub-bc closest-point)
-                                                 mp
-                                                 (contact-point closest-point) dt)))
-                  (sb-thread:with-mutex (debug-mutex)
-                    (incf debug-force load)))))))
-         )))))
+         (when t;(early-sweep-intersection bc mp)
+           (cl-mpm::iterate-over-corners
+            mesh
+            mp
+            (lambda (corner)
+              (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
+              (multiple-value-bind (in-contact pen closest-point) (resolve-closest-contact bc corner)
+                (when in-contact
+                  (let ((load (apply-penalty-point mesh
+                                                   (contact-sub-bc closest-point)
+                                                   mp
+                                                   (contact-point closest-point) dt)))
+                    (sb-thread:with-mutex (debug-mutex)
+                      (incf debug-force load)))))))))))))
 
 (defun calculate-bc-energy-mp (sim bc mp)
   (let ((total-energy 0d0))
@@ -849,7 +889,7 @@
                        (dt cl-mpm:sim-dt)
                        )
           sim
-        (cl-mpm/penalty::iterate-over-corners
+        (cl-mpm::iterate-over-corners
          mesh
          mp
          (lambda (corner)
