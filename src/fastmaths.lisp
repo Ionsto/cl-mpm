@@ -1,7 +1,10 @@
 (defpackage :cl-mpm/fastmaths
   (:use :cl)
   (:import-from
-    :magicl tref .+ .-)
+   :magicl tref .+ .-
+   )
+  (:import-from
+   :cl-mpm/utils varef)
   (:export
    #:fast-add
    #:fast-fmacc
@@ -24,7 +27,7 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmaths)
 
-(pushnew :sb-simd *features*)
+;; (pushnew :sb-simd *features*)
 (eval-when
     (:compile-toplevel)
   (pushnew :sb-simd *features*)
@@ -755,15 +758,25 @@
    double-float)
   dot))
 (defun dot (a b)
-  ;; (let ((as (cl-mpm/utils:fast-storage a))
-  ;;       (bs (cl-mpm/utils:fast-storage b)))
-  ;;   (declare ((simple-array double-float (*)) as bs))
-  ;;   (the double-float
-  ;;        (loop for va across as
-  ;;              for vb across bs
-  ;;              sum (the double-float (* va vb)))))
   (the double-float (fast-sum (fast-.* a b)))
   )
+(declaim
+ (ftype
+  (function
+   (magicl::matrix/double-float
+    magicl::matrix/double-float
+    )
+   double-float)
+  dot))
+(defun dot-vector (a b)
+  (let ((a-s (cl-mpm/utils:fast-storage a))
+        (b-s (cl-mpm/utils:fast-storage b))
+        )
+    (declare ((simple-array double-float (3)) a-s b-s))
+    (+
+     (the double-float (expt (- (aref a-s 0) (aref b-s 0)) 2))
+     (the double-float (expt (- (aref a-s 1) (aref b-s 1)) 2))
+     (the double-float (expt (- (aref a-s 2) (aref b-s 2)) 2)))))
 
 (declaim
  (ftype
@@ -871,3 +884,54 @@
 
 (defun voigt-von-mises (stress)
   (sqrt (* 3 (voigt-j2 (deviatoric-voigt stress)))))
+
+
+(defun eig-values-voigt (voigt)
+  (let ((p1 (+ (expt (varef voigt 3) 2) 
+               (expt (varef voigt 4) 2)
+               (expt (varef voigt 5) 2))))
+    (if (= p1 0d0)
+        (progn
+          ;;Diag
+          (values (varef voigt 0)
+                  (varef voigt 1)
+                  (varef voigt 2)))
+        (progn
+          (let* ((q (/ (cl-mpm/utils:trace-voigt voigt) 3))
+                 (p2 (+
+                      (expt (- (varef voigt 0) q) 2)
+                      (expt (- (varef voigt 1) q) 2)
+                      (expt (- (varef voigt 2) q) 2)
+                      (* 2 p1)))
+                 (p (sqrt (/ p2 6)))
+                 (B (cl-mpm/fastmaths:fast-scale!
+                     (cl-mpm/fastmaths:fast-.- voigt (cl-mpm/utils::voigt-eye q))
+                                                  (/ 1d0 p)))
+                 (r (/ (magicl:det (cl-mpm/utils:voigt-to-matrix B)) 2d0)))
+            (let ((phi
+                    (cond
+                      ((<= r -1d0)
+                       (/ pi 3))
+                      ((>= r 1d0)
+                       0d0)
+                      (t
+                       (/ (acos r) 3)))))
+              (let* ((s1 (+ q (* 2 p (cos phi))))
+                     (s3 (+ q (* 2 p (cos (+ phi (* pi 2/3))))))
+                     (s2 (- (* 3 q) s1 s3)))
+                (values
+                 s1 s2 s3))))))))
+
+(defun test-eig ()
+  (let* ((s (cl-mpm/utils:voigt-from-list (loop repeat 6 collect (- (random 100d0) 50d0))))
+        ;(s (cl-mpm/utils:voigt-from-list (list 1d0 1d0 0d0 1d0 1d0 0d0)))
+         (iters 100000)
+        )
+    (time (dotimes (i iters)
+            (cl-mpm/utils::principal-stresses-3d s)))
+    (time (dotimes (i iters)
+            (eig-values-voigt s)))
+    (format t "~A~%" (multiple-value-list (cl-mpm/utils::principal-stresses-3d s)))
+    (format t "~A~%" (multiple-value-list (eig-values-voigt s)))
+    ;; (pprint (eig-values-voigt s))
+    ))

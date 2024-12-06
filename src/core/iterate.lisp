@@ -940,6 +940,37 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                        )
                                   (funcall func mesh mp node weight (list gradx grady gradz) 0d0 (list 0d0 0d0 0d0)))))))))))
 
+;; (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-2d))
+(defun iterate-over-corners-2d-step (mesh mp step func)
+  (declare (cl-mpm/particle::particle mp)
+           (function func))
+  ;; (array-operations/utilities:nested-loop (x y) '(2 2))
+  (flet ((integrate (x y)
+           (let ((domain (cl-mpm/particle::mp-domain-size mp))
+                 (position (cl-mpm/particle:mp-position mp))
+                 (corner (cl-mpm/utils:vector-zeros)))
+             (declare (double-float x y))
+             (cl-mpm/fastmaths::fast-.+-vector
+              position
+              (cl-mpm/fastmaths:fast-scale!
+               (cl-mpm/fastmaths:fast-.*
+                (vector-from-list
+                 (list
+                  x
+                  y
+                  0d0))
+                domain
+                ) 0.5d0) corner)
+             (funcall func corner)))
+         )
+    (loop for v from -1d0 to 1d0 by step
+          do
+             (progn
+               (integrate v -1d0)
+               (integrate v  1d0)
+               (integrate -1d0 v)
+               (integrate  1d0 v)))))
+
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners-2d))
 (defun iterate-over-corners-2d (mesh mp func)
   (declare (cl-mpm/particle::particle mp)
@@ -988,3 +1019,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (iterate-over-corners-2d mesh mp func)
       (iterate-over-corners-3d mesh mp func)))
+
+(defun iterate-over-corners-step (mesh mp step func)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (iterate-over-corners-2d-step mesh mp step func)
+      (error "Not implemented")))

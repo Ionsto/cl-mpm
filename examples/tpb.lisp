@@ -201,7 +201,11 @@
                ;; (length-scale 20d-3) ;;65.15
                ;; (length-scale 10d-3) ;;47.56
                (length-scale 5.4d-3) ;;
-               (kappa (sqrt 7)))
+               (gf 48d0)
+               (kappa (sqrt 7))
+               (init-stress 3.45d6)
+               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+               )
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (cl-mpm/damage::estimate-ductility-jirsek2004 (* 48d0 0.5d0) (* length-scale (sqrt 7)) 3.45d6 15.3d9)

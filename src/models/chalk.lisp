@@ -9,8 +9,7 @@
 (in-package :cl-mpm/particle)
 (declaim (optimize (speed 3) (debug 0) (safety 0)))
 (defclass particle-chalk (particle-elastic-damage)
-  (
-   (coheasion
+  ((coheasion
     :accessor mp-coheasion
     :initarg :coheasion
     :initform 0d0)
@@ -81,7 +80,10 @@
     :accessor mp-fc
     :initform 200d3
     :initarg :fc)
-   )
+   (peerlings-damage
+    :accessor mp-peerlings-damage
+    :initform t
+    :initarg :peerlings-damage))
   (:documentation "A chalk damage model"))
 
 (defclass particle-chalk-delayed (particle-chalk-brittle)
@@ -229,12 +231,12 @@
                    (kc-r mp-k-compressive-residual-ratio)
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
+                   (peerlings mp-peerlings-damage)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress-u)
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (when enable-plasticity
         (progn
@@ -252,30 +254,33 @@
                   yield-func f)
             (setf strain eps-e)
             )
-          (let ((inc (multiple-value-bind (l v)
-                         (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                       (destructuring-bind (s1 s2 s3) l
-                         (sqrt
-                          (/ (+ (expt (- s1 s2) 2d0)
-                                (expt (- s2 s3) 2d0)
-                                (expt (- s3 s1) 2d0)
-                                ) 2d0))))))
+          (let ((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain)))
+                ;; (inc (multiple-value-bind (l v)
+                ;;          (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+                ;;        (destructuring-bind (s1 s2 s3) l
+                ;;          (sqrt
+                ;;           (/ (+ (expt (- s1 s2) 2d0)
+                ;;                 (expt (- s2 s3) 2d0)
+                ;;                 (expt (- s3 s1) 2d0)
+                ;;                 ) 2d0)))))
+                )
             (incf ps-vm inc)
             (setf ps-vm-inc inc))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     (when (and
            enable-damage
            (> damage 0.0d0))
+      ;; (unless peerlings
+      ;;   (setf damage-t (* kt-r damage)
+      ;;         damage-c (* kc-r damage)
+      ;;         damage-s (* g-r damage)))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (s (cl-mpm/constitutive::deviatoric-voigt stress))
-            (ex 1))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
               (if (> p 0d0)
                   (* (- 1d0 damage-t) p)
-                  (* (- 1d0 damage-c) p)
-                  ;; p
-                  ))
+                  (* (- 1d0 damage-c) p)))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
@@ -604,6 +609,8 @@
                      (damage-tension cl-mpm/particle::mp-damage-tension)
                      (damage-shear cl-mpm/particle::mp-damage-shear)
                      (damage-compression cl-mpm/particle::mp-damage-compression)
+                     (peerlings cl-mpm/particle::mp-peerlings-damage)
+
                      )
         mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
@@ -628,14 +635,15 @@
                  (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
-        ;; (setf
-        ;;  damage-tension (* kt-r damage)
-        ;;  damage-compression (* kc-r damage)
-        ;;  damage-shear (* g-r damage))
-        (setf
-         damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
-         damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
-         damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
+        (if peerlings
+          (setf
+           damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
+           damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
+           damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
+          (setf
+           damage-tension (* kt-r damage)
+           damage-compression (* kc-r damage)
+           damage-shear (* g-r damage)))
 
         (when (>= damage 1d0)
           (setf damage-inc 0d0))

@@ -236,4 +236,6 @@
       (format t "Max: ~D~%" pmax)
       (format t "Occ: ~F~%" (* (if (> pmin 0) (/ pmax pmin) 0d0) 100d0)))
     (sleep 0.1d0)
+    (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" i)) :terminal "png size 1920,1080")
+
     (swank.live:update-swank)))

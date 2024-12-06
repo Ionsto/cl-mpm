@@ -331,43 +331,13 @@
 ;;                                   (cl-mpm:sim-mps *sim*)))
 
 
-#- :sb-simd
-(progn
-  (declaim
-   (inline diff-squared)
-   (ftype (function (cl-mpm/particle:particle cl-mpm/particle:particle) double-float) diff-squared))
-  (defun diff-squared (mp-a mp-b)
-    (let ((dist (magicl:.- (cl-mpm/particle:mp-position mp-a)
-                           (cl-mpm/particle:mp-position mp-b)))
-          )
-      (values (the double-float (magicl::sum (cl-mpm/fastmaths::fast-.* dist dist)))))))
-
 ;;This is a simd dot product
-#+ :sb-simd
 (progn
-  (declaim
-   (inline simd-accumulate)
-   (ftype (function ((simple-array double-float) (simple-array double-float)) (values double-float)) simd-accumulate))
-  ;; (defun simd-accumulate (a b)
-  ;;   (declare (type sb-simd:f64vec a b))
-  ;;   (let ((diff
-  ;;           (sb-simd-avx:f64.2-
-  ;;            (sb-simd-avx:f64.2-aref a 0)
-  ;;            (sb-simd-avx:f64.2-aref b 0)
-  ;;            )))
-  ;;     (values (sb-simd-avx::f64.2-horizontal+
-  ;;              (sb-simd-avx:f64.2* diff diff))))
-  ;;   )
-  (defun simd-accumulate (a b)
-    (+
-     (the double-float (expt (- (aref a 0) (aref b 0)) 2))
-     (the double-float (expt (- (aref a 1) (aref b 1)) 2))
-     (the double-float (expt (- (aref a 2) (aref b 2)) 2))))
 
   (defun diff-squared-mat (pos-a pos-b)
     (let ((pos-a (magicl::matrix/double-float-storage pos-a))
           (pos-b (magicl::matrix/double-float-storage pos-b)))
-      (values (the double-float (simd-accumulate pos-a pos-b)))))
+      (values (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)))))
 
   (defun test-simd-acc (a b)
     (let (
@@ -377,15 +347,6 @@
           (b (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0)))
           )
       (pprint (diff-squared-mat a b))
-      ;; (let ((iter 1000000000))
-      ;;   (time
-      ;;    (dotimes (i iter)
-      ;;        (simd-accumulate (cl-mpm/utils::fast-storage a)
-      ;;                         (cl-mpm/utils::fast-storage b))))
-      ;;   (time
-      ;;    (dotimes (i iter)
-      ;;      (cl-mpm/fastmaths::simd-diff-norm (cl-mpm/utils::fast-storage a) (cl-mpm/utils::fast-storage b)))))
-
       ))
 
   (declaim
@@ -395,10 +356,6 @@
     (cl-mpm/fastmaths::diff-norm
      (cl-mpm/particle:mp-position mp-a)
      (cl-mpm/particle:mp-position mp-b))
-    ;; (let ((pos-a (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-a)))
-    ;;       (pos-b (magicl::matrix/double-float-storage (cl-mpm/particle:mp-position mp-b)))
-    ;;       )
-    ;;   (values (the double-float (simd-accumulate pos-a pos-b))))
     )
   )
 
@@ -526,9 +483,7 @@
   )
 
 (defun weight-func-pos (mesh pos-a pos-b length)
-  (let ((ps-a (magicl::matrix/double-float-storage pos-a))
-        (ps-b (magicl::matrix/double-float-storage pos-b)))
-    (weight-func (the double-float (simd-accumulate ps-a ps-b)) length)))
+  (weight-func (the double-float (cl-mpm/fastmaths::dot-vector pos-a pos-b)) length))
 
 (declaim
  (inline weight-func-mps-damaged)
@@ -617,7 +572,8 @@ Calls the function with the mesh mp and node"
     (iterate-over-damage-bounds
      mesh mp length
      (lambda (mesh mp node)
-       (loop for mp-other across (the (vector cl-mpm/particle::particle *) (cl-mpm/mesh::node-local-list node))
+       (loop for mp-other across (cl-mpm/mesh::node-local-list node)
+                                        ;(the (vector cl-mpm/particle::particle *))
              do
                 (with-accessors ((d cl-mpm/particle::mp-damage)
                                  (m cl-mpm/particle:mp-volume)
@@ -762,15 +718,6 @@ Calls the function with the mesh mp and node"
   local-length
   )
 
-;; (declaim
-;;  (ftype
-;;   (function (cl-mpm/mesh::mesh
-;;              (array cl-mpm/particle::particle)
-;;              double-float
-;;              double-float
-;;              )
-;;             (values))
-;;   delocalise-damage))
 
 (defgeneric delocalise-damage (sim))
 
@@ -792,16 +739,8 @@ Calls the function with the mesh mp and node"
                 (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
-(declaim
- (ftype
-  (function (cl-mpm/mesh::mesh
-             (array cl-mpm/particle::particle)
-             double-float
-             )
-            (values))
-  localise-damage))
+
 (defun localise-damage (mesh mps dt)
-  ;(declare ((array cl-mpm/particle::particle *) mps))
   "Apply local damage model"
   (cl-mpm:iterate-over-mps
    mps
@@ -865,7 +804,7 @@ Calls the function with the mesh mp and node"
                 (progn
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
-                    (cl-mpm::check-single-mps sim)
+                    ;; (cl-mpm::check-single-mps sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics mesh dt )
@@ -891,7 +830,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
-                    (cl-mpm::check-mps sim)
+                    ;; (cl-mpm::check-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
@@ -1437,9 +1376,9 @@ Calls the function with the mesh mp and node"
 
         (cl-mpm/output::save-parameter
          "energy"
-         (cl-mpm/particle::mp-penalty-energy mp)
-         ;; (* (cl-mpm/particle::mp-mass mp)
-         ;;    (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
+         ;; (cl-mpm/particle::mp-penalty-energy mp)
+         (* (cl-mpm/particle::mp-mass mp)
+            (cl-mpm/fastmaths::mag-squared (cl-mpm/particle::mp-velocity mp)))
          )
 
         (cl-mpm/output::save-parameter
@@ -1567,6 +1506,73 @@ Calls the function with the mesh mp and node"
     (* (/ 1d0 A)
        ;; (/ 1d0 (- (/ 1d0 (sqrt 3)) B))
        (+ (* B p) (sqrt j2)))))
+
+
+(defun degredation-function (stress damage kc kt ks)
+  (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+        (s (cl-mpm/constitutive::deviatoric-voigt stress))
+        (damage-t damage)
+        (damage-c (* kc damage))
+        (damage-s (* ks damage)))
+    (declare (double-float damage-t damage-c damage-s))
+    (setf p
+          (if (> p 0d0)
+              (* (- 1d0 damage-t) p)
+              (* (- 1d0 damage-c) p)))
+    (cl-mpm/fastmaths:fast-.+
+     (cl-mpm/constitutive::voight-eye p)
+     (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s)))))
+
+(defun criterion-y (stress strain damage
+                    E
+                    kc
+                    kt
+                    ks)
+  (let ((d_0 damage)
+        (ddamage (- (min 1d0 (+ damage 1d-3))
+                    damage)))
+    (if (> ddamage 0d0)
+        (let* ((d_1 (+ damage ddamage))
+               (se_0 (* 0.5d0
+                        (cl-mpm/fastmaths:dot
+                         stress
+                         strain)))
+               (se_1 (* 0.5d0
+                        (cl-mpm/fastmaths:dot
+                         (degredation-function stress
+                                               d_1
+                                               kc
+                                               kt
+                                               ks)
+                         strain))))
+          (sqrt (* E (max 0d0 (- (/ (- se_1 se_0) ddamage))))))
+        0d0)))
+
+;; (let* ((strain (cl-mpm/utils:voigt-from-list (list
+;;                                               1d0 1d0 1d0
+;;                                               0d0 0d0 1d0
+;;                                               )))
+;;        (E 1d0)
+;;        (nu 0d0)
+;;        (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+;;        (stress (magicl:@ de strain))
+;;        (kt-r 1d0)
+;;        (kc-r 1d0)
+;;        (g-r 1d0))
+;;   ;; (pprint (degredation-function stress
+;;   ;;                               0.1d0
+;;   ;;                               1d0
+;;   ;;                               1d0
+;;   ;;                               1d0
+;;   ;;                               ))
+;;   (pprint (* 0.5d0
+;;              (cl-mpm/fastmaths:dot
+;;               stress
+;;               strain)))
+;;   ;(pprint (criterion-y stress strain damage E kt-r kc-r g-r))
+;;   (pprint (volumetric-deviatoric-norm strain E nu kt-r kc-r g-r))
+;;   )
+
 
 (defun criterion-dp-shear-coheasion (stress angle)
   "Return some drucker-prager damage criterion from a stress level and and angle (radians)"
@@ -1788,33 +1794,75 @@ Calls the function with the mesh mp and node"
       ;;  (* (- 1d0 a) (/ 1d0 (cos angle))))
       )))
 
+(defun criterion-mohr-coloumb-3d (stress angle)
+  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (declare (double-float angle s1 s2 s3))
+    (let ((tang (tan angle))
+          (cang (cos angle)))
+      (* 0.5d0
+         (max
+          (- (* (+ s3 s1) tang) (/ (- s3 s1) cang))
+          ;; (- (- (* (+ s2 s3) tang) (/ (abs (- s2 s3)) cang)))
+          ;; (- (- (* (+ s1 s2) tang) (/ (abs (- s1 s2)) cang)))
+          )))))
+
 (defun criterion-mohr-coloumb-stress (stress angle)
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (declare (double-float angle s1 s2 s3))
     (let ()
       (* 0.5d0
          (-
           (* (+ s3 s1) (tan angle))
-          (/ (- s3 s1)
-             (cos angle)))))))
+          (/ (- s3 s1) (cos angle)))))))
 
-(defun mohr-coloumb-coheasion-to-tensile (coheasion angle E nu)
-  (let ((a (/ (sin angle)
-              (- 1d0 (* 2 nu))))
-        (G (/ E (* 2 (- 1d0 nu)))))
-    (* E
-       0.5d0
-       (/
-        (/ coheasion G)
-        (* (- 1d0 a) (/ 1d0 (cos angle)))))))
+(defun criterion-mohr-coloumb-stress-tensile (stress angle)
+  (declare (double-float angle))
+  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (declare (double-float angle s1 s2 s3))
+    (let ((k (/ (+ 1d0 (sin angle))
+                (- 1d0 (sin angle)))))
+      (/ (- (* k s1) s3)
+         k)))
+  )
+(defun criterion-mohr-coloumb-stress-will (stress angle)
+  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (declare (double-float angle s1 s2 s3))
+    (let ((k (/ (+ 1d0 (sin angle))
+                (- 1d0 (sin angle))
+                )))
+      (* 0.5d0
+         (/ (- (* k s1) s3)
+            (sqrt k))))))
+
+(defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
+  (let (
+        ;; (a (/ (sin angle)
+        ;;       (- 1d0 (* 2 nu))))
+        ;; (G (/ E (* 2 (- 1d0 nu))))
+        (k (/ (+ 1d0 (sin angle))
+              (- 1d0 (sin angle))
+              )))
+    ;; (/ (* 2 coheasion) (sqrt k))
+    (the double-float
+         (/
+          (* 2 coheasion (cos angle))
+          (+ 1d0 (sin angle))))
+    ;; (* E
+    ;;    0.5d0
+    ;;    (/
+    ;;     (/ coheasion G)
+    ;;     (* (- 1d0 a) (/ 1d0 (cos angle)))))
+    ))
 
 
-;; (let* ((strain (cl-mpm/utils:voigt-from-list (list -3d0 -3d0 0d0
-;;                                                    0d0 0d0 5d0)))
-;;        (E 1d9)
-;;        (nu 0.0d0)
-;;        (De (cl-mpm/constitutive::linear-elastic-matrix E nu))
-;;        (stress (magicl:@ De strain))
+;; (let* ((stress (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0
+;;                                                    0d0 0d0 1d0)))
 ;;        (angle 42d0))
+;;   (print (cl-mpm/damage::criterion-mohr-coloumb-stress stress (* angle (/ pi 180))))
+;;   (print (cl-mpm/damage::criterion-mohr-coloumb-3d stress (* angle (/ pi 180))))
+;;   ;; (print (cl-mpm/damage::criterion-mohr-coloumb-stress-will stress (* angle (/ pi 180))))
+;;   ;; (print (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180))))
+;;   )
 
 ;;   (let ((mc (cl-mpm/damage::criterion-mohr-coloumb-stress stress (* angle (/ pi 180)))))
 ;;     (format t "MC: ~%~E~%" mc)
@@ -1824,6 +1872,24 @@ Calls the function with the mesh mp and node"
 ;;     (format t "Circ: ~E~%"  (/ (cl-mpm/damage::criterion-dp-coheasion stress (* angle (/ pi 180))) mc)))
 ;;   )
 
+(defun volumetric-deviatoric-norm (strain E nu
+                                   res-t res-c res-s)
+  (let* ((etr (cl-mpm/utils:trace-voigt strain))
+         (e-tension (max 0d0 etr))
+         (e-compression (- (max -0d0 (- etr))))
+         (ed (cl-mpm/constitutive::deviatoric-voigt strain))
+         (K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
+         (G (/ E (* 2 (+ 1d0 nu))))
+         (energy
+           (* 0.5d0
+              (+
+               (* res-t K (expt e-tension 2))
+               (* res-c K (expt e-compression 2))
+               (*
+                G
+                (cl-mpm/fastmaths::dot ed ed))))))
+    (sqrt (max 0d0 (* E energy)))
+    ))
 
 (defun tensile-energy-norm (strain E de)
   (let* ((strain+
@@ -2120,7 +2186,7 @@ Calls the function with the mesh mp and node"
           do
              (progn
                (setf d-est (damage-response-exponential k-est E init-stress ductility))
-               (format t "~F ~F~%" d-est k-est)
+               ;; (format t "~F ~F~%" d-est k-est)
                (when (> damage d-est)
                  (setf k-prev k-est)
                  (setf k-est
@@ -2160,7 +2226,7 @@ Calls the function with the mesh mp and node"
 
 
 (declaim (ftype (function (double-float double-float double-float double-float double-float)
-                          double-float) damage-response-exponential-residual))
+                          double-float) damage-response-exponential-peerlings-residual))
 (defun damage-response-exponential-peerlings-residual (stress E init-stress ductility residual)
   (declare (double-float stress E init-stress ductility residual))
   "Function that controls how damage evolves with principal stresses"
@@ -2173,7 +2239,8 @@ Calls the function with the mesh mp and node"
     (if (> k e0)
         (- 1d0 (* (/ e0 k) (+ (- 1d0 residual) (* residual (exp (- (* beta (- k e0))))))))
         0d0)))
-
+(declaim (ftype (function (double-float double-float double-float double-float double-float)
+                          double-float) damage-response-exponential-residual))
 (defun damage-response-exponential-residual (stress E init-stress ductility residual)
   (declare (double-float stress E init-stress ductility residual))
   "Function that controls how damage evolves with principal stresses"

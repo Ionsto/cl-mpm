@@ -151,6 +151,7 @@
                "cl-mpm/utils"
                "cl-mpm/forces"
                "alexandria"
+               "serapeum"
                "array-operations"
                "lparallel"
                "symbolic-derivation"
