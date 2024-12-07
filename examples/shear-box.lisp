@@ -549,26 +549,38 @@
                           (/ load (* density sur-height))
                           0d0))
              (mp-surcharge t))
-        (loop for mp across (cl-mpm:sim-mps sim)
-              do
-                 (with-accessors ((stress cl-mpm/particle:mp-stress)
-                                  (strain cl-mpm/particle:mp-strain)
-                                  (E cl-mpm/particle::mp-E)
-                                  (nu cl-mpm/particle::mp-nu)
-                                  (de cl-mpm/particle::mp-elastic-matrix))
-                     mp
-                   (let* ((strains (cl-mpm/utils:voigt-from-list (list
-                                                                  0d0
-                                                                  (- (/
-                                                                      (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
-                                                                      (* E (- 1d0 nu))))
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0
-                                                                  0d0)))
-                          )
-                     (setf stress (magicl:@ de strains)
-                           strain strains))))
+        (cl-mpm:iterate-over-mps
+         (cl-mpm:sim-mps sim)
+         (lambda (mp)
+           (with-accessors ((stress cl-mpm/particle:mp-stress)
+                            (strain cl-mpm/particle:mp-strain)
+                            (E cl-mpm/particle::mp-E)
+                            (nu cl-mpm/particle::mp-nu)
+                            (de cl-mpm/particle::mp-elastic-matrix))
+               mp
+             (let* (;(k-ratio 0d0)
+                    (k-ratio (/ nu (- 1d0 nu)));;k0
+                    (stresses (cl-mpm/utils:voigt-from-list (list
+                                                             (- (* surcharge-load k-ratio))
+                                                             (- surcharge-load)
+                                                             (- (* surcharge-load k-ratio))
+                                                             0d0
+                                                             0d0
+                                                             0d0)))
+                    (strains (magicl:linear-solve de stresses))
+                    ;; (strains (cl-mpm/utils:voigt-from-list (list
+                    ;;                                         0d0
+                    ;;                                         (- (/
+                    ;;                                             (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+                    ;;                                             (* E (- 1d0 nu))))
+                    ;;                                         0d0
+                    ;;                                         0d0
+                    ;;                                         0d0
+                    ;;                                         0d0)))
+                    ;; (stresses (magicl:@ de strains))
+                    )
+               (setf stress stresses 
+                     strain strains)))))
         (format t "Gravity ~F~%" gravity)
 
         ;; (if mp-surcharge
@@ -1348,8 +1360,10 @@ d0
                          :init-stress init-stress))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 1d0 mesh-size)
-                      :smoothness 4)
+                      :corner-size (* 0.25d0 mesh-size)
+                      :smoothness 4
+                                        ;7.5d-3
+                      )
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     (setf (cl-mpm:sim-dt *sim*)
           (*
@@ -1549,7 +1563,7 @@ d0
     (setf (cl-mpm:sim-damping-factor *sim*)
           (*
            damping
-           ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
+           (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
@@ -2152,12 +2166,12 @@ d0
                        ;; 32
                        )
         do
-           (dolist (epsilon-scale (list 1d3))
+           (dolist (epsilon-scale (list 1d2))
              (dolist (mps (list 2))
                (let (;(mps 2)
                      ;; (mps 2)
-                     (scale 1d0)
-                     (sample-scale 2d0)
+                     (scale 0.5d0)
+                     (sample-scale 1d0)
                      ;; (name "circumscribed")
                      ;; (name "middle-circumscribed")
                      ;; (name "plastic")
@@ -2170,7 +2184,7 @@ d0
                           ;; 0d0
                           ;; 5d4
                           10d4
-                          20d4
+                          ;; 20d4
                           30d4
                           ;; 40d4
                           ;; 50d4
@@ -2179,7 +2193,7 @@ d0
                        do
                           (let (;(piston-scale 10d0)
                                 (piston-scale 1d0)
-                                ;; (epsilon-scale (* epsilon-scale (/ 1d0 (/ 4 (float refine 1d0)))))
+                                (epsilon-scale (* epsilon-scale (/ (float refine 1d0) 4)))
                                 ;; (name (format nil "~A_~A" "iso" damage))
                                 (name "test")
                                 )
@@ -2188,9 +2202,9 @@ d0
                             (setup :refine refine :mps mps :surcharge-load s
                                    :epsilon-scale epsilon-scale
                                    :piston-scale piston-scale
-                                   :piston-mps 2
+                                   :piston-mps 1
                                    :friction 0d0
-                                   :mp-refine 1
+                                   :mp-refine 2
                                    :init-stress
                                    ;; 131d3
                                    (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 52d0 (/ pi 180)))
@@ -2213,9 +2227,9 @@ d0
                                   ;; t
                                   )
                             (run (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
-                                 :displacment 0.2d-3
+                                 :displacment 0.1d-3
                                  :surcharge-load s
-                                 :damping 1d-2
+                                 :damping 1d-3
                                  :time-scale (* 1d0 scale)
                                  :sample-scale (* 1d0 sample-scale)
                                  :dt-scale (/ 0.5d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
@@ -2321,3 +2335,35 @@ d0
         ))
      ))
   )
+
+;; (let ((mp (aref (cl-mpm:sim-mps *sim*) 0))
+;;       (surcharge-load 1d0))
+;;   (with-accessors ((stress cl-mpm/particle:mp-stress)
+;;                    (strain cl-mpm/particle:mp-strain)
+;;                    (E cl-mpm/particle::mp-E)
+;;                    (nu cl-mpm/particle::mp-nu)
+;;                    (de cl-mpm/particle::mp-elastic-matrix))
+;;       mp
+;;     (let* ((k-ratio (/ nu (- 1d0 nu)))
+;;            (stresses (cl-mpm/utils:voigt-from-list (list
+;;                                                     (- (* surcharge-load k-ratio))
+;;                                                     (- surcharge-load)
+;;                                                     (- (* surcharge-load k-ratio))
+;;                                                     0d0
+;;                                                     0d0
+;;                                                     0d0)))
+;;            (strains (magicl:linear-solve de stresses))
+;;            ;; (strains (cl-mpm/utils:voigt-from-list (list
+;;            ;;                                         0d0
+;;            ;;                                         (- (/
+;;            ;;                                             (* surcharge-load (+ 1d0 nu) (- 1d0 (* nu 2)))
+;;            ;;                                             (* E (- 1d0 nu))))
+;;            ;;                                         0d0
+;;            ;;                                         0d0
+;;            ;;                                         0d0
+;;            ;;                                         0d0)))
+;;            ;; (stresses (magicl:@ de strains))
+;;            )
+;;       (pprint stresses)
+;;       (pprint strains)
+;;       )))

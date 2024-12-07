@@ -1,10 +1,9 @@
-#|
+
 (progn
-(ql:quickload :magicl)
-(ql:quickload :vgplot))
-(ql:quickload :lparallel)
-(ql:quickload :swank.live)
-|#
+  (ql:quickload :magicl)
+  (ql:quickload :vgplot)
+  (ql:quickload :lparallel)
+  (ql:quickload :swank.live))
 
 
 (defun vector-from-list (p)
@@ -64,7 +63,7 @@
     :initform (list)
     )))
 
-;; (defparameter *sim* nil)
+(defparameter *sim* nil)
 (defun setup ()
   (defparameter *sim* (make-instance 'sim))
   (setf (sim-particles *sim*)
@@ -220,9 +219,13 @@
 
 
 (defun test ()
+  (uiop:ensure-all-directories-exist (list "./outframes/"))
   (setup)
   (dotimes (i 50)
     (plot)
+    (sleep 0.1d0)
+    (vgplot:print-plot (merge-pathnames (format nil "./outframes/frame_~5,'0d.png" i))
+                        :terminal "png size 1920,1080")
     (dotimes (k 10)
       (load-balance))
     (update-counts)
