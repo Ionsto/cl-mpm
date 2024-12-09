@@ -443,9 +443,9 @@
   :E 1d9
   :nu 0.24d0
   :kt-res-ratio 1d0
-  :kc-res-ratio 1d0
+  :kc-res-ratio 0d0
   :g-res-ratio 1d0
-  :friction-angle 52d0
+  :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
   :delay-exponent 1d0
@@ -558,8 +558,8 @@
                             (nu cl-mpm/particle::mp-nu)
                             (de cl-mpm/particle::mp-elastic-matrix))
                mp
-             (let* (;(k-ratio 0d0)
-                    (k-ratio (/ nu (- 1d0 nu)));;k0
+             (let* ((k-ratio 0d0)
+                    ;(k-ratio (/ nu (- 1d0 nu)));;k0
                     (stresses (cl-mpm/utils:voigt-from-list (list
                                                              (- (* surcharge-load k-ratio))
                                                              (- surcharge-load)
@@ -1361,7 +1361,7 @@ d0
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* 0.25d0 mesh-size)
-                      :smoothness 4
+                      :smoothness 0
                                         ;7.5d-3
                       )
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
@@ -2156,7 +2156,7 @@ d0
   (loop for refine in (list
                        ;; 2
                        ;; 2
-                       4
+                       ;; 4
                        8
                        ;; 16
                        ;; 32
@@ -2170,32 +2170,32 @@ d0
              (dolist (mps (list 2))
                (let (;(mps 2)
                      ;; (mps 2)
-                     (scale 0.5d0)
-                     (sample-scale 1d0)
+                     (scale 2d0)
+                     (sample-scale 2d0)
                      ;; (name "circumscribed")
                      ;; (name "middle-circumscribed")
                      ;; (name "plastic")
                      )
                  (loop for s
                        ;; from 0d4 to 30d4 by 5d4
-                       ;; from 5d4 to 50d4 by 5d4
-                         in
-                         (list
-                          ;; 0d0
-                          ;; 5d4
-                          10d4
-                          ;; 20d4
-                          30d4
-                          ;; 40d4
-                          ;; 50d4
-                          )
+                       from 5d4 to 40d4 by 5d4
+                         ;; in
+                         ;; (list
+                         ;;  ;; 0d0
+                         ;;  ;; 5d4
+                         ;;  10d4
+                         ;;  ;; 20d4
+                         ;;  30d4
+                         ;;  ;; 40d4
+                         ;;  ;; 50d4
+                         ;;  )
                        while (and *run-sim*)
                        do
                           (let (;(piston-scale 10d0)
                                 (piston-scale 1d0)
                                 (epsilon-scale (* epsilon-scale (/ (float refine 1d0) 4)))
                                 ;; (name (format nil "~A_~A" "iso" damage))
-                                (name "test")
+                                (name "k")
                                 )
                             (setf *skip* nil)
                             (format t "Test ~D ~F" refine s)
@@ -2207,7 +2207,7 @@ d0
                                    :mp-refine 2
                                    :init-stress
                                    ;; 131d3
-                                   (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 52d0 (/ pi 180)))
+                                   (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180)))
                                    )
                             ;; (cl-mpm:iterate-over-mps
                             ;;  (cl-mpm:sim-mps *sim*)

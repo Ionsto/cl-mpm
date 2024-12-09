@@ -3,9 +3,10 @@ import numpy as np
 
 
 
-def peerlings(k,beta,e0):
-    return 0
-
+def damage(k,beta,e0):
+    return peerlings(k,beta,e0,0)
+def peerlings(k,beta,e0,alpha):
+    return 1 - (e0 / k)* ((1-alpha) + alpha * np.exp(-1 * beta * max(0,k-e0)))
 def damage(p,q,damage,rt,rc,rs):
     pr = 0
     pr = np.copy(p)
