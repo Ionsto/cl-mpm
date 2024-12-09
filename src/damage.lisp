@@ -256,11 +256,13 @@
                 (let ((node (cl-mpm/mesh:get-node mesh node-id)))
                 (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
                   (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))))
-    (cl-mpm:iterate-over-nodes
-     mesh
-     (lambda (node)
-       (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
-         (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
+    ;;Smart in thought but actually super dumb
+    ;; (cl-mpm:iterate-over-nodes
+    ;;  mesh
+    ;;  (lambda (node)
+    ;;    (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
+    ;;      (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))
+    ))
 
 (defun local-list-add-particle (mesh mp)
   "A function for putting an MP into the nodal MP lookup table"
