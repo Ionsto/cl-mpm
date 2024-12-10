@@ -665,6 +665,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -686,7 +687,7 @@
                     (mpi-sync-force sim)
                     (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
-                    (cl-mpm::g2p mesh mps dt)
+                    (cl-mpm::g2p mesh mps dt vel-algo)
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
@@ -714,6 +715,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -734,7 +736,7 @@
                   (mpi-sync-force sim)
                   (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)
-                  (cl-mpm::g2p mesh mps dt)
+                  (cl-mpm::g2p mesh mps dt vel-algo)
                   (when remove-damage
                     (cl-mpm::remove-material-damaged sim))
                   (when split
@@ -858,6 +860,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -876,7 +879,7 @@
                   (mpi-sync-force sim)
                   (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)
-                  (cl-mpm::g2p mesh mps dt)
+                  (cl-mpm::g2p mesh mps dt vel-algo)
 
                   ;;2nd round of mapping for USL
                   (cl-mpm::reset-grid-velocity mesh)
@@ -916,6 +919,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -941,7 +945,7 @@
                     (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
                                         ;Also updates mps inline
-                    (cl-mpm::g2p mesh mps dt)
+                    (cl-mpm::g2p mesh mps dt vel-algo)
                     ;;MPI reduce new velocities
                                         ;(exchange-mps sim)
                     ;;Get new MPS

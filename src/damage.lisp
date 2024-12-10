@@ -800,6 +800,8 @@ Calls the function with the mesh mp and node"
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (update-type cl-mpm::update-type)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -826,7 +828,7 @@ Calls the function with the mesh mp and node"
                     ;; ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;Also updates mps inline
-                    (cl-mpm::g2p mesh mps dt)
+                    (cl-mpm::g2p mesh mps dt vel-algo)
 
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
@@ -849,6 +851,7 @@ Calls the function with the mesh mp and node"
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -872,7 +875,7 @@ Calls the function with the mesh mp and node"
                     ;Also updates mps inline
 
 
-                    (cl-mpm::g2p mesh mps dt)
+                    (cl-mpm::g2p mesh mps dt vel-algo)
 
                     ;;Update stress last
 

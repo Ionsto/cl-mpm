@@ -88,6 +88,7 @@
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
                (bcs-force-list bcs-force-list)
+               (vel-algo velocity-algorithm)
                (time time))
                 sim
     (declare (type double-float mass-filter))
@@ -108,7 +109,7 @@
                   ;; Reapply velocity BCs
                   (apply-bcs mesh bcs dt)
                   ;; Also updates mps inline
-                  (g2p mesh mps dt)
+                  (g2p mesh mps dt vel-algo)
                   (when split
                     (split-mps sim))
                   (check-mps sim)
@@ -129,6 +130,7 @@
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
                (time time)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (double-float mass-filter dt time))
@@ -150,7 +152,7 @@
                     (apply-bcs mesh bcs dt)
 
                     ;; Also updates mps inline
-                    (g2p mesh mps dt)
+                    (g2p mesh mps dt vel-algo)
                     (when split
                       (split-mps sim))
                     ;; (check-mps sim)
@@ -171,6 +173,7 @@
                (remove-damage allow-mp-damage-removal)
                (fbar enable-fbar)
                (bcs-force-list bcs-force-list)
+               (vel-algo velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -192,7 +195,7 @@
                     ;;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
                     ;;Grid to particle mapping
-                    (g2p mesh mps dt)
+                    (g2p mesh mps dt vel-algo)
 
                     ;;2nd round of momentum mapping
                     (reset-grid-velocity mesh)
@@ -619,7 +622,7 @@
 ;;    (lambda (mp)
 ;;      (g2p-mp mesh mp dt))))
 
-(defun g2p (mesh mps dt &optional (update-type :BLEND))
+(defun g2p (mesh mps dt &optional (update-type :FLIP))
   (ecase update-type
     (:FLIP
      (iterate-over-mps
@@ -1017,6 +1020,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (error "Negative volume"))
           (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
                                              (cl-mpm/particle::mp-damage-domain-update-rate mp))
+          (scale-domain-size def domain (cl-mpm/particle::mp-domain-size-0 mp) (cl-mpm/mesh:mesh-nd mesh))
           )))
     )
   (values))
@@ -1172,28 +1176,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;; (update-stress-linear mesh mp dt fbar)
   )
 
-;; (defun calculate-cell-deformation (mesh cell dt)
-;;   (with-accessors ((def cl-mpm/mesh::cell-deformation-gradient)
-;;                    (volume cl-mpm/mesh::cell-volume))
-;;       cell
-;;     (let ((dstrain (magicl:zeros '(3 1))))
-;;       (cl-mpm/mesh::cell-iterate-over-neighbours
-;;        mesh cell
-;;        (lambda (mesh c node svp grads)
-;;          (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-;;                           (node-active cl-mpm/mesh:node-active)
-;;                           )
-;;              node
-;;            (declare (double-float))
-;;            (when node-active
-;;              (mult (cl-mpm/shape-function::assemble-dsvp-2d grads) node-vel dstrain))
-;;            )))
-;;       (magicl:scale! dstrain dt)
-;;       (let ((df (cl-mpm/fastmaths::fast-.+ (magicl:eye 2) (voight-to-matrix dstrain))))
-;;         (progn
-;;           (setf def (magicl:@ df def))
-;;           (setf volume (* volume (det df)))
-;;           )))))
 (defun map-jacobian (mesh mp dt)
   (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (volume cl-mpm/particle:mp-volume)

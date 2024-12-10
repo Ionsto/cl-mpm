@@ -55,11 +55,11 @@
    (stats-mps-removed
     :accessor sim-stats-mps-removed
     :initform 0d0
-    :initarg :time)
+    :initarg :stats-mps-removed)
    (stats-mps-added
     :accessor sim-stats-mps-added
     :initform 0d0
-    :initarg :time)
+    :initarg :stats-mps-added)
    (mesh
      :accessor sim-mesh
      :initarg :mesh)
@@ -119,7 +119,7 @@
    (velocity-algorithm
     :type symbol
     :accessor sim-velocity-algorithm
-    :initform :flip)
+    :initform :FLIP)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter
