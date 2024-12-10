@@ -119,7 +119,7 @@
    (velocity-algorithm
     :type symbol
     :accessor sim-velocity-algorithm
-    :initform :FLIP)
+    :initform :BLEND)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

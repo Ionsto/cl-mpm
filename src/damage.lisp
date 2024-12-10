@@ -801,7 +801,7 @@ Calls the function with the mesh mp and node"
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (update-type cl-mpm::update-type)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -851,7 +851,7 @@ Calls the function with the mesh mp and node"
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))

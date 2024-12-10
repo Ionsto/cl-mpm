@@ -665,7 +665,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -715,7 +715,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -860,7 +860,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -919,7 +919,7 @@
                (nonlocal-damage cl-mpm::nonlocal-damage)
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
-               (vel-algo velocity-algorithm)
+               (vel-algo cl-mpm::velocity-algorithm)
                )
                 sim
     (declare (type double-float mass-filter))
