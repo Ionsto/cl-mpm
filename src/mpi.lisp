@@ -565,12 +565,12 @@
                                (r (right-filter)))
                            ;; (format t "Rank ~D - ~D - Sending ~D damage mps left~%"  rank i (length l))
                            ;; (format t "Rank ~D - ~D - Sending ~D damage mps right~%" rank i (length r))
-                           (unless (= left-neighbor -1)
-                             (iterate-over-mps
-                              l (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 1))))
-                           (unless (= right-neighbor -1)
-                             (iterate-over-mps
-                              r (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 2))))
+                           ;; (unless (= left-neighbor -1)
+                           ;;   (iterate-over-mps
+                           ;;    l (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 1))))
+                           ;; (unless (= right-neighbor -1)
+                           ;;   (iterate-over-mps
+                           ;;    r (lambda (mp) (setf (cl-mpm/particle::mp-index mp) 2))))
                            )
                          (when t
                            (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-damage-mp)
