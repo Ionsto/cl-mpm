@@ -67,7 +67,7 @@
     :initform 1d0)
    (damage-mps-cache
     :accessor mpm-sim-mpi-damage-mps-cache
-    :initform (make-array 0 :element-type 'cl-mpm::particle-damage :adjustable t :fill-pointer 0)))
+    :initform (make-array 0 :element-type t :adjustable t :fill-pointer 0)))
   (:documentation "Damage sim with only stress update on mpi"))
 
 (defclass mpm-sim-mpi-nodes-damage (mpm-sim-mpi-nodes cl-mpm/damage::mpm-sim-damage)
