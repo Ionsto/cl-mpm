@@ -15,8 +15,8 @@
            (scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
       (declare (double-float jf jl0 jl))
       (setf (varef domain 0) (* (varef domain 0) scaling)
-            (varef domain 1) (* (varef domain 1) scaling))))
-  )
+            (varef domain 1) (* (varef domain 1) scaling)))))
+
 (defun scale-domain-size-3d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)

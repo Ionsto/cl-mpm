@@ -1021,7 +1021,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (error "Negative volume"))
           (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
                                              (cl-mpm/particle::mp-damage-domain-update-rate mp))
-          (scale-domain-size def domain (cl-mpm/particle::mp-domain-size-0 mp) (cl-mpm/mesh:mesh-nd mesh))
+          (scale-domain-size mesh mp)
           )))
     )
   (values))
