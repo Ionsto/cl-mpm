@@ -1885,6 +1885,7 @@
 (defun load-balance (sim &key (substeps 10)
                            (step-size 1d-1)
                            (exchange-mps t)
+                           (dims (list :x :y :z))
                            )
   (let ((rank (cl-mpi::mpi-comm-rank))
         (stagnent nil))
@@ -1894,14 +1895,17 @@
           do
              (progn
                (setf stagnent t)
-               (dotimes (i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-                 (setf stagnent (and stagnent (load-balance-dimension sim i :step-size step-size)))
-                 (when exchange-mps
-                   (set-mp-mpi-index sim)
-                   (exchange-mps sim 0d0)
-                   (set-mp-mpi-index sim)
-                   (clear-ghost-mps sim))
-                 (load-balance-setup sim))))
+               (loop for dim in dims ;(i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+                     do
+                        (let ((i (position dim (list :x :y :z))))
+                          (when (< i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+                            (setf stagnent (and stagnent (load-balance-dimension sim i :step-size step-size)))
+                            (when exchange-mps
+                              (set-mp-mpi-index sim)
+                              (exchange-mps sim 0d0)
+                              (set-mp-mpi-index sim)
+                              (clear-ghost-mps sim))
+                            (load-balance-setup sim))))))
     (let ((min-mps (mpi-min (float (mpm-sim-mpi-load-metric sim) 0d0)))
           (max-mps (mpi-max (float (mpm-sim-mpi-load-metric sim) 0d0)))
           (balance nil))
@@ -1917,6 +1921,7 @@
                                 (min-bounds 1.1d0)
                                 (max-bounds 1.5d0)
                                 (step-size 1d-1)
+                                (dims (list :x :y :z))
                                 )
   (let ((balance (cl-mpm/mpi::load-balance-value sim))
         (rank (cl-mpi::mpi-comm-rank)))
@@ -1933,7 +1938,8 @@
                  (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
                                                                                    :exchange-mps t
                                                                                    :step-size step-size
-                                                                                   :substeps substeps)
+                                                                                   :substeps substeps
+                                                                                   :dims dims)
                    (setf balance balance
                          stag stagnent))))
       (domain-decompose sim))))
