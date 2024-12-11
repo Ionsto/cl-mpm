@@ -941,6 +941,36 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                            boolean) (values))
                update-strain-kirchoff))
 
+(defun update-strain-kirchoff-noupdate (mesh mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
+                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
+                   ) mp
+    (declare (type double-float volume)
+             (type magicl:matrix/double-float
+                   domain))
+    (progn
+      (let ((df (calculate-df mesh mp fbar)))
+        (progn
+          (setf def (magicl:@ df def))
+          (cl-mpm/utils:voigt-copy-into strain strain-rate)
+          (cl-mpm/ext:kirchoff-update strain df)
+          (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
+          ;;Post multiply to turn to eng strain
+          (setf volume (* volume (the double-float (magicl:det df))))
+          (when (<= volume 0d0)
+            (error "Negative volume"))))))
+  (values))
+
 (defun update-strain-kirchoff (mesh mp dt fbar)
   "Finite strain kirchhoff strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -1098,6 +1128,41 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
+        ;; Update our kirchoff stress with constitutive model
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+        ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
+        ;; Check volume constraint!
+        (when (<= volume 0d0)
+          (error "Negative volume"))
+        ;; Turn kirchoff stress to cauchy
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+        ))))
+
+(defun update-stress-kirchoff-noscale (mesh mp dt fbar)
+  "Update stress for a single mp"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+             (double-float volume))
+    (progn
+      (progn
+        (calculate-strain-rate mesh mp dt)
+
+        ;; Turn cauchy stress to kirchoff
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; Update our strains
+        (update-strain-kirchoff-noupdate mesh mp dt fbar)
+        (update-domain-corner mesh mp dt)
+        ;; (scale-domain-size mesh mp)
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
