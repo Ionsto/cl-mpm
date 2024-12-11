@@ -229,47 +229,8 @@
                                                          (the double-float (varef disp 1))
                                                          (varef normal 1))))))
 
-          ;; (array-operations/utilities:nested-loop (x y) '(2 2)
-          ;;   (let ((corner (cl-mpm/utils:vector-zeros))
-          ;;         (disp (cl-mpm/utils:vector-zeros)))
-          ;;     (cl-mpm/fastmaths::fast-.+-vector
-          ;;      position
-          ;;      (cl-mpm/fastmaths:fast-scale!
-          ;;       (magicl:.*
-          ;;        (vector-from-list (mapcar (lambda (x) (- (* 2d0 (coerce x 'double-float)) 1d0))
-          ;;                                  (list x y 0)))
-          ;;        domain
-          ;;        ) 0.5d0) corner)
-          ;;     (loop for i from 0 to 1
-          ;;           do (setf (the double-float (varef corner i))
-          ;;                    (max 0d0 (min
-          ;;                              (the double-float (coerce (nth i mesh-size) 'double-float))
-          ;;                              (the double-float (varef corner i))))))
-          ;;     (iterate-over-neighbours-point-linear
-          ;;      mesh corner
-          ;;      (lambda (mesh node svp grads)
-          ;;        (declare (double-float dt svp))
-          ;;        (with-accessors ((vel cl-mpm/mesh:node-velocity))
-          ;;            node
-          ;;          (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
-
-          ;;     (incf (the double-float (aref diff 0)) (* 1.0d0 (the double-float (varef disp 0)) (- (* 2d0 (coerce x 'double-float)) 1d0)))
-          ;;     (incf (the double-float (aref diff 1)) (* 1.0d0 (the double-float (varef disp 1)) (- (* 2d0 (coerce y 'double-float)) 1d0)))
-          ;;     ))
-
           (incf (the double-float (aref domain-storage 0)) (* 0.5d0 (the double-float (aref diff 0))))
           (incf (the double-float (aref domain-storage 1)) (* 0.5d0 (the double-float (aref diff 1))))
-          ;; (let* ((jf  (the double-float (magicl:det def)))
-          ;;        (jl  (* (the double-float (varef domain 0))
-          ;;                (the double-float (varef domain 1))))
-          ;;        (jl0 (* (the double-float (varef domain-0 0))
-          ;;                (the double-float (varef domain-0 1))))
-          ;;        (scaling (the double-float
-          ;;                      (expt (the double-float (/ (the double-float (* (the double-float jf) (the double-float jl0))) (the double-float jl)))
-          ;;                            (the double-float (/ 1d0 2d0))))))
-          ;;   (declare (double-float jf jl jl0 scaling))
-          ;;   (setf (varef domain 0) (* (the double-float (varef domain 0)) scaling)
-          ;;         (varef domain 1) (* (the double-float (varef domain 1)) scaling)))
           ))))
 
 (defun update-domain-corner-3d (mesh mp dt)
@@ -306,3 +267,22 @@
       (update-domain-corner-2d mesh mp dt)
       (update-domain-corner-3d mesh mp dt)))
 
+
+(defun update-domain-def (mesh mp)
+  "Update the domain length based on the increment of the stretch rate"
+  (with-accessors ((domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (def cl-mpm/particle::mp-deformation-gradient))
+      mp
+    (let ((det (magicl:det def)))
+      (declare (double-float det))
+      (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+          (let ((scale (expt det 1/2)))
+            (declare (double-float scale))
+            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale) 
+                  (varef domain 1) (* (the double-float (varef domain-0 1)) scale)))
+          (let ((scale (expt det 1/3)))
+            (declare (double-float scale))
+            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale) 
+                  (varef domain 1) (* (the double-float (varef domain-0 1)) scale)
+                  (varef domain 2) (* (the double-float (varef domain-0 2)) scale)))))))
