@@ -38,6 +38,8 @@
    #:matrix-copy-into
    #:vector-copy-into
    #:voigt-copy-into
+   #:voigt-eye
+   #:matrix-eye
    #:fast-storage
    #:varef
    #:mtref
@@ -589,8 +591,16 @@
 
   (values))
 
+
 (declaim
-  (ftype (function (double-float) magicl::matrix/double-float) voigt-eye))
+ (ftype (function (double-float) magicl::matrix/double-float) matrix-eye))
+(defun matrix-eye (value)
+  (matrix-from-list (list value 0d0 0d0
+                          0d0 value 0d0
+                          0d0 0d0 value)))
+
+(declaim
+ (ftype (function (double-float) magicl::matrix/double-float) voigt-eye))
 (defun voigt-eye (value)
   (voigt-from-list (list value value value 0d0 0d0 0d0)))
 

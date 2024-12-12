@@ -180,7 +180,12 @@
      :accessor mp-deformation-gradient
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :deformation-gradient
-     :initform (magicl:eye 3))
+     :initform (cl-mpm/utils:matrix-eye 1d0))
+   (deformation-gradient-increment
+       :accessor mp-deformation-gradient-increment
+       :type MAGICL:MATRIX/DOUBLE-FLOAT
+       :initarg :deformation-gradient-increment
+       :initform (cl-mpm/utils:matrix-zeros))
    (gravity
      :type double-float
      :accessor mp-gravity

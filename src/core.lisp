@@ -977,6 +977,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
@@ -991,6 +992,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (let ((df (calculate-df mesh mp fbar)))
         (progn
+          (setf df-inc df)
           (setf def (magicl:@ df def))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
@@ -1001,7 +1003,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (error "Negative volume"))
           ;;Stretch rate update
           (update-domain-corner mesh mp dt)
-          ;; (scale-domain-size mesh mp)
+          (scale-domain-size mesh mp)
           ))))
   (values))
 (declaim
