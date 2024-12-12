@@ -834,7 +834,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::remove-material-damaged sim))
                     (when split
                       (cl-mpm::split-mps sim))
-                    ;; (cl-mpm::check-mps sim)
+                    (cl-mpm::check-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))

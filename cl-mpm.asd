@@ -169,6 +169,7 @@
                (:file "src/cl-mpm")
                (:file "src/core/iterate")
                (:file "src/core/domain-update")
+               (:file "src/core/stress-update")
                (:file "src/core")
                ))
 (defsystem "cl-mpm/mpi"

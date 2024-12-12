@@ -21,25 +21,25 @@
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
     ;; loop for mp across mps do
-    (cl-mpm::iterate-over-mps
-     mps
-     (lambda (mp)
-       (progn
-         (with-accessors ((pos cl-mpm/particle::mp-position)
-                          (vel cl-mpm/particle::mp-velocity)
-                          (domain cl-mpm/particle::mp-domain-size)
-                          ) mp
-           (loop for i from 0 to 2
-                 do (progn
-                      (when (sb-ext:float-nan-p (varef pos i)) 
-                        (pprint mp)
-                        (error "NaN location found for ~A" mp))
-                      (when (equal (abs (varef vel i)) #.sb-ext:double-float-positive-infinity)
-                        (pprint mp)
-                        (error "Infinite velocity found"))
-                      (when (> (abs (varef vel i)) 1e10)
-                        (pprint mp)
-                        (error "High velocity found"))))))))
+    ;; (cl-mpm::iterate-over-mps
+    ;;  mps
+    ;;  (lambda (mp)
+    ;;    (progn
+    ;;      (with-accessors ((pos cl-mpm/particle::mp-position)
+    ;;                       (vel cl-mpm/particle::mp-velocity)
+    ;;                       (domain cl-mpm/particle::mp-domain-size)
+    ;;                       ) mp
+    ;;        (loop for i from 0 to 2
+    ;;              do (progn
+    ;;                   (when (sb-ext:float-nan-p (varef pos i)) 
+    ;;                     (pprint mp)
+    ;;                     (error "NaN location found for ~A" mp))
+    ;;                   (when (equal (abs (varef vel i)) #.sb-ext:double-float-positive-infinity)
+    ;;                     (pprint mp)
+    ;;                     (error "Infinite velocity found"))
+    ;;                   (when (> (abs (varef vel i)) 1e10)
+    ;;                     (pprint mp)
+    ;;                     (error "High velocity found"))))))))
     (remove-mps-func
        sim
        (lambda (mp)
