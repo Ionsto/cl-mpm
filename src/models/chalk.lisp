@@ -620,15 +620,16 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (incf k (the double-float
-                       (*
-                        dt
-                        (/
-                         (* k0
-                            (expt
-                             (/ (the double-float (max 0d0 (- ybar k)))
-                                k0) a))
-                         tau)))))
+          (when (> ybar k0)
+            (incf k (the double-float
+                         (*
+                          dt
+                          (/
+                           (* k0
+                              (expt
+                               (/ (the double-float (max 0d0 (- ybar k)))
+                                  k0) a))
+                           tau))))))
         (let ((new-damage
                 (max
                  damage
