@@ -51,7 +51,7 @@
      energy)
    ))
 
-(defgeneric estimate-energy-norm (sim))
+(defgeneric estimate-power-norm (sim))
 (defmethod estimate-power-norm ((sim cl-mpm::mpm-sim))
   (let ((dt (cl-mpm:sim-dt sim)))
     (let ((energy 0d0)
@@ -65,7 +65,7 @@
                    (*
                     dt
                     ;; (cl-mpm/mesh::node-volume n)
-                    ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                    (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                     (cl-mpm/fastmaths:dot
                      (cl-mpm/mesh::node-velocity n)
                      (cl-mpm/mesh::node-external-force n))
@@ -86,6 +86,7 @@
                       (*
                        dt
                        ;; (cl-mpm/mesh::node-volume n)
+                       (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                        (cl-mpm/fastmaths:dot
                         (cl-mpm/mesh::node-velocity n)
                         (cl-mpm/mesh::node-external-force n))

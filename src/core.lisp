@@ -1125,14 +1125,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (progn
         (calculate-strain-rate mesh mp dt)
-
         ;; Turn cauchy stress to kirchoff
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
         ;; Check volume constraint!
         (when (<= volume 0d0)
           (error "Negative volume"))
