@@ -1909,10 +1909,10 @@
                               (set-mp-mpi-index sim)
                               (clear-ghost-mps sim))
                             (load-balance-setup sim))))))
-    (let ((metric (float (mpm-sim-mpi-load-metric sim) 0d0))
-          (min-mps (mpi-min metric))
-          (max-mps (mpi-max metric))
-          (balance nil))
+    (let* ((metric (float (mpm-sim-mpi-load-metric sim) 0d0))
+           (min-mps (mpi-min metric))
+           (max-mps (mpi-max metric))
+           (balance nil))
       (setf balance
             (/
              (mpi-max metric)
