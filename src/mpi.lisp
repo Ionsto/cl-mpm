@@ -1918,7 +1918,7 @@
              (mpi-max metric)
              (/ (mpi-sum metric)
                 (cl-mpi:mpi-comm-size))))
-      (when (> min-mps 0)
+      (when t;(> min-mps 0)
         ;; (setf balance (mpi-max (/ max-mps min-mps)))
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
