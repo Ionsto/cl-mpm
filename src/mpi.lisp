@@ -1783,18 +1783,44 @@
     (lparallel:pcount-if (lambda (mp) (= (cl-mpm/particle::mp-mpi-index mp) rank))
                          (cl-mpm:sim-mps sim))))
 
+(defun mpi-vector-integer-sum (values)
+  "Sum a scalar over all mpi nodes"
+  (cl-mpi:mpi-waitall)
+  (let ((size (length values)))
+    (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
+                                                    :initial-contents values)
+      (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
+                                                    :initial-element 0)
+        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
+        (cl-mpi:mpi-waitall)
+        (aops:copy-into values dest)))
+    values))
+
+(defun mpi-vector-integer-max (values)
+  "Sum a scalar over all mpi nodes"
+  (cl-mpi:mpi-waitall)
+  (let ((size (length values)))
+    (static-vectors:with-static-vector (source size :element-type '(signed-byte 32)
+                                                    :initial-contents values)
+      (static-vectors:with-static-vector (dest size :element-type '(signed-byte 32)
+                                                    :initial-element 0)
+        (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+        (cl-mpi:mpi-waitall)
+        (aops:copy-into values dest)))
+    values))
+
 (defun mpi-vector-sum (values)
   "Sum a scalar over all mpi nodes"
   (cl-mpi:mpi-waitall)
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
-      ;; (aops:copy-into source values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
-        ;; (cl-mpi:mpi-waitall)
+        (cl-mpi:mpi-waitall)
         (aops:copy-into values dest)))
     values))
+
 (defun mpi-vector-max (values)
   "Sum a scalar over all mpi nodes"
   (cl-mpi:mpi-waitall)
@@ -1817,7 +1843,7 @@
          (dim-length (nth dim (mpm-sim-mpi-domain-count sim)))
          (dim-index (nth dim (mpi-rank-to-index sim rank)))
          (dim-size (abs (- (apply #'- (nth dim (mpm-sim-mpi-domain-bounds sim))))))
-         (metric-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
+         (metric-array (make-array dim-length :element-type '(signed-byte 32) :initial-element 0))
          (size-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
          (increment-length (- dim-length 1))
          (increment-array (make-array increment-length :element-type 'double-float :initial-element 0d0)))
@@ -1830,10 +1856,10 @@
       ;;   )
       (when (> dim-length 1)
         (setf (aref metric-array dim-index)
-              (float (mpm-sim-mpi-load-metric sim) 0d0)
+              (coerce (round (mpm-sim-mpi-load-metric sim)) 'integer)
               )
         ;; (format t "Metric ~E~%" (float (mpm-sim-mpi-load-metric sim) 0d0))
-        (mpi-vector-sum metric-array)
+        (mpi-vector-integer-sum metric-array)
         ;; (format t "Dim index ~D~%" dim-index)
         ;; (when (= rank 0)
         ;;   (format t "Metric ~A~%" metric-array))
@@ -1847,16 +1873,18 @@
                    (* step-size
                       (min (aref size-array dim-index)
                            (aref size-array (+ dim-index 1)))
-                      (if (or (> (aref metric-array dim-index) 0d0)
-                              (> (aref metric-array (1+ dim-index)) 0d0))
-                          (/ (- (aref metric-array dim-index)
-                                (aref metric-array (+ dim-index 1)))
-                             (max (aref metric-array dim-index)
-                                  (aref metric-array (+ dim-index 1))))
-                          (signum
-                           (-
-                            (- (aref metric-array dim-index)
-                               (aref metric-array (+ dim-index 1)))))))
+                      (float
+                       (if (or (> (aref metric-array dim-index) 0d0)
+                               (> (aref metric-array (1+ dim-index)) 0d0))
+                           (/ (- (aref metric-array dim-index)
+                                 (aref metric-array (+ dim-index 1)))
+                              (max (aref metric-array dim-index)
+                                   (aref metric-array (+ dim-index 1))))
+                           (signum
+                            (-
+                             (- (aref metric-array dim-index)
+                                (aref metric-array (+ dim-index 1))))))
+                       0d0))
                    0d0))
             (when (and
                    (<= (aref size-array dim-index) min-size)
