@@ -889,6 +889,7 @@
                     (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
                   (cl-mpm::update-node-kinematics mesh dt)
                   (cl-mpm::apply-bcs mesh bcs dt)
+
                   (cl-mpm::update-stress mesh mps dt fbar)
                   (when enable-damage
                     (cl-mpm/damage::calculate-damage sim))
@@ -897,10 +898,10 @@
                     (cl-mpm::remove-material-damaged sim))
                   (when split
                     (cl-mpm::split-mps sim))
-                  (cl-mpm::check-mps sim)
-                  (cl-mpm::check-single-mps sim)
+                  ;; (cl-mpm::check-mps sim)
+                  ;; (cl-mpm::check-single-mps sim)
+
                   (set-mp-mpi-index sim)
-                  
                   (exchange-mps sim 0d0)
                   (set-mp-mpi-index sim)
                   (clear-ghost-mps sim)
@@ -1841,7 +1842,7 @@
                                 (aref metric-array (+ dim-index 1)))
                              (max (aref metric-array dim-index)
                                   (aref metric-array (+ dim-index 1))))
-                          0d0))
+                          1d0))
                    0d0))
             (when (and
                    (<= (aref size-array dim-index) min-size)
