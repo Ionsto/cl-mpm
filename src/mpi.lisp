@@ -1842,7 +1842,9 @@
                                 (aref metric-array (+ dim-index 1)))
                              (max (aref metric-array dim-index)
                                   (aref metric-array (+ dim-index 1))))
-                          1d0))
+                          (signum
+                           (- (aref metric-array dim-index)
+                              (aref metric-array (+ dim-index 1))))))
                    0d0))
             (when (and
                    (<= (aref size-array dim-index) min-size)
