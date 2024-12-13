@@ -1789,8 +1789,10 @@
   (let ((size (length values)))
     (static-vectors:with-static-vector (source size :element-type 'double-float
                                                     :initial-contents values)
+      ;; (aops:copy-into source values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-sum+)
+        ;; (cl-mpi:mpi-waitall)
         (aops:copy-into values dest)))
     values))
 (defun mpi-vector-max (values)
@@ -1801,6 +1803,7 @@
                                                     :initial-contents values)
       (static-vectors:with-static-vector (dest size :element-type 'double-float :initial-element 0d0)
         (cl-mpi:mpi-allreduce source dest cl-mpi:+mpi-max+)
+        (cl-mpi:mpi-waitall)
         (aops:copy-into values dest)))
     values))
 
@@ -1813,11 +1816,12 @@
          (index-bottom-rank (mpi-rank-to-index sim rank))
          (dim-length (nth dim (mpm-sim-mpi-domain-count sim)))
          (dim-index (nth dim (mpi-rank-to-index sim rank)))
-         (dim-size (- (apply #'- (nth dim (mpm-sim-mpi-domain-bounds sim)))))
+         (dim-size (abs (- (apply #'- (nth dim (mpm-sim-mpi-domain-bounds sim))))))
          (metric-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
          (size-array (make-array dim-length :element-type 'double-float :initial-element 0d0))
          (increment-length (- dim-length 1))
          (increment-array (make-array increment-length :element-type 'double-float :initial-element 0d0)))
+    ;; (format t "Dims ~D length ~D~%" dim dim-length)
     (setf (nth dim index-bottom-rank) 0)
     (let ((bottom-rank (every #'zerop index-bottom-rank))
           (min-size (* 2 (mpm-sim-mpi-min-size sim))))
@@ -1825,9 +1829,16 @@
       ;;   (format t "Min size ~F~%" min-size)
       ;;   )
       (when (> dim-length 1)
-        (setf (aref metric-array dim-index) (float (mpm-sim-mpi-load-metric sim) 0d0))
+        (setf (aref metric-array dim-index)
+              (float (mpm-sim-mpi-load-metric sim) 0d0)
+              )
+        ;; (format t "Metric ~E~%" (float (mpm-sim-mpi-load-metric sim) 0d0))
         (mpi-vector-sum metric-array)
-        (setf (aref size-array dim-index) (float dim-size 0d0))
+        ;; (format t "Dim index ~D~%" dim-index)
+        ;; (when (= rank 0)
+        ;;   (format t "Metric ~A~%" metric-array))
+        (setf (aref size-array dim-index)
+              (float dim-size 0d0))
         (mpi-vector-max size-array)
         (when bottom-rank
           (when (< dim-index increment-length)
@@ -1843,29 +1854,34 @@
                              (max (aref metric-array dim-index)
                                   (aref metric-array (+ dim-index 1))))
                           (signum
-                           (- (aref metric-array dim-index)
-                              (aref metric-array (+ dim-index 1))))))
+                           (-
+                            (- (aref metric-array dim-index)
+                               (aref metric-array (+ dim-index 1)))))))
                    0d0))
             (when (and
                    (<= (aref size-array dim-index) min-size)
                    (> (aref increment-array dim-index) 0d0))
               (setf (aref increment-array dim-index) 0d0)
-              (format t "Rank ~D: hitting min size limit ~%" rank))
+              (format t "Rank ~D: Dim ~D hitting min size limit ~%" rank dim))
             (when (and
                    (<= (aref size-array (1+ dim-index)) min-size)
                    (< (aref increment-array dim-index) 0d0))
               (setf (aref increment-array dim-index) 0d0)
-              (format t "Rank ~D: hitting min size limit ~%" (1+ rank)))
+              (format t "Rank ~D: Dim ~D hitting min size limit ~%" (1+ rank) dim))
             ))
         (mpi-vector-sum increment-array)
         (let ((left-index (- dim-index 1)))
           (when (>= left-index 0)
             (incf (first (nth dim (mpm-sim-mpi-domain-bounds sim)))
-                  (- (aref increment-array left-index)))))
+                  (- (aref increment-array left-index)))
+            ;; (format t "Rank ~D: Dim ~D moved lower by ~F ~%" (1+ rank) dim (- (aref increment-array left-index)))
+            ))
         (let ((right-index dim-index))
           (when (< right-index increment-length)
             (incf (second (nth dim (mpm-sim-mpi-domain-bounds sim)))
-                  (- (aref increment-array right-index)))))))
+                  (- (aref increment-array right-index)))
+            ;; (format t "Rank ~D: Dim ~D moved upper by ~F ~%" (1+ rank) dim (- (aref increment-array right-index)))
+            ))))
     (every (lambda (x) (= x 0d0)) increment-array)))
 
 (defun load-balance-value (sim)
@@ -1881,7 +1897,7 @@
         (setf balance (mpi-max (/ max-mps min-mps)))
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
-      ;; (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
+      (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
       balance)))
 
 
@@ -1901,8 +1917,12 @@
                (loop for dim in dims ;(i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
                      do
                         (let ((i (position dim (list :x :y :z))))
-                          (when (< i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-                            (setf stagnent (and stagnent (load-balance-dimension sim i :step-size step-size)))
+                          (when t;(< i (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+                            (setf
+                             stagnent
+                             (and
+                              stagnent
+                              (load-balance-dimension sim i :step-size step-size)))
                             (when exchange-mps
                               (set-mp-mpi-index sim)
                               (exchange-mps sim 0d0)
@@ -1922,7 +1942,7 @@
         ;; (setf balance (mpi-max (/ max-mps min-mps)))
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
-      ;(format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
+      (format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
       (values balance stagnent))))
 
 (defun load-balance-algo (sim &key (substeps 10)
