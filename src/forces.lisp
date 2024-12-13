@@ -152,7 +152,7 @@
       (declare (type double-float volume))
       ;; (print dsvp)
       ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
-      (@-dsvp-vec-simd dsvp stress volume f-out)
+      ;; (@-dsvp-vec-simd dsvp stress volume f-out)
       ;; (cl-mpm/fastmaths::fast-fmacc f-out
       ;;                              vel
       ;;                              (* -1d0 damping volume))
@@ -162,9 +162,16 @@
       ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
       ;; (mult-force-plane-strain dsvp stress volume f-out)
       ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) (plane-strain-transform stress)) volume) f-out)
-      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
-      )
+      (cl-mpm/fastmaths::fast-.+-vector
+       f-out
+       (cl-mpm/fastmaths:fast-.*
+        (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
+        (cl-mpm/fastmaths:fast-scale-vector
+         (magicl:@ (magicl:transpose dsvp) stress)
+         (* -1d0 volume)))
+       f-out))
     f-out))
+
 (declaim
  (inline det-int-force-unrolled)
  (ftype (function (cl-mpm/particle::particle list

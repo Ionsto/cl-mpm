@@ -508,6 +508,29 @@
                (magicl::matrix/double-float-storage res))
     res))
 
+(macrolet ((def-fast-.--type (name maker length underlying-add)
+             (declare (fixnum length))
+             `(progn
+                (declaim
+                 (inline ,name)
+                 (ftype (function (magicl:matrix/double-float magicl:matrix/double-float &optional magicl:matrix/double-float) magicl:matrix/double-float) ,name))
+                (defun ,name (a b &optional res)
+                  (let ((res (if res
+                                 res
+                                 (cl-mpm/utils::deep-copy a)
+                                 ;; (,maker)
+                                 )))
+                    (declare (magicl:matrix/double-float a b res))
+                    (,underlying-add (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage a))
+                                     (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage b))
+                                     (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage res)))
+                    res)
+                  ))))
+  (def-fast-.--type fast-.--vector cl-mpm/utils:vector-zeros 3 simd-any-)
+  (def-fast-.--type fast-.--voigt cl-mpm/utils:voigt-zeros 6 simd-any-)
+  (def-fast-.--type fast-.--matrix cl-mpm/utils:matrix-zeros 9 simd-any-)
+  )
+
 (defun fast-.* (a b &optional res)
   (let ((res (if res
                  res
@@ -519,7 +542,7 @@
     res))
 
 ;; Here we define some specialised fast adds for different length vectors -> this should almost certianly use the type system to resolve it but who knows
-(macrolet ((def-fast-.+-type (name length underlying-add)
+(macrolet ((def-fast-.+-type (name maker length underlying-add)
              (declare (fixnum length))
              `(progn
                 (declaim
@@ -528,18 +551,21 @@
                 (defun ,name (a b &optional res)
                   (let ((res (if res
                                  res
-                                 (cl-mpm/utils::deep-copy a))))
+                                 (cl-mpm/utils::deep-copy a)
+                                 ;; (,maker)
+                                 )))
                     (declare (magicl:matrix/double-float a b res))
                     (,underlying-add (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage a))
                                      (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage b))
                                      (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage res)))
                     res)
                   ))))
-  (def-fast-.+-type fast-.+-vector 3 simd-any+)
-  (def-fast-.+-type fast-.+-voigt 6 simd-any+)
-  (def-fast-.+-type fast-.+-matrix 9 simd-any+-4)
-  (def-fast-.+-type fast-.+-stretch 27 simd-any+-4)
+  (def-fast-.+-type fast-.+-vector cl-mpm/utils::vector-zeros 3 simd-any+)
+  (def-fast-.+-type fast-.+-voigt cl-mpm/utils::voigt-zeros 6 simd-any+)
+  (def-fast-.+-type fast-.+-matrix cl-mpm/utils::matrix-zeros 9 simd-any+-4)
+  (def-fast-.+-type fast-.+-stretch cl-mpm/utils::stretch-dsvp-3d-zeros 27 simd-any+-4)
   )
+
 (defun test-.+-vector ()
   (let ((a (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0)))
         (b (cl-mpm/utils::vector-from-list (list 3d0 5d0 9d0))))
@@ -577,6 +603,7 @@
     (let ((res (cl-mpm/utils::matrix-zeros)))
       (cl-mpm/fastmaths::fast-.+-matrix a b res)
       (pprint res))))
+
 
 
 ;; (declaim

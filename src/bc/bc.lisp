@@ -22,7 +22,7 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/bc)
 (defclass bc ()
-  ( (index
+  ((index
       :accessor bc-index
       :initarg :index)
    (node
@@ -126,16 +126,16 @@
       node
       (with-slots ((value value))
           bc
-        (loop for d from 0 below (length value)
+        (loop for d fixnum from 0 to 2;below (length value)
+              for v in value
               do
-                 (when (nth d value)
-                   (let ((v (nth d value)))
-                     (sb-thread:with-mutex (lock)
-                       (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
-                       (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
-                       (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
-                       (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
-                       (setf (varef (cl-mpm/mesh::node-force node) d) 0d0))))))))
+                 (when v
+                   (sb-thread:with-mutex (lock)
+                     (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
+                     (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
+                     (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
+                     (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
+                     (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
 
 
 (defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)
@@ -430,7 +430,7 @@
                   (push (funcall front (list x y z)) outlist))
                 (when (= z zsize)
                   (push (funcall back (list x y z)) outlist)))))
-          (delete nil outlist)))))
+          (setf outlist (delete nil outlist))))))
 (defun make-outside-bc-var (mesh left right top bottom
                             ;; front back
                             &optional

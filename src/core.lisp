@@ -328,9 +328,7 @@
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (let (
-          ;; (dsvp (cl-mpm/utils::dsvp-3d-zeros))
-          )
+    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
       ;; (declare (dynamic-extent dsvp))
       (iterate-over-neighbours
        mesh mp
@@ -345,16 +343,18 @@
                           (node-force cl-mpm/mesh:node-force)
                           (node-int-force cl-mpm/mesh::node-internal-force)
                           (node-ext-force cl-mpm/mesh::node-external-force)
-                          (node-lock  cl-mpm/mesh:node-lock)) node
+                          (node-lock  cl-mpm/mesh:node-lock))
+             node
            (declare (double-float node-mass)
                     (boolean node-active)
                     (sb-thread:mutex node-lock)
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
-             ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+             (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
                (det-int-force-unrolled mp grads node-int-force)
+               ;; (det-int-force mp dsvp node-int-force)
                )))))))
   (values))
 (declaim (notinline p2g-force-mp-2d)
@@ -390,6 +390,8 @@
            (sb-thread:with-mutex (node-lock)
              (det-ext-force-2d mp node svp node-ext-force)
              (det-int-force-unrolled-2d mp grads node-int-force)
+             ;; (det-ext-force mp node svp node-ext-force)
+             ;; (det-int-force mp grads node-int-force)
              ))))))
   (values))
 
@@ -455,7 +457,7 @@
                                  (nc cl-mpm/particle::mp-cached-nodes))
                     mp
                   (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
-                    (declare (dynamic-extent mapped-vel))
+                    ;; (declare (dynamic-extent mapped-vel))
                     (progn
                       ;;With special operations we need to reset some params for g2p
                       ;; (reset-mps-g2p mp)
@@ -527,7 +529,24 @@
           (- 1d0 pic-value))
          ;; PIC update
          (cl-mpm/fastmaths:fast-scale-vector pic-vel pic-value)
-         vel)))
+         vel))
+      ;; (let* ((pic-value 1d-2)
+      ;;        ;(pic-vel (cl-mpm/utils:vector-copy mapped-vel))
+      ;;        (vel-inc
+      ;;          (cl-mpm/fastmaths::fast-scale!
+      ;;           (cl-mpm/fastmaths::fast-.--vector
+      ;;            acc
+      ;;            (cl-mpm/fastmaths:fast-scale!
+      ;;             (cl-mpm/fastmaths::fast-.--vector vel mapped-vel) pic-value))
+      ;;           dt)))
+      ;;   (cl-mpm/fastmaths::fast-.+-vector vel vel-inc vel)
+      ;;   (let ((dx (cl-mpm/fastmaths::fast-.-
+      ;;              (cl-mpm/fastmaths:fast-scale-vector vel dt)
+      ;;              (cl-mpm/fastmaths:fast-scale-vector vel-inc (* 0.5d0 dt)))))
+      ;;     (cl-mpm/fastmaths::fast-.+-vector pos dx pos)
+      ;;     (cl-mpm/fastmaths::fast-.+-vector disp dx disp))
+      ;;   )
+  )
   )
 
 (defun g2p-mp (mesh mp dt)
@@ -677,7 +696,7 @@
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
-        (magicl:scale! acc 0d0)
+        (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
@@ -811,7 +830,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun apply-bcs (mesh bcs dt)
   "Apply all normal bcs onto the mesh"
   (declare (cl-mpm/mesh::mesh mesh))
-  (with-accessors ( (nodes  mesh-nodes)
+  (with-accessors ((nodes  mesh-nodes)
                    (nD     mesh-nD)
                    (mc     mesh-count)) mesh
                                         ;each bc is a list (pos value)
@@ -979,8 +998,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
+                   ;; (strain-rate cl-mpm/particle:mp-strain-rate)
+                   ;; (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
@@ -994,16 +1013,17 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (progn
           (setf df-inc df)
           (setf def (magicl:@ df def))
-          (cl-mpm/utils:voigt-copy-into strain strain-rate)
+          ;; (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
-          (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
+          ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume (the double-float (magicl:det df))))
+          ;(setf volume (* volume (the double-float (magicl:det df))))
+          (setf volume (* volume-0 (the double-float (magicl:det def))))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
           (update-domain-corner mesh mp dt)
-          (scale-domain-size mesh mp)
+          ;; (scale-domain-size mesh mp)
           ))))
   (values))
 (declaim

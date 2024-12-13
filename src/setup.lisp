@@ -326,8 +326,8 @@
 (defun initialise-stress-self-weight (sim
                                       datum
                                       &key
-                                        (k-x 0.5d0)
-                                        (k-z 0.5d0)
+                                        (k-x nil)
+                                        (k-z nil)
                                         (clipping-func (lambda (pos) t))
                                         (scaler (lambda (pos) 1d0))
                                         )
@@ -346,6 +346,10 @@
                       (de cl-mpm/particle::mp-elastic-matrix))
          mp
        (when (funcall clipping-func pos)
+         (unless k-x
+           (setf k-x (/ nu (- 1d0 nu))))
+         (unless k-z
+           (setf k-z (/ nu (- 1d0 nu))))
          (let* ((density (/ mass volume))
                 (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1) datum)))))
                 (stresses (cl-mpm/utils:voigt-from-list (list (* k-x sig-y)

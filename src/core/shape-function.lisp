@@ -753,11 +753,20 @@
 
 (defun grads-3d (weights linear-grads)
   "Take weights and gradients of weights and assemble them into"
-  (mapcar #'* linear-grads
-          (list
-           (* (nth 1 weights) (nth 2 weights))
-           (* (nth 0 weights) (nth 2 weights))
-           (* (nth 0 weights) (nth 1 weights)))))
+  (destructuring-bind (wx wy wz) weights
+    (declare (double-float wx wy wz))
+    (destructuring-bind (gx gy gz) linear-grads
+      (declare (double-float gx gy gz))
+      (list
+       (* gx wy wz)
+       (* gy wx wz)
+       (* gz wy wx))))
+  ;; (mapcar #'* linear-grads
+  ;;         (list
+  ;;          (* (nth 1 weights) (nth 2 weights))
+  ;;          (* (nth 0 weights) (nth 2 weights))
+  ;;          (* (nth 0 weights) (nth 1 weights))))
+  )
 
 (defun grads-2d (weights linear-grads)
   (mapcar #'* linear-grads (nreverse weights))

@@ -572,6 +572,7 @@
                (ext-force external-force)
                (buoyancy-force buoyancy-force))
                 node
+    (declare (double-float mass volume p-wave damage svp-sum))
     (setf active nil)
     (setf boundary nil)
     (setf mass 0d0)

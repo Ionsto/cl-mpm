@@ -223,19 +223,19 @@
                                     (conv-steps 50)
                                     (post-iter-step nil)
                                     (convergance-criteria nil)
-                                    (pic-update t)
-                                     )
+                                    (pic-update t))
   "Converge a simulation to a quasi-static solution via dynamic relaxation
    This is controlled by a kinetic energy norm"
-  (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria)
-    (continue ())
-    (retry-convergence ()
-      (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
-        (when pic-update
-          (setf (cl-mpm::sim-velocity-algorithm sim) :PIC))
+  (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
+    (when pic-update
+      (setf (cl-mpm::sim-velocity-algorithm sim) :PIC))
+    (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria)
+      (continue ())
+      (retry-convergence ()
+        
         (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step)
-        (setf (cl-mpm::sim-velocity-algorithm sim) current-vel)
-        ))))
+        ))
+    (setf (cl-mpm::sim-velocity-algorithm sim) current-vel)))
 
 (defgeneric %converge-quasi-static (sim
                                     energy-crit
