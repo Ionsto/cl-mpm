@@ -1829,7 +1829,7 @@
         (mpi-vector-sum metric-array)
         (setf (aref size-array dim-index) (float dim-size 0d0))
         (mpi-vector-max size-array)
-        (when bottom-rank 
+        (when bottom-rank
           (when (< dim-index increment-length)
             (setf (aref increment-array dim-index)
                   (float
@@ -1909,11 +1909,17 @@
                               (set-mp-mpi-index sim)
                               (clear-ghost-mps sim))
                             (load-balance-setup sim))))))
-    (let ((min-mps (mpi-min (float (mpm-sim-mpi-load-metric sim) 0d0)))
-          (max-mps (mpi-max (float (mpm-sim-mpi-load-metric sim) 0d0)))
+    (let ((metric (float (mpm-sim-mpi-load-metric sim) 0d0))
+          (min-mps (mpi-min metric))
+          (max-mps (mpi-max metric))
           (balance nil))
+      (setf balance
+            (/
+             (mpi-max metric)
+             (/ (mpi-sum metric)
+                (cl-mpi:mpi-comm-size))))
       (when (> min-mps 0)
-        (setf balance (mpi-max (/ max-mps min-mps)))
+        ;; (setf balance (mpi-max (/ max-mps min-mps)))
         (when (= rank 0)
           (format t "Occupancy ratio : ~F%~%" (* 100d0 balance))))
       ;(format t "Rank ~D: Domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))
