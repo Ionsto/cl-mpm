@@ -150,7 +150,7 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
 }
 
 
-double MC_princ_yield_func(Eigen::Matrix<double,1,1> sig, double phi, double c)
+double MC_princ_yield_func(Eigen::Matrix<double,3,1> sig, double phi, double c)
 {
   const double k = (1.0 + std::sin(phi)) / (1.0 - std::sin(phi));
   const double sigc = 2 * c * std::sqrt(k);
@@ -160,9 +160,7 @@ double MC_princ_yield_func(Eigen::Matrix<double,1,1> sig, double phi, double c)
 Eigen::Matrix<double,6,1> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
                     double E, double nu, double phi, double psi, double c) {
 
-  const double alfa = -std::tan(phi);
-  const double bta = -std::tan(psi);
-  const double xsic = std::sqrt(3)*(1.0 / std::tan(phi))*c;
+
   Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
                                   E,-nu,-nu,
                                   -nu,E,-nu,
@@ -180,81 +178,59 @@ Eigen::Matrix<double,6,1> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
   Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues().reverse();
   // std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
   Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
-  Eigen::Matrix<double,3,1> sig = ((De3 * eigen_values).array() - (xsic / std::sqrt(3))).matrix();
+  Eigen::Matrix<double,3,1> sig = (De3 * eigen_values);
   const double tol = 1e-12;
-  double f = mc_princ_yield_func(sig,phi,c);
-  // std::cout<<"f\n"<<f<<"\n";
+  double f = MC_princ_yield_func(sig,phi,c);
+  std::cout<<"f\n"<<f<<"\n";
   if (f>tol){
+    const double k = (1+std::sin(phi))/(1-std::sin(phi));
+    const double sigc = 2*c*std::sqrt(k);
+    const double m = (1+std::sin(psi))/(1-std::sin(psi));
+
+    Eigen::Matrix<double,3,1> siga = Eigen::Matrix<double,3,1>::Constant(sigc / (k - 1));
+
     Eigen::Matrix<double,3,1> epsE = Ce * sig;
     Eigen::Matrix<double,3,1> epsEtr = epsE;
+    Eigen::Matrix<double,3,1> r1 = (Eigen::Matrix<double,3,1>() << 1.0, 1.0, k).finished();
+    Eigen::Matrix<double,3,1> r2 = (Eigen::Matrix<double,3,1>() << 1.0, k, k).finished();
+    Eigen::Matrix<double,3,1> rg1 = (Eigen::Matrix<double,3,1>() << 1.0, 1.0, m).finished();
+    Eigen::Matrix<double,3,1> rg2 = (Eigen::Matrix<double,3,1>() << 1.0, m, m).finished();
+
+    Eigen::Matrix<double,3,1> df = (Eigen::Matrix<double,3,1>() << k, 0.0, -1.0).finished();
+    Eigen::Matrix<double,3,1> dg = (Eigen::Matrix<double,3,1>() << m, 0.0, -1.0).finished();
+
+    Eigen::Matrix<double,3,1> rp = (De3 * dg) * (1.0 / (dg.transpose() * De3 * df)[0,0]);
+    const double t1 = (rg1.transpose() * Ce * (sig - siga))[0] / (rg1.transpose() * Ce * r1)[0];
+    const double t2 = (rg2.transpose() * Ce * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
+    const double f12 = (rp.cross(r1).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
+    const double f13 = (rp.cross(r2).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
     auto Q = AssembleQMatrix(eigen_vectors);
-    double fap = 0.0;
-    if(bta != 0.0){
-      fap = rho * std::sqrt(1+nu) + (xi*std::sqrt(1-(2*nu))/(bta*std::sqrt(1+nu)/std::sqrt(1-2*nu)));
+    // std::cout<<"Q:\n"<<Q<<"\n";
+    // std::cout<<"r1:\n"<<r1<<"\n";
+    // std::cout<<"r2:\n"<<r2<<"\n";
+    // std::cout<<"rg1:\n"<<rg1<<"\n";
+    // std::cout<<"rg2:\n"<<rg2<<"\n";
+    // std::cout<<"df:\n"<<df<<"\n";
+    // std::cout<<"dg:\n"<<dg<<"\n";
+    // std::cout<<"rp:\n"<<rp<<"\n";
+    if((t1 > tol) && (t2 > tol)){
+      sig = siga;
+      std::cout<<"PATH: APEX\n";
+    }
+    else if ((f12 < tol) && (f13 < tol)){
+      std::cout<<"PATH: LINE-1\n";
+      sig = siga + (r1 * t1);
+    }
+    else if ((f12 > tol) && (f13 > tol)){
+      std::cout<<"PATH: LINE-2\n";
+      sig = siga + (r2 * t2);
     }
     else{
-      fap = rho * std::sqrt(1+nu);
+      sig = sig - (rp * f);
+      std::cout<<"PATH: MAIN\n";
     }
-    if(fap<tol)
-      {
-        //Apex return
-        // std::cout<<"xsic:"<<xsic<<"\n";
-        sig=Eigen::Matrix<double,3,1>::Constant(xsic/sqrt(3));
-      }
-    else{
-      //Surface return
-      //Setup NR algorithm
-      Eigen::Matrix<double,4,1> b;
-      b<<0.0,0.0,0.0,f;
-      int itnum = 0;
-      double dgam = 0;
-      Eigen::Matrix<double,3,1> df = ((s.array()/rho) - alfa/std::sqrt(3)).matrix();
-      Eigen::Matrix<double,3,1> dg = ((s.array()/rho) - bta/std::sqrt(3)).matrix();
-      Eigen::Matrix<double,3,3> ddg =
-        (((1/(3*rho))
-          *
-          ((3*Eigen::Matrix<double,3,3>::Identity()) -
-           Eigen::Matrix<double,3,3>::Constant(1.0)))
-         - s*s.transpose()/std::pow(rho,3));
-      // std::cout<<"df\n"<<df<<"\n";
-      // std::cout<<"dg\n"<<dg<<"\n";
-      // std::cout<<"ddg\n"<<ddg<<"\n";
-      const int maxit = 4;
-      const double tolf = 1e-6;
-      for(int iter = 0; (iter < maxit) && ((b.block(0,0,2,1).norm() > tol) || (std::abs(b(3)) > tolf));++iter){
-        Eigen::Matrix<double,4,4> A;
-        A.block(0,0,3,3) << Eigen::Matrix<double,3,3>::Identity() + (dgam * ddg * De3);
-        A.block(0,3,3,1) << dg;
-        A.block(3,0,1,3) << df.transpose() * De3;
-        A(3,3) = 0.0;
-        //A.transposeInPlace();
 
-        auto dx = A.partialPivLu().solve(b) * -1.0;
-        epsE += dx.block(0,0,3,1);
-        dgam += dx(3);
-        sig = De3*epsE;
-        xi = sig.sum()/std::sqrt(3);
-        s = (sig.array() - (xi / std::sqrt(3))).matrix();
-        rho = std::sqrt(s.array().square().sum());
-        df = ((s.array()/rho) - alfa/std::sqrt(3)).matrix();
-        dg = ((s.array()/rho) - bta/std::sqrt(3)).matrix();
-        ddg =
-          (((1/(3*rho))
-            *
-            ((3*Eigen::Matrix<double,3,3>::Identity()) -
-             Eigen::Matrix<double,3,3>::Constant(1.0)))
-           - s*s.transpose()/std::pow(rho,3));
-
-        b.block(0,0,3,1) =(epsE-epsEtr) + dg * dgam;
-        b(3) = rho-alfa*xi;
-      }
-      sig.array() += xsic/std::sqrt(3);
-    }
-    std::cout<<"Sig\n"<<sig<<"\n";
     epsE = Ce*sig;
-    std::cout<<"EpsE\n"<<epsE<<"\n";
-    // std::cout<<"Ce\n"<<Ce<<"\n";
-    // Eigen::Matrix<double,6,1> eps_q;
     return swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
                                                         <<
                                                         epsE[0],
@@ -262,5 +238,5 @@ Eigen::Matrix<double,6,1> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
                                                         epsE[2],
                                                         0.0,0.0,0.0).finished()));
   }
-  return swizzle_coombs_voigt(elastic_strain);
+  return elastic_strain;
 }
