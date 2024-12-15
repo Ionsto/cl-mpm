@@ -80,6 +80,10 @@
     :type magicl:matrix/double-float
     :initarg :size
     :initform (cl-mpm/utils:vector-zeros))
+   (true-domain
+    :accessor mp-true-domain
+    :type magicl:matrix/double-float
+    :initform (cl-mpm/utils::matrix-eye 1d0))
    (mass
      :accessor mp-mass
      :type double-float
@@ -342,6 +346,33 @@
   (update-elastic-matrix p))
 (defmethod (setf mp-nu) :after (value (p particle-elastic))
   (update-elastic-matrix p))
+
+(defmethod (setf mp-domain-size) :after (value (p particle))
+  (with-accessors ((domain-true mp-true-domain))
+      p
+
+    (setf
+     (magicl:tref domain-true 0 0) (varef value 0)
+     (magicl:tref domain-true 1 1) (varef value 1)
+     (magicl:tref domain-true 2 2) (varef value 2))))
+
+(defmethod initialize-instance :after ((p particle) &key)
+  (with-accessors ((domain mp-domain-size)
+                   (domain-true mp-true-domain))
+      p
+      (setf
+       (magicl:tref domain-true 0 0) (varef domain 0)
+       (magicl:tref domain-true 1 1) (varef domain 1)
+       (magicl:tref domain-true 2 2) (varef domain 2))))
+
+(defmethod reinitialize-instance :after ((p particle) &key)
+  (with-accessors ((domain mp-domain-size)
+                   (domain-true mp-true-domain))
+      p
+    (setf
+     (magicl:tref domain-true 0 0) (varef domain 0)
+     (magicl:tref domain-true 1 1) (varef domain 1)
+     (magicl:tref domain-true 2 2) (varef domain 2))))
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
   (update-elastic-matrix p))

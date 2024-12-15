@@ -453,6 +453,15 @@
   :serial t
   :components ((:file "examples/collapse")))
 
+(defsystem "cl-mpm/examples/rotate"
+  :depends-on ("cl-mpm/all"
+               "vgplot"
+               "swank.live")
+  :serial t
+  :components ((:file "examples/rotate")))
+
+
+
 (defsystem "cl-mpm/examples/penalty-friction"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"

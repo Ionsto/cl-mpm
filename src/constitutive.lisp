@@ -753,7 +753,6 @@
                      (sig (cl-mpm/utils:@-mat-vec De3 epsTr))
                      (f (mc-yield-func sig phi c))
                      (initial-f f))
-                (format t "f: ~E~%" f)
                 ;; (when (and
                 ;;        (> f tol)
                 ;;        (not (> f-dp tol)))
@@ -836,7 +835,6 @@
                                                                                               (rotate-vector (magicl:column v 2)))) 1d0)
                                                     ) '(2 6)))))
                       (declare (double-float t1 t2 f12 f13))
-                      (pprint Q)
                       (cond
                         ((and
                           (> t1 tol)
@@ -868,7 +866,6 @@
                                         ;main
                          )
                         )
-                      (pprint path)
                       (setf eps-e (magicl:@ Ce sig))
 
 

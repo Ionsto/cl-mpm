@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/joss
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 
 ;; (setf *block-compile-default* t)
 
@@ -35,10 +35,12 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-ugimp mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-det mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-domain-corner mesh mp)
+  (cl-mpm::co-domain-corner-2d mesh mp dt)
   (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
@@ -203,7 +205,7 @@
              ;; (gf 5d0)
              (gf 48d0)
              ;; (gf 10d0)
-             (length-scale (* h 1d0))
+             (length-scale (* h 2d0))
              ;; (length-scale 1.0d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -263,7 +265,7 @@
 
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -412,10 +414,10 @@
          (last-e 0d0)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
-         (criteria-energy 1d-4)
-         (criteria-oobf 0.1d0)
+         (criteria-energy 1d-2)
+         (criteria-oobf 1d-1)
          (damping-0
-           (* 0d-5
+           (* 0d-4
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -465,7 +467,7 @@
      *sim*
      :dt-scale dt-scale
      :energy-crit 1d-1
-     :oobf-crit 1d-1
+     :oobf-crit 5d-1
      :substeps 50
      :conv-steps 1000
      :dt-scale dt-scale
@@ -1068,7 +1070,7 @@
          (mps-per-cell mps)
          (shelf-height 15.5)
          ;(soil-boundary (floor (* 15 1)))
-         (soil-boundary 1)
+         (soil-boundary 0)
          (shelf-aspect 1)
          (runout-aspect 2)
          (shelf-length (* shelf-height shelf-aspect))
@@ -1216,7 +1218,7 @@
                                      ))
           ))
       (defparameter *to-damage-mps* (list))
-      (when nil
+      (when t
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.5d0)
               (width                    ;(* 2d0 mesh-size)
@@ -1236,15 +1238,15 @@
                                                             0d0)
                                                       width))
                                    (lambda (mp v)
-                                     (let ((d (* (- 1d0 1d-9)
+                                     (let ((d (* (- 1d0 1d-1)
                                                  (exp
                                                   (- (expt (/ (+ width v) width) 2))))
                                              ;; (* (- 1d0 1d-5) (cl-mpm/damage::weight-func (expt (+ v width) 2) width))
                                              )
                                            )
-                                       (when (< v 0d0)
-                                         (setf d (- 1d0 1d-9))
-                                         )
+                                       ;; (when (< v 0d0)
+                                       ;;   (setf d (- 1d0 1d-9))
+                                       ;;   )
                                        ;; (setf (cl-mpm/particle:mp-damage mp)
                                        ;;       d)
                                        (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
@@ -2204,8 +2206,8 @@
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        *sim*
        :dt-scale dt-scale
-       :energy-crit 1d-2
-       :oobf-crit 1d-2
+       :energy-crit 1d-1
+       :oobf-crit 1d-1
        :substeps 50
        :conv-steps 200
        :dt-scale dt-scale

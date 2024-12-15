@@ -37,7 +37,11 @@
      :accessor bc-value
      :initarg :value
      :initform '(nil nil nil)))
-  (:documentation "A fixed velocity BC can be 1/0 dof"))
+  (:documentation "A fixed velocity BC can be 0/nil dof"))
+
+(defclass bc-constant-velocity (bc-fixed)
+  ()
+  (:documentation "A constant velocity BC can be v/nil dof"))
 
 (defclass bc-fixed-temp (bc-fixed)
   ()
@@ -54,6 +58,10 @@
 
 (defun make-bc-fixed (index value)
   (make-instance 'bc-fixed
+                 :index index
+                 :value value))
+(defun make-bc-constant-velocity (index value)
+  (make-instance 'bc-constant-velocity
                  :index index
                  :value value))
 
@@ -136,6 +144,23 @@
                      (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
                      (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
                      (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
+
+(defmethod apply-bc ((bc bc-constant-velocity) node mesh dt)
+  "Fixed velocity BC over some dimensions"
+  (with-accessors ((lock cl-mpm/mesh:node-lock))
+      node
+    (with-slots ((value value))
+        bc
+      (loop for d fixnum from 0 to 2;below (length value)
+            for v in value
+            do
+               (when v
+                 (sb-thread:with-mutex (lock)
+                   (setf (varef (cl-mpm/mesh:node-velocity node) d) v)
+                   (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
 
 
 (defmethod apply-bc ((bc bc-fixed-temp) node mesh dt)
@@ -457,11 +482,11 @@
                      collect
                      (funall make-bc (list x y)))))))))
 (defun make-domain-bcs (mesh make-bc)
-  "Construct  bcs over the outside of a mesh"
+  "Construct  bcs over the entire of a mesh"
   (with-accessors ((mesh-count cl-mpm/mesh:mesh-count)
                    (order cl-mpm/mesh::mesh-boundary-order))
       mesh
-    (destructuring-bind (xsize ysize) (mapcar (lambda (x) (- x 1)) mesh-count)
+    (destructuring-bind (xsize ysize zsize) (mapcar (lambda (x) (- x 1)) mesh-count)
       (make-bcs-from-list
        (loop for x from
              0 to xsize
@@ -469,7 +494,8 @@
              (loop for y from
                    0 to ysize
                    collect
-                   (funcall make-bc (list x y))))))))
+                   (funcall make-bc (list x y 0))))))))
+
 
 (defun make-bc-closure (index func)
   "Make a closure bc that calls a lambda function"

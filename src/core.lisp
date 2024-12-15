@@ -1704,7 +1704,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
            (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
       ;; (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
-      (remove-mps-func sim criteria)
+      (remove-mps-func sim (lambda (mp) (funcall criteria mp h)))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)

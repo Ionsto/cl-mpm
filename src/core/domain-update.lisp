@@ -199,6 +199,108 @@
                              (the double-float ms)
                              (the double-float (varef point i))))))))
 
+(declaim (notinline co-domain-corner-2d))
+(defun co-domain-corner-2d (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
+  (let ((inc (cl-mpm/utils:vector-zeros)))
+    (with-accessors ((position cl-mpm/particle::mp-position)
+                     (def cl-mpm/particle::mp-deformation-gradient)
+                     (domain cl-mpm/particle::mp-domain-size)
+                     (domain-0 cl-mpm/particle::mp-domain-size-0)
+                     )
+        mp
+      (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+          mesh
+        (let ((diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
+              (domain-storage (magicl::matrix/double-float-storage domain)))
+          (iterate-over-corners-normal-2d
+           mesh mp
+           (lambda (corner normal)
+             (let ((disp (cl-mpm/utils:vector-zeros)))
+               (iterate-over-neighbours-point-linear-simd
+                mesh corner
+                (lambda (mesh node svp grads)
+                  (declare (double-float dt svp))
+                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                      node
+                    (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
+               (incf (the double-float (aref diff 0)) (* 1d0
+                                                         (the double-float (varef disp 0))
+                                                         (varef normal 0)))
+               (incf (the double-float (aref diff 1)) (* 1d0
+                                                         (the double-float (varef disp 1))
+                                                         (varef normal 1))))))
+
+          (incf (the double-float (cl-mpm/utils:varef inc 0)) (* 0.5d0 (the double-float (aref diff 0))))
+          (incf (the double-float (cl-mpm/utils:varef inc 1)) (* 0.5d0 (the double-float (aref diff 1))))
+          )))
+    (with-accessors ((domain cl-mpm/particle::mp-domain-size)
+                     (true-domain cl-mpm/particle::mp-true-domain)
+                     (D cl-mpm/particle::mp-stretch-tensor))
+        mp
+      (let* ((omega (magicl:scale
+                     (magicl:.-
+                      D
+                      (magicl:transpose D)) 0.5d0))
+             (dom
+               true-domain)
+             (dom-inc (cl-mpm/utils:matrix-from-list
+                   (list
+                    (cl-mpm/utils:varef inc 0) 0d0 0d0
+                    0d0 (cl-mpm/utils:varef inc 1) 0d0
+                    0d0 0d0 0d0)))
+             (co-inc (cl-mpm/fastmaths:fast-.+
+                      dom-inc
+                      (cl-mpm/fastmaths::fast-.-
+                       (magicl:@ omega dom)
+                       (magicl:@ dom omega)
+                       )))
+             (R (magicl:.+ (magicl:eye 3) omega))
+             )
+        ;; (incf (cl-mpm/utils:varef true-domain 0)
+        ;;       (magicl:tref inc 0 0))
+        ;; (incf (cl-mpm/utils:varef true-domain 1)
+        ;;       (magicl:tref inc 1 0))
+        ;; (setf true-domain
+        ;;       (magicl:@ (magicl:transpose R) true-domain))
+        ;; (setf (varef domain 0) (abs (varef true-domain 0)))
+        ;; (setf (varef domain 1) (abs (varef true-domain 1)))
+        (cl-mpm/fastmaths:fast-.+
+         true-domain
+         dom-inc
+         true-domain)
+        (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+        ;; (cl-mpm/fastmaths::fast-.+
+        ;;  true-domain
+        ;;  co-inc
+        ;;  true-domain)
+        (setf
+         (varef domain 0)
+         (cl-mpm/fastmaths:mag
+          (magicl:@
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
+           )
+          )
+         (varef domain 1)
+         (cl-mpm/fastmaths:mag
+          (magicl:@
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
+          )
+         (varef domain 2)
+         (cl-mpm/fastmaths:mag
+          (magicl:@
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))
+          ))
+        ;; (incf (cl-mpm/utils:varef domain 0)
+        ;;       (magicl:tref co-inc 0 0))
+        ;; (incf (cl-mpm/utils:varef domain 1)
+        ;;       (magicl:tref co-inc 1 1))
+        ))
+    ))
+
 (defun update-domain-corner-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"
   (with-accessors ((position cl-mpm/particle::mp-position)
@@ -209,7 +311,7 @@
       mp
     (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
         mesh
-        (let ((diff (make-array 2 :initial-element 0d0))
+        (let ((diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
               (domain-storage (magicl::matrix/double-float-storage domain)))
           (iterate-over-corners-normal-2d
            mesh mp
