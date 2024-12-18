@@ -112,6 +112,14 @@
         (psi :double)
         (c :double))
 
+      (defcfun "CppMohrCoulomb" :bool
+        (strain-ptr :pointer)
+        (E :double)
+        (nu :double)
+        (phi :double)
+        (psi :double)
+        (c :double))
+
       (defcfun "test" :void
         (flags :pointer))
       (format t "~&Using accelerated kirchoff update~%")
@@ -129,6 +137,22 @@
             (unless (CppDruckerPrager sp E nu phi psi c)
               (error "Drucker-Prager failed")))
           (values (magicl:@ de str) str 0d0 t)))
+      (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
+        (declare (double-float E nu phi psi c))
+        (if t;(> (cl-mpm/constitutive::fast-mc stress phi c) 0d0)
+            (let ((str
+                    strain
+                    ;; (cl-mpm/utils::voigt-copy strain)
+                    ))
+              (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str)))
+                (if (and
+                     (CppMohrCoulomb sp E nu phi psi c))
+                    (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str) str 0d0)
+                    (values stress strain 0d0))
+                )
+              )
+            (values stress strain 0d0)
+            ))
       )
 
     (cffi::load-foreign-library-error (c)

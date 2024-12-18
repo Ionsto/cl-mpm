@@ -2,6 +2,8 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/MatrixFunctions>
 
+using VoigtMatrix = Eigen::Matrix<double,6,1>;
+
 Eigen::Matrix<double,6,1> swizzle_voigt_coombs(Eigen::Matrix<double,6,1> voigt)
 {
   return (Eigen::Matrix<double,6,1>() <<

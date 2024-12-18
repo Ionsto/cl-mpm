@@ -498,10 +498,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                      (weightsy (the double-float (cl-mpm/shape-function::shape-gimp-fast disty (* 0.5d0 doy) h)))
                                                      (weight (* weightsx weightsy))
                                                      ;; #+cl-mpm-fbar
-                                                     (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
-                                                     ;; #+cl-mpm-fbar
-                                                     (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                                     (weight-fbar (* weights-fbar-x weights-fbar-y))
                                                      )
                                                 (when (< 0d0 weight)
                                                   (let* ((node (cl-mpm/mesh:get-node mesh id))
@@ -509,6 +505,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                                    (the double-float weightsy)))
                                                          (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
                                                                    (the double-float weightsx)))
+
+                                                         (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                                         ;; #+cl-mpm-fbar
+                                                         (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                                         (weight-fbar (* weights-fbar-x weights-fbar-y))
                                                          (gradz 0d0)
                                                          (grads-fbar
                                                            (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))

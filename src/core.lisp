@@ -517,7 +517,7 @@
         (cl-mpm/fastmaths::fast-.+-vector pos mapped-vel pos)
         (cl-mpm/fastmaths::fast-.+-vector disp mapped-vel disp)))
   (def-g2p-mp g2p-mp-blend
-      (let ((pic-value 1d-2)
+      (let ((pic-value 1d-3)
             (pic-vel (cl-mpm/utils:vector-copy mapped-vel)))
         (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
         (cl-mpm/fastmaths::fast-.+-vector pos mapped-vel pos)
@@ -947,7 +947,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (let ((df (calculate-df mesh mp fbar))
           (dstrain (magicl:scale strain-rate dt)))
                    (progn
-                     (setf def (magicl:@ df def))
+                     (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
                      (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
                      (setf volume (* volume-0 (magicl:det def)))
                      ;(update-domain-corner mesh mp dt)
@@ -980,7 +980,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (let ((df (calculate-df mesh mp fbar)))
         (progn
-          (setf def (magicl:@ df def))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
           (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
@@ -1012,7 +1012,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (let ((df (calculate-df mesh mp fbar)))
         (progn
           (setf df-inc df)
-          (setf def (magicl:@ df def))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
           ;; (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
@@ -1023,7 +1023,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (error "Negative volume"))
           ;;Stretch rate update
           (update-domain-corner mesh mp dt)
-          ;; (scale-domain-size mesh mp)
+          (scale-domain-size mesh mp)
           ))))
   (values))
 (declaim

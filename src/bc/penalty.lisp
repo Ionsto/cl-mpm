@@ -8,6 +8,8 @@
         )
   (:import-from
     :magicl tref .+ .-)
+  (:import-from
+   :cl-mpm/fastmaths  fast-.+ fast-.- fast-.*)
   (:export
    #:make-bc-penalty
    #:make-bc-penalty-distance-point
@@ -93,7 +95,7 @@
                    (cl-mpm/fastmaths:fast-scale-vector
                     (cl-mpm/particle::mp-domain-size mp) 0.5d0)
                    (cl-mpm/fastmaths::norm
-                    (magicl:.* normal normal))))
+                    (cl-mpm/fastmaths:fast-.* normal normal))))
          (dist (- datum (- ypos yheight))))
     (the double-float dist)))
 
@@ -101,8 +103,8 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.- pos
-               (magicl:.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0))
+    (cl-mpm/fastmaths:fast-.- pos
+               (fast-.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0))
                )))
 
 (defun trial-corner (mp normal)
@@ -451,7 +453,7 @@
   "Get linear penetration distance"
   (let* ((ypos (cl-mpm/fastmaths::dot (cl-mpm/particle:mp-position mp) normal))
          (yheight (cl-mpm/fastmaths::dot (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/particle::mp-domain-size mp) 0.5d0)
-                                        (cl-mpm/fastmaths::norm (magicl:.* normal normal))))
+                                        (cl-mpm/fastmaths::norm (fast-.* normal normal))))
          (dist (- datum (- ypos yheight))))
     (the double-float dist)))
 
@@ -459,8 +461,8 @@
   "Get linear penetration distance"
   (let* ((pos (cl-mpm/particle:mp-position mp))
          (domain (cl-mpm/particle::mp-domain-size mp)))
-    (magicl:.- pos
-               (magicl:.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0)))))
+    (fast-.- pos
+               (fast-.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0)))))
 
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"

@@ -647,7 +647,8 @@
 (defun fast-zero (m)
   (let ((m-s (magicl::matrix/double-float-storage m)))
     (loop for i fixnum from 0 below (length m-s)
-          do (setf (aref m-s i) 0d0))) m)
+          do (setf (aref m-s i) 0d0)))
+  m)
 (declaim
  (inline fast-zero-vector)
  (ftype (function (magicl:matrix/double-float) magicl:matrix/double-float) fast-zero-vector))
@@ -962,3 +963,171 @@
     (format t "~A~%" (multiple-value-list (eig-values-voigt s)))
     ;; (pprint (eig-values-voigt s))
     ))
+
+(defun @-matrix-matrix-lisp (matrix-a matrix-b result-matrix)
+  "Multiply a 3x3 matrix with a 3x3 matrix to calculate a 3x3 vector in place"
+  (declare (magicl:matrix/double-float matrix-a matrix-b result-matrix)
+           (optimize (speed 0) (safety 3) (debug 3)))
+  (let ((a (cl-mpm/utils:fast-storage matrix-a))
+        (b (cl-mpm/utils:fast-storage matrix-b))
+        (c (cl-mpm/utils:fast-storage result-matrix)))
+    (declare ((simple-array double-float (9)) a)
+             ((simple-array double-float (9)) b)
+             ((simple-array double-float (9)) c))
+    (macrolet ((tref (m x y)
+                 `(aref ,m (+ (* 3 ,y) ,x))))
+      (loop for x fixnum from 0 below 3
+            do (loop for y fixnum from 0 below 3
+                     do (loop for i fixnum from 0 below 3
+                              do (incf
+                                  (tref c x y)
+                                  (the double-float
+                                       (*
+                                        (tref a x i)
+                                        (tref b i y)))
+                                  ))))))
+  (values))
+
+(defun fast-@-matrix-matrix (mat vec &optional res)
+  (let ((res (if res
+                 (fast-zero-matrix res)
+                 (cl-mpm/utils::matrix-zeros))))
+    (@-matrix-matrix-lisp mat vec res)
+    res))
+
+;; (let ((mat (cl-mpm/utils:matrix-from-list (list 1d0 0d0 0d0
+;;                                                 0d0 1d0 0d0
+;;                                                 0d0 5d0 2d0)))
+;;       (matb (cl-mpm/utils:matrix-from-list (list 1d0 1d0 0d0
+;;                                                  1d0 1d0 5d0
+;;                                                  0d0 0d0 0d0)))
+;;       (iters 10000000))
+;;   (time (dotimes (i iters) (magicl:@ mat matb)))
+;;   (time (dotimes (i iters) (fast-@-matrix-matrix mat matb)))
+;;   )
+
+(defun @-matrix-vector-lisp (matrix vector scale result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (double-float scale)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (9)) a)
+             ((simple-array double-float (3)) c)
+             ((simple-array double-float (6)) b)
+             )
+    (flet ((tref (m x y)
+             (aref m (+ (* 3 y) x))))
+      (loop for i fixnum from 0 below 3
+            do
+               (loop for j fixnum from 0 below 3
+                     do (incf (aref c i) (the double-float (* (aref b j) (tref a i j) scale))))
+            )))
+  (values))
+
+(defun @-matrix-vector-simd (matrix vector scale result-vector)
+  "Multiply a 3x9 matrix with a 3x1 vector to calculate a 3x1 vector in place"
+  (declare (magicl:matrix/double-float matrix vector result-vector)
+           (double-float scale)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((a (magicl::matrix/double-float-storage matrix))
+        (b (magicl::matrix/double-float-storage vector))
+        (c (magicl::matrix/double-float-storage result-vector))
+        )
+    (declare ((simple-array double-float (9)) a)
+             ((simple-array double-float (3)) c)
+             ((simple-array double-float (3)) b)
+             )
+    (flet ((tref (m x y)
+             (aref m (+ (* 3 y) x))))
+      (loop for j fixnum from 0 below 3
+            do
+               (progn
+                 (setf
+                  (sb-simd-avx:f64.2-aref c 0)
+                  (sb-simd-avx:f64.2+
+                   (sb-simd-avx:f64.2-aref c 0)
+                   (sb-simd-avx:f64.2*
+                    (sb-simd-avx:f64.2-aref a (* j 3))
+                    (aref b j)
+                    )
+                   )
+                  )
+                 (incf
+                  (aref c 2)
+                  (the double-float (* (aref b j) (tref a 2 j) scale))
+                  )))))
+  (values))
+
+(defun fast-@-matrix-vector (mat vec &optional res)
+  (let ((res (if res
+                 (fast-zero-vector res)
+                 (cl-mpm/utils::vector-zeros))
+             ))
+    ;; (@-matrix-vector-lisp mat vec 1d0 res)
+    (@-matrix-vector-simd mat vec 1d0 res)
+    res))
+
+(defun @-tensor-voigt-lisp (matrix-a matrix-b result-matrix)
+  "Multiply a 3x3 matrix with a 3x3 matrix to calculate a 3x3 vector in place"
+  (declare (magicl:matrix/double-float matrix-a matrix-b result-matrix)
+           (optimize (speed 0) (safety 3) (debug 3)))
+  (let ((a (cl-mpm/utils:fast-storage matrix-a))
+        (b (cl-mpm/utils:fast-storage matrix-b))
+        (c (cl-mpm/utils:fast-storage result-matrix)))
+    (declare ((simple-array double-float (36)) a)
+             ((simple-array double-float (6)) b)
+             ((simple-array double-float (6)) c))
+    (macrolet ((tref (m x y)
+                 `(aref ,m (+ (* 6 ,y) ,x))))
+      (loop for x fixnum from 0 below 6
+            do (loop for i fixnum from 0 below 6
+                               do (incf
+                                   (aref c x)
+                                   (the double-float
+                                        (*
+                                         (tref a x i)
+                                         (aref b i)))
+                                   )))))
+  (values))
+(defun fast-@-tensor-voigt (mat vec &optional res)
+  (let ((res (if res
+                 (fast-zero-voigt res)
+                 (cl-mpm/utils::voigt-zeros))
+             ))
+    (@-tensor-voigt-lisp mat vec res)
+    res))
+;; (let ((de (cl-mpm/constitutive::linear-elastic-matrix 2d0 0.1d0))
+;;       (matb (cl-mpm/utils:voigt-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0)))
+;;       (iters 10000000))
+;;   (time (dotimes (i iters) (magicl:@ de matb)))
+;;   (time (dotimes (i iters) (fast-@-matrix-matrix de matb)))
+;;   (pprint (magicl:@ de matb))
+;;   (pprint (fast-@-tensor-voigt de matb))
+;;   )
+
+;; (defun fast-@-matrix-vector-simd (mat vec &optional res)
+;;   (let ((res (if res
+;;                  res
+;;                  (cl-mpm/utils::vector-zeros))
+;;              ))
+;;     (@-matrix-vector-simd mat vec 1d0 res)
+;;     res))
+
+;; (let ((mat (cl-mpm/utils:matrix-from-list (list 1d0 5d0 0d0
+;;                                                 1d0 1d0 5d0
+;;                                                 0d0 0d0 0d0)))
+;;       (vec (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)))
+;;       (iters 100000000))
+;;   (print (cl-mpm/utils:fast-storage mat))
+;;   ;; (time (dotimes (i iters) (magicl:@ mat vec)))
+;;   (time (dotimes (i iters) (fast-@-matrix-vector mat vec)))
+;;   (time (dotimes (i iters) (fast-@-matrix-vector-simd mat vec)))
+;;   ;; (pprint (magicl:@ mat vec))
+;;   ;; (pprint (fast-@-matrix-vector mat vec))
+;;   ;; (pprint (fast-@-matrix-vector-simd mat vec))
+;;   )
+

@@ -241,17 +241,26 @@
     (when enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f)
-              (cl-mpm/constitutive::mc-plastic stress-u
-                                               de
-                                               strain
-                                               E
-                                               nu
-                                               phi
-                                               psi
-                                               coheasion)
+              (cl-mpm/ext::constitutive-mohr-coulomb stress-u
+                                                     de
+                                                     strain
+                                                     E
+                                                     nu
+                                                     phi
+                                                     psi
+                                                     coheasion)
+              ;; (cl-mpm/constitutive::mc-plastic stress-u
+              ;;                                  de
+              ;;                                  strain
+              ;;                                  E
+              ;;                                  nu
+              ;;                                  phi
+              ;;                                  psi
+              ;;                                  coheasion)
             (setf stress-u sig
-                  plastic-strain (magicl:.- strain eps-e)
                   yield-func f)
+            ;; (cl-mpm/fastmaths::fast-.- strain eps-e plastic-strain)
+            ;; plastic-strain (magicl:.- strain eps-e)
             (setf strain eps-e)
             )
           (let ((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain)))

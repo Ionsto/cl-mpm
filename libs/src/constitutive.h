@@ -5,23 +5,29 @@
 #include "utils.h"
 #include <iostream>
 
+int rotate(int i){
+  return (i+1)%3;
+}
 Eigen::Matrix<double,6,6> AssembleQMatrix(Eigen::Matrix<double,3,3> eigen_vectors){
   Eigen::Matrix<double,6,6> Q;
   for(int j = 0;j < 3;++j){
     for(int i = 0;i < 3;++i){
       Q(i,j)   = eigen_vectors(i,j) * eigen_vectors(i,j);
-      Q(i+3,j) = eigen_vectors(i,j) * eigen_vectors((i+1)%3,j);
+      Q(i+3,j) = eigen_vectors(i,j) * eigen_vectors(rotate(i),j);
     }
   }
   // Q.block(0,0,3,3) = eigen_vectors.array().square().matrix();
   for(int j = 0;j < 3;++j){
     for(int i = 0;i < 3;++i){
-      Q(i,j+3)   = 2*eigen_vectors(i,j) * eigen_vectors(i,(j+1)%3);
-
+      Q(i,j+3) = 2*eigen_vectors(i,j) * eigen_vectors(i,rotate(j));
       Q(i+3,j+3) =
-        (eigen_vectors(i,j) * eigen_vectors((i+1)%3,(j+1)%3))
+        (eigen_vectors(i,j) * eigen_vectors(rotate(i),rotate(j)))
         +
-        eigen_vectors((i+1)%3,j) * eigen_vectors(i,(j+1)%3);
+        eigen_vectors(rotate(i),j) * eigen_vectors(i,rotate(j));
+      /* Q(i+3,j+3) = */
+      /*   (eigen_vectors(i,j) * eigen_vectors((i+1)%3,(j+1)%3)) */
+      /*   + */
+      /*   eigen_vectors((i+1)%3,j) * eigen_vectors(i,(j+1)%3); */
     }
   }
   return Q.transpose();
@@ -38,14 +44,20 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
   const double alfa = -std::tan(phi);
   const double bta = -std::tan(psi);
   const double xsic = std::sqrt(3)*(1.0 / std::tan(phi))*c;
-  Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
-                                  E,-nu,-nu,
-                                  -nu,E,-nu,
-                                  -nu,-nu,E).finished()/E;
+  // Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
+  //                                 E,-nu,-nu,
+  //                                 -nu,E,-nu,
+  //                                 -nu,-nu,E).finished()/E;
   Eigen::Matrix<double,3,3> De3 =
     (E/((1+nu) * (1-(2*nu))))*
     (((1-(2*nu))*Eigen::Matrix<double,3,3>::Identity()) +
      Eigen::Matrix<double,3,3>::Constant(nu));
+  Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
+                                  1,-nu,-nu,
+                                  -nu,1,-nu,
+                                  -nu,-nu,1).finished()/E;
+  /* Eigen::Matrix<double,3,3> Ce = De3.inverse(); */
+
   // (Eigen::Matrix<double,3,3>()<<
   //                                E-nu,-nu,-nu,
   //                                -nu,E-nu,-nu,
@@ -58,10 +70,11 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
       /* return false; */
     }
   Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues().reverse();
-  // std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
+  //std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
   Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
+  //std::cout <<"eigenvectors\n"<<eigen_vectors<<"\n";
   Eigen::Matrix<double,3,1> sig = ((De3 * eigen_values).array() - (xsic / std::sqrt(3))).matrix();
-  std::cout<<"De3\n"<<De3<<"\n";
+  //std::cout<<"De3\n"<<De3<<"\n";
   const double tol = 1e-12;
   double xi = sig.sum()/std::sqrt(3);
   Eigen::Matrix<double,3,1> s = (sig.array() - (xi / std::sqrt(3))).matrix();
@@ -134,9 +147,9 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
       }
       sig.array() += xsic/std::sqrt(3);
     }
-    std::cout<<"Sig\n"<<sig<<"\n";
+    //std::cout<<"Sig\n"<<sig<<"\n";
     epsE = Ce*sig;
-    std::cout<<"EpsE\n"<<epsE<<"\n";
+    //std::cout<<"EpsE\n"<<epsE<<"\n";
     // std::cout<<"Ce\n"<<Ce<<"\n";
     // Eigen::Matrix<double,6,1> eps_q;
     return swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
@@ -157,31 +170,30 @@ double MC_princ_yield_func(Eigen::Matrix<double,3,1> sig, double phi, double c)
   return (k * sig[0]) - (sig[2] + sigc);
 }
 
-Eigen::Matrix<double,6,1> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
-                    double E, double nu, double phi, double psi, double c) {
+std::tuple<VoigtMatrix,float,bool> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
+                                                            double E, double nu, double phi, double psi, double c) {
 
 
   Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
-                                  E,-nu,-nu,
-                                  -nu,E,-nu,
-                                  -nu,-nu,E).finished()/E;
+                                  1,-nu,-nu,
+                                  -nu,1,-nu,
+                                  -nu,-nu,1).finished()/E;
   Eigen::Matrix<double,3,3> De3 =
     (E/((1+nu) * (1-(2*nu))))*
     (((1-(2*nu))*Eigen::Matrix<double,3,3>::Identity()) +
      Eigen::Matrix<double,3,3>::Constant(nu));
+  /* Eigen::Matrix<double,3,3> Ce = De3.inverse(); */
+
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(elastic_strain));
   if (eigensolver.info() != Eigen::Success)
     {
       abort();
-      /* return false; */
     }
   Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues().reverse();
-  // std::cout <<"eigenvalues\n"<<eigen_values<<"\n";
-  Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
+  Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();//.array().reverse().matrix();
   Eigen::Matrix<double,3,1> sig = (De3 * eigen_values);
   const double tol = 1e-12;
   double f = MC_princ_yield_func(sig,phi,c);
-  std::cout<<"f\n"<<f<<"\n";
   if (f>tol){
     const double k = (1+std::sin(phi))/(1-std::sin(phi));
     const double sigc = 2*c*std::sqrt(k);
@@ -215,28 +227,25 @@ Eigen::Matrix<double,6,1> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
     // std::cout<<"rp:\n"<<rp<<"\n";
     if((t1 > tol) && (t2 > tol)){
       sig = siga;
-      std::cout<<"PATH: APEX\n";
     }
     else if ((f12 < tol) && (f13 < tol)){
-      std::cout<<"PATH: LINE-1\n";
       sig = siga + (r1 * t1);
     }
     else if ((f12 > tol) && (f13 > tol)){
-      std::cout<<"PATH: LINE-2\n";
       sig = siga + (r2 * t2);
     }
     else{
       sig = sig - (rp * f);
-      std::cout<<"PATH: MAIN\n";
     }
 
     epsE = Ce*sig;
-    return swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
-                                                        <<
-                                                        epsE[0],
-                                                        epsE[1],
-                                                        epsE[2],
-                                                        0.0,0.0,0.0).finished()));
-  }
-  return elastic_strain;
+    Eigen::Matrix<double,6,1> outstrain = swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
+                                                                           <<
+                                                                           epsE[0],
+                                                                           epsE[1],
+                                                                           epsE[2],
+                                                                           0.0,0.0,0.0).finished()));
+    return std::tuple<VoigtMatrix,float,bool>(outstrain,f,true);
+    }
+  return std::tuple<VoigtMatrix,float,bool>(elastic_strain,f,false);
 }
