@@ -120,6 +120,13 @@
     :type symbol
     :accessor sim-velocity-algorithm
     :initform :FLIP)
+   (unique-index-counter
+    :type integer
+    :accessor sim-unique-index-counter
+    :initform 0)
+   (unique-index-lock
+    :accessor sim-unique-index-lock
+    :initform (sb-thread:make-mutex))
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

@@ -1464,8 +1464,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 
 (defgeneric sim-add-mp (sim mp)
   (:documentation "A function to append an mp to a simulation"))
+
 (defmethod sim-add-mp (sim mp)
-  (vector-push-extend mp (cl-mpm:sim-mps sim)))
+  (with-accessors ((uid-counter sim-unique-index-counter)
+                   (lock sim-unique-index-lock))
+    sim
+      (sb-thread:with-mutex (lock)
+        (setf (cl-mpm/particle::mp-unique-index mp) uid-counter)
+        (incf uid-counter))
+    (vector-push-extend mp (cl-mpm:sim-mps sim))))
 
 (defgeneric remove-mps-func (sim func)
   (:documentation "A function for removing mps from a sim"))

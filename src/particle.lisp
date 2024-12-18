@@ -108,6 +108,11 @@
      :type integer
      :initform -1
      :initarg :index)
+   (unique-index
+    :accessor mp-unique-index
+    :type integer
+    :initform -1
+    :initarg :unique-index)
    (mpi-index
     :accessor mp-mpi-index
     :type integer

@@ -75,7 +75,17 @@
 (defclass mpm-sim-usl-mpi-nodes-damage (mpm-sim-mpi-nodes-damage)
   ())
 
-
+(defmethod sim-add-mp ((sim mpm-sim-mpi) mp)
+  (with-accessors ((uid-counter cl-mpm::sim-unique-index-counter)
+                   (lock cl-mpm::sim-unique-index-lock))
+      sim
+    (let* ((size (cl-mpi:mpi-comm-size))
+           (rank (cl-mpi:mpi-comm-rank))
+           (shift (ceiling (log size 2))))
+      (sb-thread:with-mutex (lock)
+        (setf (cl-mpm/particle::mp-unique-index mp) (+ (ash uid-counter shift) rank))
+        (incf uid-counter)))
+    (vector-push-extend mp (cl-mpm:sim-mps sim))))
 
 (defgeneric update-min-domain-size (sim))
 (defmethod update-min-domain-size ((sim mpm-sim-mpi))
@@ -1820,6 +1830,7 @@
         (cl-mpi:mpi-waitall)
         (aops:copy-into values dest)))
     values))
+
 
 (defun mpi-vector-max (values)
   "Sum a scalar over all mpi nodes"
