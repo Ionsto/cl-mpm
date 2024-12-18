@@ -1089,6 +1089,7 @@ Calls the function with the mesh mp and node"
 
         (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
+        (cl-mpm/output::save-parameter "unique-id" (cl-mpm/particle::mp-unique-index mp))
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
         (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-mpi-index mp))
         (cl-mpm/output::save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
