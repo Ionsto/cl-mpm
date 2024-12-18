@@ -114,6 +114,7 @@
 
       (defcfun "CppMohrCoulomb" :bool
         (strain-ptr :pointer)
+        (f-ptr :pointer)
         (E :double)
         (nu :double)
         (phi :double)
@@ -143,13 +144,16 @@
             (let ((str
                     strain
                     ;; (cl-mpm/utils::voigt-copy strain)
-                    ))
-              (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str)))
-                (if (and
-                     (CppMohrCoulomb sp E nu phi psi c))
-                    (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str) str 0d0)
-                    (values stress strain 0d0))
-                )
+                    )
+                  )
+              (static-vectors:with-static-vector (f-arr 1 :element-type 'double-float)
+                (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str))
+                                                        (f-arr-p f-arr))
+                  (if (and
+                       (CppMohrCoulomb sp f-arr-p E nu phi psi c))
+                      (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str) str (aref f-arr 0))
+                      (values stress strain (aref f-arr 0)))
+                  ))
               )
             (values stress strain 0d0)
             ))

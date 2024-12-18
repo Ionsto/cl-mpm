@@ -7,7 +7,8 @@
   :components ((:file "src/core/symbolic-derivation")))
 
 (defsystem "cl-mpm/magicl"
-  :depends-on ("magicl")
+  :depends-on ("magicl"
+               "magicl/ext-expokit")
   :description "Dummy package that can be used to prune magicl dependancies, i.e. lisp only implementation")
 
 (defsystem "cl-mpm/utils"
@@ -525,6 +526,7 @@
                "cl-mpm/damage"
                "cl-mpm/plotter"
                "cl-mpm/dynamic-relaxation"
+               "cl-mpm/models/limestone"
                "vgplot"
                "swank.live")
   :serial t

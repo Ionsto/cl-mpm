@@ -54,12 +54,13 @@ extern "C" {
     strain = strainE;
     return true;
   }
-  bool CppMohrCoulomb(double * strain_ptr,double * f,double E, double nu, double phi, double psi, double c)
+  bool CppMohrCoulomb(double * strain_ptr,double & f,double E, double nu, double phi, double psi, double c)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
     std::tuple<Eigen::Matrix<double,6,1>,float,bool> result = MohrCoulomb(strain,E,nu,phi,psi,c);
     Eigen::Matrix<double,6,1> strainE = std::get<0>(result);
     //std::cout<<"strain\n"<<strainE<<"\n";
+    f = std::get<1>(result);
     strain = strainE;
     return std::get<2>(result);
   }
