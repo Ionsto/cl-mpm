@@ -354,26 +354,26 @@
           (setf damage-inc 0d0)
           ;; (setf k (max k ybar))
 
-          (let ((a tau-exp)
-                (k0 init-stress))
-            (incf k
-                  (the double-float
-                       (*
-                        dt
-                        (/
-                         (* k0
-                            (expt
-                             (/ (the double-float (max 0d0 (- ybar k)))
-                                k0)
-                             a))
-                         tau)))))
+          (when (> ybar init-stress)
+            (let ((a tau-exp)
+                  (k0 init-stress))
+              (incf k
+                    (the double-float
+                         (*
+                          dt
+                          (/
+                           (* k0
+                              (expt
+                               (/ (the double-float (max 0d0 (- ybar k)))
+                                  k0)
+                               a))
+                           tau))))))
 
           (let ((new-damage
                   (max
                    damage
-                   ;; (damage-response-exponential k E init-stress ductility)
-
-                   (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
+                   (damage-response-exponential k E init-stress ductility)
+                   ;; (damage-response-linear k E Gf (/ length (the double-float (sqrt 7d0))) init-stress ductility)
                    )))
             (declare (double-float new-damage))
             (setf damage-inc (- new-damage damage))

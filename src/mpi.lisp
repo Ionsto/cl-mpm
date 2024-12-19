@@ -752,7 +752,7 @@
                   (when split
                     (cl-mpm::split-mps sim))
                   (cl-mpm::check-mps sim)
-                  ;; (cl-mpm::check-single-mps sim)
+                  (cl-mpm::check-single-mps sim)
                   (set-mp-mpi-index sim)
                   (exchange-mps sim 0d0)
                   (set-mp-mpi-index sim)
@@ -909,7 +909,7 @@
                   (when split
                     (cl-mpm::split-mps sim))
                   (cl-mpm::check-mps sim)
-                  ;; (cl-mpm::check-single-mps sim)
+                  (cl-mpm::check-single-mps sim)
 
                   (set-mp-mpi-index sim)
                   (exchange-mps sim 0d0)

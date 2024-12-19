@@ -248,7 +248,7 @@
           mesh
         (let ((diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
               (domain-storage (magicl::matrix/double-float-storage domain)))
-          (iterate-over-corners-normal-2d
+          (iterate-over-midpoints-normal-2d
            mesh mp
            (lambda (corner normal)
              (let ((disp (cl-mpm/utils:vector-zeros)))
@@ -344,7 +344,7 @@
         mesh
         (let ((diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
               (domain-storage (magicl::matrix/double-float-storage domain)))
-          (iterate-over-corners-normal-2d
+          (iterate-over-midpoints-normal-2d
            mesh mp
            (lambda (corner normal)
              (let ((disp (cl-mpm/utils:vector-zeros)))
@@ -419,3 +419,44 @@
             (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale) 
                   (varef domain 1) (* (the double-float (varef domain-0 1)) scale)
                   (varef domain 2) (* (the double-float (varef domain-0 2)) scale)))))))
+
+
+(defun update-domain-max-corner-2d (mesh mp dt)
+  "Use a corner tracking scheme to update domain lengths"
+  (with-accessors ((position cl-mpm/particle::mp-position)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
+        mesh
+        (let ((max-diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
+              (min-diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
+              (domain-storage (magicl::matrix/double-float-storage domain)))
+          (iterate-over-midpoints-normal-2d
+           mesh mp
+           (lambda (corner normal)
+             (let ((disp (cl-mpm/utils:vector-zeros)))
+               (iterate-over-neighbours-point-linear-simd
+                mesh corner
+                (lambda (mesh node svp grads)
+                  (declare (double-float dt svp))
+                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                      node
+                    (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
+               (loop for i from 0 to 1
+                     do
+                        (progn
+                          (setf (the double-float (aref max-diff i))
+                                (max (aref max-diff i)
+                                     (+ (varef corner i) (varef disp i))))
+                          (setf (the double-float (aref min-diff i))
+                                (min (aref min-diff i)
+                                     (+ (varef corner i) (varef disp i)))))))))
+
+          (setf (the double-float (aref domain-storage 0))
+                (* 0.5d0 (- (aref max-diff 0) (aref min-diff 0))))
+          (setf (the double-float (aref domain-storage 1))
+                (* 0.5d0 (- (aref max-diff 1) (aref min-diff 1))))
+          ))))

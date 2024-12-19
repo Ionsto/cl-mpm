@@ -1589,11 +1589,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                          (node-active cl-mpm/mesh:node-active)
                          ) node
           (when node-active
-            (incf svp-sum node-svp)
-            ;; (when (> node-svp svp)
-            ;;   (setf alone nil))
-            )
-          )))
+            (incf svp-sum node-svp)))))
     (and (< svp-sum 2d0) (not (= svp-sum 0d0)))
     ;; (setf alone t)
     ;; alone
