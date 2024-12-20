@@ -222,11 +222,11 @@
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         ;; (find-nodal-local-length mesh mp)
-         (setf (cl-mpm/particle::mp-true-local-length mp)
-               (length-localisation (cl-mpm/particle::mp-local-length mp)
-                                    (cl-mpm/particle::mp-local-length-damaged mp)
-                                    (cl-mpm/particle::mp-damage mp)))
+         (find-nodal-local-length mesh mp)
+         ;; (setf (cl-mpm/particle::mp-true-local-length mp)
+         ;;       (length-localisation (cl-mpm/particle::mp-local-length mp)
+         ;;                            (cl-mpm/particle::mp-local-length-damaged mp)
+         ;;                            (cl-mpm/particle::mp-damage mp)))
          (damage-model-calculate-y mp dt)
          )))
 
@@ -1299,6 +1299,23 @@ Calls the function with the mesh mp and node"
                                                             (expt (- e_3 e_1) 2)))))
                                              (sqrt j2)))))
 
+        (cl-mpm/output::save-parameter "p-undamaged"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                           (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
+                                           (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))))
+        (cl-mpm/output::save-parameter "p-damaged"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                           (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))
+                                           0d0))
+
+        (cl-mpm/output::save-parameter "p-undamaged"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                           (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-undamaged-stress mp)))
+                                           (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-stress mp)))))
+        (cl-mpm/output::save-parameter "p-damaged"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
+                                           (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-stress mp)))
+                                           0d0))
 
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
