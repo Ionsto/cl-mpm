@@ -966,6 +966,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (def    cl-mpm/particle:mp-deformation-gradient)
+                   (df-inc cl-mpm/particle::mp-deformation-gradient-increment)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    (strain-rate-tensor cl-mpm/particle::mp-strain-rate-tensor)
@@ -980,6 +981,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (let ((df (calculate-df mesh mp fbar)))
         (progn
+          (setf df-inc df)
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
           (cl-mpm/utils:voigt-copy-into strain strain-rate)
           (cl-mpm/ext:kirchoff-update strain df)
@@ -1181,7 +1183,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff-noupdate mesh mp dt fbar)
-        (update-domain-corner mesh mp dt)
         ;; (scale-domain-size mesh mp)
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
@@ -1558,7 +1559,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (when (< split-depth *max-split-depth*)
       (let ((l-factor 1.00d0)
-            (h-factor (* 0.6d0 h))
+            (h-factor (* 0.5d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (varef lens 0)) :x)
@@ -1627,6 +1628,76 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
 
+(defun split-vector (mp split-vec)
+  "Helper macro for single splitting along cartesian directions "
+  (with-accessors ((lens cl-mpm/particle::mp-domain-size)
+                   (lens-0 cl-mpm/particle::mp-domain-size-0)
+                   (mass cl-mpm/particle::mp-mass)
+                   (pos cl-mpm/particle:mp-position)
+                   (volume cl-mpm/particle:mp-volume)
+                   (true-domain cl-mpm/particle::mp-true-domain)
+                   )
+      mp
+    (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
+          (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
+          (pos-offset (vector-zeros))
+          (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
+          (new-domain nil)
+          (vec-scaler (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/fastmaths:norm split-vec) 0.5d0))
+          )
+      ;; (break)
+      ;; (setf new-size (cl-mpm/fastmaths:fast-.- new-size vec-scaler))
+      (setf new-size-0 (cl-mpm/fastmaths:fast-.- new-size-0 vec-scaler))
+      (let ((domain-scaler (magicl:eye 3)))
+        (setf (tref domain-scaler 0 0) (- 1d0 (abs (varef vec-scaler 0))))
+        (setf (tref domain-scaler 1 1) (- 1d0 (abs (varef vec-scaler 1))))
+        (setf (tref domain-scaler 2 2) (- 1d0 (abs (varef vec-scaler 2))))
+        (setf new-domain (magicl:@ domain-scaler true-domain)))
+
+      (setf pos-offset (magicl:@
+                        true-domain
+                        (cl-mpm/fastmaths::fast-scale-vector vec-scaler 0.5d0)))
+
+      (setf
+       (varef new-size 0)
+       (cl-mpm/fastmaths:mag
+        (cl-mpm/fastmaths::fast-@-matrix-vector
+         new-domain
+         (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
+         ))
+       (varef new-size 1)
+       (cl-mpm/fastmaths:mag
+        (cl-mpm/fastmaths::fast-@-matrix-vector
+         new-domain
+         (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
+        ))
+      ;; (cl-mpm/fastmaths::fast-.* lens new-size new-size)
+      (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
+      ;; (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
+      ;; (setf pos-offset (magicl:@ true-domain vec-scaler))
+      ;; (break)
+      (list
+       (copy-particle mp
+                      :mass (/ mass 2)
+                      :volume (/ volume 2)
+                      :size (cl-mpm/utils::vector-copy new-size)
+                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
+                      :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
+                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
+                      :split-depth new-split-depth
+                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
+                      )
+       (copy-particle mp
+                      :mass (/ mass 2)
+                      :volume (/ volume 2)
+                      :size (cl-mpm/utils::vector-copy new-size)
+                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
+                      :position (magicl:.- pos pos-offset)
+                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
+                      :split-depth new-split-depth
+                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
+                      )))))
+
 (defmacro split-linear (dir direction dimension)
   "Helper macro for single splitting along cartesian directions "
   `((eq ,dir ,direction)
@@ -1634,10 +1705,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
           (pos-offset (vector-zeros))
           (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
+          (true-domain (cl-mpm/particle::mp-true-domain mp))
+          (new-domain nil)
           )
       (setf (tref new-size ,dimension 0) 0.5d0)
       (setf (tref new-size-0 ,dimension 0) 0.5d0)
       (setf (tref pos-offset ,dimension 0) 0.25d0)
+      (let ((domain-scaler (magicl:eye 3)))
+        (setf (tref domain-scaler ,dimension ,dimension) 0.5d0)
+        (setf new-domain (magicl:@ true-domain domain-scaler)))
       (cl-mpm/fastmaths::fast-.* lens new-size new-size)
       (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
       (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
@@ -1650,6 +1726,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
+                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
                        )
        (copy-particle mp
                       :mass (/ mass 2)
@@ -1659,6 +1736,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       :position (magicl:.- pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
+                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
                       )))))
 (defmacro split-cases (direction)
   "Another helper macro for splitting mps"
@@ -1682,6 +1760,28 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (split-cases direction)))
 
+(defun split-mps-eigenvalue (sim)
+  (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+         (crit (* h 0.25d0)))
+    (cl-mpm::split-mps-vector
+     sim
+     (lambda (mp)
+       (let ((split-dir nil))
+         (multiple-value-bind (l v)
+             (cl-mpm/utils:eig (cl-mpm/particle::mp-true-domain mp))
+           (loop ;for i from 0 to 2
+                 for lv in l
+                 for i from 0
+                 while (not split-dir)
+                 do
+                    (progn
+                      ;; (pprint lv)
+                      (when (> (abs lv) crit)
+                        ;; (break)
+                        (setf split-dir (magicl:column v i))
+                        ))))
+         split-dir)))))
+
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -1690,7 +1790,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
-      ;; (setf mps (delete-if (lambda (mp) (split-criteria mp h)) mps))
       (remove-mps-func sim (lambda (mp) (split-criteria mp h)))
       (loop for mp across mps-to-split
             for direction in split-direction
@@ -1706,13 +1805,28 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
            (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
-      ;; (setf mps (delete-if (lambda (mp) (funcall criteria mp h)) mps))
       (remove-mps-func sim (lambda (mp) (funcall criteria mp h)))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp)))
-      )))
+                     do (sim-add-mp sim new-mp))))))
+
+(defun split-mps-vector (sim criteria)
+  "Split mps that fail an arbritary criteria"
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (split-directions (lparallel:pmap 'vector criteria mps))
+           (mps-to-split (delete-if-not #'identity (lparallel:pmap 'vector (lambda (mp crit) (when crit mp)) mps split-directions)))
+           ;; (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
+           ;; (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split))
+           )
+      (remove-mps-func sim (lambda (mp) (position mp mps-to-split)))
+      (loop for mp across mps-to-split
+            for direction across (remove-if-not #'identity split-directions)
+            do (loop for new-mp in (split-vector mp direction)
+                     do (sim-add-mp sim new-mp))))))
 
 (defgeneric calculate-min-dt (sim)
   (:documentation "A function for calculating an approximate stable timestep"))
@@ -1765,10 +1879,11 @@ This modifies the dt of the simulation in the process
       (if (> (length mps) 0)
           (progn
             (loop for mp across mps-array
-                  do (sim-add-mp sim mp)
-                     ;; (vector-push-extend mp mps (length mps-array))
-                  ))
-          (setf (cl-mpm:sim-mps sim) mps-array))))
+                  do (sim-add-mp sim mp)))
+          (progn
+            (setf (cl-mpm:sim-mps sim) (make-array (length mps-array) :adjustable t :fill-pointer 0))
+            (loop for mp across mps-array
+                  do (sim-add-mp sim mp))))))
 
 (defun add-bcs (sim bcs-array)
   "Add nodal essential bcs"
