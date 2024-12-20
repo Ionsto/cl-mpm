@@ -546,6 +546,23 @@
       ;;     (cl-mpm/fastmaths::fast-.+-vector pos dx pos)
       ;;     (cl-mpm/fastmaths::fast-.+-vector disp dx disp))
       ;;   )
+    )
+  (def-g2p-mp g2p-mp-blend-2nd-order
+      (let* ((pic-value (/ 1d-3 dt))
+             (vel-inc
+               (cl-mpm/fastmaths::fast-scale!
+                (cl-mpm/fastmaths::fast-.--vector
+                 acc
+                 (cl-mpm/fastmaths:fast-scale!
+                  (cl-mpm/fastmaths::fast-.--vector vel mapped-vel) pic-value))
+                dt)))
+        (cl-mpm/fastmaths::fast-.+-vector vel vel-inc vel)
+        (let ((dx (cl-mpm/fastmaths::fast-.-
+                   (cl-mpm/fastmaths:fast-scale-vector mapped-vel dt)
+                   (cl-mpm/fastmaths:fast-scale-vector vel-inc (* 0.5d0 dt)))))
+          (cl-mpm/fastmaths::fast-.+-vector pos dx pos)
+          (cl-mpm/fastmaths::fast-.+-vector disp dx disp))
+        )
   )
   )
 
@@ -657,7 +674,13 @@
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-blend mesh mp dt))))))
+        (g2p-mp-blend mesh mp dt))))
+    (:BLEND-2ND-ORDER
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-blend-2nd-order mesh mp dt))))
+    ))
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
@@ -1559,7 +1582,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (when (< split-depth *max-split-depth*)
       (let ((l-factor 1.00d0)
-            (h-factor (* 0.5d0 h))
+            (h-factor (* 0.6d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (varef lens 0)) :x)

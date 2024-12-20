@@ -777,7 +777,7 @@ Calls the function with the mesh mp and node"
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
-                      (cl-mpm::split-mps-eigenvalue sim))
+                      (cl-mpm::split-mps sim))
                     ;; (cl-mpm::check-mps sim)
                     )))
 
