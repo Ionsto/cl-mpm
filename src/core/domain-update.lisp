@@ -445,7 +445,7 @@
       (update-domain-corner-3d mesh mp dt)))
 
 
-(defun update-domain-def (mesh mp)
+(defun update-domain-det (mesh mp)
   "Update the domain length based on the increment of the stretch rate"
   (with-accessors ((domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
@@ -456,11 +456,11 @@
       (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
           (let ((scale (expt det 1/2)))
             (declare (double-float scale))
-            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale) 
+            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale)
                   (varef domain 1) (* (the double-float (varef domain-0 1)) scale)))
           (let ((scale (expt det 1/3)))
             (declare (double-float scale))
-            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale) 
+            (setf (varef domain 0) (* (the double-float (varef domain-0 0)) scale)
                   (varef domain 1) (* (the double-float (varef domain-0 1)) scale)
                   (varef domain 2) (* (the double-float (varef domain-0 2)) scale)))))))
 
