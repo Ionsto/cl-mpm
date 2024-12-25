@@ -86,15 +86,15 @@ Calls func with only the node"
   (lparallel:pdotimes (i (length mps))
                       (funcall func (aref mps i)))
   (values))
-;; 
-;; (defun iterate-over-mps-serial (mps func)
-;;   "Helper function for iterating over all nodes in a mesh
-;;    Calls func with only the node"
-;;   (declare (type function func)
-;;            (type (array cl-mpm/particle:particle) mps))
-;;   (loop for mp across mps
-;;         do (funcall func mp))
-;;   (values))
+
+(defun iterate-over-mps-serial (mps func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (array cl-mpm/particle:particle) mps))
+  (loop for mp across mps
+        do (funcall func mp))
+  (values))
 
 
 
