@@ -12,90 +12,19 @@
 
 (in-package :cl-mpm/examples/rotate)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(let* ((D (cl-mpm/utils:matrix-from-list
-           (list 0d0 0.1d0 0d0
-                 -0.1d0 0d0 0d0
-                 0d0 0d0 0d0)))
-       (dt 1d0)
-       (domain (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
-       (omega (magicl:scale
-                   (magicl:.-
-                    D
-                    (magicl:transpose D)) (* dt 0.5d0)))
-           (R (magicl:.+
-               (magicl:eye 3)
-               omega))
-           (dom (cl-mpm/utils:matrix-from-list
-                 (list
-                  (cl-mpm/utils:varef domain 0) 0d0 0d0
-                  0d0 (cl-mpm/utils:varef domain 1) 0d0
-                  0d0 0d0 (cl-mpm/utils:varef domain 2))))
-           (DR (magicl:@
-                R
-                dom
-                (magicl:transpose R)
-                ))
-           )
-      (pprint DR)
-      (setf (cl-mpm/utils:varef domain 0) (magicl:tref DR 0 0))
-      (setf (cl-mpm/utils:varef domain 1) (magicl:tref DR 1 1))
-      ;; (setf (cl-mpm/utils:varef domain 1) (magicl:tref dom 1 1))
 
-      ;; (pprint D)
-      ;; (pprint omega)
-      ;; (setf domain
-      ;;       (magicl:@
-      ;;         domain))
-      )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   (cl-mpm::co-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-corner-2d mesh mp dt)
-  ;; (with-accessors ((domain cl-mpm/particle::mp-domain-size)
-  ;;                  (D cl-mpm/particle::mp-stretch-tensor))
-  ;;     mp
-  ;;   (let* ((omega (magicl:scale
-  ;;                  (magicl:.-
-  ;;                   D
-  ;;                   (magicl:transpose D)) (* dt 0.5d0)))
-  ;;          (R (magicl:.+
-  ;;              (magicl:eye 3)
-  ;;              omega))
-  ;;          (dom (cl-mpm/utils:matrix-from-list
-  ;;                (list
-  ;;                 (cl-mpm/utils:varef domain 0) 0d0 0d0
-  ;;                 0d0 (cl-mpm/utils:varef domain 1) 0d0
-  ;;                 0d0 0d0 (cl-mpm/utils:varef domain 2))))
-  ;;          (DR (magicl:@
-  ;;               R
-  ;;               dom
-  ;;               (magicl:transpose R)
-  ;;               ))
-  ;;          ;; (DR (magicl:.+
-  ;;          ;;      (magicl:@
-  ;;          ;;       dom
-  ;;          ;;       R
-  ;;          ;;       )
-  ;;          ;;      (magicl:@
-  ;;          ;;       R
-  ;;          ;;       dom)
-  ;;          ;;      ))
-  ;;          )
-  ;;     ;; (pprint DR)
-  ;;     (setf (cl-mpm/utils:varef domain 0) (magicl:tref DR 0 0))
-  ;;     (setf (cl-mpm/utils:varef domain 1) (magicl:tref DR 1 1))
-  ;;     ;; (setf (cl-mpm/utils:varef domain 1) (magicl:tref dom 1 1))
+  ;; (cl-mpm::update-domain-stretch mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
 
-  ;;     ;; (pprint D)
-  ;;     ;; (pprint omega)
-  ;;     ;; (setf domain
-  ;;     ;;       (magicl:@
-  ;;     ;;         domain))
-  ;;     ))
+  ;; (cl-mpm::update-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
-  ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
 
 (declaim (notinline plot))
@@ -136,6 +65,7 @@
                 (mapcar (lambda (x y) (- (* x 0.5)
                                        (* y 0.5)
                                        )) size block-size)
+                ;; (mapcar (lambda (x) 0d0) size)
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
@@ -156,7 +86,7 @@
                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
+      (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
       (let ((ms 1d0))
@@ -174,40 +104,38 @@
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
       (let ((center-point
               (mapcar (lambda (x) (* x 0.5)) size)))
+        (pprint center-point)
         (setf (cl-mpm:sim-bcs sim)
               (cl-mpm/bc::make-domain-bcs
                (cl-mpm:sim-mesh sim)
                (lambda (pos)
-                 (let* ((dist (magicl:.-
-                               (cl-mpm/utils:vector-from-list
-                                (list (float (nth 0 pos) 0d0)
-                                      (float (nth 1 pos) 0d0)
-                                      (float (nth 2 pos) 0d0))
-                                )
+                 (let* (
+                        (loc
+                          (cl-mpm/fastmaths:fast-scale!
+                           (cl-mpm/utils:vector-from-list
+                            (list (float (nth 0 pos) 0d0)
+                                  (float (nth 1 pos) 0d0)
+                                  0d0))
+                           h-x))
+                        (dist (magicl:.-
+                               loc
                                (cl-mpm/utils:vector-from-list
                                 (list (float (nth 0 center-point) 0d0)
                                       (float (nth 1 center-point) 0d0)
-                                      0d0))))
+                                      0d0))
+                               ))
                         (vel (cl-mpm/penalty::2d-orthog dist)))
                    (cl-mpm/fastmaths:fast-scale! vel 0.1d0)
                    (cl-mpm/bc::make-bc-constant-velocity
                     pos
-                    (list (cl-mpm/utils:varef vel 0)
+                    (list (+ (cl-mpm/utils:varef vel 0)
+                             (* 0.10d0 (cl-mpm/utils:varef dist 0))
+                             )
                           (cl-mpm/utils:varef vel 1)
                           0d0)
-                    ))))
-              ;; (cl-mpm/bc::make-outside-bc-var
-              ;;  (cl-mpm:sim-mesh sim)
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-              ;;  ;; (lambda (i) nil)
-              ;;  ;; (lambda (i) nil)
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-              ;;  (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
-              ;; )
-              ))
+                    ))))))
+      
+      ;; (setup-simple-shear sim)
 
       ;; (let* ((terminus-size (second block-size))
       ;;        (ocean-y (* terminus-size 1.0d0)))
@@ -225,6 +153,32 @@
 
       sim)))
 
+(defun setup-rotation (sim))
+
+(defun setup-simple-shear (sim)
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+    (setf (cl-mpm:sim-bcs sim)
+          (cl-mpm/bc::make-domain-bcs
+           (cl-mpm:sim-mesh sim)
+           (lambda (pos)
+             (let ((loc
+                     (cl-mpm/fastmaths::fast-scale!
+                      (cl-mpm/utils:vector-from-list
+                       (list
+                        (float (nth 0 pos) 0d0)
+                        (float (nth 1 pos) 0d0)
+                        (float (nth 2 pos) 0d0)
+                        )
+                       ) h)))
+               (cl-mpm/bc::make-bc-constant-velocity
+                pos
+                (list (* 0.1d0 (cl-mpm/utils:varef loc 0))
+                      (* 0.05d0 (cl-mpm/utils:varef loc 1))
+                      0d0;(cl-mpm/utils:varef loc 1)
+                      0d0)
+                ))))))
+  )
+
 
 (defparameter *sim* nil)
 (defparameter *run-sim* t)
@@ -239,16 +193,23 @@
 (defun setup (&key (refine 1) (mps 3))
   (let ((mps-per-dim mps)
         (block-size 5)
+        (domain-size (list 25 25))
         )
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
     (defparameter *sim* (setup-test-column
-                         '(10 10) (list block-size block-size)
+                         domain-size
+                         (list block-size block-size)
                          refine mps-per-dim))
     )
-  (cl-mpm::split-mps-criteria
-   *sim*
-   (lambda (mp h)
-     :x))
+  ;; (cl-mpm::split-mps-vector
+  ;;  *sim*
+  ;;  (lambda (mp)
+  ;;    (cl-mpm/fastmaths:norm (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))
+  (dotimes (i 0)
+    (cl-mpm::split-mps-criteria
+     *sim*
+     (lambda (mp h)
+       :x)))
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -282,14 +243,13 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (> steps 5)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t))
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim *sim*)
+                        (cl-mpm::split-mps-eigenvalue *sim*)
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)

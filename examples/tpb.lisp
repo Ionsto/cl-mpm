@@ -15,6 +15,12 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+(defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
+  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; local-length
+  )
+
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
   (with-accessors ((damping cl-mpm::sim-damping-factor)
                    (mass-scale cl-mpm::sim-mass-scale)
@@ -157,7 +163,6 @@
           ; mps
            )
         ))
-
 (defparameter *target-displacement* 0d0)
 (defun apply-disp-penalty (sim load-mps)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -184,7 +189,8 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               ;; :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -200,12 +206,13 @@
                ;; (length-scale 5.3d-3)
                ;; (length-scale 20d-3) ;;65.15
                ;; (length-scale 10d-3) ;;47.56
-               (length-scale 5.4d-3) ;;
+               (length-scale (* 5.4d-3 (sqrt 7))) ;;
                (gf 48d0)
-               (kappa (sqrt 7))
                (init-stress 3.45d6)
-               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf
+                                                                        (/ length-scale 1d0) init-stress 15.3d9))
                )
+          (format t "Estimated ductility ~F~%" ductility)
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
           (cl-mpm/damage::estimate-ductility-jirsek2004 (* 48d0 0.5d0) (* length-scale (sqrt 7)) 3.45d6 15.3d9)
@@ -225,15 +232,12 @@
                    :fracture-energy (* 48d0 1d0)
                    :initiation-stress 3.45d6
                    ;;Material parameter
-                   :internal-length (* length-scale crack-scale 1.00d0)
-                   ;;Interaction radius
-                   :local-length (* length-scale crack-scale kappa)
-                   :local-length-damaged (* length-scale crack-scale kappa 1d0)
+                   :local-length length-scale
                    :compression-ratio 8d0
 
                    ;:ductility 7.1d0
                    ;:ductility 10.16d0
-                   :ductility 6.48d0
+                   :ductility ductility
                    ;; :ductility 3.0d0
                    ;:ductility 5.0d0
                    ;; :ductility 2.0d0
@@ -256,22 +260,15 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :PIC)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              ;; (* 3d0 density ms)
-              ;; (* 5d0 density ms)
-              ;; (* 1d-2 (cl-mpm::sim-mass-scale sim)
-              ;;    (cl-mpm/setup::estimate-critical-damping sim))
-              ;; 0.7d0
-              0.7d0
-              ;; (* 15.3d9 1d-4)
-              ;; (* 1d1 density)
-              ;; 1d0
-              ))
+              (* 1d-1
+                 (cl-mpm/setup:estimate-critical-damping sim))))
 
 
       (dotimes (i 0)
@@ -289,8 +286,7 @@
         (setf
          (cl-mpm:sim-dt sim)
          (* dt-scale 
-            (sqrt (cl-mpm::sim-mass-scale sim))
-            (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
+            (cl-mpm/setup:estimate-elastic-dt sim))))
 
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
 
@@ -382,30 +378,58 @@
                         1 0
                         )))
 
+      (defparameter *penalty*
+        (cl-mpm/penalty::make-bc-penalty-distance-point
+         sim
+         (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
+         (cl-mpm/utils:vector-from-list (list 0d0
+                                              *initial-surface*
+                                              0d0))
+         h-x
+         (* 15.3d9 1d1)
+         0d0
+         0d0
+         )
+        )
+      (defparameter *current-inc* 0d0)
       (format t "~A~%" h-x)
       (setf (cl-mpm::sim-bcs-force-list sim)
             (list
              (cl-mpm/bc:make-bcs-from-list
               (list
-               ;; *floor-bc*
                (cl-mpm/bc::make-bc-closure
                 nil
                 (lambda ()
-                  (with-accessors ((mesh cl-mpm:sim-mesh)
-                                   (dt cl-mpm::sim-dt))
-                      sim
-                    (let ((datum (* -1d0 (+ *initial-surface* *target-displacement*)))
-                          (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
-                      ;; (format t "Datum: ~F~%" datum)
-                      (cl-mpm/penalty::apply-displacement-control-mps mesh (coerce *terminus-mps* 'vector )
-                                                       dt
-                                                       normal
-                                                       datum
-                                                       ;; (* density 1d6)
-                                                       (* 15.3d9 1)
-                                                       ;; (* 0d0 density 1d10)
-                                                       0d0))
-                    )))
+                  (let ((delta (- *target-displacement* *current-inc*)))
+                    (cl-mpm/penalty::bc-increment-center
+                     *penalty*
+                     (cl-mpm/utils:vector-from-list (list 0d0 delta 0d0)))
+                    (setf *current-inc* *target-displacement* ))
+                  ;; (setf
+                  ;;  (cl-mpm/penalty::bc-penalty-datum *penalty*)
+                  ;;  (- (+ *initial-surface* *target-displacement*)))
+                  )
+                )
+               *penalty*
+               ;; *floor-bc*
+               ;; (cl-mpm/bc::make-bc-closure
+               ;;  nil
+               ;;  (lambda ()
+               ;;    (with-accessors ((mesh cl-mpm:sim-mesh)
+               ;;                     (dt cl-mpm::sim-dt))
+               ;;        sim
+               ;;      (let ((datum (* -1d0 (+ *initial-surface* *target-displacement*)))
+               ;;            (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
+               ;;        ;; (format t "Datum: ~F~%" datum)
+               ;;        (cl-mpm/penalty::apply-displacement-control-mps mesh (coerce *terminus-mps* 'vector )
+               ;;                                         dt
+               ;;                                         normal
+               ;;                                         datum
+               ;;                                         ;; (* density 1d6)
+               ;;                                         (* 15.3d9 1)
+               ;;                                         ;; (* 0d0 density 1d10)
+               ;;                                         0d0))
+               ;;      )))
                ))))
 
       ;; (let* ((terminus-size (second block-size))
@@ -458,8 +482,8 @@
                          (/ 1d0 mesh-size) mps-per-cell))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width
-            (/ 0.0102 1.0d0)
-            ;; mesh-size
+            ;; (/ 0.0102 1.0d0)
+            mesh-size
                      ))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
       (cl-mpm/setup::remove-sdf
@@ -615,31 +639,31 @@
   (defparameter *data-full-load* '(0d0))
   (defparameter *data-y* '(0d0))
   (defparameter *data-ybar* '(0d0))
-  (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
-    (with-accessors ((damping cl-mpm::sim-damping-factor)
-                     (mass-scale cl-mpm::sim-mass-scale)
-                     (mesh cl-mpm::sim-mesh)
-                     (dt cl-mpm::sim-dt))
-        sim
-      (cl-mpm::iterate-over-nodes
-       mesh
-       (lambda (node)
-         (cl-mpm::calculate-forces node damping dt mass-scale)))))
+  ;; (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
+  ;;   (with-accessors ((damping cl-mpm::sim-damping-factor)
+  ;;                    (mass-scale cl-mpm::sim-mass-scale)
+  ;;                    (mesh cl-mpm::sim-mesh)
+  ;;                    (dt cl-mpm::sim-dt))
+  ;;       sim
+  ;;     (cl-mpm::iterate-over-nodes
+  ;;      mesh
+  ;;      (lambda (node)
+  ;;        (cl-mpm::calculate-forces node damping dt mass-scale)))))
 
   (let ((ms 1d6))
     (setf (cl-mpm::sim-mass-scale *sim*) ms)
-    ;; (setf (cl-mpm::sim-damping-factor *sim*) (* ms 0.001d0))
-    (* 1d-3 (cl-mpm::sim-mass-scale *sim*)
+    (* 1d-2
+       (cl-mpm::sim-mass-scale *sim*)
        (cl-mpm/setup::estimate-critical-damping *sim*)))
 
   (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load,load-mps~%"))
 
-  (let* ((target-time 1.0d0)
+  (let* ((load-steps 100)
+         (target-time (* 1d0 (/ 50 load-steps)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 1d0)
-         (load-steps 100)
          (disp-step (/ -0.2d-3 load-steps))
          )
 
@@ -652,14 +676,15 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    ;; (incf *target-displacement* -0.000d-3)
-    ;; (incf *target-displacement* disp-step)
+    (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
+      (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
+    (setf (cl-mpm::sim-enable-damage *sim*) t)
     (time (loop for steps from 0 to load-steps
                 while *run-sim*
                 do
                    (progn
                      ;; (when (> *target-displacement* 0.05d-3)
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                        ;; )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
@@ -671,68 +696,24 @@
                            (average-reaction 0d0))
                        (time
                         (dotimes (i substeps);)
-                          ;; (unless *data-averaged*
-                          ;;   (push
-                          ;;    ;; (- *t*)
-                          ;;    (get-disp *terminus-mps*)
-                          ;;    *data-displacement*)
-
-                          ;;   (push
-                          ;;    (get-reaction-force *fixed-nodes*)
-                          ;;    *data-load*)
-
-                          ;;   (push
-                          ;;    ;; (get-force-mps *sim* *terminus-mps*)
-                          ;;    (/ cl-mpm/penalty::*debug-force*
-                          ;;       0.5d0
-                          ;;       ;; (max 1 cl-mpm/penalty::*debug-force-count*)
-                          ;;       )
-                          ;;    *data-mp-load*)
-                          ;;   (push
-                          ;;    *t*
-                          ;;    *data-time*))
-                          ;; (push
-                          ;;  (get-reaction-force *fixed-nodes*)
-                          ;;  *data-full-load*)
                           (push
                            *t*
                            *data-full-time*)
-
-                          ;; (incf average-force (/
-                          ;;                      (/ cl-mpm/penalty::*debug-force*
-                          ;;                         0.5d0
-                          ;;                         )
-                          ;;                      substeps
-                          ;;                      ))
-                          ;; (incf average-reaction
-                          ;;       (/ (get-reaction-force *fixed-nodes*) substeps)
-                          ;;       )
-                          ;; (incf average-disp
-                          ;;       (/ (get-disp *terminus-mps*) substeps)
-                          ;;       )
-                          ;; (incf average-reaction (/ (get-reaction-force *fixed-nodes*) substeps))
-                          (setf cl-mpm/penalty::*debug-force* 0d0)
-                          (setf cl-mpm/penalty::*debug-force-count* 0d0)
-
-                          ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
-                          ;; (setf cl-mpm/damage::*delocal-counter-max* 0)
-                          ;; (when (= i (- substeps 1))
-                          ;;   (setf (cl-mpm::sim-enable-damage *sim*) t))
+                          (cl-mpm/penalty::reset-load *penalty*)
                           (cl-mpm::update-sim *sim*)
-                          ;; (incf *target-displacement* (* dt *tip-velocity*))
-                          ;; (push
-                          ;;  cl-mpm/penalty::*debug-force*
-                          ;;  *data-load*)
-                          ;; (incf *target-displacement* (/ -0.01d-3 substeps))
-                          ;; (incf *target-displacement* (/ -0.001d-3 substeps))
+
+                          (incf average-disp (/ *target-displacement* substeps))
+                          (incf average-force (/ (* (cl-mpm/penalty::resolve-load *penalty*)
+                                                    2d0
+                                                    ;; 1d-3
+                                                    ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))
+                                                    )
+                                                 substeps))
                           (incf *target-displacement* (/ disp-step substeps))
                           (setf *t* (+ *t* (cl-mpm::sim-dt *sim*))))
                         )
-                       ;; (incf *target-displacement* -0.01d-3)
-
-                       (setf average-disp (get-disp *terminus-mps*))
-                       (setf average-force (* cl-mpm/penalty::*debug-force* 2.0d0))
                        (setf average-reaction (* (get-reaction-force *fixed-nodes*) 2d0))
+                       (setf average-reaction average-force)
 
                        (push
                         average-disp
@@ -781,7 +762,7 @@
                        ;; (format t "Pen load: ~f~%" average-force)
                        
                        (with-open-file (stream (merge-pathnames "output/disp.csv") :direction :output :if-exists :append)
-                         (format stream "~f,~f~%"
+                         (format stream "~f,~f,~f~%"
                                  average-disp
                                  average-reaction
                                  average-force
