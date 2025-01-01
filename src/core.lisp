@@ -1047,7 +1047,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
-          (update-domain-corner mesh mp dt)
+          (update-domain-midpoint mesh mp dt)
           (scale-domain-size mesh mp)
           ))))
   (values))
