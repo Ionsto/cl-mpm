@@ -228,7 +228,7 @@
    This is controlled by a kinetic energy norm"
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
-      (setf (cl-mpm::sim-velocity-algorithm sim) :PIC))
+      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
     (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria)
       (continue ())
       (retry-convergence ()
