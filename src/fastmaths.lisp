@@ -901,6 +901,16 @@
      (dotimes (i iters)
        (fast-sum-voigt data)))))
 
+
+(defun vector-principal-j2 (s)
+  "Calculate j2 invarient from deviatoric stress"
+  (let ((storage (magicl::matrix/double-float-storage s)))
+    (* 0.5d0
+       (+
+        (expt (- (aref storage 0) (aref storage 1)) 2)
+        (expt (- (aref storage 1) (aref storage 2)) 2)
+        (expt (- (aref storage 2) (aref storage 0)) 2)))))
+
 (defun voigt-j2 (s)
   "Calculate j2 invarient from deviatoric stress"
   (let ((storage (magicl::matrix/double-float-storage s)))
@@ -911,11 +921,19 @@
           ) 2d0)))
 
 (defun voigt-von-mises (stress)
-  (sqrt (* 3 (voigt-j2 (deviatoric-voigt stress)))))
+  (sqrt (* 3d0 (voigt-j2 (cl-mpm/utils::deviatoric-voigt stress)))))
 
+(defun vector-principal-von-mises (stress)
+  (the double-float
+       (sqrt
+        (the double-float
+             (* 1d0
+                (vector-principal-j2
+                 (cl-mpm/utils::deviatoric-vector stress)
+                 ))))))
 
 (defun eig-values-voigt (voigt)
-  (let ((p1 (+ (expt (varef voigt 3) 2) 
+  (let ((p1 (+ (expt (varef voigt 3) 2)
                (expt (varef voigt 4) 2)
                (expt (varef voigt 5) 2))))
     (if (= p1 0d0)

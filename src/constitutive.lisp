@@ -695,15 +695,18 @@
                     (magicl:tref vec 3 0)
                     (magicl:tref vec 4 0)
                     )))
-(defun swizzle-coombs->voigt (vec)
-  (voigt-from-list (list
-                    (magicl:tref vec 0 0)
-                    (magicl:tref vec 1 0)
-                    (magicl:tref vec 2 0)
-                    (magicl:tref vec 4 0)
-                    (magicl:tref vec 5 0)
-                    (magicl:tref vec 3 0)
-                    )))
+(defun swizzle-coombs->voigt (vec &optional res)
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils:voigt-zeros))))
+    (setf
+     (varef res 0) (varef vec 0)
+     (varef res 1) (varef vec 1)
+     (varef res 2) (varef vec 2)
+     (varef res 3) (varef vec 4)
+     (varef res 4) (varef vec 5)
+     (varef res 5) (varef vec 3))
+    res))
 
 (defun dp-yield-mc-circumscribe (stress phi c)
   (declare (double-float c phi))
@@ -860,7 +863,9 @@
                                                 (cl-mpm/fastmaths::fast-.*
                                                  (magicl:column v 0)
                                                  (rotate-vector (magicl:column v 2)))) 1d0)
-                                ) '(2 6)))))
+                                ) '(2 6))))
+                           (psinc 0d0)
+                           )
                       (declare (double-float t1 t2 f12 f13))
                       (cond
                         ((and
@@ -894,42 +899,48 @@
                          )
                         )
                       (setf eps-e (cl-mpm/fastmaths::fast-@-matrix-vector Ce sig eps-e))
-                      ;; (pprint De3)
-                      ;; (pprint Ce)
-                      ;; (pprint Q)
 
                       (setf f (mc-yield-func sig phi c))
                       (when (> f (* 10000d0 tol))
                         (error "Mohr-coloumb return misscalculated on path: ~A with an error of f: ~F" path f))
-
+                      (setf psinc (the double-float
+                                       (cl-mpm/fastmaths::vector-principal-von-mises
+                                        (cl-mpm/fastmaths::fast-.--vector
+                                         eps-e
+                                         epstr))))
                       ;; (break)
-                      (let ((pad-eps (magicl:block-matrix (list eps-e
-                                                                (cl-mpm/utils:vector-zeros))
-                                                          '(2 1))))
-                        ;; (setf eps-e (magicl:@ (magicl:inv Q) pad-eps))
-                        (setf eps-e (magicl:linear-solve Q pad-eps))
-                        )
-
+                      (let ((pad-eps
+                              (cl-mpm/utils:voigt-from-list
+                               (list
+                                (varef eps-e 0)
+                                (varef eps-e 1)
+                                (varef eps-e 2)
+                                0d0
+                                0d0
+                                0d0))))
+                        (setf eps-e (magicl:linear-solve Q pad-eps)))
                       (setf sig (cl-mpm/fastmaths::fast-@-tensor-voigt de eps-e))
-                      ;; (setf sig (magicl:@ (magicl:transpose! Q)
-                      ;;                     (cl-mpm/utils:voigt-from-list
-                      ;;                      (list
-                      ;;                       (magicl:tref sig 0 0)
-                      ;;                       (magicl:tref sig 1 0)
-                      ;;                       (magicl:tref sig 2 0)
-                      ;;                       0d0 0d0 0d0))))
-
                       (values
+                       (swizzle-coombs->voigt sig stress)
+                       (swizzle-coombs->voigt eps-e trial-elastic-strain)
                        ;; sig
-                       (swizzle-coombs->voigt sig)
-                       (swizzle-coombs->voigt eps-e) initial-f)
-                      )
+                       ;; eps-e
+                       initial-f
+                       ;; 0d0
+                       psinc
+                       ))
                     ;;No MC yield - just return
-                    (values (cl-mpm/utils:voigt-copy stress)
-                            (cl-mpm/utils:voigt-copy trial-elastic-strain) initial-f)))))
+                    (values stress
+                            trial-elastic-strain
+                            initial-f
+                            0d0
+                            )))))
           ;;No DP yield - just return
           (values (cl-mpm/utils:voigt-copy stress)
-                  (cl-mpm/utils:voigt-copy trial-elastic-strain) f-dp)))))
+                  (cl-mpm/utils:voigt-copy trial-elastic-strain)
+                  f-dp
+                  0d0
+                  )))))
 (defun mc-plastic-terzaghi (stress de trial-elastic-strain E nu phi psi c pore-pressure)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (declare (double-float E nu phi psi c)
@@ -1322,11 +1333,15 @@
                        t))
                     ;;No MC yield - just return
                     (values stress
-                            trial-elastic-strain initial-f
+                            trial-elastic-strain
+                            initial-f
+                            0d0
                             nil)))))
           ;;No DP yield - just return
           (values stress
-                  trial-elastic-strain f-dp
+                  trial-elastic-strain
+                  f-dp
+                  0d0
                   nil)))))
 
 

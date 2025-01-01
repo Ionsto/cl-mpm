@@ -498,9 +498,15 @@
 (declaim (inline trace-voigt)
          (ftype (function (magicl:matrix/double-float) double-float) trace-voigt))
 (defun trace-voigt (a)
-  "Calculate the product A_{ij}A_{ij}"
+  "Calculate the trace of A stored as a voigt tensor"
   (let ((arr (cl-mpm/utils:fast-storage a)))
     (declare ((simple-array double-float (6)) arr))
+    (+ (aref arr 0) (aref arr 1) (aref arr 2))))
+
+(defun trace-vector (a)
+  "Calculate the trace of A as a vector of principal values"
+  (let ((arr (cl-mpm/utils:fast-storage a)))
+    (declare ((simple-array double-float (3)) arr))
     (+ (aref arr 0) (aref arr 1) (aref arr 2))))
 
 (declaim (inline deviatoric-voigt)
@@ -518,6 +524,18 @@
                            (aref arr 3)
                            (aref arr 4)
                            (aref arr 5)))))
+(declaim (inline deviatoric-vector)
+         (ftype (function (magicl:matrix/double-float)
+                          magicl:matrix/double-float) deviatoric-vector))
+(defun deviatoric-vector (a)
+  "Calculate the product A_{ij}A_{ij}"
+  (let* ((tr (/ (trace-vector a) 3d0))
+         (arr (magicl::matrix/double-float-storage a)))
+    (declare ((simple-array double-float (3)) arr)
+             (double-float tr))
+    (vector-from-list (list (- (aref arr 0) tr)
+                            (- (aref arr 1) tr)
+                            (- (aref arr 2) tr)))))
 
 (defun plane-strain-transform (stress)
   (magicl:from-list (list (mtref stress 0 0)

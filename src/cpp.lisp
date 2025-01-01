@@ -115,6 +115,7 @@
       (defcfun "CppMohrCoulomb" :bool
         (strain-ptr :pointer)
         (f-ptr :pointer)
+        (ps-ptr :pointer)
         (E :double)
         (nu :double)
         (phi :double)
@@ -139,6 +140,7 @@
               (error "Drucker-Prager failed")))
           (values (magicl:@ de str) str 0d0 t)))
       (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
+        "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu phi psi c))
         (if t;(> (cl-mpm/constitutive::fast-mc stress phi c) 0d0)
             (let ((str
@@ -147,15 +149,19 @@
                     )
                   )
               (static-vectors:with-static-vector (f-arr 1 :element-type 'double-float)
-                (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str))
-                                                        (f-arr-p f-arr))
-                  (if (and
-                       (CppMohrCoulomb sp f-arr-p E nu phi psi c))
-                      (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str) str (aref f-arr 0))
-                      (values stress strain (aref f-arr 0)))
-                  ))
+                (static-vectors:with-static-vector (ps-arr 1 :element-type 'double-float)
+                  (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str))
+                                                          (f-arr-p f-arr)
+                                                          (ps-arr-p ps-arr))
+                    (if (CppMohrCoulomb sp f-arr-p ps-arr-p E nu phi psi c)
+                        (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str stress)
+                                str
+                                (aref f-arr 0)
+                                (aref ps-arr 0))
+                        (values stress strain (aref f-arr 0) 0d0))
+                    )))
               )
-            (values stress strain 0d0)
+            (values stress strain 0d0 0d0)
             ))
       )
 

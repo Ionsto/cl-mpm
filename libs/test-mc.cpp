@@ -23,7 +23,12 @@ int main(int args, char **argv){
   std::cout << "Mohr-Coulomb" << "\n";
   auto t1 = Clock::now();
   int iters = 100000;
-  Eigen::Matrix<double,6,1> strainE = MohrCoulomb(strain,E,nu,phi,psi,c);
+  auto res = MohrCoulomb(strain,E,nu,phi,psi,c);
+  Eigen::Matrix<double,6,1> strainE = std::get<0>(res);
+  double f = std::get<1>(res);
+  double inc = std::get<2>(res);
+  std::cout<<"f"<<f<<"\n";
+  std::cout<<"inc"<<inc<<"\n";
   auto t2 = Clock::now();
   std::cout << "Took: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " seconds \n";
   std::cout << "Throughput: " << iters / (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " su/seconds \n";

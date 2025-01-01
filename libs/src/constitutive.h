@@ -149,6 +149,10 @@ Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain
     }
     //std::cout<<"Sig\n"<<sig<<"\n";
     epsE = Ce*sig;
+    Eigen::Matrix<double,3,1> pinc = epsE - epsEtr;
+    const double psinc = (1/6) * (std::pow(pinc[0] - pinc[1],2) +
+                                        std::pow(pinc[1] - pinc[2],2) +
+                                        std::pow(pinc[2] - pinc[0],2));
     //std::cout<<"EpsE\n"<<epsE<<"\n";
     // std::cout<<"Ce\n"<<Ce<<"\n";
     // Eigen::Matrix<double,6,1> eps_q;
@@ -170,7 +174,10 @@ double MC_princ_yield_func(Eigen::Matrix<double,3,1> sig, double phi, double c)
   return (k * sig[0]) - (sig[2] + sigc);
 }
 
-std::tuple<VoigtMatrix,float,bool> MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
+
+using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool>;
+
+MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
                                                             double E, double nu, double phi, double psi, double c) {
 
 
@@ -239,13 +246,19 @@ std::tuple<VoigtMatrix,float,bool> MohrCoulomb(Eigen::Matrix<double,6,1> elastic
     }
 
     epsE = Ce*sig;
+    // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
+    Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
+    const double psinc = std::sqrt(0.5 *
+                                   (std::pow(pinc[0] - pinc[1],2) +
+                                    std::pow(pinc[1] - pinc[2],2) +
+                                    std::pow(pinc[2] - pinc[0],2)));
     Eigen::Matrix<double,6,1> outstrain = swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
                                                                            <<
                                                                            epsE[0],
                                                                            epsE[1],
                                                                            epsE[2],
                                                                            0.0,0.0,0.0).finished()));
-    return std::tuple<VoigtMatrix,float,bool>(outstrain,f,true);
+    return MohrCoulombReturn(outstrain,f,psinc,true);
     }
-  return std::tuple<VoigtMatrix,float,bool>(elastic_strain,f,false);
+  return MohrCoulombReturn(elastic_strain,f,0.0,false);
 }

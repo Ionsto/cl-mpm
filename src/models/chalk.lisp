@@ -5,9 +5,11 @@
 ;; (in-package :cl-mpm/models/chalk)
 ;;We don't actually want to intern anything in chalk i guess
 (declaim (optimize (speed 3) (debug 0) (safety 0)))
+;; (declaim (optimize (speed 0) (debug 3) (safety 3)))
 
 (in-package :cl-mpm/particle)
 (declaim (optimize (speed 3) (debug 0) (safety 0)))
+;; (declaim (optimize (speed 0) (debug 3) (safety 3)))
 (defclass particle-chalk (particle-elastic-damage)
   ((coheasion
     :accessor mp-coheasion
@@ -240,41 +242,33 @@
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (when enable-plasticity
         (progn
-          (multiple-value-bind (sig eps-e f)
-              ;; (cl-mpm/ext::constitutive-mohr-coulomb stress-u
-              ;;                                        de
-              ;;                                        strain
-              ;;                                        E
-              ;;                                        nu
-              ;;                                        phi
-              ;;                                        psi
-              ;;                                        coheasion)
-              (cl-mpm/constitutive::mc-plastic stress-u
-                                               de
-                                               strain
-                                               E
-                                               nu
-                                               phi
-                                               psi
-                                               coheasion)
-            (setf stress-u sig
-                  yield-func f)
-            ;; (cl-mpm/fastmaths::fast-.- strain eps-e plastic-strain)
+          (multiple-value-bind (sig eps-e f inc)
+              (cl-mpm/ext::constitutive-mohr-coulomb stress-u
+                                                     de
+                                                     strain
+                                                     E
+                                                     nu
+                                                     phi
+                                                     psi
+                                                     coheasion)
+              ;; (cl-mpm/constitutive::mc-plastic stress-u
+              ;;                                  de
+              ;;                                  strain
+              ;;                                  E
+              ;;                                  nu
+              ;;                                  phi
+              ;;                                  psi
+              ;;                                  coheasion)
+            (setf
+             stress-u sig
+             strain eps-e
+             yield-func f)
+            ;; (cl-mpm/fastmaths::fast-.- strain-copy eps-e plastic-strain)
             ;; plastic-strain (magicl:.- strain eps-e)
-            (setf strain eps-e)
-            )
-          (let ((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain)))
-                ;; (inc (multiple-value-bind (l v)
-                ;;          (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                ;;        (destructuring-bind (s1 s2 s3) l
-                ;;          (sqrt
-                ;;           (/ (+ (expt (- s1 s2) 2d0)
-                ;;                 (expt (- s2 s3) 2d0)
-                ;;                 (expt (- s3 s1) 2d0)
-                ;;                 ) 2d0)))))
-                )
-            (incf ps-vm inc)
-            (setf ps-vm-inc inc))))
+            ;; (setf strain eps-e)
+            (let ();((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain))))
+              (incf ps-vm inc)
+              (setf ps-vm-inc inc)))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     (when (and
            enable-damage
@@ -340,8 +334,7 @@
                                              phi
                                              psi
                                              coheasion)
-            (setf stress
-                  sig
+            (setf stress sig
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f
                   )
