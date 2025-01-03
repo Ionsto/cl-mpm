@@ -330,10 +330,9 @@
                                                         (cl-mpm/particle::mp-damage-position mp))))
                (declare (double-float delta h))
                (when (> delta (/ h 4d0))
-                 (when (not (eq
+                 (when (not (equal
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
-                             (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))
-                             ))
+                             (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
                    (local-list-remove-particle mesh mp)
                    (local-list-add-particle mesh mp))))))))
     ;;Smart in thought, presumably creates lots of garbage
@@ -1219,6 +1218,7 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
                                            (cl-mpm/particle:mp-damage mp)
                                            0d0))
+
         (cl-mpm/output::save-parameter "damage-shear"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-shear)
                                            (cl-mpm/particle::mp-damage-shear mp)
