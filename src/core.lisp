@@ -972,7 +972,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (progn
                      (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
                      (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
-                     (setf volume (* volume-0 (magicl:det def)))
+                     (setf volume (* volume-0 (cl-mpm/fastmaths:det-3x3 def)))
                      ;(update-domain-corner mesh mp dt)
                      (update-domain-midpoint mesh mp dt)))))
 
@@ -1010,7 +1010,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (cl-mpm/ext:kirchoff-update strain df)
           (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume (the double-float (magicl:det df))))
+          (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
           (when (<= volume 0d0)
             (error "Negative volume"))))))
   (values))
@@ -1042,8 +1042,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (cl-mpm/ext:kirchoff-update strain df)
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
-          ;(setf volume (* volume (the double-float (magicl:det df))))
-          (setf volume (* volume-0 (the double-float (magicl:det def))))
+          ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;;Stretch rate update
@@ -1089,7 +1089,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
           ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
           ;;Post multiply to turn to eng strain
-          (setf volume (* volume (the double-float (magicl:det df))))
+          (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
           (when (<= volume 0d0)
             (error "Negative volume"))
           (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
@@ -1119,7 +1119,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (cl-mpm/utils:voigt-copy-into strain strain-rate)
         (cl-mpm/ext:kirchoff-update strain df)
         (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-        (setf volume (* volume (the double-float (magicl:det df))))
+        (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
         (when (<= volume 0d0)
           (error "Negative volume")))))
   (values))
@@ -1145,7 +1145,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (cl-mpm/utils:voigt-copy-into strain strain-rate)
         (cl-mpm/ext:kirchoff-update strain df)
         (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-        (setf volume (* volume (the double-float (magicl:det df))))
+        (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
         (update-domain-def mesh mp)
         (when (<= volume 0d0)
           (error "Negative volume")))))
@@ -1181,7 +1181,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 
 (defun update-stress-kirchoff-noscale (mesh mp dt fbar)
@@ -1215,7 +1215,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-damaged))
@@ -1244,7 +1244,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
       )))
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-ugimp))
 (defun update-stress-kirchoff-ugimp (mesh mp dt fbar)
@@ -1272,7 +1272,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
       )))
 
 (defun update-stress-kirchoff-det (mesh mp dt fbar)
@@ -1298,7 +1298,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (when (<= volume 0d0)
         (error "Negative volume"))
       ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (magicl:det def))))
+      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
       )))
 
 (defun update-stress-linear (mesh mp dt fbar)
@@ -1344,8 +1344,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                                  0d0 1d0 0d0
                                                  0d0 0d0 1d0))))
       (cl-mpm/fastmaths::fast-.+ df stretch-tensor df)
-      (let ((j-inc (magicl:det df))
-            (j-n (magicl:det def)))
+      (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
+            (j-n (cl-mpm/fastmaths:det-3x3 def)))
         (iterate-over-neighbours
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1385,11 +1385,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                                           0d0 0d0 1d0)))
                (nd (cl-mpm/mesh::mesh-nd mesh)))
           (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-          (setf (cl-mpm/particle::mp-debug-j mp) (magicl:det df)
-                (cl-mpm/particle::mp-debug-j-gather mp) (magicl:det df-fbar))
+          (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
+                (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
           (magicl:scale! df (expt
-                             (the double-float (/ (magicl:det df-fbar)
-                                                  (magicl:det df)))
+                             (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
+                                                  (cl-mpm/fastmaths:det-3x3 df)))
                              (the double-float (/ 1d0 (float nd)))))
           (when (= nd 2)
             (setf (mtref df 2 2) 1d0))
@@ -1729,8 +1729,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (pos-offset (vector-zeros))
           (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
           (true-domain (cl-mpm/particle::mp-true-domain mp))
-          (new-domain nil)
-          )
+          (new-domain nil))
       (setf (tref new-size ,dimension 0) 0.5d0)
       (setf (tref new-size-0 ,dimension 0) 0.5d0)
       (setf (tref pos-offset ,dimension 0) 0.25d0)
@@ -1756,7 +1755,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       :volume (/ volume 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl:.- pos pos-offset)
+                      :position (cl-mpm/fastmaths::fast-.--vector pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
                       :true-domain (cl-mpm/utils:matrix-copy new-domain)
