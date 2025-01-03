@@ -1508,11 +1508,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (when (> (length mps) 0)
       ;; (delete-mps-func mps func)
       (setf mps
-            ;;We cant do this in parallel apparently
-            (delete-if func mps)
-                                        ;(lparallel:premove-if func mps)
-            )
-      )
+            (delete-if func mps)))
     ;;Sometimes when compacting the array; sbcl will just discard make and unadjustable array in place which is a bit wild
     (when (and (not (adjustable-array-p mps))
                (= (length mps) 0))

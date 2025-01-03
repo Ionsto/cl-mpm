@@ -226,6 +226,7 @@
     (when non-local-damage
       (when (<= delocal-counter 0)
         ;;Ensure they have a home
+        ;; (create-delocalisation-list mesh mps)
         (update-delocalisation-list mesh mps)
         (setf delocal-counter delocal-counter-max))
       ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
@@ -272,21 +273,23 @@
                 (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
                   (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))))
     ;;Smart in thought but actually super dumb
-    ;; (cl-mpm:iterate-over-nodes
-    ;;  mesh
-    ;;  (lambda (node)
-    ;;    (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
-    ;;      (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))
+    (cl-mpm:iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
+         (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))
     ))
 
 (defun local-list-add-particle (mesh mp)
   "A function for putting an MP into the nodal MP lookup table"
   (let ((node-id (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))))
-    (when (cl-mpm/mesh:in-bounds mesh node-id)
+    (if (cl-mpm/mesh:in-bounds mesh node-id)
       (let ((node (cl-mpm/mesh:get-node mesh node-id)))
-        (setf (cl-mpm/particle::mp-damage-position mp) (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp)))
+        (setf (cl-mpm/particle::mp-damage-position mp)
+              (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp)))
         (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-          (vector-push-extend mp (cl-mpm/mesh::node-local-list node)))))))
+          (vector-push-extend mp (cl-mpm/mesh::node-local-list node))))
+      (error "Could not add damage MP to local list as it is out of bounds"))))
 
 (defun local-list-remove-particle (mesh mp)
   "A function for removing an MP into the nodal MP lookup table"
@@ -306,7 +309,7 @@
           (if (cl-mpm/mesh:in-bounds mesh node-id)
             (let ((node (cl-mpm/mesh:get-node mesh node-id)))
               (when (not (remove-mp-ll node))
-                  (cl-mpm::iterate-over-nodes-serial
+                  (cl-mpm::iterate-over-nodes
                    mesh
                    (lambda (node)
                      (remove-mp-ll node))))
@@ -314,6 +317,7 @@
             nil))
         nil)))
 
+(declaim (notinline update-delocalisation-list))
 (defun update-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes)
                    (h cl-mpm/mesh:mesh-resolution))
@@ -329,10 +333,12 @@
              (let* ((delta (cl-mpm/fastmaths::diff-norm (cl-mpm/particle:mp-position mp)
                                                         (cl-mpm/particle::mp-damage-position mp))))
                (declare (double-float delta h))
+               ;; (format t "~A ~A~%" (cl-mpm/particle:mp-position mp) (cl-mpm/particle::mp-damage-position mp))
                (when (> delta (/ h 4d0))
                  (when (not (equal
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
+                   ;; (pprint "Moving MP")
                    (local-list-remove-particle mesh mp)
                    (local-list-add-particle mesh mp))))))))
     ;;Smart in thought, presumably creates lots of garbage
@@ -756,6 +762,7 @@ Calls the function with the mesh mp and node"
                   (funcall func mp))
               do (local-list-remove-particle mesh mp))
       (call-next-method))))
+
 (defmethod cl-mpm::sim-add-mp ((sim mpm-sim-damage) mp)
   (local-list-add-particle (cl-mpm:sim-mesh sim) mp)
   (call-next-method))

@@ -417,6 +417,7 @@
               ;; (save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
               ;; (save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
               (save-parameter-nodes "pressure" (cl-mpm/mesh::node-pressure node))
+              (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
               (save-parameter-nodes "energy"
                                     (*
                                      (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
@@ -449,7 +450,7 @@
                                                      (f-int cl-mpm/mesh::node-internal-force))
                                         node
                                       (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                          (*
+                                          (* 
                                            (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                                            (/ (cl-mpm/fastmaths::mag-squared
                                                (magicl:.+ f-ext f-int))
