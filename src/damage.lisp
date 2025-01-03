@@ -236,7 +236,7 @@
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
          ;; (find-nodal-local-length mesh mp)
-         (find-intergral-local-length mesh mp)
+         ;; (find-intergral-local-length mesh mp)
          ;; (setf (cl-mpm/particle::mp-true-local-length mp)
          ;;       (length-localisation (cl-mpm/particle::mp-local-length mp)
          ;;                            (cl-mpm/particle::mp-local-length-damaged mp)
@@ -713,17 +713,18 @@ Calls the function with the mesh mp and node"
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
-        ;; Calculate the delocalised damage for each damage particle
-        (cl-mpm:iterate-over-mps
-         mps
-          (lambda (mp)
-            (when (typep mp 'cl-mpm/particle:particle-damage)
-              (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
-                               (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
-                               (damage cl-mpm/particle::mp-damage)
-                               (local-length-t cl-mpm/particle::mp-true-local-length))
-                  mp
-                (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
+    ;; Calculate the delocalised damage for each damage particle
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (find-intergral-local-length mesh mp)
+         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
+                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
+                          (damage cl-mpm/particle::mp-damage)
+                          (local-length-t cl-mpm/particle::mp-true-local-length))
+             mp
+           (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
 
@@ -1218,10 +1219,10 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
                                            (cl-mpm/particle:mp-damage mp)
                                            0d0))
-        ;; (cl-mpm/output::save-parameter "damage-nl"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage)
-        ;;                                    (calculate-average-damage mesh mp (cl-mpm/particle::mp-local-length mp))
-        ;;                                    0d0))
+        (cl-mpm/output::save-parameter "damage-nl"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                                           (calculate-average-damage mesh mp (cl-mpm/particle::mp-local-length mp))
+                                           0d0))
         (cl-mpm/output::save-parameter "damage-shear"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-shear)
                                            (cl-mpm/particle::mp-damage-shear mp)
