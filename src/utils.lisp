@@ -679,3 +679,8 @@
                    (measure-time (_ (setq ,result (progn ,@body))) 1 t)))
              (when ,var
                (incf ,var ,timespan))))))
+
+(defun d2r (degrees)
+  (* degrees (/ pi 180)))
+(defun r2d (radians)
+  (* radians (/ 180 pi)))
