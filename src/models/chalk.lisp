@@ -622,7 +622,7 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (> ybar k0)
+          (when t;(> ybar k0)
             (incf k (the double-float
                          (*
                           dt
