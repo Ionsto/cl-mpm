@@ -204,14 +204,15 @@
 (defun find-intergral-local-length (mesh mp)
   (with-accessors ((tll cl-mpm/particle::mp-true-local-length)
                    (ll cl-mpm/particle::mp-local-length)
-                   (lld cl-mpm/particle::mp-local-length-damaged)
-                   )
+                   (lld cl-mpm/particle::mp-local-length-damaged))
       mp
     (setf tll
           (length-localisation
            ll
            lld
            (calculate-average-damage mesh mp ll)))))
+
+
 
 (defun calculate-damage (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -614,14 +615,10 @@ Calls the function with the mesh mp and node"
                         (p cl-mpm/particle:mp-position))
            mp-other
          (when t
-           (let (
-                 (weight
-                   (weight-func-mps mesh mp mp-other length)
-                   ))
+           (let ((weight (weight-func-mps mesh mp mp-other length)))
              (declare (double-float weight m d damage-average volume-average))
              (incf volume-average (* weight m))
-             (incf damage-average
-                   (* d weight m)))))))
+             (incf damage-average (* d weight m)))))))
     (when (> volume-average 0d0)
       (setf damage-average (/ damage-average volume-average)))
     damage-average))
@@ -653,7 +650,8 @@ Calls the function with the mesh mp and node"
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
                  (weight
-                   (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                   ;(weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                   (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)
                    ;; (weight-func-mps mesh mp mp-other ll)
