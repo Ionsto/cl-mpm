@@ -153,6 +153,7 @@
                "cl-mpm/forces"
                "alexandria"
                "serapeum"
+               "local-time"
                "array-operations"
                "lparallel"
                "symbolic-derivation"
