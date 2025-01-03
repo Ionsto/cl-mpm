@@ -85,7 +85,8 @@
       (sb-thread:with-mutex (lock)
         (setf (cl-mpm/particle::mp-unique-index mp) (+ (ash uid-counter shift) rank))
         (incf uid-counter)))
-    (vector-push-extend mp (cl-mpm:sim-mps sim))))
+    (call-next-method)))
+
 
 (defgeneric update-min-domain-size (sim))
 (defmethod update-min-domain-size ((sim mpm-sim-mpi))

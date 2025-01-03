@@ -227,8 +227,9 @@
         ;;Ensure they have a home
         (update-delocalisation-list mesh mps)
         (setf delocal-counter delocal-counter-max))
-      (decf delocal-counter))
-
+      ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
+      (setf delocal-counter (min (- delocal-counter 1)
+                                 delocal-counter-max)))
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
@@ -334,11 +335,13 @@
                              ))
                    (local-list-remove-particle mesh mp)
                    (local-list-add-particle mesh mp))))))))
-    (cl-mpm::iterate-over-nodes
-     mesh
-     (lambda (node)
-       (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
-         (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))))
+    ;;Smart in thought, presumably creates lots of garbage
+    ;; (cl-mpm::iterate-over-nodes
+    ;;  mesh
+    ;;  (lambda (node)
+    ;;    (when (= 0 (length (cl-mpm/mesh::node-local-list node)))
+    ;;      (adjust-array (cl-mpm/mesh::node-local-list node) 0 :fill-pointer 0))))
+    ))
 
 ;; (defgeneric update-delocalisation-list (sim))
 ;; (defmethod update-delocalisation-list ((sim cl-mpm::mpm-sim))
