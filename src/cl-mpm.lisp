@@ -119,7 +119,7 @@
    (velocity-algorithm
     :type symbol
     :accessor sim-velocity-algorithm
-    :initform :FLIP)
+    :initform :BLEND)
    (unique-index-counter
     :type integer
     :accessor sim-unique-index-counter
