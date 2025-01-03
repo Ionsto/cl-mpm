@@ -1219,10 +1219,6 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage)
                                            (cl-mpm/particle:mp-damage mp)
                                            0d0))
-        (cl-mpm/output::save-parameter "damage-nl"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::damage)
-                                           (calculate-average-damage mesh mp (cl-mpm/particle::mp-local-length mp))
-                                           0d0))
         (cl-mpm/output::save-parameter "damage-shear"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-shear)
                                            (cl-mpm/particle::mp-damage-shear mp)
