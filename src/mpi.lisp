@@ -260,6 +260,7 @@
  damage-mp
  ((vector position cl-mpm/particle::mp-position)
   (float volume cl-mpm/particle::mp-volume)
+  (float damage cl-mpm/particle::mp-damage)
   (float y cl-mpm/particle::mp-damage-y-local)
   (float local-length cl-mpm/particle::mp-true-local-length)
   ))
@@ -635,7 +636,7 @@
                                                 do (progn
                                                      (vector-push-extend
                                                       (make-instance 'cl-mpm/particle::particle-damage-mpi
-                                                                     ;; :nd 2
+                                                                     :damage (mpi-object-damage-mp-damage mp)
                                                                      :volume (mpi-object-damage-mp-volume mp)
                                                                      :position (mpi-object-damage-mp-position mp)
                                                                      :damage-y (mpi-object-damage-mp-y mp)
