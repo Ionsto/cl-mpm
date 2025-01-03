@@ -8,7 +8,10 @@
 
 (in-package :cl-mpm/particle)
 
-(defclass particle-damage-mpi ()
+(defclass particle-damage-fundemental ()
+  ())
+
+(defclass particle-damage-mpi (particle-damage-fundemental)
     ((volume
       :accessor mp-volume
       :type double-float
@@ -43,7 +46,7 @@
       :accessor mp-damage-position
       :initform nil)))
 
-(defclass particle-damage (particle)
+(defclass particle-damage (particle particle-damage-fundemental)
   (
    (log-damage
     :accessor mp-log-damage
