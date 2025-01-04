@@ -246,7 +246,7 @@
 
     (if non-local-damage
         (progn
-          ;; (update-localisation-lengths sim)
+          (update-localisation-lengths sim)
           (delocalise-damage sim))
         (localise-damage mesh mps dt))
     (cl-mpm:iterate-over-mps
