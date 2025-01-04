@@ -538,6 +538,7 @@
           (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0)))
 
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
+        (save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
