@@ -242,7 +242,7 @@
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
          ;; (find-nodal-local-length mesh mp)
-         ;; (find-intergral-local-length mesh mp)
+         (find-intergral-local-length mesh mp)
          ;; (setf (cl-mpm/particle::mp-true-local-length mp)
          ;;       (length-localisation (cl-mpm/particle::mp-local-length mp)
          ;;                            (cl-mpm/particle::mp-local-length-damaged mp)
@@ -252,7 +252,7 @@
 
     (if non-local-damage
         (progn
-          (update-localisation-lengths sim)
+          ;; (update-localisation-lengths sim)
           (delocalise-damage sim))
         (localise-damage mesh mps dt))
     (cl-mpm:iterate-over-mps
@@ -660,8 +660,8 @@ Calls the function with the mesh mp and node"
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
                  (weight
-                   (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
-                   ;; (weight-func-mps mesh mp mp-other length)
+                   ;(weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                   (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)
                    ;; (weight-func-mps mesh mp mp-other ll)

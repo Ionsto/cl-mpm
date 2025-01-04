@@ -1766,17 +1766,18 @@
                                          0d0))
       )))
 (defmethod cl-mpm/damage::update-localisation-lengths ((sim cl-mpm/mpi::mpm-sim-mpi-nodes-damage))
-  (with-accessors ((mesh cl-mpm:sim-mesh))
-      sim
-    (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
-                       sim
-                       (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))))
-      (lparallel:pdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
-      (call-next-method)
-      (lparallel:pdotimes (i (length damage-mps))
-        (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i))))
-    (values)))
+  ;; (with-accessors ((mesh cl-mpm:sim-mesh))
+  ;;     sim
+  ;;   (let ((damage-mps (cl-mpm/mpi::mpi-sync-damage-mps
+  ;;                      sim
+  ;;                      (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size sim))))
+  ;;     (lparallel:pdotimes (i (length damage-mps))
+  ;;       (cl-mpm/damage::local-list-add-particle mesh (aref damage-mps i)))
+  ;;     (call-next-method)
+  ;;     (lparallel:pdotimes (i (length damage-mps))
+  ;;       (cl-mpm/damage::local-list-remove-particle mesh (aref damage-mps i))))
+  ;;   (values))
+  )
 (defmethod cl-mpm/damage::delocalise-damage ((sim cl-mpm/mpi::mpm-sim-mpi-nodes-damage))
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
