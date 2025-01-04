@@ -25,7 +25,7 @@
    (enable-length-localisation
     :type boolean
     :accessor sim-enable-length-localisation
-    :initarg :enable-damage
+    :initarg :enable-length-localisation
     :initform nil))
   (:documentation "Explicit simulation with update stress first update"))
 
@@ -246,7 +246,8 @@
 
     (if non-local-damage
         (progn
-          (update-localisation-lengths sim)
+          (when (sim-enable-length-localisation sim)
+            (update-localisation-lengths sim))
           (delocalise-damage sim))
         (localise-damage mesh mps dt))
     (cl-mpm:iterate-over-mps
