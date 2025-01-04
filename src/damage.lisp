@@ -21,7 +21,12 @@
     :accessor sim-damage-delocal-counter-max
     :type fixnum
     :initarg :delocal-counter-max
-    :initform 10))
+    :initform 10)
+   (enable-length-localisation
+    :type boolean
+    :accessor sim-enable-length-localisation
+    :initarg :enable-damage
+    :initform nil))
   (:documentation "Explicit simulation with update stress first update"))
 
 (defclass mpm-sim-usl-damage (mpm-sim-damage cl-mpm::mpm-sim-usl) ())
@@ -238,17 +243,17 @@
        (when (typep mp 'cl-mpm/particle:particle-damage)
          ;; (find-nodal-local-length mesh mp)
          ;; (find-intergral-local-length mesh mp)
-         ;; (setf (cl-mpm/particle::mp-true-local-length mp)
-         ;;       (length-localisation (cl-mpm/particle::mp-local-length mp)
-         ;;                            (cl-mpm/particle::mp-local-length-damaged mp)
-         ;;                            (cl-mpm/particle::mp-damage mp)))
+         (setf (cl-mpm/particle::mp-true-local-length mp)
+               (length-localisation (cl-mpm/particle::mp-local-length mp)
+                                    (cl-mpm/particle::mp-local-length-damaged mp)
+                                    (cl-mpm/particle::mp-damage mp)))
          (damage-model-calculate-y mp dt)
          )))
 
     (if non-local-damage
         (progn
-          (delocalise-damage sim)
-          )
+          ;; (update-localisation-lengths sim)
+          (delocalise-damage sim))
         (localise-damage mesh mps dt))
     (cl-mpm:iterate-over-mps
      mps
@@ -655,8 +660,8 @@ Calls the function with the mesh mp and node"
                  ;; (weight (weight-func-mps mesh mp mp-other (sqrt (* length ll))))
                  ;;
                  (weight
-                   ;(weight-func-mps mesh mp mp-other (sqrt (* length ll)))
-                   (weight-func-mps mesh mp mp-other length)
+                   (weight-func-mps mesh mp mp-other (sqrt (* length ll)))
+                   ;; (weight-func-mps mesh mp mp-other length)
                    ;; (weight-func-mps mesh mp mp-other (* 0.5d0 (+ length ll)))
                    ;; (weight-func-mps mesh mp mp-other ll)
                    ;; (weight-func-mps mesh mp mp-other ll)
@@ -710,6 +715,16 @@ Calls the function with the mesh mp and node"
   ;;                         (- 1d0 (exp -1d0))) 1d-10))
   )
 
+(defgeneric update-localisation-lengths (sim))
+(defmethod update-localisation-lengths ((sim cl-mpm/damage::mpm-sim-damage))
+  (with-accessors ((mps cl-mpm::sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (find-intergral-local-length mesh mp))))))
 
 (defgeneric delocalise-damage (sim))
 
@@ -723,7 +738,6 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         (find-intergral-local-length mesh mp)
          (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
                           (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
                           (damage cl-mpm/particle::mp-damage)
