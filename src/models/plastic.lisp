@@ -154,21 +154,29 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
-      (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
-        (setf stress sig
-              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-              yield-func f)
-        (setf strain eps-e)
-        )
-      (incf ps-vm
-            (multiple-value-bind (l v)
-                (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-              (destructuring-bind (s1 s2 s3) l
-                (sqrt
-                 (/ (+ (expt (- s1 s2) 2d0)
-                       (expt (- s2 s3) 2d0)
-                       (expt (- s3 s1) 2d0)
-                       ) 2d0))))))
+      (progn
+          (multiple-value-bind (sig eps-e f inc)
+              (cl-mpm/ext::constitutive-mohr-coulomb stress
+                                                     de
+                                                     strain
+                                                     E
+                                                     nu
+                                                     phi
+                                                     psi
+                                                     c)
+              ;; (cl-mpm/constitutive::mc-plastic stress-u
+              ;;                                  de
+              ;;                                  strain
+              ;;                                  E
+              ;;                                  nu
+              ;;                                  phi
+              ;;                                  psi
+              ;;                                  coheasion)
+            (setf
+             stress sig
+             strain eps-e
+             yield-func f)
+            (incf ps-vm inc))))
     (when (> soft 0d0)
       (with-accessors ((c-0 mp-c-0)
                        (phi-0 mp-phi-0)
