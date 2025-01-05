@@ -936,11 +936,10 @@
                             0d0
                             )))))
           ;;No DP yield - just return
-          (values (cl-mpm/utils:voigt-copy stress)
-                  (cl-mpm/utils:voigt-copy trial-elastic-strain)
+          (values stress
+                  trial-elastic-strain
                   f-dp
-                  0d0
-                  )))))
+                  0d0)))))
 (defun mc-plastic-terzaghi (stress de trial-elastic-strain E nu phi psi c pore-pressure)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (declare (double-float E nu phi psi c)
