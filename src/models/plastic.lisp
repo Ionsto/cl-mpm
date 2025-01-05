@@ -164,14 +164,14 @@
               ;;                                        phi
               ;;                                        psi
               ;;                                        c)
-              (cl-mpm/constitutive::mc-plastic stress-u
+              (cl-mpm/constitutive::mc-plastic stress
                                                de
                                                strain
                                                E
                                                nu
                                                phi
                                                psi
-                                               coheasion)
+                                               c)
             (setf
              stress sig
              strain eps-e
