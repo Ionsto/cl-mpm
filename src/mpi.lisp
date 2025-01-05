@@ -893,6 +893,14 @@
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::g2p mesh mps dt vel-algo)
 
+                  ;;Must be done here
+                  (set-mp-mpi-index sim)
+                  (exchange-mps sim 0d0)
+                  (set-mp-mpi-index sim)
+                  (clear-ghost-mps sim)
+                  (cl-mpm::check-mps sim)
+                  (cl-mpm::check-single-mps sim)
+
                   ;;2nd round of mapping for USL
                   (cl-mpm::reset-grid-velocity mesh)
                   (cl-mpm::p2g mesh mps)
@@ -910,13 +918,6 @@
                     (cl-mpm::remove-material-damaged sim))
                   (when split
                     (cl-mpm::split-mps sim))
-                  (cl-mpm::check-mps sim)
-                  (cl-mpm::check-single-mps sim)
-
-                  (set-mp-mpi-index sim)
-                  (exchange-mps sim 0d0)
-                  (set-mp-mpi-index sim)
-                  (clear-ghost-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi))

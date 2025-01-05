@@ -113,12 +113,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
       (iterate-over-neighbours-cached mesh mp func)
       (create-node-cache mesh mp func))
+
   ;; (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
   ;;     (iterate-over-neighbours-shape-gimp-2d
   ;;        mesh mp func)
   ;;     (iterate-over-neighbours-shape-gimp-3d
   ;;        mesh mp func))
   ;; (iterate-over-neighbours-shape-gimp-2d mesh mp func)
+  ;; (iterate-over-neighbours-shape-gimp-simd mesh mp func)
+  ;; (iterate-over-neighbours-shape-gimp-3d mesh mp func)
   ;; (iterate-over-neighbours-shape-gimp mesh mp func)
   ;; (iterate-over-neighbours-shape-linear mesh mp func)
   (values)
@@ -132,7 +135,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       mp
     ;;Simple if statement - we take the hit
     (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-        (iterate-over-neighbours-shape-gimp-simd
+        (iterate-over-neighbours-shape-gimp-2d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
            (destructuring-bind (gx gy gz) grads
@@ -494,8 +497,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                          h))))
                                             (multiple-value-bind (distx disty) (sb-simd-avx:f64.2-values dist)
                                               (declare (type double-float distx disty))
-                                              (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp-fast distx (* 0.5d0 dox) h)))
-                                                     (weightsy (the double-float (cl-mpm/shape-function::shape-gimp-fast disty (* 0.5d0 doy) h)))
+                                              (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp distx (* 0.5d0 dox) h)))
+                                                     (weightsy (the double-float (cl-mpm/shape-function::shape-gimp disty (* 0.5d0 doy) h)))
                                                      (weight (* weightsx weightsy))
                                                      ;; #+cl-mpm-fbar
                                                      )
@@ -574,15 +577,11 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         mp
       (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
         (flet ((center-id (x)
-                 (round x h))
-               )
+                 (round x h)))
           (let* ((pa (cl-mpm/utils:fast-storage pos-vec))
                  (da (cl-mpm/utils:fast-storage d0))
                  (px (the double-float (aref pa 0)))
                  (py (the double-float (aref pa 1)))
-                 ;; (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec))
-                 ;; (ix (nth 0 pos-index))
-                 ;; (iy (nth 1 pos-index))
                  (ix (the fixnum (truncate (center-id px))))
                  (iy (the fixnum (truncate (center-id py))))
                  (cx (- px (* h ix)))
@@ -609,11 +608,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                 (when (cl-mpm/mesh:in-bounds mesh id)
                                   (let* ((distx (- cx (* h dx)))
                                          (disty (- cy (* h dy)))
-                                         ;; (dist (mapcar #'- (list (aref pa 0)
-                                         ;;                         (aref pa 1))
-                                         ;;               (cl-mpm/mesh:index-to-position mesh id)))
-                                         ;; (distx (nth 0 dist))
-                                         ;; (disty (nth 1 dist))
                                          (weightsx (cl-mpm/shape-function::shape-gimp distx dox h))
                                          (weightsy (cl-mpm/shape-function::shape-gimp disty doy h))
                                          (weight (* weightsx weightsy)))
@@ -621,10 +615,13 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                      (double-float weight weightsx weightsy distx disty))
                                     (when (> weight 0d0)
                                       (let* ((node (cl-mpm/mesh:get-node mesh id))
-
                                              (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx dox h)))
                                              (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty doy h)))
                                              (weight-fbar (* weights-fbar-x weights-fbar-y))
+                                             (grads-fbar
+                                               (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx dox h))
+                                                     (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty doy h))
+                                                     0d0))
                                              (gradx
                                                (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
                                                        weightsy))
@@ -634,7 +631,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                         (declare (double-float gradx grady))
                                         (funcall func mesh mp node
                                                  weight (list gradx grady 0d0)
-                                                 weight-fbar (list weights-fbar-x weights-fbar-y 0d0)))))))))))))))
+                                                 weight-fbar
+                                                 grads-fbar))))))))))))))
 
 (declaim ;(inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))

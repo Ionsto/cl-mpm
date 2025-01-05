@@ -134,29 +134,27 @@
                )
                 sim
     (declare (double-float mass-filter dt time))
-                (progn
-                    (reset-grid mesh)
-                    (p2g mesh mps)
-                    
-                    (when (> mass-filter 0d0)
-                      (filter-grid mesh (sim-mass-filter sim)))
-                    (update-node-kinematics mesh dt )
-                    (apply-bcs mesh bcs dt)
-                    (update-stress mesh mps dt fbar)
-                    ;; Map forces onto nodes
-                    (p2g-force mesh mps)
-                    (loop for bcs-f in bcs-force-list
-                          do (apply-bcs mesh bcs-f dt))
-                    (update-node-forces sim)
-                    ;; Reapply velocity BCs
-                    (apply-bcs mesh bcs dt)
-
-                    ;; Also updates mps inline
-                    (g2p mesh mps dt vel-algo)
-                    (when split
-                      (split-mps sim))
-                    ;; (check-mps sim)
-                    (incf time dt))))
+    (progn
+      (reset-grid mesh)
+      (p2g mesh mps)
+      (when (> mass-filter 0d0)
+        (filter-grid mesh (sim-mass-filter sim)))
+      (update-node-kinematics mesh dt )
+      (apply-bcs mesh bcs dt)
+      (update-stress mesh mps dt fbar)
+      ;; Map forces onto nodes
+      (p2g-force mesh mps)
+      (loop for bcs-f in bcs-force-list
+            do (apply-bcs mesh bcs-f dt))
+      (update-node-forces sim)
+      ;; Reapply velocity BCs
+      (apply-bcs mesh bcs dt)
+      ;; Also updates mps inline
+      (g2p mesh mps dt vel-algo)
+      (when split
+        (split-mps sim))
+      ;; (check-mps sim)
+      (incf time dt))))
 
 (defmethod update-sim ((sim mpm-sim-usl))
   "Update stress last algorithm"
