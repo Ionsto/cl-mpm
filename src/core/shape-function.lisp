@@ -34,7 +34,7 @@
          (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
 (defun shape-linear-dsvp (x h)
   (declare (type double-float x h))
-  (the double-float (/ (if (> x 0d0)
+  (the double-float (/ (if (>= x 0d0)
                                -1d0
                                1d0) h)
   ;; (the double-float (/ (signum x) h)
@@ -95,7 +95,7 @@
 ;;   (let* ((h 1.0d0)
 ;;          (x (loop for x from -2d0 upto 2d0 by 0.01d0 collect (* h x)))
 ;;          (node 0)
-;;          (l 0.01d0)
+;;          (l 1.5d0)
 ;;          )
 ;;     (vgplot:figure)
 ;;     (vgplot:plot

@@ -221,12 +221,20 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                           (when (cl-mpm/mesh:in-bounds mesh id)
                             (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
                                    (node (cl-mpm/mesh:get-node mesh id))
-                                   (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                   (weights
+                                     (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                                    (weight (reduce #'* weights))
                                    (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
-                                                  dist (nreverse weights))))
+                                                  dist (nreverse weights)))
+                                   )
                               (when (< 0d0 weight)
-                                (funcall func mesh mp node weight (append grads (list 0d0)) 0d0 (list 0d0 0d0 0d0)))))))))))
+                                (funcall func mesh mp node weight (append grads (list 0d0))
+                                         1d0
+                                         (list
+                                          (* 0.5d0 (cl-mpm/shape-function::shape-linear-dsvp (nth 0 dist) h))
+                                          (* 0.5d0 (cl-mpm/shape-function::shape-linear-dsvp (nth 1 dist) h))
+                                          0d0
+                                          )))))))))))
 
 (declaim (inline iterate-over-neighbours-shape-linear))
 (defun iterate-over-neighbours-shape-linear-3d (mesh mp func)

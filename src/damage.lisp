@@ -1156,6 +1156,8 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
         (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-mpi-index mp))
         (cl-mpm/output::save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
+        (cl-mpm/output::save-parameter "dfdebug" (cl-mpm/particle::mp-debug-j mp))
+        (cl-mpm/output::save-parameter "df0debug" (cl-mpm/particle::mp-debug-j-gather mp))
         (cl-mpm/output::save-parameter "volume" (cl-mpm/particle::mp-volume mp))
         (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))

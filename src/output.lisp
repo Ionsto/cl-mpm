@@ -539,6 +539,8 @@
 
         (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
         (save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
+        (save-parameter "dfdebug" (cl-mpm/particle::mp-debug-j mp))
+        (save-parameter "df0debug" (cl-mpm/particle::mp-debug-j-gather mp))
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
