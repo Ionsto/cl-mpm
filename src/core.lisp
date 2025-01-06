@@ -1357,7 +1357,10 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                                  0d0 0d0 1d0))))
       (cl-mpm/fastmaths::fast-.+ df stretch-tensor df)
       (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-            (j-n (cl-mpm/fastmaths:det-3x3 def)))
+            (j-n
+              1d0
+              ;; (cl-mpm/fastmaths:det-3x3 def)
+              ))
         (iterate-over-neighbours
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
@@ -1394,10 +1397,13 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       ;;Explicit fbar
       (when fbar
-        (if nil;;t exp: nil Coobs
+        (if t;;t exp: nil Coobs
             (progn
               (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-                    (j-n (cl-mpm/fastmaths:det-3x3 def))
+                    (j-n
+                      1d0
+                      ;; (cl-mpm/fastmaths:det-3x3 def)
+                         )
                     (gather-j 0d0)
                     (nd (cl-mpm/mesh::mesh-nd mesh))
                     (svp-sum 0d0)
