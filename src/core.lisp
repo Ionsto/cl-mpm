@@ -1380,7 +1380,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             (setf (magicl:tref df 2 2) 1d0)))
         )
       ;;Coombs fbar
-      (when t;fbar
+      (when fbar
         (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
                                                           0d0 1d0 0d0
                                                           0d0 0d0 1d0)))
