@@ -1391,7 +1391,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                                                   (cl-mpm/fastmaths:det-3x3 df)))
                              (the double-float (/ 1d0 (float nd)))))
           (when (= nd 2)
-            (setf (mtref df 2 2) 1d0))
+            (setf (magicl:tref df 2 2) 1d0))
           )) df)))
 (defgeneric post-stress-step (mesh mp dt))
 (defmethod post-stress-step (mesh mp dt))

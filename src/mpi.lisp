@@ -2009,23 +2009,24 @@
                                 (step-size 1d-1)
                                 (dims (list :x :y :z))
                                 )
-  (let ((balance (cl-mpm/mpi::load-balance-value sim))
-        (rank (cl-mpi::mpi-comm-rank)))
-    (when (= rank 0)
-      (format t "Check balance~%"))
-    (when (and balance
-               (> balance max-bounds))
-      (let ((balance nil)
-            (stag nil))
-        (loop repeat max-iters
-              while (and (if balance (> balance min-bounds) t)
-                         (not stag))
-              do
-                 (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
-                                                                                   :exchange-mps t
-                                                                                   :step-size step-size
-                                                                                   :substeps substeps
-                                                                                   :dims dims)
-                   (setf balance balance
-                         stag stagnent))))
-      (domain-decompose sim))))
+  (when (typep sim 'cl-mpm/mpi:mpm-sim-mpi)
+    (let ((balance (cl-mpm/mpi::load-balance-value sim))
+          (rank (cl-mpi::mpi-comm-rank)))
+      (when (= rank 0)
+        (format t "Check balance~%"))
+      (when (and balance
+                 (> balance max-bounds))
+        (let ((balance nil)
+              (stag nil))
+          (loop repeat max-iters
+                while (and (if balance (> balance min-bounds) t)
+                           (not stag))
+                do
+                   (multiple-value-bind (balance stagnent) (cl-mpm/mpi::load-balance sim
+                                                                                     :exchange-mps t
+                                                                                     :step-size step-size
+                                                                                     :substeps substeps
+                                                                                     :dims dims)
+                     (setf balance balance
+                           stag stagnent))))
+        (domain-decompose sim)))))

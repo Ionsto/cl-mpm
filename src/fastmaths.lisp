@@ -890,14 +890,16 @@
 (declaim (inline det-3x3)
          (ftype (function (magicl::matrix/double-float) (double-float)) det-3x3))
 (defun det-3x3 (m-mat)
-  (let ((a (cl-mpm/utils:fast-storage m-mat)))
-    (declare ((simple-array double-float (9)) a))
-    (macrolet ((tref (m x y)
-                 `(the double-float (aref ,m ,(the fixnum (+ (the fixnum (* 3 (the fixnum y))) (the fixnum x)))))))
-      (+
-       (* (tref a 0 0) (- (* (tref a 1 1) (tref a 2 2)) (* (tref a 2 1) (tref a 1 2))))
-       (* -1d0 (tref a 1 0) (- (* (tref a 0 1) (tref a 2 2)) (* (tref a 2 1) (tref a 0 2))))
-       (* (tref a 2 0) (- (* (tref a 0 1) (tref a 1 2)) (* (tref a 1 1) (tref a 0 2))))))))
+  (magicl:det m-mat)
+  ;; (let ((a (cl-mpm/utils:fast-storage m-mat)))
+  ;;   (declare ((simple-array double-float (9)) a))
+  ;;   (macrolet ((tref (m x y)
+  ;;                `(the double-float (aref ,m ,(the fixnum (+ (the fixnum (* 3 (the fixnum y))) (the fixnum x)))))))
+  ;;     (+
+  ;;      (* (tref a 0 0) (- (* (tref a 1 1) (tref a 2 2)) (* (tref a 2 1) (tref a 1 2))))
+  ;;      (* -1d0 (tref a 1 0) (- (* (tref a 0 1) (tref a 2 2)) (* (tref a 2 1) (tref a 0 2))))
+  ;;      (* (tref a 2 0) (- (* (tref a 0 1) (tref a 1 2)) (* (tref a 1 1) (tref a 0 2)))))))
+  )
 
 
 (defun test-sum ()
