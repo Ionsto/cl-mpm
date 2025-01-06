@@ -273,6 +273,7 @@
   (float pmod cl-mpm/mesh::node-pwave)
   (float svp cl-mpm/mesh::node-svp-sum)
   (float vol cl-mpm/mesh::node-volume)
+  (float j-inc cl-mpm/mesh::node-jacobian-inc)
   (vector velocity cl-mpm/mesh::node-velocity)
   (vector force cl-mpm/mesh::node-force)
   (vector force-int cl-mpm/mesh::node-internal-force)
@@ -499,6 +500,25 @@
                      ))
                  (error "MPI exchange touched invalid node?"))))))))
 
+(defun mpi-sync-j-inc (sim)
+  ;; (format t "Sync momentum ~%")
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+      (exchange-nodes
+       sim
+       (lambda (node-list)
+         (lparallel:pdotimes (i (length node-list))
+           (let* ((mpi-node (aref node-list i))
+                  (index (mpi-object-node-index mpi-node))
+                  (node (cl-mpm/mesh:get-node mesh index)))
+             (if node
+                 (progn
+                   (with-accessors ((j-inc cl-mpm/mesh::node-jacobian-inc))
+                       node
+                     (declare (double-float mass svp vol pmod))
+                     (incf j-inc (the double-float (mpi-object-node-j-inc mpi-node)))))
+                 (error "MPI exchange touched invalid node?"))))))))
+
 
 (defun mpi-sync-force (sim)
   ;; (format t "Sync force ~%")
@@ -663,6 +683,28 @@
 ;;                 output)
 ;;                ))
 ;;     output))
+
+(defun update-stress-nodal-fbar (sim)
+  "Update all stresses, with optional f-bar"
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (dt cl-mpm:sim-dt)
+                   (fbar cl-mpm::sim-enable-fbar))
+      sim
+    (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+    (iterate-over-mps
+     mps
+     (lambda (mp)
+       (cl-mpm::calculate-strain-rate mesh mp dt)
+       (cl-mpm::map-jacobian mesh mp dt)))
+    (mpi-sync-j-inc sim)
+    (iterate-over-mps
+     mps
+     (lambda (mp)
+       (cl-mpm::update-stress-mp mesh mp dt fbar)
+       (cl-mpm::post-stress-step mesh mp dt)
+       )))
+  (values))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi-nodes))
   (with-slots ((mesh cl-mpm::mesh)
