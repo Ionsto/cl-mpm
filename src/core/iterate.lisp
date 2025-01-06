@@ -597,8 +597,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
             (declare (type double-float h cx cy dox doy px py )
                      (type integer dxf dxc dyf dyc ix iy )
                      )
-            (loop for dx from dxf to dxc
-                  do (loop for dy from dyf to dyc
+            (loop for dx from -2 to 2;dxf to dxc
+                  do (loop for dy from -2 to 2;dyf to dyc
                            do
                               (let* ((id (list (+ ix dx)
                                                (+ iy dy)
