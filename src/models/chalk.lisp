@@ -243,22 +243,22 @@
     (when enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f inc)
-              (cl-mpm/ext::constitutive-mohr-coulomb stress-u
-                                                     de
-                                                     strain
-                                                     E
-                                                     nu
-                                                     phi
-                                                     psi
-                                                     coheasion)
-              ;; (cl-mpm/constitutive::mc-plastic stress-u
-              ;;                                  de
-              ;;                                  strain
-              ;;                                  E
-              ;;                                  nu
-              ;;                                  phi
-              ;;                                  psi
-              ;;                                  coheasion)
+              ;; (cl-mpm/ext::constitutive-mohr-coulomb stress-u
+              ;;                                        de
+              ;;                                        strain
+              ;;                                        E
+              ;;                                        nu
+              ;;                                        phi
+              ;;                                        psi
+              ;;                                        coheasion)
+              (cl-mpm/constitutive::mc-plastic stress-u
+                                               de
+                                               strain
+                                               E
+                                               nu
+                                               phi
+                                               psi
+                                               coheasion)
             (setf
              stress-u sig
              strain eps-e

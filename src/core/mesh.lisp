@@ -555,11 +555,11 @@
      p-mod 0d0
      mass 0d0)
     (cl-mpm/fastmaths::fast-zero vel)
-    (cl-mpm/fastmaths::fast-zero acc)
-    (cl-mpm/fastmaths::fast-zero force)
-    (cl-mpm/fastmaths::fast-zero int-force)
-    (cl-mpm/fastmaths::fast-zero ext-force)
-    (cl-mpm/fastmaths::fast-zero buoyancy-force)
+    ;; (cl-mpm/fastmaths::fast-zero acc)
+    ;; (cl-mpm/fastmaths::fast-zero force)
+    ;; (cl-mpm/fastmaths::fast-zero int-force)
+    ;; (cl-mpm/fastmaths::fast-zero ext-force)
+    ;; (cl-mpm/fastmaths::fast-zero buoyancy-force)
     ))
 
 (defgeneric reset-node (node)
