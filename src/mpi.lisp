@@ -781,8 +781,8 @@
                     (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                   (cl-mpm::update-node-kinematics mesh dt)
                   (cl-mpm::apply-bcs mesh bcs dt)
-                  ;(cl-mpm::update-stress mesh mps dt fbar)
-                  (update-stress-nodal-fbar sim)
+                  (cl-mpm::update-stress mesh mps dt fbar)
+                  ;; (update-stress-nodal-fbar sim)
                   (when enable-damage
                     (cl-mpm/damage::calculate-damage sim))
                   (cl-mpm::p2g-force mesh mps)

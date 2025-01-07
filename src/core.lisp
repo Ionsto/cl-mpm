@@ -1367,12 +1367,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
            (with-accessors ((node-active cl-mpm/mesh:node-active)
                             (node-j-inc cl-mpm/mesh::node-jacobian-inc)
                             (node-volume cl-mpm/mesh::node-volume)
+                            (node-svp cl-mpm/mesh::node-svp-sum)
                             (node-lock cl-mpm/mesh::node-lock))
                node
              (declare (double-float node-j-inc svp volume j-inc j-n node-volume))
              (when node-active
                (sb-thread:with-mutex (node-lock)
-                 (incf node-j-inc (/ (* svp volume j-inc j-n) node-volume)))))))))))
+                 ;(incf node-j-inc (* svp j-inc j-n (/ volume node-volume)))
+                 (incf node-j-inc (* j-inc j-n (/ svp node-svp)))
+                 )))))))))
 
 (declaim (inline calculate-df)
          (ftype (function (cl-mpm/mesh::mesh
@@ -1397,7 +1400,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       ;;Explicit fbar
       (when fbar
-        (if t;;t exp: nil Coobs
+        (if nil;;t exp: nil Coobs
             (progn
               (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
                     (j-n
@@ -1412,21 +1415,28 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                  mesh mp
                  (lambda (mesh mp node svp grads fsvp fgrads)
                    (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                    (node-j-inc cl-mpm/mesh::node-jacobian-inc))
+                                    (node-j-inc cl-mpm/mesh::node-jacobian-inc)
+                                    (node-volume cl-mpm/mesh::node-volume))
                        node
                      (when node-active
                        (incf svp-sum svp)
-                       (incf gather-j (* svp node-j-inc))))))
+                       ;; (incf gather-j (/ (* svp node-j-inc) node-volume))
+                       (incf gather-j (* svp node-j-inc))
+                       ))))
                 ;; (setf gather-j (/ gather-j svp-sum))
 
-                (setf (cl-mpm/particle::mp-debug-j mp) (* j-inc j-n)
+                (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n));; (* j-inc j-n)
                       (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
 
-                (cl-mpm/fastmaths:fast-scale! df (expt
-                                                  (the double-float (/ gather-j (* j-inc j-n)))
-                                                  (/ 1 nd)))
+                (cl-mpm/fastmaths:fast-scale!
+                 df
+                 (expt
+                  (the double-float (/ gather-j (* j-inc j-n)))
+                  (/ 1 nd)))
                 (when (= nd 2)
-                  (setf (magicl:tref df 2 2) 1d0))))
+                  (setf (magicl:tref df 2 2) 1d0))
+                )
+              )
             ;;Coombs fbar
             (progn
               (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
@@ -1436,10 +1446,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                 (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
                 (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
                       (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
-                (magicl:scale! df (expt
-                                   (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                                        (cl-mpm/fastmaths:det-3x3 df)))
-                                   (the double-float (/ 1d0 (float nd)))))
+                (cl-mpm/fastmaths::fast-scale!
+                 df
+                 (expt
+                  (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
+                                       (cl-mpm/fastmaths:det-3x3 df)))
+                  (the double-float (/ 1d0 nd))))
                 (when (= nd 2)
                   (setf (magicl:tref df 2 2) 1d0))
                 ))))
@@ -1456,11 +1468,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun update-stress (mesh mps dt &optional (fbar nil))
   "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (calculate-strain-rate mesh mp dt)
-     (map-jacobian mesh mp dt)))
+  ;; (iterate-over-mps
+  ;;  mps
+  ;;  (lambda (mp)
+  ;;    (calculate-strain-rate mesh mp dt)
+  ;;    (map-jacobian mesh mp dt)))
   (iterate-over-mps
    mps
    (lambda (mp)
