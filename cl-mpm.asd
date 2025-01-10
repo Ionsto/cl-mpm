@@ -443,13 +443,7 @@
 
 (defsystem "cl-mpm/examples/collapse"
   :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/penalty"
-               "cl-mpm/damage"
-               "cl-mpm/plotter"
+               "cl-mpm/all"
                "vgplot"
                "swank.live")
   :serial t

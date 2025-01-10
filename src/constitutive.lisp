@@ -608,12 +608,13 @@
              sum (expt (magicl:tref b i 0) 2))))
 (defun vm-plastic (stress de trial-elastic-strain rho)
   (let* ((tol 1d-9)
-        (max-iter 5)
-        ;; (sig stress)
-        (sig (cl-mpm/utils::voigt-copy stress))
-        (s (deviatoric-voigt stress))
-        (j2 (voigt-j2 s))
-        (f (vm-yield-func j2 rho))
+         (max-iter 5)
+         ;; (sig stress)
+         (sig (cl-mpm/utils::voigt-copy stress))
+         (s (deviatoric-voigt stress))
+         (j2 (voigt-j2 s))
+         (f (vm-yield-func j2 rho))
+         (inc 0d0)
         )
     (declare (dynamic-extent s ))
     (if (> f tol)
@@ -667,12 +668,14 @@
                                  do (setf (magicl:tref b i 0) (magicl:tref b-eps i 0)))
                            (setf (magicl:tref b 6 0) b-f)))
                        ))
-          ;; (when (or (> (b-norm b) tol)
-          ;;           (> (abs (magicl:tref b 6 0)) tol))
-          ;;   (format t "Bad VM solve~%"))
-          (values sig eps-e f)
+          (setf inc (the double-float
+                           (cl-mpm/fastmaths::vector-principal-von-mises
+                            (cl-mpm/fastmaths::fast-.--vector
+                             eps-e
+                             trial-elastic-strain))))
+          (values sig eps-e f inc)
           ))
-      (values sig trial-elastic-strain f))))
+      (values sig trial-elastic-strain f inc))))
 
 
 

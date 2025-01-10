@@ -251,6 +251,10 @@
                                                      phi
                                                      psi
                                                      coheasion)
+              ;; (cl-mpm/constitutive::vm-plastic stress-u
+              ;;                                  de
+              ;;                                  strain
+              ;;                                  coheasion)
               ;; (cl-mpm/constitutive::mc-plastic stress-u
               ;;                                  de
               ;;                                  strain
@@ -516,8 +520,18 @@
                      (k cl-mpm/particle::mp-history-stress)
                      (tau cl-mpm/particle::mp-delay-time)
                      (ductility cl-mpm/particle::mp-ductility)
+                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
+                     (damage-tension cl-mpm/particle::mp-damage-tension)
+                     (damage-shear cl-mpm/particle::mp-damage-shear)
+                     (damage-compression cl-mpm/particle::mp-damage-compression)
+                     (peerlings cl-mpm/particle::mp-peerlings-damage)
                      ) mp
-      (declare (double-float damage damage-inc critical-damage))
+      (declare (double-float damage damage-inc critical-damage
+                             damage-tension damage-shear damage-compression
+                             kt-r kc-r g-r
+                             ))
         (progn
           ;;Damage increment holds the delocalised driving factor
           (when (< damage 1d0)
@@ -527,6 +541,15 @@
             (let ((new-damage (max damage
                                    (damage-response-exponential k E init-stress ductility))))
               (setf damage-inc (- new-damage damage)))
+            (if peerlings
+                (setf
+                 damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
+                 damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
+                 damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
+                (setf
+                 damage-tension (* kt-r damage)
+                 damage-compression (* kc-r damage)
+                 damage-shear (* g-r damage)))
             (when (>= damage 1d0)
               (setf damage-inc 0d0)
               (setf ybar 0d0))

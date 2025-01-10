@@ -21,12 +21,15 @@
   )
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   ;; ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;(cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  (cl-mpm::update-domain-corner mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 
 (defparameter *localising* nil)
@@ -81,7 +84,7 @@
         mp
       (declare (double-float pressure damage))
       (when (and (cl-mpm/particle::mp-enable-damage mp)
-               (< damage 1d0)
+               ;; (< damage 1d0)
                )
         ;; (setf damage-increment (cl-mpm/damage::criterion-max-principal-stress stress))
 
@@ -379,7 +382,7 @@
   :enable-plasticity nil
   :peerlings-damage t
 
-  :psi (* 0d0 (/ pi 180))
+  :psi (* 5d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
   :c 131d3
   :phi-r (* 30d0 (/ pi 180))
@@ -392,7 +395,7 @@
   :nu 0.24d0
   :kt-res-ratio 1d0
   :kc-res-ratio 0d0;(- 1d0 0.1d0)
-  :g-res-ratio 0.5d0;(- 1d0 (* 0.25d0 0.1d0))
+  :g-res-ratio 0.35d0;(- 1d0 (* 0.25d0 0.1d0))
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
@@ -406,7 +409,7 @@
 
   :psi (* 5d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
-  :c (* 131d3 1d1)
+  :c (* 131d3 1d2)
   :phi-r (* 30d0 (/ pi 180))
   :c-r 0d0
   :softening 0d0
@@ -520,7 +523,7 @@
       (defparameter *mesh-resolution* h-x)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
@@ -1240,8 +1243,8 @@
                          :init-stress init-stress))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
-                      :corner-size (* 0.5d0 mesh-size)
-                      :smoothness 2)
+                      :corner-size (* 0.25d0 mesh-size)
+                      :smoothness 4)
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     (setf (cl-mpm:sim-dt *sim*)
           (*
@@ -1384,7 +1387,8 @@
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (typep mp 'cl-mpm/particle::particle-damage)
                (when (slot-exists-p mp 'cl-mpm/particle::delay-time)
-                (setf (cl-mpm/particle::mp-delay-time mp) (* damage-time-scale (* time-per-mm 1d-3) 1d-4)))))
+                (setf (cl-mpm/particle::mp-delay-time mp)
+                      (* damage-time-scale (* time-per-mm 1d-3) 1d-4)))))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.05d0
@@ -1516,11 +1520,11 @@
                      (format t "Step ~d/~D~%" steps load-steps)
                      (when (= (mod steps (ceiling sample-scale)) 0)
                        (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*)
                        (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.vtk" *sim-step*)) *sim*)
                        ;; (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*)
                        )
-                     ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0)
                            (high-resolution nil)
@@ -2048,10 +2052,9 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       ;; 2
                        ;; 4
-                       ;; 8
-                       16
+                       8
+                       ;; 16
                        ;; 32
                        ;; 4.5
                        ;; 8.5
@@ -2061,16 +2064,13 @@
         do
            (dolist (vel (list :BLEND))
              (dolist (gf (list 2.0d0))
-               (dolist (localising (list nil))
+               (dolist (localising (list t nil))
                  (dolist (epsilon-scale (list 1d2))
-                   (dolist (mps (list 2))
+                   (dolist (mps (list 3))
                      (let (;(mps 2)
                            ;; (mps 2)
-                           (scale 1d0)
+                           (scale 0.5d0)
                            (sample-scale 1d0)
-                           ;; (name "circumscribed")
-                           ;; (name "middle-circumscribed")
-                           ;; (name "plastic")
                            )
                        (loop for s
                              ;; from 0d4 to 30d4 by 5d4
@@ -2079,8 +2079,8 @@
                                (list
                                 ;; 0d0
                                 ;; 5d4
-                                10d4
-                                20d4
+                                ;; 10d4
+                                ;; 20d4
                                 30d4
                                 ;; 40d4
                                 ;; 50d4
@@ -2091,9 +2091,9 @@
                                       (piston-scale 1d0)
                                       ;; (epsilon-scale (* epsilon-scale (/ (float refine 1d0) 4)))
                                       ;; (name (format nil "~A_~A" "iso" damage))
-                                      (name localising)
+                                      (name "FBAR")
                                       )
-                                  (setf *localising* localising)
+                                  (setf *localising* nil)
                                   (setf *skip* nil)
                                   (defparameter *gf* gf)
                                   (format t "Test ~D ~F" refine s)
@@ -2107,6 +2107,8 @@
                                          ;; 131d3
                                          (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180)))
                                          )
+                                  (setf (cl-mpm::sim-enable-fbar *sim*) localising)
+                                  (setf name localising)
                                   (setf (cl-mpm::sim-velocity-algorithm *sim*) vel)
                                   ;; (cl-mpm:iterate-over-mps
                                   ;;  (cl-mpm:sim-mps *sim*)
@@ -2139,14 +2141,6 @@
                                    :enable-damage t
                                    :enable-plasticity t
                                    )
-                                  ;; (run-static (format nil "../ham-shear-box/output-~f_~D_~f_~f-~F/" refine mps scale epsilon-scale s)
-                                  ;;      :displacment 0.1d-3
-                                  ;;      :dt-scale 0.25d0
-                                  ;;      :skip-level 0.9d0
-                                  ;;      :load-steps 50
-                                  ;;      :enable-damage nil
-                                  ;;      :enable-plasticity t
-                                  ;;      )
                                   (when *skip*
                                     (setf *run-sim* t))))))))))))
 

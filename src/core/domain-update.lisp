@@ -504,3 +504,91 @@
           (setf (the double-float (aref domain-storage 1))
                 (* 0.5d0 (- (aref max-diff 1) (aref min-diff 1))))
           ))))
+
+(defun update-domain-deformation (mesh mp dt)
+  "Update the domain length based on the increment of the stretch rate"
+  (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    
+    (let* ((d-0 (cl-mpm/utils::matrix-diag (list (expt (varef domain-0 0) 2)
+                                                 (expt (varef domain-0 1) 2)
+                                                 (expt (varef domain-0 2) 2))))
+           (l (magicl:@ def d-0 (magicl:transpose def))))
+      (multiple-value-bind (l v) (cl-mpm/utils::eig l)
+        (let* ((stretch
+                 (magicl:@
+                  v
+                  (cl-mpm/utils::matrix-from-list
+                   (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                         0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                         0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+                  (magicl:transpose v)))
+               )
+          (setf (varef domain 0) (abs (magicl:tref stretch 0 0)))
+          (setf (varef domain 1) (abs (magicl:tref stretch 1 1)))))
+      ;; (setf
+      ;;  (varef domain 0)
+      ;;  ;; (magicl:tref true-domain 0 0)
+      ;;  (cl-mpm/fastmaths:mag
+      ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
+      ;;    l
+      ;;    (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+      ;;  (varef domain 1)
+      ;;  ;; (magicl:tref true-domain 1 1)
+      ;;  (cl-mpm/fastmaths:mag
+      ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
+      ;;    l
+      ;;    (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+      ;;  ;; (varef domain 2)
+      ;;  ;; (cl-mpm/fastmaths:mag
+      ;;  ;;  (cl-mpm/fastmaths::fast-@-matrix-vector
+      ;;  ;;   true-domain
+      ;;  ;;   (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))
+      ;;  ;;  )
+      ;;  )
+      ;; (setf (varef domain 2) (* (the double-float (varef domain-0 2))
+      ;;                           ))
+      )))
+
+(defun update-domain-deformation (mesh mp dt)
+  "Update the domain length based on the increment of the stretch rate"
+  (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   )
+      mp
+    
+    (let* ((d-0 (cl-mpm/utils::matrix-diag (list (expt (varef domain-0 0) 1)
+                                                 (expt (varef domain-0 1) 1)
+                                                 (expt (varef domain-0 2) 1))))
+           ;(l (magicl:@ def d-0 (magicl:transpose def)))
+           (l (magicl:@ def d-0))
+           )
+      ;; (setf (varef domain 0) (abs (magicl:tref stretch 0 0)))
+      ;; (setf (varef domain 1) (abs (magicl:tref stretch 1 1)))
+      (setf
+       (varef domain 0)
+       ;; (magicl:tref true-domain 0 0)
+       (cl-mpm/fastmaths:mag
+        (cl-mpm/fastmaths::fast-@-matrix-vector
+         l
+         (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+       (varef domain 1)
+       ;; (magicl:tref true-domain 1 1)
+       (cl-mpm/fastmaths:mag
+        (cl-mpm/fastmaths::fast-@-matrix-vector
+         l
+         (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+       ;; (varef domain 2)
+       ;; (cl-mpm/fastmaths:mag
+       ;;  (cl-mpm/fastmaths::fast-@-matrix-vector
+       ;;   true-domain
+       ;;   (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0)))
+       ;;  )
+       )
+      ;; (setf (varef domain 2) (* (the double-float (varef domain-0 2))
+      ;;                           ))
+      )))

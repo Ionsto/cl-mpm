@@ -616,6 +616,14 @@
   (matrix-from-list (list value 0d0 0d0
                           0d0 value 0d0
                           0d0 0d0 value)))
+(declaim
+ (ftype (function (list) magicl::matrix/double-float) matrix-diag))
+(defun matrix-diag (values)
+  (destructuring-bind (v1 v2 v3) values
+    (declare (double-float v1 v2 v3))
+    (matrix-from-list (list v1 0d0 0d0
+                            0d0 v2 0d0
+                            0d0 0d0 v3))))
 
 (declaim
  (ftype (function (double-float) magicl::matrix/double-float) voigt-eye))

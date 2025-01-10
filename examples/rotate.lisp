@@ -17,7 +17,8 @@
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::update-domain-stretch mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
 
@@ -129,7 +130,7 @@
                    (cl-mpm/bc::make-bc-constant-velocity
                     pos
                     (list (+ (cl-mpm/utils:varef vel 0)
-                             (* 0.10d0 (cl-mpm/utils:varef dist 0))
+                             ;; (* 0.10d0 (cl-mpm/utils:varef dist 0))
                              )
                           (cl-mpm/utils:varef vel 1)
                           0d0)
@@ -151,6 +152,67 @@
       ;;               t)
       ;;             ))))))
 
+      sim)))
+(defun setup-test-stretch (size block-size &optional (e-scale 1) (mp-scale 1))
+  (let* ((sim (cl-mpm/setup::make-block
+               (/ 1d0 e-scale)
+               (mapcar (lambda (x) (* x e-scale)) size)
+               :sim-type 'cl-mpm::mpm-sim-usf
+               ;; 'cl-mpm/damage::mpm-sim-damage
+               ))
+         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+         (h-x (/ h 1d0))
+         (h-y (/ h 1d0))
+         (density 1d3)
+         (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
+         )
+    (declare (double-float h density))
+    (progn
+      (let ()
+        (setf (cl-mpm:sim-mps sim)
+              (cl-mpm/setup::make-mps-from-list
+               (cl-mpm/setup::make-block-mps-list
+                (mapcar (lambda (x y) (- (* x 0)
+                                       (* y 0)
+                                       )) size block-size)
+                ;; (mapcar (lambda (x) 0d0) size)
+                block-size
+                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                density
+                ;; 'cl-mpm/particle::particle-elastic-damage
+                'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-vm
+                :E 1d6
+                :nu 0.3d0
+                ;; :rho 20d3
+                ;; :initiation-stress 1d3
+                ;; :damage-rate 1d-6
+                ;; :critical-damage 0.50d0
+                ;; :local-length 2d0
+                ;; :local-length-damaged 0.01d0
+                ;; :damage 0.0d0
+                :gravity -10.0d0
+                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+                ))))
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-mass-filter sim) 0d0)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (let ((ms 1d0))
+        (setf (cl-mpm::sim-mass-scale sim) ms)
+        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
+        )
+
+      (let ((dt-scale 1d0))
+        (setf
+         (cl-mpm:sim-dt sim)
+         (* dt-scale h
+            (sqrt (cl-mpm::sim-mass-scale sim))
+            (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
+
+      (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
+      (setup-simple-shear sim)
       sim)))
 
 (defun setup-rotation (sim))
@@ -176,8 +238,7 @@
                       (* 0.05d0 (cl-mpm/utils:varef loc 1))
                       0d0;(cl-mpm/utils:varef loc 1)
                       0d0)
-                ))))))
-  )
+                )))))))
 
 
 (defparameter *sim* nil)
@@ -194,9 +255,10 @@
   (let ((mps-per-dim mps)
         (block-size 5)
         (domain-size (list 25 25))
+        (offset (list 0 0))
         )
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column
+    (defparameter *sim* (setup-test-stretch
                          domain-size
                          (list block-size block-size)
                          refine mps-per-dim))
@@ -205,7 +267,7 @@
   ;;  *sim*
   ;;  (lambda (mp)
   ;;    (cl-mpm/fastmaths:norm (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))
-  (dotimes (i 0)
+  (dotimes (i 1)
     (cl-mpm::split-mps-criteria
      *sim*
      (lambda (mp h)
@@ -218,11 +280,6 @@
   (defparameter *sim-step* 0))
 
 
-;; (defun set-velocity ()
-;;   (cl-mpm:iterate-over-nodes
-
-;;    )
-;;   )
 
 (defun run ()
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
@@ -249,7 +306,7 @@
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim *sim*)
-                        (cl-mpm::split-mps-eigenvalue *sim*)
+                        ;; (cl-mpm::split-mps-eigenvalue *sim*)
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -259,28 +316,14 @@
 
                      (incf *sim-step*)
                      (plot *sim*)
-                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080"
-                                        )
+                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                     ;;                    :terminal "png size 1920,1080"
+                     ;;                    )
 
                      (swank.live:update-swank)
                      ))))
   (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
-
-;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
-;; (push (lambda ()
-;;         (format t "Closing kernel~%")
-;;         (lparallel:end-kernel))
-;;       sb-ext:*exit-hooks*)
-;; (setup)
-;; (run)
-
-;; (time
-;;  (dotimes (i 1)
-;;    (cl-mpm::update-stress (cl-mpm:sim-mesh *sim*)
-;;                           (cl-mpm:sim-mps *sim*)
-;;                           (cl-mpm:sim-dt *sim*))))
 
 
 (defmacro time-form (it form)
@@ -299,40 +342,8 @@
          (format t "Throughput: ~f~%" (/ 1 dt))
          (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
          dt))))
-(defun test-mult ()
-  (time
-   (cl-mpm:iterate-over-mps
-    (cl-mpm:sim-mps *sim*)
-    (lambda (mp)
-      (with-accessors ((strain cl-mpm/particle:mp-strain)
-                       (de cl-mpm/particle::mp-elastic-matrix)
-                       (stress cl-mpm/particle::mp-stress-kirchoff))
-          mp
-        (cl-mpm/constitutive::linear-elastic-mat strain de stress))))))
-(defun profile ()
-  (setup :refine 16)
-  ;; (sb-profile:unprofile)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; ;; (sb-profile:profile "CL-MPM/SHAPE-FUNCTION")
-  ;; (sb-profile:reset)
-  (time-form 100
-             (progn
-               (format t "~D~%" i)
-                  (cl-mpm::update-sim *sim*)))
-  ;; (time-form 1000000
-  ;;            (progn
-  ;;              ;; (cl-mpm:iterate-over-neighbours (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (mesh mp &rest args) (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-  ;;              (cl-mpm::iterate-over-neighbours-shape-gimp-simd (cl-mpm:sim-mesh *sim*) (aref (cl-mpm:sim-mps *sim*) 0) (lambda (&rest args)))
-  ;;              ))
-  ;; (time
-  ;;  (dotimes (i 100)
-  ;;    (format t "~D~%" i)
-  ;;    (cl-mpm::update-sim *sim*)))
-  (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  ;; (sb-profile:report)
-  )
+
+
 
 (defun profile ()
   (setup :refine 16)
@@ -351,71 +362,3 @@
   (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
   ;; (sb-profile:report)
   )
-
-;; (lparallel:end-kernel)
-;; (sb-ext::exit)
-;; (uiop:quit)
-
-
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (defun test ()
-;;     (let ((iters 10000000))
-;;       (let ((a (cl-mpm/utils:vector-zeros)))
-;;         (time
-;;          (lparallel:pdotimes (i iters)
-;;            (magicl:.+ a (cl-mpm/utils:vector-zeros) a))))
-;;       (let ((a (make-array 2 :element-type 'double-float)))
-;;         (time
-;;          (lparallel:pdotimes (i iters)
-;;            (let ((b (make-array 2 :element-type 'double-float)))
-;;              (loop for i fixnum from 0 to 1
-;;                    do (incf (aref a i) (aref b i))))
-;;            )))))
-
-
-;; (cl-mpm::iterate-over-nodes-serial
-;;  (cl-mpm:sim-mesh *sim*)
-;;  (lambda (node)
-;;    (loop for v across (magicl::storage (cl-mpm/mesh::node-velocity node))
-;;          do
-;;             (when (sb-ext::float-nan-p v)
-;;               (format t "Found nan vel~%")
-;;               (pprint node)
-;;               ))))
-
-(defun find-nans ()
-  (cl-mpm::iterate-over-nodes
-   (cl-mpm:sim-mesh *sim*)
-   (lambda (mp)
-     (loop for v across (magicl::storage (cl-mpm/mesh::node-velocity mp))
-           do
-              ;; (when (> v 0d0)
-              ;;   (format t "~E~%" v))
-              (when (or (sb-ext::float-nan-p v)
-                        ;; (> v 1d10)
-                        ;; (< v -1d10)
-                        )
-                (format t "Found nan vel~%")
-                (pprint mp)
-                )
-           ))))
-
-
-
-;;Old
-;; Evaluation took:
-;; 7.969 seconds of real time
-;; 71.424494 seconds of total run time (53.687638 user, 17.736856 system)
-;; [ Real times consist of 2.410 seconds GC time, and 5.559 seconds non-GC time. ]
-;; [ Run times consist of 2.467 seconds GC time, and 68.958 seconds non-GC time. ]
-;; 896.27% CPU
-;; 33,467,579,605 processor cycles
-;; 22,937,955,888 bytes consed
-
-;; Total time: 7.969999 
-;; Time per iteration: 0.07969999
-;; Throughput: 12.547053
-;; Time per MP: 4.8645017e-6
-;; MPS 16384
-
-;;New

@@ -38,7 +38,8 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
   (cl-mpm::update-domain-det mesh mp)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-det mesh mp dt fbar)
@@ -94,22 +95,22 @@
         ;;                         ;; (cl-mpm/fastmaths:fast-.+
         ;;                         ;;  (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;; (setf damage-increment
-        ;;       (max 0d0
-        ;;            ;; (cl-mpm/damage::criterion-max-principal-stress
-        ;;            ;;  stress)
-        ;;            ;; (cl-mpm/damage::criterion-max-principal-strain
-        ;;            ;;  strain E)
-        ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-        ;;             stress
-        ;;             (* angle (/ pi 180d0)))))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
         ;; (setf damage-increment
         ;;       (max 0d0
         ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
         ;;             stress
         ;;             (* angle (/ pi 180d0)))))
         ;;Delocalisation switch
+        (setf damage-increment
+              (max 0d0
+                   ;; (cl-mpm/damage::criterion-max-principal-stress
+                   ;;  stress)
+                   ;; (cl-mpm/damage::criterion-max-principal-strain
+                   ;;  strain E)
+                   (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                    stress
+                    (* angle (/ pi 180d0)))))
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
@@ -211,15 +212,15 @@
     (progn
       (let* (
              ;; (init-stress (* 26d3 0.63d0))
-             (angle 42d0)
+             (angle 50d0)
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
-             (init-stress 40d3)
+             ;; (init-stress 40d3)
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
              ;; (gf 45d0)
              ;; (gf 5d0)
              ;; (gf 5d0)
-             (gf (* 48d0 1d0))
+             (gf (* 48d0 0.1d0))
              ;; (gf 10d0)
              (length-scale (* h 2d0))
              ;; (length-scale 1d0)
@@ -256,7 +257,7 @@
 
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d0
+           :delay-time 1d1
            :delay-exponent 2d0
 
            ;; :ductility 5d0
@@ -281,9 +282,13 @@
 
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :PIC)
+      ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
@@ -422,7 +427,7 @@
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 1d0)
+         (dt-scale 0.5d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -431,9 +436,9 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
          (criteria-energy 1d-1)
-         (criteria-oobf 2d-1)
+         (criteria-oobf 1d-1)
          (damping-0
-           (* 0d-4
+           (* 0d-3
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -482,8 +487,8 @@
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :dt-scale dt-scale
-     :energy-crit 1d-1
-     :oobf-crit 1d-1
+     :energy-crit 1d-2
+     :oobf-crit 1d-2
      :substeps 50
      :conv-steps 1000
      :dt-scale dt-scale
@@ -503,7 +508,8 @@
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps *sim*)
      (lambda (mp)
-       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))))
+       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
+       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle::mp-acceleration mp))))
 
     (when t
       (setf sim-state :settle)
@@ -1011,10 +1017,10 @@
 
 (defun est-angle ()
   (let* ((rc 0d0)
-         (rs 0.7d0)
-         (ratio (/ (- 1d0 rs) (- 1d0 rc))
-                )
-         (angle-plastic (* 50d0 (/ pi 180)))
+         ;(rs 0.359d0)
+         (rs 0.5d0)
+         (ratio (/ (- 1d0 rs) (- 1d0 rc)))
+         (angle-plastic (* 42d0 (/ pi 180)))
          (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
          )
      (format t "Chalk plastic virgin angle: ~F~%"
@@ -1093,7 +1099,7 @@
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 1)
          (shelf-aspect 1)
-         (runout-aspect 0.5)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1210,7 +1216,7 @@
             (cl-mpm::split-mps-criteria
              *sim*
              (lambda (mp h)
-               (when (and 
+               (when (and
                       (or
                        (<= (cutout
                             (cl-mpm/fastmaths:fast-.+
