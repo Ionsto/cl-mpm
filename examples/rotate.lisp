@@ -1,5 +1,7 @@
 (defpackage :cl-mpm/examples/rotate
-  (:use :cl))
+  (:use :cl)
+  (:import-from
+   :cl-mpm/utils varef))
 (sb-ext:restrict-compiler-policy 'speed  0 0)
 (sb-ext:restrict-compiler-policy 'debug  3 3)
 (sb-ext:restrict-compiler-policy 'safety 3 3)
@@ -236,8 +238,7 @@
                (cl-mpm/bc::make-bc-constant-velocity
                 pos
                 (list (* 0.1d0 (cl-mpm/utils:varef loc 1))
-                      0d0;(* 0.05d0 (cl-mpm/utils:varef loc 1))
-                      0d0;(cl-mpm/utils:varef loc 1)
+                      0d0               ;(cl-mpm/utils:varef loc 1)
                       0d0)
                 )))))))
 
@@ -286,6 +287,8 @@
   (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
                           *sim*)
 
+  (defparameter *data-step* (list))
+  (defparameter *data-volume* (list))
   (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -297,7 +300,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (progn
@@ -315,6 +318,10 @@
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
 
+                     (let ((ar (calculate-raster-area *sim* :sub-res 10)))
+                       (format t "Area ratio ~A" ar)
+                       (push ar *data-volume*)
+                       (push *sim-step* *data-step*))
                      (incf *sim-step*)
                      (plot *sim*)
                      ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
@@ -363,3 +370,48 @@
   (format t "MPS ~D~%" (length (cl-mpm:sim-mps *sim*)))
   ;; (sb-profile:report)
   )
+
+(defparameter *raster-array* (make-array 0 :initial-element nil))
+(defun calculate-raster-area (sim &key (sub-res 10))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps))
+      sim
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (mc (cl-mpm/mesh::mesh-count mesh))
+           (raster-grid (if (= (array-total-size *raster-array*)
+                               (* (* (nth 0 mc) sub-res) (* (nth 1 mc) sub-res)))
+                            (progn (loop for v across (make-array (array-total-size *raster-array*) :displaced-to *raster-array*) do (setf v 0)) *raster-array*)
+                            (setf *raster-array*
+                                  (make-array (list (* (nth 0 mc) sub-res)
+                                                    (* (nth 1 mc) sub-res))
+                                              :initial-element nil))))
+           (raster-h (/ h sub-res))
+          )
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (with-accessors ((pos cl-mpm/particle:mp-position)
+                          (length cl-mpm/particle::mp-domain-size))
+             mp
+           (let ((len (cl-mpm/fastmaths:fast-scale-vector length 0.5d0)))
+             (loop for x from (round (- (varef pos 0) (varef len 0)) raster-h)
+                     upto
+                     (round (+ (varef pos 0) (varef len 0)) raster-h)
+                   do
+                      (loop for y from (round (- (varef pos 1) (varef len 1)) raster-h)
+                              upto
+                              (round (+ (varef pos 1) (varef len 1)) raster-h)
+                            do (setf (aref raster-grid x y) t))
+                   )))))
+      (let ((total-domain-vol (lparallel:pmap-reduce
+                               (lambda (mp)
+                                 (* (varef (cl-mpm/particle::mp-domain-size mp) 0)
+                                    (varef (cl-mpm/particle::mp-domain-size mp) 1)))
+                               #'+
+                               mps))
+            (raster-domain-vol (* (expt raster-h 2)
+                                  (lparallel:pcount-if #'identity (make-array (array-total-size raster-grid) :displaced-to raster-grid)))))
+        ;; (pprint total-domain-vol)
+        ;; (pprint raster-domain-vol)
+        (/ raster-domain-vol total-domain-vol)))))
+
