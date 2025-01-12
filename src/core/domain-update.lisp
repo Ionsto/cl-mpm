@@ -565,7 +565,7 @@
                                                  (expt (varef domain-0 1) 1)
                                                  (expt (varef domain-0 2) 1))))
            ;(l (magicl:@ def d-0 (magicl:transpose def)))
-           (l (magicl:@ def d-0))
+           (l (magicl:@ def d-0 (magicl:transpose def)))
            )
       ;; (setf (varef domain 0) (abs (magicl:tref stretch 0 0)))
       ;; (setf (varef domain 1) (abs (magicl:tref stretch 1 1)))

@@ -18,9 +18,9 @@
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
-  (cl-mpm::update-domain-deformation mesh mp dt)
+  ;; (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::update-domain-stretch mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
 
   ;; (cl-mpm::update-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
@@ -215,6 +215,7 @@
       (setup-simple-shear sim)
       sim)))
 
+
 (defun setup-rotation (sim))
 
 (defun setup-simple-shear (sim)
@@ -234,8 +235,8 @@
                        ) h)))
                (cl-mpm/bc::make-bc-constant-velocity
                 pos
-                (list (* 0.1d0 (cl-mpm/utils:varef loc 0))
-                      (* 0.05d0 (cl-mpm/utils:varef loc 1))
+                (list (* 0.1d0 (cl-mpm/utils:varef loc 1))
+                      0d0;(* 0.05d0 (cl-mpm/utils:varef loc 1))
                       0d0;(cl-mpm/utils:varef loc 1)
                       0d0)
                 )))))))
@@ -248,7 +249,7 @@
 (defparameter *refine* (/ 1d0 1d0))
 (let ((refine (uiop:getenv "REFINE")))
   (when refine
-    (setf *refine* (parse-integer (uiop:getenv "REFINE")))  
+    (setf *refine* (parse-integer (uiop:getenv "REFINE")))
     ))
 
 (defun setup (&key (refine 1) (mps 3))
@@ -258,7 +259,7 @@
         (offset (list 0 0))
         )
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-stretch
+    (defparameter *sim* (setup-test-column
                          domain-size
                          (list block-size block-size)
                          refine mps-per-dim))
