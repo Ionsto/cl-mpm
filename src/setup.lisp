@@ -17,11 +17,20 @@
 
 
 
+(defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
+  (let ((nd (length element-count)))
+    (let* ((nD nd)
+           (size (mapcar (lambda (x) (* x resolution)) element-count))
+           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type)))
+      (progn
+        ;; (setf (cl-mpm:sim-mps sim) #())
+        (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+        sim))))
 
 (defun make-block (res element-count &key (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
                                           (sim-type 'cl-mpm::mpm-sim-usf)
                                        )
-  "Make a 2D column of height size, and width 1 - filled with elements"
+  "Make a square simulation space of res*element count size"
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x res)) element-count))
@@ -37,16 +46,16 @@
          (mp-spacing (/ height element-count))
          (sim (cl-mpm:make-mpm-sim (list mp-spacing height) mp-spacing 1e-3
                                    nil
-                                   ;(funcall shape-maker nD mp-spacing)
+                                        ;(funcall shape-maker nD mp-spacing)
                                    )))
     (progn
-          (setf (cl-mpm:sim-mps sim) #())
-          (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
-           sim)))
+      (setf (cl-mpm:sim-mps sim) #())
+      (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
+      sim)))
 
 (defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) (clip-func (lambda (x y z) t))&allow-other-keys)
-  (declare (function clip-func))
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
+  (declare (function clip-func))
   (if (= (length size) 2)
       (setf mps (append mps '(1))
             size (append size '(0))

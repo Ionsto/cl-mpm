@@ -228,7 +228,15 @@
 
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
+
 (defsystem "cl-mpm/example"
+  :depends-on ("cl-mpm/all")
+  :serial t
+  :components ((:file "examples/core")))
+
+
+
+(defsystem "cl-mpm/example/bounce"
   :class :package-inferred-system
   :depends-on ("cl-mpm")
   :serial t
@@ -334,6 +342,7 @@
                "cl-mpm/output"
                "cl-mpm/buoyancy"
                "cl-mpm/plotter"
+               "cl-mpm/models/ice"
                "vgplot"
                "swank.live"
                "cl-mpm/magicl")
@@ -585,6 +594,10 @@
                "swank.live")
   :serial t
   :components ((:file "examples/shear-box")))
+
+(defsystem "cl-mpm/examples/erode"
+  :depends-on ("cl-mpm/example")
+  :components ((:file "examples/erode")))
 
 ;; (defsystem "cl-mpm/models/all"
 ;;   :depends-on ("cl-mpm/particle"

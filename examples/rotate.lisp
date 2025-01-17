@@ -18,20 +18,50 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  ;(cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::update-domain-stretch mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
 
   ;; (cl-mpm::update-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt))
 
 (declaim (notinline plot))
 (defun plot (sim)
+  (let* ((mp (aref (cl-mpm:sim-mps *sim*) 0))
+         (pos (cl-mpm/particle:mp-position mp))
+         (domain-size (cl-mpm/particle::mp-true-domain mp))
+         )
+    (multiple-value-bind (l v) (cl-mpm/utils:eig domain-size)
+      (let ((p1 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (magicl:column v 1) (* 0.5d0 (abs (nth 1 l))))))
+            (p2 (cl-mpm/fastmaths:fast-.+ pos (cl-mpm/fastmaths:fast-scale-vector (magicl:column v 2) (* 0.5d0 (abs (nth 2 l))))))
+            )
+        ;; (pprint domain-size)
+        ;; (pprint l)
+        ;; (pprint v)
+        ;; (break)
+        (vgplot:format-plot nil "set arrow 1 from ~F,~F to ~F,~F ~%"
+                            (varef pos 0)
+                            (varef pos 1)
+                            (varef p1 0)
+                            (varef p1 1)
+                            )
+        (vgplot:format-plot nil "set arrow 2 from ~F,~F to ~F,~F ~%"
+                            (varef pos 0)
+                            (varef pos 1)
+                            (varef p2 0)
+                            (varef p2 1)
+                            )
+        ))
+    )
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
@@ -40,6 +70,15 @@
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
+  )
+(defun plot-load ()
+  (vgplot:figure)
+  (let ((v0 (first *data-volume*)))
+    (vgplot:plot
+     *data-step* (mapcar (lambda (x v) (/ x v0)) *data-volume* *data-volume*) "vol"
+     *data-step* (mapcar (lambda (x v) (/ x v0)) *data-raster-volume* *data-volume*) "Raster"
+     *data-step* (mapcar (lambda (x v) (/ x v0)) *data-domain-volume* *data-volume*) "Domain"
+     ))
   )
 
 (defun stop ()
@@ -132,7 +171,7 @@
                    (cl-mpm/bc::make-bc-constant-velocity
                     pos
                     (list (+ (cl-mpm/utils:varef vel 0)
-                             ;; (* 0.10d0 (cl-mpm/utils:varef dist 0))
+                             (* 0.010d0 (cl-mpm/utils:varef dist 0))
                              )
                           (cl-mpm/utils:varef vel 1)
                           0d0)
@@ -174,9 +213,10 @@
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
-                (mapcar (lambda (x y) (- (* x 0)
-                                       (* y 0)
-                                       )) size block-size)
+                ;; (mapcar (lambda (x y) (- (* x 0)
+                ;;                        (* y )
+                ;;                        )) size block-size)
+                (list (first block-size) 0d0)
                 ;; (mapcar (lambda (x) 0d0) size)
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
@@ -237,7 +277,7 @@
                        ) h)))
                (cl-mpm/bc::make-bc-constant-velocity
                 pos
-                (list (* 0.1d0 (cl-mpm/utils:varef loc 1))
+                (list (* 0.05d0 (cl-mpm/utils:varef loc 1))
                       0d0               ;(cl-mpm/utils:varef loc 1)
                       0d0)
                 )))))))
@@ -289,6 +329,8 @@
 
   (defparameter *data-step* (list))
   (defparameter *data-volume* (list))
+  (defparameter *data-domain-volume* (list))
+  (defparameter *data-raster-volume* (list))
   (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -305,28 +347,30 @@
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
+                     (multiple-value-bind (rv lv tv) (calculate-raster-area *sim* :sub-res 100)
+                       ;; (format t "Area ratio ~A" (/ rv lv))
+                       (push tv *data-volume*)
+                       (push lv *data-domain-volume*)
+                       (push rv *data-raster-volume*)
+                       (push *sim-step* *data-step*))
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim *sim*)
                         ;; (cl-mpm::split-mps-eigenvalue *sim*)
+
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
-
-                     (let ((ar (calculate-raster-area *sim* :sub-res 10)))
-                       (format t "Area ratio ~A" ar)
-                       (push ar *data-volume*)
-                       (push *sim-step* *data-step*))
                      (incf *sim-step*)
                      (plot *sim*)
-                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                     ;;                    :terminal "png size 1920,1080"
-                     ;;                    )
+                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                                        :terminal "png size 1920,1080"
+                                        )
 
                      (swank.live:update-swank)
                      ))))
@@ -371,22 +415,24 @@
   ;; (sb-profile:report)
   )
 
-(defparameter *raster-array* (make-array 0 :initial-element nil))
+(defparameter *raster-array* (make-array 0 :initial-element nil :element-type 'boolean))
 (defun calculate-raster-area (sim &key (sub-res 10))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mc (cl-mpm/mesh::mesh-count mesh))
+           (dims (list (* (nth 0 mc) sub-res)
+                       (* (nth 1 mc) sub-res)))
            (raster-grid (if (= (array-total-size *raster-array*)
-                               (* (* (nth 0 mc) sub-res) (* (nth 1 mc) sub-res)))
-                            (progn (loop for v across (make-array (array-total-size *raster-array*) :displaced-to *raster-array*) do (setf v 0)) *raster-array*)
+                               (reduce #'* dims))
+                            (progn (loop for v across (make-array (array-total-size *raster-array*) :displaced-to *raster-array*) do (setf v nil))
+                                   *raster-array*)
                             (setf *raster-array*
-                                  (make-array (list (* (nth 0 mc) sub-res)
-                                                    (* (nth 1 mc) sub-res))
-                                              :initial-element nil))))
-           (raster-h (/ h sub-res))
-          )
+                                  (make-array dims
+                                              :initial-element nil
+                                              :element-type 'boolean))))
+           (raster-h (/ h sub-res)))
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
@@ -401,7 +447,7 @@
                       (loop for y from (round (- (varef pos 1) (varef len 1)) raster-h)
                               upto
                               (round (+ (varef pos 1) (varef len 1)) raster-h)
-                            do (setf (aref raster-grid x y) t))
+                            do (setf (aref raster-grid (max 0 (min x (first dims))) (max 0 (min y (second dims)))) t))
                    )))))
       (let ((total-domain-vol (lparallel:pmap-reduce
                                (lambda (mp)
@@ -409,9 +455,13 @@
                                     (varef (cl-mpm/particle::mp-domain-size mp) 1)))
                                #'+
                                mps))
+            (total-true-volume (lparallel:pmap-reduce
+                                #'cl-mpm/particle::mp-volume
+                                #'+
+                                mps))
             (raster-domain-vol (* (expt raster-h 2)
                                   (lparallel:pcount-if #'identity (make-array (array-total-size raster-grid) :displaced-to raster-grid)))))
         ;; (pprint total-domain-vol)
         ;; (pprint raster-domain-vol)
-        (/ raster-domain-vol total-domain-vol)))))
+        (values raster-domain-vol total-domain-vol total-true-volume)))))
 

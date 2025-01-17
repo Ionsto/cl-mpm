@@ -65,7 +65,9 @@
      :initarg :mesh)
    (mps
      :accessor sim-mps
-     :initarg :mps)
+     :initarg :mps
+     :initform (make-array 0 :adjustable t :fill-pointer 0)
+     )
    (bcs
      :accessor sim-bcs
      :initarg :bcs
@@ -152,4 +154,4 @@
   (make-instance sim-type
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
-                 :mps '()))
+                 :mps (make-array 0 :adjustable t :fill-pointer 0)))

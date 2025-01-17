@@ -354,15 +354,14 @@
 
 (defun make-outside-bc (mesh)
   "Construct reflection bcs over the outside of a mesh"
-  (make-outside-bc-var
+  (make-outside-bc-varfix
    mesh
-   (lambda (i) (make-bc-fixed i '(0 nil nil)))
-   (lambda (i) (make-bc-fixed i '(0 nil nil)))
-   (lambda (i) (make-bc-fixed i '(nil 0 nil)))
-   (lambda (i) (make-bc-fixed i '(nil 0 nil)))
-   (lambda (i) (make-bc-fixed i '(nil nil 0)))
-   (lambda (i) (make-bc-fixed i '(nil nil 0))))
-  )
+   '(0 nil nil)
+   '(0 nil nil)
+   '(nil 0 nil)
+   '(nil 0 nil)
+   '(nil nil 0)
+   '(nil nil 0)))
 
 (defun make-outside-bc-varfix (mesh left right top bottom front back)
   "Construct reflection bcs over the outside of a mesh"

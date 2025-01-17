@@ -6,7 +6,7 @@
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
@@ -71,7 +71,7 @@
                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
@@ -158,7 +158,7 @@
   (defparameter *data-steps* (list))
   (defparameter *data-oobf* (list))
   (defparameter *data-energy* (list))
-  (let* ((target-time 1d0)
+  (let* ((target-time 0.5d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
@@ -174,10 +174,10 @@
                 while *run-sim*
                 do
                    (progn
-                     (when (> steps 20)
-                       (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
-                       ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       )
+                     ;; (when t;(> steps 20)
+                     ;;   (setf (cl-mpm::sim-damping-factor *sim*) 1d0)
+                     ;;   ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
+                     ;;   )
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)

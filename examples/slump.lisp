@@ -504,7 +504,7 @@
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm:sim-dt sim) 1d-8)
       (setf (cl-mpm:sim-bcs sim) (make-array 0))
       (setf (cl-mpm:sim-bcs sim)
@@ -529,7 +529,9 @@
              ;;             (* terminus-size 0.9d0)))
              (ocean-y (+ (second block-offset)
                          (* terminus-size 1.0d0)
-                         -100))
+                         -100
+                         ;; 50
+                         ))
              ;; (ocean-y 0d0)
              (ocean-y (* (round ocean-y h-y) h-y))
              ;;          )
@@ -588,8 +590,8 @@
               (list
                (cl-mpm/bc:make-bcs-from-list
                 (list
-                 (cl-mpm/buoyancy::make-bc-buoyancy-clip
-                  ;; cl-mpm/buoyancy::make-bc-buoyancy-body
+                 (;; cl-mpm/buoyancy::make-bc-buoyancy-clip
+                  cl-mpm/buoyancy::make-bc-buoyancy-body
                   sim
                   ocean-y
                   *water-density*
@@ -1557,14 +1559,13 @@
 ;;  )
 
 
-
-
-(defun estimate-max-stress ()
+(defun test ()
   (let ((dt-scale 0.5d0)
-        (target-time 1d2)
+        (target-time 0.1d0)
         (refine 1d0)
+        (substeps 1)
         )
-    (setup :refine refine)
+    (setup :refine refine :mps 2)
     (setf (cl-mpm/penalty:bc-penalty-friction *floor-bc*) 0d0)
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (setf
@@ -1581,32 +1582,113 @@
       (setf
        (cl-mpm::sim-mass-scale *sim*) mass-scale
        (cl-mpm:sim-damping-factor *sim*)
-       (* 0.2d0
-          (sqrt mass-scale)
-          (cl-mpm/setup::estimate-critical-damping *sim*))))
+       (* 0.1d0
+          ;; (sqrt mass-scale)
+          (cl-mpm/setup::estimate-critical-damping *sim*)))
+      (setf
+       (cl-mpm:sim-dt *sim*)
+       (cl-mpm/setup:estimate-elastic-dt *sim* :dt-scale dt-scale))
+      (setf substeps (round target-time (cl-mpm:sim-dt *sim*)))
+      )
 
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (loop for i from 0 to 100
           while *run-sim*
           do (progn
-               (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+               (format t "Step ~D/~D ~%" i 100)
+               ;; (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                ;; (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
-               (loop for j from 0 to (* refine 5)
+               (loop for j from 0 to substeps
                      while *run-sim*
                      do (cl-mpm:update-sim *sim*))
-               (cl-mpm/damage::calculate-damage *sim*)
-               (let ((dy
-                       (lparallel:pmap-reduce (lambda (mp)
-                                                (cl-mpm/particle::mp-damage-ybar mp))
-                                              #'max (cl-mpm:sim-mps *sim*))
-                       ))
-                 (format t "Max damage-ybar ~E~%" dy))
+               ;; (cl-mpm/damage::calculate-damage *sim*)
+               ;; (let ((dy
+               ;;         (lparallel:pmap-reduce (lambda (mp)
+               ;;                                  (cl-mpm/particle::mp-damage-ybar mp))
+               ;;                                #'max (cl-mpm:sim-mps *sim*))
+               ;;         ))
+               ;;   (format t "Max damage-ybar ~E~%" dy))
                (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
                (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" i)) *sim*)
                (cl-mpm/output::save-vtk-cells (merge-pathnames (format nil "output/sim_cells_~5,'0d.vtk" i)) *sim*)
                (plot *sim*)
                (swank.live:update-swank)
-               ))))
+               ))
+    )
+  )
+
+
+(defun estimate-max-stress ()
+  (let ((dt-scale 0.5d0)
+        (target-time 1d2)
+        (refine 1d0)
+        )
+    (setup :refine refine :mps 2)
+    (setf (cl-mpm/penalty:bc-penalty-friction *floor-bc*) 0d0)
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (setf
+              (cl-mpm/particle::mp-initiation-stress mp) 1d10
+              (cl-mpm/particle::mp-enable-plasticity mp) nil))
+    (setf *run-sim* t)
+    (cl-mpm/output::save-simulation-parameters #p"output/settings.json"
+                                               *sim*
+                                               (list :dt 0.1d0
+                                                     :ocean-height *water-height*
+                                                     ))
+    (let ((mass-scale 1d2)
+          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (setf
+       (cl-mpm::sim-mass-scale *sim*) mass-scale
+       (cl-mpm:sim-damping-factor *sim*)
+       (* 0.00d0
+          ;; (sqrt mass-scale)
+          (cl-mpm/setup::estimate-critical-damping *sim*))))
+
+    (setf (cl-mpm::sim-enable-damage *sim*) nil)
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :dt-scale dt-scale
+     :energy-crit 1d-3
+     :oobf-crit 1d-3
+     :substeps 50
+     :conv-steps 1000
+     :dt-scale dt-scale
+     :post-iter-step
+     (lambda (i e o)
+       (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
+       (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" i)) *sim*)
+       (cl-mpm/output::save-vtk-cells (merge-pathnames (format nil "output/sim_cells_~5,'0d.vtk" i)) *sim*)
+       (cl-mpm/damage::calculate-damage *sim*)
+       (plot *sim*)
+       (let ((dy
+               (lparallel:pmap-reduce (lambda (mp)
+                                        (cl-mpm/particle::mp-damage-ybar mp))
+                                      #'max (cl-mpm:sim-mps *sim*))
+               ))
+         (format t "Max damage-ybar ~E~%" dy))
+       (swank.live:update-swank))
+    ;; (loop for i from 0 to 100
+    ;;       while *run-sim*
+    ;;       do (progn
+    ;;            (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+    ;;            ;; (format t "CFL dt estimate: ~f~%" (cl-mpm:sim-dt *sim*))
+    ;;            (loop for j from 0 to (* refine 5)
+    ;;                  while *run-sim*
+    ;;                  do (cl-mpm:update-sim *sim*))
+    ;;            (cl-mpm/damage::calculate-damage *sim*)
+    ;;            (let ((dy
+    ;;                    (lparallel:pmap-reduce (lambda (mp)
+    ;;                                             (cl-mpm/particle::mp-damage-ybar mp))
+    ;;                                           #'max (cl-mpm:sim-mps *sim*))
+    ;;                    ))
+    ;;              (format t "Max damage-ybar ~E~%" dy))
+    ;;            (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" i)) *sim*)
+    ;;            (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" i)) *sim*)
+    ;;            (cl-mpm/output::save-vtk-cells (merge-pathnames (format nil "output/sim_cells_~5,'0d.vtk" i)) *sim*)
+    ;;            (plot *sim*)
+    ;;            (swank.live:update-swank)
+    ;;            ))
+    )))
 
 
 

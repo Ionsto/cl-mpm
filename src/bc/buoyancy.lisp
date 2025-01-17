@@ -513,6 +513,10 @@
     :initarg :scalar-func
     :initform (lambda (pos) 1d0)
     )
+   (damage-volume
+    :accessor bc-damage-volume
+    :initarg :damage-volume
+    :initform nil)
 
    (clip-func
     :accessor bc-buoyancy-clip-func
@@ -924,6 +928,7 @@
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
                    (scalar-func bc-scalar-func)
+                   (damage-volume bc-damage-volume)
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
@@ -933,21 +938,23 @@
      (lambda (pos)
        (and
         ;; (cell-clipping pos datum)
-        t
-        ;; (funcall clip-func pos datum)
+        ;; t
+        (funcall clip-func pos datum)
         ))
-     datum)
+     datum
+     :damage-volume damage-volume
+     )
     ))
 
-(defun apply-scalar (sim func-scalar clip-function datum)
+(defun apply-scalar (sim func-scalar clip-function datum &key (damage-volume nil))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume mesh clip-function)
       (locate-mps-cells sim clip-function)
+      ;; (populate-cells-volume mesh clip-function)
+      ;; (locate-mps-cells sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
@@ -956,6 +963,7 @@
                           (lambda (mp)
                             (calculate-val-mp mp func-scalar))
                           clip-function
+                          :damage-volume damage-volume
                           )
       (apply-scalar-cells-3d mesh
                             func-scalar
@@ -985,14 +993,13 @@
                                  (node-lock  cl-mpm/mesh:node-lock)
                                  (node-active cl-mpm/mesh:node-active)
                                  (node-boundary cl-mpm/mesh::node-boundary-node)
-                                 (node-volume cl-mpm/mesh::node-volume)
-                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                 )
+                                 (node-volume cl-mpm/mesh::node-volume-true)
+                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
                     node
                   (declare (double-float volume svp))
                   (when (and node-active
                              node-boundary
-                             (funcall clip-func pos)
+                             (funcall clip-func node-pos)
                              )
                     ;;Lock node
                     (sb-thread:with-mutex (node-lock)
@@ -1000,7 +1007,7 @@
                             (* -1d0 volume svp (the double-float (calculate-val-cell cell func-scalar))))
                       ))))))))))))
 
-(defun apply-scalar-mps-3d (mesh mps func-scalar clip-func)
+(defun apply-scalar-mps-3d (mesh mps func-scalar clip-func &key (damage-volume nil))
   "Update force on nodes, with virtual stress field from mps"
   (declare (function func-scalar))
   (cl-mpm::iterate-over-mps
@@ -1019,6 +1026,7 @@
             (lambda (mesh mp node svp grads fsvp fgrads)
               (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
                                (node-lock  cl-mpm/mesh:node-lock)
+                               (node-pos  cl-mpm/mesh::node-position)
                                (node-boundary cl-mpm/mesh::node-boundary-node)
                                (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                (node-active  cl-mpm/mesh:node-active))
@@ -1026,10 +1034,10 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           (funcall clip-func pos)
+                           (funcall clip-func node-pos)
                            )
                   (sb-thread:with-mutex (node-lock)
-                    (incf node-boundary-scalar (* (- 1d0 damage)
+                    (incf node-boundary-scalar (* (if damage-volume (- 1d0 damage) 1d0)
                                                   volume svp (funcall func-scalar mp))))))))))))))
 
 (defclass bc-buoyancy-body (bc-buoyancy)
@@ -1068,7 +1076,7 @@
        mesh mps
        (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
        clip-func)
-      ;;Set all hydrostatic pressures 
+      ;;Set all hydrostatic pressures
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)

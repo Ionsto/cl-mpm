@@ -2,6 +2,7 @@
   (:use :cl
         :cl-mpm/utils)
   (:export
+   #:mpm-sim-damage
     #:update-damage
     #:post-stress-step
     #:update-damage

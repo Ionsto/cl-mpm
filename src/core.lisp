@@ -491,13 +491,15 @@
                     ;;Update particle
                     (progn
                       ;;Invalidate shapefunction/gradient cache
+                      (update-particle mesh mp dt)
                       (setf (fill-pointer nc) 0)
                       (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
                       (unless (cl-mpm/particle::mp-penalty-contact mp)
                         (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
                         (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0))
                       (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-                      ,@update))
+                      ,@update
+                      ))
                   ))
 
              ))
@@ -987,10 +989,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
                                         ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          ;(setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-          (setf volume (* volume (the double-float dj)))
-          (when (<= volume 0d0)
-            (error "Negative volume"))))))
+          ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+          ;; (setf volume (* volume (the double-float dj)))
+          ;; (when (<= volume 0d0)
+          ;;   (error "Negative volume"))
+          ))))
   (values))
 
 (defun update-strain-kirchoff (mesh mp dt fbar)
@@ -1021,12 +1024,12 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
                                         ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          (setf volume (* volume (the double-float dj)))
-          (when (<= volume 0d0)
-            (error "Negative volume"))
-          ;;Stretch rate update
-          (update-domain-corner mesh mp dt)
-          (scale-domain-size mesh mp)
+          ;; (setf volume (* volume (the double-float dj)))
+          ;; (when (<= volume 0d0)
+          ;;   (error "Negative volume"))
+          ;; ;;Stretch rate update
+          ;; (update-domain-corner mesh mp dt)
+          ;; (scale-domain-size mesh mp)
           ))))
   (values))
 (declaim
@@ -1155,8 +1158,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         ;; Check volume constraint!
-        (when (<= volume 0d0)
-          (error "Negative volume"))
+        ;; (when (<= volume 0d0)
+        ;;   (error "Negative volume"))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
@@ -1303,6 +1306,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       ;; Turn cauchy stress to kirchoff
       (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
       ;; Update our strains
+      ;(update-strain-kirchoff-det mesh mp dt fbar)
       (update-strain-kirchoff-det mesh mp dt fbar)
       ;; Update our kirchoff stress with constitutive model
       (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
@@ -1338,6 +1342,27 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (when (<= volume 0d0)
           (error "Negative volume"))
         ))))
+
+(defun update-particle-kirchoff (mesh mp dt)
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (df    cl-mpm/particle::mp-deformation-gradient-increment)
+                   )
+      mp
+    ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+    (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+    (when (<= volume 0d0)
+      (error "Negative volume"))))
+
+(defgeneric update-particle (mesh mp dt)
+  (:documentation "End of step update"))
+(defmethod update-particle (mesh (mp cl-mpm/particle:particle) dt)
+  (update-particle-kirchoff mesh mp dt)
+  (update-domain-corner mesh mp dt)
+  ;; (update-domain-stretch mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
+  )
 
 (defgeneric update-stress-mp (mesh mp dt fbar)
   (:documentation "A mp dependent stress update scheme"))
@@ -1957,6 +1982,8 @@ This modifies the dt of the simulation in the process
     (values dt-e substeps-e)
     )
   )
+(defun sim-add-mps (mp-array)
+  (cl-mpm:add-mps (cl-mpm:sim-mps *sim*)))
 (defgeneric add-mps (sim mps-array))
 (defmethod add-mps (sim mps-array)
   (with-accessors ((mps cl-mpm:sim-mps))

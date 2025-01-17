@@ -393,6 +393,7 @@
               (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
               (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
 
+              (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
               (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
               (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
               (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))

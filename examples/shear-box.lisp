@@ -19,17 +19,24 @@
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-corner mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
+  )
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
   ;; ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
-  ;(cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::update-domain-corner mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
+  ;; (cl-mpm::update-domain-corner mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
 (defparameter *localising* nil)
@@ -404,12 +411,12 @@
   :ductility ductility
   :local-length length-scale
   :local-length-damaged 10d-10
-  :enable-damage t
-  :enable-plasticity nil
+  :enable-damage nil
+  :enable-plasticity t
 
-  :psi (* 5d0 (/ pi 180))
+  :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
-  :c (* 131d3 1d2)
+  :c (* 131d3 1d0)
   :phi-r (* 30d0 (/ pi 180))
   :c-r 0d0
   :softening 0d0
@@ -430,6 +437,7 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm::mpm-sim-usf
+               ;:sim-type 'cl-mpm/damage::mpm-sim-damage
                :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -526,7 +534,7 @@
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -2052,8 +2060,8 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       ;; 4
-                       8
+                       4
+                       ;; 8
                        ;; 16
                        ;; 32
                        ;; 4.5
@@ -2064,7 +2072,7 @@
         do
            (dolist (vel (list :BLEND))
              (dolist (gf (list 2.0d0))
-               (dolist (localising (list t nil))
+               (dolist (localising (list nil))
                  (dolist (epsilon-scale (list 1d2))
                    (dolist (mps (list 3))
                      (let (;(mps 2)
@@ -2079,8 +2087,8 @@
                                (list
                                 ;; 0d0
                                 ;; 5d4
-                                ;; 10d4
-                                ;; 20d4
+                                10d4
+                                20d4
                                 30d4
                                 ;; 40d4
                                 ;; 50d4
@@ -2135,10 +2143,10 @@
                                    :damping 1d-3
                                    :time-scale (* 1d0 scale)
                                    :sample-scale (* 1d0 sample-scale)
-                                   :dt-scale (/ 1d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
+                                   :dt-scale (/ 0.5d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
                                    :damage-time-scale 1d0
                                    ;; :skip-level 0.2d0
-                                   :enable-damage t
+                                   :enable-damage nil
                                    :enable-plasticity t
                                    )
                                   (when *skip*
