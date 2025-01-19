@@ -25,7 +25,7 @@
     :initarg :damage-rate
     :accessor bc-water-damage-damage-rate)))
 
-(defun make-bc-erode (sim datum rate upper-datum)
+(defun make-bc-erode (sim datum rate lower-datum upper-datum)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
@@ -37,8 +37,8 @@
                      :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
                                                                 (- upper-datum datum)
                                                                 ))
-                                                      8))
-                     :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) datum)
+                                                      12))
+                     :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
                                                    (<= (cl-mpm/utils:varef pos 1) upper-datum)
                                                    ))
                      :sim sim))))
@@ -456,14 +456,14 @@
   (let* ((target-time 1d0)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (accelerate-target-time 1d0)
-         (accelerate-mass-scale 1d4)
+         (accelerate-target-time 1d2)
+         (accelerate-mass-scale 1d6)
          (collapse-target-time 0.1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.8d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -474,7 +474,7 @@
          (criteria-energy 1d-1)
          (criteria-oobf 1d-1)
          (damping-0
-           (* 0d-3
+           (* 1d-3
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -494,7 +494,7 @@
      (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
     (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :supersede)
-      (format stream "steps,time,damage,plastic,energy,oobf,step-type~%"))
+      (format stream "steps,time,damage,plastic,energy,oobf,step-type,mass~%"))
 
     ;; (cl-mpm::update-sim *sim*)
     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -507,6 +507,11 @@
     (defparameter *data-plastic* 0d0)
     (defparameter *data-energy* 0d0)
     (defparameter *inst-data-oobf* 0d0)
+    (defparameter *data-mass* (lparallel:pmap-reduce
+                               #'cl-mpm/particle::mp-mass
+                               #'+
+                               (cl-mpm:sim-mps *sim*)
+                               :initial-value 0d0))
     (setf *data-d* (list))
 
 
@@ -523,8 +528,8 @@
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :dt-scale dt-scale
-     :energy-crit 1d-1
-     :oobf-crit 1d-1
+     :energy-crit 1d-2
+     :oobf-crit 1d-2
      :substeps 50
      :conv-steps 1000
      :dt-scale dt-scale
@@ -563,7 +568,7 @@
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
     (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d-3
+          (* 0d-3
              (cl-mpm/setup::estimate-critical-damping *sim*)))
 
     (format t "Substeps ~D~%" substeps)
@@ -583,14 +588,15 @@
                        (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                        (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :append)
-                         (format stream "~D,~f,~f,~f,~f,~f,~A~%"
+                         (format stream "~D,~f,~f,~f,~f,~f,~A,~f~%"
                                  steps
                                  *t*
                                  *data-damage*
                                  *data-plastic*
                                  *data-energy*
                                  *inst-data-oobf*
-                                 sim-state))
+                                 sim-state
+                                 *data-mass*))
                        (let ((energy-estimate 0d0)
                              (oobf 0d0)
                              (total-energy 0d0)
@@ -662,7 +668,7 @@
                                                         #'+ (cl-mpm:sim-mps *sim*)
                                                         :initial-value 0d0)
                                  ))
-                           (setf *data-plastic damage-est))
+                           (setf *data-plastic* damage-est))
                          ;; (setf
                          ;;  energy-estimate
                          ;;  (/
@@ -673,6 +679,11 @@
                          ;;    (cl-mpm:sim-mps *sim*)
                          ;;    :initial-value 0d0)))
                          ;; (setf work (/ work (* target-time (cl-mpm::sim-mass-scale *sim*))))
+                         (setf *data-mass* (lparallel:pmap-reduce
+                                            #'cl-mpm/particle::mp-mass
+                                            #'+
+                                            (cl-mpm:sim-mps *sim*)
+                                            :initial-value 0d0))
 
                          (push *t* *data-t*)
                          (push total-energy *data-e*)
@@ -1159,7 +1170,7 @@
     (cl-mpm:add-bcs-force-list
      *sim*
      ;; (make-bc-weathering *sim* (+ 2d0 soil-boundary))
-     (make-bc-erode *sim* soil-boundary 1d-2 (+ 16d0 soil-boundary))
+     (make-bc-erode *sim* (+ soil-boundary 1d0) 1d-4 soil-boundary (+ 16d0 soil-boundary))
      )
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*

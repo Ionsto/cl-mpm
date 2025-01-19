@@ -724,7 +724,7 @@
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         ;(cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-        (cl-mpm/fastmaths:fast-fmacc acc vel (* damping -1d0))
+        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         )))
   (values))

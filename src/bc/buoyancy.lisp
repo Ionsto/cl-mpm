@@ -939,7 +939,7 @@
        (and
         ;; (cell-clipping pos datum)
         ;; t
-        (funcall clip-func pos datum)
+        (funcall clip-func pos)
         ))
      datum
      :damage-volume damage-volume
