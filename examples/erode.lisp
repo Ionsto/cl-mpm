@@ -27,41 +27,7 @@
                      :damage-rate rate
                      :damage-volume t
                      :sim sim))))
-(defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
-  (call-next-method)
-  ;; (break)
-  (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
-      bc
-    (when (cl-mpm::sim-enable-damage sim)
-      (cl-mpm:iterate-over-mps
-       (cl-mpm:sim-mps sim)
-       (lambda (mp)
-         (with-accessors ((volume cl-mpm/particle::mp-volume)
-                          (mass cl-mpm/particle::mp-mass))
-             mp
-             (let ((weathering 0d0))
-               (cl-mpm:iterate-over-neighbours
-                mesh
-                mp
-                (lambda (mesh mp node svp grads fsvp fgrads)
-                  (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
-               (setf weathering (* (min weathering 0d0) volume))
-               (setf weathering (- (sqrt (abs weathering))))
 
-               (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
-               (setf (cl-mpm/particle::mp-boundary mp) weathering)
-               (let ((density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
-                 (setf
-                  (cl-mpm/particle::mp-volume mp)
-                  (max
-                   0d0
-                   (-
-                    (cl-mpm/particle::mp-volume mp)
-                    (abs (*
-                          (bc-water-damage-damage-rate bc)
-                          weathering dt)))))
-                 (setf (cl-mpm/particle::mp-mass mp) (* density (cl-mpm/particle::mp-volume mp))))))))
-      (cl-mpm::remove-mps-func sim (lambda (mp) (= 0d0 (cl-mpm/particle::mp-mass mp)))))))
 
 
 (defclass bc-erode (cl-mpm/buoyancy::bc-scalar)
@@ -87,28 +53,41 @@
   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
       bc
     (when (cl-mpm::sim-enable-damage sim)
-      (loop for mp across (cl-mpm:sim-mps sim)
-            do
-               (let ((weathering 0d0))
-                 (cl-mpm:iterate-over-neighbours
-                  mesh
-                  mp
-                  (lambda (mesh mp node svp grads fsvp fgrads)
-                    (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (with-accessors ((volume cl-mpm/particle::mp-volume)
+                          (mass cl-mpm/particle::mp-mass))
+             mp
+             (let ((weathering 0d0))
+               (cl-mpm:iterate-over-neighbours
+                mesh
+                mp
+                (lambda (mesh mp node svp grads fsvp fgrads)
+                  (with-accessors ((node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                                   (node-volume cl-mpm/mesh::node-volume))
+                      node
+                    (incf weathering (* svp (/ node-boundary-scalar
+                                               node-volume))))))
 
-                 (setf (cl-mpm/particle::mp-boundary mp)
-                       weathering)
-                 (let ((density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
-                   (setf
-                    (cl-mpm/particle::mp-volume mp)
-                    (max
-                     0d0
-                     (-
-                      (cl-mpm/particle::mp-volume mp)
-                      (abs (*
-                            (bc-water-damage-damage-rate bc)
-                            weathering dt)))))
-                   (setf (cl-mpm/particle::mp-mass mp) (* density (cl-mpm/particle::mp-volume mp))))))
+               (setf weathering (min weathering 0d0))
+               (setf weathering (* (min weathering 0d0) volume))
+               ;; (setf weathering (- (sqrt (abs weathering))))
+               (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
+               (setf (cl-mpm/particle::mp-boundary mp) weathering)
+               (let ((density (/ mass volume)))
+                 (setf
+                  mass
+                  (max
+                   0d0
+                   (-
+                    mass
+                    (abs (*
+                          (bc-water-damage-damage-rate bc)
+                          weathering dt)))))
+                 ;; (setf mass (* density volume))
+                 )))))
+
       (cl-mpm::remove-mps-func sim (lambda (mp) (= 0d0 (cl-mpm/particle::mp-mass mp)))))))
 
 (defun setup (&key (refine 1) (mps 2))
@@ -134,7 +113,7 @@
     (setf (cl-mpm::sim-enable-damage *sim*) t)
     (cl-mpm:add-bcs-force-list
      *sim*
-     (make-bc-erode *sim* 5d0 0.5d0))
+     (make-bc-erode *sim* 5d0 500d0))
     ))
 
 
@@ -156,7 +135,7 @@
           (swank.live:update-swank))))
 
 (defun conv-test ()
-  (dolist (refine (list 1))
+  (dolist (refine (list 1 2))
     (dolist (mps (list 2 4))
       (setup :refine refine :mps mps)
       (run :output-dir (format nil "./output-~D-~D/" refine mps)))))
