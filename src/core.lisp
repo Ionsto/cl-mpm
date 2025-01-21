@@ -74,46 +74,46 @@
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
 
-(defmethod update-sim ((sim mpm-sim))
-  (declare (cl-mpm::mpm-sim sim))
-  (with-slots ((mesh mesh)
-               (mps mps)
-               (bcs bcs)
-               (bcs-force bcs-force)
-               (dt dt)
-               (mass-filter mass-filter)
-               (split allow-mp-split)
-               (enable-damage enable-damage)
-               (nonlocal-damage nonlocal-damage)
-               (remove-damage allow-mp-damage-removal)
-               (fbar enable-fbar)
-               (bcs-force-list bcs-force-list)
-               (vel-algo velocity-algorithm)
-               (time time))
-                sim
-    (declare (type double-float mass-filter))
-                (progn
+;; (defmethod update-sim ((sim mpm-sim))
+;;   (declare (cl-mpm::mpm-sim sim))
+;;   (with-slots ((mesh mesh)
+;;                (mps mps)
+;;                (bcs bcs)
+;;                (bcs-force bcs-force)
+;;                (dt dt)
+;;                (mass-filter mass-filter)
+;;                (split allow-mp-split)
+;;                (enable-damage enable-damage)
+;;                (nonlocal-damage nonlocal-damage)
+;;                (remove-damage allow-mp-damage-removal)
+;;                (fbar enable-fbar)
+;;                (bcs-force-list bcs-force-list)
+;;                (vel-algo velocity-algorithm)
+;;                (time time))
+;;                 sim
+;;     (declare (type double-float mass-filter))
+;;                 (progn
 
-                  (reset-grid mesh)
-                  (p2g mesh mps)
-                  (when (> mass-filter 0d0)
-                    (filter-grid mesh (sim-mass-filter sim)))
-                  (update-node-kinematics mesh dt )
-                  (apply-bcs mesh bcs dt)
-                  (update-stress mesh mps dt fbar)
-                  ;; ;; Map forces onto nodes
-                  (p2g-force mesh mps)
-                  (loop for bcs-f in bcs-force-list
-                        do (apply-bcs mesh bcs-f dt))
-                  (update-node-forces sim)
-                  ;; Reapply velocity BCs
-                  (apply-bcs mesh bcs dt)
-                  ;; Also updates mps inline
-                  (g2p mesh mps dt vel-algo)
-                  (when split
-                    (split-mps sim))
-                  (check-mps sim)
-                  (incf time dt))))
+;;                   (reset-grid mesh)
+;;                   (p2g mesh mps)
+;;                   (when (> mass-filter 0d0)
+;;                     (filter-grid mesh (sim-mass-filter sim)))
+;;                   (update-node-kinematics mesh dt )
+;;                   (apply-bcs mesh bcs dt)
+;;                   (update-stress mesh mps dt fbar)
+;;                   ;; ;; Map forces onto nodes
+;;                   (p2g-force mesh mps)
+;;                   (loop for bcs-f in bcs-force-list
+;;                         do (apply-bcs mesh bcs-f dt))
+;;                   (update-node-forces sim)
+;;                   ;; Reapply velocity BCs
+;;                   (apply-bcs mesh bcs dt)
+;;                   ;; Also updates mps inline
+;;                   (g2p mesh mps dt vel-algo)
+;;                   (when split
+;;                     (split-mps sim))
+;;                   (check-mps sim)
+;;                   (incf time dt))))
 (defmethod update-sim ((sim mpm-sim-usf))
   "Update stress first algorithm"
   (declare (cl-mpm::mpm-sim-usf sim))
@@ -136,23 +136,24 @@
     (declare (double-float mass-filter dt time))
     (progn
       (reset-grid mesh)
-      (p2g mesh mps)
-      (when (> mass-filter 0d0)
-        (filter-grid mesh (sim-mass-filter sim)))
-      (update-node-kinematics mesh dt )
-      (apply-bcs mesh bcs dt)
-      (update-stress mesh mps dt fbar)
-      ;; Map forces onto nodes
-      (p2g-force mesh mps)
-      (loop for bcs-f in bcs-force-list
-            do (apply-bcs mesh bcs-f dt))
-      (update-node-forces sim)
-      ;; Reapply velocity BCs
-      (apply-bcs mesh bcs dt)
-      ;; Also updates mps inline
-      (g2p mesh mps dt vel-algo)
-      (when split
-        (split-mps sim))
+      (when (> (length mps) 0)
+        (p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (filter-grid mesh (sim-mass-filter sim)))
+        (update-node-kinematics mesh dt )
+        (apply-bcs mesh bcs dt)
+        (update-stress mesh mps dt fbar)
+        ;; Map forces onto nodes
+        (p2g-force mesh mps)
+        (loop for bcs-f in bcs-force-list
+              do (apply-bcs mesh bcs-f dt))
+        (update-node-forces sim)
+        ;; Reapply velocity BCs
+        (apply-bcs mesh bcs dt)
+        ;; Also updates mps inline
+        (g2p mesh mps dt vel-algo)
+        (when split
+          (split-mps sim)))
       ;; (check-mps sim)
       (incf time dt))))
 

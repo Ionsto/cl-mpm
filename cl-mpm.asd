@@ -210,6 +210,13 @@
                (:file "src/bc/buoyancy")
                ))
 
+(defsystem "cl-mpm/erosion"
+  :depends-on ("cl-mpm"
+               "cl-mpm/bc"
+               "cl-mpm/damage")
+  :description "Erosion specific BCs"
+  :components ((:file "src/bc/erosion")))
+
 (defsystem "cl-mpm/penalty"
   :depends-on ("cl-mpm"
                "cl-mpm/bc")
@@ -507,6 +514,7 @@
                "cl-mpm/particle"
                "cl-mpm/output"
                "cl-mpm/buoyancy"
+               "cl-mpm/erosion"
                "cl-mpm/penalty"
                "cl-mpm/damage"
                "cl-mpm/plotter"

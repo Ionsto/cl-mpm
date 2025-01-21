@@ -1158,8 +1158,6 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
         (cl-mpm/output::save-parameter "mpi-index" (cl-mpm/particle::mp-mpi-index mp))
         (cl-mpm/output::save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
-        (cl-mpm/output::save-parameter "dfdebug" (cl-mpm/particle::mp-debug-j mp))
-        (cl-mpm/output::save-parameter "df0debug" (cl-mpm/particle::mp-debug-j-gather mp))
         (cl-mpm/output::save-parameter "volume" (cl-mpm/particle::mp-volume mp))
         (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
@@ -1206,6 +1204,10 @@ Calls the function with the mesh mp and node"
                                              (setf (cl-mpm/particle::mp-time-averaged-counter mp) 0d0
                                                    (cl-mpm/particle::mp-time-averaged-ybar mp) 0d0)
                                              v)
+                                           0))
+        (cl-mpm/output::save-parameter "erosion"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::eroded-volume)
+                                           (cl-mpm/particle::mp-eroded-volume mp)
                                            0))
         (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))

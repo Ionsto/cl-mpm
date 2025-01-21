@@ -1,5 +1,8 @@
 (defpackage :cl-mpm/examples/joss
   (:use :cl))
+(defclass cl-mpm/particle::particle-chalk-erodable (cl-mpm/particle::particle-chalk-delayed
+                                                     cl-mpm/particle::particle-erosion)
+  ())
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
@@ -19,58 +22,58 @@
     :initarg :damage-rate
     :accessor bc-water-damage-damage-rate)))
 
-(defclass bc-erode (cl-mpm/buoyancy::bc-scalar)
-  ((damage-rate
-    :initform 1d0
-    :initarg :damage-rate
-    :accessor bc-water-damage-damage-rate)))
+;; (defclass bc-erode (cl-mpm/buoyancy::bc-scalar)
+;;   ((damage-rate
+;;     :initform 1d0
+;;     :initarg :damage-rate
+;;     :accessor bc-water-damage-damage-rate)))
 
-(defun make-bc-erode (sim datum rate lower-datum upper-datum)
-  (with-accessors ((mesh cl-mpm:sim-mesh))
-      sim
-    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        mesh
-      (make-instance 'bc-erode
-                     :index nil
-                     :damage-rate rate
-                     :damage-volume nil
-                     :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
-                                                                (- upper-datum datum)
-                                                                ))
-                                                      12))
-                     :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
-                                                   (<= (cl-mpm/utils:varef pos 1) upper-datum)
-                                                   ))
-                     :sim sim))))
-(defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
-  (call-next-method)
-  ;; (break)
-  (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
-      bc
-    (when (cl-mpm::sim-enable-damage sim)
-      (loop for mp across (cl-mpm:sim-mps sim)
-            do
-               (let ((weathering 0d0))
-                 (cl-mpm:iterate-over-neighbours
-                  mesh
-                  mp
-                  (lambda (mesh mp node svp grads fsvp fgrads)
-                    (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
-                 (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
-                 (setf (cl-mpm/particle::mp-boundary mp) weathering)
-                 (setf weathering (min weathering 0d0))
-                 (let ((density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
-                   (setf
-                    (cl-mpm/particle::mp-volume mp)
-                    (max
-                     0d0
-                     (-
-                      (cl-mpm/particle::mp-volume mp)
-                      (abs (*
-                            (bc-water-damage-damage-rate bc)
-                            weathering dt)))))
-                   (setf (cl-mpm/particle::mp-mass mp) (* density (cl-mpm/particle::mp-volume mp))))))
-      (cl-mpm::remove-mps-func sim (lambda (mp) (= 0d0 (cl-mpm/particle::mp-mass mp)))))))
+;; (defun make-bc-erode (sim datum rate lower-datum upper-datum)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh))
+;;       sim
+;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+;;         mesh
+;;       (make-instance 'bc-erode
+;;                      :index nil
+;;                      :damage-rate rate
+;;                      :damage-volume nil
+;;                      :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
+;;                                                                 (- upper-datum datum)
+;;                                                                 ))
+;;                                                       12))
+;;                      :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
+;;                                                    (<= (cl-mpm/utils:varef pos 1) upper-datum)
+;;                                                    ))
+;;                      :sim sim))))
+;; (defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
+;;   (call-next-method)
+;;   ;; (break)
+;;   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
+;;       bc
+;;     (when (cl-mpm::sim-enable-damage sim)
+;;       (loop for mp across (cl-mpm:sim-mps sim)
+;;             do
+;;                (let ((weathering 0d0))
+;;                  (cl-mpm:iterate-over-neighbours
+;;                   mesh
+;;                   mp
+;;                   (lambda (mesh mp node svp grads fsvp fgrads)
+;;                     (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
+;;                  (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
+;;                  (setf (cl-mpm/particle::mp-boundary mp) weathering)
+;;                  (setf weathering (min weathering 0d0))
+;;                  (let ((density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
+;;                    (setf
+;;                     (cl-mpm/particle::mp-volume mp)
+;;                     (max
+;;                      0d0
+;;                      (-
+;;                       (cl-mpm/particle::mp-volume mp)
+;;                       (abs (*
+;;                             (bc-water-damage-damage-rate bc)
+;;                             weathering dt)))))
+;;                    (setf (cl-mpm/particle::mp-mass mp) (* density (cl-mpm/particle::mp-volume mp))))))
+;;       (cl-mpm::remove-mps-func sim (lambda (mp) (= 0d0 (cl-mpm/particle::mp-mass mp)))))))
 
 (defun make-bc-water-damage (sim datum rate)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -197,12 +200,12 @@
         ;;                         ;; (cl-mpm/fastmaths:fast-.+
         ;;                         ;;  (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;; (setf damage-increment
-        ;;       (max 0d0
-        ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-        ;;             stress
-        ;;             (* angle (/ pi 180d0)))))
+        ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (setf damage-increment
+              (max 0d0
+                   (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                    stress
+                    (* angle (/ pi 180d0)))))
         ;;Delocalisation switch
         ;; (setf damage-increment
         ;;       (max 0d0
@@ -314,14 +317,14 @@
              (angle 50d0)
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
-             (init-stress 40d3)
+             ;; (init-stress 40d3)
              ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
              ;; (gf 45d0)
              ;; (gf 5d0)
              ;; (gf 5d0)
              (gf (* 48d0 1d0))
              ;; (gf 10d0)
-             (length-scale (* h 2d0))
+             (length-scale (* h 1d0))
              ;; (length-scale 1d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -341,7 +344,8 @@
            (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
            density
 
-           'cl-mpm/particle::particle-chalk-delayed
+           ;'cl-mpm/particle::particle-chalk-delayed
+           'cl-mpm/particle::particle-chalk-erodable
            :E 1d9
            :nu 0.24d0
 
@@ -456,14 +460,14 @@
   (let* ((target-time 1d0)
          (target-time-original target-time)
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
-         (accelerate-target-time 1d2)
-         (accelerate-mass-scale 1d6)
-         (collapse-target-time 0.1d0)
+         (accelerate-target-time 1d1)
+         (accelerate-mass-scale 1d4)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.8d0)
+         (dt-scale 0.5d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -472,7 +476,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
          (criteria-energy 1d-1)
-         (criteria-oobf 1d-1)
+         (criteria-oobf 5d-1)
          (damping-0
            (* 1d-3
               (cl-mpm/setup::estimate-critical-damping *sim*)))
@@ -713,6 +717,7 @@
                            (setf (cl-mpm:sim-damping-factor *sim*) damping-0))
                          (when (= steps settle-steps)
                            (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
+                           (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
                            (cl-mpm::iterate-over-mps
                             (cl-mpm:sim-mps *sim*)
                             (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled))))
@@ -1146,7 +1151,7 @@
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 2)
          (shelf-aspect 2)
-         (runout-aspect 2)
+         (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
@@ -1167,11 +1172,31 @@
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
 
+    (let ((datum (+ soil-boundary 1d0) )
+          (lower-datum soil-boundary)
+          (upper-datum (+ 16d0 soil-boundary))
+          )
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps *sim*)
+       (lambda (mp)
+         (when (<= (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1) soil-boundary)
+           (setf (cl-mpm/particle::mp-erosion-modulus mp) 1000d0))))
+      (defparameter *bc-erode*
+        (cl-mpm/erosion::make-bc-erode *sim* :rate 1d0
+                                             :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
+                                                                                        (- upper-datum datum)
+                                                                                        ))
+                                                                              12))
+                                             :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
+                                                                           (<= (cl-mpm/utils:varef pos 1) upper-datum)
+                                                                           ))
+                                             ))
+      )
     (cl-mpm:add-bcs-force-list
      *sim*
-     ;; (make-bc-weathering *sim* (+ 2d0 soil-boundary))
-     (make-bc-erode *sim* (+ soil-boundary 1d0) 1d-4 soil-boundary (+ 16d0 soil-boundary))
+     *bc-erode*
      )
+    (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil)
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*
     ;;  (make-bc-water-damage *sim*

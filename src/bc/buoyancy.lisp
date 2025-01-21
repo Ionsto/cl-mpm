@@ -517,7 +517,9 @@
     :accessor bc-damage-volume
     :initarg :damage-volume
     :initform nil)
-
+   (bc-enable
+    :accessor bc-enable
+    :initform t)
    (clip-func
     :accessor bc-buoyancy-clip-func
     :type function
