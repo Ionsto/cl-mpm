@@ -45,7 +45,10 @@
                      :index nil
                      :damage-rate rate
                      :damage-volume t
-                     :clip-func (lambda (pos) (and (> (cl-mpm/utils:varef pos 1) datum)))
+                     :clip-func (lambda (pos)
+                                  t
+                                  ;; (and (> (cl-mpm/utils:varef pos 1) datum))
+                                  )
                      :sim sim))))
 (defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
   (call-next-method)
@@ -67,13 +70,12 @@
                   (with-accessors ((node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                                    (node-volume cl-mpm/mesh::node-volume))
                       node
-                    (incf weathering (* svp (/ node-boundary-scalar
-                                               node-volume))))))
+                    (incf weathering (* svp (/ node-boundary-scalar (sqrt node-volume)))))))
 
                (setf weathering (min weathering 0d0))
                (setf weathering (* (min weathering 0d0) volume))
                ;; (setf weathering (- (sqrt (abs weathering))))
-               (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
+               ;; (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
                (setf (cl-mpm/particle::mp-boundary mp) weathering)
                (let ((density (/ mass volume)))
                  (setf
@@ -135,7 +137,7 @@
           (swank.live:update-swank))))
 
 (defun conv-test ()
-  (dolist (refine (list 1 2))
-    (dolist (mps (list 2 4))
+  (dolist (refine (list 1 2 4))
+    (dolist (mps (list 2))
       (setup :refine refine :mps mps)
       (run :output-dir (format nil "./output-~D-~D/" refine mps)))))

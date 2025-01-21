@@ -246,6 +246,18 @@
                     (setf node-dtemp
                           (+ node-dtemp weighted-dtemp))))))))
 
+;; (defmacro def-p2g (name body-func)
+;;   `(defun ,name (mesh mp)
+;;      (declare (cl-mpm/mesh::mesh mesh)
+;;               (cl-mpm/particle:particle mp))
+;;      (iterate-over-neighbours
+;;       mesh mp
+;;       (lambda (mesh mp node svp grads fsvp fgrads)
+;;         (declare
+;;          (cl-mpm/particle:particle mp)
+;;          (cl-mpm/mesh::node node)
+;;          (double-float svp))
+;;         (funcall ,body-func (mesh mp node svp))))))
 
 (declaim
  (inline p2g-mp)
