@@ -77,7 +77,7 @@
              ;; (setf weathering (- (sqrt (abs weathering))))
              (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
              (setf (cl-mpm/particle::mp-boundary mp) weathering)
-             (incf erode (/ (- weathering) erosion-modulus))
+             (incf erode (* (/ (- weathering) erosion-modulus) dt))
                ;; (let ((density (/ mass volume)))
                ;;   (setf
                ;;    mass

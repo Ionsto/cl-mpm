@@ -196,8 +196,7 @@
      )))
 
 (defclass mesh ()
-  (
-   (nodes
+  ((nodes
     :accessor mesh-nodes
     :initarg :nodes)
    (nD
@@ -212,7 +211,6 @@
    (mesh-res
     :accessor mesh-resolution
     :initarg :mesh-res)
-   
     (cells
       :accessor mesh-cells
       :initarg :cells)
@@ -226,6 +224,7 @@
     :accessor mesh-boundary-order
     :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
+
 
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"

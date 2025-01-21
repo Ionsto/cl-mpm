@@ -171,8 +171,15 @@
         ;;Use a lisp fallback
         (defun kirchoff-expt-step (strain df)
           (kirchoff-expt-step-lisp strain df))
-        (defun constitutive-drucker-prager (strain de E nu phi psi c)
-          (error "Drucker-Prager not implemented!"))
+        (defun constitutive-drucker-prager (stress de strain E nu phi psi c)
+          (cl-mpm/constitutive::mc-plastic stress
+                                           de
+                                           strain
+                                           E
+                                           nu
+                                           phi
+                                           psi
+                                           c))
         )))
 
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))

@@ -140,6 +140,7 @@
   :depends-on ("cl-mpm/magicl"
                "cffi"
                "cl-mpm/utils"
+               "cl-mpm/constitutive"
                "array-operations")
   :description "External libraries"
   :serial t
