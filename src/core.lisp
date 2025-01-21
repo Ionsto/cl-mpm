@@ -1356,16 +1356,17 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         ))))
 
 (defun update-particle-kirchoff (mesh mp dt)
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (df    cl-mpm/particle::mp-deformation-gradient-increment)
-                   )
-      mp
-    ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-    (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-    (when (<= volume 0d0)
-      (error "Negative volume"))))
+  ;; (with-accessors ((volume cl-mpm/particle:mp-volume)
+  ;;                  (volume-0 cl-mpm/particle::mp-volume-0)
+  ;;                  (def    cl-mpm/particle:mp-deformation-gradient)
+  ;;                  (df    cl-mpm/particle::mp-deformation-gradient-increment)
+  ;;                  )
+  ;;     mp
+  ;;   ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+  ;;   (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+  ;;   (when (<= volume 0d0)
+  ;;     (error "Negative volume")))
+  )
 
 (defgeneric update-particle (mesh mp dt)
   (:documentation "End of step update"))
