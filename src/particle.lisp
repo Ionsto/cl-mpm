@@ -10,6 +10,7 @@
     #:mp-volume
     #:mp-position
     #:mp-velocity
+    #:mp-acceleration
     #:mp-stress
     #:mp-strain
     #:mp-strain-rate

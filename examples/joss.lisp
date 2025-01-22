@@ -135,16 +135,17 @@
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-det mesh mp dt)
-  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-det mesh mp dt)
+  ;; (cl-mpm::update-domain-corner mesh mp dt)
+  (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
   ;; (cl-mpm::update-domain-det mesh mp)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-det mesh mp dt fbar)
@@ -169,6 +170,75 @@
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
+(in-package :cl-mpm/particle)
+(defmethod constitutive-model ((mp cl-mpm/particle::particle-chalk-delayed) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((de mp-elastic-matrix)
+                   (stress mp-stress)
+                   (E mp-E)
+                   (nu mp-nu)
+                   (phi mp-phi)
+                   (psi mp-psi)
+                   (c mp-c)
+                   (plastic-strain mp-strain-plastic)
+                   (ps-vm mp-strain-plastic-vm)
+                   (strain mp-strain)
+                   (yield-func mp-yield-func)
+                   (soft mp-softening)
+                   (enabled mp-enable-plasticity)
+                   )
+      mp
+    (declare (double-float soft ps-vm E nu phi psi c))
+    ;;Train elastic strain - plus trail kirchoff stress
+    (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
+    (when enabled
+      (let ((f-r t))
+        (loop for i from 0 to 50
+              while f-r
+              do
+                 (progn
+                   (multiple-value-bind (sig eps-e f inc)
+                       (cl-mpm/ext::constitutive-mohr-coulomb stress
+                                                              de
+                                                              strain
+                                                              E
+                                                              nu
+                                                              phi
+                                                              psi
+                                                              c)
+                     (setf f-r (> f 1d-5))
+                     (setf
+                      stress sig
+                      strain eps-e
+                      yield-func f)
+                     (incf ps-vm inc))
+                   (setf (mp-plastic-iterations mp) i)
+                   (when (> soft 0d0)
+                     (with-accessors ((c-0 mp-c-0)
+                                      (phi-0 mp-phi-0)
+                                      (psi-0 mp-psi-0)
+                                      (c-r mp-c-r)
+                                      (phi-r mp-phi-r)
+                                      (psi-r mp-psi-r))
+                         mp
+                       (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
+                       (setf
+                        c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
+                        phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
+                     )))))
+    stress))
+
+(in-package :cl-mpm/examples/joss)
+
+;; (let ((phi-r (* 15d0 (/ pi 180)))
+;;       (phi-0 (* 50d0 (/ pi 180)))
+;;       (c-0 26d3)
+;;       (c-r 0d0)
+;;       (soft (* 1d-2 1000d0))
+;;       )
+;;   (pprint (* (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- soft ))))) (/ 180 pi)))
+;;   (pprint (+ c-r (* (- c-0 c-r) (exp (- soft)))))
+;;   )
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
@@ -201,11 +271,11 @@
         ;;                         ;;  (magicl:scale plastic-strain (- 1d0 damage)))
         ;;                         E de))
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        (setf damage-increment
-              (max 0d0
-                   (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                    stress
-                    (* angle (/ pi 180d0)))))
+        ;; (setf damage-increment
+        ;;       (max 0d0
+        ;;            (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+        ;;             stress
+        ;;             (* angle (/ pi 180d0)))))
         ;;Delocalisation switch
         ;; (setf damage-increment
         ;;       (max 0d0
@@ -225,10 +295,10 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   :colour-func #'cl-mpm/particle::mp-damage
+   ;; :colour-func #'cl-mpm/particle::mp-damage
    ;; :colour-func #'cl-mpm/particle::mp-damage-shear
    ;; :colour-func #'cl-mpm/particle::mp-damage-ybar
-   ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+   :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
    ;; :colour-func (lambda (mp)
    ;;                (let ((drive 
    ;;                        (*
@@ -324,7 +394,7 @@
              ;; (gf 5d0)
              (gf (* 48d0 1d0))
              ;; (gf 10d0)
-             (length-scale (* h 1d0))
+             (length-scale (* h 2d0))
              ;; (length-scale 1d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
@@ -377,7 +447,13 @@
            ;; :c 131d3
            :psi (* 0d0 (/ pi 180))
            :phi (* angle (/ pi 180))
-           :c (* init-c 1d2)
+           :c (* init-c 1d0)
+           :psi-r (* 0d0 (/ pi 180))
+           :phi-r (* 30d0 (/ pi 180))
+           :c-r 0d0
+           :softening 1d0
+
+           :index 0
 
            :gravity -9.8d0
            :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
@@ -390,7 +466,7 @@
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -467,7 +543,7 @@
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.8d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -475,10 +551,10 @@
          (last-e 0d0)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
-         (criteria-energy 1d-1)
-         (criteria-oobf 5d-1)
+         (criteria-energy 1d-2)
+         (criteria-oobf 2d-1)
          (damping-0
-           (* 1d-3
+           (* 1d-4
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -619,16 +695,19 @@
                                        (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))
                                        (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
                                        (incf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
-                                       ;; (incf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                                       (incf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
                                        ))))
 
 
                          ;; (setf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
-                         (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                         (if (> work 0d0)
-                           (setf energy-estimate (abs (/ energy-estimate work)))
-                           (setf energy-estimate 0d0))
-                         (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
+                         ;(setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                         (setf
+                          energy-estimate (/ energy-estimate substeps)
+                          oobf (/ oobf substeps))
+                         (if (= work 0d0)
+                             (setf energy-estimate 0d0)
+                             (setf energy-estimate (abs (/ energy-estimate work))))
+                         ;; (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
 
                          ;; (setf
                          ;;  energy-estimate (/ energy-estimate substeps)
@@ -740,10 +819,19 @@
                                    (format t "Changed to accelerate~%")
                                    (setf work 0d0)
                                    (setf sim-state :accelerate)
+                                   ;; (cl-mpm::remove-mps-func
+                                   ;;  *sim*
+                                   ;;  (lambda (p)
+                                   ;;    (and (> (cl-mpm::mp-damage p) 0.99d0)
+                                   ;;         (= (cl-mpm/particle::mp-index p) 0))
+                                   ;;    ))
                                    (cl-mpm:iterate-over-mps
                                     (cl-mpm:sim-mps *sim*)
                                     (lambda (mp)
-                                      (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp)))))))
+                                      ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
+                                      ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
+                                      ))
+                                   )))
                            (case sim-state
                              (:accelerate
                               (format t "Accelerate timestep~%")
@@ -753,6 +841,7 @@
                              (:collapse
                               (format t "Collapse timestep~%")
                               (setf
+                               work 0d0
                                target-time collapse-target-time
                                (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale))))
 
@@ -1147,7 +1236,7 @@
                 )
   (let* ((mesh-size (/ 1d0 refine))
          (mps-per-cell mps)
-         (shelf-height 15.5)
+         (shelf-height 15)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 2)
          (shelf-aspect 2)
@@ -1171,6 +1260,11 @@
                                )
                          offset
                          (/ 1d0 mesh-size) mps-per-cell))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (when (<= (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1) soil-boundary)
+         (setf (cl-mpm/particle::mp-index mp) 1))))
 
     (let ((datum (+ soil-boundary 1d0) )
           (lower-datum soil-boundary)
@@ -1457,7 +1551,7 @@
                ) p)
              1d0))))
 
-    (setf cl-mpm::*max-split-depth* 6))
+    (setf cl-mpm::*max-split-depth* 4))
 
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))

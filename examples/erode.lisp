@@ -118,9 +118,13 @@
                 mp
                 (lambda (mesh mp node svp grads fsvp fgrads)
                   (with-accessors ((node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-                                   (node-volume cl-mpm/mesh::node-volume))
+                                   (node-volume cl-mpm/mesh::node-volume)
+                                   (node-damage cl-mpm/mesh::node-damage)
+                                   )
                       node
-                    (incf weathering (* svp (/ node-boundary-scalar node-volume))))))
+                    (incf weathering (* svp
+                                        (+ 1d0 (* 4d0 node-damage))
+                                        (/ node-boundary-scalar node-volume))))))
 
                (setf weathering (min weathering 0d0))
                (setf weathering (* rate (min weathering 0d0) volume))
@@ -199,3 +203,69 @@
     (dolist (mps (list 2 4))
       (setup :refine refine :mps mps)
       (run :output-dir (format nil "./output-~D-~D/" refine mps)))))
+
+
+(defun p2g-erosion-mp (mesh mp)
+  "P2G transfer for one MP"
+  (declare (cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp))
+  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
+                   (mp-mass cl-mpm/particle:mp-mass)
+                   (mp-volume cl-mpm/particle:mp-volume)
+                   (mp-pmod cl-mpm/particle::mp-p-modulus)
+                   (mp-damage cl-mpm/particle::mp-damage))
+      mp
+    (let ((mp-mass mp-mass)
+          (mp-vel mp-vel)
+          (mp-volume mp-volume)
+          (mp-pmod mp-pmod)
+          (mp-damage mp-damage))
+      (declare (type double-float mp-mass mp-volume))
+      (cl-mpm:iterate-over-neighbours
+       mesh mp
+       (lambda (mesh mp node svp grads fsvp fgrads)
+         (declare
+          (cl-mpm/particle:particle mp)
+          (cl-mpm/mesh::node node)
+          (double-float svp)
+          )
+         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
+                          (node-active  cl-mpm/mesh::node-active)
+                          (node-mass  cl-mpm/mesh:node-mass)
+                          (node-volume  cl-mpm/mesh::node-volume)
+                          (node-volume-true  cl-mpm/mesh::node-volume-true)
+                          (node-svp-sum  cl-mpm/mesh::node-svp-sum)
+                          (node-force cl-mpm/mesh:node-force)
+                          (node-p-wave cl-mpm/mesh::node-pwave)
+                          (node-damage cl-mpm/mesh::node-damage)
+                          (node- cl-mpm/mesh::node-damage)
+                          (node-lock  cl-mpm/mesh:node-lock)) node
+           (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
+                    (type sb-thread:mutex node-lock))
+           (sb-thread:with-mutex (node-lock)
+             (setf node-active t)
+             (incf node-mass
+                   (* mp-mass svp))
+             (incf node-volume
+                   (* mp-volume svp))
+             (incf node-p-wave
+                   (* mp-pmod svp))
+             (incf node-damage
+                   (* mp-damage svp))
+             (incf node-svp-sum svp)
+             (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))
+             )
+           ;;Ideally we include these generic functions for special mapping operations, however they are slow
+           ;; (special-p2g mp node svp dsvp)
+           )))
+      ))
+  (values))
+
+(declaim (notinline p2g))
+(defun p2g-erosion (mesh mps)
+  "Map particle momentum to the grid"
+  (declare (type (vector cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+  (cl-mpm:iterate-over-mps
+   mps
+   (lambda (mp)
+     (p2g-erosion-mp mesh mp))))

@@ -735,9 +735,9 @@
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         ;(cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         )))
   (values))
@@ -1439,7 +1439,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       ;;Explicit fbar
       (when fbar
-        (if nil;;t exp: nil Coobs
+        (if t;;t exp: nil Coobs
             (progn
               (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
                     (j-n
@@ -1464,7 +1464,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                        ))))
                 ;; (setf gather-j (/ gather-j svp-sum))
 
-                (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n));; (* j-inc j-n)
+                (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n))
                       (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
 
                 (cl-mpm/fastmaths:fast-scale!
@@ -1507,11 +1507,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun update-stress (mesh mps dt &optional (fbar nil))
   "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  ;; (iterate-over-mps
-  ;;  mps
-  ;;  (lambda (mp)
-  ;;    (calculate-strain-rate mesh mp dt)
-  ;;    (map-jacobian mesh mp dt)))
+  (iterate-over-mps
+   mps
+   (lambda (mp)
+     (calculate-strain-rate mesh mp dt)
+     (map-jacobian mesh mp dt)))
   (iterate-over-mps
    mps
    (lambda (mp)

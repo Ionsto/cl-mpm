@@ -30,7 +30,9 @@
     :accessor mp-yield-func
     :type double-float
     :initform 0d0)
-   ))
+   (plastic-iterations
+    :accessor mp-plastic-iterations
+    :initform 0)))
 
 (defclass particle-vm (particle-elastic particle-plastic)
   ((rho
@@ -154,42 +156,41 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
-      (progn
-          (multiple-value-bind (sig eps-e f inc)
-              (cl-mpm/ext::constitutive-mohr-coulomb stress
-                                                     de
-                                                     strain
-                                                     E
-                                                     nu
-                                                     phi
-                                                     psi
-                                                     c)
-              ;; (cl-mpm/constitutive::mc-plastic stress
-              ;;                                  de
-              ;;                                  strain
-              ;;                                  E
-              ;;                                  nu
-              ;;                                  phi
-              ;;                                  psi
-              ;;                                  c)
-            (setf
-             stress sig
-             strain eps-e
-             yield-func f)
-            (incf ps-vm inc))))
-    (when (> soft 0d0)
-      (with-accessors ((c-0 mp-c-0)
-                       (phi-0 mp-phi-0)
-                       (psi-0 mp-psi-0)
-                       (c-r mp-c-r)
-                       (phi-r mp-phi-r)
-                       (psi-r mp-psi-r))
-          mp
-        (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
-          (setf
-           c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
-           phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
-      )
+      (let ((f-r t))
+        (loop for i from 0 to 50
+              while f-r
+              do
+                 (progn
+                   (multiple-value-bind (sig eps-e f inc)
+                       (cl-mpm/ext::constitutive-mohr-coulomb stress
+                                                              de
+                                                              strain
+                                                              E
+                                                              nu
+                                                              phi
+                                                              psi
+                                                              c)
+                     (declare (double-float f inc))
+                     (setf f-r (> f 1d-5))
+                     (setf
+                      stress sig
+                      strain eps-e
+                      yield-func f)
+                     (incf ps-vm inc))
+                   (setf (mp-plastic-iterations mp) i)
+                   (when (> soft 0d0)
+                     (with-accessors ((c-0 mp-c-0)
+                                      (phi-0 mp-phi-0)
+                                      (psi-0 mp-psi-0)
+                                      (c-r mp-c-r)
+                                      (phi-r mp-phi-r)
+                                      (psi-r mp-psi-r))
+                         mp
+                       (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
+                       (setf
+                        c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
+                        phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
+                     )))))
     stress
     ))
 

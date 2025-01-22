@@ -1282,108 +1282,10 @@ Calls the function with the mesh mp and node"
                                        (if (slot-exists-p mp 'cl-mpm/particle::history-stress)
                                            (cl-mpm/particle::mp-history-stress mp)
                                            0d0))
-        ;; (cl-mpm/output::save-parameter "viscosity"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::true-visc)
-        ;;                                    (cl-mpm/particle::mp-true-visc mp)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-xx"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 0 0)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-yy"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-tensor mp) 1 1)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-y-xx"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 0 0)
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-y-yy"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::damage-tensor)
-        ;;                                    (magicl:tref (cl-mpm/particle::mp-damage-ybar-tensor mp) 1 1)
-        ;;                                    0d0))
-        
-        ;; (cl-mpm/output::save-parameter "damage-plastic-phi"
-        ;;                                (if (and (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
-        ;;                                         (slot-exists-p mp 'cl-mpm/particle::phi))
-        ;;                                    (with-accessors ((kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
-        ;;                                                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
-        ;;                                                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
-        ;;                                                     (angle-plastic cl-mpm/particle::mp-phi)
-        ;;                                                     (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                     (damage cl-mpm/particle::mp-damage)
-        ;;                                                     )
-        ;;                                        mp
-        ;;                                      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-        ;;                                            (s (cl-mpm/constitutive::deviatoric-voigt stress))
-        ;;                                            (p-r 0d0))
-        ;;                                        (setf p-r
-        ;;                                              (if (> p 0d0)
-        ;;                                                  (- 1d0 (* (- 1d0 kt-r) damage))
-        ;;                                                  (- 1d0 (* (- 1d0 kc-r) damage))))
-        ;;                                        (* (/ 180d0 pi) (atan (* (/ (- 1d0 (* (- 1d0 g-r) damage)) p-r) (tan angle-plastic)))))
-        ;;                                      )
-        ;;                                    0d0))
-        ;; (cl-mpm/output::save-parameter "damage-plastic-c"
-        ;;                                (if (and (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
-        ;;                                         (slot-exists-p mp 'cl-mpm/particle::phi))
-        ;;                                    (with-accessors ((kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
-        ;;                                                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
-        ;;                                                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
-        ;;                                                     (c cl-mpm/particle::mp-c)
-        ;;                                                     (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                     (damage cl-mpm/particle::mp-damage)
-        ;;                                                     )
-        ;;                                        mp
-        ;;                                      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-        ;;                                            (s (cl-mpm/constitutive::deviatoric-voigt stress))
-        ;;                                            (p-r 0d0))
-        ;;                                        (setf p-r
-        ;;                                              (if (> p 0d0)
-        ;;                                                  (- 1d0 (* (- 1d0 kt-r) damage))
-        ;;                                                  (- 1d0 (* (- 1d0 kc-r) damage))))
-        ;;                                        (* c p-r)))
-        ;;                                    0d0))
-        
         (cl-mpm/output::save-parameter "local-length"
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
                                            0d0))
-        ;; (cl-mpm/output::save-parameter "j2"
-        ;;                                (with-accessors ((damage cl-mpm/particle::mp-damage)
-        ;;                                                 (stress cl-mpm/particle::mp-undamaged-stress)
-        ;;                                                 (def cl-mpm/particle::mp-deformation-gradient)
-        ;;                                                 )
-        ;;                                    mp
-        ;;                                  (if (< damage 1d0)
-        ;;                                      (sqrt (cl-mpm/constitutive::voigt-j2
-        ;;                                             (cl-mpm/utils::deviatoric-voigt stress)))
-        ;;                                      0d0)))
-        ;; (cl-mpm/output::save-parameter "i1"
-        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
-        ;;                                    (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
-        ;;                                    (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))))
-        ;; (cl-mpm/output::save-parameter "stress-pressure"
-        ;;                                (/ (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
-        ;;                                       (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
-        ;;                                       (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp))) 3))
-        ;; (cl-mpm/output::save-parameter "e_i1"
-        ;;                                (with-accessors ((strain cl-mpm/particle::mp-strain))
-        ;;                                    mp
-        ;;                                  (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
-        ;;                                    (+ e_1 e_2 e_3))))
-        ;; (cl-mpm/output::save-parameter "e_j2"
-        ;;                                (with-accessors ((strain cl-mpm/particle::mp-strain))
-        ;;                                    mp
-        ;;                                  (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d strain)
-        ;;                                    (let* ((j2
-        ;;                                             (* 1/6 (+
-        ;;                                                     (expt (- e_1 e_2) 2)
-        ;;                                                     (expt (- e_2 e_3) 2)
-        ;;                                                     (expt (- e_3 e_1) 2)))))
-        ;;                                      (sqrt j2)))))
-
-
         (cl-mpm/output::save-parameter "p-undamaged"
                                        (if (slot-exists-p mp 'cl-mpm/particle::undamaged-stress)
                                            (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-undamaged-stress mp))
@@ -1404,6 +1306,8 @@ Calls the function with the mesh mp and node"
 
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
+
+        (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
         (cl-mpm/output::save-parameter
          "plastic_strain"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
