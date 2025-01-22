@@ -578,7 +578,7 @@
     ;;       (* 1d0 (+ (the double-float (mtref stretch 0 1))
     ;;                 (the double-float (mtref stretch 1 0)))))
     )
-  (values))
+ result) 
 
 
 (declaim (inline stretch-to-skew)
