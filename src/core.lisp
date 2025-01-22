@@ -734,10 +734,13 @@
       (progn
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
+        (cl-mpm/fastmaths:fast-fmacc force-ext vel (* -2d0 damping mass))
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
-        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) 1d0))
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         ;(cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (* damping -1d0))
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         )))
   (values))
@@ -1996,8 +1999,8 @@ This modifies the dt of the simulation in the process
     (values dt-e substeps-e)
     )
   )
-(defun sim-add-mps (mp-array)
-  (cl-mpm:add-mps (cl-mpm:sim-mps *sim*)))
+
+
 (defgeneric add-mps (sim mps-array))
 (defmethod add-mps (sim mps-array)
   (with-accessors ((mps cl-mpm:sim-mps))

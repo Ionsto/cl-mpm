@@ -20,12 +20,85 @@
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
-   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
   )
+(defmethod cl-mpm/output::save-vtk (filename (sim cl-mpm/damage::mpm-sim-damage))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)) sim
+    (with-open-file (fs filename :direction :output :if-exists :supersede)
+      (format fs "# vtk DataFile Version 2.0~%")
+      (format fs "Lisp generated vtk file, WMC~%")
+      (format fs "ASCII~%")
+      (format fs "DATASET UNSTRUCTURED_GRID~%")
+      (format fs "POINTS ~d double~%" (length mps))
+      (loop for mp across mps
+            do (format fs "~E ~E ~E ~%"
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
+                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)))
+      (format fs "~%")
+
+      ;; (with-parameter-list fs mps
+      ;;   ("mass" (lambda (mp) (cl-mpm/particle:mp-mass mp))))
+
+      (let ((id 1)
+            (nd (cl-mpm/mesh:mesh-nd mesh)))
+        (declare (special id))
+        (format fs "POINT_DATA ~d~%" (length mps))
+
+        (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
+        (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
+        (cl-mpm/output::save-parameter "index" (cl-mpm/particle::mp-index mp))
+        (cl-mpm/output::save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
+        (cl-mpm/output::save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
+        (cl-mpm/output::save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
+        (cl-mpm/output::save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        (cl-mpm/output::save-parameter "vel_z" (magicl:tref (cl-mpm/particle:mp-velocity mp) 2 0))
+
+        ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
+        ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
+
+        (cl-mpm/output::save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
+        (cl-mpm/output::save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
+        (cl-mpm/output::save-parameter "disp_z" (magicl:tref (cl-mpm/particle::mp-displacement mp) 2 0))
+
+        (cl-mpm/output::save-parameter "damage"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage)
+                                           (cl-mpm/particle:mp-damage mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-k"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::history-stress)
+                                           (cl-mpm/particle::mp-history-stress mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-ybar"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
+                                           (cl-mpm/particle::mp-damage-ybar mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
+        (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
+        (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))
+        (when (= nd 3)
+          (cl-mpm/output::save-parameter "sig_zz" (magicl:tref (cl-mpm/particle:mp-stress mp) 2 0))
+          (cl-mpm/output::save-parameter "sig_yz" (magicl:tref (cl-mpm/particle:mp-stress mp) 3 0))
+          (cl-mpm/output::save-parameter "sig_zx" (magicl:tref (cl-mpm/particle:mp-stress mp) 4 0)))
+
+        (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-strain mp) 0 0))
+        (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
+        (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
+
+        (when (= nd 3)
+          (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
+          (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
+          (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0)))
+
+        (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
+        (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
+        )
+      )))
 
 (defun stop ()
   (setf *run-sim* nil))
@@ -34,9 +107,10 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type
+               ;; 'cl-mpm::mpm-sim-usf
                ;; :sim-type 'cl-mpm::mpm-sim-usl
-               ;; 'cl-mpm/damage::mpm-sim-damage
+               'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -54,27 +128,26 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                ;; 'cl-mpm/particle::particle-elastic-damage
+                'cl-mpm/particle::particle-elastic-damage-delayed
                 ;; 'cl-mpm/particle::particle-elastic
-                'cl-mpm/particle::particle-vm
+                ;; 'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.3d0
-                :rho 30d3
-                ;; :initiation-stress 1d3
-                ;; :damage-rate 1d-6
-                ;; :critical-damage 0.50d0
-                ;; :local-length 2d0
-                ;; :local-length-damaged 0.01d0
-                ;; :damage 0.0d0
+                ;; :rho 30d3
+                :initiation-stress 1d4
+                :delay-time 1d1
+                :local-length h
+                :ductility 10d0
                 :gravity -10.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
-      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
-      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
@@ -107,8 +180,8 @@
         (cl-mpm:sim-mesh sim)
         '(0 nil 0)
         '(0 nil 0)
-        '(nil 0 0)
-        '(nil 0 0)
+        '(0 0 0)
+        '(0 0 0)
         '(nil nil 0)
         '(nil nil 0)))
 
@@ -144,6 +217,9 @@
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
     (defparameter *sim* (setup-test-column '(16 16) '(8 8) refine mps-per-dim))
     )
+  (cl-mpm/setup::initialise-stress-self-weight
+   *sim*
+   8d0)
   ;; (defparameter *sim* (setup-test-column '(1 1 1) '(1 1 1) 1 1))
   (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -151,26 +227,34 @@
   (defparameter *t* 0)
   (defparameter *sim-step* 0))
 
-(defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+(defun run (&key (output-dir "./output/")
+              (ms 1d0))
+  (uiop:ensure-all-directories-exist (list output-dir))
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-dir "mesh.vtk")
                           *sim*)
 
   (defparameter *data-steps* (list))
   (defparameter *data-oobf* (list))
   (defparameter *data-energy* (list))
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-scale 0.5d0)
          (dt-min (cl-mpm:sim-dt *sim*))
          )
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.5d0
+             (cl-mpm/setup:estimate-critical-damping *sim*)))
+    (setf (cl-mpm:sim-mass-scale *sim*) ms)
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
+    ;; (setf (cl-mpm:sim-damping-factor *sim*) 0d0)
     (cl-mpm::update-sim *sim*)
     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                     (format t "CFL dt estimate: ~f~%" dt-e)
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 100
+    (time (loop for steps from 0 to 30
                 while *run-sim*
                 do
                    (progn
@@ -179,8 +263,8 @@
                      ;;   ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                      ;;   )
                      (format t "Step ~d ~%" steps)
-                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (setf dt-min (cl-mpm::calculate-min-dt *sim*))
                      (time
                       (dotimes (i substeps)
@@ -211,7 +295,7 @@
 
                      (swank.live:update-swank)
                      ))))
-  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*))
+  (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*))
 
 
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 8 :name "custom-kernel"))
@@ -474,3 +558,12 @@
 ;;                       (node-volume cl-mpm/mesh::node-volume))
 ;;          node
 ;;        (pprint svp)))))
+
+(defun test-ms ()
+  (setf *run-sim* t)
+  (loop for  ms in (list 1d0 1d1 1d2 1d3)
+        while *run-sim*
+        do
+           (progn
+             (setup :refine 2)
+             (run :output-dir (format nil "./output-~F/" ms) :ms ms))))

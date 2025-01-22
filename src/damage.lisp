@@ -1307,7 +1307,7 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
 
-        (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
+        ;; (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
         (cl-mpm/output::save-parameter
          "plastic_strain"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)

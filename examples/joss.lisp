@@ -554,7 +554,7 @@
          (criteria-energy 1d-2)
          (criteria-oobf 2d-1)
          (damping-0
-           (* 1d-4
+           (* 1d-2
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -700,14 +700,14 @@
 
 
                          ;; (setf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
-                         ;(setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                         (setf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                         (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
                          (setf
                           energy-estimate (/ energy-estimate substeps)
                           oobf (/ oobf substeps))
                          (if (= work 0d0)
                              (setf energy-estimate 0d0)
                              (setf energy-estimate (abs (/ energy-estimate work))))
-                         ;; (setf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
 
                          ;; (setf
                          ;;  energy-estimate (/ energy-estimate substeps)
@@ -1239,7 +1239,7 @@
          (shelf-height 15)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 2)
-         (shelf-aspect 2)
+         (shelf-aspect 1)
          (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))

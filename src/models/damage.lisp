@@ -181,6 +181,26 @@
   ()
   (:documentation "A mp with damage influanced elastic model"))
 
+(defclass particle-elastic-damage-delayed (particle-elastic-damage)
+   ((ductility
+     :accessor mp-ductility
+     :initarg :ductility
+     :initform 1d0)
+    (history-stress
+     :accessor mp-history-stress
+     :initform 0d0)
+    (delay-time
+     :accessor mp-delay-time
+     :initform 1d0
+     :initarg :delay-time
+     )
+    (delay-exponent
+     :accessor mp-delay-exponent
+     :initform 1d0
+     :initarg :delay-exponent
+     ))
+   (:documentation "A mp with isotropic damage - with delayed damage"))
+
 (defclass particle-creep-damage (particle-elastic-damage)
   ()
   (:documentation "A mp with isotropic damage - reduced for use in creep test (higher performance)"))
@@ -460,3 +480,69 @@
   )
 
 
+(defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
+  (when (cl-mpm/particle::mp-enable-damage mp)
+    (with-accessors ((stress cl-mpm/particle:mp-stress)
+                     (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
+                     (damage cl-mpm/particle:mp-damage)
+                     (E cl-mpm/particle::mp-e)
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (tau cl-mpm/particle::mp-delay-time)
+                     (tau-exp cl-mpm/particle::mp-delay-exponent)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (ductility cl-mpm/particle::mp-ductility))
+        mp
+      (declare (double-float damage damage-inc k ybar tau dt))
+      (when t;(<= damage 1d0)
+        ;;Damage increment holds the delocalised driving factor
+        (setf ybar damage-inc)
+        (setf damage-inc 0d0)
+        (let ((a tau-exp)
+              (k0 init-stress))
+          (when (> ybar k0)
+            (incf k (the double-float
+                         (*
+                          dt
+                          (/
+                           (* k0
+                              (expt
+                               (/ (the double-float (max 0d0 (- ybar k)))
+                                  k0) a))
+                           tau))))))
+        (let ((new-damage
+                (max
+                 damage
+                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility 0.99d0))))
+          (declare (double-float new-damage))
+          (setf damage-inc (- new-damage damage)))
+        (when (>= damage 1d0)
+          (setf damage-inc 0d0))
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+        (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
+        ;;Transform to log damage
+        (incf damage damage-inc)
+        ;;Transform to linear damage
+        (setf damage (max 0d0 (min 1d0 damage)))
+        (when (> damage critical-damage)
+          (setf damage 1d0)
+          (setf damage-inc 0d0))
+        )
+      (values))))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
+  (let ((damage-increment 0d0))
+    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     (strain cl-mpm/particle::mp-strain)
+                     (E cl-mpm/particle::mp-e)
+                     (de cl-mpm/particle::mp-elastic-matrix)
+                     ) mp
+      (progn
+        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+        ))))
