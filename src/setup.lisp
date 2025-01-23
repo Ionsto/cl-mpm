@@ -310,6 +310,14 @@
   (* dt-scale
      (%estimate-elastic-dt sim)))
 
+
+(defun estimate-stiffness-critical-damping (sim E density)
+  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+        (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
+    (*
+     2d0
+     (sqrt (* E (* (expt h nd) density))))))
+
 (defun estimate-critical-damping-mp (sim E density)
   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
         (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))

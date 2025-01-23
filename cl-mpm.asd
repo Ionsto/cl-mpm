@@ -85,7 +85,7 @@
                  (:module "models"
                   :serial t
                   :components
-                  ((:file "damage")
+                  (;(:file "damage")
                    (:file "plastic")
                    (:file "concrete")
                    ;; (:file "limestone")
@@ -101,7 +101,9 @@
                "cl-mpm/particle")
   :description "MPM smeared damage mechanics"
   :serial t
-  :components ((:file "src/damage")))
+  :components ((:file "src/damage")
+               (:file "src/models/damage")
+               ))
 (defsystem "cl-mpm/eigenerosion"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm"
@@ -623,7 +625,8 @@
 ;;   :components ((:file "src/models/plastic")))
 
 ;; (defsystem "cl-mpm/models/damage"
-;;   :depends-on ("cl-mpm/particle")
+;;   :depends-on ("cl-mpm/particle"
+;;                "cl-mpm/damage")
 ;;   :description "MPM plastic particle definitions"
 ;;   :serial t
 ;;   :components ((:file "src/models/damage")))

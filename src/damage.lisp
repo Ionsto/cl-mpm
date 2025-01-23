@@ -710,6 +710,18 @@ Calls the function with the mesh mp and node"
   ;; (* local-length (max (/ (- (exp (- damage)) (exp -1d0))
   ;;                         (- 1d0 (exp -1d0))) 1d-10))
   )
+(defun find-mp-local-length (mesh mp)
+  (with-accessors ((tll cl-mpm/particle::mp-true-local-length)
+                   (ll cl-mpm/particle::mp-local-length)
+                   (lld cl-mpm/particle::mp-local-length-damaged)
+                   (damage cl-mpm/particle::mp-damage)
+                   )
+      mp
+    (setf tll
+          (length-localisation
+           ll
+           lld
+           damage))))
 
 (defgeneric update-localisation-lengths (sim))
 (defmethod update-localisation-lengths ((sim cl-mpm/damage::mpm-sim-damage))
@@ -720,7 +732,9 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         (find-intergral-local-length mesh mp))))))
+         ;(find-intergral-local-length mesh mp)
+         (find-mp-local-length mesh mp)
+         )))))
 
 (defgeneric delocalise-damage (sim))
 

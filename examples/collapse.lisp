@@ -97,8 +97,35 @@
 
         (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
-        )
-      )))
+        ))))
+(defparameter *eta* 1d0)
+(defmethod cl-mpm/particle::constitutive-model ((mp cl-mpm/particle::particle-elastic-damage-delayed) strain dt)
+  "Strain intergrated elsewhere, just using elastic tensor"
+  (with-accessors ((E                cl-mpm/particle::mp-E)
+                   (nu               cl-mpm/particle::mp-nu)
+                   (de               cl-mpm/particle::mp-elastic-matrix)
+                   (stress           cl-mpm/particle::mp-stress)
+                   (stress-undamaged cl-mpm/particle::mp-undamaged-stress)
+                   (L                cl-mpm/particle::mp-stretch-tensor)
+                   (damage           cl-mpm/particle::mp-damage)
+               )
+      mp
+    (declare (double-float damage))
+    (setf stress-undamaged (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged))
+    (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
+    (when (> damage 0d0)
+      (cl-mpm/fastmaths::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
+    (let ((D (cl-mpm/utils:matrix-to-voigt
+              (cl-mpm/fastmaths:fast-scale!
+               (cl-mpm/fastmaths:fast-.+ L (magicl:transpose L))
+               0.5d0))))
+    (cl-mpm/fastmaths:fast-.+ stress
+                              (cl-mpm/fastmaths:fast-scale!
+                               D
+                               (/ *eta* dt))
+                              stress)
+    )
+    stress))
 
 (defun stop ()
   (setf *run-sim* nil))
@@ -151,8 +178,11 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d-2
+              (* 1d-1
                  (cl-mpm/setup:estimate-critical-damping sim))))
+
+      (setf *eta* (* 0.5d0
+                     (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d6 density)))
 
       (let ((dt-scale 1d0))
         (setf
@@ -239,11 +269,11 @@
   (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.25d0)
          (dt-min (cl-mpm:sim-dt *sim*))
          )
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.5d0
+          (* 0.0d0
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
@@ -254,7 +284,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 30
+    (time (loop for steps from 0 to 500
                 while *run-sim*
                 do
                    (progn

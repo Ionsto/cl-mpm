@@ -62,6 +62,10 @@
 
 (defclass particle-chalk-brittle (particle-chalk particle-mc)
   (
+   (material-damping-factor
+    :accessor mp-material-damping-factor
+    :initarg :material-damping
+    :initform 0d0)
    (fracture-energy
     :accessor mp-gf
     :initarg :fracture-energy
@@ -234,6 +238,7 @@
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
                    (peerlings mp-peerlings-damage)
+                   (L                cl-mpm/particle::mp-stretch-tensor)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
@@ -294,6 +299,15 @@
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress)))
       )
+    (let ((D (cl-mpm/utils:matrix-to-voigt
+              (cl-mpm/fastmaths:fast-scale!
+               (cl-mpm/fastmaths:fast-.+ L (magicl:transpose L))
+               0.5d0))))
+      (cl-mpm/fastmaths:fast-.+ stress
+                                (cl-mpm/fastmaths:fast-scale!
+                                 D
+                                 (/ (cl-mpm/particle::mp-material-damping-factor mp) dt))
+                                stress))
     stress))
 
 

@@ -795,3 +795,117 @@
 
 
 
+(defclass particle-damage-fundemental ()
+  ())
+(defclass particle-damage (particle particle-damage-fundemental)
+  (
+   (log-damage
+    :accessor mp-log-damage
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   ;; (damage
+   ;;  :accessor mp-damage
+   ;;  :type DOUBLE-FLOAT
+   ;;  :initarg :damage
+   ;;  :initform 0d0)
+   (local-damage
+    :accessor mp-local-damage
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (local-damage-increment
+    :accessor mp-local-damage-increment
+    :type DOUBLE-FLOAT
+    :initarg :damage-y
+    :initform 0d0)
+   (damage-increment
+    :accessor mp-damage-increment
+    :type DOUBLE-FLOAT
+    :initform 0d0)
+   (undamaged-stress
+    :accessor mp-undamaged-stress
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:voigt-zeros))
+   (initiation-stress
+    :accessor mp-initiation-stress
+    :type DOUBLE-FLOAT
+    :initarg :initiation-stress
+    :initform 0d0)
+   (critical-stress
+    :accessor mp-critical-stress
+    :type DOUBLE-FLOAT
+    :initarg :critical-stress
+    :initform 0d0)
+   (damage-rate
+    :accessor mp-damage-rate
+    :type DOUBLE-FLOAT
+    :initarg :damage-rate
+    :initform 0d0)
+   (critical-damage
+    :accessor mp-critical-damage
+    :type DOUBLE-FLOAT
+    :initarg :critical-damage
+    :initform 1d0)
+   (damage-ybar
+    :accessor mp-damage-ybar
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-ybar
+    )
+   (damage-y-local
+    :accessor mp-damage-y-local
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-y
+    )
+   (time-averaged-ybar
+    :accessor mp-time-averaged-ybar
+    :initform 1d0)
+   (time-averaged-damage-inc
+    :accessor mp-time-averaged-damage-inc
+    :initform 1d0)
+   (time-averaged-counter
+    :accessor mp-time-averaged-counter
+    :initform 0d0)
+   (local-length
+    :accessor mp-local-length
+    :type DOUBLE-FLOAT
+    :initarg :local-length
+    :initform 1d0)
+   (local-length-damaged
+    :accessor mp-local-length-damaged
+    :type DOUBLE-FLOAT
+    :initarg :local-length-damaged
+    :initform 1d0)
+   (true-local-length
+    :accessor mp-true-local-length
+    :type DOUBLE-FLOAT
+    :initarg :local-length
+    :initform 1d0)
+   (damage-position
+    :accessor mp-damage-position
+    ;:type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform nil
+    ;:initform (cl-mpm/utils::vector-zeros)
+    )
+   (damage-tensor
+    :accessor mp-damage-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::matrix-zeros)
+    )
+   (damage-ybar-tensor
+    :accessor mp-damage-ybar-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::matrix-zeros))
+   (damage-model
+    :accessor mp-damage-model
+    :initarg :damage-model
+    )
+   (enable-damage
+    :accessor mp-enable-damage
+    :initarg :enable-damage
+    :initform t)
+   (damage-domain-update-rate
+    :accessor mp-damage-domain-update-rate
+    :initarg :damage-domain-rate
+    :initform 0d0))
+  (:documentation "A material point with a damage tensor"))

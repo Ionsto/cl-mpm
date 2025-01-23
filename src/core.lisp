@@ -1442,7 +1442,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       ;;Explicit fbar
       (when fbar
-        (if t;;t exp: nil Coobs
+        (if nil;;t exp: nil Coobs
             (progn
               (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
                     (j-n
@@ -1510,11 +1510,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun update-stress (mesh mps dt &optional (fbar nil))
   "Update all stresses, with optional f-bar"
   (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (calculate-strain-rate mesh mp dt)
-     (map-jacobian mesh mp dt)))
+  ;; (iterate-over-mps
+  ;;  mps
+  ;;  (lambda (mp)
+  ;;    (calculate-strain-rate mesh mp dt)
+  ;;    (map-jacobian mesh mp dt)))
   (iterate-over-mps
    mps
    (lambda (mp)

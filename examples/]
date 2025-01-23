@@ -128,8 +128,7 @@
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;(* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  (* local-length (max (- 1d0 damage) 1d-10))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
   ;; (* local-length (max (/ (- (exp (- damage)) (exp -1d0))
   ;;                         (- 1d0 (exp -1d0))) 1d-10))
   ;; local-length
@@ -444,7 +443,7 @@
 
            :local-length length-scale
            :local-length-damaged 10d-10
-           :material-damping (* 0d-1 (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d9 density))
+           :material-damping (* 1d-2 (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d9 density))
 
            ;; :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
@@ -556,7 +555,7 @@
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
          (criteria-energy 1d-2)
-         (criteria-oobf 1d-2)
+         (criteria-oobf 2d-1)
          (damping-0
            (* 0d-2
               (cl-mpm/setup::estimate-critical-damping *sim*)))
