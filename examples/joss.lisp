@@ -479,11 +479,11 @@
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :PIC)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
-                                        ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
-      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
-      (setf (cl-mpm::sim-nonlocal-damage sim) t)
+                                        ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
+      (setf (cl-mpm::sim-nonlocal-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -559,12 +559,12 @@
          (mass-scale (cl-mpm::sim-mass-scale *sim*))
          (accelerate-target-time 1d1)
          (accelerate-mass-scale 1d4)
-         (collapse-target-time 1d0)
+         (collapse-target-time 0.1d0)
          (collapse-mass-scale 1d0)
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.8d0)
+         (dt-scale 0.5d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -575,7 +575,7 @@
          (criteria-energy 1d-1)
          (criteria-oobf 1d-1)
          (damping-0
-           (* 1d-3
+           (* 1d-4
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -819,7 +819,7 @@
                            (setf (cl-mpm:sim-damping-factor *sim*) damping-0))
                          (when (= steps settle-steps)
                            (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
-                           (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
+                           ;; (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
                            (cl-mpm::iterate-over-mps
                             (cl-mpm:sim-mps *sim*)
                             (lambda (mp) (setf (cl-mpm/particle::mp-enable-plasticity mp) plasticity-enabled))))

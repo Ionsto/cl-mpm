@@ -2317,22 +2317,6 @@ Calls the function with the mesh mp and node"
 
 
 
-(defun compute-oversize-factor (damage-final ductility)
-  "Compute the estimated oversize factor (i.e. w * init-stress) required to have plasticity kick in at (d=damage-final)"
-  ;; Fun fact, because its an oversize factor, we are independant of E and e0, ef -> it should reduce to a pure ductility number
-  (when (< ductility 1d0)
-    (error "Ductility ~A cannot be less than 1" ductility))
-  (let* ((ft 1d0)
-         (E 1d0)
-         ;; (ft init-stress)
-         (e0 (/ ft E))
-         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
-         (beta (/ 1d0 (- ef e0)))
-         (y (- 1d0 damage-final))
-         )
-    (* (/ 1d0 e0) (- ef e0) (cl-mpm/fastmaths::lambert-w-0 (/ (* -1d0 e0 (exp (/ (- e0) (- e0 ef))))
-                                                              (- (* e0 y) (* ef y))
-                                                              )))))
 
 (defun compute-oversize-factor-residual (damage-final E init-stress ductility residual)
   "Compute the estimated oversize factor (i.e. w * init-stress) required to have plasticity kick in at (d=damage-final)"
@@ -2351,3 +2335,12 @@ Calls the function with the mesh mp and node"
              e0
              )
           y))))
+
+
+(defun compute-oversize-factor (damage-final ductility)
+  "Compute the estimated oversize factor (i.e. w * init-stress) required to have plasticity kick in at (d=damage-final)"
+  (when (< ductility 1d0)
+    (error "Ductility ~A cannot be less than 1" ductility))
+  (let* ((eta ductility))
+    (* 0.5d0 (- eta 1d0) (cl-mpm/fastmaths::lambert-w-0 (/ (* 2d0 (exp (/ 2d0 (- eta 1d0))))
+                                                           (* (- 1d0 damage-final) (- eta 1d0)))))))
