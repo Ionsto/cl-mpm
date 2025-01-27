@@ -414,6 +414,8 @@
   :enable-damage nil
   :enable-plasticity t
 
+  :material-damping (* 1d-3 (cl-mpm/setup::estimate-stiffness-critical-damping sim E density))
+
   :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
   :c (* 131d3 1d0)

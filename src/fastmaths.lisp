@@ -1165,3 +1165,15 @@
 ;;   ;; (pprint (fast-@-matrix-vector-simd mat vec))
 ;;   )
 
+
+(defun %lambert-w-0 (w z)
+  (- w (/ ( - (* w (exp w)) z)
+          (+ (exp w) (* w (exp w))))))
+
+(defun lambert-w-0 (z)
+  (let ((w 1d0))
+    (loop for i from 0 to 1000
+          while (> w 0d0)
+          do (setf w (%lambert-w-0 w z)))
+    w))
+

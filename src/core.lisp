@@ -734,7 +734,7 @@
       (progn
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
-        (cl-mpm/fastmaths:fast-fmacc force-ext vel (* -2d0 damping mass))
+        (cl-mpm/fastmaths:fast-fmacc force-int vel (* -2d0 damping mass))
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) 1d0))
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))

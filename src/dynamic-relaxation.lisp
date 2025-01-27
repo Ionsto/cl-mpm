@@ -127,16 +127,18 @@
                            (*
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/fastmaths:mag
                              (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
                      dmax (+
                            dmax
                            (*
                             ;; (cl-mpm/mesh:node-mass node)
                             (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmaths::mag-squared f-ext))))))))))
+                            (cl-mpm/fastmaths:mag f-ext))))))))))
     (when (> dmax 0d0)
-      (setf oobf (sqrt (/ nmax dmax))))
+      ;; (setf oobf (sqrt (/ nmax dmax)))
+      (setf oobf (/ nmax dmax))
+      )
     ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
     ;; (setf oobf oobf-norm)
     oobf))
@@ -296,9 +298,9 @@
                      (incf *work* (estimate-power-norm sim)))
                    (setf load cl-mpm/penalty::*debug-force*)
                    (setf energy-total (estimate-energy-norm sim))
-                   (if (> *work* 0d0)
-                       (setf fnorm (abs (/ energy-total *work*)))
-                       (setf fnorm 0d0))
+                   (if (= *work* 0d0)
+                       (setf fnorm 0d0)
+                       (setf fnorm (abs (/ energy-total *work*))))
                    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                    (setf oobf (estimate-oobf sim))
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
@@ -377,9 +379,11 @@
 
                    (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
                    (setf energy-total (estimate-energy-norm sim))
-                   (if (> *work* 0d0)
-                       (setf fnorm (abs (/ energy-total *work*)))
-                       (setf fnorm 0d0))
+                   (if (= *work* 0d0)
+                       (setf fnorm 0d0)
+                       (setf fnorm (abs (/ energy-total *work*))))
+
+                       
                    (setf oobf (estimate-oobf sim))
                    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
 

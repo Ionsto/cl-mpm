@@ -714,8 +714,7 @@ Calls the function with the mesh mp and node"
   (with-accessors ((tll cl-mpm/particle::mp-true-local-length)
                    (ll cl-mpm/particle::mp-local-length)
                    (lld cl-mpm/particle::mp-local-length-damaged)
-                   (damage cl-mpm/particle::mp-damage)
-                   )
+                   (damage cl-mpm/particle::mp-damage))
       mp
     (setf tll
           (length-localisation
@@ -732,8 +731,8 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         ;(find-intergral-local-length mesh mp)
-         (find-mp-local-length mesh mp)
+         (find-intergral-local-length mesh mp)
+         ;; (find-mp-local-length mesh mp)
          )))))
 
 (defgeneric delocalise-damage (sim))
@@ -890,8 +889,7 @@ Calls the function with the mesh mp and node"
                     ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
-                          do
-                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                          do (cl-mpm::apply-bcs mesh bcs-f dt))
                     (cl-mpm::update-node-forces sim)
                     ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
@@ -904,7 +902,7 @@ Calls the function with the mesh mp and node"
 
                     (cl-mpm::reset-grid-velocity mesh)
                     (cl-mpm::p2g mesh mps)
-                    (cl-mpm::check-single-mps sim)
+                    ;; (cl-mpm::check-single-mps sim)
                     ;;Do optional mass filter
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
@@ -914,6 +912,13 @@ Calls the function with the mesh mp and node"
                     (cl-mpm::update-stress mesh mps dt fbar)
                     (when enable-damage
                       (cl-mpm/damage::calculate-damage sim))
+
+                    ;; (cl-mpm::p2g-force mesh mps)
+                    ;; (loop for bcs-f in bcs-force-list
+                    ;;       do (cl-mpm::apply-bcs mesh bcs-f dt))
+                    ;; (cl-mpm::update-node-forces sim)
+                    ;;                     ;Reapply velocity BCs
+                    ;; (cl-mpm::apply-bcs mesh bcs dt)
 
                     ;;18
                     (when remove-damage
@@ -1321,7 +1326,7 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
 
-        ;; (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
+        (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
         (cl-mpm/output::save-parameter
          "plastic_strain"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)
@@ -2312,3 +2317,37 @@ Calls the function with the mesh mp and node"
 
 
 
+(defun compute-oversize-factor (damage-final ductility)
+  "Compute the estimated oversize factor (i.e. w * init-stress) required to have plasticity kick in at (d=damage-final)"
+  ;; Fun fact, because its an oversize factor, we are independant of E and e0, ef -> it should reduce to a pure ductility number
+  (when (< ductility 1d0)
+    (error "Ductility ~A cannot be less than 1" ductility))
+  (let* ((ft 1d0)
+         (E 1d0)
+         ;; (ft init-stress)
+         (e0 (/ ft E))
+         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+         (beta (/ 1d0 (- ef e0)))
+         (y (- 1d0 damage-final))
+         )
+    (* (/ 1d0 e0) (- ef e0) (cl-mpm/fastmaths::lambert-w-0 (/ (* -1d0 e0 (exp (/ (- e0) (- e0 ef))))
+                                                              (- (* e0 y) (* ef y))
+                                                              )))))
+
+(defun compute-oversize-factor-residual (damage-final E init-stress ductility residual)
+  "Compute the estimated oversize factor (i.e. w * init-stress) required to have plasticity kick in at (d=damage-final)"
+  (let* ((ft init-stress)
+         (e0 (/ ft E))
+         (ef (/ (* ft (+ ductility 1d0)) (* 2d0 E)))
+         (beta (/ 1d0 (- ef e0)))
+         (y (- 1d0 damage-final))
+         )
+    (* (/ 1d0 e0)
+       (/ (+
+           (* y (- ef e0) (cl-mpm/fastmaths::lambert-w-0 (/ (* -1d0 e0 residual (exp (/ (* -1d0 e0 (+ residual y -1d0))
+                                                                                          (* y (- e0 ef)))))
+                                                              (* y (- e0 ef)))))
+             (* e0 -1d0 residual)
+             e0
+             )
+          y))))

@@ -41,6 +41,11 @@
                    :clip-func clip-func
                    :scalar-func scalar-func
                    :sim sim)))
+
+(defgeneric mp-erosion-enhancment (mp))
+(defmethod mp-erosion-enhancment ((mp cl-mpm/particle::particle))
+  1d0)
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
   (call-next-method)
   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim)
@@ -74,23 +79,26 @@
 
              (setf weathering (min weathering 0d0))
              (setf weathering (* rate (min weathering 0d0) volume))
+             (setf weathering (* weathering (mp-erosion-enhancment mp)))
              ;; (setf weathering (- (sqrt (abs weathering))))
              ;(setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
-             (setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
+             ;(setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
+             ;; (setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
+
+             (setf weathering (* (/ (- weathering) erosion-modulus) dt))
              (setf (cl-mpm/particle::mp-boundary mp) weathering)
-             (incf erode (* (/ (- weathering) erosion-modulus) dt))
-               ;; (let ((density (/ mass volume)))
-               ;;   (setf
-               ;;    mass
-               ;;    (max
-               ;;     0d0
-               ;;     (-
-               ;;      mass
-               ;;      (abs (*
-               ;;            (bc-water-damage-damage-rate bc)
-               ;;            weathering dt)))))
-               ;;   ;; (setf mass (* density volume))
-               ;;   )
+             (incf erode weathering)
+             ;; (let ((density (/ mass volume)))
+             ;;   (setf
+             ;;    mass
+             ;;    (max
+             ;;     0d0
+             ;;     (-
+             ;;      mass
+             ;;      weathering
+             ;;      )))
+             ;;   (setf volume (/ mass density))
+             ;;   )
                ))))
 
       (cl-mpm::remove-mps-func sim (lambda (mp) (>= (cl-mpm/particle::mp-eroded-volume mp)

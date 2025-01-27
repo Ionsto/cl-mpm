@@ -3,6 +3,11 @@
 (defclass cl-mpm/particle::particle-chalk-erodable (cl-mpm/particle::particle-chalk-delayed
                                                      cl-mpm/particle::particle-erosion)
   ())
+
+(defmethod cl-mpm/erosion::mp-erosion-enhancment ((mp cl-mpm/particle::particle-chalk-erodable))
+  (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
+  ;(setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
+  )
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  0 0)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
@@ -128,12 +133,11 @@
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;(* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  (* local-length (max (- 1d0 damage) 1d-10))
-  ;; (* local-length (max (/ (- (exp (- damage)) (exp -1d0))
-  ;;                         (- 1d0 (exp -1d0))) 1d-10))
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; (* local-length (max (- 1d0 damage) 1d-10))
   ;; local-length
   )
+
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
@@ -385,6 +389,7 @@
     (progn
       (let* (
              ;; (init-stress (* 26d3 0.63d0))
+             (E 1d9)
              (angle 50d0)
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
@@ -393,14 +398,22 @@
              ;; (gf 45d0)
              ;; (gf 5d0)
              ;; (gf 5d0)
-             (gf (* 48d0 1d0))
+             (gf (* 48d0 0.1d0))
              ;; (gf 10d0)
-             (length-scale (* h 2d0))
+             (length-scale (* h 1d0))
              ;; (length-scale 1d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
-             (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress E))
              ;; (ductility 10d0)
+             (oversize (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility))
+             ;; (oversize 100d0)
              )
+        (format t "Estimated oversize ~F~%" oversize)
+        (format t "Estimated D-r ~F~%" (cl-mpm/damage::damage-response-exponential (* oversize init-stress)
+                                                                                   E
+                                                                                   init-stress
+                                                                                   ductility
+                                                                                   ))
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Estimated lc ~E~%" length-scale)
         (format t "Estimated init stress ~E~%" init-stress)
@@ -417,7 +430,7 @@
 
            ;'cl-mpm/particle::particle-chalk-delayed
            'cl-mpm/particle::particle-chalk-erodable
-           :E 1d9
+           :E E
            :nu 0.24d0
 
 
@@ -444,14 +457,14 @@
 
            :local-length length-scale
            :local-length-damaged 10d-10
-           :material-damping (* 0d-1 (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d9 density))
+           :material-damping (* 0d-1 (cl-mpm/setup::estimate-stiffness-critical-damping sim E density))
 
            ;; :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
            :psi (* 0d0 (/ pi 180))
            :phi (* angle (/ pi 180))
-           :c (* init-c 1d2)
+           :c (* init-c oversize)
            :psi-r (* 0d0 (/ pi 180))
            :phi-r (* 30d0 (/ pi 180))
            :c-r 0d0
@@ -466,14 +479,18 @@
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :PIC)
-      ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
+                                        ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
+      ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
+      ;;   (format t "Mass filter: ~F~%" mass-filter)
+      ;;   (setf (cl-mpm::sim-mass-filter sim) mass-filter))
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
@@ -555,10 +572,10 @@
          (last-e 0d0)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
          (enable-damage t)
-         (criteria-energy 1d-2)
-         (criteria-oobf 1d-2)
+         (criteria-energy 1d-1)
+         (criteria-oobf 1d-1)
          (damping-0
-           (* 0d-2
+           (* 1d-3
               (cl-mpm/setup::estimate-critical-damping *sim*)))
          (damage-0
            (lparallel:pmap-reduce (lambda (mp)
@@ -612,8 +629,8 @@
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :dt-scale dt-scale
-     :energy-crit 1d-2
-     :oobf-crit 1d-2
+     :energy-crit 1d-1
+     :oobf-crit 1d-1
      :substeps 50
      :conv-steps 1000
      :dt-scale dt-scale
@@ -662,7 +679,8 @@
             (setf (cl-mpm/particle::mp-history-stress mp) k)
             (cl-mpm/damage::update-damage mp 1d-3)))
 
-    (let ((work 0d0))
+    (let ((work 0d0)
+          )
       (time (loop for steps from 0 to 500
                   while *run-sim*
                   do
@@ -689,6 +707,7 @@
                              (damage-inc 0d0)
                              (plastic-inc 0d0)
                              ;; (work 0d0)
+                             
                              )
                          (time
                           (let ((current-damage (cl-mpm::sim-enable-damage *sim*)))
@@ -816,7 +835,7 @@
                                (when (not (eq sim-state :collapse))
                                  (setf sim-state :collapse)
                                  (format t "Changed to collapse~%")
-                                 (setf work 0d0)
+                                 ;; (setf work 0d0)
                                  )
                                (progn
                                  (when (not (eq sim-state :accelerate))
@@ -832,7 +851,7 @@
                                    (cl-mpm:iterate-over-mps
                                     (cl-mpm:sim-mps *sim*)
                                     (lambda (mp)
-                                      (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
+                                      ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
                                       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
                                       ))
                                    )))
@@ -856,15 +875,18 @@
                          (format t "Sim state - ~A~%" sim-state)
 
 
-                         ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                         ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                         ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                         ;;   (setf substeps substeps-e))
+                         (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                           (format t "CFL dt estimate: ~f~%" dt-e)
+                           (format t "CFL step count estimate: ~D~%" substeps-e)
+                           (setf substeps substeps-e))
 
-                         (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-                         (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
-                         (format t "CFL dt estimate: ~f~%" dt)
-                         (format t "CFL step count estimate: ~D~%" substeps)
+                         ;; (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+                         ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
+
+                         ;; (setf (cl-mpm:sim-dt *sim*) (* min-dt dt-scale))
+                         ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
+                         ;; (format t "CFL dt estimate: ~f~%" dt)
+                         ;; (format t "CFL step count estimate: ~D~%" substeps)
                          ;; (setf (cl-mpm:sim-damping-factor *sim*)
                          ;;       (* (cl-mpm:sim-damping-factor *sim*) (expt 1d-3 1/40)))
 
@@ -1280,16 +1302,16 @@
          (when (<= (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1) soil-boundary)
            (setf (cl-mpm/particle::mp-erosion-modulus mp) 1000d0))))
       (defparameter *bc-erode*
-        (cl-mpm/erosion::make-bc-erode *sim* :rate 10d0
-                                             :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
-                                                                                        (- upper-datum datum)
-                                                                                        ))
-                                                                              12))
-                                             :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
-                                                                           (<= (cl-mpm/utils:varef pos 1) upper-datum)
-                                                                           ))
-                                             ))
-      )
+        (cl-mpm/erosion::make-bc-erode
+         *sim*
+         :rate 10d0
+         :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
+                                                    (- upper-datum datum)
+                                                    ))
+                                          8))
+         :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
+                                       (<= (cl-mpm/utils:varef pos 1) upper-datum)
+                                       )))))
     (cl-mpm:add-bcs-force-list
      *sim*
      *bc-erode*
@@ -1361,7 +1383,7 @@
           do (setf (cl-mpm/particle::mp-split-depth mp) 0))
 
     (let* ((sloped-height (- (- shelf-height soil-boundary) 6.8d0))
-           (measured-angle 80d0)
+           (measured-angle 78d0)
            (undercut-angle              ;(- 82.5d0 90d0)
              (- measured-angle 90d0))
            (normal (magicl:from-list (list
@@ -2193,7 +2215,7 @@
        *sim*
        :dt-scale dt-scale
        :energy-crit 1d-1
-       :oobf-crit 1d-1
+       :oobf-crit 1d-3
        :substeps 50
        :conv-steps 200
        :dt-scale dt-scale
