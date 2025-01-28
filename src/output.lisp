@@ -568,6 +568,11 @@
              )
          )
 
+        (cl-mpm/output::save-parameter "plastic-iterations"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::plastic-iterations)
+                                           (cl-mpm/particle::mp-plastic-iterations mp)
+                                           0d0))
+
         (cl-mpm/output::save-parameter
          "rho"
          (if (slot-exists-p mp 'cl-mpm/particle::rho)
