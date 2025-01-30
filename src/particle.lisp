@@ -13,6 +13,7 @@
     #:mp-acceleration
     #:mp-stress
     #:mp-strain
+    #:mp-strain-n
     #:mp-strain-rate
     #:mp-vorticity
     #:mp-gravity
@@ -151,6 +152,10 @@
     :accessor mp-int-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (strain-n
+    :accessor mp-strain-n
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:voigt-zeros))
    (strain
      :accessor mp-strain
      :type MAGICL:MATRIX/DOUBLE-FLOAT

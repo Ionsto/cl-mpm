@@ -666,3 +666,10 @@
   :description "MPM limestone definitions"
   :serial t
   :components ((:file "src/models/limestone")))
+
+
+(defsystem "cl-mpm/models/visco"
+  :depends-on ("cl-mpm/particle")
+  :description "MPM limestone definitions"
+  :serial t
+  :components ((:file "src/models/visco")))

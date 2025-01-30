@@ -135,9 +135,9 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type
-               ;; 'cl-mpm::mpm-sim-usf
+               'cl-mpm::mpm-sim-usf
                ;; :sim-type 'cl-mpm::mpm-sim-usl
-               'cl-mpm/damage::mpm-sim-damage
+               ;; 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -155,16 +155,19 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                'cl-mpm/particle::particle-elastic-damage-delayed
-                ;; 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-vm
+
+                'cl-mpm/particle::particle-finite-viscoelastic
+                ;; 'cl-mpm/particle::particle-elastic-damage-delayed
+                ;; ;; 'cl-mpm/particle::particle-elastic
+                ;; ;; 'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.3d0
-                ;; :rho 30d3
-                :initiation-stress 1d4
-                :delay-time 1d1
-                :local-length h
-                :ductility 10d0
+                :viscosity 1d0
+                ;; ;; :rho 30d3
+                ;; :initiation-stress 1d4
+                ;; :delay-time 1d1
+                ;; :local-length h
+                ;; :ductility 10d0
                 :gravity -10.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))

@@ -1017,6 +1017,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((volume cl-mpm/particle:mp-volume)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
@@ -1035,7 +1036,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (progn
           (setf df-inc df)
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-          ;; (cl-mpm/utils:voigt-copy-into strain strain-rate)
+          (cl-mpm/utils:voigt-copy-into strain strain-n)
           (cl-mpm/ext:kirchoff-update strain df)
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
