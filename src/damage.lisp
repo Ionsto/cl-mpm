@@ -34,6 +34,10 @@
 
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
+(defgeneric cl-mpm/particle::post-damage-step (mp dt))
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-damage) dt)
+  )
 (declaim
  ;(inline damage-rate-profile)
  (ftype (function (double-float double-float double-float double-float ) (double-float)) damage-rate-profile))
@@ -224,38 +228,46 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt)
+                   (enable-damage cl-mpm::sim-enable-damage)
                    (delocal-counter sim-damage-delocal-counter)
                    (delocal-counter-max sim-damage-delocal-counter-max)
                    (non-local-damage cl-mpm::sim-nonlocal-damage))
       sim
 
-    (when non-local-damage
-      (when (<= delocal-counter 0)
-        ;;Ensure they have a home
-        ;; (create-delocalisation-list mesh mps)
-        (update-delocalisation-list mesh mps)
-        (setf delocal-counter delocal-counter-max))
-      ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
-      (setf delocal-counter (min (- delocal-counter 1)
-                                 delocal-counter-max)))
+    (when enable-damage
+      (when enable-damage)
+      (when non-local-damage
+        (when (<= delocal-counter 0)
+          ;;Ensure they have a home
+          ;; (create-delocalisation-list mesh mps)
+          (update-delocalisation-list mesh mps)
+          (setf delocal-counter delocal-counter-max))
+        ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
+        (setf delocal-counter (min (- delocal-counter 1)
+                                   delocal-counter-max)))
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle:particle-damage)
+           (damage-model-calculate-y mp dt)
+           )))
+
+      (if non-local-damage
+          (progn
+            (when (sim-enable-length-localisation sim)
+              (update-localisation-lengths sim))
+            (delocalise-damage sim))
+          (localise-damage mesh mps dt))
+      (cl-mpm:iterate-over-mps
+       mps
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle:particle-damage)
+           (update-damage mp dt)))))
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         (damage-model-calculate-y mp dt)
-         )))
-
-    (if non-local-damage
-        (progn
-          (when (sim-enable-length-localisation sim)
-            (update-localisation-lengths sim))
-          (delocalise-damage sim))
-        (localise-damage mesh mps dt))
-    (cl-mpm:iterate-over-mps
-     mps
-      (lambda (mp)
-        (when (typep mp 'cl-mpm/particle:particle-damage)
-          (update-damage mp dt))))))
+         (cl-mpm/particle::post-damage-step mp dt))))))
 
 (defun create-delocalisation-list (mesh mps)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
@@ -838,8 +850,7 @@ Calls the function with the mesh mp and node"
 
                     (cl-mpm::update-stress mesh mps dt fbar)
 
-                    (when enable-damage
-                     (cl-mpm/damage::calculate-damage sim))
+                    (cl-mpm/damage::calculate-damage sim)
                     ;; ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
 
@@ -910,8 +921,7 @@ Calls the function with the mesh mp and node"
                     (cl-mpm::apply-bcs mesh bcs dt)
 
                     (cl-mpm::update-stress mesh mps dt fbar)
-                    (when enable-damage
-                      (cl-mpm/damage::calculate-damage sim))
+                    (cl-mpm/damage::calculate-damage sim)
 
                     ;; (cl-mpm::p2g-force mesh mps)
                     ;; (loop for bcs-f in bcs-force-list

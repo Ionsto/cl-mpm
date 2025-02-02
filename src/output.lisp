@@ -538,7 +538,7 @@
           (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
           (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0)))
 
-        (save-parameter "temp" (magicl:tref (cl-mpm/particle::mp-velocity-rate mp) 2 0))
+        ;; (save-parameter "temp" (cl-mpm/particle::mp-true-visc mp))
         (save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
         (save-parameter "dfdebug" (cl-mpm/particle::mp-debug-j mp))
         (save-parameter "df0debug" (cl-mpm/particle::mp-debug-j-gather mp))

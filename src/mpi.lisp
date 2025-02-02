@@ -783,8 +783,7 @@
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::update-stress mesh mps dt fbar)
                   ;; (update-stress-nodal-fbar sim)
-                  (when enable-damage
-                    (cl-mpm/damage::calculate-damage sim))
+                  (cl-mpm/damage::calculate-damage sim)
                   (cl-mpm::p2g-force mesh mps)
                   (loop for bcs-f in bcs-force-list
                         do (cl-mpm::apply-bcs mesh bcs-f dt))
@@ -954,8 +953,7 @@
                   (cl-mpm::apply-bcs mesh bcs dt)
 
                   (cl-mpm::update-stress mesh mps dt fbar)
-                  (when enable-damage
-                    (cl-mpm/damage::calculate-damage sim))
+                  (cl-mpm/damage::calculate-damage sim)
 
                   (when remove-damage
                     (cl-mpm::remove-material-damaged sim))
@@ -992,8 +990,7 @@
                     ;; (cl-mpm::update-stress mesh mps dt)
                     (cl-mpm::update-stress mesh mps dt fbar)
                                         ;(exchange-mps sim)
-                    (when enable-damage
-                      (cl-mpm/damage::calculate-damage sim))
+                    (cl-mpm/damage::calculate-damage sim)
                                         ;(exchange-mps sim)
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list

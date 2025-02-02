@@ -525,7 +525,7 @@
   (let* ((s-dev (deviatoric-voigt stress))
          (second-invar (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 2d0 2d0 2d0)))
          (visc-factor (expt visc-factor (- visc-power)))
-         (effective-stress (+ 1d-50 (* 0.5d0
+         (effective-stress (+ 1d-20 (* 0.5d0
                                        (cl-mpm/fastmaths::fast-sum
                                         (cl-mpm/fastmaths:fast-.*
                                          (cl-mpm/fastmaths:fast-.* s-dev s-dev)
@@ -552,7 +552,7 @@
   (declare (double-float visc-factor visc-power))
   "Get the viscosity for a given strain state"
   (let* ((A (expt visc-factor (/ -1d0 visc-power)))
-         (effective-strain (+ 1d-30 (sqrt (* 0.5d0 (expt (cl-mpm/utils::trace-voigt (deviatoric-voigt stress)) 2d0))))))
+         (effective-strain (+ 1d-50 (sqrt (* 0.5d0 (expt (cl-mpm/utils::trace-voigt (deviatoric-voigt stress)) 2d0))))))
     (declare (type double-float effective-strain A))
     (if (> effective-strain 0d0)
         (/ 1d0 (* 2d0 A (the double-float (expt effective-strain (- visc-power 1d0)))))
@@ -765,8 +765,6 @@
                                             (magicl:column v (cdr (nth 0 l-sort)))
                                             (magicl:column v (cdr (nth 1 l-sort)))
                                             (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
-              ;; (pprint l)
-              ;; (pprint v)
               (let* ((De3
                        (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list

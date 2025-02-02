@@ -379,3 +379,9 @@
            ;; (setf stress stresses
            ;;       strain strains)
            ))))))
+
+(defun set-mass-filter (sim density &key (proportion 1d-3))
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((mass-filter (* density (expt (cl-mpm/mesh:mesh-resolution mesh) 2) proportion)))
+      (setf (cl-mpm::sim-mass-filter sim) mass-filter))))

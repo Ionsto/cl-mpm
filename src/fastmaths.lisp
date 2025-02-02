@@ -476,7 +476,7 @@
 ;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) magicl:matrix/double-float) fast-.+))
 ;; (defun fast-.+ (a b)
 ;;   (declare (optimize (speed 0) (space 0)))
-;;   (let ((res (cl-mpm/utils::deep-copy a)))
+;;   (let ((res (cl-mpm/utils::empty-copy a)))
 ;;     (declare (magicl:matrix/double-float a b res))
 ;;     (simd-any+ (magicl::matrix/double-float-storage a)
 ;;                (magicl::matrix/double-float-storage b)
@@ -489,7 +489,7 @@
 (defun fast-.+ (a b &optional res)
   (let ((res (if res
                  res
-                 (cl-mpm/utils::deep-copy a))))
+                 (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
     (simd-any+ (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
@@ -502,7 +502,7 @@
 (defun fast-.- (a b &optional res)
   (let ((res (if res
                  res
-                 (cl-mpm/utils::deep-copy a))))
+                 (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
     (simd-any- (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
@@ -518,7 +518,7 @@
                 (defun ,name (a b &optional res)
                   (let ((res (if res
                                  res
-                                 (cl-mpm/utils::deep-copy a)
+                                 (cl-mpm/utils::empty-copy a)
                                  ;; (,maker)
                                  )))
                     (declare (magicl:matrix/double-float a b res))
@@ -535,7 +535,7 @@
 (defun fast-.* (a b &optional res)
   (let ((res (if res
                  res
-                 (cl-mpm/utils::deep-copy a))))
+                 (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
     (simd-any* (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
@@ -552,7 +552,7 @@
                 (defun ,name (a b &optional res)
                   (let ((res (if res
                                  res
-                                 (cl-mpm/utils::deep-copy a)
+                                 (cl-mpm/utils::empty-copy a)
                                  ;; (,maker)
                                  )))
                     (declare (magicl:matrix/double-float a b res))
@@ -614,7 +614,7 @@
 ;;   (declare (optimize (speed 0) (space 0)))
 ;;   (let ((res (if res
 ;;                  res
-;;                  (cl-mpm/utils::deep-copy a))))
+;;                  (cl-mpm/utils::empty-copy a))))
 ;;     (declare (magicl:matrix/double-float a b res))
 ;;     (simd-any+-4 (the (simple-array double-float (6)) (magicl::matrix/double-float-storage a))
 ;;                  (the (simple-array double-float (6)) (magicl::matrix/double-float-storage b))
@@ -1170,10 +1170,21 @@
   (- w (/ ( - (* w (exp w)) z)
           (+ (exp w) (* w (exp w))))))
 
+(defun %lambert-w-log-0 (w z)
+  (log (/ (- z) (- w))))
+
 (defun lambert-w-0 (z)
   (let ((w 1d0))
     (loop for i from 0 to 1000
           while (> w 0d0)
           do (setf w (%lambert-w-0 w z)))
     w))
+
+(defun lambert-w-log-0 (z)
+  (let ((w 1d0))
+    (loop for i from 0 to 1000
+          while (> w 0d0)
+          do (setf w (%lambert-w-log-0 w z)))
+    w))
+
 

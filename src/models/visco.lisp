@@ -4,6 +4,7 @@
   (:export
    )
   )
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/particle)
 (defclass particle-finite-viscoelastic (particle-elastic)
   ((viscosity
@@ -11,8 +12,24 @@
     :initarg :viscosity
     :initform 1d0
     )))
+
+(defclass particle-finite-viscoelastic-ice (particle-elastic)
+  ((viscosity
+    :accessor mp-viscosity
+    :initarg :viscosity
+    :initform 1d0
+    )
+   (visc-power
+    :accessor mp-visc-power
+    :initarg :visc-power)
+   (true-visc
+    :accessor mp-true-visc
+    :initform 0d0))
+  )
 (defmethod constitutive-model ((mp particle-finite-viscoelastic) strain dt)
   (with-accessors ((de mp-elastic-matrix)
+                   (e mp-e)
+                   (nu mp-nu)
                    (stress mp-stress)
                    (strain mp-strain)
                    (strain-n mp-strain-n)
@@ -20,61 +37,29 @@
                    )
       mp
     ;;Train elastic strain - plus trail kirchoff stress
-    ;; (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de))
-    (let* ((etr strain)
-           (en strain)
-           (f-tol 1d-5)
-           (tau nil)
-           (a
-             (magicl:inv
-              (magicl:.+
-               (magicl:inv de)
-               (magicl:scale
-                (magicl:.- (magicl:eye 6)
-                           (magicl:scale
-                            (magicl:from-list
-                             (list 1d0 1d0 1d0 0d0 0d0 0d0
-                                   1d0 1d0 1d0 0d0 0d0 0d0
-                                   1d0 1d0 1d0 0d0 0d0 0d0
-                                   0d0 0d0 0d0 0d0 0d0 0d0
-                                   0d0 0d0 0d0 0d0 0d0 0d0
-                                   0d0 0d0 0d0 0d0 0d0 0d0
-                                   )
-                             '(6 6)) (/ 1d0 3d0)))
-                (/ dt (* 2d0 viscosity))))))
-           (f f-tol))
-      (loop for i from 0 to 50
-            while (>= f f-tol)
-            do
-               (progn
-                 ;; (pprint i)
-                 (setf tau (cl-mpm/constitutive::linear-elastic-mat en de tau))
-                 (let* ((r (magicl:.-
-                            (magicl:.+ en
-                                       (magicl:scale
-                                        (cl-mpm/utils:deviatoric-voigt tau)
-                                        (/ dt (* 2d0 viscosity))))
-                            etr)))
-                   (setf f (magicl:norm r))
-                   ;; (format t "f ~F ~%"f)
-                   ;; (pprint r)
-                   (when (>= f f-tol)
-                     ;; (pprint  r)
-                     ;; (pprint (magicl:linear-solve a r))
-                     ;; (format t "~%")
-                     (setf
-                      en
-                      (magicl:.+
-                       en
-                       (magicl:.*
-                        (magicl:linear-solve a (magicl:scale r -1))
-                        (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))))
-                   ))
-               )
-      (cl-mpm/utils:voigt-copy-into tau stress)
-      (cl-mpm/utils:voigt-copy-into en strain)
-      )))
+    (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+    stress))
 
+(defmethod constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
+  (with-accessors ((de mp-elastic-matrix)
+                   (e mp-e)
+                   (nu mp-nu)
+                   (stress mp-stress)
+                   (strain mp-strain)
+                   (strain-n mp-strain-n)
+                   (visc-factor mp-viscosity)
+                   (visc-power mp-visc-power)
+                   (true-visc mp-true-visc))
+      mp
+    (let ((visc (cl-mpm/constitutive::glen-viscosity-strain (cl-mpm/fastmaths:fast-scale!
+                                                             (cl-mpm/fastmaths:fast-.-
+                                                              strain
+                                                              strain-n)
+                                                             (/ 1d0 dt))
+                                                            visc-factor visc-power)))
+      (setf true-visc visc)
+      (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc))
+    stress))
 
 ;; (let ((test (cl-mpm/utils:voigt-from-list (list 0d0 2d0 3d0 2d0 0d0 3d0))))
 ;;   (pprint (cl-mpm/utils:deviatoric-voigt test))
@@ -92,63 +77,189 @@
 ;;                                ) test))
 ;;   )
 
-(let* ((de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0d0))
-       (strain (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0 0d0 2d0 0d0)))
-       (viscosity 1d0)
-       (dt 0.1d0)
-       (etr strain)
-       (en strain)
-       (f-tol 1d-5)
-       (tau nil)
-       (a
-         (magicl:inv
-          (magicl:.+
-           (magicl:inv de)
-           (magicl:scale
-            (magicl:.- (magicl:eye 6)
-                       (magicl:scale
-                        (magicl:from-list
-                         (list 1d0 1d0 1d0 0d0 0d0 0d0
-                               1d0 1d0 1d0 0d0 0d0 0d0
-                               1d0 1d0 1d0 0d0 0d0 0d0
-                               0d0 0d0 0d0 0d0 0d0 0d0
-                               0d0 0d0 0d0 0d0 0d0 0d0
-                               0d0 0d0 0d0 0d0 0d0 0d0
-                               )
-                         '(6 6)) (/ 1d0 3d0)))
-            (/ dt (* 2d0 viscosity))))))
-       (f f-tol))
-  (pprint "start")
-  (pprint a)
-  (loop for i from 0 to 5
-        while (>= f f-tol)
-        do
-           (progn
-             ;; (pprint i)
-             (setf tau (cl-mpm/constitutive::linear-elastic-mat en de tau))
-             (let* ((r (magicl:.-
-                        (magicl:.+ en
-                                   (magicl:scale
-                                    (cl-mpm/utils:deviatoric-voigt tau)
-                                    (/ dt (* 2d0 viscosity))))
-                        etr)))
-               (setf f (magicl:norm r))
-               (format t "f ~F ~%"f)
-               ;; (pprint r)
-               (when (>= f f-tol)
-                 (pprint  r)
-                 (pprint (magicl:linear-solve a r))
-                 (format t "~%")
-                 (setf
-                  en
-                  (magicl:.+
-                   en
-                   (magicl:.*
-                    (magicl:linear-solve a (magicl:scale r -1))
-                    (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 0.5d0 0.5d0 0.5d0))))))
-               )))
-  (when (< f f-tol)
-    (format t "Converged!~%"))
-  (pprint en)
-  ;; (cl-mpm/utils:voigt-copy-into tau stress)
-  )
+(in-package :cl-mpm/models/visco)
+(defun finite-strain-linear-viscous (stress strain de e nu dt viscosity)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+      (let* ((dev (cl-mpm/fastmaths:fast-.-
+                   (cl-mpm/utils:matrix-from-list (list
+                                                   1d0 0d0 0d0
+                                                   0d0 1d0 0d0
+                                                   0d0 0d0 1d0))
+                   (cl-mpm/fastmaths:fast-scale!
+                    (cl-mpm/utils:matrix-from-list
+                     (list 1d0 1d0 1d0
+                           1d0 1d0 1d0
+                           1d0 1d0 1d0))
+                    (/ 1d0 3d0))))
+             (De3
+               (cl-mpm/fastmaths::fast-scale!
+                (cl-mpm/utils:matrix-from-list (list
+                                                (- 1d0 nu) nu nu
+                                                nu (- 1d0 nu) nu
+                                                nu nu (- 1d0 nu)))
+                (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+             (epsTr (cl-mpm/utils:vector-from-list l))
+             (en (cl-mpm/utils::deep-copy epsTr))
+             (f-tol 1d-5)
+             (beta (magicl:@ De3 en))
+             (C (magicl:inv De3))
+             (a
+               (magicl:@
+                C
+                (magicl:inv
+                 (cl-mpm/fastmaths:fast-.+
+                  C
+                  (magicl:scale
+                   dev
+                   (/ dt viscosity))))))
+             (f f-tol))
+        (loop for i from 0 to 1000
+              while (>= f f-tol)
+              do
+                 (progn
+                   (setf beta (magicl:@ De3 en))
+                   (let* ((r (magicl:.-
+                              (magicl:.+ en
+                                         (magicl:scale
+                                          (magicl:@ dev beta)
+                                          (/ dt (* 2d0 viscosity))))
+                              epsTr)))
+                     (setf f (magicl:norm r))
+                     (when (>= f f-tol)
+                       (setf
+                        en
+                        (magicl:.-
+                         en
+                         (magicl:@ a r)))))))
+        (when (> f f-tol)
+          (error "Didn't Converged!~%"))
+        (let ((out-strain (cl-mpm/utils:matrix-to-voigt
+                           (magicl:@ v
+                                     (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
+                                     (magicl:transpose v)))))
+          (cl-mpm/utils:voigt-copy-into out-strain strain)
+          (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+          out-strain))))
+
+(defun test ()
+  (let* ((de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0.1d0))
+         (E 1d0)
+         (nu 0.3d0)
+         (strain (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d0 0d0 0d0)))
+         (stress (magicl:@ de strain))
+         (dt 0.1d0)
+         (viscosity 1d5))
+    (finite-strain-linear-viscous stress strain de e nu dt viscosity)))
+
+;; (defun matrix-to-column-major (matrix)
+;;   (if nil;(= (magicl:layout matrix) :column-major)
+;;       matrix
+;;       (let* ((s (cl-mpm/utils:fast-storage matrix))
+;;              (mt (cl-mpm/utils::empty-copy matrix))
+;;              (rows (magicl::matrix/double-float-nrows matrix))
+;;              (cols (magicl::matrix/double-float-ncols matrix))
+;;              (st (cl-mpm/utils:fast-storage mt)))
+;;         (declare (fixnum rows cols))
+;;         (loop for i fixnum from 0 below rows
+;;               do (loop for j fixnum from 0 below cols
+;;                        do
+;;                           (progn
+;;                             (setf (aref st (+ i (* j rows)))
+;;                                   (aref s (+ j (* i rows)))))))
+;;         mt)))
+
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (defun testt ()
+;;   (let* ((de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0d0))
+;;          (C (magicl:inv de)))
+;;     (magicl:.+
+;;      C
+;;      (magicl:scale
+;;       (magicl:.-
+;;        (magicl:eye 6)
+;;        (magicl:scale
+;;         (magicl:from-list
+;;          (list 1d0 1d0 1d0 0d0 0d0 0d0
+;;                1d0 1d0 1d0 0d0 0d0 0d0
+;;                1d0 1d0 1d0 0d0 0d0 0d0
+;;                0d0 0d0 0d0 0d0 0d0 0d0
+;;                0d0 0d0 0d0 0d0 0d0 0d0
+;;                0d0 0d0 0d0 0d0 0d0 0d0
+;;                )
+;;          '(6 6)) (/ 1d0 3d0)))
+;;       1d0))))
+
+(defun finite-glen-flow (stress strain de e nu dt viscosity)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
+      (let* ((dev (cl-mpm/fastmaths:fast-.-
+                   (cl-mpm/utils:matrix-from-list (list
+                                                   1d0 0d0 0d0
+                                                   0d0 1d0 0d0
+                                                   0d0 0d0 1d0))
+                   (cl-mpm/fastmaths:fast-scale!
+                    (cl-mpm/utils:matrix-from-list
+                     (list 1d0 1d0 1d0
+                           1d0 1d0 1d0
+                           1d0 1d0 1d0))
+                    (/ 1d0 3d0))))
+             (De3
+               (cl-mpm/fastmaths::fast-scale!
+                (cl-mpm/utils:matrix-from-list (list
+                                                (- 1d0 nu) nu nu
+                                                nu (- 1d0 nu) nu
+                                                nu nu (- 1d0 nu)))
+                (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+             (power 3d0)
+             (epsTr (cl-mpm/utils:vector-from-list l))
+             (en (cl-mpm/utils::deep-copy epsTr))
+             (f-tol 1d-5)
+             (beta (magicl:@ De3 en))
+             (C (magicl:inv De3))
+             (a
+               (magicl:inv
+                (cl-mpm/fastmaths:fast-.+
+                 C
+                 (magicl:scale
+                  dev
+                  (*
+                   (expt (/ 1d0 (sqrt (* 0.5d0 (max (cl-mpm/fastmaths::mag-squared (magicl:@ dev beta))
+                                                    1d-20
+                                                    )))) power)
+                   (/ dt viscosity))))))
+             (f f-tol))
+        (loop for i from 0 to 1000
+              while (>= f f-tol)
+              do
+                 (progn
+                   (setf beta (magicl:@ De3 en))
+                   (let* ((r (magicl:.-
+                              (magicl:.+ en
+                                         (magicl:scale
+                                          (magicl:@ dev beta)
+                                          (*
+                                           (expt (/ 1d0 (sqrt (* 0.5d0 (max (cl-mpm/fastmaths::mag-squared (magicl:@ dev beta))
+                                                                            1d-20
+                                                                            )))) power)
+                                           (/ dt (* 2d0 viscosity)))))
+                              epsTr)))
+                     ;; (pprint (sqrt (* 0.5d0 (expt (+ (varef beta 0) (varef beta 1) (varef beta 2)) 2))))
+                     (setf f (magicl:norm r))
+                     (when (>= f f-tol)
+                       (setf
+                        en
+                        (magicl:.-
+                         en
+                         (magicl:@
+                          C
+                          (magicl:@ a r)
+                          ;; (magicl:linear-solve a r)
+                          )))))))
+        (when (> f f-tol)
+          (error "Didn't Converged!~%"))
+        (let ((out-strain (cl-mpm/utils:matrix-to-voigt
+                           (magicl:@ v
+                                     (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
+                                     (magicl:transpose v)))))
+          (cl-mpm/utils:voigt-copy-into out-strain strain)
+          (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+          out-strain))))

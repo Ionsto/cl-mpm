@@ -61,7 +61,10 @@
   (:documentation "A chalk damage model"))
 
 (defclass particle-chalk-brittle (particle-chalk particle-mc)
-  (
+  ((trial-elastic-strain
+    :accessor mp-trial-strain
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:voigt-zeros))
    (material-damping-factor
     :accessor mp-material-damping-factor
     :initarg :material-damping
@@ -219,6 +222,7 @@
                    (stress mp-stress)
                    (stress-u mp-undamaged-stress)
                    (strain mp-strain)
+                   (trial-elastic-strain mp-trial-strain)
                    (damage mp-damage)
                    (damage-t mp-damage-tension)
                    (damage-c mp-damage-compression)
@@ -245,6 +249,7 @@
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (when enable-plasticity
         (progn
           (multiple-value-bind (sig eps-e f inc)
@@ -272,42 +277,39 @@
              stress-u sig
              strain eps-e
              yield-func f)
-            ;; (cl-mpm/fastmaths::fast-.- strain-copy eps-e plastic-strain)
-            ;; plastic-strain (magicl:.- strain eps-e)
-            ;; (setf strain eps-e)
-            (let ();((inc (sqrt (cl-mpm/fastmaths::voigt-j2 plastic-strain))))
+            (let ()
               (incf ps-vm inc)
               (setf ps-vm-inc inc)))))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
-    (when (and
-           enable-damage
-           (> damage 0.0d0))
-      ;; (unless peerlings
-      ;;   (setf damage-t (* kt-r damage)
-      ;;         damage-c (* kc-r damage)
-      ;;         damage-s (* g-r damage)))
-      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        (declare (double-float damage-t damage-c damage-s))
-        (setf p
-              (if (> p 0d0)
-                  (* (- 1d0 damage-t) p)
-                  (* (- 1d0 damage-c) p)))
-        (setf stress
-              (cl-mpm/fastmaths:fast-.+
-               (cl-mpm/constitutive::voight-eye p)
-               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
-               stress)))
-      )
-    (let ((D (cl-mpm/utils:matrix-to-voigt
-              (cl-mpm/fastmaths:fast-scale!
-               (cl-mpm/fastmaths:fast-.+ L (magicl:transpose L))
-               0.5d0))))
-      (cl-mpm/fastmaths:fast-.+ stress
-                                (cl-mpm/fastmaths:fast-scale!
-                                 D
-                                 (/ (cl-mpm/particle::mp-material-damping-factor mp) dt))
-                                stress))
+    ;; (when (and
+    ;;        enable-damage
+    ;;        (> damage 0.0d0))
+    ;;   ;; (unless peerlings
+    ;;   ;;   (setf damage-t (* kt-r damage)
+    ;;   ;;         damage-c (* kc-r damage)
+    ;;   ;;         damage-s (* g-r damage)))
+    ;;   (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+    ;;         (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+    ;;     (declare (double-float damage-t damage-c damage-s))
+    ;;     (setf p
+    ;;           (if (> p 0d0)
+    ;;               (* (- 1d0 damage-t) p)
+    ;;               (* (- 1d0 damage-c) p)))
+    ;;     (setf stress
+    ;;           (cl-mpm/fastmaths:fast-.+
+    ;;            (cl-mpm/constitutive::voight-eye p)
+    ;;            (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
+    ;;            stress)))
+    ;;   )
+    ;; (let ((D (cl-mpm/utils:matrix-to-voigt
+    ;;           (cl-mpm/fastmaths:fast-scale!
+    ;;            (cl-mpm/fastmaths:fast-.+ L (magicl:transpose L))
+    ;;            0.5d0))))
+    ;;   (cl-mpm/fastmaths:fast-.+ stress
+    ;;                             (cl-mpm/fastmaths:fast-scale!
+    ;;                              D
+    ;;                              (/ (cl-mpm/particle::mp-material-damping-factor mp) dt))
+    ;;                             stress))
     stress))
 
 
@@ -618,6 +620,33 @@
 
 
 
+(defun apply-vol-degredation (mp dt)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage damage-t damage-c damage-s))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (declare (double-float damage-t damage-c damage-s))
+        (setf p
+              (if (> p 0d0)
+                  (* (- 1d0 damage-t) p)
+                  (* (- 1d0 damage-c) p)))
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
+               stress))))))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-delayed) dt)
+  (apply-vol-degredation mp dt))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

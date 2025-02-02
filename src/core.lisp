@@ -1041,8 +1041,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
           ;;Post multiply to turn to eng strain
                                         ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          (setf volume (* volume (the double-float dj)))
+          (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          ;; (setf volume (* volume (the double-float dj)))
           (when (<= volume 0d0)
             (error "Negative volume"))
           ;; ;;Stretch rate update

@@ -464,6 +464,7 @@
   :depends-on ("cl-mpm"
                "cl-mpm/all"
                "vgplot"
+               "cl-mpm/models/visco"
                "swank.live")
   :serial t
   :components ((:file "examples/collapse")))
