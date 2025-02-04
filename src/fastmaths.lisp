@@ -643,8 +643,8 @@
   (let ((result (if result
                     (cl-mpm/utils:vector-copy-into m result)
                     (cl-mpm/utils:vector-copy m))))
-    (fast-scale! result scale))
-  result)
+    (fast-scale! result scale)
+    result))
 
 (declaim
  (inline fast-zero)

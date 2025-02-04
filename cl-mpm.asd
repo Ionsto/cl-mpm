@@ -6,6 +6,11 @@
   :serial t
   :components ((:file "src/core/symbolic-derivation")))
 
+
+(defsystem "cl-mpm/settings"
+  :components ((:file "src/settings"))
+  :description "Dummy package that can be used to prune magicl dependancies, i.e. lisp only implementation")
+
 (defsystem "cl-mpm/magicl"
   :depends-on ("magicl"
                "magicl/ext-expokit")
@@ -610,6 +615,11 @@
 (defsystem "cl-mpm/examples/erode"
   :depends-on ("cl-mpm/example")
   :components ((:file "examples/erode")))
+
+
+(defsystem "cl-mpm/examples/ice-buoyancy"
+  :depends-on ("cl-mpm/example")
+  :components ((:file "examples/ice-buoyancy")))
 
 ;; (defsystem "cl-mpm/models/all"
 ;;   :depends-on ("cl-mpm/particle"
