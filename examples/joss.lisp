@@ -142,8 +142,8 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
   ;; (cl-mpm::update-domain-corner mesh mp dt)
-  (cl-mpm::co-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
   (cl-mpm::scale-domain-size mesh mp)
   )
 
@@ -247,7 +247,8 @@
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+    (with-accessors (;(stress cl-mpm/particle::mp-undamaged-stress)
+                     (trial-strain cl-mpm/particle::mp-trial-strain)
                      (strain cl-mpm/particle::mp-strain)
                      (plastic-strain cl-mpm/particle::mp-strain-plastic)
                      (damage cl-mpm/particle:mp-damage)
@@ -267,7 +268,8 @@
                      (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
                      (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
                      (g-r cl-mpm/particle::mp-shear-residual-ratio)
-                     ) mp
+                     )
+        mp
       (declare (double-float pressure damage))
       (progn
         ;; (setf damage-increment (cl-mpm/damage::tensile-energy-norm
@@ -279,7 +281,8 @@
         (setf damage-increment
               (max 0d0
                    (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                    stress
+                    (cl-mpm/constitutive:linear-elastic-mat strain de)
+                    ;; stress
                     (* angle (/ pi 180d0)))))
         ;;Delocalisation switch
         ;; (setf damage-increment
@@ -398,9 +401,9 @@
              ;; (gf 45d0)
              ;; (gf 5d0)
              ;; (gf 5d0)
-             (gf (* 48d0 0.1d0))
+             (gf (* 4.8d0 1d0))
              ;; (gf 10d0)
-             (length-scale (* h 1d0))
+             (length-scale (* h 2d0))
              ;; (length-scale 1d0)
              ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress E))
@@ -441,12 +444,13 @@
 
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
-           :g-res-ratio 0.5d0
+           ;:g-res-ratio 0.01d0
+           :g-res-ratio 0.51d0
            :peerlings-damage t
 
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d1
+           :delay-time 1d0
            :delay-exponent 2d0
 
            ;; :ductility 5d0
@@ -483,7 +487,7 @@
                                         ;(setf (cl-mpm::sim-velocity-algorithm sim) :BLEND-2ND-ORDER)
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
-      (setf (cl-mpm::sim-nonlocal-damage sim) nil)
+      (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -491,6 +495,8 @@
       ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
       ;;   (format t "Mass filter: ~F~%" mass-filter)
       ;;   (setf (cl-mpm::sim-mass-filter sim) mass-filter))
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-2)
+
       (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
@@ -564,7 +570,7 @@
          (plasticity-enabled (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.8d0)
          (settle-steps 0)
          (damp-steps 0)
          (sim-state :settle)
@@ -1183,11 +1189,11 @@
 
 
 (defun est-angle ()
-  (let* ((rc 0d0)
+  (let* ((rc 0.9d0)
          ;(rs 0.359d0)
-         (rs 0.5d0)
+         (rs 0.950d0)
          (ratio (/ (- 1d0 rs) (- 1d0 rc)))
-         (angle-plastic (* 42d0 (/ pi 180)))
+         (angle-plastic (* 50d0 (/ pi 180)))
          (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
          )
      (format t "Chalk plastic virgin angle: ~F~%"

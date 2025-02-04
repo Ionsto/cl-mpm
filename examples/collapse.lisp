@@ -1,17 +1,22 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
 (in-package :cl-mpm/examples/collapse)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
+
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp))
 
 (defun plot-load-disp ()
   (vgplot:plot *data-steps* *data-energy*))
@@ -156,13 +161,16 @@
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
 
+                ;'cl-mpm/particle::particle-finite-viscoelastic-ice
                 'cl-mpm/particle::particle-finite-viscoelastic
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
                 ;; ;; 'cl-mpm/particle::particle-elastic
                 ;; ;; 'cl-mpm/particle::particle-vm
-                :E 1d6
-                :nu 0.3d0
-                :viscosity 1d0
+                :E 1d9
+                :nu 0.24d0
+                ;:viscosity 1.11d6
+                :viscosity 1d08
+                ;; :visc-power 3d0
                 ;; ;; :rho 30d3
                 ;; :initiation-stress 1d4
                 ;; :delay-time 1d1
@@ -171,17 +179,19 @@
                 :gravity -10.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
+      ;; (format t "Charictoristic time ~E~%" (/ ))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
-      (setf (cl-mpm::sim-mass-filter sim) 1d-10)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
+      (setf (cl-mpm::sim-mass-filter sim) 0d0)
+      ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-4)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 1d-1
+              (* 0d-1
                  (cl-mpm/setup:estimate-critical-damping sim))))
 
       (setf *eta* (* 0.5d0
@@ -213,8 +223,8 @@
         (cl-mpm:sim-mesh sim)
         '(0 nil 0)
         '(0 nil 0)
-        '(0 0 0)
-        '(0 0 0)
+        '(nil 0 0)
+        '(nil 0 0)
         '(nil nil 0)
         '(nil nil 0)))
 
@@ -248,7 +258,7 @@
 (defun setup (&key (refine 1) (mps 2))
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column '(16 16) '(8 8) refine mps-per-dim))
+    (defparameter *sim* (setup-test-column '(32 16) '(8 8) refine mps-per-dim))
     )
   (cl-mpm/setup::initialise-stress-self-weight
    *sim*
@@ -272,11 +282,11 @@
   (let* ((target-time 1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.25d0)
+         (dt-scale 1d0)
          (dt-min (cl-mpm:sim-dt *sim*))
          )
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.0d0
+          (* 1d-4
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
