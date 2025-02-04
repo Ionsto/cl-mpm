@@ -17,22 +17,15 @@
 
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  ;(cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-deformation mesh mp dt)
-  ;; (cl-mpm::update-domain-stretch mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
-  ;; (cl-mpm::update-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
-(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
-  (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt))
 
 (declaim (notinline plot))
 (defun plot (sim)
@@ -111,19 +104,10 @@
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
-                ;; 'cl-mpm/particle::particle-elastic-damage
                 'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.3d0
-                ;; :rho 20d3
-                ;; :initiation-stress 1d3
-                ;; :damage-rate 1d-6
-                ;; :critical-damage 0.50d0
-                ;; :local-length 2d0
-                ;; :local-length-damaged 0.01d0
-                ;; :damage 0.0d0
-                :gravity -10.0d0
+                :gravity 0.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
@@ -135,7 +119,6 @@
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
         )
-
       (let ((dt-scale 1d0))
         (setf
          (cl-mpm:sim-dt sim)
@@ -241,10 +224,9 @@
       (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
-      (let ((ms 1d0))
-        (setf (cl-mpm::sim-mass-scale sim) ms)
-        (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms))
-        )
+      ;; (let ((ms 1d0))
+      ;;   (setf (cl-mpm::sim-mass-scale sim) ms)
+      ;;   (setf (cl-mpm:sim-damping-factor sim) (* 1d-2 density ms)))
 
       (let ((dt-scale 1d0))
         (setf
@@ -257,30 +239,194 @@
       (setup-simple-shear sim)
       sim)))
 
+(defun setup-test-simple (size block-size &key
+                                            (e-scale 1)
+                                            (mp-scale 1)
+                                            (offset (list 0d0 0d0))
+                                            )
+  (let* ((sim (cl-mpm/setup::make-block
+               (/ 1d0 e-scale)
+               (mapcar (lambda (x) (* x e-scale)) size)
+               :sim-type 'cl-mpm::mpm-sim-usf
+               ;; 'cl-mpm/damage::mpm-sim-damage
+               ))
+         (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+         (h-x (/ h 1d0))
+         (h-y (/ h 1d0))
+         (density 1d3)
+         (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
+         )
+    (declare (double-float h density))
+    (progn
+      (let ()
+        (setf (cl-mpm:sim-mps sim)
+              (cl-mpm/setup::make-mps-from-list
+               (cl-mpm/setup::make-block-mps-list
+                offset
+                block-size
+                (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                density
+                'cl-mpm/particle::particle-elastic
+                :E 1d6
+                :nu 0.3d0
+                :gravity 0.0d0
+                :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+                ))))
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm::sim-mass-filter sim) 0d0)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) t)
+      (setf (cl-mpm:sim-dt sim) (cl-mpm/setup:estimate-elastic-dt sim))
+      (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
+      sim)))
 
-(defun setup-rotation (sim))
 
-(defun setup-simple-shear (sim)
-  (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
-    (setf (cl-mpm:sim-bcs sim)
-          (cl-mpm/bc::make-domain-bcs
-           (cl-mpm:sim-mesh sim)
-           (lambda (pos)
-             (let ((loc
-                     (cl-mpm/fastmaths::fast-scale!
-                      (cl-mpm/utils:vector-from-list
-                       (list
-                        (float (nth 0 pos) 0d0)
-                        (float (nth 1 pos) 0d0)
-                        (float (nth 2 pos) 0d0)
-                        )
-                       ) h)))
-               (cl-mpm/bc::make-bc-constant-velocity
-                pos
-                (list (* 0.05d0 (cl-mpm/utils:varef loc 1))
-                      0d0               ;(cl-mpm/utils:varef loc 1)
-                      0d0)
-                )))))))
+(defun setup-domain-bcs (sim func)
+  (setf (cl-mpm:sim-bcs sim)
+        (cl-mpm/bc::make-domain-bcs
+         (cl-mpm:sim-mesh sim)
+         (lambda (index)
+           (let ((loc
+                   (cl-mpm/fastmaths::fast-scale!
+                    (cl-mpm/utils:vector-from-list
+                     (list
+                      (float (nth 0 index) 0d0)
+                      (float (nth 1 index) 0d0)
+                      (float (nth 2 index) 0d0)
+                      )
+                     )
+                    (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))))
+             (funcall func index loc))))))
+
+(defun setup-stretch (&key (refine 2) (mps 2))
+  (let ((mps-per-dim mps)
+        (block-size 5)
+        (domain-size (list 25 25))
+        (offset (list 0 0)))
+    (defparameter *sim* (setup-test-simple
+                         domain-size
+                         (list block-size block-size)
+                         :e-scale refine
+                         :mp-scale mps-per-dim
+                         :offset offset
+                         )))
+  (let ((dx 1d-1)
+        (dy 0))
+    (setup-domain-bcs *sim*
+                      (lambda (index pos)
+                        (cl-mpm/bc::make-bc-constant-velocity
+                         index
+                         (list (* dx (cl-mpm/utils:varef pos 0))
+                               (* dy (cl-mpm/utils:varef pos 1))
+                               0d0))))))
+
+(defun setup-hydrostatic (&key (refine 2) (mps 2))
+  (let ((mps-per-dim mps)
+        (block-size 5)
+        (domain-size (list 25 25))
+        (offset (list 0 0)))
+    (defparameter *sim* (setup-test-simple
+                         domain-size
+                         (list block-size block-size)
+                         :e-scale refine
+                         :mp-scale mps-per-dim
+                         :offset offset
+                         )))
+  (let ((dx 1d-1)
+        (dy 1d-1))
+    (setup-domain-bcs *sim*
+                      (lambda (index pos)
+                        (cl-mpm/bc::make-bc-constant-velocity
+                         index
+                         (list (* dx (cl-mpm/utils:varef pos 0))
+                               (* dy (cl-mpm/utils:varef pos 1))
+                               0d0))))))
+(defun setup-simple-shear (&key (refine 2) (mps 2))
+  (let ((mps-per-dim mps)
+        (block-size 5)
+        (domain-size (list 20 10))
+        (offset (list 0 0)))
+    (defparameter *sim* (setup-test-simple
+                         domain-size
+                         (list block-size block-size)
+                         :e-scale refine
+                         :mp-scale mps-per-dim
+                         :offset offset
+                         )))
+  (let ((dx 1d-1)
+        (dy 1d-1))
+    (setup-domain-bcs *sim*
+                      (lambda (index pos)
+                        (cl-mpm/bc::make-bc-constant-velocity
+                         index
+                         (list (* dx (cl-mpm/utils:varef pos 1))
+                               0d0
+                               0d0))))))
+(defun setup-rotate (&key (refine 2) (mps 2))
+  (let* ((mps-per-dim mps)
+        (block-size 5)
+        (domain-size (list 20 20))
+        (center-point (list 10 10))
+        (offset (mapcar (lambda (x) (- x (* 0.5d0 (float block-size)))) center-point)))
+    (defparameter *sim* (setup-test-simple
+                         domain-size
+                         (list block-size block-size)
+                         :e-scale refine
+                         :mp-scale mps-per-dim
+                         :offset offset
+                         ))
+    (let ((h-x (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
+      (setf (cl-mpm:sim-bcs *sim*)
+            (cl-mpm/bc::make-domain-bcs
+             (cl-mpm:sim-mesh *sim*)
+             (lambda (pos)
+               (let* ((loc
+                        (cl-mpm/fastmaths:fast-scale!
+                         (cl-mpm/utils:vector-from-list
+                          (list (float (nth 0 pos) 0d0)
+                                (float (nth 1 pos) 0d0)
+                                0d0))
+                         h-x))
+                      (dist (magicl:.-
+                             loc
+                             (cl-mpm/utils:vector-from-list
+                              (list (float (nth 0 center-point) 0d0)
+                                    (float (nth 1 center-point) 0d0)
+                                    0d0))))
+                      (vel (cl-mpm/penalty::2d-orthog dist)))
+                 (cl-mpm/fastmaths:fast-scale! vel 0.1d0)
+                 (cl-mpm/bc::make-bc-constant-velocity
+                  pos
+                  (list (cl-mpm/utils:varef vel 0)
+                        (cl-mpm/utils:varef vel 1)
+                        0d0)))))))))
+
+(defun setup-rotation ()
+
+  )
+
+;; (defun setup-simple-shear (sim)
+;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+;;     (setf (cl-mpm:sim-bcs sim)
+;;           (cl-mpm/bc::make-domain-bcs
+;;            (cl-mpm:sim-mesh sim)
+;;            (lambda (pos)
+;;              (let ((loc
+;;                      (cl-mpm/fastmaths::fast-scale!
+;;                       (cl-mpm/utils:vector-from-list
+;;                        (list
+;;                         (float (nth 0 pos) 0d0)
+;;                         (float (nth 1 pos) 0d0)
+;;                         (float (nth 2 pos) 0d0)
+;;                         )
+;;                        ) h)))
+;;                (cl-mpm/bc::make-bc-constant-velocity
+;;                 pos
+;;                 (list (* 0.05d0 (cl-mpm/utils:varef loc 1))
+;;                       0d0               ;(cl-mpm/utils:varef loc 1)
+;;                       0d0)
+;;                 )))))))
 
 
 (defparameter *sim* nil)
@@ -294,21 +440,7 @@
     ))
 
 (defun setup (&key (refine 1) (mps 3))
-  (let ((mps-per-dim mps)
-        (block-size 5)
-        (domain-size (list 25 25))
-        (offset (list 0 0))
-        )
-    ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column
-                         domain-size
-                         (list block-size block-size)
-                         refine mps-per-dim))
-    )
-  ;; (cl-mpm::split-mps-vector
-  ;;  *sim*
-  ;;  (lambda (mp)
-  ;;    (cl-mpm/fastmaths:norm (cl-mpm/utils:vector-from-list (list 1d0 1d0 0d0)))))
+  (setup-simple-shear :refine refine :mps mps)
   (dotimes (i 1)
     (cl-mpm::split-mps-criteria
      *sim*

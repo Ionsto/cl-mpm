@@ -275,8 +275,8 @@
                                                          (the double-float (varef disp 1))
                                                          (varef normal 1))))))
 
-          (incf (the double-float (cl-mpm/utils:varef inc 0)) (* 0.5d0 (the double-float (aref diff 0))))
-          (incf (the double-float (cl-mpm/utils:varef inc 1)) (* 0.5d0 (the double-float (aref diff 1))))
+          (incf (the double-float (cl-mpm/utils:varef inc 0)) (* 1d0 (the double-float (aref diff 0))))
+          (incf (the double-float (cl-mpm/utils:varef inc 1)) (* 1d0 (the double-float (aref diff 1))))
           )))
 
     (with-accessors ((domain cl-mpm/particle::mp-domain-size)
@@ -306,17 +306,22 @@
                                                              0d0 (+ 1d0 (/ (varef inc 1) (varef domain 1))) 0d0
                                                              0d0 0d0 1d0
                                                              )))
-             (R (generate-rotation-matrix omega))
+             ;; (R (generate-rotation-matrix omega))
              )
-        ;; (multiple-value-bind (u s v) (magicl:svd (cl-mpm/particle::mp-deformation-gradient-increment mp))
-        ;;   (let* ((Rdef (magicl:@ u (magicl:transpose v))))
-        ;;     (setf R Rdef)
-        ;;     ))
+        (cl-mpm/fastmaths:fast-.+
+         true-domain
+         dom-inc
+         true-domain)
+        (multiple-value-bind (u s vt) (magicl:svd (cl-mpm/particle::mp-deformation-gradient-increment mp))
+          (let* ((R (magicl:@ u vt)))
+            ;; (setf R Rdef)
+            ;; (setf true-domain (magicl:@ R true-domain corner-stretch (magicl:transpose R)))
+            (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+            ))
         ;; (cl-mpm/fastmaths:fast-.+
         ;;  true-domain
         ;;  dom-inc
         ;;  true-domain)
-        (setf true-domain (magicl:@ R true-domain corner-stretch (magicl:transpose R)))
 
         ;; (cl-mpm/fastmaths::fast-.+
         ;;  true-domain
@@ -360,6 +365,7 @@
              (U (magicl:@ (magicl:transpose vt) s vt))
              )
         ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
+        (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
         (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
         ;; (setf true-domain (magicl:@ true-domain U))
         ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
@@ -368,6 +374,19 @@
     ;; (setf true-domain (magicl:@ R true-domain U (magicl:transpose R)))
     ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
     ;; (setf true-domain (magicl:@ true-domain dF))
+    ;; (setf
+    ;;  (varef domain 0)
+    ;;  (varef
+    ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
+    ;;    true-domain
+    ;;    (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
+    ;;   0)
+    ;;  (varef domain 1)
+    ;;  (varef
+    ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
+    ;;    true-domain
+    ;;    (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
+    ;;   1))
 
     (setf
      (varef domain 0)
@@ -379,7 +398,8 @@
      (cl-mpm/fastmaths:mag
       (cl-mpm/fastmaths::fast-@-matrix-vector
        true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))))
+       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))
+    ))
 
 (defun update-domain-corner-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

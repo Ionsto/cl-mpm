@@ -674,3 +674,13 @@
   :description "MPM limestone definitions"
   :serial t
   :components ((:file "src/models/visco")))
+
+(defsystem "cl-mpm/implicit"
+  :depends-on ("cl-mpm"
+               "cl-mpm/utils"
+               "cl-mpm/constitutive"
+               "cl-mpm/output"
+               "cl-mpm/particle")
+  :description "Implicit quasi-static implementation"
+  :serial t
+  :components ((:file "src/implicit")))
