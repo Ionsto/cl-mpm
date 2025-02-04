@@ -639,8 +639,12 @@
 (defun fast-scale-voigt (m scale)
   (fast-scale! (cl-mpm/utils:voigt-copy m) scale))
 
-(defun fast-scale-vector (m scale)
-  (fast-scale! (cl-mpm/utils:vector-copy m) scale))
+(defun fast-scale-vector (m scale &optional result)
+  (let ((result (if result
+                    (cl-mpm/utils:vector-copy-into m result)
+                    (cl-mpm/utils:vector-copy m))))
+    (fast-scale! result scale))
+  result)
 
 (declaim
  (inline fast-zero)

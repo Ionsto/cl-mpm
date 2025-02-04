@@ -21,8 +21,8 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
@@ -468,11 +468,11 @@
          (substeps (floor target-time dt))
          (dt-scale 1d0)
          )
-    (cl-mpm::update-sim *sim*)
-    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                    (format t "CFL dt estimate: ~f~%" dt-e)
-                    (format t "CFL step count estimate: ~D~%" substeps-e)
-                    (setf substeps substeps-e))
+    ;; (cl-mpm::update-sim *sim*)
+    ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+    ;;                 (format t "CFL dt estimate: ~f~%" dt-e)
+    ;;                 (format t "CFL step count estimate: ~D~%" substeps-e)
+    ;;                 (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 100
                 while *run-sim*
@@ -490,7 +490,7 @@
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim *sim*)
-                        ;; (cl-mpm::split-mps-eigenvalue *sim*)
+                        (cl-mpm::split-mps-eigenvalue *sim*)
 
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 

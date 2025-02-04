@@ -339,7 +339,8 @@
                    (mp-mass cl-mpm/particle:mp-mass)
                    ) mp
     (declare (type double-float mp-mass))
-    (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
+    (let (;(dsvp (cl-mpm/utils::dsvp-3d-zeros))
+          )
       ;; (declare (dynamic-extent dsvp))
       (iterate-over-neighbours
        mesh mp
@@ -361,7 +362,7 @@
                     (sb-thread:mutex node-lock)
                     (magicl:matrix/double-float node-vel node-force node-int-force node-ext-force))
            (when node-active
-             (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
+             ;; (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
              (sb-thread:with-mutex (node-lock)
                (det-ext-force mp node svp node-ext-force)
                (det-int-force-unrolled mp grads node-int-force)
@@ -1889,26 +1890,45 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (split-cases direction)))
 
+(defun abs-vec (v)
+  (let ((v-d (cl-mpm/utils::empty-copy v)))
+    (loop for i from 0 below (length (fast-storage v-d))
+          do (setf (varef v-d i) (abs (varef v i))))
+    v-d))
+
 (defun split-mps-eigenvalue (sim)
+  (declare (optimize (speed 0) (debug 3) (safety 3)))
   (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-         (crit (* h 0.25d0)))
+         (crit (* h 0.5d0)))
     (cl-mpm::split-mps-vector
      sim
      (lambda (mp)
        (let ((split-dir nil))
-         (multiple-value-bind (l v)
-             (cl-mpm/utils:eig (cl-mpm/particle::mp-true-domain mp))
-           (loop ;for i from 0 to 2
-                 for lv in l
-                 for i from 0
-                 while (not split-dir)
-                 do
-                    (progn
-                      ;; (pprint lv)
-                      (when (> (abs lv) crit)
-                        ;; (break)
-                        (setf split-dir (magicl:column v i))
-                        ))))
+         (let ((td (cl-mpm/utils::deep-copy (cl-mpm/particle::mp-true-domain mp))))
+           ;; (setf (magicl:tref td 2 2) 0d0)
+           (multiple-value-bind (l v)
+               (cl-mpm/utils:eig td)
+             (loop ;for i from 0 to 2
+                   for lv in l
+                   for i from 0
+                   while (not split-dir)
+                   do
+                      (progn
+                        (when (> (abs lv) crit)
+                          (setf split-dir (abs-vec (magicl:column v i))))))
+             (unless split-dir
+               (let* ((abs-l (mapcar #'abs l))
+                      (max-l (reduce #'max abs-l))
+                      (min-l (reduce #'min (remove 0d0 abs-l)))
+                      (ratio 4d0))
+                 (when (> max-l (* min-l ratio))
+                   (let ((pos (position max-l abs-l)))
+                     ;; (pprint abs-l)
+                     ;; (pprint v)
+                     (when pos
+                       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))))))
+         ;; (when split-dir
+         ;;     (pprint split-dir))
          split-dir)))))
 
 (defun split-mps (sim)

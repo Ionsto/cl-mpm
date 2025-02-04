@@ -213,7 +213,8 @@
   )
 (defun vector-copy-into (source target)
   (aops:copy-into (magicl::matrix/double-float-storage target)
-                  (magicl::matrix/double-float-storage source)))
+                  (magicl::matrix/double-float-storage source))
+  target)
 
 (declaim (ftype (function (magicl::matrix/double-float) magicl::matrix/double-float) voigt-copy))
 (defun voigt-copy (vec)

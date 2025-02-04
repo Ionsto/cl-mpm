@@ -146,7 +146,6 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume cl-mpm/particle:mp-volume)
                      (vel cl-mpm/particle:mp-velocity)
-                     (damping cl-mpm/particle::mp-viscous-damping)
                      ) mp
       (declare (type double-float volume))
       ;; (print dsvp)
@@ -165,6 +164,34 @@
       )
     f-out))
 
+(defun det-stress-force-unrolled (stress grads volume &optional f-out)
+  "Calculate internal force contribution from mp at node"
+  (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
+    (declare (type double-float volume))
+     (destructuring-bind (dx dy dz) grads
+       (declare (double-float dx dy dz))
+       (let ((f-storage (cl-mpm/utils:fast-storage f-out))
+             (stress-storage (cl-mpm/utils:fast-storage stress)))
+         (incf (aref f-storage 0)
+               (* -1d0 volume
+                  (+
+                   (* dx (aref stress-storage 0))
+                   (* dz (aref stress-storage 4))
+                   (* dy (aref stress-storage 5)))))
+         (incf (aref f-storage 1)
+               (* -1d0 volume
+                  (+
+                   (* dy (aref stress-storage 1))
+                   (* dz (aref stress-storage 3))
+                   (* dx (aref stress-storage 5)))))
+         (incf (aref f-storage 2)
+               (* -1d0 volume
+                  (+
+                   (* dz (aref stress-storage 2))
+                   (* dy (aref stress-storage 3))
+                   (* dx (aref stress-storage 4)))))))
+    f-out))
+
 (declaim
  (inline det-int-force-unrolled)
  (ftype (function (cl-mpm/particle::particle list &optional magicl:matrix/double-float) magicl:matrix/double-float)
@@ -174,8 +201,6 @@
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume-ac cl-mpm/particle:mp-volume)
-                     (vel cl-mpm/particle:mp-velocity)
-                     (damping cl-mpm/particle::mp-viscous-damping)
                      ) mp
       (let ((volume volume-ac))
         (declare (type double-float volume))
@@ -211,8 +236,6 @@
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (volume-ac cl-mpm/particle:mp-volume)
-                     (vel cl-mpm/particle:mp-velocity)
-                     (damping cl-mpm/particle::mp-viscous-damping)
                      ) mp
       (let ((volume volume-ac))
         (declare (type double-float volume))
