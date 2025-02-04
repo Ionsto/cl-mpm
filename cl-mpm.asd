@@ -6,6 +6,11 @@
   :serial t
   :components ((:file "src/core/symbolic-derivation")))
 
+
+(defsystem "cl-mpm/settings"
+  :components ((:file "src/settings"))
+  :description "Dummy package that can be used to prune magicl dependancies, i.e. lisp only implementation")
+
 (defsystem "cl-mpm/magicl"
   :depends-on ("magicl"
                "magicl/ext-expokit")

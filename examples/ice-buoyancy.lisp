@@ -3,6 +3,10 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-mc) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
@@ -14,8 +18,8 @@
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
-     ;:colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle:mp-stress mp) :xx))
-     :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
+     :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle:mp-stress mp) :xx))
+     ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
      )))
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 916.7d0)
@@ -63,8 +67,9 @@
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-2)
-    (setf (cl-mpm::sim-enable-fbar *sim*) t)
+    (setf (cl-mpm::sim-enable-fbar *sim*) nil)
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
 
 
 
@@ -86,24 +91,24 @@
 (defun run (&key (output-dir "./output/"))
   (uiop:ensure-all-directories-exist (list (uiop:merge-pathnames* output-dir)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-  (cl-mpm/dynamic-relaxation:converge-quasi-static
-   *sim*
-   :oobf-crit 1d-1
-   :energy-crit 1d-1
-   )
-  (cl-mpm::iterate-over-mps
-   (cl-mpm:sim-mps *sim*)
-   (lambda (mp)
-     (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+  ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
+  ;;  *sim*
+  ;;  :oobf-crit 1d-1
+  ;;  :energy-crit 1d-1
+  ;;  )
+  ;; (cl-mpm::iterate-over-mps
+  ;;  (cl-mpm:sim-mps *sim*)
+  ;;  (lambda (mp)
+  ;;    (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
 
   (setf (cl-mpm:sim-mass-scale *sim*) 1d4)
   (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 0.01d0
-           ;; (sqrt 1d4)
+        (* 0.1d0
+           (sqrt 1d4)
            (cl-mpm/setup:estimate-critical-damping *sim*)))
 
   (setf (cl-mpm:sim-dt *sim*)
-        (* 0.8d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
+        (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
   (let* ((dt-scale 1d0)
          (target-time 1d0)
          (substeps (ceiling target-time (cl-mpm:sim-dt *sim*))))
