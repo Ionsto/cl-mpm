@@ -31,6 +31,7 @@
 (defun make-bc-erode (sim &key (rate 1d0)
                             (clip-func (lambda (pos) t))
                             (scalar-func (lambda (pos) 1d0))
+                            (enable t)
                             )
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
@@ -40,6 +41,7 @@
                    :damage-volume nil
                    :clip-func clip-func
                    :scalar-func scalar-func
+                   :enable enable
                    :sim sim)))
 
 (defgeneric mp-erosion-enhancment (mp))

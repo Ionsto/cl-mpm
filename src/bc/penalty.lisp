@@ -13,6 +13,7 @@
   (:export
    #:make-bc-penalty
    #:make-bc-penalty-distance-point
+   #:save-vtk-penalties
    #:bc-penalty-friction))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
@@ -996,3 +997,89 @@
                             (setf normal (cl-mpm/fastmaths:fast-scale! (cl-mpm/fastmaths:norm normal) dstep))
                             (setf energy-new (calculate-bc-energy-mp sim bc mp))
                             (cl-mpm/fastmaths:fast-.+ pos normal pos))))))))))))
+
+(defun save-vtk-penalties (filename sim)
+  (with-accessors ((bcs cl-mpm:sim-bcs-force-list))
+      sim
+    (let ((bc-save-list (list)))
+      (loop for bc-list in bcs
+            do
+               (loop for bc across bc-list
+                     do
+                        (typecase bc
+                          (cl-mpm/penalty::bc-penalty-distance
+                           (push bc bc-save-list)
+                           )
+                          (cl-mpm/penalty::bc-penalty-structure
+                           (setf bc-save-list (append bc-save-list (get-all-bcs bc))))
+                          (t ))))
+      (let ((json-object (list)))
+        (loop for bc in bc-save-list
+              do
+                 (with-accessors ((center cl-mpm/penalty::bc-penalty-distance-center-point )
+                                  (normal cl-mpm/penalty::bc-penalty-normal)
+                                  (radius cl-mpm/penalty::bc-penalty-distance-radius))
+                     bc
+                   (let* ((line-dir (cl-mpm/penalty::2d-orthog normal))
+                          (p1 (cl-mpm/fastmaths:fast-.+ center (cl-mpm/fastmaths:fast-scale-vector line-dir radius)))
+                          (p2 (cl-mpm/fastmaths:fast-.- center (cl-mpm/fastmaths:fast-scale-vector line-dir radius)))
+                          (load (cl-mpm/penalty::bc-penalty-load bc))
+                          (size (cl-mpm/penalty::bc-penalty-distance-radius bc))
+                          )
+                     (push (list (list (list (cl-mpm/utils:varef p1 0)
+                                             (cl-mpm/utils:varef p1 1)
+                                             (cl-mpm/utils:varef p1 2))
+                                       (list (cl-mpm/utils:varef p2 0)
+                                             (cl-mpm/utils:varef p2 1)
+                                             (cl-mpm/utils:varef p2 2)))
+                                 ;(/ load size)
+                                 load
+                                 (list (cl-mpm/utils:varef normal 0)
+                                       (cl-mpm/utils:varef normal 1)
+                                       (cl-mpm/utils:varef normal 2))
+                                 ) json-object))))
+        (with-open-file (fs filename :direction :output :if-exists :supersede)
+          (format fs "# vtk DataFile Version 2.0~%")
+          (format fs "Lisp generated vtk file, SJVS~%")
+          (format fs "ASCII~%")
+          (format fs "DATASET UNSTRUCTURED_GRID~%")
+
+          (let* ((line-count (length json-object))
+                 (point-count (* 2 line-count)))
+            (format fs "POINTS ~d double~%" point-count)
+            (loop for bc in json-object
+                  do (loop for p in (first bc)
+                           do (format fs "~E ~E ~E ~%"
+                                      (coerce (first p) 'single-float)
+                                      (coerce (second p) 'single-float)
+                                      0e0)))
+
+            (format fs "~%")
+            (format fs "CELLS ~D ~D~%" line-count (* 3 line-count))
+            (loop for bc in json-object
+                  for i from 0
+                  do (format fs "~D ~D ~D~%" 2 (* i 2) (+ 1 (* i 2))))
+
+            (format fs "CELL_TYPES ~D~%" line-count)
+            (loop for bc in json-object
+                  do (format fs "3~%"))
+
+            (format fs "CELL_DATA ~d~%" line-count)
+            (format fs "SCALARS ~a FLOAT ~d~%" "LOAD" 1)
+            (format fs "LOOKUP_TABLE default~%")
+            (loop for bc in json-object
+                  do (progn
+                       (format fs "~E ~%"
+                               (coerce (second bc) 'single-float))
+                       ))
+            (format fs "NORMALS ~a FLOAT~%" "NORMAL")
+            (loop for bc in json-object
+                  do (progn
+                       (destructuring-bind (x y z) (third bc)
+                         (format fs "~f ~f ~f~%"
+                                 (coerce x 'single-float)
+                                 (coerce y 'single-float)
+                                 (coerce z 'single-float)
+                                 ))
+                       ))
+            ))))))

@@ -240,7 +240,7 @@
       sim
     (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
       (cl-mpm::iterate-over-cells
-       sim
+       mesh
        (lambda (cell)
          (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                           (neighbours cl-mpm/mesh::cell-neighbours)
@@ -279,9 +279,9 @@
                                          (setf (cl-mpm/mesh::node-boundary-node n) t))))))
 
                         ))))
-             ;; (check-cell cell)
-             (loop for neighbour in neighbours
-                   do (check-cell neighbour))
+             (check-cell cell)
+             ;; (loop for neighbour in neighbours
+             ;;       do (check-cell neighbour))
 
              ;; (loop for neighbour in neighbours
              ;;       do
@@ -519,6 +519,7 @@
     :initform nil)
    (bc-enable
     :accessor bc-enable
+    :initarg :enable
     :initform t)
    (clip-func
     :accessor bc-buoyancy-clip-func
@@ -597,8 +598,8 @@
       (make-instance 'bc-buoyancy
                      :index nil
                      :sim sim
-                     :clip-func (lambda (pos datum)
-                                  (and (funcall clip-func pos datum)
+                     :clip-func (lambda (pos)
+                                  (and (funcall clip-func pos)
                                        (< (cl-mpm/utils::varef pos 1) datum)))
                      :rho rho
                      :datum datum))))
@@ -609,11 +610,11 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume mesh clip-function)
+      ;; (locate-mps-cells sim clip-function)
+      ;; (populate-cells-volume sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      ;; (populate-nodes-domain mesh clip-function)
+      (populate-nodes-domain mesh clip-function)
 
       (apply-force-mps-3d mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
@@ -912,7 +913,7 @@
                             (f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
                        (sb-thread:with-mutex (node-lock)
                          ;; (cl-mpm/fastmaths:fast-.+ node-force f-total node-force)
-                         (cl-mpm/fastmaths:fast-.+ node-force-int f-stress node-force-ext)
+                         (cl-mpm/fastmaths:fast-.+ node-force-int f-stress node-force-int)
                          (cl-mpm/fastmaths:fast-.+ node-force-ext f-div node-force-ext)
                          ;; (cl-mpm/fastmaths:fast-.+ node-force-ext f-total node-force-ext)
                          (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
@@ -1054,7 +1055,9 @@
       (make-instance 'bc-buoyancy-body
                      :index nil
                      :sim sim
-                     :clip-func clip-func
+                     :clip-func (lambda (pos)
+                                  (and (funcall clip-func pos datum)
+                                       (< (cl-mpm/utils::varef pos 1) datum)))
                      :rho rho
                      :datum datum))))
 
@@ -1072,7 +1075,9 @@
       ;;Apply body force
       (apply-buoyancy-body
        mesh mps
-       (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
+       ;; (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
+       (lambda (mp)
+         (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/particle::mp-gravity-axis mp) (* -1d0 rho (cl-mpm/particle:mp-gravity mp))))
        clip-func)
       ;;Set all hydrostatic pressures
       (cl-mpm:iterate-over-mps
@@ -1141,20 +1146,21 @@
                             (funcall clip-func pos))
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
+                     (setf node-boundary t)
                      ;; Add gradient of stress
                      ;; Add divergance of stress
                      (let ((buoyancy-force (cl-mpm/fastmaths::fast-scale!
                                             (funcall func-div mp)
                                             (* svp volume))))
-                       (cl-mpm/fastmaths::fast-.+ node-force
-                                                 buoyancy-force
-                                                 node-force)
+                       ;; (cl-mpm/fastmaths::fast-.+ node-force
+                       ;;                           buoyancy-force
+                       ;;                           node-force)
                        (cl-mpm/fastmaths::fast-.+ node-force-ext
-                                                 buoyancy-force
-                                                 node-force-ext)
+                                                  buoyancy-force
+                                                  node-force-ext)
                        (cl-mpm/fastmaths::fast-.+ node-buoyancy-force
-                                                 buoyancy-force
-                                                 node-buoyancy-force)
+                                                  buoyancy-force
+                                                  node-buoyancy-force)
                        )
                      ;;Add boundary scalar (can be used for other ops)
                      (incf node-boundary-scalar

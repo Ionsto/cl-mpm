@@ -104,11 +104,20 @@
                "cl-mpm/constitutive"
                "cl-mpm/output"
                "cl-mpm/particle")
-  :description "MPM smeared damage mechanics"
+  :description "MPM damage mechanics"
   :serial t
-  :components ((:file "src/damage")
-               (:file "src/models/damage")
-               ))
+  :components ((:module "src"
+                :serial t
+                :components
+                ((:module "damage"
+                  :serial t
+                  :components
+                  ((:file "package")
+                   (:file "softening")
+                   (:file "criteria")
+                   (:file "damage")))
+                 (:file "models/damage"))
+               )))
 (defsystem "cl-mpm/eigenerosion"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm"

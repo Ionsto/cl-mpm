@@ -21,8 +21,8 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::co-domain-corner-2d mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
