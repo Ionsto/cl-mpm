@@ -257,7 +257,7 @@
           mesh
         (let ((diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
               (domain-storage (magicl::matrix/double-float-storage domain)))
-          (iterate-over-corners-normal-2d
+          (iterate-over-midpoints-normal-2d
            mesh mp
            (lambda (corner normal)
              (let ((disp (cl-mpm/utils:vector-zeros)))
@@ -308,15 +308,15 @@
                                                              )))
              ;; (R (generate-rotation-matrix omega))
              )
-        ;; (cl-mpm/fastmaths:fast-.+
-        ;;  true-domain
-        ;;  dom-inc
-        ;;  true-domain)
+        (cl-mpm/fastmaths:fast-.+
+         true-domain
+         dom-inc
+         true-domain)
         (multiple-value-bind (u s vt) (magicl:svd (cl-mpm/particle::mp-deformation-gradient-increment mp))
           (let* ((R (magicl:@ u vt)))
             ;; (setf R Rdef)
-            (setf true-domain (magicl:@ R true-domain corner-stretch (magicl:transpose R)))
-            ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+            ;; (setf true-domain (magicl:@ R true-domain corner-stretch (magicl:transpose R)))
+            (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
             ))
         ;; (cl-mpm/fastmaths:fast-.+
         ;;  true-domain

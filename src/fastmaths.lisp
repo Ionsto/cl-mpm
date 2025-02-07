@@ -1177,14 +1177,14 @@
 (defun %lambert-w-log-0 (w z)
   (log (/ (- z) (- w))))
 
-(defun lambert-w-0 (z)
+(defun lambert-w-0-exp (z)
   (let ((w 1d0))
     (loop for i from 0 to 1000
           while (> w 0d0)
           do (setf w (%lambert-w-0 w z)))
     w))
 
-(defun lambert-w-log-0 (z)
+(defun lambert-w-0 (z)
   (let ((w 1d0))
     (loop for i from 0 to 1000
           while (> w 0d0)

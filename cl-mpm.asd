@@ -618,7 +618,10 @@
 
 
 (defsystem "cl-mpm/examples/ice-buoyancy"
-  :depends-on ("cl-mpm/example")
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/erosion"
+               "cl-mpm/models/chalk"
+               )
   :components ((:file "examples/ice-buoyancy")))
 
 ;; (defsystem "cl-mpm/models/all"

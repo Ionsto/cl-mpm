@@ -155,7 +155,8 @@
         (g2p mesh mps dt vel-algo)
         (when split
           (split-mps sim)))
-      ;; (check-mps sim)
+      (check-mps sim)
+      (check-single-mps sim)
       (incf time dt))))
 
 (defmethod update-sim ((sim mpm-sim-usl))
@@ -1921,7 +1922,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                (let* ((abs-l (mapcar #'abs l))
                       (max-l (reduce #'max abs-l))
                       (min-l (reduce #'min (remove 0d0 abs-l)))
-                      (ratio 4d0))
+                      (ratio 2d0))
                  (when (> max-l (* min-l ratio))
                    (let ((pos (position max-l abs-l)))
                      ;; (pprint abs-l)
