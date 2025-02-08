@@ -65,6 +65,20 @@ extern "C" {
     strain = strainE;
     return std::get<3>(result);
   }
+  bool MatrixSqrt(double * input_ptr,double * output_ptr){
+    Eigen::Map<Eigen::Matrix<double,3,3>> in(input_ptr);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(in);
+    Eigen::Map<Eigen::Matrix<double,3,3>> out(output_ptr);
+    out = eigensolver.operatorSqrt();
+    return true;
+  }
+  bool VoigtSqrt(double * input_ptr,double * output_ptr){
+    Eigen::Map<Eigen::Matrix<double,6,1>> in(input_ptr);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix_stress(in));
+    Eigen::Map<Eigen::Matrix<double,6,1>> out(output_ptr);
+    out = matrix_to_voigt_stress(eigensolver.operatorSqrt());
+    return true;
+  }
 }
 int main(int arc,char **args){
   typedef std::chrono::high_resolution_clock Clock;

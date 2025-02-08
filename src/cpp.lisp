@@ -122,6 +122,10 @@
         (psi :double)
         (c :double))
 
+      (defcfun "MatrixSqrt" :bool
+        (input-ptr :pointer)
+        (output-ptr :pointer))
+
       (defcfun "test" :void
         (flags :pointer))
       (format t "~&Using accelerated kirchoff update~%")
@@ -163,6 +167,12 @@
               )
             (values stress strain 0d0 0d0)
             ))
+      (defun matrix-sqrt (mat)
+        (let ((output (cl-mpm/utils:matrix-zeros)))
+          (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage mat))
+                                                  (sp-out (cl-mpm/utils:fast-storage output)))
+            (MatrixSqrt sp sp-out))
+          output))
       )
 
     (cffi::load-foreign-library-error (c)
@@ -180,7 +190,16 @@
                                            phi
                                            psi
                                            c))
-        )))
+        (defun matrix-sqrt (mat)
+          (multiple-value-bind (l v) (cl-mpm/utils::eig mat)
+            (magicl:@
+             v
+             (cl-mpm/utils::matrix-from-list
+              (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+                    0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+                    0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+             (magicl:transpose v))
+            )))))
 
 (declaim (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) kirchoff-update))
 (defun kirchoff-update (strain df)

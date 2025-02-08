@@ -531,6 +531,7 @@
         (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
 
         (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
+        (cl-mpm/output::save-parameter "viscosity" (cl-mpm/particle::mp-viscosity mp))
 
 
         (when (= nd 3)

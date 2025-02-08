@@ -11,21 +11,19 @@
     :accessor mp-viscosity
     :initarg :viscosity
     :initform 1d0
-    )))
-
-(defclass particle-finite-viscoelastic-ice (particle-elastic)
-  ((viscosity
-    :accessor mp-viscosity
-    :initarg :viscosity
-    :initform 1d0
     )
+   (enable-viscosity
+    :accessor mp-enable-viscosity
+    :initarg :enable-viscosity
+    :initform t)))
+
+(defclass particle-finite-viscoelastic-ice (particle-finite-viscoelastic)
+  ((visc-factor
+    :accessor mp-visc-factor
+    :initarg :visc-factor)
    (visc-power
     :accessor mp-visc-power
-    :initarg :visc-power)
-   (true-visc
-    :accessor mp-true-visc
-    :initform 0d0))
-  )
+    :initarg :visc-power)))
 (defmethod constitutive-model ((mp particle-finite-viscoelastic) strain dt)
   (with-accessors ((de mp-elastic-matrix)
                    (e mp-e)
@@ -34,31 +32,48 @@
                    (strain mp-strain)
                    (strain-n mp-strain-n)
                    (viscosity mp-viscosity)
+                   (enable-viscosity mp-enable-viscosity)
                    )
       mp
     ;;Train elastic strain - plus trail kirchoff stress
-    (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+    (if enable-viscosity
+        (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+        (cl-mpm/constitutive:linear-elastic-mat strain de stress))
     stress))
+
+(defun glen-visco (stress visc-factor visc-power)
+  (let* ((dev (cl-mpm/utils:deviatoric-voigt stress))
+         (effective-stress (sqrt (* 1/2 (cl-mpm/fastmaths::voigt-j2 dev))))
+         (visc-factor (expt visc-factor (- visc-power)))
+         )
+    (/ 1d0
+       (+ 1d-20
+          (* visc-factor 2 (expt effective-stress (- visc-power 1)))))))
 
 (defmethod constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
   (with-accessors ((de mp-elastic-matrix)
                    (e mp-e)
                    (nu mp-nu)
                    (stress mp-stress)
+                   (def mp-deformation-gradient)
                    (strain mp-strain)
                    (strain-n mp-strain-n)
-                   (visc-factor mp-viscosity)
+                   (true-visc mp-viscosity)
+                   (visc-factor mp-visc-factor)
                    (visc-power mp-visc-power)
-                   (true-visc mp-true-visc))
+                   (enable-viscosity mp-enable-viscosity)
+                   )
       mp
-    (let ((visc (cl-mpm/constitutive::glen-viscosity-strain (cl-mpm/fastmaths:fast-scale!
-                                                             (cl-mpm/fastmaths:fast-.-
-                                                              strain
-                                                              strain-n)
-                                                             (/ 1d0 dt))
-                                                            visc-factor visc-power)))
+    (let ((visc (glen-visco (cl-mpm/fastmaths:fast-scale-voigt
+                             stress
+                             (/ 1d0 (magicl:det def)))
+                            visc-factor
+                            visc-power)))
       (setf true-visc visc)
-      (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc))
+      (if enable-viscosity
+          (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc)
+          (cl-mpm/constitutive:linear-elastic-mat strain de stress))
+      )
     stress))
 
 ;; (let ((test (cl-mpm/utils:voigt-from-list (list 0d0 2d0 3d0 2d0 0d0 3d0))))

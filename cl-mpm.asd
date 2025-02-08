@@ -79,7 +79,6 @@
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
                ;; "cl-mpm/damage"
-               "cl-mpm/ext"
                "cl-mpm/mesh")
   :description "MPM particle definitions"
   :serial t
@@ -166,6 +165,7 @@
   ;; :class :package-inferred-system
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/fastmaths"
+               "cl-mpm/ext"
                "cl-mpm/utils"
                "cl-mpm/forces"
                "alexandria"
@@ -630,6 +630,7 @@
   :depends-on ("cl-mpm/example"
                "cl-mpm/erosion"
                "cl-mpm/models/chalk"
+               "cl-mpm/models/visco"
                )
   :components ((:file "examples/ice-buoyancy")))
 
@@ -706,3 +707,12 @@
   :description "Implicit quasi-static implementation"
   :serial t
   :components ((:file "src/implicit")))
+
+(defsystem "cl-mpm/examples/ice-visco"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/erosion"
+               "cl-mpm/models/chalk"
+               "cl-mpm/models/visco"
+               )
+  :components ((:file "examples/ice-visco")))
+

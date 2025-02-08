@@ -77,3 +77,18 @@ Eigen::Matrix<double,6,6> elastic_matrix(double E, double nu) {
           0,0,0,0,0,g
           ).finished() * (E / ((1+nu)*(1 - (2 * nu))));
 }
+
+
+Eigen::Matrix<double,6,1> matrix_to_voigt_stress(Eigen::Matrix<double,3,3> mat) {
+  return (Eigen::Matrix<double,6,1>() <<
+          mat(0,0), mat(1,1),mat(2,2),
+          mat(1,2), mat(0,2),mat(0,1)
+          ).finished();
+}
+
+Eigen::Matrix<double,3,3> voigt_to_matrix_stress(Eigen::Matrix<double,6,1> voigt) {
+  return (Eigen::Matrix3d() <<
+          voigt(0), voigt(5), voigt(4),
+          voigt(5), voigt(1), voigt(3),
+          voigt(4), voigt(3), voigt(2)).finished();
+}

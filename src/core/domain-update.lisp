@@ -52,24 +52,15 @@
       mp
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult df df :target F :transb :t)
-      (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-        (let* ((stretch
-                 (magicl:@
-                  v
-                  (cl-mpm/utils::matrix-from-list
-                   (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
-                         0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
-                         0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-                  (magicl:transpose v)))
-               )
-          (declare (type magicl:matrix/double-float stretch))
-          (setf (varef domain 0) (* (the double-float (varef domain 0))
-                                    (the double-float (mtref stretch 0 0))))
-          (setf (varef domain 1) (* (the double-float (varef domain 1))
-                                    (the double-float (mtref stretch 1 1))))
-          (setf (varef domain 2) (* (the double-float (varef domain 2))
-                                    (the double-float (mtref stretch 2 2))))
-          )))))
+      (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
+        (declare (type magicl:matrix/double-float stretch))
+        (setf (varef domain 0) (* (the double-float (varef domain 0))
+                                  (the double-float (mtref stretch 0 0))))
+        (setf (varef domain 1) (* (the double-float (varef domain 1))
+                                  (the double-float (mtref stretch 1 1))))
+        (setf (varef domain 2) (* (the double-float (varef domain 2))
+                                  (the double-float (mtref stretch 2 2))))
+        ))))
 
 
 (declaim (ftype (function (magicl:matrix/double-float
@@ -144,24 +135,14 @@
       mp
     (let ((F (cl-mpm/utils::matrix-zeros)))
       (magicl:mult def def :target F :transb :t)
-      (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-        (let* ((stretch
-                 (magicl:@
-                  v
-                  (cl-mpm/utils::matrix-from-list
-                   (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
-                         0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
-                         0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
-                  (magicl:transpose v)))
-               )
-          (declare (type magicl:matrix/double-float stretch))
-          (setf (varef domain 0) (* (the double-float (varef domain-0 0))
-                                    (the double-float (mtref stretch 0 0))))
-          (setf (varef domain 1) (* (the double-float (varef domain-0 1))
-                                    (the double-float (mtref stretch 1 1))))
-          (setf (varef domain 2) (* (the double-float (varef domain-0 2))
-                                    (the double-float (mtref stretch 2 2))))
-          )))))
+      (let* ((stretch (cl-mpm/ext::matrix-sqrt F)))
+        (declare (type magicl:matrix/double-float stretch))
+        (setf (varef domain 0) (* (the double-float (varef domain-0 0))
+                                  (the double-float (mtref stretch 0 0))))
+        (setf (varef domain 1) (* (the double-float (varef domain-0 1))
+                                  (the double-float (mtref stretch 1 1))))
+        (setf (varef domain 2) (* (the double-float (varef domain-0 2))
+                                  (the double-float (mtref stretch 2 2))))))))
 
 (defun update-domain-midpoint (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

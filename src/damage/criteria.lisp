@@ -467,8 +467,8 @@
     (let ((k (/ (+ 1d0 (sin angle))
                 (- 1d0 (sin angle)))))
       (/ (- (* k s1) s3)
-         k)))
-  )
+         k))))
+
 (defun criterion-mohr-coloumb-stress-will (stress angle)
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
     (declare (double-float angle s1 s2 s3))
@@ -562,3 +562,17 @@
                (cl-mpm/utils::matrix-from-diag l)
                (magicl:transpose v))))))
     (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
+
+(defun criterion-mohr-coloumb-rankine-stress-tensile (stress angle)
+  (declare (double-float angle))
+  (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
+    (declare (double-float angle s1 s2 s3))
+    (max
+     s1
+     s2
+     s3
+     (let ((k (/ (+ 1d0 (sin angle))
+                 (- 1d0 (sin angle)))))
+       (/ (- (* k s1) s3)
+          k))
+     )))
