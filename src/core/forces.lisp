@@ -200,8 +200,8 @@
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (volume-ac cl-mpm/particle:mp-volume)
-                     ) mp
+                     (volume-ac cl-mpm/particle:mp-volume))
+        mp
       (let ((volume volume-ac))
         (declare (type double-float volume))
         (destructuring-bind (dx dy dz) grads

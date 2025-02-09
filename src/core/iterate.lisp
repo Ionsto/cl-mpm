@@ -730,9 +730,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                      (* weights-fbar-x weights-fbar-z
                                                         (cl-mpm/shape-function::shape-gimp-dsvp disty doy h))
                                                      (* weights-fbar-x weights-fbar-y
-                                                        (cl-mpm/shape-function::shape-gimp-dsvp distz doz h))))
-                                             ;; (grads-fbar (list 0d0 0d0 0d0))
-                                             )
+                                                        (cl-mpm/shape-function::shape-gimp-dsvp distz doz h)))))
                                         (declare (double-float gradx grady gradz))
                                         (funcall func mesh mp node
                                                  weight (list gradx grady gradz)
