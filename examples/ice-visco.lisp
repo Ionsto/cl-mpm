@@ -1,8 +1,13 @@
-(defpackage :cl-mpm/examples/ice-buoyancy
+(defpackage :cl-mpm/examples/ice-visco
   (:use :cl
    :cl-mpm/example))
-(in-package :cl-mpm/examples/ice-buoyancy)
+(in-package :cl-mpm/examples/ice-visco)
 
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+
+(setf *block-compile-default* t)
 (defclass cl-mpm/particle::particle-mc-erodable (cl-mpm/particle::particle-mc
                                                     cl-mpm/particle::particle-erosion)
   ())
@@ -27,6 +32,15 @@
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
+  )
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic-ice) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  ;; (cl-mpm::update-domain-det mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
+  (cl-mpm::update-domain-stretch mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
@@ -71,80 +85,63 @@
      )))
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 916.7d0)
-         (mesh-resolution (/ 10d0 refine))
-         (offset (* mesh-resolution 0))
-         (datum (+ 00d0 offset))
-         (domain-size (list 600d0 300d0))
+         (mesh-resolution (/ 50d0 refine))
+         (offset (* mesh-resolution 2))
+         (datum (+ 100d0 offset))
+         (domain-size (list 2000d0 400d0 600d0))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
-         (block-size (list 400d0 200d0)))
+         (block-size (list 1000d0 200d0 600d0)))
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; 'cl-mpm/damage::mpm-sim-damage
-                                               'cl-mpm::mpm-sim-usf
-                                               ))
-
+                                               'cl-mpm::mpm-sim-usf))
     (let* ((E 1d9)
            (angle 60d0)
            (init-c 50d3)
            (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
            (gf 50d0)
            (length-scale (* mesh-resolution 2d0))
-           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (oversize (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility)))
+           ;; (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+           ;; (oversize (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility))
+           )
       (format t "Mesh size ~F~%" mesh-resolution)
-      (format t "Estimated oversize ~F~%" oversize)
-      (format t "Estimated lc ~E~%" length-scale)
-      (format t "Estimated ductility ~E~%" ductility)
+      ;; (format t "Estimated oversize ~F~%" oversize)
+      ;; (format t "Estimated lc ~E~%" length-scale)
+      ;; (format t "Estimated ductility ~E~%" ductility)
       (cl-mpm:add-mps
        *sim*
        (cl-mpm/setup:make-block-mps
-        (list 0 offset)
+        (list 0 offset 0)
         block-size
         (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
         density
-        ;; 'cl-mpm/particle::particle-chalk-delayed
+        ;; 'cl-mpm/particle::particle-vm
         ;; :E 1d9
-        ;; :nu 0.24d0
-
-        ;; :kt-res-ratio 1d0
-        ;; :kc-res-ratio 0d0
-        ;; :g-res-ratio 0.7d0
-
-        ;; :initiation-stress init-stress;18d3
-        ;; :friction-angle angle
-        ;; :psi (* 0d0 (/ pi 180))
-        ;; :phi (* angle (/ pi 180))
-        ;; :c (* init-c oversize)
-        ;; :softening 0d0
-        ;; :ductility ductility
-        ;; :local-length length-scale
-        ;; :delay-time 1d1
-        ;; :delay-exponent 3d0
+        ;; :nu 0.325d0
+        ;; :rho 100d3
         ;; :enable-plasticity nil
-        ;; :enable-damage t
         'cl-mpm/particle::particle-finite-viscoelastic-ice
         :E 1d9
         :nu 0.325d0
         :visc-factor 11.1d6
         :visc-power 3d0
         :enable-viscosity nil
-
         :gravity -9.8d0
         )))
     (setf
      (cl-mpm:sim-bcs *sim*)
      (cl-mpm/bc::make-outside-bc-varfix
       (cl-mpm:sim-mesh *sim*)
+      '(0 nil nil)
+      '(0 nil nil)
+      '(nil 0 nil)
+      '(nil 0 nil)
       '(0 nil 0)
-      '(0 nil 0)
-      '(nil 0 0)
-      '(nil 0 0)
-      '(nil nil 0)
-      '(nil nil 0)))
+      '(0 nil 0)))
 
     (setf (cl-mpm:sim-mass-scale *sim*) 1d4)
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.1d0
+          (* 0.5d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-2)
@@ -153,6 +150,7 @@
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
+    (cl-mpm/setup::initialise-stress-self-weight *sim* datum)
 
 
 
@@ -176,16 +174,15 @@
           1000d0
           (lambda (pos) t))))
     (let ((domain-half (* 0.5d0 (first domain-size)))
-          (friction 0.8d0))
+          (friction 0.0d0))
       (defparameter *ocean-floor-bc*
-        (cl-mpm/penalty::make-bc-penalty-distance-point
+        (cl-mpm/penalty::make-bc-penalty-point-normal
          *sim*
          (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
          (cl-mpm/utils:vector-from-list (list
                                          domain-half
                                          offset
                                          0d0))
-         (* domain-half 1.1d0)
          (* 1d9 0.1d0)
          friction)))
 
@@ -220,11 +217,12 @@
   (let ((dt-scale 0.5d0))
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :oobf-crit 1d-2
-     :energy-crit 1d-2
+     :oobf-crit 1d-1
+     :energy-crit 1d-1
      :dt-scale dt-scale
      :post-iter-step
-     (lambda (&rest args)
+     (lambda (i oobf energy)
+       (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)
        (plot-domain))))
 
   (cl-mpm::iterate-over-mps
@@ -235,7 +233,7 @@
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d8)
   (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 1d-1
+        (* 1d-2
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup:estimate-critical-damping *sim*)))
 
@@ -425,3 +423,33 @@
                                 :terminal "png size 1920,1080"
                                 )
              )))
+
+(defun test ()
+  (setup :refine 2 :mps 2)
+  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (sb-profile:unprofile)
+  (sb-profile:profile "CL-MPM")
+  (sb-profile:profile "CL-MPM/PARTICLE")
+  (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  (sb-profile:profile "CL-MPM/MESH")
+  (sb-profile:reset)
+  (let ((iters 10))
+    (time (dotimes (i iters) (time (cl-mpm:update-sim *sim*)))))
+  (sb-profile:report)
+  ;; (let ((iters 10000000))
+  ;;   (let ((a (cl-mpm/utils:matrix-eye 2d0)))
+  ;;     (time (dotimes (i iters)
+  ;;             (cl-mpm/ext::matrix-sqrt a))))
+  ;;   (let ((a (cl-mpm/utils:matrix-eye 2d0)))
+  ;;     (time (dotimes (i iters)
+  ;;             (matrix-sqrt a)))))
+  )
+(defun matrix-sqrt (mat)
+  (multiple-value-bind (l v) (cl-mpm/utils::eig mat)
+    (magicl:@
+     v
+     (cl-mpm/utils::matrix-from-list
+      (list (the double-float (sqrt (the double-float (nth 0 l)))) 0d0 0d0
+            0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
+            0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
+     (magicl:transpose v))))
