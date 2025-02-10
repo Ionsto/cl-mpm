@@ -281,11 +281,6 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
   //                                 -nu,-nu,1).finished()/E;
   Eigen::Matrix<double,3,3> C = De3.inverse();
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(elastic_strain));
-
-  // Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
-  //                                 1,-nu,-nu,
-  //                                 -nu,1,-nu,
-  //                                 -nu,-nu,1).finished()/E;
   if (eigensolver.info() != Eigen::Success)
     {
       abort();
@@ -303,7 +298,7 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
   // std::cout<<a<<"\n";
   const double ftol = 1e-5;
   double f = ftol;
-  const int maxsteps = 100;
+  const int maxsteps = 1000;
   for (int i = 0;i < maxsteps; ++i){
     beta = De3 * en;
     // std::cout<<beta<<"\n";
@@ -313,9 +308,9 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
       en -= (a * r);
     }
   }
-  if(f > ftol){
-    abort();
-  }
+  // if(f > ftol){
+  //   abort();
+  // }
 
   elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
   return elastic_strain;
