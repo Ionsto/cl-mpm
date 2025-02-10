@@ -1,8 +1,8 @@
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   #+cl-mpm-special (print "Compiled with special hooks")
@@ -144,19 +144,20 @@
         (update-node-kinematics mesh dt )
         (apply-bcs mesh bcs dt)
         (update-stress mesh mps dt fbar)
-        ;; Map forces onto nodes
+        ;; ;; Map forces onto nodes
         (p2g-force mesh mps)
         (loop for bcs-f in bcs-force-list
               do (apply-bcs mesh bcs-f dt))
         (update-node-forces sim)
-        ;; Reapply velocity BCs
+        ;; ;; Reapply velocity BCs
         (apply-bcs mesh bcs dt)
         ;; Also updates mps inline
         (g2p mesh mps dt vel-algo)
         (when split
-          (split-mps sim)))
-      (check-mps sim)
-      (check-single-mps sim)
+          (split-mps sim))
+        (check-mps sim)
+        (check-single-mps sim)
+        )
       (incf time dt))))
 
 (defmethod update-sim ((sim mpm-sim-usl))
@@ -289,6 +290,7 @@
           (cl-mpm/particle:particle mp)
           (cl-mpm/mesh::node node)
           (double-float svp)
+          (ignore mesh)
           )
          (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
                           (node-active  cl-mpm/mesh::node-active)
@@ -299,7 +301,8 @@
                           (node-force cl-mpm/mesh:node-force)
                           (node-p-wave cl-mpm/mesh::node-pwave)
                           (node-damage cl-mpm/mesh::node-damage)
-                          (node-lock  cl-mpm/mesh:node-lock)) node
+                          (node-lock  cl-mpm/mesh:node-lock))
+             node
            (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
                     (type sb-thread:mutex node-lock))
            (sb-thread:with-mutex (node-lock)
@@ -890,28 +893,20 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun calculate-strain-rate (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 1))
-           )
-  (with-accessors ((strain-rate cl-mpm/particle:mp-strain-rate)
-                   (vorticity cl-mpm/particle:mp-vorticity)
+           (optimize (speed 3) (safety 0)))
+  (with-accessors ((vorticity cl-mpm/particle:mp-vorticity)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
                    ) mp
-    (declare (magicl:matrix/double-float strain-rate vorticity stretch-tensor stretch-tensor-fbar velocity-rate))
+    (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
+             (double-float dt))
         (progn
           ;; (cl-mpm/fastmaths::fast-zero strain-rate)
           ;; (cl-mpm/fastmaths::fast-zero vorticity)
           (cl-mpm/fastmaths::fast-zero stretch-tensor)
           (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
           (let (
-                ;; (stretch-dsvp (stretch-dsvp-3d-zeros))
-                ;; (temp-mult (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-                ;; (temp-add (cl-mpm/utils::matrix-zeros))
                 )
-            ;; (declare (magicl:matrix/double-float stretch-dsvp temp-mult temp-add)
-            ;;          ;; (dynamic-extent stretch-dsvp temp-mult temp-add)
-            ;;          )
             (iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)
@@ -922,20 +917,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                  (declare (magicl:matrix/double-float node-vel)
                           (boolean node-active))
                  (when node-active
-
                    (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
                    (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
                    )))))
-
-            ;; (cl-mpm/utils::stretch-to-sym stretch-tensor strain-rate)
-            ;; (cl-mpm/utils::stretch-to-skew stretch-tensor vorticity)
-            ;; (aops:copy-into (cl-mpm/utils::fast-storage velocity-rate) (cl-mpm/utils::fast-storage strain-rate))
-            ;; (setf velocity-rate (magicl:scale strain-rate 1d0))
-            (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
-            (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt)
-            ;; (cl-mpm/fastmaths::fast-scale! strain-rate dt)
-            ;; (cl-mpm/fastmaths::fast-scale! vorticity dt)
-            )))
+          (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
+          (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt))))
 
 
 (defun rotation-matrix (degrees)

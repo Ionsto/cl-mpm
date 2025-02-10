@@ -556,8 +556,7 @@
     (declare (type double-float effective-strain A))
     (if (> effective-strain 0d0)
         (/ 1d0 (* 2d0 A (the double-float (expt effective-strain (- visc-power 1d0)))))
-        0d0)
-    ))
+        0d0)))
 
 
 (declaim (ftype (function (magicl:matrix/double-float double-float double-float) (values double-float)) glen-viscosity-strain))
@@ -565,8 +564,7 @@
   "Get the viscosity for a given strain state"
   (let* (;(effective-strain (+ 1d-15 (cl-mpm/fastmaths::voigt-tensor-reduce-simd (deviatoric strain))))
          (dev-stretch (deviatoric-voigt stretch))
-         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (cl-mpm/fastmaths::fast-.* dev-stretch dev-stretch)))))
-         )
+         (effective-strain (+ 1d-15 (* 0.5d0 (magicl::sum (cl-mpm/fastmaths::fast-.* dev-stretch dev-stretch))))))
     (declare (type double-float effective-strain))
     (if (> effective-strain 0d0)
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))

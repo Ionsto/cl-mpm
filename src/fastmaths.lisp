@@ -1005,7 +1005,8 @@
 (defun @-matrix-matrix-lisp (matrix-a matrix-b result-matrix)
   "Multiply a 3x3 matrix with a 3x3 matrix to calculate a 3x3 vector in place"
   (declare (magicl:matrix/double-float matrix-a matrix-b result-matrix)
-           (optimize (speed 0) (safety 3) (debug 3)))
+           ;; (optimize (speed 0) (safety 3) (debug 3))
+           )
   (let ((a (cl-mpm/utils:fast-storage matrix-a))
         (b (cl-mpm/utils:fast-storage matrix-b))
         (c (cl-mpm/utils:fast-storage result-matrix)))
@@ -1112,7 +1113,8 @@
 (defun @-tensor-voigt-lisp (matrix-a matrix-b result-matrix)
   "Multiply a 3x3 matrix with a 3x3 matrix to calculate a 3x3 vector in place"
   (declare (magicl:matrix/double-float matrix-a matrix-b result-matrix)
-           (optimize (speed 0) (safety 3) (debug 3)))
+           ;; (optimize (speed 0) (safety 3) (debug 3))
+           )
   (let ((a (cl-mpm/utils:fast-storage matrix-a))
         (b (cl-mpm/utils:fast-storage matrix-b))
         (c (cl-mpm/utils:fast-storage result-matrix)))

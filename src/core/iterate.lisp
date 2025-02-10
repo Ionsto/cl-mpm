@@ -110,15 +110,15 @@ Calls func with only the node"
 weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
-      (iterate-over-neighbours-cached mesh mp func)
-      (create-node-cache mesh mp func))
+  ;; (if (> (length (cl-mpm/particle::mp-cached-nodes mp)) 0)
+  ;;     (iterate-over-neighbours-cached mesh mp func)
+  ;;     (create-node-cache mesh mp func))
 
-  ;; (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-  ;;     (iterate-over-neighbours-shape-gimp-2d
-  ;;        mesh mp func)
-  ;;     (iterate-over-neighbours-shape-gimp-3d
-  ;;        mesh mp func))
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (iterate-over-neighbours-shape-gimp-simd
+         mesh mp func)
+      (iterate-over-neighbours-shape-gimp-3d
+         mesh mp func))
   ;; (iterate-over-neighbours-shape-gimp-2d mesh mp func)
   ;; (iterate-over-neighbours-shape-gimp-simd mesh mp func)
   ;; (iterate-over-neighbours-shape-gimp-3d mesh mp func)

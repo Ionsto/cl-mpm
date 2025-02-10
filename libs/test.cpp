@@ -65,6 +65,13 @@ extern "C" {
     strain = strainE;
     return std::get<3>(result);
   }
+  bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt) 
+  {
+    Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
+    Eigen::Matrix<double,6,1> strainE = Viscoelastic(strain,E,nu,viscosity,dt);
+    strain = strainE;
+    return true;
+  }
   bool MatrixSqrt(double * input_ptr,double * output_ptr){
     Eigen::Map<Eigen::Matrix<double,3,3>> in(input_ptr);
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(in);
