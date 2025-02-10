@@ -693,7 +693,9 @@
 
 
 (defsystem "cl-mpm/models/visco"
-  :depends-on ("cl-mpm/particle")
+  :depends-on ("cl-mpm/particle"
+               "cl-mpm/ext"
+               )
   :description "MPM limestone definitions"
   :serial t
   :components ((:file "src/models/visco")))

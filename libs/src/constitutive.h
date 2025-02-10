@@ -267,19 +267,19 @@ MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
 
 Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
                                       double E, double nu, double viscosity,double dt) {
-
-
-
-  Eigen::Matrix<double,3,3> dev = Eigen::Matrix<double,3,3>::Identity() - Eigen::Matrix<double,3,3>::Constant(1/3);
+  Eigen::Matrix<double,3,3> dev = Eigen::Matrix<double,3,3>::Identity() - Eigen::Matrix<double,3,3>::Constant(1.0/3.0);
   Eigen::Matrix<double,3,3> De3 =
     (E/((1+nu) * (1-(2*nu))))*
     (((1-(2*nu))*Eigen::Matrix<double,3,3>::Identity()) +
      Eigen::Matrix<double,3,3>::Constant(nu));
 
-  Eigen::Matrix<double,3,3> C = (Eigen::Matrix<double,3,3>()<<
-                                  1,-nu,-nu,
-                                  -nu,1,-nu,
-                                  -nu,-nu,1).finished()/E;
+  // std::cout<<"De3\n";
+  // std::cout<<De3;
+  // Eigen::Matrix<double,3,3> C = (Eigen::Matrix<double,3,3>()<<
+  //                                 1,-nu,-nu,
+  //                                 -nu,1,-nu,
+  //                                 -nu,-nu,1).finished()/E;
+  Eigen::Matrix<double,3,3> C = De3.inverse();
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(elastic_strain));
 
   // Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
@@ -291,8 +291,8 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
       abort();
       /* return false; */
     }
-  Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues().reverse();
-  Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors().rowwise().reverse();
+  Eigen::Matrix<double,3,1> eigen_values = eigensolver.eigenvalues();//.reverse();
+  Eigen::Matrix<double,3,3> eigen_vectors = eigensolver.eigenvectors();//.rowwise().reverse();
 
   Eigen::Matrix<double,3,1> EpsTr = eigen_values;
   Eigen::Matrix<double,3,1> en = EpsTr;
@@ -300,11 +300,13 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
 
   Eigen::Matrix<double,3,3> a = C * (C + (dev * (dt/viscosity))).inverse();
   // //std::cout<<"De3\n"<<De3<<"\n";
+  // std::cout<<a<<"\n";
   const double ftol = 1e-5;
   double f = ftol;
   const int maxsteps = 100;
   for (int i = 0;i < maxsteps; ++i){
-    beta = De3 * EpsTr;
+    beta = De3 * en;
+    // std::cout<<beta<<"\n";
     Eigen::Matrix<double,3,1> r = (en + ((dev * beta) * (dt / (2.0 * viscosity)))) - EpsTr;
     f = r.norm();
     if(f >= ftol){
@@ -316,94 +318,5 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
   }
 
   elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
-
-
-  // double xi = sig.sum()/std::sqrt(3);
-  // Eigen::Matrix<double,3,1> s = (sig.array() - (xi / std::sqrt(3))).matrix();
-  // double rho = std::sqrt(s.array().square().sum());
-  // double f = rho - alfa*xi;
-  // // std::cout<<"f\n"<<f<<"\n";
-  // if (f>tol){
-  //   Eigen::Matrix<double,3,1> epsE = Ce * sig;
-  //   Eigen::Matrix<double,3,1> epsEtr = epsE;
-  //   auto Q = AssembleQMatrix(eigen_vectors);
-  //   double fap = 0.0;
-  //   if(bta != 0.0){
-  //     fap = rho * std::sqrt(1+nu) + (xi*std::sqrt(1-(2*nu))/(bta*std::sqrt(1+nu)/std::sqrt(1-2*nu)));
-  //   }
-  //   else{
-  //     fap = rho * std::sqrt(1+nu);
-  //   }
-  //   if(fap<tol)
-  //     {
-  //       //Apex return
-  //       // std::cout<<"xsic:"<<xsic<<"\n";
-  //       sig=Eigen::Matrix<double,3,1>::Constant(xsic/sqrt(3));
-  //     }
-  //   else{
-  //     //Surface return
-  //     //Setup NR algorithm
-  //     Eigen::Matrix<double,4,1> b;
-  //     b<<0.0,0.0,0.0,f;
-  //     int itnum = 0;
-  //     double dgam = 0;
-  //     Eigen::Matrix<double,3,1> df = ((s.array()/rho) - alfa/std::sqrt(3)).matrix();
-  //     Eigen::Matrix<double,3,1> dg = ((s.array()/rho) - bta/std::sqrt(3)).matrix();
-  //     Eigen::Matrix<double,3,3> ddg =
-  //       (((1/(3*rho))
-  //         *
-  //         ((3*Eigen::Matrix<double,3,3>::Identity()) -
-  //          Eigen::Matrix<double,3,3>::Constant(1.0)))
-  //        - s*s.transpose()/std::pow(rho,3));
-  //     // std::cout<<"df\n"<<df<<"\n";
-  //     // std::cout<<"dg\n"<<dg<<"\n";
-  //     // std::cout<<"ddg\n"<<ddg<<"\n";
-  //     const int maxit = 4;
-  //     const double tolf = 1e-6;
-  //     for(int iter = 0; (iter < maxit) && ((b.block(0,0,2,1).norm() > tol) || (std::abs(b(3)) > tolf));++iter){
-  //       Eigen::Matrix<double,4,4> A;
-  //       A.block(0,0,3,3) << Eigen::Matrix<double,3,3>::Identity() + (dgam * ddg * De3);
-  //       A.block(0,3,3,1) << dg;
-  //       A.block(3,0,1,3) << df.transpose() * De3;
-  //       A(3,3) = 0.0;
-  //       //A.transposeInPlace();
-
-  //       auto dx = A.partialPivLu().solve(b) * -1.0;
-  //       epsE += dx.block(0,0,3,1);
-  //       dgam += dx(3);
-  //       sig = De3*epsE;
-  //       xi = sig.sum()/std::sqrt(3);
-  //       s = (sig.array() - (xi / std::sqrt(3))).matrix();
-  //       rho = std::sqrt(s.array().square().sum());
-  //       df = ((s.array()/rho) - alfa/std::sqrt(3)).matrix();
-  //       dg = ((s.array()/rho) - bta/std::sqrt(3)).matrix();
-  //       ddg =
-  //         (((1/(3*rho))
-  //           *
-  //           ((3*Eigen::Matrix<double,3,3>::Identity()) -
-  //            Eigen::Matrix<double,3,3>::Constant(1.0)))
-  //          - s*s.transpose()/std::pow(rho,3));
-
-  //       b.block(0,0,3,1) =(epsE-epsEtr) + dg * dgam;
-  //       b(3) = rho-alfa*xi;
-  //     }
-  //     sig.array() += xsic/std::sqrt(3);
-  //   }
-  //   //std::cout<<"Sig\n"<<sig<<"\n";
-  //   epsE = Ce*sig;
-  //   Eigen::Matrix<double,3,1> pinc = epsE - epsEtr;
-  //   const double psinc = (1/6) * (std::pow(pinc[0] - pinc[1],2) +
-  //                                       std::pow(pinc[1] - pinc[2],2) +
-  //                                       std::pow(pinc[2] - pinc[0],2));
-  //   //std::cout<<"EpsE\n"<<epsE<<"\n";
-  //   // std::cout<<"Ce\n"<<Ce<<"\n";
-  //   // Eigen::Matrix<double,6,1> eps_q;
-  //   return swizzle_coombs_voigt(Q.partialPivLu().solve((Eigen::Matrix<double,6,1>()
-  //                                                       <<
-  //                                                       epsE[0],
-  //                                                       epsE[1],
-  //                                                       epsE[2],
-  //                                                       0.0,0.0,0.0).finished()));
-  // }
   return elastic_strain;
 }

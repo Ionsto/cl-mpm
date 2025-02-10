@@ -37,7 +37,8 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (if enable-viscosity
-        (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+        ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+        (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
         (cl-mpm/constitutive:linear-elastic-mat strain de stress))
     stress))
 
@@ -71,7 +72,8 @@
                             visc-power)))
       (setf true-visc visc)
       (if enable-viscosity
-          (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc)
+          ;(cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc)
+          (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt visc)
           (cl-mpm/constitutive:linear-elastic-mat strain de stress))
       )
     stress))
@@ -157,16 +159,19 @@
           out-strain))))
 
 (defun test ()
-  (let* ((de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0.1d0))
-         (E 1d0)
-         (nu 0.3d0)
-         (strain (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d0 0d0 0d0)))
-         (stress (magicl:@ de strain))
-         (dt 1d0)
-         (viscosity 1d0))
-    (finite-strain-linear-viscous stress strain de e nu dt viscosity)
-    ;; (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu viscosity dt)
-    ))
+  (let* ((E 1d0)
+         (nu 0.1d0)
+         (dt 0.1d0)
+         (viscosity 1d0)
+         (strain-0 (cl-mpm/utils:voigt-from-list (list 2d0 0d0 0d0 1d0 0d0 5d0)))
+         (de (cl-mpm/constitutive:linear-elastic-matrix E nu)))
+    (let* ((strain (cl-mpm/utils::deep-copy strain-0))
+           (stress (magicl:@ de strain)))
+      (pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity)))
+
+    (let* ((strain (cl-mpm/utils::deep-copy strain-0))
+           (stress (magicl:@ de strain)))
+      (pprint (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu viscosity dt)))))
 
 ;; (defun matrix-to-column-major (matrix)
 ;;   (if nil;(= (magicl:layout matrix) :column-major)
