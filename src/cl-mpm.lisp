@@ -155,3 +155,15 @@
                  :dt (coerce dt 'double-float)
                  :mesh (make-mesh size resolution shape-function)
                  :mps (make-array 0 :adjustable t :fill-pointer 0)))
+
+
+(defclass mpm-sim-sd (mpm-sim)
+  ((mesh-p
+    :accessor sim-mesh-p
+    :initarg :mesh-p)
+   (bcs-p
+    :accessor sim-bcs-p
+    :initarg :bcs-p
+    :initform (make-array 0))
+   )
+  (:documentation "Explicit simulation with subdivided q2-q1 mesh"))

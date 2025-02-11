@@ -19,6 +19,7 @@
    #:fast-scale-vector
    #:fast-scale-voigt
    #:fast-scale!
+   #:fast-scale
    #:fast-zero
    #:fast-sum
    #:mag
@@ -632,6 +633,13 @@
     (loop for i fixnum from 0 below (length m-s)
           do (setf (aref m-s i) (* (aref m-s i) scale))))
   m)
+
+(defun fast-scale (mi scale)
+  (let* ((m (cl-mpm/utils::deep-copy mi))
+         (m-s (magicl::matrix/double-float-storage m)))
+    (loop for i fixnum from 0 below (length m-s)
+          do (setf (aref m-s i) (* (aref m-s i) scale)))
+    m))
 
 (declaim
  (inline fast-scale-voigt)

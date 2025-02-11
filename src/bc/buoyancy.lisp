@@ -610,11 +610,11 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      ;; (locate-mps-cells sim clip-function)
+      (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
-      (populate-nodes-domain mesh clip-function)
+      ;; (populate-nodes-domain mesh clip-function)
 
       (apply-force-mps-3d mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))

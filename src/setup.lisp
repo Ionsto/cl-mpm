@@ -234,6 +234,15 @@
     (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal)))))
 
 
+(defun 2d-orthog (vec)
+  (cl-mpm/utils:vector-from-list (list (cl-mpm/utils:varef vec 1) (- (cl-mpm/utils:varef vec 0) ) 0d0)))
+(defun plane-point-point-sdf (position point-a point-b)
+  (let* ((normal (2d-orthog (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- point-a point-b))))
+         (distance (cl-mpm/fastmaths::dot point-a (cl-mpm/fastmaths::norm normal))))
+    (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal)))))
+
+
+
 
 (defun make-block-mps-sloped-list (offset size mps density constructor &rest args &key (slope 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
@@ -385,3 +394,31 @@
       sim
     (let ((mass-filter (* density (expt (cl-mpm/mesh:mesh-resolution mesh) 2) proportion)))
       (setf (cl-mpm::sim-mass-filter sim) mass-filter))))
+
+
+;; (defun remove-sdf-refining (sim sdf &key (refine-depth 2))
+;;   (dotimes (i edge-refine)
+;;     (dolist (dir (list :x :y))
+;;       (cl-mpm::split-mps-criteria
+;;        *sim*
+;;        (lambda (mp h)
+;;          (when (and
+;;                 (or
+;;                  (<= (cutout
+;;                       (cl-mpm/fastmaths:fast-.+
+;;                        (cl-mpm/particle:mp-position mp)
+;;                        (cl-mpm/fastmaths:fast-.*
+;;                         (cl-mpm/particle::mp-domain-size mp)
+;;                         (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0 0d0))))
+;;                       ) (* mesh-size 0d0))
+;;                  (<= (cutout
+;;                       (cl-mpm/fastmaths:fast-.+
+;;                        (cl-mpm/particle:mp-position mp)
+;;                        (cl-mpm/fastmaths:fast-.*
+;;                         (cl-mpm/particle::mp-domain-size mp)
+;;                         (cl-mpm/utils:vector-from-list (list 0.5d0 -0.5d0 0d0))))
+;;                       ) (* mesh-size 0d0))
+;;                  )
+;;                 (> (cutout (cl-mpm/particle:mp-position mp)) (- (* mesh-size 1d0))))
+;;            dir)))))
+;;   )

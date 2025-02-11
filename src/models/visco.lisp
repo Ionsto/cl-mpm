@@ -37,8 +37,8 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (if enable-viscosity
-        ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
-        (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
+        (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+        ;; (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
         (cl-mpm/constitutive:linear-elastic-mat strain de stress))
     stress))
 
@@ -72,8 +72,8 @@
                             visc-power)))
       (setf true-visc visc)
       (if enable-viscosity
-          ;(cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc)
-          (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt visc)
+          (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt visc)
+          ;; (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt visc)
           (cl-mpm/constitutive:linear-elastic-mat strain de stress))
       )
     stress))
@@ -108,18 +108,23 @@
                            1d0 1d0 1d0
                            1d0 1d0 1d0))
                     (/ 1d0 3d0))))
-             (De3
+             (G (/ E (* 2 (+ 1d0 nu))))
+             (identity (cl-mpm/utils:matrix-eye 1d0))
+             (d-neq
                (cl-mpm/fastmaths::fast-scale!
                 (cl-mpm/utils:matrix-from-list (list
                                                 (- 1d0 nu) nu nu
                                                 nu (- 1d0 nu) nu
                                                 nu nu (- 1d0 nu)))
                 (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+             ;; (d-neq (cl-mpm/fastmaths::fast-scale
+             ;;         dev
+             ;;         (* 2 G)))
              (epsTr (cl-mpm/utils:vector-from-list l))
              (en (cl-mpm/utils::deep-copy epsTr))
              (f-tol 1d-5)
-             (beta (magicl:@ De3 en))
-             (C (magicl:inv De3))
+             (beta (magicl:@ d-neq en))
+             (C (magicl:inv d-neq))
              (a
                (magicl:@
                 C
@@ -130,11 +135,11 @@
                    dev
                    (/ dt viscosity))))))
              (f f-tol))
-        (loop for i from 0 to 1000
+        (loop for i from 0 to 100
               while (>= f f-tol)
               do
                  (progn
-                   (setf beta (magicl:@ De3 en))
+                   (setf beta (magicl:@ d-neq en))
                    (let* ((r (magicl:.-
                               (magicl:.+ en
                                          (magicl:scale
@@ -160,18 +165,23 @@
 
 (defun test ()
   (let* ((E 1d0)
-         (nu 0.1d0)
-         (dt 0.1d0)
+         (nu 0d0)
+         (dt 1d0)
          (viscosity 1d0)
-         (strain-0 (cl-mpm/utils:voigt-from-list (list 2d0 0d0 0d0 1d0 0d0 5d0)))
+         (strain-0 (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0 0d0 0d0 0d0)))
          (de (cl-mpm/constitutive:linear-elastic-matrix E nu)))
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
            (stress (magicl:@ de strain)))
-      (pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity)))
+      (pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity))
+      (pprint stress))
 
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
            (stress (magicl:@ de strain)))
-      (pprint (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu viscosity dt)))))
+      (pprint (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu dt viscosity))
+      (pprint stress))
+    )
+
+  )
 
 ;; (defun matrix-to-column-major (matrix)
 ;;   (if nil;(= (magicl:layout matrix) :column-major)

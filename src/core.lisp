@@ -2043,3 +2043,150 @@ This modifies the dt of the simulation in the process
 
 (defun get-mp (sim index)
   (aref (sim-mps sim) index))
+
+(defmethod update-sim ((sim mpm-sim-sd))
+  "Update stress first algorithm"
+  (with-slots (
+               (mesh mesh)
+               (mesh-p mesh-p)
+               (mps mps)
+               (bcs bcs)
+               (bcs-p bcs-p)
+               (bcs-force bcs-force)
+               (bcs-force-list bcs-force-list)
+               (dt dt)
+               (mass-filter mass-filter)
+               (split allow-mp-split)
+               (enable-damage enable-damage)
+               (nonlocal-damage nonlocal-damage)
+               (remove-damage allow-mp-damage-removal)
+               (fbar enable-fbar)
+               (time time)
+               (vel-algo velocity-algorithm)
+               )
+                sim
+    (declare (double-float mass-filter dt time))
+    (progn
+      (reset-grid mesh)
+      (reset-grid mesh-p)
+      (when (> (length mps) 0)
+        (p2g mesh mps)
+        (p2g mesh-p mps)
+        (when (> mass-filter 0d0)
+          (filter-grid mesh (sim-mass-filter sim))
+          (filter-grid mesh-p (sim-mass-filter sim))
+          )
+        (update-node-kinematics mesh dt)
+        (update-node-kinematics mesh-p dt)
+        (apply-bcs mesh bcs dt)
+        (apply-bcs mesh-p bcs-p dt)
+        (update-stress mesh mps dt fbar)
+        (p2g-force mesh mps)
+        (loop for bcs-f in bcs-force-list
+              do (apply-bcs mesh bcs-f dt))
+        (update-node-forces sim)
+        ;; ;; Reapply velocity BCs
+        (apply-bcs mesh bcs dt)
+        ;; Also updates mps inline
+        (g2p mesh mps dt vel-algo)
+        (when split
+          (split-mps sim))
+        (check-mps sim)
+        (check-single-mps sim)
+        )
+      (incf time dt))))
+
+(defun update-stress-kirchoff-p (mesh mp dt fbar)
+  "Update stress for a single mp"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+             (double-float volume))
+    (progn
+      (progn
+        (calculate-strain-rate mesh mp dt)
+        ;; (let ((dj (calculate-strain-rate-p mesh mp dt))))
+        ;; Turn cauchy stress to kirchoff
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; Update our strains
+        (update-strain-kirchoff mesh mp dt fbar)
+        ;; Update our kirchoff stress with constitutive model
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
+        ;; Check volume constraint!
+        ;; (when (<= volume 0d0)
+        ;;   (error "Negative volume"))
+        ;; Turn kirchoff stress to cauchy
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+        ))))
+
+(defun calculate-strain-rate-p (mesh mp dt)
+  "Calculate the strain rate, stretch rate and vorticity"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0)))
+  (declare (double-float dt))
+  (let ((stretch-tensor (cl-mpm/utils:stretch-dsvp-3d-zeros)))
+    (iterate-over-neighbours
+     mesh mp
+     (lambda (mesh mp node svp grads fsvp fgrads)
+       (declare (ignore mesh mp svp fsvp fgrads))
+       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                        (node-active cl-mpm/mesh:node-active))
+           node
+         (declare (magicl:matrix/double-float node-vel)
+                  (boolean node-active))
+         (when node-active
+           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
+    (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
+    (cl-mpm/fastmaths:det (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0) stretch-tensor))))
+
+(defun update-strain-kirchoff-p (mesh mesh-p mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
+                   (domain cl-mpm/particle::mp-domain-size)
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
+                   ) mp
+    (declare (type double-float volume)
+             (type magicl:matrix/double-float
+                   domain))
+    (progn
+      (multiple-value-bind (df dj) (calculate-df mesh mp nil)
+        (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
+          (cl-mpm/fastmaths::fast-scale!
+           df
+           (expt
+            (the double-float (/ (calculate-strain-rate-p mesh mp dt)
+                                 (cl-mpm/fastmaths:det-3x3 df)))
+            (the double-float (/ 1d0 nd))))
+          (setf df-inc df)
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
+          (cl-mpm/utils:voigt-copy-into strain strain-n)
+          (cl-mpm/ext:kirchoff-update strain df)
+          ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
+          ;;Post multiply to turn to eng strain
+                                        ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          ;; (setf volume (* volume (the double-float dj)))
+          (when (<= volume 0d0)
+            (error "Negative volume"))
+          ;; ;;Stretch rate update
+          ;; (update-domain-corner mesh mp dt)
+          ;; (scale-domain-size mesh mp)
+          ))))
+  (values))
