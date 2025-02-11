@@ -682,6 +682,7 @@
               (declare (special id))
               (format fs "POINT_DATA ~d~%" node-count)
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
+              (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               ))
           ))))

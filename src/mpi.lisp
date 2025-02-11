@@ -278,6 +278,7 @@
   (vector force cl-mpm/mesh::node-force)
   (vector force-int cl-mpm/mesh::node-internal-force)
   (vector force-ext cl-mpm/mesh::node-external-force)
+  (vector force-buoyancy cl-mpm/mesh::node-buoyancy-force)
   ))
 
 (defun exchange-nodes (sim func)
@@ -536,11 +537,15 @@
                  (with-accessors ((mass cl-mpm/mesh:node-mass)
                                   (force cl-mpm/mesh:node-force)
                                   (force-int cl-mpm/mesh::node-internal-force)
-                                  (force-ext cl-mpm/mesh::node-external-force))
+                                  (force-ext cl-mpm/mesh::node-external-force)
+                                  (force-buoyancy cl-mpm/mesh::node-buoyancy-force)
+                                  )
                      node
-                   (cl-mpm/fastmaths::fast-.+ force (mpi-object-node-force mpi-node) force)
+                   ;; (cl-mpm/fastmaths::fast-.+ force (mpi-object-node-force mpi-node) force)
                    (cl-mpm/fastmaths::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
-                   (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)))
+                   (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)
+                   (cl-mpm/fastmaths::fast-.+ force-buoyancy (mpi-object-node-force-buoyancy mpi-node) force-buoyancy)
+                   ))
                (error "MPI force exchange touched invalid node" index))))))))
 
 (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
@@ -736,8 +741,7 @@
                     (cl-mpm::update-stress mesh mps dt fbar)
                     (cl-mpm::p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
-                          do
-                             (cl-mpm::apply-bcs mesh bcs-f dt))
+                          do (cl-mpm::apply-bcs mesh bcs-f dt))
                     (mpi-sync-force sim)
                     (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)

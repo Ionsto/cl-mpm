@@ -374,10 +374,55 @@
                             (index cl-mpm/mesh::cell-index)
                             (nodes cl-mpm/mesh::cell-nodes)
                             (pruned cl-mpm/mesh::cell-pruned)
+                            (active cl-mpm/mesh::cell-active)
                             (boundary cl-mpm/mesh::cell-boundary)
                             (pos cl-mpm/mesh::cell-centroid))
                cell
              (setf boundary nil)
+             (when (and (= mp-count 0)
+                        (funcall clip-function pos)
+                        (not pruned))
+               ;; (setf boundary t)
+               ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
+               ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
+               (loop for neighbour in neighbours
+                     do
+                        (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
+                          (when (check-neighbour-cell neighbour)
+                            (setf boundary t)
+                            (loop for n in nodes
+                                  do
+                                     (when (cl-mpm/mesh:node-active n)
+                                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))))))))))))
+
+(defmethod locate-mps-cells ((sim cl-mpm/mpi:mpm-sim-mpi) clip-function)
+  "mark boundary nodes based on neighbour mp inclusion"
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh))
+      sim
+    (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+        ;;the aproach described by the paper
+        ;; (populate-cell-mp-count mesh mps)
+        ;; (populate-cell-mp-count-gimp mesh mps)
+        (populate-cell-mp-count-volume mesh mps clip-function)
+        ;; (populate-cell-nodes mesh mps)
+        ;; (prune-buoyancy-nodes mesh '(0 0) 300)
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                            (neighbours cl-mpm/mesh::cell-neighbours)
+                            (index cl-mpm/mesh::cell-index)
+                            (centroid cl-mpm/mesh::cell-centroid)
+                            (nodes cl-mpm/mesh::cell-nodes)
+                            (pruned cl-mpm/mesh::cell-pruned)
+                            (active cl-mpm/mesh::cell-active)
+                            (boundary cl-mpm/mesh::cell-boundary)
+                            (pos cl-mpm/mesh::cell-centroid))
+               cell
+             (setf boundary nil)
+             (setf active (cl-mpm/mpi::in-computational-domain sim centroid))
              (when (and (= mp-count 0)
                         (funcall clip-function pos)
                         (not pruned))
@@ -604,7 +649,10 @@
                      :rho rho
                      :datum datum))))
 
-(defun apply-buoyancy (sim func-stress func-div clip-function datum)
+
+(defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
+
+(defmethod apply-buoyancy (sim func-stress func-div clip-function datum)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
@@ -626,6 +674,7 @@
                          func-div
                          clip-function)
       )))
+
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)
   "Arbitrary closure BC"
@@ -804,9 +853,10 @@
    mesh
    (lambda (cell)
      ;;Iterate over a cells nodes
-     (with-accessors ((pos cl-mpm/mesh::cell-centroid))
+     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                      (cell-active cl-mpm/mesh::cell-active))
          cell
-       (when t;(funcall clip-func pos)
+       (when cell-active
          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros))
                (cell-stress (funcall func-stress pos))
                (cell-div (funcall func-div pos))

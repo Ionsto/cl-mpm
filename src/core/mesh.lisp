@@ -169,6 +169,10 @@
     :accessor cell-boundary
     :type boolean
     :initform nil)
+   (active
+    :accessor cell-active
+    :type boolean
+    :initform t)
    (pruned
     :accessor cell-pruned
     :type boolean

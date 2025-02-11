@@ -221,7 +221,9 @@
                ))
 (defsystem "cl-mpm/buoyancy"
   :depends-on ("cl-mpm"
-               "cl-mpm/bc")
+               "cl-mpm/bc"
+               "cl-mpm/mpi"
+               )
   :description ""
   :components (
                (:file "src/bc/buoyancy")
