@@ -148,13 +148,16 @@
                       position))
 
 
-(defun remove-sdf (sim sdf)
+(defun remove-sdf (sim sdf &key (index nil))
   (cl-mpm::remove-mps-func
    sim
    (lambda (mp)
      (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-       (>= 0 (funcall sdf pos))
-       ))))
+       (and
+        (>= 0 (funcall sdf pos))
+        (if index
+            (= (cl-mpm/particle::mp-index mp) index)
+            t))))))
 
 (defun damage-sdf (sim sdf &optional (d 1d0))
   (with-accessors ((mps cl-mpm:sim-mps))
