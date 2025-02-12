@@ -422,3 +422,20 @@
 ;;                 (> (cutout (cl-mpm/particle:mp-position mp)) (- (* mesh-size 1d0))))
 ;;            dir)))))
 ;;   )
+
+
+(defun make-simple-sim-sd (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
+  (let ((nd (length element-count)))
+    (let* ((nD nd)
+           (size (mapcar (lambda (x) (* x resolution)) element-count))
+           ;; (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type))
+           (sim (make-instance sim-type
+                               :dt 1d-3
+                               :mesh (cl-mpm::make-mesh size resolution nil)
+                               :mesh-p (cl-mpm::make-mesh size (* 2d0 resolution) nil)
+                               :mps (make-array 0 :adjustable t :fill-pointer 0))))
+      (progn
+        ;; (setf (cl-mpm:sim-mps sim) #())
+        (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+        (setf (cl-mpm::sim-bcs-p sim) (cl-mpm/bc:make-outside-bc (cl-mpm::sim-mesh-p sim)))
+        sim))))

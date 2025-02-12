@@ -13,6 +13,9 @@
 (in-package :cl-mpm/examples/collapse)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+;; (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
+;;   (cl-mpm::update-stress-kirchoff-p mesh mp dt fbar))
+
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
@@ -136,11 +139,11 @@
   (setf *run-sim* nil))
 
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-block
+  (let* ((sim (cl-mpm/setup::make-simple-sim-sd
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type
-               'cl-mpm::mpm-sim-usf
+               'cl-mpm::mpm-sim-sd
                ;; :sim-type 'cl-mpm::mpm-sim-usl
                ;; 'cl-mpm/damage::mpm-sim-damage
                ))
@@ -162,16 +165,16 @@
                 density
 
                 ;'cl-mpm/particle::particle-finite-viscoelastic-ice
-                'cl-mpm/particle::particle-finite-viscoelastic
+                ;; 'cl-mpm/particle::particle-finite-viscoelastic
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
                 ;; ;; 'cl-mpm/particle::particle-elastic
-                ;; ;; 'cl-mpm/particle::particle-vm
+                'cl-mpm/particle::particle-vm
                 :E 1d9
                 :nu 0.24d0
                 ;:viscosity 1.11d6
-                :viscosity 1d08
+                ;; :viscosity 1d08
                 ;; :visc-power 3d0
-                ;; ;; :rho 30d3
+                :rho 30d3
                 ;; :initiation-stress 1d4
                 ;; :delay-time 1d1
                 ;; :local-length h
@@ -183,7 +186,7 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
-      (setf (cl-mpm::sim-mass-filter sim) 0d0)
+      ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-4)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -221,6 +224,16 @@
        (cl-mpm:sim-bcs sim)
        (cl-mpm/bc::make-outside-bc-varfix
         (cl-mpm:sim-mesh sim)
+        '(0 nil 0)
+        '(0 nil 0)
+        '(nil 0 0)
+        '(nil 0 0)
+        '(nil nil 0)
+        '(nil nil 0)))
+      (setf
+       (cl-mpm::sim-bcs-p sim)
+       (cl-mpm/bc::make-outside-bc-varfix
+        (cl-mpm::sim-mesh-p sim)
         '(0 nil 0)
         '(0 nil 0)
         '(nil 0 0)
@@ -279,10 +292,10 @@
   (defparameter *data-steps* (list))
   (defparameter *data-oobf* (list))
   (defparameter *data-energy* (list))
-  (let* ((target-time 1d0)
+  (let* ((target-time 0.01d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 1d0)
+         (dt-scale 0.1d0)
          (dt-min (cl-mpm:sim-dt *sim*))
          )
     (setf (cl-mpm:sim-damping-factor *sim*)
@@ -308,6 +321,7 @@
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_p_~5,'0d.vtk" *sim-step*)) (cl-mpm::sim-mesh-p *sim*))
                      (setf dt-min (cl-mpm::calculate-min-dt *sim*))
                      (time
                       (dotimes (i substeps)

@@ -86,11 +86,14 @@
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 916.7d0)
          (mesh-resolution (/ 50d0 refine))
+         (start-height 300d0)
+         (end-height 200d0)
+         (ice-length 2000d0)
          (offset (* mesh-resolution 2))
-         (datum (+ 100d0 offset))
-         (domain-size (list 2000d0 400d0 600d0))
+         (datum (+ 150d0 offset))
+         (domain-size (list 5000d0 500d0))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
-         (block-size (list 1000d0 200d0 600d0)))
+         (block-size (list ice-length (max start-height end-height))))
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; 'cl-mpm/damage::mpm-sim-damage
@@ -128,6 +131,12 @@
         :enable-viscosity nil
         :gravity -9.8d0
         )))
+    (cl-mpm/setup::remove-sdf *sim*
+                              (lambda (p)
+                                (cl-mpm/setup::plane-point-point-sdf
+                                 p
+                                 (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
+                                 (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0)))))
     (setf
      (cl-mpm:sim-bcs *sim*)
      (cl-mpm/bc::make-outside-bc-varfix
@@ -145,7 +154,7 @@
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-2)
-    ;; (setf (cl-mpm::sim-enable-fbar *sim*) t)
+    (setf (cl-mpm::sim-enable-fbar *sim*) t)
     ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
@@ -174,7 +183,7 @@
           1000d0
           (lambda (pos) t))))
     (let ((domain-half (* 0.5d0 (first domain-size)))
-          (friction 0.0d0))
+          (friction 0.8d0))
       (defparameter *ocean-floor-bc*
         (cl-mpm/penalty::make-bc-penalty-point-normal
          *sim*
@@ -241,7 +250,7 @@
   (setf (cl-mpm:sim-dt *sim*)
         (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
   (let* ((dt-scale 0.5d0)
-         (target-time 1d4)
+         (target-time 1d5)
          (substeps (ceiling target-time (cl-mpm:sim-dt *sim*)))
          (work 0d0)
          (oobf 0d0)
@@ -424,18 +433,38 @@
                                 )
              )))
 
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (dotimes (i ,it)
+         ,form)
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         dt))))
+
+
+
 (defun test ()
   (setup :refine 2 :mps 2)
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  (sb-profile:unprofile)
-  (sb-profile:profile "CL-MPM")
-  (sb-profile:profile "CL-MPM/PARTICLE")
-  (sb-profile:profile "CL-MPM/CONSTITUTIVE")
-  (sb-profile:profile "CL-MPM/MESH")
-  (sb-profile:reset)
-  (let ((iters 10))
-    (time (dotimes (i iters) (time (cl-mpm:update-sim *sim*)))))
-  (sb-profile:report)
+  ;; (sb-profile:unprofile)
+  ;; (sb-profile:profile "CL-MPM")
+  ;; (sb-profile:profile "CL-MPM/PARTICLE")
+  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
+  ;; (sb-profile:profile "CL-MPM/MESH")
+  ;; (sb-profile:reset)
+  (time-form
+   10
+   (time (cl-mpm:update-sim *sim*)))
+  ;; (let ((iters 10))
+  ;;   (time (dotimes (i iters) (time (cl-mpm:update-sim *sim*)))))
+  ;; (sb-profile:report)
   ;; (let ((iters 10000000))
   ;;   (let ((a (cl-mpm/utils:matrix-eye 2d0)))
   ;;     (time (dotimes (i iters)

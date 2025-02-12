@@ -643,8 +643,8 @@
       (make-instance 'bc-buoyancy
                      :index nil
                      :sim sim
-                     :clip-func (lambda (pos)
-                                  (and (funcall clip-func pos)
+                     :clip-func (lambda (pos datum)
+                                  (and (funcall clip-func pos datum)
                                        (< (cl-mpm/utils::varef pos 1) datum)))
                      :rho rho
                      :datum datum))))
@@ -653,13 +653,14 @@
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
 
 (defmethod apply-buoyancy (sim func-stress func-div clip-function datum)
+  (declare (function func-stress func-div clip-function))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm::sim-mps))
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
-      (locate-mps-cells sim clip-function)
-      ;; (populate-cells-volume sim clip-function)
+      ;; (locate-mps-cells sim clip-function)
+      (populate-cells-volume sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
@@ -667,13 +668,12 @@
       (apply-force-mps-3d mesh mps
                        (lambda (mp) (calculate-val-mp mp func-stress))
                        (lambda (mp) (calculate-val-mp mp func-div))
-                       clip-function
+                       (lambda (pos) (funcall clip-function pos datum))
                        )
       (apply-force-cells-3d mesh
                          func-stress
                          func-div
-                         clip-function)
-      )))
+                         (lambda (pos) (funcall clip-function pos datum))))))
 
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)

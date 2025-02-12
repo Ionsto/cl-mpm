@@ -273,6 +273,11 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
     (((1-(2*nu))*Eigen::Matrix<double,3,3>::Identity()) +
      Eigen::Matrix<double,3,3>::Constant(nu));
 
+  double G = (E/(2*(1+nu)));
+  double K = (E/(3*(1-(2*nu))));
+
+  Eigen::Matrix<double,3,3> d_neq = 2*G*dev;
+
   // std::cout<<"De3\n";
   // std::cout<<De3;
   // Eigen::Matrix<double,3,3> C = (Eigen::Matrix<double,3,3>()<<
@@ -299,7 +304,7 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
   const double ftol = 1e-5;
   double f = ftol;
   const int maxsteps = 1000;
-  for (int i = 0;i < maxsteps; ++i){
+  for (int i = 0;(i < maxsteps) && (f >= ftol); ++i){
     beta = De3 * en;
     // std::cout<<beta<<"\n";
     Eigen::Matrix<double,3,1> r = (en + ((dev * beta) * (dt / (2.0 * viscosity)))) - EpsTr;
@@ -308,9 +313,10 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
       en -= (a * r);
     }
   }
-  // if(f > ftol){
-  //   abort();
-  // }
+  if(f > ftol){
+    std::cout<<"Viscoelastic didn't converge "<<f<<"\n";
+    abort();
+  }
 
   elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
   return elastic_strain;

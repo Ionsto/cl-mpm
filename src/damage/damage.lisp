@@ -831,10 +831,9 @@ Calls the function with the mesh mp and node"
                 (progn
                     (cl-mpm::reset-grid mesh)
                     (cl-mpm::p2g mesh mps)
-                    (cl-mpm::check-single-mps sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                    (cl-mpm::update-node-kinematics mesh dt )
+                    (cl-mpm::update-node-kinematics mesh dt)
                     (cl-mpm::apply-bcs mesh bcs dt)
 
                     (cl-mpm::update-stress mesh mps dt fbar)
@@ -857,6 +856,7 @@ Calls the function with the mesh mp and node"
                     (when split
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
+                    (cl-mpm::check-single-mps sim)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
@@ -1197,6 +1197,9 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "eps_xx" (magicl:tref (cl-mpm/particle:mp-strain mp) 0 0))
         (cl-mpm/output::save-parameter "eps_yy" (magicl:tref (cl-mpm/particle:mp-strain mp) 1 0))
         (cl-mpm/output::save-parameter "eps_xy" (magicl:tref (cl-mpm/particle:mp-strain mp) 5 0))
+        (cl-mpm/output::save-parameter "eps_1"
+                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-strain mp)))
+                          (loop for sii in l maximize sii)))
         (when (= 3 nd)
           (cl-mpm/output::save-parameter "eps_zz" (magicl:tref (cl-mpm/particle:mp-strain mp) 2 0))
           (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
