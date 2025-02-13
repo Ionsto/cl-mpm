@@ -1459,6 +1459,37 @@
       (format t "Rank ~D: Exchanged domain bounds ~A~%" rank (mpm-sim-mpi-domain-bounds sim))))
   )
 
+
+(defun origin-domain-scaler (sim real-x real-y real-z)
+  "Build a domain scalar that re-scales all mpi domains to be tight packed from (0 - real-x) (0 - real-y) (0 - real-z)
+leaves a hanging mpi domain at the back"
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (with-accessors ((size cl-mpm/mesh:mesh-mesh-size))
+        mesh
+      (let ((target-size (list real-x real-y real-z)))
+        (lambda (domain)
+          (loop for i from 0
+                for dim in domain
+                collect
+                (mapcar (lambda (x)
+                          (if (and (> x 0d0)
+                                   (< x 1d0)
+                                   (nth i target-size)
+                                   )
+                              (* x (/ (nth i target-size)) (nth i size))
+                              x))
+                        dim))))))
+  ;; (destructuring-bind (x y z) domain
+  ;;   (let ((dnew (list (mapcar (lambda (p)
+  ;;                               (if (< p 1d0)
+  ;;                                   (* p (/ 4 8))
+  ;;                                   p)) x)
+  ;;                     y z)))
+  ;;     (format t "Domain ~A ~A~%" (list x y z) dnew)
+  ;;     dnew))
+  )
+
 (defun domain-decompose (sim &key (domain-scaler (lambda (x) x)))
   (%domain-decompose sim domain-scaler)
   )
