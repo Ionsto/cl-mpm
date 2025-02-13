@@ -18,7 +18,7 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10)))
+  (* local-length (max (- 1d0 damage) 1d-10)))
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -116,7 +116,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 0.5d0
+        :g-res-ratio 0.9d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -239,7 +239,7 @@
   (cl-mpm::iterate-over-mps
    (cl-mpm:sim-mps *sim*)
    (lambda (mp)
-     (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+     (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
