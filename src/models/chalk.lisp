@@ -521,7 +521,7 @@
                              ))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (when (< damage 1d0)
+          (when t;(< damage 1d0)
             (setf ybar damage-inc)
             (setf k (max k ybar))
             (setf damage-inc 0d0)
@@ -537,9 +537,9 @@
                  damage-tension (* kt-r damage)
                  damage-compression (* kc-r damage)
                  damage-shear (* g-r damage)))
-            (when (>= damage 1d0)
-              (setf damage-inc 0d0)
-              (setf ybar 0d0))
+            ;; (when (>= damage 1d0)
+            ;;   (setf damage-inc 0d0)
+            ;;   (setf ybar 0d0))
             (incf (cl-mpm/particle::mp-time-averaged-damage-inc mp) damage-inc)
             (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
             (incf (cl-mpm/particle::mp-time-averaged-counter mp))
@@ -547,9 +547,10 @@
             (incf damage damage-inc)
             ;;Transform to linear damage
             (setf damage (max 0d0 (min 1d0 damage)))
-            (when (> damage critical-damage)
-              (setf damage 1d0)
-              (setf damage-inc 0d0))))
+            ;; (when (> damage critical-damage)
+            ;;   (setf damage 1d0)
+            ;;   (setf damage-inc 0d0))
+            ))
   (values)
   ))
 (defun plastic-damage-response-exponential (stress E length ductility)
@@ -616,8 +617,35 @@
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress))))))
 
+(defun apply-tensile-vol-degredation (mp dt)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage damage-t damage-c damage-s))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (declare (double-float damage-t damage-c damage-s))
+        (setf p
+              (if (> p 0d0)
+                  (* (- 1d0 damage-t) p)
+                  ;; (* (- 1d0 damage-c) p)
+                  p
+                  ))
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
+               stress))))))
+
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-brittle) dt)
-  (apply-vol-degredation mp dt))
+  (apply-tensile-vol-degredation mp dt))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
@@ -685,8 +713,8 @@
            damage-compression (* kc-r damage)
            damage-shear (* g-r damage)))
 
-        (when (>= damage 1d0)
-          (setf damage-inc 0d0))
+        ;; (when (>= damage 1d0)
+        ;;   (setf damage-inc 0d0))
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
@@ -694,9 +722,9 @@
         (incf damage damage-inc)
         ;;Transform to linear damage
         (setf damage (max 0d0 (min 1d0 damage)))
-        (when (> damage critical-damage)
-          (setf damage 1d0)
-          (setf damage-inc 0d0))
+        ;; (when (> damage critical-damage)
+        ;;   (setf damage 1d0)
+        ;;   (setf damage-inc 0d0))
         )
       (values))))
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed-linear) dt)

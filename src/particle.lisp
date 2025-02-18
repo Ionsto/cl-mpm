@@ -121,7 +121,6 @@
     :type integer
     :initform -1
     :initarg :mpi-index)
-   
    (volume-0
     :accessor mp-volume-0
     :type double-float
@@ -132,8 +131,6 @@
     :type magicl:matrix/double-float
     :initarg :size-0
     :initform (cl-mpm/utils:vector-zeros))
-   
-   
    (acceleration
     :accessor mp-acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT

@@ -129,6 +129,11 @@
    (unique-index-lock
     :accessor sim-unique-index-lock
     :initform (sb-thread:make-mutex))
+   (max-split-depth
+    :type integer
+    :accessor sim-max-split-depth
+    :initarg :max-split-depth
+    :initform 3)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

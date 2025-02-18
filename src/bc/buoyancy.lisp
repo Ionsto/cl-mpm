@@ -253,13 +253,13 @@
                           )
              cell
            (setf boundary nil)
-           (flet ((check-cell (cell)
+           (flet ((check-cell (c)
                     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
                                      (neighbours cl-mpm/mesh::cell-neighbours)
                                      (vt cl-mpm/mesh::cell-volume)
                                      (nns cl-mpm/mesh::cell-nodes)
                                      )
-                        cell
+                        c
                       (when (and (funcall clip-function pos) ;(not pruned)
                                  )
                         (let ((vest 0d0))
@@ -276,12 +276,13 @@
                                   do
                                      (when (cl-mpm/mesh:node-active n)
                                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))))
+                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))
+                            ))
 
                         ))))
              (check-cell cell)
-             ;; (loop for neighbour in neighbours
-             ;;       do (check-cell neighbour))
+             (loop for neighbour in neighbours
+                   do (check-cell neighbour))
 
              ;; (loop for neighbour in neighbours
              ;;       do
@@ -634,7 +635,7 @@
                      :rho rho
                      :datum datum))))
 
-(defun make-bc-buoyancy-clip (sim datum rho clip-func)
+(defun make-bc-buoyancy-clip (sim datum rho clip-func &key (visc-damping 0d0))
   (declare (function clip-func))
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
@@ -647,6 +648,7 @@
                                   (and (funcall clip-func pos datum)
                                        (< (cl-mpm/utils::varef pos 1) datum)))
                      :rho rho
+                     :visc-damping visc-damping
                      :datum datum))))
 
 
@@ -787,34 +789,57 @@
                     )))))
 
            ;; (setf mp-boundary (expt (abs (min 0d0 mp-boundary)) 4d0))
-           (when (> mp-boundary 0d0)
-             (let* ((damping-coeff (bc-viscous-damping bc))
-                    (vabs (cl-mpm/particle:mp-velocity mp)))
-               ;; (loop for a across (fast-storage vabs)
-               ;;       do (setf a (* a (abs a))))
-               (let ((damping-force
-                       (cl-mpm/fastmaths::fast-scale-vector vabs
-                                                           (* -1d0
-                                                              damping-coeff
-                                                              ;; mp-boundary
-                                                              mp-volume
-                                                              ;; (cl-mpm/particle::mp-mass mp)
-                                                              ))))
-                 (cl-mpm::iterate-over-neighbours
-                  mesh mp
-                  (lambda (mesh mp node svp grads fsvp fgrad)
-                    (declare (double-float mp-boundary svp))
-                    (when node
-                      (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
-                        (cl-mpm/fastmaths::fast-fmacc (cl-mpm/mesh:node-force node)
-                                                     damping-force
-                                                     svp)
-                        (cl-mpm/fastmaths::fast-fmacc (cl-mpm/mesh::node-external-force node)
-                                                     damping-force
-                                                     svp))))))))
+           ;; (when (> mp-boundary 0d0)
+           ;;   (let* ((damping-coeff (bc-viscous-damping bc))
+           ;;          (vabs (cl-mpm/particle:mp-velocity mp)))
+           ;;     ;; (loop for a across (fast-storage vabs)
+           ;;     ;;       do (setf a (* a (abs a))))
+           ;;     (let ((damping-force
+           ;;             (cl-mpm/fastmaths::fast-scale-vector vabs
+           ;;                                                 (* -1d0
+           ;;                                                    damping-coeff
+           ;;                                                    mp-volume
+           ;;                                                    ))))
+           ;;       (cl-mpm::iterate-over-neighbours
+           ;;        mesh mp
+           ;;        (lambda (mesh mp node svp grads fsvp fgrad)
+           ;;          (declare (double-float mp-boundary svp))
+           ;;          (when node
+           ;;            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+           ;;              (cl-mpm/fastmaths::fast-fmacc (cl-mpm/mesh:node-force node)
+           ;;                                           damping-force
+           ;;                                           svp)
+           ;;              (cl-mpm/fastmaths::fast-fmacc (cl-mpm/mesh::node-external-force node)
+           ;;                                           damping-force
+           ;;                                           svp))))))))
 
 
-           ))))))
+           )))
+      (let ((damping (bc-viscous-damping bc)))
+        (cl-mpm:iterate-over-nodes
+         mesh
+         (lambda (node)
+           (with-accessors ((vel cl-mpm/mesh:node-velocity)
+                            (force cl-mpm/mesh::node-external-force)
+                            (active cl-mpm/mesh:node-active)
+                            (mass cl-mpm/mesh:node-mass)
+                            (boundary cl-mpm/mesh::node-boundary-node)
+                            (boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+                            )
+               node
+               (when (and active boundary)
+                 (let ((h (cl-mpm/mesh:mesh-resolution mesh))
+                       (nd (cl-mpm/mesh:mesh-nd mesh))
+                       (bs (abs (min boundary-scalar 0d0)))
+                       )
+                   (when (> bs 0d0)
+                     (cl-mpm/fastmaths:fast-.-
+                      force
+                      (cl-mpm/fastmaths:fast-scale-vector
+                       vel
+                       (* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs))))))
+                      force))))))))
+      )))
 (defun apply-viscous-damping ())
 
 (defun set-pressure-all (sim bc)

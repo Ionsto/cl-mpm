@@ -488,7 +488,7 @@
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -896,9 +896,9 @@
                          ;; (setf (cl-mpm:sim-damping-factor *sim*)
                          ;;       (* (cl-mpm:sim-damping-factor *sim*) (expt 1d-3 1/40)))
 
-                         (incf *sim-step*)
+                         ;; (incf *sim-step*)
                          (plot *sim*)
-                         (vgplot:title (format nil "Time:~F - KE ~E - OOBF ~E - Work ~E - ~A"  *t* energy-estimate *oobf* work sim-state)))
+                         (vgplot:title (format nil "Time:~F - KE ~E - OOBF ~E - Work ~E - ~A"  time energy oobf work sim-state)))
                        (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                           :terminal "png size 1920,1080"
                                           )

@@ -825,6 +825,36 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (cl-mpm/fastmaths:fast-fmacc vel acc dt))))
   (values))
 
+(declaim (notinline calculate-forces-water-viscous)
+         (ftype (function (cl-mpm/mesh::node double-float double-float double-float double-float) (vaules)) calculate-forces-water-viscous))
+(defun calculate-forces-water-viscous (node damping damping-water dt mass-scale)
+  "Update forces and nodal velocities with viscous damping"
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (boundary   cl-mpm/mesh::node-boundary-node)
+                     (force node-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     (force-int cl-mpm/mesh::node-internal-force)
+                     (acc   node-acceleration))
+        node
+      (declare (double-float mass dt damping mass-scale))
+      (progn
+        (cl-mpm/fastmaths:fast-zero acc)
+        ;;Set acc to f/m
+        ;; (cl-mpm/fastmaths:fast-fmacc force-ext vel (* -2d0 damping mass))
+        (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) 1d0))
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
+        (when boundary
+          (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping-water -1d0) mass-scale)))
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (* damping -1d0))
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        )))
+  (values))
+
 (defun update-node-kinematics (mesh dt)
   (iterate-over-nodes mesh
                       (lambda (node)
@@ -1669,7 +1699,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (split-depth cl-mpm/particle::mp-split-depth)
                    )
       mp
-    (when (< split-depth *max-split-depth*)
+    (when t;(< split-depth *max-split-depth*)
       (let ((l-factor 1.00d0)
             (h-factor (* 0.7d0 h))
             (s-factor 1.5d0))
@@ -1915,10 +1945,13 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
+                   (mesh cl-mpm:sim-mesh)
+                   (max-split-depth cl-mpm::sim-max-split-depth)
+                   )
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (mps-to-split (remove-if-not (lambda (mp) (split-criteria mp h)) mps))
+           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth))
+                                        (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
            (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
       (remove-mps-func sim (lambda (mp) (split-criteria mp h)))
       (loop for mp across mps-to-split
