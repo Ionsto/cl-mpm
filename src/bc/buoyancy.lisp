@@ -834,7 +834,7 @@
                        (bs (abs (min boundary-scalar 0d0)))
                        )
                    (when (and (> bs 0d0)
-                              ;; (> mass 1d-5)
+                              (> mass 1d-10)
                               )
                      (cl-mpm/fastmaths:fast-.-
                       force
@@ -842,17 +842,18 @@
                        vel
                        (*
                         ;; (cl-mpm/fastmaths:mag vel)
-                        ;; 1/2
+                        1/2
                         damping
                         ;; (/
                         ;;  mass
                         ;;  )
-                        mass
+                        ;; mass
                         ;; (* rho volume)
                         rho
-                        h
-                        ;; bs
-                        (sqrt bs)
+                        ;; (expt h 2)
+                        ;; (/ 1d0 (expt h 2))
+                        bs
+                        ;; (expt bs 1/2)
                         )
                        ;(* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs)))))
                        )

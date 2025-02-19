@@ -645,7 +645,7 @@
                stress))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-brittle) dt)
-  (apply-tensile-vol-degredation mp dt))
+  (apply-vol-degredation mp dt))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

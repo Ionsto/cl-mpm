@@ -38,8 +38,8 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  ;; (cl-mpm::update-domain-det mesh mp dt)
-  (cl-mpm::co-domain-corner-2d mesh mp dt)
+  (cl-mpm::update-domain-det mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   (cl-mpm::scale-domain-size mesh mp)
@@ -48,7 +48,9 @@
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
                      (strain cl-mpm/particle::mp-strain)
+                     (trial-strain cl-mpm/particle::mp-trial-strain)
                      (damage cl-mpm/particle:mp-damage)
+                     (pressure cl-mpm/particle::mp-pressure)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (angle cl-mpm/particle::mp-friction-angle)
@@ -57,13 +59,17 @@
         mp
       (progn
         (setf damage-increment
-              (min
-               ;; (cl-mpm/damage::tensile-energy-norm strain E de)
-               (max 0d0
-                    (;;cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
-                     cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+              ;; (max 0d0
+                   (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+                    ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                    (cl-mpm/fastmaths:fast-.+
                      stress
-                     (* angle (/ pi 180d0))))))
+                     ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
+                     (cl-mpm/utils:voigt-eye (* 0d0 (/ (- pressure) 3))))
+                    (* angle (/ pi 180d0)))
+                                        ;)
+              )
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
@@ -93,10 +99,10 @@
   (let* ((density 916.7d0)
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 2))
-         (datum (+ 100d0 offset))
-         (ice-height 200)
+         (ice-height 400)
          (aspect 1)
-         (domain-size (list 800d0 400d0))
+         (datum (+ 290 offset))
+         (domain-size (list 1500d0 800d0))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
          (block-size (list (* ice-height aspect) ice-height)))
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
@@ -133,7 +139,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 0.1d0
+        :g-res-ratio 0.5d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -143,7 +149,7 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d1
+        :delay-time 1d2
         :delay-exponent 2
         :enable-plasticity nil
         :enable-damage t
@@ -155,24 +161,20 @@
         ;; :enable-viscosity nil
 
         :gravity -9.8d0
-        ))
-      ;; (cl-mpm:add-mps
-      ;;  *sim*
-      ;;  (cl-mpm/setup:make-block-mps
-      ;;   (list (first block-size) offset)
-      ;;   block-size
-      ;;   (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
-      ;;   density
-      ;;   'cl-mpm/particle::particle-fluid
-      ;;   :rest-density 1000d0
-      ;;   :stiffness 1d3
-      ;;   :adiabatic-index 7
-      ;;   :viscosity 1d-3
-      ;;   ;; :E 1d9
-      ;;   ;; :nu 0.24d0
-      ;;   :gravity -9.8d0
-      ;;   ))
-      )
+        )))
+
+    ;(cl-mpm/setup::initialise-stress-self-weight *sim* datum)
+    (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset ice-height))
+
+    ;; (let ((cutout 60)
+    ;;       (cutback 100)
+    ;;       )
+    ;;   (cl-mpm/setup:remove-sdf
+    ;;    *sim*
+    ;;    (cl-mpm/setup::rectangle-sdf (list (first block-size)
+    ;;                                       (+ cutout datum))
+    ;;                                 (list cutback cutout))
+    ;;    ))
     (setf
      (cl-mpm:sim-bcs *sim*)
      (cl-mpm/bc::make-outside-bc-varfix
@@ -195,11 +197,7 @@
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
-
-
-
-    (setf (cl-mpm:sim-dt *sim*)
-          (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
+    (setf (cl-mpm:sim-dt *sim*) (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (setf *run-sim* t)
     (if t
@@ -210,7 +208,7 @@
           datum
           1000d0
           (lambda (pos datum) t)
-          :visc-damping (* 1d-3 (cl-mpm/setup:estimate-critical-damping *sim*))
+          :visc-damping 1d-1;(* 1d-2 (cl-mpm/setup:estimate-critical-damping *sim*))
           ))
         (cl-mpm:add-bcs-force-list
          *sim*
@@ -485,8 +483,8 @@
   (let ((dt-scale 0.5d0))
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :oobf-crit 1d-1
-     :energy-crit 1d-1
+     :oobf-crit 1d-2
+     :energy-crit 1d-2
      :dt-scale dt-scale
      :post-iter-step
      (lambda (i oobf energy)
@@ -501,7 +499,7 @@
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
   (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 0d-6
+        (* 1d-6
            ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup:estimate-critical-damping *sim*)))
 
@@ -514,10 +512,10 @@
          (sim-state :accelerate)
          (accelerate-target-time 1d1)
          (accelerate-mass-scale 1d4)
-         (collapse-target-time 0.1d0)
+         (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (criteria-energy 1d-2)
-         (criteria-oobf 1d-1)
+         (criteria-oobf 1d-2)
          (target-time 1d0)
          (time 0d0)
          )
