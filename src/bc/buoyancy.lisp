@@ -823,6 +823,7 @@
                             (force cl-mpm/mesh::node-external-force)
                             (active cl-mpm/mesh:node-active)
                             (mass cl-mpm/mesh:node-mass)
+                            (volume cl-mpm/mesh::node-volume)
                             (boundary cl-mpm/mesh::node-boundary-node)
                             (boundary-scalar cl-mpm/mesh::node-boundary-scalar)
                             )
@@ -832,12 +833,29 @@
                        (nd (cl-mpm/mesh:mesh-nd mesh))
                        (bs (abs (min boundary-scalar 0d0)))
                        )
-                   (when (> bs 0d0)
+                   (when (and (> bs 0d0)
+                              ;; (> mass 1d-5)
+                              )
                      (cl-mpm/fastmaths:fast-.-
                       force
                       (cl-mpm/fastmaths:fast-scale-vector
                        vel
-                       (* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs))))))
+                       (*
+                        ;; (cl-mpm/fastmaths:mag vel)
+                        ;; 1/2
+                        damping
+                        ;; (/
+                        ;;  mass
+                        ;;  )
+                        mass
+                        ;; (* rho volume)
+                        rho
+                        h
+                        ;; bs
+                        (sqrt bs)
+                        )
+                       ;(* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs)))))
+                       )
                       force))))))))
       )))
 (defun apply-viscous-damping ())

@@ -6,7 +6,7 @@
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (in-package :cl-mpm/examples/float)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
@@ -138,33 +138,33 @@
                ;; ;; :critical-damage 0.5d0
                ;; ;; :local-length 50d0
 
-                'cl-mpm/particle::particle-visco-elasto-plastic-damage
+                'cl-mpm/particle::particle-elastic
                 :E 1d9
                 :nu 0.325d0
 
-                :friction-angle 30.0d0
+                ;; :friction-angle 30.0d0
 
-                :kt-res-ratio 1d-10
-                :kc-res-ratio 1d-2
-                :g-res-ratio 1d-3
+                ;; :kt-res-ratio 1d-10
+                ;; :kc-res-ratio 1d-2
+                ;; :g-res-ratio 1d-3
 
-                ;; :fracture-energy 3000d0
-                ;; :initiation-stress stress
-                :damage 0d0
+                ;; ;; :fracture-energy 3000d0
+                ;; ;; :initiation-stress stress
+                ;; :damage 0d0
 
-                ;; :delay-time 1d2
-                ;; :delay-exponent 3d0
-                ;; :ductility ductility
-                ;; :ductility-mode-2 ductility-ii
-                ;; :critical-damage 1d0;(- 1.0d0 1d-3)
-                :damage-domain-rate 0.0d0;This slider changes how GIMP update turns to uGIMP under damage
-                ;; :local-length length-scale;(* 0.20d0 (sqrt 7))
-                ;; :local-length-damaged 10d-10
+                ;; ;; :delay-time 1d2
+                ;; ;; :delay-exponent 3d0
+                ;; ;; :ductility ductility
+                ;; ;; :ductility-mode-2 ductility-ii
+                ;; ;; :critical-damage 1d0;(- 1.0d0 1d-3)
+                ;; :damage-domain-rate 0.0d0;This slider changes how GIMP update turns to uGIMP under damage
+                ;; ;; :local-length length-scale;(* 0.20d0 (sqrt 7))
+                ;; ;; :local-length-damaged 10d-10
 
-                :enable-plasticity nil
-                :psi (* 00d0 (/ pi 180))
-                :phi (* 40d0 (/ pi 180))
-                :c 1000d3
+                ;; :enable-plasticity nil
+                ;; :psi (* 00d0 (/ pi 180))
+                ;; :phi (* 40d0 (/ pi 180))
+                ;; :c 1000d3
 
 
                :gravity -9.8d0
@@ -203,8 +203,10 @@
              ;; t;(>= (magicl:tref pos 1 0) h-y)
              t
              ;; (< (cl-mpm/utils:varef pos 1) datum)
-             )))
-        (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d-5)
+             )
+           :visc-damping 1d-3;(* 1d-3 (* 1000d0 (expt h 2)))
+           ))
+        ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d-5)
         (setf *water-height* ocean-y)
         (cl-mpm:add-bcs-force-list
          sim
@@ -217,15 +219,17 @@
   (let* ((mesh-size (/ 20 refine))
         (mps-per-cell mps)
         (block-size (list 20 20))
-        (block-offset (list 0 200))
-        (domain-size (list 20 500))
+        (block-offset (list 40 200))
+        (domain-size (list 100 500))
         )
     (defparameter *sim* (setup-test-column 
                          domain-size
-                                           block-size
-                                           block-offset (/ 1 mesh-size) mps-per-cell))
+                         block-size
+                         block-offset
+                         (/ 1 mesh-size) mps-per-cell))
     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
     ;; (defparameter *sim* (setup-pressure '(200 200) '(100 200) '(0 0) (/ 1 mesh-size) mps-per-cell))
+    (format t "Mesh size ~E~%" mesh-size)
     )
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
@@ -327,7 +331,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 40
+    (time (loop for steps from 0 to 20
                 while *run-sim*
                 do
                    (progn
