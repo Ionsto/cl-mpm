@@ -834,7 +834,7 @@
                        (bs (abs (min boundary-scalar 0d0)))
                        )
                    (when (and (> bs 0d0)
-                              (> mass 1d-10)
+                              ;; (> mass 1d-10)
                               )
                      (cl-mpm/fastmaths:fast-.-
                       force
@@ -847,9 +847,9 @@
                         ;; (/
                         ;;  mass
                         ;;  )
-                        ;; mass
+                        mass
                         ;; (* rho volume)
-                        rho
+                        ;; rho
                         ;; (expt h 2)
                         ;; (/ 1d0 (expt h 2))
                         bs

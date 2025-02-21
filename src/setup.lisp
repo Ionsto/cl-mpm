@@ -392,6 +392,42 @@
            ;;       strain strains)
            ))))))
 
+(defun initialise-stress-pressure (sim
+                                   datum
+                                   &key
+                                     (density 1000d0)
+                                     (clipping-func (lambda (pos) t))
+                                     (scaler (lambda (pos) 1d0))
+                                     )
+  (declare (function clipping-func))
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (with-accessors ((stress cl-mpm/particle:mp-stress)
+                      (strain cl-mpm/particle:mp-strain)
+                      (pos cl-mpm/particle:mp-position)
+                      (E cl-mpm/particle::mp-E)
+                      (nu cl-mpm/particle::mp-nu)
+                      (gravity cl-mpm/particle::mp-gravity)
+                      (mass cl-mpm/particle::mp-mass)
+                      (volume cl-mpm/particle::mp-volume)
+                      (de cl-mpm/particle::mp-elastic-matrix))
+         mp
+       (when (funcall clipping-func pos)
+         (let* ((density (/ mass volume))
+                (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1) datum)))))
+                (stresses (cl-mpm/utils:voigt-from-list (list
+                                                         sig-y
+                                                         sig-y
+                                                         sig-y
+                                                         0d0 0d0 0d0)))
+                (strains (magicl:linear-solve de stresses)))
+           (cl-mpm/fastmaths:fast-.+ stress stresses stress)
+           (cl-mpm/fastmaths:fast-.+ strain strains strain)
+           ;; (setf stress stresses
+           ;;       strain strains)
+           ))))))
+
 (defun set-mass-filter (sim density &key (proportion 1d-3))
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim

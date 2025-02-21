@@ -277,6 +277,9 @@
              stress-u sig
              strain eps-e
              yield-func f)
+            (cl-mpm/fastmaths:fast-.+ plastic-strain
+                                      (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain)
+                                      plastic-strain)
             (let ()
               (incf ps-vm inc)
               (setf ps-vm-inc inc)))))
@@ -645,7 +648,19 @@
                stress))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-brittle) dt)
-  (apply-vol-degredation mp dt))
+  ;; (apply-tensile-vol-degredation mp dt)
+  (apply-vol-degredation mp dt)
+  ;; (with-accessors ((p cl-mpm/particle::mp-pressure)
+  ;;                  (def cl-mpm/particle::mp-deformation-gradient)
+  ;;                  (stress cl-mpm/particle::mp-stress)
+  ;;                  (damage cl-mpm/particle::mp-damage)
+  ;;                  )
+  ;;     mp
+  ;;     (cl-mpm/fastmaths:fast-.+ stress
+  ;;                               (cl-mpm/constitutive::voight-eye (* (magicl:det def)
+  ;;                                                                   p damage))
+  ;;                               stress))
+  )
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
