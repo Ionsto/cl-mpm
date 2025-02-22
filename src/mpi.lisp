@@ -794,6 +794,7 @@
                   (mpi-sync-force sim)
                   (cl-mpm::update-node-forces sim)
                   (cl-mpm::apply-bcs mesh bcs dt)
+                  (cl-mpm::update-dynamic-stats sim)
                   (cl-mpm::g2p mesh mps dt vel-algo)
                   (when remove-damage
                     (cl-mpm::remove-material-damaged sim))
