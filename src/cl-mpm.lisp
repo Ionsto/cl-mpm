@@ -134,6 +134,18 @@
     :accessor sim-max-split-depth
     :initarg :max-split-depth
     :initform 3)
+   (stats-energy
+    :type double-float
+    :accessor sim-stats-energy
+    :initform 0d0)
+   (stats-oobf
+    :type double-float
+    :accessor sim-stats-oobf
+    :initform 0d0)
+   (stats-power
+    :type double-float
+    :accessor sim-stats-power
+    :initform 0d0)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

@@ -2232,3 +2232,9 @@ This modifies the dt of the simulation in the process
    (lambda (mp)
      (calculate-strain-rate-p mesh mp dt)))
   (values))
+
+;; (defun update-sim-dynamics-stats (sim)
+;;   (cl-mpm/dynamic-relaxation:)
+;;   )
+(defgeneric update-dynamic-stats (sim))
+(defmethod update-dynamic-stats (sim))

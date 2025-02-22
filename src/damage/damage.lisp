@@ -850,6 +850,7 @@ Calls the function with the mesh mp and node"
                     (cl-mpm::apply-bcs mesh bcs dt)
                     ;; ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt vel-algo)
+                    (cl-mpm::update-dynamic-stats sim)
 
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
@@ -860,7 +861,7 @@ Calls the function with the mesh mp and node"
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
-  (declare (cl-mpm::mpm-sim-usf sim))
+  (declare (cl-mpm::mpm-sim-usl sim))
   (with-slots ((mesh cl-mpm::mesh)
                (mps  cl-mpm::mps)
                (bcs  cl-mpm::bcs)
@@ -875,57 +876,46 @@ Calls the function with the mesh mp and node"
                (fbar cl-mpm::enable-fbar)
                (vel-algo cl-mpm::velocity-algorithm)
                )
-                sim
+      sim
     (declare (type double-float mass-filter))
-                (progn
-                    (cl-mpm::reset-grid mesh)
-                    (cl-mpm::p2g mesh mps)
-                    (cl-mpm::check-single-mps sim)
-                    ;;Do optional mass filter
-                    (when (> mass-filter 0d0)
-                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                    (cl-mpm::update-node-kinematics mesh dt )
-                    (cl-mpm::apply-bcs mesh bcs dt)
-                    ;Map forces onto nodes
-                    (cl-mpm::p2g-force mesh mps)
-                    (loop for bcs-f in bcs-force-list
-                          do (cl-mpm::apply-bcs mesh bcs-f dt))
-                    (cl-mpm::update-node-forces sim)
-                    ;Reapply velocity BCs
-                    (cl-mpm::apply-bcs mesh bcs dt)
-                    ;Also updates mps inline
+    (progn
+      (cl-mpm::check-single-mps sim)
+      (cl-mpm::reset-grid mesh)
+      (cl-mpm::p2g mesh mps)
+      ;;Do optional mass filter
+      (when (> mass-filter 0d0)
+        (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+      (cl-mpm::update-node-kinematics mesh dt)
+      (cl-mpm::apply-bcs mesh bcs dt)
+                                        ;Map forces onto nodes
+      (cl-mpm::p2g-force mesh mps)
+      (loop for bcs-f in bcs-force-list
+            do (cl-mpm::apply-bcs mesh bcs-f dt))
+      (cl-mpm::update-node-forces sim)
+                                        ;Reapply velocity BCs
+      (cl-mpm::apply-bcs mesh bcs dt)
+                                        ;Also updates mps inline
+      (cl-mpm::update-dynamic-stats sim)
+      (cl-mpm::g2p mesh mps dt vel-algo)
 
+      ;;Update stress last
+      (cl-mpm::reset-grid-velocity mesh)
+      (cl-mpm::p2g mesh mps)
+      ;; (cl-mpm::check-single-mps sim)
+      ;;Do optional mass filter
+      (when (> mass-filter 0d0)
+        (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
+      (cl-mpm::update-node-kinematics mesh dt)
+      (cl-mpm::apply-bcs mesh bcs dt)
 
-                    (cl-mpm::g2p mesh mps dt vel-algo)
-
-                    ;;Update stress last
-
-                    (cl-mpm::reset-grid-velocity mesh)
-                    (cl-mpm::p2g mesh mps)
-                    ;; (cl-mpm::check-single-mps sim)
-                    ;;Do optional mass filter
-                    (when (> mass-filter 0d0)
-                      (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
-                    (cl-mpm::update-node-kinematics mesh dt )
-                    (cl-mpm::apply-bcs mesh bcs dt)
-
-                    (cl-mpm::update-stress mesh mps dt fbar)
-                    (cl-mpm/damage::calculate-damage sim)
-
-                    ;; (cl-mpm::p2g-force mesh mps)
-                    ;; (loop for bcs-f in bcs-force-list
-                    ;;       do (cl-mpm::apply-bcs mesh bcs-f dt))
-                    ;; (cl-mpm::update-node-forces sim)
-                    ;;                     ;Reapply velocity BCs
-                    ;; (cl-mpm::apply-bcs mesh bcs dt)
-
-                    ;;18
-                    (when remove-damage
-                      (cl-mpm::remove-material-damaged sim))
-                    (when split
-                      (cl-mpm::split-mps sim))
-                    (cl-mpm::check-mps sim)
-                    )))
+      (cl-mpm::update-stress mesh mps dt fbar)
+      (cl-mpm/damage::calculate-damage sim)
+      (when remove-damage
+        (cl-mpm::remove-material-damaged sim))
+      (when split
+        (cl-mpm::split-mps sim))
+      (cl-mpm::check-mps sim)
+      )))
 
 
 
