@@ -7,6 +7,16 @@
                                                     cl-mpm/particle::particle-erosion)
   ())
 
+
+(defmethod cl-mpm::update-dynamic-stats (sim)
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power))
+      sim
+      (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
+            stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
+            stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))))
+
 (defmethod cl-mpm/erosion::mp-erosion-enhancment ((mp cl-mpm/particle::particle-mc-erodable))
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
   (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
@@ -42,7 +52,7 @@
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
@@ -107,15 +117,17 @@
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 916.7d0)
          (mesh-resolution (/ 10d0 refine))
-         (offset (* mesh-resolution 2))
+         (offset (* mesh-resolution 0))
          (ice-height 400)
          (aspect 2)
          (datum (* (round (+ 200 offset) mesh-resolution) mesh-resolution))
          (domain-size (list 2000d0 600d0))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
-         (block-size (list (* ice-height aspect) ice-height)))
+         (block-size (list (* ice-height aspect) ice-height))
+         )
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
+                                               ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
@@ -148,7 +160,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 0.5d0
+        :g-res-ratio 0.8d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -158,7 +170,7 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d3
+        :delay-time 1d4
         :delay-exponent 2
         :enable-plasticity nil
         :enable-damage t
@@ -196,7 +208,7 @@
 
     (setf (cl-mpm:sim-mass-scale *sim*) 1d4)
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.05d0
+          (* 0.1d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-4)
@@ -254,10 +266,10 @@
     ;;                 (>= datum (cl-mpm/utils:varef pos 1))
     ;;                 ;; (and (>= (+ offset mesh-resolution) (cl-mpm/utils:varef pos 1)))
     ;;                 )))
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *floor-bc*
-     )
+    ;; (cl-mpm:add-bcs-force-list
+    ;;  *sim*
+    ;;  *floor-bc*
+    ;;  )
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*
     ;;  *bc-erode*
@@ -409,6 +421,43 @@
                                 )
              )))
 
+(defun relax-elastic (output-dir dt-scale step crit-damp)
+  (setf (cl-mpm::sim-enable-damage *sim*) nil)
+  (cl-mpm::iterate-over-mps
+   (cl-mpm:sim-mps *sim*)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
+  (let ((damping-0 (cl-mpm::sim-damping-factor *sim*)))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.01d0
+             (sqrt (cl-mpm:sim-mass-scale *sim*))
+             crit-damp))
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :oobf-crit 1d-2
+     :energy-crit 1d-2
+     :dt-scale dt-scale
+     :substeps 50
+     :conv-steps 1000
+     :pic-update t
+     :post-iter-step
+     (lambda (i oobf energy)
+       (format t "Sub converge ~D~%" i)
+       ;; (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_subconv_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+       ;; (cl-mpm/output::save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_subconv_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+       ;; (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)
+       ;; (cl-mpm/output::save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" i)) *sim*)
+       ;; (plot-domain)
+       ))
+    (setf (cl-mpm:sim-damping-factor *sim*) damping-0)
+    (cl-mpm::iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (setf (cl-mpm/particle::mp-enable-plasticity mp) t))) )
+  (setf (cl-mpm::sim-enable-damage *sim*) t)
+
+  )
+
 (defun run (&key (output-dir "./output/"))
   (uiop:ensure-all-directories-exist (list (uiop:merge-pathnames* output-dir)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
@@ -417,8 +466,8 @@
   (let ((dt-scale 0.5d0))
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :oobf-crit 1d-2
-     :energy-crit 1d-2
+     :oobf-crit 1d-3
+     :energy-crit 1d-3
      :dt-scale dt-scale
      :substeps 50
      :conv-steps 1000
@@ -437,7 +486,7 @@
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
   (setf (cl-mpm:sim-damping-factor *sim*)
         (* 1d-6
-           ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
+           (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup:estimate-critical-damping *sim*)))
 
   ;; (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
@@ -452,9 +501,10 @@
          (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
          (criteria-energy 1d-2)
-         (criteria-oobf 1d-2)
+         (criteria-oobf 1d-1)
          (target-time 1d0)
          (time 0d0)
+         (crit-damp (cl-mpm/setup:estimate-critical-damping *sim*))
          )
     (setf (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale
           target-time accelerate-target-time)
@@ -482,9 +532,13 @@
                 ;;      (> (max s1 s2 s3) *removal-strain*))
                 ;;    ))
                 ;; (cl-mpm::split-mps-eigenvalue *sim*)
-                (incf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
-                (incf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))))
+                ;; (incf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
+                ;; (incf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                ;; (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
+                (incf oobf (cl-mpm::sim-stats-oobf *sim*))
+                (incf energy (cl-mpm::sim-stats-energy *sim*))
+                (incf work (cl-mpm::sim-stats-power *sim*))
+                ))
              (setf
               energy (/ energy substeps)
               oobf (/ oobf substeps))
@@ -510,34 +564,19 @@
                      (format t "Changed to accelerate~%")
                      (setf work 0d0)
                      (setf sim-state :accelerate)
+                     ;; (relax-elastic output-dir dt-scale step crit-damp)
                      ;; (cl-mpm::remove-mps-func
                      ;;  *sim*
                      ;;  (lambda (p)
                      ;;    (and (> (cl-mpm::mp-damage p) 0.99d0)
                      ;;         (= (cl-mpm/particle::mp-index p) 0))
                      ;;    ))
-                     (setf (cl-mpm::sim-enable-damage *sim*) nil)
-                     (cl-mpm/dynamic-relaxation:converge-quasi-static
-                      *sim*
-                      :oobf-crit 1d-2
-                      :energy-crit 1d-2
-                      :dt-scale dt-scale
-                      :substeps 50
-                      :conv-steps 1000
-                      :post-iter-step
-                      (lambda (i oobf energy)
-                        (format t "Sub converge ~D~%" i)
-                        ;; (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)
-                        ;; (cl-mpm/output::save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" i)) *sim*)
-                        ;; (plot-domain)
+                     (cl-mpm:iterate-over-mps
+                      (cl-mpm:sim-mps *sim*)
+                      (lambda (mp)
+                        ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
+                        (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
                         ))
-                     (setf (cl-mpm::sim-enable-damage *sim*) t)
-                     ;; (cl-mpm:iterate-over-mps
-                     ;;  (cl-mpm:sim-mps *sim*)
-                     ;;  (lambda (mp)
-                     ;;    ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
-                     ;;    (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
-                     ;;    ))
                      )))
              (case sim-state
                (:accelerate
@@ -565,6 +604,10 @@
                (format t "CFL dt estimate: ~f~%" dt-e)
                (format t "CFL step count estimate: ~D~%" substeps-e)
                (setf substeps substeps-e))
+             (setf (cl-mpm:sim-damping-factor *sim*)
+                   (* 1d-6
+                      (sqrt (cl-mpm:sim-mass-scale *sim*))
+                      crit-damp))
              (swank.live:update-swank)
              (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
                                 :terminal "png size 1920,1080"
@@ -614,3 +657,15 @@
        (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
     )
   )
+
+(defun est-angle ()
+  (let* ((rc 0d0)
+         (rs 0.5d0)
+         (ratio (/ (- 1d0 rs) (- 1d0 rc)))
+         (angle-plastic (* 30d0 (/ pi 180)))
+         (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
+         )
+    (format t "Chalk plastic virgin angle: ~F~%"
+            (* (/ 180 pi) angle-plastic))
+    (format t "Chalk plastic residual angle: ~F~%"
+            (* (/ 180 pi) angle-plastic-damaged))))
