@@ -725,8 +725,9 @@
       (progn
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
-        ;; (cl-mpm/fastmaths:fast-fmacc force-ext vel (* -2d0 damping mass))
-        (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+        ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
+        (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+        (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
         ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) 1d0))
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
@@ -1701,7 +1702,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (when t;(< split-depth *max-split-depth*)
       (let ((l-factor 1.00d0)
-            (h-factor (* 0.7d0 h))
+            (h-factor (* 0.55d0 h))
             (s-factor 1.5d0))
         (cond
           ((< h-factor (varef lens 0)) :x)
@@ -1991,9 +1992,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
             do (loop for new-mp in (split-vector mp direction)
                      do (sim-add-mp sim new-mp))))))
 
-(defgeneric calculate-min-dt (sim)
-  (:documentation "A function for calculating an approximate stable timestep"))
-(defmethod calculate-min-dt ((sim mpm-sim))
+(defgeneric calculate-min-dt-mps (sim)
+  (:documentation "A function for calculating an approximate stable timestep based on MPs"))
+(defmethod calculate-min-dt-mps ((sim mpm-sim))
   "Estimate minimum p-wave modulus"
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
@@ -2021,6 +2022,35 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
           (cl-mpm:sim-dt sim)))))
+
+(defgeneric calculate-min-dt-bcs (sim))
+(defmethod calculate-min-dt-bcs (sim)
+  (let ((min-dt nil))
+    (cl-mpm::iterate-over-bcs-force-serial
+     sim
+     (lambda (bc)
+       (let ((dt-req (cl-mpm/bc::calculate-min-dt-bc sim bc)))
+         (pprint dt-req)
+         (when (and
+                dt-req
+                (if min-dt
+                 (< dt-req min-dt)
+                 t))
+           (setf min-dt dt-req)))))
+    min-dt))
+
+
+(defgeneric calculate-min-dt (sim)
+  (:documentation "A function for calculating an approximate stable timestep"))
+(defmethod calculate-min-dt (sim)
+  ;; (let ((dt-req (calculate-min-dt-mps sim)))
+  ;;   (let ((bc-min-dt (calculate-min-dt-bcs sim)))
+  ;;     (when bc-min-dt
+  ;;       (setf dt-req (min dt-req bc-min-dt))))
+  ;;   dt-req)
+  (calculate-min-dt-bcs sim)
+  )
+
 (defun calculate-adaptive-time (sim target-time &key (dt-scale 1d0))
   "Given that the system has previously been mapped to, caluclate an estimated dt and substep for a given target time
 The value dt-scale allows for the estimated dt to be scaled up or down

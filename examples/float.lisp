@@ -315,13 +315,13 @@
   ;;   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*))))
   ;;     (vgplot:format-plot t "set ytics ~f" h)
   ;;     (vgplot:format-plot t "set xtics ~f" h))
-  (vgplot:figure)
+  ;; (vgplot:figure)
   (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%"))
 
-  (let* ((target-time 0.5d0)
+  (let* ((target-time 0.25d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 1d0)
+         (dt-scale 0.5d0)
          (substeps (floor target-time dt)))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -331,7 +331,7 @@
       (setf (cl-mpm:sim-dt *sim*) dt-e)
       (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 20
+    (time (loop for steps from 0 to 50
                 while *run-sim*
                 do
                    (progn
@@ -387,10 +387,11 @@
                      ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
                      (incf *sim-step*)
                      ;; (plot *sim*)
-                     (vgplot:plot *time* *x-pos*)
-                     (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
-                                        :terminal "png size 1920,1080"
-                                        )
+                     (plot-conv)
+                     ;; (vgplot:plot *time* *x-pos*)
+                     ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+                     ;;                    :terminal "png size 1920,1080"
+                     ;;                    )
                      (swank.live:update-swank)
                      (sleep .01)
 
@@ -473,15 +474,31 @@
   (vgplot:title "CFL over time")
   (vgplot:plot *time* *cfl-max*))
 
+
+(defun plot-conv ()
+  (apply #'vgplot:plot (reduce #'append (mapcar #'list
+                                                (append *conv-data-t* (list *time*))
+                                                (append *conv-data-v* (list *x-pos*))
+                                                (mapcar (lambda (x) (format nil "~A" x)) (append *conv-data-refine* (list *refine*)))
+                                                ))))
+
 (defun run-conv ()
   (vgplot:close-all-plots)
+  (defparameter *conv-data-t* (list))
+  (defparameter *conv-data-v* (list))
+  (defparameter *conv-data-refine* (list))
   (setf *run-sim* t)
   (loop for r in (list 1 2 4 8)
         while *run-sim*
         do (progn
-             (setup :refine r :mps 2)
+             (defparameter *refine* r)
+             (setup :refine r :mps 3)
              (run)
              (vgplot:title (format nil "~D" r))
+             (push *time*  *conv-data-t*)
+             (push *x-pos* *conv-data-v*)
+             (push *refine* *conv-data-refine*)
+             (plot-conv)
              (vgplot:print-plot
               (merge-pathnames (format nil "refine_~5,'0d.png" r))
               :terminal "png size 1920,1080"))))

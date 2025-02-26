@@ -420,7 +420,8 @@
           (save-parameter-nodes "local-list-size" (length (cl-mpm/mesh::node-local-list node)))
           (save-parameter-nodes "energy"
                                 (*
-                                 (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                 ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                 (cl-mpm/mesh::node-mass node)
                                  (cl-mpm/mesh::node-mass node)
                                  (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
 
@@ -430,7 +431,8 @@
                                     node
                                   (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
                                       (*
-                                       (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       (cl-mpm/mesh::node-mass node)
                                        (cl-mpm/fastmaths::mag-squared
                                         (magicl:.+ f-ext f-int))
                                        )
@@ -441,7 +443,8 @@
                                     node
                                   (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
                                       (*
-                                       (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       (cl-mpm/mesh::node-mass node)
                                        (cl-mpm/fastmaths::mag-squared
                                         f-ext))
                                       0d0)))
@@ -450,8 +453,9 @@
                                                  (f-int cl-mpm/mesh::node-internal-force))
                                     node
                                   (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                      (* 
-                                       (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                      (*
+                                       ;(/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       (cl-mpm/mesh::node-mass node)
                                        (/ (cl-mpm/fastmaths::mag-squared
                                            (magicl:.+ f-ext f-int))
                                           (cl-mpm/fastmaths::mag-squared

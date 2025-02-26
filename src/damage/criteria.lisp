@@ -482,23 +482,21 @@
 
 (defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
   (let (
-        ;; (a (/ (sin angle)
-        ;;       (- 1d0 (* 2 nu))))
-        ;; (G (/ E (* 2 (- 1d0 nu))))
         (k (/ (+ 1d0 (sin angle))
               (- 1d0 (sin angle))
               )))
-    ;; (/ (* 2 coheasion) (sqrt k))
     (the double-float
          (/
           (* 2 coheasion (cos angle))
-          (+ 1d0 (sin angle))))
-    ;; (* E
-    ;;    0.5d0
-    ;;    (/
-    ;;     (/ coheasion G)
-    ;;     (* (- 1d0 a) (/ 1d0 (cos angle)))))
-    ))
+          (+ 1d0 (sin angle))))))
+
+(defun mohr-coloumb-tensile-to-coheasion (tensile angle)
+  (let ((k (/ (+ 1d0 (sin angle))
+              (- 1d0 (sin angle))
+              )))
+    (the double-float
+         (/ (* tensile (+ 1d0 (sin angle)))
+          (* 2 (cos angle))))))
 
 
 ;; (let* ((stress (cl-mpm/utils:voigt-from-list (list 1d0 0d0 0d0

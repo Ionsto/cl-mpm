@@ -1701,7 +1701,7 @@ leaves a hanging mpi domain at the back"
 ;;           (cl-store:restore stream))))
 
 
-(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/mpi::mpm-sim-mpi))
+(defmethod cl-mpm::calculate-min-dt-mps ((sim cl-mpm/mpi::mpm-sim-mpi))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim

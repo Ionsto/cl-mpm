@@ -260,8 +260,7 @@
                                      (nns cl-mpm/mesh::cell-nodes)
                                      )
                         c
-                      (when (and (funcall clip-function pos) ;(not pruned)
-                                 )
+                      (when (and (funcall clip-function pos))
                         (let ((vest 0d0))
                           (loop for n in nns
                                 do
@@ -820,7 +819,7 @@
          mesh
          (lambda (node)
            (with-accessors ((vel cl-mpm/mesh:node-velocity)
-                            (force cl-mpm/mesh::node-external-force)
+                            (force cl-mpm/mesh::node-force)
                             (active cl-mpm/mesh:node-active)
                             (mass cl-mpm/mesh:node-mass)
                             (volume cl-mpm/mesh::node-volume)

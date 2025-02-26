@@ -59,6 +59,9 @@
    (contact-points
     :accessor bc-penalty-contact-points
     :initform (list))
+   (mp-stiffness
+    :initform nil
+    :accessor bc-mp-stiffness)
    (load
     :accessor bc-penalty-load
     :initform 0d0)
@@ -560,7 +563,16 @@
   )
 
 
-;;
+(defun compute-mp-stiffness (mp)
+  (sqrt
+   (/
+    (/ (the double-float (cl-mpm/particle:mp-mass mp))
+       (the double-float (cl-mpm/particle:mp-volume mp)))
+    1d0
+    ;; (cl-mpm/particle::mp-e mp)
+    ;; (cl-mpm/particle::mp-p-modulus mp)
+    )))
+
 (defun apply-penalty-point (mesh bc mp point dt)
   (with-accessors ((nd cl-mpm/mesh:mesh-nd))
       mesh
@@ -570,6 +582,7 @@
                      (friction bc-penalty-friction)
                      (normal bc-penalty-normal)
                      (pen-vel bc-penalty-velocity)
+                     (mp-stiffness bc-mp-stiffness)
                      (debug-mutex bc-penalty-load-lock)
                      (debug-load bc-penalty-load))
         bc
@@ -589,13 +602,15 @@
           (sb-thread:with-mutex (debug-mutex)
             (incf debug-load normal-force))
           (setf mp-contact t)
+          (let ((new-stiff (compute-mp-stiffness mp)))
+            (setf mp-stiffness (min new-stiff (if mp-stiffness mp-stiffness new-stiff))))
           (let* ((force (cl-mpm/utils:vector-zeros))
                  (resultant-vel (cl-mpm/fastmaths:fast-.- mp-vel pen-vel))
                  (rel-vel (cl-mpm/fastmaths:dot normal resultant-vel))
                  (tang-vel (cl-mpm/fastmaths:fast-.- resultant-vel
                                                      (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
                  (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
-                 (normal-damping (* 0d0 2d0 damping (sqrt (* epsilon mp-mass))))
+                 (normal-damping (* 2d0 damping (sqrt (* epsilon mp-mass))))
                  (damping-force (* normal-damping rel-vel))
                  (force-friction mp-friction)
                  (stick-friction (* friction (abs normal-force))))
@@ -642,9 +657,6 @@
                  (when node-active
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
-                     ;; (cl-mpm/fastmaths::fast-fmacc node-force
-                     ;;                              force
-                     ;;                              svp)
                      (cl-mpm/fastmaths::fast-fmacc node-ext-force
                                                   force
                                                   svp))))))
@@ -688,9 +700,11 @@
                    (sub-bcs bc-penalty-structure-sub-bcs)
                    (debug-mutex bc-penalty-load-lock)
                    (debug-force bc-penalty-load)
+                   (mp-stiffness bc-mp-stiffness)
                    (sim bc-penalty-sim))
       bc
     (setf (bc-penalty-contact-points bc) nil)
+    (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
@@ -1080,6 +1094,13 @@
                                  (coerce x 'single-float)
                                  (coerce y 'single-float)
                                  (coerce z 'single-float)
-                                 ))
-                       ))
-            ))))))
+                                 ))))))))))
+
+(defmethod cl-mpm/bc::calculate-min-dt-bc (sim (bc bc-penalty))
+  (when (bc-mp-stiffness bc)
+    (*
+     (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+     (the double-float (sqrt (the double-float (cl-mpm::sim-mass-scale sim))))
+     (/ 1d0 (sqrt (bc-penalty-epsilon bc)))
+     (the double-float (the double-float (bc-mp-stiffness bc))))))
+

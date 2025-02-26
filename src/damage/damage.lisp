@@ -825,6 +825,7 @@ Calls the function with the mesh mp and node"
                (fbar cl-mpm::enable-fbar)
                (update-type cl-mpm::update-type)
                (vel-algo cl-mpm::velocity-algorithm)
+               (time cl-mpm::time)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -858,6 +859,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::split-mps sim))
                     (cl-mpm::check-mps sim)
                     (cl-mpm::check-single-mps sim)
+                    (incf time dt)
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-usl-damage))
@@ -875,6 +877,7 @@ Calls the function with the mesh mp and node"
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (vel-algo cl-mpm::velocity-algorithm)
+               (time cl-mpm::time)
                )
       sim
     (declare (type double-float mass-filter))
@@ -915,6 +918,7 @@ Calls the function with the mesh mp and node"
       (when split
         (cl-mpm::split-mps sim))
       (cl-mpm::check-mps sim)
+      (incf time dt)
       )))
 
 

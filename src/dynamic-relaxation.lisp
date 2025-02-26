@@ -18,23 +18,28 @@
   ;;           sum (* (cl-mpm/particle:mp-mass mp)
   ;;                  (cl-mpm/fastmaths::mag (cl-mpm/particle:mp-velocity mp))))
   (let ((energy 0d0)
+        (mass 0d0)
         (lock (sb-thread:make-mutex)))
     (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
        (when (cl-mpm/mesh:node-active n)
          (sb-thread:with-mutex (lock)
+           (incf mass (cl-mpm/mesh:node-mass n))
            (incf energy
                  (*
-                  (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                  ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                  (cl-mpm/mesh:node-mass n)
                   (cl-mpm/mesh::node-mass n)
                   (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
                   ))))))
-    energy)
-  )
+    (if (= mass 0d0)
+        0d0
+        energy)))
 (defmethod estimate-energy-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (cl-mpm/mpi::mpi-sum
    (let ((energy 0d0)
+         (mass 0d0)
          (lock (sb-thread:make-mutex)))
      (cl-mpm:iterate-over-nodes
       (cl-mpm:sim-mesh sim)
@@ -42,39 +47,48 @@
         (when (cl-mpm/mesh:node-active n)
           (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
             (sb-thread:with-mutex (lock)
+              (incf mass (cl-mpm/mesh:node-mass n))
               (incf energy
                     (*
-                     (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                     ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                     (cl-mpm/mesh:node-mass n)
                      (cl-mpm/mesh::node-mass n)
                      (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
                      )))))))
-     energy)
-   ))
+     (if (= mass 0d0)
+         0d0
+         energy))))
 
 (defgeneric estimate-power-norm (sim))
 (defmethod estimate-power-norm ((sim cl-mpm::mpm-sim))
   (let ((dt (cl-mpm:sim-dt sim)))
     (let ((energy 0d0)
+          (mass 0d0)
           (lock (sb-thread:make-mutex)))
       (cl-mpm:iterate-over-nodes
        (cl-mpm:sim-mesh sim)
        (lambda (n)
          (when (cl-mpm/mesh:node-active n)
            (sb-thread:with-mutex (lock)
+             (incf mass (cl-mpm/mesh:node-mass n))
              (incf energy
                    (*
                     dt
                     ;; (cl-mpm/mesh::node-volume n)
-                    (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                    ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                    (cl-mpm/mesh:node-mass n)
                     (cl-mpm/fastmaths:dot
                      (cl-mpm/mesh::node-velocity n)
                      (cl-mpm/mesh::node-external-force n))
                     ))))))
-      energy)))
+      (if (= mass 0d0)
+          0d0
+          energy))))
 (defmethod estimate-power-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((dt (cl-mpm:sim-dt sim)))
     (cl-mpm/mpi::mpi-sum
      (let ((energy 0d0)
+           (mass 0d0)
            (lock (sb-thread:make-mutex)))
        (cl-mpm:iterate-over-nodes
         (cl-mpm:sim-mesh sim)
@@ -82,16 +96,21 @@
           (when (cl-mpm/mesh:node-active n)
             (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position n))
               (sb-thread:with-mutex (lock)
+                (incf mass (cl-mpm/mesh:node-mass n))
                 (incf energy
                       (*
                        dt
                        ;; (cl-mpm/mesh::node-volume n)
-                       (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
+                       (cl-mpm/mesh:node-mass n)
+                       ;; (/ (cl-mpm/mesh::node-volume n) (cl-mpm/mesh::node-volume-true n))
                        (cl-mpm/fastmaths:dot
                         (cl-mpm/mesh::node-velocity n)
                         (cl-mpm/mesh::node-external-force n))
                        )))))))
-       energy))))
+       (if (= mass 0d0)
+           0d0
+           energy)
+       ))))
 
 (defgeneric estimate-oobf (sim))
 (defmethod estimate-oobf (sim)
