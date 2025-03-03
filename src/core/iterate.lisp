@@ -1080,6 +1080,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values)) iterate-over-corners))
 (defun iterate-over-corners (mesh mp func)
+  "Iterates a function (corner) over a single MPs corners"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (iterate-over-corners-2d mesh mp func)
       (iterate-over-corners-3d mesh mp func)))

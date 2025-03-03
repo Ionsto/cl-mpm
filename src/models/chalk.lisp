@@ -647,20 +647,52 @@
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress))))))
 
+(defun apply-vol-pressure-degredation (mp dt pressure)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (damage-t      cl-mpm/particle::mp-damage-tension)
+                   (damage-c      cl-mpm/particle::mp-damage-compression)
+                   (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage damage-t damage-c damage-s))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (declare (double-float damage-t damage-c damage-s))
+        (setf p
+              (if (> p 0d0)
+                  (* (- 1d0 damage-t) p)
+                  (* (- 1d0 damage-c) p)))
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye (- p pressure))
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
+               stress))))))
+
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-brittle) dt)
   ;; (apply-tensile-vol-degredation mp dt)
-  (apply-vol-degredation mp dt)
-  ;; (with-accessors ((p cl-mpm/particle::mp-pressure)
-  ;;                  (def cl-mpm/particle::mp-deformation-gradient)
-  ;;                  (stress cl-mpm/particle::mp-stress)
-  ;;                  (damage cl-mpm/particle::mp-damage)
-  ;;                  )
-  ;;     mp
-  ;;     (cl-mpm/fastmaths:fast-.+ stress
-  ;;                               (cl-mpm/constitutive::voight-eye (* (magicl:det def)
-  ;;                                                                   p damage))
-  ;;                               stress))
-  )
+  ;(apply-vol-degredation mp dt)
+  (with-accessors ((p cl-mpm/particle::mp-pressure)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (stress cl-mpm/particle::mp-stress)
+                   (damage cl-mpm/particle::mp-damage)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   )
+      mp
+    ;; (apply-tensile-vol-degredation mp dt)
+    (when enable-damage
+      (apply-vol-degredation mp dt)
+      ;(apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3)))
+      ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1)))
+      ;; (setf stress (cl-mpm/constitutive::voight-eye p))
+      )
+      ;; (cl-mpm/fastmaths:fast-.+ stress
+      ;;                           (cl-mpm/constitutive::voight-eye (* ;; (magicl:det def)
+      ;;                                                               (/ p 3) damage)) stress)
+    ))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

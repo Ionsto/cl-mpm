@@ -868,7 +868,7 @@
          (accelerate-target-time 1d2)
          (accelerate-mass-scale 1d6)
          (collapse-target-time 1d0)
-         (collapse-mass-scale 1d0)
+         (collapse-mass-scale 1d4)
          (substeps (floor target-time dt))
          (sim-state :damp)
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))

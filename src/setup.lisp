@@ -149,15 +149,26 @@
 
 
 (defun remove-sdf (sim sdf &key (index nil))
-  (cl-mpm::remove-mps-func
-   sim
-   (lambda (mp)
-     (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-       (and
-        (>= 0 (funcall sdf pos))
-        (if index
-            (= (cl-mpm/particle::mp-index mp) index)
-            t))))))
+  (with-accessors ((mesh cl-mpm:sim-mesh ))
+      sim
+      (cl-mpm::remove-mps-func
+       sim
+       (lambda (mp)
+         (flet ((apply-sdf-pos (pos)
+                  (and
+                   (< (funcall sdf pos) 0)
+                   (if index
+                       (= (cl-mpm/particle::mp-index mp) index)
+                       t))))
+           (let ((value nil))
+             (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+               (setf value (or value (apply-sdf-pos pos)))
+               (cl-mpm:iterate-over-corners
+                mesh
+                mp
+                (lambda (pos)
+                  (setf value (or value (apply-sdf-pos pos))))))
+             value))))))
 
 (defun damage-sdf (sim sdf &optional (d 1d0))
   (with-accessors ((mps cl-mpm:sim-mps))
@@ -195,8 +206,8 @@
                 (magicl:map! (lambda (x) (* x x))
                              (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
          (min (max (magicl:tref dist-vec 0 0)
-                   (magicl:tref dist-vec 1 0)
-                   ) 0d0)))))
+                   (magicl:tref dist-vec 1 0))
+              -1d0)))))
 
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))
