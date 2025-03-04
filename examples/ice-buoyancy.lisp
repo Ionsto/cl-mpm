@@ -42,8 +42,8 @@
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; (* local-length (max (- 1d0 damage) 1d-10))
+  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  (* local-length (max (- 1d0 damage) 1d-10))
   )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-ice-delayed) dt)
@@ -124,15 +124,14 @@
   )
 
 (defun setup (&key (refine 1) (mps 2))
-  (let* (
-         (density 918d0)
+  (let* ((density 918d0)
          (water-density 1028d0)
          ;; (density 900d0)
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 2))
          (end-height 400d0)
-         (start-height 420d0)
+         (start-height 400d0)
          (ice-height end-height)
          (aspect 2)
          (ice-length (* end-height aspect))
