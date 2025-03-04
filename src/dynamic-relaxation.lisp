@@ -320,18 +320,18 @@
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
                    (push energy-total energy-list)
-                   ;; (when (> (length energy-list) 2)
-                   ;;   (when (and
-                   ;;          (< (nth 0 energy-list) (nth 1 energy-list))
-                   ;;          (> (nth 1 energy-list) (nth 2 energy-list))
-                   ;;          ;(> (nth 2 energy-list) (nth 3 energy-list))
-                   ;;          )
-                   ;;     (format t "Peak found resetting KE~%")
-                   ;;     (cl-mpm:iterate-over-mps
-                   ;;      mps
-                   ;;      (lambda (mp)
-                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
+                   (when (> (length energy-list) 2)
+                     (when (and
+                            (< (nth 0 energy-list) (nth 1 energy-list))
+                            (> (nth 1 energy-list) (nth 2 energy-list))
+                            ;(> (nth 2 energy-list) (nth 3 energy-list))
+                            )
+                       (format t "Peak found resetting KE~%")
+                       (cl-mpm:iterate-over-mps
+                        mps
+                        (lambda (mp)
+                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
                    (when (and
                           (if convergance-criteria (funcall convergance-criteria sim) t)
                           (< fnorm energy-crit)

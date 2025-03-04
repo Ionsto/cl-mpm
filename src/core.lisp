@@ -341,31 +341,26 @@
         (cl-mpm/particle:particle mp)
         (cl-mpm/mesh::node node)
         (double-float svp)
-        (ignore mesh fsvp fgrads)
-        )
-       (let (
-             ;; (f-ext (cl-mpm/utils:vector-zeros))
-             ;; (f-int (cl-mpm/utils:vector-zeros))
-             )
-         (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                          (node-int-force cl-mpm/mesh::node-internal-force)
-                          (node-ext-force cl-mpm/mesh::node-external-force)
-                          (node-lock  cl-mpm/mesh:node-lock))
-             node
-           (declare (boolean node-active)
-                    (sb-thread:mutex node-lock)
-                    (magicl:matrix/double-float node-int-force node-ext-force))
-           (when node-active
-             ;; (cl-mpm/fastmaths:fast-zero f-int)
-             ;; (cl-mpm/fastmaths:fast-zero f-ext)
-             ;; (det-ext-force mp node svp f-ext)
-             ;; (det-int-force-unrolled mp grads f-int)
-             (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp node-ext-force)
-               (det-int-force-unrolled mp grads node-int-force)
-               ;; (cl-mpm/fastmaths::fast-.+-vector node-ext-force f-ext node-ext-force)
-               ;; (cl-mpm/fastmaths::fast-.+-vector node-int-force f-int node-int-force)
-               ))))))
+        (ignore mesh fsvp fgrads))
+       (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                        (node-int-force cl-mpm/mesh::node-internal-force)
+                        (node-ext-force cl-mpm/mesh::node-external-force)
+                        (node-lock  cl-mpm/mesh:node-lock))
+           node
+         (declare (boolean node-active)
+                  (sb-thread:mutex node-lock)
+                  (magicl:matrix/double-float node-int-force node-ext-force))
+         (when node-active
+           ;; (cl-mpm/fastmaths:fast-zero f-int)
+           ;; (cl-mpm/fastmaths:fast-zero f-ext)
+           ;; (det-ext-force mp node svp f-ext)
+           ;; (det-int-force-unrolled mp grads f-int)
+           (sb-thread:with-mutex (node-lock)
+             (det-ext-force mp node svp node-ext-force)
+             (det-int-force-unrolled mp grads node-int-force)
+             ;; (cl-mpm/fastmaths::fast-.+-vector node-ext-force f-ext node-ext-force)
+             ;; (cl-mpm/fastmaths::fast-.+-vector node-int-force f-int node-int-force)
+             )))))
   (values))
 (declaim (notinline p2g-force-mp-2d)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp-2d)
@@ -2150,9 +2145,11 @@ This modifies the dt of the simulation in the process
         (p2g-force mesh mps)
         (loop for bcs-f in bcs-force-list
               do (apply-bcs mesh bcs-f dt))
+
         (update-node-forces sim)
         ;; ;; Reapply velocity BCs
         (apply-bcs mesh bcs dt)
+        ;; (apply-bcs mesh-p bcs-p dt)
         ;; Also updates mps inline
         (g2p mesh mps dt vel-algo)
         (when split
@@ -2269,3 +2266,60 @@ This modifies the dt of the simulation in the process
 ;;   )
 (defgeneric update-dynamic-stats (sim))
 (defmethod update-dynamic-stats (sim))
+
+(defmethod update-node-forces ((sim mpm-sim-sd))
+  (with-accessors ((damping sim-damping-factor)
+                   (mass-scale sim-mass-scale)
+                   (mesh sim-mesh)
+                   (mesh-p sim-mesh-p)
+                   (dt sim-dt))
+      sim
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (calculate-forces node damping dt mass-scale))))
+    ;; (iterate-over-nodes
+    ;;  mesh-p
+    ;;  (lambda (node)
+    ;;    (when (cl-mpm/mesh:node-active node)
+    ;;      (calculate-forces node damping dt mass-scale))))
+    ))
+
+(defun calculate-df-p (mesh mp fbar)
+  (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
+                   (jfbar cl-mpm/particle::mp-j-fbar)
+                   (def cl-mpm/particle:mp-deformation-gradient)
+                   (pos cl-mpm/particle:mp-position)
+                   )
+      mp
+    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                                 0d0 1d0 0d0
+                                                 0d0 0d0 1d0)))
+           (dJ 1d0))
+      (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
+      (setf dJ (cl-mpm/fastmaths:det-3x3 df))
+      ;;Explicit fbar
+      (when fbar
+        ;;Coombs fbar
+        (progn
+          (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+                                                            0d0 1d0 0d0
+                                                            0d0 0d0 1d0)))
+                 (nd (cl-mpm/mesh::mesh-nd mesh)))
+            (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
+            (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
+                  (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
+            (cl-mpm/fastmaths::fast-scale!
+             df
+             (expt
+              (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
+                                   (cl-mpm/fastmaths:det-3x3 df)))
+              1d0
+              ;; (the double-float (/ 1d0 nd))
+              ))
+            (when (= nd 2)
+              (setf (magicl:tref df 2 2) 1d0)))))
+      (values df dJ))))

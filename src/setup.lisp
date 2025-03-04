@@ -148,27 +148,49 @@
                       position))
 
 
-(defun remove-sdf (sim sdf &key (index nil))
-  (with-accessors ((mesh cl-mpm:sim-mesh ))
+(defun remove-sdf (sim sdf &key (index nil)
+                             (refine 0))
+
+  (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
+    (flet ((apply-sdf-pos (pos mp)
+             (and
+              (< (funcall sdf pos) 0)
+              (if index
+                  (= (cl-mpm/particle::mp-index mp) index)
+                  t))))
+      (dotimes (i refine)
+        (loop for j from 0 below (cl-mpm/mesh:mesh-nd mesh)
+              for dir in (list :x :y :z)
+              do
+                 (cl-mpm::split-mps-criteria
+                  sim
+                  (lambda (mp h)
+                    (let ((value nil)
+                          (not-partial t))
+                      (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+                        (setf value (or value (apply-sdf-pos pos mp)))
+                        (setf not-partial (and not-partial (apply-sdf-pos pos mp)))
+                        (cl-mpm:iterate-over-corners
+                         mesh
+                         mp
+                         (lambda (pos)
+                           (setf value (or value (apply-sdf-pos pos mp)))
+                           (setf not-partial (and not-partial (apply-sdf-pos pos mp))))))
+                      (when (and value (not not-partial))
+                        dir))))))
       (cl-mpm::remove-mps-func
        sim
        (lambda (mp)
-         (flet ((apply-sdf-pos (pos)
-                  (and
-                   (< (funcall sdf pos) 0)
-                   (if index
-                       (= (cl-mpm/particle::mp-index mp) index)
-                       t))))
-           (let ((value nil))
-             (with-accessors ((pos cl-mpm/particle:mp-position)) mp
-               (setf value (or value (apply-sdf-pos pos)))
-               (cl-mpm:iterate-over-corners
-                mesh
-                mp
-                (lambda (pos)
-                  (setf value (or value (apply-sdf-pos pos))))))
-             value))))))
+         (let ((value nil))
+           (with-accessors ((pos cl-mpm/particle:mp-position)) mp
+             (setf value (or value (apply-sdf-pos pos mp)))
+             (cl-mpm:iterate-over-corners
+              mesh
+              mp
+              (lambda (pos)
+                (setf value (or value (apply-sdf-pos pos mp))))))
+           value))))))
 
 (defun damage-sdf (sim sdf &optional (d 1d0))
   (with-accessors ((mps cl-mpm:sim-mps))
