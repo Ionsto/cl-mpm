@@ -436,10 +436,10 @@
   (initialise-stress-self-weight-vardatum
    sim
    (lambda (pos) (varef pos 1))
-   k-x
-   k-z
-   clipping-func
-   scaler))
+   :k-x k-x
+   :k-z k-z
+   :clipping-func clipping-func
+   :scaler scaler))
 
 (defun initialise-stress-pressure (sim
                                    datum
