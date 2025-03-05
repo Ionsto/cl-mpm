@@ -150,9 +150,27 @@
              (function calc-pressure))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
-    (when (> damage 0d0)
-      (cl-mpm/fastmaths::fast-scale! stress (- 1d0 (* (- 1d0 1d-9) damage))))
     stress))
+
+(defun apply-vol-degredation (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 1d0))
+            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (setf stress
+              (cl-mpm/fastmaths:fast-.+
+               (cl-mpm/constitutive::voight-eye p)
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
+               stress))))))
+
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
+  (apply-vol-degredation mp))
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -404,7 +422,7 @@
         (let ((new-damage
                 (max
                  damage
-                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility 0.99d0))))
+                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility (- 1d0 1d-9)))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
         (when (>= damage 1d0)

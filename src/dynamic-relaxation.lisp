@@ -440,3 +440,12 @@
           (format t "System didn't converge~%"))
         )
       (values load fnorm oobf))))
+
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm:mpm-sim))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power))
+      sim
+    (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
+          stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
+          stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))))

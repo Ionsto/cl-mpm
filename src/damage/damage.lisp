@@ -26,7 +26,6 @@
 
 (defgeneric cl-mpm/particle::post-damage-step (mp dt))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-damage) dt))
 
 (declaim
  ;(inline damage-rate-profile)
@@ -706,8 +705,8 @@ Calls the function with the mesh mp and node"
 (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  local-length
+  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
+  ;; local-length
   ;; (* local-length (max (/ (- (exp (- damage)) (exp -1d0))
   ;;                         (- 1d0 (exp -1d0))) 1d-10))
   )
