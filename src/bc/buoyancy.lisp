@@ -1106,9 +1106,11 @@
       ;;Apply body force
       (apply-buoyancy-body
        mesh mps
-       ;; (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
-       (lambda (mp)
-         (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/particle::mp-gravity-axis mp) (* -1d0 rho (cl-mpm/particle:mp-gravity mp))))
+       (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
+       ;; (lambda (mp)
+       ;;   (cl-mpm/fastmaths:fast-scale-vector
+       ;;    (cl-mpm/particle::mp-gravity-axis mp)
+       ;;    (* -1d0 rho (cl-mpm/particle:mp-gravity mp))))
        clip-func)
       ;;Set all hydrostatic pressures
       (cl-mpm:iterate-over-mps
@@ -1174,7 +1176,9 @@
                    node
                  (declare (double-float volume svp))
                  (when (and node-active
-                            (funcall clip-func pos))
+                            (funcall clip-func node-pos)
+                            ;; (funcall clip-func pos)
+                            )
                    ;;Lock node for multithreading
                    (sb-thread:with-mutex (node-lock)
                      (setf node-boundary t)
