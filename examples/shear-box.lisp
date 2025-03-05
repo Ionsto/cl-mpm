@@ -13,6 +13,7 @@
 ;(declaim (optimize (debug 3) (safety 3) (speed 0)))
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+(defparameter *elastic-constant* 1d9)
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
@@ -325,18 +326,18 @@
 
 (defmpgen make-mps-elastic
   'cl-mpm/particle::particle-elastic
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   )
 (defmpgen make-mps-vm
 
   'cl-mpm/particle::particle-vm
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :rho 100d3)
 (defmpgen make-mps-mc-residual
   'cl-mpm/particle::particle-mc
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :psi (* 0d0 (/ pi 180))
   :phi (* 30d0 (/ pi 180))
@@ -347,7 +348,7 @@
 
 (defmpgen make-mps-mc-peak
   'cl-mpm/particle::particle-mc
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
@@ -358,7 +359,7 @@
 
 (defmpgen make-mps-dp-peak
   'cl-mpm/particle::particle-dp
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :psi (* 5d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
@@ -369,7 +370,7 @@
 
 (defmpgen make-mps-mc-softening
   'cl-mpm/particle::particle-mc
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :psi (* 0d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
@@ -380,7 +381,7 @@
 
 (defmpgen make-mps-damage
   'cl-mpm/particle::particle-chalk-delayed
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :kt-res-ratio 1d0
   :kc-res-ratio 0d0
@@ -406,7 +407,7 @@
 
 (defmpgen make-mps-plastic-damage
   'cl-mpm/particle::particle-chalk-delayed
-  :E 1d8
+  :E *elastic-constant*
   :nu 0.24d0
   :kt-res-ratio 1d0
   ;; :kc-res-ratio 0d0;(- 1d0 0.1d0)
@@ -460,12 +461,12 @@
     (declare (double-float h density))
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
-             (E 1d8)
+             (E *elastic-constant*)
              ;; (init-stress (* 1 131d3))
              ;(init-stress 131d3)
              ;(init-stress 131d3)
              ;; (init-stress (* 3d0 131d3))
-             ;; (init-stress 1d8)
+             ;; (init-stress *elastic-constant*)
              ;(gf 4.8d0)
              ;; (gf *gf*)
              (gf 48d0)
@@ -579,7 +580,7 @@
       ;;  (cl-mpm:sim-mps sim)
       ;;       do
       ;;       (let* ((pressure surcharge-load)
-      ;;              (E 1d8)
+      ;;              (E *elastic-constant*)
       ;;              (nu 0.24d0)
       ;;              (strain (cl-mpm/utils:voigt-from-list (list 0d0 (- (/ pressure E))
       ;;                                                          0d0
@@ -813,7 +814,7 @@
          (right-normal (cl-mpm/utils:vector-from-list (list -1d0 0d0 0d0)))
          (plane-normal (cl-mpm/utils:vector-from-list (list 0d0 -1d0 0d0)))
          (plane-normal-left (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-         (epsilon (* epsilon-scale 1d8))
+         (epsilon (* epsilon-scale *elastic-constant*))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (extra-height 0d0)
          (friction (* friction-scale (tan (* 30d0 (/ pi 180)))))
@@ -1186,13 +1187,13 @@
      (cl-mpm/utils:vector-from-list (list (* 1.5 box-size)
                                           (+ box-size box-offset) 0d0))
      (* 1.25d0 0.5d0 0.06d0)
-     (* 1d8 epsilon-scale)
+     (* *elastic-constant* epsilon-scale)
      0d0
      0d0))
   (defparameter *piston-confinement* 0d0)
   (defparameter *piston-steps* 0d0)
   (let* ((control-stiffness
-           ;; 1d8
+           ;; *elastic-constant*
            ;; 1d-12
            ;; 1d0
            (* piston-scale 1d-6)
