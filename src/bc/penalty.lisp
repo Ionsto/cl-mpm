@@ -714,7 +714,7 @@
          (when t;(early-sweep-intersection bc mp)
            (let ((in-contact nil)
                  (closest-point (make-contact :penetration 0d0)))
-             (cl-mpm::iterate-over-corners
+             (cl-mpm::iterate-over-midpoints
               mesh
               mp
               (lambda (corner)

@@ -385,14 +385,14 @@
                   (cl-mpm/particle:mp-volume mp))))
         sb-ext:double-float-positive-infinity)))
 
-(defun initialise-stress-self-weight (sim
-                                      datum
-                                      &key
-                                        (k-x nil)
-                                        (k-z nil)
-                                        (clipping-func (lambda (pos) t))
-                                        (scaler (lambda (pos) 1d0))
-                                        )
+(defun initialise-stress-self-weight-vardatum (sim
+                                               datum-func
+                                               &key
+                                                 (k-x nil)
+                                                 (k-z nil)
+                                                 (clipping-func (lambda (pos) t))
+                                                 (scaler (lambda (pos) 1d0))
+                                                 )
   (declare (function clipping-func))
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
@@ -413,17 +413,33 @@
          (unless k-z
            (setf k-z (/ nu (- 1d0 nu))))
          (let* ((density (/ mass volume))
-                (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1) datum)))))
+                (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1)
+                                                                              (funcall datum-func pos))))))
                 (stresses (cl-mpm/utils:voigt-from-list (list (* k-x sig-y)
                                                               sig-y
                                                               (* k-z sig-y)
                                                               0d0 0d0 0d0)))
                 (strains (magicl:linear-solve de stresses)))
            (cl-mpm/fastmaths:fast-.+ stress stresses stress)
-           (cl-mpm/fastmaths:fast-.+ strain strains strain)
-           ;; (setf stress stresses
-           ;;       strain strains)
-           ))))))
+           (cl-mpm/fastmaths:fast-.+ strain strains strain)))))))
+
+
+(defun initialise-stress-self-weight (sim
+                                      datum
+                                      &key
+                                        (k-x nil)
+                                        (k-z nil)
+                                        (clipping-func (lambda (pos) t))
+                                        (scaler (lambda (pos) 1d0))
+                                        )
+  (declare (function clipping-func))
+  (initialise-stress-self-weight-vardatum
+   sim
+   (lambda (pos) (varef pos 1))
+   k-x
+   k-z
+   clipping-func
+   scaler))
 
 (defun initialise-stress-pressure (sim
                                    datum

@@ -49,10 +49,10 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-ice-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
-  (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::update-domain-midpoint mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (let ((damage-increment 0d0))
@@ -131,14 +131,14 @@
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 2))
          (end-height 400d0)
-         (start-height 1000d0)
+         (start-height 800d0)
          (ice-height end-height)
-         (aspect 12)
+         (aspect 20)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point
-                         ;0.95d0
-                         1.5d0
+                         1.25d0
+                         ;; 1.25d0
                          ))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
@@ -162,7 +162,9 @@
            (length-scale (* mesh-resolution 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
+      (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
+      (format t "True Water height ~F~%" (- datum offset))
       (format t "Mesh size ~F~%" mesh-resolution)
       (format t "Estimated oversize ~F~%" oversize)
       (format t "Estimated lc ~E~%" length-scale)
@@ -209,11 +211,15 @@
         :gravity -9.8d0
         )))
 
-    (cl-mpm/setup::initialise-stress-self-weight *sim*
-                                                 (+ ice-height offset)
+    (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
+                                                 (lambda (pos)
+                                                   (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
+                                                                      ice-length) ice-length)))
+                                                     (+ offset
+                                                        (* alpha end-height)
+                                                        (* (- 1d0 alpha) start-height))))
                                                  :k-x 1d0
-                                                 :k-z 1d0
-                                                 )
+                                                 :k-z 1d0)
 
     ;; (cl-mpm/setup::initialise-stress-pressure *sim* (+ ice-height offset)
     ;;                                           :density density
@@ -322,29 +328,27 @@
     (setf (cl-mpm:sim-dt *sim*) (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (setf *run-sim* t)
-    (if t
-        (cl-mpm:add-bcs-force-list
-         *sim*
-         (cl-mpm/buoyancy::make-bc-buoyancy-clip
-          *sim*
-          datum
-          water-density
-          (lambda (pos datum)
-            (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0))
-            ;; t
-            )
-          ;:visc-damping 1d-1;(* 1d-2 (cl-mpm/setup:estimate-critical-damping *sim*))
-          :visc-damping 1d-1;(* 1d-2 (cl-mpm/setup:estimate-critical-damping *sim*))
-          ))
-        (cl-mpm:add-bcs-force-list
-         *sim*
-         (cl-mpm/buoyancy::make-bc-buoyancy-body
-          *sim*
-          datum
-          water-density
-          (lambda (pos) t))))
+    (defparameter *water-bc*
+      (if t
+          (cl-mpm/buoyancy::make-bc-buoyancy-clip
+           *sim*
+           datum
+           water-density
+           (lambda (pos datum)
+             (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
+           :visc-damping 1d-1)
+          (cl-mpm/buoyancy::make-bc-buoyancy-body
+           *sim*
+           datum
+           water-density
+           (lambda (pos) t))))
+
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *water-bc*)
+
     (let ((domain-half (* 0.5d0 (first domain-size)))
-          (friction 1d0))
+          (friction 0.5d0))
       (defparameter *floor-bc*
         (cl-mpm/penalty::make-bc-penalty-distance-point
          *sim*
@@ -354,7 +358,7 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* 1d9 0.01d0)
+         (* 1d9 0.001d0)
          friction
          0d0)))
 
@@ -630,7 +634,9 @@
                                                (list :dt target-time
                                                      :criteria-energy criteria-energy
                                                      :criteria-oobf criteria-oobf
-                                                     :criteria-hist criteria-hist))
+                                                     :criteria-hist criteria-hist
+                                                     :ocean-height *water-height*
+                                                     ))
     (setf (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale
           target-time accelerate-target-time)
     (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm/setup:estimate-elastic-dt *sim*)))
@@ -815,28 +821,40 @@
   (let ((ed (cl-mpm::sim-enable-damage *sim*))
         (dt-scale 0.5d0))
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
+    (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+    (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
           0.1d0
           ;; (* 0.1d0
           ;;    (sqrt (cl-mpm:sim-mass-scale *sim*))
           ;;    (cl-mpm/setup:estimate-critical-damping *sim*))
           )
+    (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json")
+                                               *sim*
+                                               (list :ocean-height *water-height*))
     (format t "Estimated dt ~E~%" (cl-mpm:sim-dt *sim*))
     (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" 0)) *sim*)
-    (cl-mpm/dynamic-relaxation:converge-quasi-static
-     *sim*
-     :oobf-crit 1d-2
-     :energy-crit 1d-2
-     :dt-scale dt-scale
-     :conv-steps 1000
-     :post-iter-step
-     (lambda (i oobf energy)
-       (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" (1+ i))) *sim*)
-       (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" (1+ i))) *sim*)
-       (plot-domain)
-       (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_conv_~5,'0d.png" i)) :terminal "png size 3840,2160")
-       ))
+    ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
+    (let ((current-step 0))
+      (cl-mpm/dynamic-relaxation:converge-quasi-static
+       *sim*
+       :oobf-crit 1d-3
+       :energy-crit 1d-3
+       :dt-scale dt-scale
+       :conv-steps 1000
+       :post-iter-step
+       (lambda (i oobf energy)
+         (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" (1+ i))) *sim*)
+         (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" (1+ i))) *sim*)
+         (plot-domain)
+         (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_conv_~5,'0d.png" i)) :terminal "png size 3840,2160")
+         (setf current-step i)
+         ))
+      (setf (cl-mpm::sim-enable-damage *sim*) t)
+      (cl-mpm/damage::calculate-damage *sim*)
+      (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" (1+ current-step))) *sim*)
+      (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" (1+ current-step))) *sim*))
 
     (setf (cl-mpm::sim-enable-damage *sim*) ed)
     (cl-mpm::iterate-over-mps
