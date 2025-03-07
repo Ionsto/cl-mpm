@@ -20,10 +20,20 @@
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-mc) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;; (cl-mpm::update-domain-corner mesh mp dt)
+  ;; (cl-mpm::update-domain-deformation mesh mp dt)
+  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
+  )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-corner mesh mp dt)
+  (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
@@ -154,8 +164,9 @@
           collect (funcall colour-func mp) into c
           finally (return (values x y lx ly c)))
     (let* ((points
+             ;; (cl-mpm/penalty::get-contact-points *shear-box-struct*)
              (reduce #'append
-                     (mapcar #'cl-mpm/penalty::bc-penalty-structure-contact-points contact-bcs)
+                     (mapcar #'cl-mpm/penalty::get-contact-points contact-bcs)
                      )
              ;; (append
              ;;        ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*)
@@ -176,10 +187,9 @@
              (vgplot:plot x y lx ly c ";;with ellipses lc palette"
                           c-x c-y ";;with points pt 7")
              (vgplot:plot x y lx ly c ";;with ellipses lc palette"))))))
-
   ;; (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*) nil)
-  (loop for bcs in contact-bcs
-        do (setf (cl-mpm/penalty::bc-penalty-structure-contact-points bcs) nil))
+  ;; (loop for bcs in contact-bcs
+  ;;       do (setf (cl-mpm/penalty::bc-penalty-structure-contact-points bcs) nil))
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
          (ms-y (second ms)))
@@ -450,8 +460,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -468,9 +478,9 @@
              ;(init-stress 131d3)
              ;; (init-stress (* 3d0 131d3))
              ;; (init-stress *elastic-constant*)
-             ;(gf 4.8d0)
+             (gf 4.8d0)
              ;; (gf *gf*)
-             (gf 48d0)
+             ;; (gf 48d0)
              ;; (length-scale (* 1 h))
              (length-scale (* 7.5d-3 1d0))
              (ductility
@@ -492,10 +502,10 @@
         ;; (make-mps-mc-residual)
         ;; (make-mps-vm)
         ;; (make-mps-mc-peak)
-        (make-mps-mc-softening)
+        ;; (make-mps-mc-softening)
         ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
-        ;; (make-mps-plastic-damage)
+        (make-mps-plastic-damage)
         ;; (make-mps-elastic)
         )
       (let* ((sur-height h-x)
@@ -1624,6 +1634,17 @@
                                    )))
                        )
                      (incf *sim-step*)
+                     ;; (simple-plot-contact
+                     ;;  *sim*
+                     ;;  :plot :deformed
+                     ;;  :contact-bcs
+                     ;;  (list
+                     ;;   *shear-box-struct-floor*
+                     ;;   *shear-box-struct-left*
+                     ;;   *shear-box-struct-left-static*
+                     ;;   *shear-box-struct-right*
+                     ;;   *shear-box-struct-right-static*
+                     ;;   ))
                      (plot *sim*)
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                         :terminal "png size 1920,1080")
@@ -2109,14 +2130,15 @@
         do
            (dolist (vel (list :BLEND))
              (dolist (gf (list 4.8d0))
-               (dolist (localising (list nil))
-                 (dolist (epsilon-scale (list 1d2))
+               (dolist (localising (list t))
+                 (dolist (epsilon-scale (list 1d2
+                                              1d3))
                    (dolist (piston-scale (list 1d0))
-                     (dolist (mps (list 4))
+                     (dolist (mps (list 2))
                        (let (;(mps 2)
                              ;; (mps 2)
                              (scale 1d0)
-                             (sample-scale 1d0)
+                             (sample-scale 2d0)
                              )
                          (loop for s
                                ;; from 0d4 to 30d4 by 5d4
@@ -2163,7 +2185,7 @@
                                       ;; (setf (cl-mpm::sim-enable-fbar *sim*) t)
                                       ;; (setf name localising)
                                       ;(setf name damping)
-                                      (setf name "joined")
+                                      (setf name "corners")
                                       (setf (cl-mpm::sim-velocity-algorithm *sim*) vel)
                                       ;; (cl-mpm:iterate-over-mps
                                       ;;  (cl-mpm:sim-mps *sim*)
@@ -2186,16 +2208,16 @@
                                        (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
                                        ;; (format nil "./output-~A_~f_~D_~f_~f_~f-~F/" name refine mps gf piston-scale epsilon-scale s)
                                        :ms damping
-                                       :displacment 6d-3
+                                       :displacment 0.1d-3
                                        :surcharge-load s
                                        :damping 1d-2
                                        :time-scale (* 1d0 scale)
                                        :sample-scale (* 1d0 sample-scale)
-                                       :dt-scale (/ 1d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
+                                       :dt-scale (/ 5d0 (* (sqrt piston-scale) (sqrt epsilon-scale)))
                                        :damage-time-scale 1d0
                                        ;; :skip-level 0.2d0
-                                       :enable-damage nil
-                                       :enable-plasticity t
+                                       :enable-damage t
+                                       :enable-plasticity nil
                                        )
                                       ;; (run-static
                                       ;;  (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)

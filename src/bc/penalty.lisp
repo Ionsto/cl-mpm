@@ -741,7 +741,7 @@
                                                :point corner
                                                :penetration penetration-dist))))))))
              (when in-contact
-               ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
+               (push (contact-point closest-point) (bc-penalty-contact-points bc))
                (apply-penalty-point mesh bc mp (contact-point closest-point) dt)))))))))
 
 
@@ -880,6 +880,7 @@
                                                    (contact-sub-bc closest-point)
                                                    mp
                                                    (contact-point closest-point) dt)))
+                    (push (contact-point closest-point) (bc-penalty-contact-points bc))
                     (sb-thread:with-mutex (debug-mutex)
                       (incf debug-force load)))))))))))))
 
@@ -1104,3 +1105,13 @@
      (/ 1d0 (sqrt (bc-penalty-epsilon bc)))
      (the double-float (the double-float (bc-mp-stiffness bc))))))
 
+
+(defgeneric get-contact-points (bc))
+(defmethod get-contact-points ((bc bc-penalty))
+  (bc-penalty-contact-points bc))
+
+(defmethod get-contact-points ((bc bc-penalty-structure))
+  (append 
+   (bc-penalty-contact-points bc)
+   (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+         append (bc-penalty-contact-points bc))))

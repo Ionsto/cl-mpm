@@ -1123,8 +1123,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (flet ((update (x y)
            (let ((domain (cl-mpm/particle::mp-domain-size mp))
                  (position (cl-mpm/particle:mp-position mp))
-                 (corner (cl-mpm/utils:vector-zeros))
-                 )
+                 (corner (cl-mpm/utils:vector-zeros)))
              (declare (double-float x y))
              (cl-mpm/fastmaths::fast-.+-vector
               position

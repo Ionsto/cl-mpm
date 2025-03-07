@@ -157,7 +157,7 @@
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
       (let ((f-r t))
-        (loop for i from 0 to 50
+        (loop for i from 0 to 0;to 50
               while f-r
               do
                  (progn
