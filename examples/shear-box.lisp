@@ -1103,12 +1103,12 @@
         *shear-box-controller*))
       (cl-mpm/bc:make-bcs-from-list
        (list
-        *shear-box-struct*
-        ;; *shear-box-struct-floor*
-        ;; *shear-box-struct-left*
-        ;; *shear-box-struct-left-static*
-        ;; *shear-box-struct-right*
-        ;; *shear-box-struct-right-static*
+        ;; *shear-box-struct*
+        *shear-box-struct-floor*
+        *shear-box-struct-left*
+        *shear-box-struct-left-static*
+        *shear-box-struct-right*
+        *shear-box-struct-right-static*
         ))))))
 
 (declaim (notinline get-load))
