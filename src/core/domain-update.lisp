@@ -481,34 +481,37 @@
       mp
     (with-accessors ((mesh-size cl-mpm/mesh::mesh-mesh-size))
         mesh
-        (let ((max-diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
-              (min-diff (make-array 2 :initial-element 0d0 :element-type 'double-float))
+        (let ((max-pos (make-array 2 :initial-element sb-ext:double-float-negative-infinity :element-type 'double-float))
+              (min-pos (make-array 2 :initial-element sb-ext:double-float-positive-infinity :element-type 'double-float))
               (domain-storage (magicl::matrix/double-float-storage domain)))
-          (iterate-over-midpoints-normal-2d
+          (iterate-over-corners-2d
            mesh mp
-           (lambda (corner normal)
+           (lambda (corner)
              (let ((disp (cl-mpm/utils:vector-zeros)))
                (iterate-over-neighbours-point-linear-simd
                 mesh corner
                 (lambda (mesh node svp grads)
                   (declare (double-float dt svp))
-                  (with-accessors ((vel cl-mpm/mesh:node-velocity))
+                  (with-accessors ((active cl-mpm/mesh::node-active)
+                                   (vel cl-mpm/mesh:node-velocity))
                       node
-                    (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp)))))
+                    (when active
+                      (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp))))))
+               ;; (cl-mpm/fastmaths:fast-.+ corner disp disp)
                (loop for i from 0 to 1
                      do
                         (progn
-                          (setf (the double-float (aref max-diff i))
-                                (max (aref max-diff i)
+                          (setf (the double-float (aref max-pos i))
+                                (max (aref max-pos i)
                                      (+ (varef corner i) (varef disp i))))
-                          (setf (the double-float (aref min-diff i))
-                                (min (aref min-diff i)
+                          (setf (the double-float (aref min-pos i))
+                                (min (aref min-pos i)
                                      (+ (varef corner i) (varef disp i)))))))))
 
           (setf (the double-float (aref domain-storage 0))
-                (* 0.5d0 (- (aref max-diff 0) (aref min-diff 0))))
+                (* 1.0d0 (- (aref max-pos 0) (aref min-pos 0))))
           (setf (the double-float (aref domain-storage 1))
-                (* 0.5d0 (- (aref max-diff 1) (aref min-diff 1))))
+                (* 1.0d0 (- (aref max-pos 1) (aref min-pos 1))))
           ))))
 
 (defun update-domain-deformation (mesh mp dt)
