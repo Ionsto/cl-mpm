@@ -1135,12 +1135,11 @@
     :initform (cl-mpm/utils:vector-zeros))
    ))
 
-(defun make-bc-penalty-square (sim normal point-a point-b epsilon friction damping)
+(defun make-bc-penalty-square (sim normal point diag-a diag-b epsilon friction damping)
   "Make a square penalty condition, where its is required that point-a.normal == point-b.normal"
   (let* ((normal (cl-mpm/fastmaths::norm normal))
-         (point (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/fastmaths:fast-.+ point-a point-b) 0.5d0))
-         (diag-a (cl-mpm/fastmaths:fast-.- point-a point))
-         (diag-b (cl-mpm/fastmaths:fast-.- point-b point))
+         ;; (diag-a (cl-mpm/fastmaths:fast-.- point-a point))
+         ;; (diag-b (cl-mpm/fastmaths:fast-.- point-b point))
          (datum (- (penetration-distance-point point 0d0 normal))))
     (make-instance 'bc-penalty-square
                    :index nil
@@ -1175,13 +1174,20 @@
 (defmethod penalty-contact-valid ((bc bc-penalty-square) point)
   (let* ((normal (bc-penalty-normal bc))
          (center-point (bc-penalty-square-center-point bc))
-         (p-d (cl-mpm/fastmaths:dot point normal))
          (c-d (cl-mpm/fastmaths:dot center-point normal))
-         (diff
-           (cl-mpm/fastmaths::fast-.-
-            (cl-mpm/fastmaths:fast-.- point (cl-mpm/fastmaths:fast-scale-vector normal p-d))
-            (cl-mpm/fastmaths:fast-.- center-point (cl-mpm/fastmaths:fast-scale-vector normal c-d)))))
-    (<=
-     (cl-mpm/fastmaths::mag
-      diff)
-     (bc-penalty-distance-radius bc))))
+         (p-d (cl-mpm/fastmaths:dot point normal))
+         (trial-center-point (cl-mpm/fastmaths:fast-.- center-point (cl-mpm/fastmaths:fast-scale-vector normal c-d)))
+         (trial-plane-point (cl-mpm/fastmaths:fast-.- point (cl-mpm/fastmaths:fast-scale-vector normal p-d)))
+         (a-b (bc-penalty-square-diag-a bc))
+         (b-c (bc-penalty-square-diag-b bc))
+         (a-trial (cl-mpm/fastmaths:fast-.- (cl-mpm/fastmaths:fast-.+ trial-center-point a-b) trial-plane-point ))
+         (b-trial (cl-mpm/fastmaths:fast-.- (cl-mpm/fastmaths:fast-.+ trial-center-point b-c) trial-plane-point ))
+         )
+    ;; (break)
+    (and
+     (<= 0d0 (cl-mpm/fastmaths:dot a-b a-trial))
+     (<= (cl-mpm/fastmaths:dot a-b a-trial) (cl-mpm/fastmaths:dot a-b a-b))
+     (<= 0d0 (cl-mpm/fastmaths:dot b-c b-trial))
+     (<= (cl-mpm/fastmaths:dot b-c b-trial) (cl-mpm/fastmaths:dot b-c b-c))
+     )))
+

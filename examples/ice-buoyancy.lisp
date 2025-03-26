@@ -22,9 +22,9 @@
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
   )
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 
 
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
@@ -1006,4 +1006,16 @@
   (setup :refine 0.25 :friction 0.8 :bench-length 200)
   (plot-domain)
   (run)
+  )
+
+(defun test-square ()
+  (defparameter *bc-square*
+    (cl-mpm/penalty::make-bc-penalty-square
+     nil
+     (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0));;vector
+     (cl-mpm/utils:vector-from-list (list 0d0 0d0 0d0));;vector
+     (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0));;vector
+     (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0));;vector
+     1d0 0d0 0d0
+     ))
   )

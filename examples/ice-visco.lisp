@@ -17,9 +17,9 @@
   (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
   )
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
@@ -91,9 +91,11 @@
          (ice-length 2000d0)
          (offset (* mesh-resolution 2))
          (datum (+ 150d0 offset))
-         (domain-size (list 5000d0 500d0))
+         (depth 500d0)
+         (domain-size (list 5000d0 600d0 (* 2d0 depth)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
-         (block-size (list ice-length (max start-height end-height))))
+         (block-size (list ice-length (max start-height end-height)
+                           depth)))
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; 'cl-mpm/damage::mpm-sim-damage
@@ -145,8 +147,8 @@
       '(0 nil nil)
       '(nil 0 nil)
       '(nil 0 nil)
-      '(0 nil 0)
-      '(0 nil 0)))
+      '(nil nil 0)
+      '(nil nil 0)))
 
     (setf (cl-mpm:sim-mass-scale *sim*) 1d4)
     (setf (cl-mpm:sim-damping-factor *sim*)
@@ -159,7 +161,16 @@
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
-    (cl-mpm/setup::initialise-stress-self-weight *sim* datum)
+    ;; (cl-mpm/setup::initialise-stress-self-weight *sim* datum)
+    (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
+                                                          (lambda (pos)
+                                                            (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
+                                                                               ice-length) ice-length)))
+                                                              (+ offset
+                                                                 (* alpha end-height)
+                                                                 (* (- 1d0 alpha) start-height))))
+                                                          :k-x 1d0
+                                                          :k-z 1d0)
 
 
 
@@ -174,7 +185,7 @@
           *sim*
           datum
           1000d0
-          (lambda (pos) t)))
+          (lambda (pos datum) t)))
         (cl-mpm:add-bcs-force-list
          *sim*
          (cl-mpm/buoyancy::make-bc-buoyancy-body
@@ -195,6 +206,66 @@
          (* 1d9 0.1d0)
          friction)))
 
+    (let ((domain-half-x (* 0.5d0 (first domain-size)))
+          (domain-half-y (* 0.5d0 (second domain-size)))
+          (domain-y (second domain-size))
+          (domain-z (third domain-size))
+          (epsilon (* 1d9 0.1d0))
+          (wall-depth depth)
+          (friction 0.8d0))
+      (defparameter *floor-side-bc*
+        (cl-mpm/penalty::make-bc-penalty-square
+         *sim*
+         (cl-mpm/utils:vector-from-list '(0d0 0d0 -1d0))
+         (cl-mpm/utils:vector-from-list (list
+                                         0d0
+                                         0d0
+                                         wall-depth))
+         (cl-mpm/utils:vector-from-list (list
+                                         ice-length
+                                         0d0
+                                         0d0))
+         (cl-mpm/utils:vector-from-list (list
+                                         0d0
+                                         domain-y
+                                         0d0))
+         epsilon
+         friction
+         0d0
+         ))
+      (defparameter *floor-end-bc*
+        (cl-mpm/penalty::make-bc-penalty-square
+         *sim*
+         (cl-mpm/utils:vector-from-list '(1d0 0d0 0d0))
+         (cl-mpm/utils:vector-from-list (list
+                                         ice-length
+                                         0d0
+                                         wall-depth
+                                         ))
+         (cl-mpm/utils:vector-from-list (list
+                                         0d0
+                                         0d0
+                                         (- domain-z wall-depth)
+                                         ))
+         (cl-mpm/utils:vector-from-list (list
+                                         0d0
+                                         domain-y
+                                         0d0))
+         epsilon
+         friction
+         0d0
+         ))
+      (defparameter *wall-struct-bc*
+        (cl-mpm/penalty::make-bc-penalty-structure
+         *sim*
+         epsilon
+         friction
+         0d0
+         (list
+          *floor-side-bc*
+          ;; *floor-end-bc*
+          ))))
+
     (defparameter *bc-erode*
       (cl-mpm/erosion::make-bc-erode
        *sim*
@@ -208,7 +279,11 @@
                     )))
     (cl-mpm:add-bcs-force-list
      *sim*
-     *ocean-floor-bc*
+     *ocean-floor-bc*)
+    (cl-mpm:add-bcs-force-list
+     *sim*
+     *floor-side-bc*
+     ;; *wall-struct-bc*
      )
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*
@@ -250,7 +325,7 @@
   (setf (cl-mpm:sim-dt *sim*)
         (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
   (let* ((dt-scale 0.5d0)
-         (target-time 1d5)
+         (target-time 1d4)
          (substeps (ceiling target-time (cl-mpm:sim-dt *sim*)))
          (work 0d0)
          (oobf 0d0)
@@ -284,7 +359,7 @@
 
              (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_~5,'0d.vtk" step)) *sim* )
              (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim* )
-             (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
+             ;; (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
              (plot-domain)
              (swank.live:update-swank)
              (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
@@ -425,7 +500,7 @@
 
              (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_~5,'0d.vtk" step)) *sim* )
              (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim* )
-             (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
+             ;; (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
              (plot-domain)
              (swank.live:update-swank)
              (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
@@ -482,3 +557,15 @@
             0d0 (the double-float (sqrt (the double-float (nth 1 l)))) 0d0
             0d0 0d0 (the double-float (sqrt (the double-float (nth 2 l))))))
      (magicl:transpose v))))
+
+;; (defun test-square ()
+;;   (defparameter *bc-square*
+;;     (cl-mpm/penalty::make-bc-penalty-square
+;;      nil
+;;      (cl-mpm/utils:vector-from-list (list 0d0 0d0 1d0));;vector
+;;      (cl-mpm/utils:vector-from-list (list 0d0 0d0 -1d0));;vector
+;;      (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0));;vector
+;;      (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0));;vector
+;;      1d0 0d0 0d0
+;;      ))
+;;   )
