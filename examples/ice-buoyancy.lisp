@@ -83,13 +83,13 @@
                ;; (cl-mpm/damage::tensile-energy-norm-pressure strain E de (* (magicl:det def) pressure))
                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                 ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                stress
-                ;; (cl-mpm/fastmaths:fast-.+
-                ;;  ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
-                ;;  stress
-                ;;  ;(cl-mpm/utils:voigt-eye (* (magicl:det def) (/ (- pressure) 1)))
-                ;;  (cl-mpm/utils:voigt-eye (* 1d0 (magicl:det def) (/ (- pressure) 3)))
-                ;;  )
+                ;; stress
+                (cl-mpm/fastmaths:fast-.+
+                 ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
+                 stress
+                 (cl-mpm/utils:voigt-eye (* (magicl:det def) (/ (- pressure) 1)))
+                 ;; (cl-mpm/utils:voigt-eye (* 1d0 (magicl:det def) (/ (- pressure) 3)))
+                 )
                 (* angle (/ pi 180d0)))
                ))
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
@@ -116,11 +116,11 @@
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
-     :colour-func (lambda (mp) (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle:mp-stress mp)))))
+     ;; :colour-func (lambda (mp) (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle:mp-stress mp)))))
      ;; :colour-func #'cl-mpm/particle::mp-strain-plastic-vm
      ;; :colour-func (lambda (mp) (/ (cl-mpm/particle:mp-mass mp)
      ;;                              (cl-mpm/particle:mp-volume mp)))
-     ;; :colour-func #'cl-mpm/particle::mp-damage
+     :colour-func #'cl-mpm/particle::mp-damage
      ))
   )
 
@@ -139,7 +139,7 @@
          (end-height 400d0)
          (start-height 400d0)
          (ice-height end-height)
-         (aspect 6)
+         (aspect 4)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point
@@ -169,7 +169,7 @@
            (gf 10000d0)
            (length-scale (* mesh-resolution 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
+           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-6) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -205,7 +205,7 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d3
+        :delay-time 1d4
         :delay-exponent 2
         :enable-plasticity nil
         :enable-damage t
@@ -328,10 +328,10 @@
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-4)
-    (setf (cl-mpm::sim-enable-fbar *sim*) nil)
+    (setf (cl-mpm::sim-enable-fbar *sim*) t)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
-    (setf (cl-mpm::sim-allow-mp-split *sim*) t)
+    (setf (cl-mpm::sim-allow-mp-split *sim*) nil)
     (setf (cl-mpm::sim-max-split-depth *sim*) 3)
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
@@ -346,7 +346,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 1d-1)
+           :visc-damping 0d-1)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -585,7 +585,9 @@
 
 
   (defparameter *damping-water* 0d0)
-  (let ((dt-scale 0.5d0))
+  (let ((dt-scale 0.5d0)
+        (visc-damping (cl-mpm/buoyancy::bc-viscous-damping *water-bc*)))
+    (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :oobf-crit 1d-2
@@ -603,7 +605,10 @@
        ;;                    ;:terminal "png size 1920,1080"
        ;;                    :terminal "png size 3840,2160"
        ;;                    )
-       )))
+       ))
+
+    (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) visc-damping)
+    )
 
   (cl-mpm::iterate-over-mps
    (cl-mpm:sim-mps *sim*)
@@ -627,8 +632,8 @@
          (sim-state :accelerate)
          (accelerate-target-time 1d2)
          (accelerate-mass-scale 1d4)
-         (collapse-target-time 1d0)
-         (collapse-mass-scale 1d0)
+         (collapse-target-time 1d1)
+         (collapse-mass-scale 1d2)
          (criteria-energy 4d-2)
          (criteria-oobf 4d-2)
          (criteria-hist 2d0)
@@ -823,8 +828,8 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
-         ;; (cl-mpm::calculate-forces node damping dt mass-scale)
+         ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
+         (cl-mpm::calculate-forces node damping dt mass-scale)
          )))))
 
 (defun elastic-sim (&key (output-dir "./output/"))
@@ -996,3 +1001,9 @@
 ;; (defun zero-body-pressure-test ()
 ;;   )
 
+
+(defun calving-test ()
+  (setup :refine 0.25 :friction 0.8 :bench-length 200)
+  (plot-domain)
+  (run)
+  )

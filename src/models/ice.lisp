@@ -676,7 +676,8 @@
     (when enable-damage
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
-      (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
+      ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
+      (apply-vol-pressure-degredation mp dt (* -1d0 (/ p 1) damage))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))
       )
       ;; (cl-mpm/fastmaths:fast-.+ stress

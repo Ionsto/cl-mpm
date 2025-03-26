@@ -333,7 +333,8 @@
        penalties))))
 
 
-(defun bc-set-center (bc new-center)
+(defgeneric bc-set-center (bc new-center))
+(defmethod bc-set-center ((bc bc-penalty-distance) new-center)
   (with-accessors ((normal bc-penalty-normal)
                    (datum bc-penalty-datum)
                    (center-point bc-penalty-distance-center-point))
@@ -341,6 +342,7 @@
     (let ((new-datum (- (penetration-distance-point new-center 0d0 normal))))
       (setf center-point new-center
             datum new-datum))))
+
 (defgeneric bc-increment-center (bc delta-center))
 (defmethod bc-increment-center ((bc bc-penalty-distance) delta-center)
   (with-accessors ((normal bc-penalty-normal)
@@ -1115,3 +1117,71 @@
    (bc-penalty-contact-points bc)
    (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
          append (bc-penalty-contact-points bc))))
+
+
+
+(defclass bc-penalty-square (bc-penalty)
+  ((center-point
+    :accessor bc-penalty-square-center-point
+    :initarg :center-point
+    :initform (cl-mpm/utils:vector-zeros))
+   (diag-a
+    :accessor bc-penalty-square-diag-a
+    :initarg :diag-a
+    :initform (cl-mpm/utils:vector-zeros))
+   (diag-b
+    :accessor bc-penalty-square-diag-b
+    :initarg :diag-b
+    :initform (cl-mpm/utils:vector-zeros))
+   ))
+
+(defun make-bc-penalty-square (sim normal point-a point-b epsilon friction damping)
+  "Make a square penalty condition, where its is required that point-a.normal == point-b.normal"
+  (let* ((normal (cl-mpm/fastmaths::norm normal))
+         (point (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/fastmaths:fast-.+ point-a point-b) 0.5d0))
+         (diag-a (cl-mpm/fastmaths:fast-.- point-a point))
+         (diag-b (cl-mpm/fastmaths:fast-.- point-b point))
+         (datum (- (penetration-distance-point point 0d0 normal))))
+    (make-instance 'bc-penalty-square
+                   :index nil
+                   :sim sim
+                   :datum datum
+                   :normal normal
+                   :epsilon epsilon
+                   :friction friction
+                   :center-point point
+                   :diag-a diag-a
+                   :diag-b diag-b
+                   )))
+
+(defmethod bc-set-center ((bc bc-penalty-square) new-center)
+  (with-accessors ((normal bc-penalty-normal)
+                   (datum bc-penalty-datum)
+                   (center-point bc-penalty-square-center-point))
+      bc
+    (let ((new-datum (- (penetration-distance-point new-center 0d0 normal))))
+      (setf center-point new-center
+            datum new-datum))))
+(defmethod bc-increment-center ((bc bc-penalty-square) delta-center)
+  (with-accessors ((normal bc-penalty-normal)
+                   (datum bc-penalty-datum)
+                   (center-point bc-penalty-square-center-point))
+      bc
+    (let* ((new-center (cl-mpm/fastmaths:fast-.+ center-point delta-center))
+           (new-datum (- (penetration-distance-point new-center 0d0 normal))))
+      (setf center-point new-center
+            datum new-datum))))
+
+(defmethod penalty-contact-valid ((bc bc-penalty-square) point)
+  (let* ((normal (bc-penalty-normal bc))
+         (center-point (bc-penalty-square-center-point bc))
+         (p-d (cl-mpm/fastmaths:dot point normal))
+         (c-d (cl-mpm/fastmaths:dot center-point normal))
+         (diff
+           (cl-mpm/fastmaths::fast-.-
+            (cl-mpm/fastmaths:fast-.- point (cl-mpm/fastmaths:fast-scale-vector normal p-d))
+            (cl-mpm/fastmaths:fast-.- center-point (cl-mpm/fastmaths:fast-scale-vector normal c-d)))))
+    (<=
+     (cl-mpm/fastmaths::mag
+      diff)
+     (bc-penalty-distance-radius bc))))
