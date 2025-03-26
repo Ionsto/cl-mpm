@@ -49,7 +49,8 @@ def get_data(filename):
         return vtk_to_numpy(scalar_data.GetArray(scalar_names.index(scalar_name)))
     lx = GetScalar("size_x")
     ly = GetScalar("size_y")
-    damage = GetScalar("fric-contact")
+    #damage = GetScalar("fric-contact")
+    damage = GetScalar("sig_xy")
     #damage = GetScalar("plastic_strain")
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1]-offset,"lx":lx,"ly":ly,"damage":damage})
 
@@ -77,7 +78,8 @@ ice_height = 200
 
 plt.close("all")
 # output_dir = "/mnt/d/Temp/ham-float/"
-output_dir = "./output/"
+# output_dir = "../../output-pressure/"
+output_dir = "../../output-body/"
 
 water_height = 236
 xlim = [0,2600]
@@ -88,10 +90,13 @@ with open(output_dir+"settings.json") as f:
     #print("Domain size:{}".format(json_settings["DOMAIN-SIZE"]))
     #water_height = 0
     h = json_settings["RESOLUTION"]
-    offset = 2*h
+    #offset = json_settings["OFFSET"]
+    offset = 0*h
     water_height = json_settings["OCEAN-HEIGHT"]-offset
     xlim = [0,json_settings["DOMAIN-SIZE"][0]]
     ylim = [0,json_settings["DOMAIN-SIZE"][1]]
+    xlim = [0,1400]
+    ylim = [0,450]
     #ylim[0] = 20
 #xlim = [0,1000]
 #ylim = [0,500]
@@ -131,7 +136,7 @@ def get_plot(i,fname):
     ax = fig.add_subplot(111,aspect="equal")
     #df = full_data[i]
     patch_list=[]
-    patch = Rectangle(xy=(0,0) ,width=xlim[1], height=water_height,color="blue")
+    patch = Rectangle(xy=(000,0) ,width=xlim[1], height=water_height,color="blue")
     patch_sea = [patch]
     ps = PatchCollection(patch_sea)
     ax.add_collection(ps)
@@ -146,7 +151,8 @@ def get_plot(i,fname):
         patch_list.append(patch)
     p = PatchCollection(patch_list, cmap=cm.jet, alpha=1)
     p.set_array(df["damage"])
-    # p.set_clim([0,1.0])
+    #p.set_clim([0,1.0])
+    p.set_clim([-1e5,1e5])
     ax.add_collection(p)
     #fig.colorbar(p,location="bottom",label="damage")
 
@@ -159,7 +165,8 @@ def get_plot(i,fname):
     plt.margins(x=0,y=0)
     plt.tight_layout()
     plt.gcf().patch.set_alpha(0)
-    plt.savefig("poster_conv_{}.pdf".format(fname))
+    plt.savefig("poster_conv.pdf".format(fname))
+    #plt.savefig("poster_conv_{}.pdf".format(fname))
     # plt.show()
     plt.clf()
 
@@ -167,5 +174,5 @@ def wrapper(x):
     get_plot(x,files_csvs[x])
 
 index = 80
-wrapper(226)
+wrapper(len(files_csvs)-1)
 # wrapper(120)

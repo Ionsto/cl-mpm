@@ -608,8 +608,7 @@
   :serial t
   :components ((:file "examples/uniaxial")))
 (defsystem "cl-mpm/examples/brazilian"
-  :depends-on ("cl-mpm/examples/tpb"
-               )
+  :depends-on ("cl-mpm/examples/tpb")
   :serial t
   :components ((:file "examples/brazilian")))
 
@@ -633,6 +632,7 @@
                "cl-mpm/erosion"
                "cl-mpm/models/chalk"
                "cl-mpm/models/visco"
+               "cl-mpm/models/ice"
                )
   :components ((:file "examples/ice-buoyancy")))
 

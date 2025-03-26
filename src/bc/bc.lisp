@@ -333,21 +333,15 @@
   "Nodal inflow"
   (with-slots ((value value)
                (volume-threshold volume-threshold)
-               (pcons particle-constructor)
-               )
+               (pcons particle-constructor))
       bc
     (when (<= (cl-mpm/mesh::node-volume node) volume-threshold)
       (print "Created particle")
       ;; Add particle?
       (funcall pcons (list (magicl:tref (cl-mpm/mesh::node-position node) 0 0)
                            (magicl:tref (cl-mpm/mesh::node-position node) 1 0)
-                           ))
-      )
-    )
+                           ))))
   (call-next-method))
-
-;; (defun make-wall-bc (mesh &rest args)
-;;   (loop for v from 0 to ()))
 
 (defun make-bcs-from-list (bc-list)
   (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list)))

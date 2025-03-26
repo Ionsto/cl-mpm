@@ -32,11 +32,11 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-corner mesh mp dt)
+  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
@@ -421,10 +421,10 @@
   :E *elastic-constant*
   :nu 0.24d0
   :kt-res-ratio 1d0
-  ;; :kc-res-ratio 0d0;(- 1d0 0.1d0)
-  ;; :g-res-ratio 0.35d0;(- 1d0 (* 0.25d0 0.1d0))
-  :kc-res-ratio 0d0
-  :g-res-ratio 1d0
+  :kc-res-ratio 0d0;(- 1d0 0.1d0)
+  :g-res-ratio 0.35d0;(- 1d0 (* 0.25d0 0.1d0))
+  ;; :kc-res-ratio 0d0
+  ;; :g-res-ratio 1d0
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
   :delay-time 1d-2
@@ -478,6 +478,7 @@
              ;(init-stress 131d3)
              ;; (init-stress (* 3d0 131d3))
              ;; (init-stress *elastic-constant*)
+             ;; (gf 48d0)
              (gf 4.8d0)
              ;; (gf *gf*)
              ;; (gf 48d0)
@@ -492,8 +493,8 @@
                          ;;     length-scale)
                          init-stress E))
              (oversize
-               1d0
-               ;; (cl-mpm/damage::compute-oversize-factor 0.999d0 ductility)
+               ;; 1d0
+               (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility)
                        )
              )
         (format t "Estimated ductility ~E~%" ductility)
@@ -2118,9 +2119,9 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
-                       ;; 8
-                       ;; 16
+                       ;; 4
+                       8
+                       16
                        ;; 32
                        ;; 4.5
                        ;; 8.5
@@ -2131,15 +2132,16 @@
            (dolist (vel (list :BLEND))
              (dolist (gf (list 4.8d0))
                (dolist (localising (list t))
-                 (dolist (epsilon-scale (list 1d2
-                                              1d3))
+                 (dolist (epsilon-scale (list
+                                         ;; 1d2
+                                         1d2
+                                              ))
                    (dolist (piston-scale (list 1d0))
-                     (dolist (mps (list 2))
+                     (dolist (mps (list 4))
                        (let (;(mps 2)
                              ;; (mps 2)
                              (scale 1d0)
-                             (sample-scale 2d0)
-                             )
+                             (sample-scale 2d0))
                          (loop for s
                                ;; from 0d4 to 30d4 by 5d4
                                ;; from 5d4 to 40d4 by 5d4
@@ -2208,16 +2210,16 @@
                                        (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
                                        ;; (format nil "./output-~A_~f_~D_~f_~f_~f-~F/" name refine mps gf piston-scale epsilon-scale s)
                                        :ms damping
-                                       :displacment 0.1d-3
+                                       :displacment 0.5d-3
                                        :surcharge-load s
                                        :damping 1d-2
                                        :time-scale (* 1d0 scale)
                                        :sample-scale (* 1d0 sample-scale)
-                                       :dt-scale (/ 5d0 (* (sqrt piston-scale) (sqrt epsilon-scale)))
+                                       :dt-scale (/ (* 5d0 0.5d0) (* (sqrt piston-scale) (sqrt epsilon-scale)))
                                        :damage-time-scale 1d0
                                        ;; :skip-level 0.2d0
                                        :enable-damage t
-                                       :enable-plasticity nil
+                                       :enable-plasticity t
                                        )
                                       ;; (run-static
                                       ;;  (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
@@ -2305,3 +2307,22 @@
          ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
          (cl-mpm::calculate-forces node damping dt mass-scale)
          )))))
+
+;𝑥^3−6𝑥^2−𝑥+30=0
+
+(defun fx (x)
+  (+
+   (expt x 3)
+   (- (* 6d0 (expt x 2)))
+   (- x)
+   30))
+
+(defun dfx (x)
+  (+
+   (* 3(expt x 2))
+   (- (* 12d0 (expt x 1)))
+   -1))
+
+(let ((x 0d0))
+  (dotimes (i 10)
+    (pprint (decf x (/ (fx x) (dfx x))))))

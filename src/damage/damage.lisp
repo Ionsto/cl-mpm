@@ -1247,9 +1247,9 @@ Calls the function with the mesh mp and node"
         ;;                                  (loop for sii in l maximize sii)))
 
 
-        ;; (cl-mpm/output::save-parameter "EPS"
-        ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
-        ;;                                  (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
+        (cl-mpm/output::save-parameter "EPS"
+                                       (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
+                                         (- (loop for sii in l maximize sii) (cl-mpm/particle::mp-pressure mp))))
         (cl-mpm/output::save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (cl-mpm/output::save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
         (when (= 3 nd)

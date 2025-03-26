@@ -51,7 +51,8 @@
   ;; (cl-mpm::update-domain-det mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
+  (cl-mpm::update-domain-deformation mesh mp dt)
   (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
@@ -123,7 +124,12 @@
      ))
   )
 
-(defun setup (&key (refine 1) (mps 2))
+(defun setup (&key (refine 1) (mps 2)
+                (pressure-condition t)
+                (cryo-static t)
+                (friction 0d0)
+                (bench-length 0d0)
+                )
   (let* ((density 918d0)
          (water-density 1028d0)
          ;; (density 900d0)
@@ -131,13 +137,14 @@
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 2))
          (end-height 400d0)
-         (start-height 800d0)
+         (start-height 400d0)
          (ice-height end-height)
-         (aspect 20)
+         (aspect 6)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point
-                         1.25d0
+                         0.9d0
+                         ;; 1.25d0
                          ;; 1.25d0
                          ))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
@@ -146,6 +153,7 @@
          (block-size (list ice-length (max start-height end-height)))
          )
     (defparameter *water-height* datum)
+    (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
@@ -211,15 +219,16 @@
         :gravity -9.8d0
         )))
 
-    (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
-                                                 (lambda (pos)
-                                                   (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-                                                                      ice-length) ice-length)))
-                                                     (+ offset
-                                                        (* alpha end-height)
-                                                        (* (- 1d0 alpha) start-height))))
-                                                 :k-x 1d0
-                                                 :k-z 1d0)
+    (when cryo-static
+      (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
+                                                            (lambda (pos)
+                                                              (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
+                                                                                 ice-length) ice-length)))
+                                                                (+ offset
+                                                                   (* alpha end-height)
+                                                                   (* (- 1d0 alpha) start-height))))
+                                                            :k-x 1d0
+                                                            :k-z 1d0))
 
     ;; (cl-mpm/setup::initialise-stress-pressure *sim* (+ ice-height offset)
     ;;                                           :density density
@@ -257,15 +266,16 @@
                               :refine 2
                               )
 
-    (let ((cutout (+ (- ice-height water-level) 10d0))
-          (cutback 100)
+    (let ((cutout (+ (- ice-height water-level) 0d0))
+          (cutback bench-length)
           )
       ;; (pprint cutout)
-      ;; (cl-mpm/setup:remove-sdf
-      ;;  *sim*
-      ;;  (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset (second block-size)))
-      ;;                               (list cutback cutout))
-      ;;  )
+      (when (> cutback 0d0)
+        (cl-mpm/setup:remove-sdf
+         *sim*
+         (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset (second block-size)))
+                                      (list cutback cutout))
+         ))
       ;; (let ((cut-back-distance 0.15d0)
       ;;       ;; (width (* 1d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0))))
       ;;       (width (* mesh-resolution 2))
@@ -329,7 +339,7 @@
     (setf (cl-mpm::sim-enable-damage *sim*) nil)
     (setf *run-sim* t)
     (defparameter *water-bc*
-      (if t
+      (if pressure-condition
           (cl-mpm/buoyancy::make-bc-buoyancy-clip
            *sim*
            datum
@@ -348,7 +358,7 @@
      *water-bc*)
 
     (let ((domain-half (* 0.5d0 (first domain-size)))
-          (friction 0.5d0))
+          (friction friction))
       (defparameter *floor-bc*
         (cl-mpm/penalty::make-bc-penalty-distance-point
          *sim*
@@ -358,7 +368,7 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* 1d9 0.001d0)
+         (* 1d9 0.1d0)
          friction
          0d0)))
 
@@ -636,6 +646,7 @@
                                                      :criteria-oobf criteria-oobf
                                                      :criteria-hist criteria-hist
                                                      :ocean-height *water-height*
+                                                     :ice-length *ice-length*
                                                      ))
     (setf (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale
           target-time accelerate-target-time)
@@ -817,6 +828,7 @@
          )))))
 
 (defun elastic-sim (&key (output-dir "./output/"))
+  (uiop:ensure-all-directories-exist (list (uiop:merge-pathnames* output-dir)))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (let ((ed (cl-mpm::sim-enable-damage *sim*))
         (dt-scale 0.5d0))
@@ -824,7 +836,10 @@
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
     (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
-          0.1d0
+          (* 
+           0.5d0
+           ;; (cl-mpm/setup:estimate-critical-damping *sim*)
+           )
           ;; (* 0.1d0
           ;;    (sqrt (cl-mpm:sim-mass-scale *sim*))
           ;;    (cl-mpm/setup:estimate-critical-damping *sim*))
@@ -835,6 +850,7 @@
     (format t "Estimated dt ~E~%" (cl-mpm:sim-dt *sim*))
     (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" 0)) *sim*)
     (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" 0)) *sim*)
+    (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" 0)) *sim* )
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (let ((current-step 0))
       (cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -847,6 +863,7 @@
        (lambda (i oobf energy)
          (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" (1+ i))) *sim*)
          (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" (1+ i))) *sim*)
+         (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" (1+ i))) *sim* )
          (plot-domain)
          (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_conv_~5,'0d.png" i)) :terminal "png size 3840,2160")
          (setf current-step i)
@@ -946,3 +963,36 @@
 (defun stop ()
   (setf *run-sim* nil)
   (setf cl-mpm/dynamic-relaxation::*run-convergance* nil))
+
+(defun body-pressure-test ()
+  (let ((mps 2)
+        (refine 0.5))
+    (setup :refine refine :mps mps :pressure-condition t)
+    (elastic-sim :output-dir "./output-cryo-pressure/")
+    (setup :refine refine :mps mps :pressure-condition nil)
+    (elastic-sim :output-dir "./output-cryo-body/")
+    (setup :refine refine :mps mps :pressure-condition t :cryo-static nil)
+    (elastic-sim :output-dir "./output-zero-pressure/")
+    (setup :refine refine :mps mps :pressure-condition nil :cryo-static nil)
+    (elastic-sim :output-dir "./output-zero-body/"))
+  )
+
+(defun test-friction ()
+  (let ((mps 2)
+        (refine 0.5))
+    (setup :refine refine :mps mps)
+    (elastic-sim :output-dir "./output-0.0/")
+    (setup :refine refine :mps mps :friction 0.5d0)
+    (elastic-sim :output-dir "./output-0.5/")))
+(defun test-bench ()
+  (let ((mps 2)
+        (refine 1)
+        (friction 0.5d0))
+    (setup :refine refine :mps mps :friction friction)
+    (elastic-sim :output-dir "./output-nobench/")
+    (setup :refine refine :mps mps :bench-length 400d0  :friction friction)
+    (elastic-sim :output-dir "./output-bench/")))
+
+;; (defun zero-body-pressure-test ()
+;;   )
+

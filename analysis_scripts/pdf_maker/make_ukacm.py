@@ -77,7 +77,7 @@ ice_height = 200
 
 plt.close("all")
 # output_dir = "/mnt/d/Temp/ham-float/"
-output_dir = "./output/"
+output_dir = "../../output/"
 
 water_height = 236
 xlim = [0,2600]
@@ -115,8 +115,8 @@ timesteps = pd.read_csv(output_dir+"timesteps.csv")
 
 timesteps = pd.read_csv(output_dir+"timesteps.csv")
 
-if not NO_OVERWRITE:
-    subprocess.run("rm ./outframes/*", shell=True)
+#if not NO_OVERWRITE:
+#    subprocess.run("rm ./outframes/*", shell=True)
 
 ratio = ylim[1]/xlim[1]
 print(ratio)
