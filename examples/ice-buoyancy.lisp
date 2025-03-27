@@ -128,6 +128,7 @@
                 (pressure-condition t)
                 (cryo-static t)
                 (friction 0d0)
+                (ice-height 400d0)
                 (bench-length 0d0)
                 )
   (let* ((density 918d0)
@@ -136,10 +137,10 @@
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 2))
-         (end-height 400d0)
-         (start-height 400d0)
+         (end-height ice-height)
+         (start-height ice-height)
          (ice-height end-height)
-         (aspect 4)
+         (aspect 2)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point
@@ -1003,7 +1004,7 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.25 :friction 0.8 :bench-length 200)
+  (setup :refine 0.5 :friction 0.8 :bench-length 000 :ice-height 600d0)
   (plot-domain)
   (run)
   )
