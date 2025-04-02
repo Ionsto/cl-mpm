@@ -435,7 +435,7 @@
   (declare (function clipping-func))
   (initialise-stress-self-weight-vardatum
    sim
-   (lambda (pos) (varef pos 1))
+   (lambda (pos) datum)
    :k-x k-x
    :k-z k-z
    :clipping-func clipping-func

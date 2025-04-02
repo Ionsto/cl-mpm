@@ -405,7 +405,7 @@
             (full-step (list))
             (energy-list (list))
             (energy-total 0d0)
-            )
+            (power-last 0d0))
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
                          (not converged))
