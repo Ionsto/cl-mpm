@@ -864,19 +864,26 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (damping-algo sim-damping-algorithm)
                    (dt sim-dt))
       sim
-    (ecase damping-algo
-      (:VISCOUS
-       (iterate-over-nodes
-        mesh
-        (lambda (node)
-          (when (cl-mpm/mesh:node-active node)
-            (calculate-forces node damping dt mass-scale)))))
-      (:CUNDALL
-       (iterate-over-nodes
-        mesh
-        (lambda (node)
-          (when (cl-mpm/mesh:node-active node)
-            (calculate-forces-cundall node damping dt mass-scale))))))))
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (calculate-forces node damping dt mass-scale))))
+    ;; (ecase damping-algo
+    ;;   (:VISCOUS
+    ;;    (iterate-over-nodes
+    ;;     mesh
+    ;;     (lambda (node)
+    ;;       (when (cl-mpm/mesh:node-active node)
+    ;;         (calculate-forces node damping dt mass-scale)))))
+    ;;   (:CUNDALL
+    ;;    (iterate-over-nodes
+    ;;     mesh
+    ;;     (lambda (node)
+    ;;       (when (cl-mpm/mesh:node-active node)
+    ;;         (calculate-forces-cundall node damping dt mass-scale))))))
+    )
+  )
 
 (defmethod update-node-forces ((sim mpm-sim-quasi-static))
   (with-accessors ((damping sim-damping-factor)

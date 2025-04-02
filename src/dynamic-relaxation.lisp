@@ -302,7 +302,10 @@
       (let ((full-load (list))
             (full-step (list))
             (full-energy (list))
-            (energy-list (list)))
+            (energy-list (list))
+            (power-last 0d0)
+            (power-current 0d0)
+            )
         (setf *work* 0d0)
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
@@ -315,7 +318,21 @@
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                     (incf *work* (estimate-power-norm sim)))
+                     (let ((power (estimate-power-norm sim)))
+                       (incf *work* power)
+                       (when kinetic-damping
+                         (if (< (* power-last power) 0d0)
+                             (progn
+                               (format t "Peak found resetting KE~%")
+                               (cl-mpm:iterate-over-mps
+                                mps
+                                (lambda (mp)
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
+                               ;; (setf *work* 0d0)
+                               (setf power-last 0d0))
+                             (setf power-last power)))
+                       ))
                    (setf load cl-mpm/penalty::*debug-force*)
                    (setf energy-total (estimate-energy-norm sim))
                    (if (= *work* 0d0)
@@ -325,20 +342,21 @@
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
-                   (when kinetic-damping
-                     (push energy-total energy-list)
-                     (when (> (length energy-list) 2)
-                       (when (and
-                              (< (nth 0 energy-list) (nth 1 energy-list))
-                              (> (nth 1 energy-list) (nth 2 energy-list))
-                                        ;(> (nth 2 energy-list) (nth 3 energy-list))
-                              )
-                         (format t "Peak found resetting KE~%")
-                         (cl-mpm:iterate-over-mps
-                          mps
-                          (lambda (mp)
-                            (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                            (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp)))))))
+                   ;; (when kinetic-damping
+                   ;;   (push energy-total energy-list)
+                   ;;   (when (> (length energy-list) 2)
+                   ;;     (when (and
+                   ;;            (< (nth 0 energy-list) (nth 1 energy-list))
+                   ;;            (> (nth 1 energy-list) (nth 2 energy-list))
+                   ;;                      ;(> (nth 2 energy-list) (nth 3 energy-list))
+                   ;;            )
+                   ;;       (format t "Peak found resetting KE~%")
+                   ;;       (cl-mpm:iterate-over-mps
+                   ;;        mps
+                   ;;        (lambda (mp)
+                   ;;          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                   ;;          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
+                   ;;       )))
                    (when (and
                           (if convergance-criteria (funcall convergance-criteria sim) t)
                           (< fnorm energy-crit)
@@ -396,7 +414,20 @@
                    (dotimes (j substeps)
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
-                     (incf *work* (estimate-power-norm sim)))
+                     (let ((power (estimate-power-norm sim)))
+                       (incf *work* power)
+                       (when kinetic-damping
+                         (if (< (* power-last power) 0d0)
+                             (progn
+                               (when (= rank 0)
+                                 (format t "Peak found resetting KE~%"))
+                               (cl-mpm:iterate-over-mps
+                                mps
+                                (lambda (mp)
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
+                               (setf power-last 0d0))
+                             (setf power-last power)))))
 
                    (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
                    (setf energy-total (estimate-energy-norm sim))
