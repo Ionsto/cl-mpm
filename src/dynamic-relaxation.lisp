@@ -146,18 +146,18 @@
                            (*
                             (cl-mpm/mesh:node-mass node)
                             ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/fastmaths::mag
                              (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
                      dmax (+
                            dmax
                            (*
                             (cl-mpm/mesh:node-mass node)
                             ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                            (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/fastmaths::mag
                              f-ext))))))))))
     (when (> dmax 0d0)
-      (setf oobf (sqrt (/ nmax dmax)))
-      ;; (setf oobf (/ nmax dmax))
+      ;; (setf oobf (sqrt (/ nmax dmax)))
+      (setf oobf (/ nmax dmax))
       )
     ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
     ;; (setf oobf oobf-norm)
@@ -246,17 +246,19 @@
                                     (conv-steps 50)
                                     (post-iter-step nil)
                                     (convergance-criteria nil)
-                                    (pic-update t))
+                                    (pic-update t)
+                                    (kinetic-damping t)
+                                    )
   "Converge a simulation to a quasi-static solution via dynamic relaxation
    This is controlled by a kinetic energy norm"
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
-    (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria)
+    (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
       (continue ())
       (retry-convergence ()
         
-        (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step)
+        (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
         ))
     (setf (cl-mpm::sim-velocity-algorithm sim) current-vel)))
 
@@ -268,7 +270,9 @@
                                     substeps
                                     conv-steps
                                     post-iter-step
-                                    convergance-criteria)
+                                    convergance-criteria
+                                    kinetic-damping
+                                    )
  )
 (defparameter *work* 0d0)
 (defmethod %converge-quasi-static (sim
@@ -279,7 +283,9 @@
                                    substeps
                                    conv-steps
                                    post-iter-step
-                                   convergance-criteria)
+                                   convergance-criteria
+                                   kinetic-damping
+                                   )
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
@@ -319,19 +325,20 @@
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
-                   (push energy-total energy-list)
-                   (when (> (length energy-list) 2)
-                     (when (and
-                            (< (nth 0 energy-list) (nth 1 energy-list))
-                            (> (nth 1 energy-list) (nth 2 energy-list))
-                            ;(> (nth 2 energy-list) (nth 3 energy-list))
-                            )
-                       (format t "Peak found resetting KE~%")
-                       (cl-mpm:iterate-over-mps
-                        mps
-                        (lambda (mp)
-                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
+                   (when kinetic-damping
+                     (push energy-total energy-list)
+                     (when (> (length energy-list) 2)
+                       (when (and
+                              (< (nth 0 energy-list) (nth 1 energy-list))
+                              (> (nth 1 energy-list) (nth 2 energy-list))
+                                        ;(> (nth 2 energy-list) (nth 3 energy-list))
+                              )
+                         (format t "Peak found resetting KE~%")
+                         (cl-mpm:iterate-over-mps
+                          mps
+                          (lambda (mp)
+                            (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
+                            (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp)))))))
                    (when (and
                           (if convergance-criteria (funcall convergance-criteria sim) t)
                           (< fnorm energy-crit)
@@ -358,7 +365,8 @@
                                    substeps
                                    conv-steps
                                    post-iter-step
-                                   convergance-criteria)
+                                   convergance-criteria
+                                   kinetic-damping)
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim

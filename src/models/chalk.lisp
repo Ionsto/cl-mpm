@@ -694,6 +694,8 @@
       ;;                                                               (/ p 3) damage)) stress)
     ))
 
+(defun delay-damage-update (k-0 y-0 y-1))
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -735,6 +737,7 @@
         (let ((a tau-exp)
               (k0 init-stress))
           (when (> ybar k0)
+            ;;Backwards Euler
             (incf k (the double-float
                          (*
                           dt

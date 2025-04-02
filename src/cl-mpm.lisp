@@ -122,6 +122,10 @@
     :type symbol
     :accessor sim-velocity-algorithm
     :initform :BLEND)
+   (damping-algorithm
+    :type symbol
+    :accessor sim-damping-algorithm
+    :initform :VISCOUS)
    (unique-index-counter
     :type integer
     :accessor sim-unique-index-counter
