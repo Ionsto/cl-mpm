@@ -38,10 +38,10 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  (cl-mpm::update-domain-deformation mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::update-domain-deformation mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (let ((damage-increment 0d0))
@@ -64,7 +64,7 @@
           (setf damage-increment
                 ;; (max 0d0
                 (+
-                 ;; ps-y
+                 ps-y
                  ;; (cl-mpm/damage::tensile-energy-norm strain E de)
                  ;; (cl-mpm/damage::criterion-effective-principal-stress stress (/ pressure 3))
                  ;; (cl-mpm/damage::criterion-effective-principal-strain strain E (* 1d0 1/3 pressure))
@@ -255,8 +255,8 @@
       (cl-mpm:sim-mesh *sim*)
       '(0 nil 0)
       '(0 nil 0)
-      '(nil 0 0)
-      '(nil 0 0)
+      '(nil 0 nil)
+      '(nil 0 nil)
       '(nil nil 0)
       '(nil nil 0)))
 
@@ -265,7 +265,7 @@
           (* 0.1d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
-    ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-4)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
     (setf (cl-mpm::sim-enable-fbar *sim*) nil)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
@@ -284,7 +284,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 1d0)
+           :visc-damping 1d-1)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
