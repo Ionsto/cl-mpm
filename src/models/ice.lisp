@@ -56,6 +56,11 @@
   ((history-stress
     :accessor mp-history-stress
     :initform 0d0)
+   (damage-ybar-prev
+    :accessor mp-damage-ybar-prev
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-ybar-prev)
    (trial-elastic-strain
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -180,6 +185,8 @@
             (cl-mpm/fastmaths:fast-.+ plastic-strain
                                       (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain)
                                       plastic-strain)
+            (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain plastic-strain)
+            (setf inc (cl-mpm/utils:trace-voigt plastic-strain))
             (let ()
               (incf ps-vm inc)
               (setf ps-vm-inc inc)))))
@@ -566,6 +573,7 @@
                      (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -596,14 +604,14 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (> ybar k0)
+          (when (> ybar-prev k0)
             (incf k (the double-float
                          (*
                           dt
                           (/
                            (* k0
                               (expt
-                               (/ (the double-float (max 0d0 (- ybar k)))
+                               (/ (the double-float (max 0d0 (- ybar-prev k)))
                                   k0) a))
                            tau))))))
         (let ((new-damage
@@ -612,6 +620,7 @@
                  (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
+        (setf ybar-prev ybar)
         (if peerlings
           (setf
            damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
