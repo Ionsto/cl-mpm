@@ -38,10 +38,10 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-deformation mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::update-domain-deformation mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (let ((damage-increment 0d0))
@@ -60,26 +60,26 @@
                      (E cl-mpm/particle::mp-e))
         mp
       (progn
-        (setf ps-vm (sqrt (* E (expt (cl-mpm/utils:trace-voigt plastic-strain) 2))))
-        (setf damage-increment
-              ;; (max 0d0
-              (+
-               ps-vm
-               ;; (cl-mpm/damage::tensile-energy-norm strain E de)
-               ;; (cl-mpm/damage::criterion-effective-principal-stress stress (/ pressure 3))
-               ;; (cl-mpm/damage::criterion-effective-principal-strain strain E (* 1d0 1/3 pressure))
-               ;; (cl-mpm/damage::tensile-energy-norm-pressure strain E de (* (magicl:det def) pressure))
-               (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                ;; stress
-                (cl-mpm/fastmaths:fast-.+
-                 ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
-                 stress
-                 (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
-                 ;; (cl-mpm/utils:voigt-eye (* 1d0 (magicl:det def) (/ (- pressure) 3)))
-                 )
-                (* angle (/ pi 180d0)))
-               ))
+        (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
+          (setf damage-increment
+                ;; (max 0d0
+                (+
+                 ;; ps-y
+                 ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+                 ;; (cl-mpm/damage::criterion-effective-principal-stress stress (/ pressure 3))
+                 ;; (cl-mpm/damage::criterion-effective-principal-strain strain E (* 1d0 1/3 pressure))
+                 ;; (cl-mpm/damage::tensile-energy-norm-pressure strain E de (* (magicl:det def) pressure))
+                 (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+                  ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                  ;; stress
+                  (cl-mpm/fastmaths:fast-.+
+                   ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
+                   stress
+                   ;; (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
+                   (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
+                   )
+                  (* angle (/ pi 180d0)))
+                 )))
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
@@ -131,7 +131,7 @@
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.9d0))
+         (water-level (* floating-point 0.8d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -147,13 +147,13 @@
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
     (let* (
-           (angle 60d0)
+           (angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            ;; (init-c 1d5)
-                                        ;(init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
+           ;; (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
            (gf 1000d0)
-           (length-scale (* mesh-resolution 1d0))
+           (length-scale (* mesh-resolution 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
@@ -216,36 +216,9 @@
                (+ offset
                   (* alpha end-height)
                   (* (- 1d0 alpha) start-height))))
-           :k-x k
-           :k-z k
+           ;; :k-x k
+           ;; :k-z k
            )))
-      ;; (cl-mpm/setup::initialise-stress-pressure *sim* (+ ice-height offset)
-      ;;                                           :density density
-      ;;                                           :scaler (lambda (pos)
-      ;;                                                     (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-      ;;                                                                        ice-length) ice-length)))
-      ;;                                                       ;; 1d0
-      ;;                                                       (+ (- 1d0 alpha) (* (/ water-density density) alpha))
-      ;;                                                       ))
-      ;;                                           )
-      ;; (cl-mpm/setup::initialise-stress-pressure *sim* (+ ice-height offset)
-      ;;                                           :density density
-      ;;                                           :scaler (lambda (pos)
-      ;;                                                     (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-      ;;                                                                        ice-length) ice-length)))
-      ;;                                                       ;; 1d0
-      ;;                                                       (+ (- 1d0 alpha) (* (/ water-density density) alpha))
-      ;;                                                       ))
-      ;;                                           )
-      ;; (cl-mpm/setup::initialise-stress-self-weight *sim* (+ ice-height offset)
-      ;;                                              :scaler (lambda (pos)
-      ;;                                                        (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-      ;;                                                                           ice-length) ice-length)))
-      ;;                                                          ;; 1d0
-      ;;                                                          (+ (- 1d0 alpha) (* (/ water-density density) alpha))
-      ;;                                                          ))
-      ;;                                                        )
-      ;; (cl-mpm/setup::initialise-stress-pressure *sim* datum :density (+ water-density))
       (cl-mpm/setup::remove-sdf *sim*
                                 (lambda (p)
                                   (cl-mpm/setup::plane-point-point-sdf
@@ -255,50 +228,26 @@
                                 :refine 0
                                 )
 
+
       (let ((cutout (+ (- ice-height water-level) 0d0))
             (cutback bench-length)
             )
         ;; (pprint cutout)
         (when (> cutback 0d0)
-          (cl-mpm/setup:remove-sdf
-           *sim*
-           (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset (second block-size)))
-                                        (list cutback cutout))
-           ))
-        ;; (let ((cut-back-distance 0.15d0)
-        ;;       ;; (width (* 1d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0))))
-        ;;       (width (* mesh-resolution 2))
-        ;;       )
-        ;;   ;; (pprint width)
-        ;;   (cl-mpm/setup::apply-sdf *sim*
-        ;;                            (lambda (p) (cl-mpm/setup::line-sdf
-        ;;                                         (cl-mpm/utils:vector-from-list (list (magicl:tref p 0 0)
-        ;;                                                                              (magicl:tref p 1 0)
-        ;;                                                                              0d0))
-        ;;                                         (list
-        ;;                                          (float (+ ice-height offset) 0d0)
-        ;;                                          (float ice-length 0d0)
-        ;;                                          0d0)
-        ;;                                         (list (float (- ice-length (* cut-back-distance ice-height)) 0d0)
-        ;;                                               (float offset 0d0)
-        ;;                                               0d0)
-        ;;                                         width))
-        ;;                            (lambda (mp v)
-        ;;                              ;; (pprint v)
-        ;;                              (let ((d (* (- 1d0 1d-6) (cl-mpm/damage::weight-func
-        ;;                                               (expt (+ v width) 2)
-        ;;                                               ;; v
-        ;;                                               width))))
-        ;;                                (setf (cl-mpm/particle:mp-damage mp)
-        ;;                                      d)
-        ;;                                (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
-        ;;                                  (setf (cl-mpm/particle::mp-history-stress mp)
-        ;;                                        k))
-        ;;                                ;; (pprint d)
-        ;;                                )
-        ;;                              (cl-mpm/damage::update-damage mp 1d-3)
-        ;;                              (setf (cl-mpm/particle::mp-enable-damage mp) nil)
-        ;;                              )))
+          ;; (cl-mpm/setup:remove-sdf
+          ;;  *sim*
+          ;;  (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset (second block-size)))
+          ;;                               (list cutback cutout))
+          ;;  )
+          (cl-mpm/setup::remove-sdf *sim*
+                                    (lambda (p)
+                                      (cl-mpm/setup::plane-point-point-sdf
+                                       p
+                                       (cl-mpm/utils:vector-from-list (list ice-length datum 0d0))
+                                       (cl-mpm/utils:vector-from-list (list (- ice-length cutback) offset 0d0))))
+                                    :refine 3
+                                    )
+          )
         ))
     (setf
      (cl-mpm:sim-bcs *sim*)
@@ -335,7 +284,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 1d-1)
+           :visc-damping 1d0)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -578,14 +527,15 @@
   (let ((dt-scale 0.5d0)
         (visc-damping (cl-mpm/buoyancy::bc-viscous-damping *water-bc*)))
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+    (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d-2
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
-     :oobf-crit 1d-2
-     :energy-crit 1d-2
+     :oobf-crit 1d-3
+     :energy-crit 1d-3
      :dt-scale dt-scale
      :substeps 50
      :conv-steps 1000
@@ -594,12 +544,7 @@
        (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" i)) *sim*)
        (cl-mpm/output::save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" i)) *sim*)
        (cl-mpm/output::save-vtk-cells (uiop:merge-pathnames* output-dir (format nil "sim_conv_cells_~5,'0d.vtk" i)) *sim*)
-       (plot-domain)
-       ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_conv_~5,'0d.png" i))
-       ;;                    ;:terminal "png size 1920,1080"
-       ;;                    :terminal "png size 3840,2160"
-       ;;                    )
-       ))
+       (plot-domain)))
 
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) visc-damping)
     )
@@ -613,12 +558,12 @@
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
   (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 1d-6
+        (* 1d-3
            (sqrt (cl-mpm:sim-mass-scale *sim*))
            (cl-mpm/setup:estimate-critical-damping *sim*)))
 
   (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
-  (let* ((dt-scale 0.80d0)
+  (let* ((dt-scale 0.50d0)
          (substeps 0d0)
          (work 0d0)
          (oobf 0d0)
@@ -627,8 +572,8 @@
          (accelerate-target-time 1d2)
          (accelerate-mass-scale 1d4)
          (collapse-target-time 1d0)
-         (collapse-mass-scale 1d2)
-         (criteria-energy 1d-1)
+         (collapse-mass-scale 1d0)
+         (criteria-energy 1d-2)
          (criteria-oobf 1d-1)
          (criteria-hist 1.2d0)
          (target-time 1d0)
@@ -676,7 +621,7 @@
                        0d0
                        ;; *data-mass*
                        ))
-             ;; (setf work 0d0)
+             (setf work 0d0)
              (setf energy 0d0
                    oobf 0d0
                    )
@@ -692,9 +637,6 @@
                 ;;      (> (max s1 s2 s3) *removal-strain*))
                 ;;    ))
                 ;; (cl-mpm::split-mps-eigenvalue *sim*)
-                ;; (incf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
-                ;; (incf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                ;; (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
                 (incf oobf (cl-mpm::sim-stats-oobf *sim*))
                 (incf energy (cl-mpm::sim-stats-energy *sim*))
                 (incf work (abs (cl-mpm::sim-stats-power *sim*)))
@@ -735,7 +677,6 @@
                    (cl-mpm:iterate-over-mps
                     (cl-mpm:sim-mps *sim*)
                     (lambda (mp)
-                      ;; (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-acceleration mp))
                       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
                       ))
                    )
@@ -964,8 +905,11 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.5 :friction 0.0 :bench-length 000 :ice-height 2000d0
-         :mps 2
+  (setup :refine 0.5
+         :friction 0.0
+         :bench-length 0
+         :ice-height 800d0
+         :mps 3
          :cryo-static t
          :aspect 1
          )
@@ -986,13 +930,14 @@
   )
 
 (defun test ()
-  (setup :refine 0.5
-         :mps 2
-         :aspect 2
+  (setup :refine 0.25
+         :mps 3
+         :aspect 4
+         :bench-length 400d0
          )
   (elastic-sim
    :damping 1d-2
-   :dt-scale 0.5d0
+   :dt-scale 0.8d0
    )
   )
 
