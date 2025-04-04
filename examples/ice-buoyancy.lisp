@@ -310,7 +310,7 @@
          (* domain-half 1.1d0)
          (* E 0.01d0)
          friction
-         0d0)))
+         0.1d0)))
 
     (defparameter *bc-erode*
       (cl-mpm/erosion::make-bc-erode
@@ -559,10 +559,7 @@
 
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
-  (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 1d-3
-           (sqrt (cl-mpm:sim-mass-scale *sim*))
-           (cl-mpm/setup:estimate-critical-damping *sim*)))
+  
 
   (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
   (let* ((dt-scale 0.50d0)
@@ -572,9 +569,9 @@
          (energy 0d0)
          (sim-state :accelerate)
          (accelerate-target-time 1d2)
-         (accelerate-mass-scale 1d4)
+         (accelerate-mass-scale 1d6)
          (collapse-target-time 1d0)
-         (collapse-mass-scale 1d0)
+         (collapse-mass-scale 1d2)
          (criteria-energy 5d-2)
          (criteria-oobf 5d-2)
          (criteria-hist 2d0)
@@ -597,6 +594,15 @@
     (setf (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale
           target-time accelerate-target-time)
     (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm/setup:estimate-elastic-dt *sim*)))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 1d-3
+             (sqrt (cl-mpm:sim-mass-scale *sim*))
+             (cl-mpm/setup:estimate-critical-damping *sim*)))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
+       ))
     (setf substeps (ceiling target-time (cl-mpm:sim-dt *sim*)))
     (format t "Substeps ~D~%" substeps)
     (loop for step from 0 below 1000
@@ -680,21 +686,19 @@
                     (cl-mpm:sim-mps *sim*)
                     (lambda (mp)
                       (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp))
-                      ))
-                   )
-                 ))
-             (case sim-state
-               (:accelerate
-                (format t "Accelerate timestep~%")
-                (setf
-                 target-time accelerate-target-time
-                 (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale))
-               (:collapse
-                (format t "Collapse timestep~%")
-                (setf
-                 ;; work 0d0
-                 target-time collapse-target-time
-                 (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale)))
+                      ))))
+               (case sim-state
+                 (:accelerate
+                  (format t "Accelerate timestep~%")
+                  (setf
+                   target-time accelerate-target-time
+                   (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale))
+                 (:collapse
+                  (format t "Collapse timestep~%")
+                  (setf
+                   ;; work 0d0
+                   target-time collapse-target-time
+                   (cl-mpm::sim-mass-scale *sim*) collapse-mass-scale))))
 
 
              (format t "OOBF ~E - Energy ~E~%" oobf energy)
@@ -907,13 +911,13 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.25
+  (setup :refine 0.5
          :friction 0.0
          :bench-length 200d0
          :ice-height 400d0
-         :mps 3
+         :mps 2
          :cryo-static t
-         :aspect 2
+         :aspect 3
          )
   (plot-domain)
   (run)
