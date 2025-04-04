@@ -195,7 +195,7 @@
                  (setf nmax (+
                              nmax
                              (*
-                              (cl-mpm/mesh:node-mass node)
+                              (expt (cl-mpm/mesh:node-mass node) 2)
                               ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                               (cl-mpm/fastmaths::mag-squared
                                (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
@@ -203,7 +203,7 @@
                              dmax
                              (*
                               ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                              (cl-mpm/mesh:node-mass node)
+                              (expt (cl-mpm/mesh:node-mass node) 2)
                               (cl-mpm/fastmaths::mag-squared f-ext)))))))))))
 
     (setf nmax (cl-mpm/mpi::mpi-sum nmax))
