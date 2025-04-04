@@ -83,7 +83,9 @@
                     ))))))
       (if (= mass 0d0)
           0d0
-          energy))))
+          energy
+          ;; (/ energy mass)
+          ))))
 (defmethod estimate-power-norm ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((dt (cl-mpm:sim-dt sim)))
     (cl-mpm/mpi::mpi-sum

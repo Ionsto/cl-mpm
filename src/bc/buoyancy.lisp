@@ -661,7 +661,7 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       ;; (locate-mps-cells sim clip-function)
-      (populate-cells-volume sim clip-function)
+      (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
@@ -697,7 +697,7 @@
                (buoyancy-virtual-stress (tref pos 1 0) datum rho))
              (lambda (pos)
                (buoyancy-virtual-div (tref pos 1 0) datum rho))
-             (lambda (pos)
+             (lambda (pos datum)
                (and
                 (cell-clipping pos datum)
                 (funcall clip-func pos datum)
@@ -710,7 +710,7 @@
              (buoyancy-virtual-stress (tref pos 1 0) datum rho))
            (lambda (pos)
              (buoyancy-virtual-div (tref pos 1 0) datum rho))
-           (lambda (pos)
+           (lambda (pos datum)
              (and
               (funcall clip-func pos datum)))
            datum)))

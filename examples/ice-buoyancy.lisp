@@ -76,7 +76,8 @@
                    ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
                    stress
                    ;; (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
-                   (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
+                   (cl-mpm/utils:voigt-eye (* 1d0 ;; (magicl:det def)
+                                              (/ (- pressure) 3)))
                    )
                   (* angle (/ pi 180d0)))
                  )))
@@ -125,13 +126,13 @@
          ;; (density 900d0)
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
-         (offset (* mesh-resolution 0))
+         (offset (* mesh-resolution 2))
          (end-height ice-height)
          (start-height ice-height)
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.8d0))
+         (water-level (* floating-point 0.85d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -147,7 +148,7 @@
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
     (let* (
-           (angle 40d0)
+           (angle 50d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            ;; (init-c 1d5)
@@ -219,14 +220,15 @@
            ;; :k-x k
            ;; :k-z k
            )))
-      (cl-mpm/setup::remove-sdf *sim*
-                                (lambda (p)
-                                  (cl-mpm/setup::plane-point-point-sdf
-                                   p
-                                   (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
-                                   (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
-                                :refine 0
-                                )
+      (unless (= start-height end-height)
+        (cl-mpm/setup::remove-sdf *sim*
+                                  (lambda (p)
+                                    (cl-mpm/setup::plane-point-point-sdf
+                                     p
+                                     (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
+                                     (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
+                                  :refine 0
+                                  ))
 
 
       (let ((cutout (+ (- ice-height water-level) 0d0))
@@ -266,7 +268,7 @@
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
-    (setf (cl-mpm::sim-enable-fbar *sim*) nil)
+    (setf (cl-mpm::sim-enable-fbar *sim*) t)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
@@ -284,7 +286,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 1d-1)
+           :visc-damping 1d-2)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -306,7 +308,7 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* E 0.1d0)
+         (* E 0.01d0)
          friction
          0d0)))
 
@@ -573,9 +575,9 @@
          (accelerate-mass-scale 1d4)
          (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
-         (criteria-energy 1d-2)
-         (criteria-oobf 1d-1)
-         (criteria-hist 1.2d0)
+         (criteria-energy 5d-2)
+         (criteria-oobf 5d-2)
+         (criteria-hist 2d0)
          (target-time 1d0)
          (time 0d0)
          (damage-est 0d0)
@@ -905,13 +907,13 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.5
+  (setup :refine 0.25
          :friction 0.0
-         :bench-length 0
-         :ice-height 800d0
+         :bench-length 200d0
+         :ice-height 400d0
          :mps 3
          :cryo-static t
-         :aspect 1
+         :aspect 2
          )
   (plot-domain)
   (run)
