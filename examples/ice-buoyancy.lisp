@@ -913,7 +913,7 @@
 (defun calving-test ()
   (setup :refine 0.5
          :friction 0.0
-         :bench-length 200d0
+         :bench-length 000d0
          :ice-height 400d0
          :mps 2
          :cryo-static t

@@ -88,12 +88,12 @@ with open(output_dir+"settings.json") as f:
     #print("Domain size:{}".format(json_settings["DOMAIN-SIZE"]))
     #water_height = 0
     h = json_settings["RESOLUTION"]
-    offset = 0 #2*h
-    water_height = 290#json_settings["OCEAN-HEIGHT"]-offset
+    offset = 2*h
+    water_height = json_settings["OCEAN-HEIGHT"]#-offset
     xlim = [0,json_settings["DOMAIN-SIZE"][0]]
     ylim = [0,json_settings["DOMAIN-SIZE"][1]]
     #ylim[0] = 20
-xlim = [0,1000]
+xlim = [400,1600]
 ylim = [0,500]
 files = os.listdir(output_dir)
 #Grab all files that are unique to first rank
@@ -159,13 +159,15 @@ def get_plot(i,fname):
     plt.margins(x=0,y=0)
     plt.tight_layout()
     plt.gcf().patch.set_alpha(0)
-    plt.savefig("poster_marine_{}.pdf".format(fname))
-    plt.show()
-    #plt.clf()
+    plt.savefig("poster_undercut_{}.pdf".format(fname))
+    # plt.show()
+    plt.clf()
 
 def wrapper(x):
     get_plot(x,files_csvs[x])
 
 index = 80
-wrapper(79)
+wrapper(80)
+wrapper(400)
+wrapper(999)
 # wrapper(120)
