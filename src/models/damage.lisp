@@ -386,6 +386,25 @@
   )
 
 
+(defun deriv-partial (k y k0 tau n)
+  (if (> y k0)
+      (/
+       (* k0
+          (expt
+           (/ (the double-float (max 0d0 (- y k)))
+              k0) n))
+       tau)
+      0d0))
+
+(defun huen-integration (k y-0 y-1 k0 tau n dt)
+  (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
+         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-0 k0 tau n)))
+    (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
+
+(defun forwards-integration (k y-0 y-1 k0 tau n dt)
+  (+ k (* dt (deriv-partial k y-0 k0 tau n))))
+
+
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -394,6 +413,7 @@
                      (E cl-mpm/particle::mp-e)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
@@ -409,20 +429,27 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (> ybar k0)
-            (incf k (the double-float
-                         (*
-                          dt
-                          (/
-                           (* k0
-                              (expt
-                               (/ (the double-float (max 0d0 (- ybar k)))
-                                  k0) a))
-                           tau))))))
+          (when (or
+                 (>= ybar-prev k0)
+                 (>= ybar k0))
+            (setf k
+                  (huen-integration k ybar-prev ybar
+                                        k0
+                                        tau
+                                        tau-exp
+                                        dt))
+            ;; (setf k
+            ;;       (forwards-integration k ybar-prev ybar
+            ;;                             k0
+            ;;                             tau
+            ;;                             tau-exp
+            ;;                             dt))
+            ))
+        (setf ybar-prev ybar)
         (let ((new-damage
                 (max
                  damage
-                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility (- 1d0 1d-9)))))
+                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility (- 1d0 1d-6)))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
         (when (>= damage 1d0)

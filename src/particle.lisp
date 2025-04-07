@@ -853,6 +853,11 @@
     :initform 0d0
     :initarg :damage-ybar
     )
+   (damage-ybar-prev
+    :accessor mp-damage-ybar-prev
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-ybar-prev)
    (damage-y-local
     :accessor mp-damage-y-local
     :type DOUBLE-FLOAT

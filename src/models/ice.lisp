@@ -563,6 +563,26 @@
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
         ))))
+
+
+(defun deriv-partial (k y k0 tau n)
+  (if (> y k0)
+      (/
+       (* k0
+          (expt
+           (/ (the double-float (max 0d0 (- y k)))
+              k0) n))
+       tau)
+      0d0))
+
+(defun huen-integration (k y-0 y-1 k0 tau n dt)
+  (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
+         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-0 k0 tau n)))
+    (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
+
+(defun forwards-integration (k y-0 y-1 k0 tau n dt)
+    (+ k (* dt (deriv-partial k y-0 k0 tau n))))
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -604,16 +624,14 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (> ybar-prev k0)
-            (incf k (the double-float
-                         (*
-                          dt
-                          (/
-                           (* k0
-                              (expt
-                               (/ (the double-float (max 0d0 (- ybar-prev k)))
-                                  k0) a))
-                           tau))))))
+          (when (or (> ybar-prev k0)
+                    (> ybar k0))
+            (setf k
+                  (huen-integration k ybar-prev ybar-prev
+                                    k0
+                                    tau
+                                    tau-exp
+                                    dt))))
         (let ((new-damage
                 (max
                  damage

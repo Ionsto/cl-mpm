@@ -189,3 +189,22 @@
   (if (> stress init-stress)
       (* (expt (max 0d0 (- stress init-stress)) 0.5d0) rate)
       0d0))
+
+
+(defun deriv-partial (k y k0 tau n)
+  (if (> y k0)
+      (/
+       (* k0
+          (expt
+           (/ (the double-float (max 0d0 (- y k)))
+              k0) n))
+       tau)
+      0d0))
+
+(defun huen-integration (k y-0 y-1 k0 tau n dt)
+  (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
+         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-0 k0 tau n)))
+    (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
+
+(defun forwards-integration (k y-0 y-1 k0 tau n dt)
+  (+ k (* dt (deriv-partial k y-0 k0 tau n))))
