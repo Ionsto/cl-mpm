@@ -109,6 +109,26 @@
 ;;      ;; (mapcar (lambda (y) (shape-gimp-fbar-dsvp y (* l 0.5d0) h)) x) "fbar"
 ;;      )))
 
+
+(defun shape-gimp-ddsvp (x l h)
+  "Second derivitive of gimp shape functions"
+  (declare (type double-float x l h))
+  (cond
+    ((and (< (- (+ h l)) x) (<= x (- l h)))
+     (/ (+ x h l) (* 2d0 h l))
+     )
+    ((and (< (- l h) x) (<= x (- l)))
+     (/ 1d0 h))
+    ((and (< (- l) x) (<= x l))
+     (- (/ x (* h l)))
+     )
+    ((and (< l x) (<= x (- h l)))
+     (- (/ 1d0 h)))
+    ((and (< (- h l) x) (<= x (+ h l)))
+     (- (/ (- (+ h l) x) (* 2d0 h l))))
+    (t
+     0d0)))
+
 (declaim (inline shape-gimp-dsvp)
          (ftype (function (double-float double-float double-float) double-float) shape-gimp-dsvp))
 (defun shape-gimp-dsvp (x l h)

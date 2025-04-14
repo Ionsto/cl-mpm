@@ -13,13 +13,46 @@
 (in-package :cl-mpm/examples/collapse)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(in-package :cl-mpm/mesh)
+(defclass cl-mpm/mesh::node-gradient-damage (cl-mpm/mesh::node)
+  ((ybar-damage
+    :accessor node-ybar-damage
+    :initform 0d0
+    :type double-float)
+   (ybar-damage-prev
+    :accessor node-ybar-damage-prev
+    :initform 0d0
+    :type double-float)
+   (ybar-dash
+    :accessor node-ybar-dash
+    :initform 0d0
+    :type double-float)
+   (y-damage
+    :accessor node-y-damage
+    :initform 0d0
+    :type double-float)
+   (ybar-force
+    :accessor node-ybar-force
+    :initform 0d0
+    :type double-float)
+   ))
+(defmethod cl-mpm/mesh::reset-node ((node cl-mpm/mesh::node-gradient-damage))
+  (setf (cl-mpm/mesh::node-ybar-damage node) 0d0)
+  (setf (cl-mpm/mesh::node-y-damage node) 0d0)
+  (setf (cl-mpm/mesh::node-ybar-force node) 0d0)
+  (setf (cl-mpm/mesh::node-ybar-dash node) 0d0)
+  (call-next-method))
+(in-package :cl-mpm/examples/collapse)
+
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp))
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-deformation mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
+  )
 (defmethod cl-mpm::update-dynamic-stats (sim)
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
@@ -37,7 +70,7 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
@@ -93,6 +126,10 @@
         (cl-mpm/output::save-parameter "local-length"
                                        (if (slot-exists-p mp 'cl-mpm/particle::true-local-length)
                                            (cl-mpm/particle::mp-true-local-length mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-y"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-y-local)
+                                           (cl-mpm/particle::mp-damage-y-local mp)
                                            0d0))
         (cl-mpm/output::save-parameter "damage-ybar"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
@@ -150,14 +187,17 @@
 (defun stop ()
   (setf *run-sim* nil))
 
-(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
+(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1) (length-scale 1d0)
+                                            )
   (let* ((sim (cl-mpm/setup::make-simple-sim;-sd
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               ;; :sim-type
+               :sim-type
                ;; 'cl-mpm::mpm-sim-sd
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;; 'cl-mpm/damage::mpm-sim-damage
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               'cl-mpm/damage::mpm-sim-damage
+               :node-type
+               'cl-mpm/mesh::node-gradient-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -167,6 +207,7 @@
          )
     (declare (double-float h density))
     (progn
+      (format t "Mesh size ~E~%" h)
       (let ()
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
@@ -177,27 +218,27 @@
                 density
                 ;'cl-mpm/particle::particle-finite-viscoelastic-ice
                 ;; 'cl-mpm/particle::particle-finite-viscoelastic
-                ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-                'cl-mpm/particle::particle-elastic
+                'cl-mpm/particle::particle-elastic-damage-delayed
+                ;; 'cl-mpm/particle::particle-elastic
                 ;; 'cl-mpm/particle::particle-vm
-                :E 1d6
+                :E 1d9
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
                 ;; :visc-power 3d0
                 ;; :rho 30d3
-                ;; :initiation-stress 1d4
-                ;; :delay-time 1d0
-                ;; :delay-exponent 1d0
-                ;; :local-length h
-                ;; :ductility 10d0
+                :initiation-stress 1d4
+                :delay-time 10d0
+                :delay-exponent 2d0
+                :local-length length-scale;(* length-scale h)
+                :ductility 10d0
                 :gravity -10.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       ;; (format t "Charictoristic time ~E~%" (/ ))
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-4)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -207,7 +248,7 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0d-1
+              (* 1d-1
                  (cl-mpm/setup:estimate-critical-damping sim))))
 
       (setf *eta* (* 0.5d0
@@ -239,8 +280,8 @@
         (cl-mpm:sim-mesh sim)
         '(0 nil 0)
         '(0 nil 0)
-        '(nil 0 nil)
-        '(nil 0 nil)
+        '(0 0 nil)
+        '(0 0 nil)
         '(nil nil 0)
         '(nil nil 0)))
       sim)))
@@ -256,10 +297,11 @@
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
     ))
 
-(defun setup (&key (refine 1) (mps 2))
+(defun setup (&key (refine 1) (mps 2)
+                (length-scale 1d0))
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column '(32 16) '(8 8) refine mps-per-dim))
+    (defparameter *sim* (setup-test-column '(32 16) '(8 8) refine mps-per-dim length-scale))
     )
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
@@ -271,6 +313,17 @@
   (defparameter *t* 0)
   (defparameter *sim-step* 0))
 
+(defun get-damage ()
+  (lparallel:pmap-reduce
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-damage)
+         (*
+          (cl-mpm/particle::mp-mass mp)
+          (cl-mpm/particle:mp-damage mp))
+         0d0))
+   #'+
+   (cl-mpm:sim-mps *sim*)))
+
 (defun run (&key (output-dir "./output/")
               (ms 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
@@ -278,16 +331,18 @@
                           *sim*)
 
   (defparameter *data-steps* (list))
+  (defparameter *data-time* (list))
   (defparameter *data-oobf* (list))
   (defparameter *data-energy* (list))
+  (defparameter *data-damage* (list))
   (setf (cl-mpm:sim-damping-factor *sim*)
-        (* 1d-2
+        (* 1d-1
            (cl-mpm/setup:estimate-critical-damping *sim*)))
-  ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
-  ;;  *sim*
-  ;;  :dt-scale 0.5d0
-  ;;  :oobf-crit 1d-2
-  ;;  :energy-crit 1d-2)
+  (cl-mpm/dynamic-relaxation:converge-quasi-static
+   *sim*
+   :dt-scale 0.5d0
+   :oobf-crit 1d-2
+   :energy-crit 1d-2)
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -306,7 +361,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (let ((energy 0d0)
@@ -339,6 +394,12 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
+
+                     (push energy *data-energy*)
+                     (push *t* *data-time*)
+                     (push (get-damage) *data-damage*)
+                     (push steps *data-steps*)
+
                      (format t "Min dt est ~f~%" dt-min)
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
@@ -347,14 +408,15 @@
                      ;; (setf (cl-mpm:sim-dt *sim*) (* dt-min dt-scale))
                      ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                      (format t "Substeps ~D~%" substeps)
-                     (let ((energy 0d0))
-                       (setf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                       (push energy *data-energy*)
-                       (push steps *data-steps*)
-                       (format t "Energy ~F~%" energy))
+                     ;; (let ((energy 0d0))
+                     ;;   (setf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                     ;;   (push energy *data-energy*)
+                     ;;   (push steps *data-steps*)
+                     ;;   (format t "Energy ~F~%" energy))
 
                      (incf *sim-step*)
-                     (plot *sim*)
+                     ;; (plot *sim*)
+                     (vgplot:plot *data-time* *data-damage*)
                      (vgplot:title (format nil "Time:~F - KE ~E - OOBF ~E - Work ~E"  (cl-mpm::sim-time *sim*) energy oobf work))
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
                                         :terminal "png size 1920,1080"
@@ -646,9 +708,252 @@
 
 (defun test-ms ()
   (setf *run-sim* t)
-  (loop for  ms in (list 1d0 1d1 1d2 1d3)
+  (defparameter *all-data-ms* (list))
+  (defparameter *all-data-time* (list))
+  (defparameter *all-data-damage* (list))
+  (loop for  ms in (list 1d0 1d1 1d2)
         while *run-sim*
         do
            (progn
-             (setup :refine 2)
-             (run :output-dir (format nil "./output-~F/" ms) :ms ms))))
+             (setup :refine 1)
+             (run :output-dir (format nil "./output-~F/" ms) :ms ms)
+             (push ms *all-data-ms*)
+             (push *data-time* *all-data-time*)
+             (push *data-damage* *all-data-damage*)
+             )))
+
+;; (defparameter *euler-data-ms*    *all-data-ms*)
+;; (defparameter *euler-data-time* *all-data-time* )
+;; (defparameter *euler-data-damage* *all-data-damage*)
+
+(defun plot-all ()
+  (vgplot:figure)
+  (apply
+   #'vgplot:plot
+   (reduce #'append
+           (mapcar
+            #'list
+            *all-data-time*
+            *all-data-damage*
+            (mapcar (lambda (x) (format nil "~F" x)) *all-data-ms*)))))
+
+(defun test-hemlholtz (&key (output-dir "./output/"))
+  (setf *run-sim* t)
+  ;; (loop for l in (list 0.25d0 1d0 4d0)
+  ;;       while *run-sim*
+  ;;       do
+  ;;          (setup :refine 2 :length-scale l)
+  ;;          (cl-mpm/dynamic-relaxation:converge-quasi-static
+  ;;           *sim*
+  ;;           :dt-scale 0.5d0
+  ;;           :oobf-crit 1d-2
+  ;;           :energy-crit 1d-2)
+  ;;          (let* ((c l)
+  ;;                 (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+  ;;                 (dt (* 0.4d0 (/ (expt h 2) c))))
+  ;;            (dotimes (i 100)
+  ;;              (solve-helmholtz *sim* dt)
+  ;;              (format t "Criteria ~E~%" (criteria *sim*))
+  ;;              ))
+  ;;          (cl-mpm/output:save-vtk (merge-pathnames "./" (format nil "sim_~E.vtk" l)) *sim*)
+  ;;          (swank.live:update-swank))
+  (let ((l 1d0))
+    (setup :refine 2
+           :mps 2
+           :length-scale l)
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :dt-scale 0.5d0
+     :oobf-crit 1d-2
+     :energy-crit 1d-2)
+    (cl-mpm/damage::calculate-y-local-damage *sim*)
+    ;; (cl-mpm:iterate-over-mps
+    ;;  (cl-mpm:sim-mps *sim*)
+    ;;  (lambda (mp)
+    ;;    (setf (cl-mpm/particle::mp-damage-ybar mp)
+    ;;          (cl-mpm/particle::mp-damage-y-local mp))))
+    (loop for sim-step from 0 to 100
+          while *run-sim*
+          do (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                   (dt (* 0.25d0 (/ (expt h 2) l))))
+               (format t "Step ~D~%" sim-step)
+               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" sim-step)) *sim*)
+               (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" sim-step)) *sim*)
+               (dotimes (i 1)
+                 (solve-helmholtz *sim* dt))
+               (plot *sim*)
+               (format t "Criteria ~E~%" (criteria *sim*))
+               (swank.live:update-swank))))
+  ;; )
+  )
+(defun solve-helmholtz (sim dt)
+  (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
+  (p2g-damage sim)
+  (cl-mpm::filter-grid (cl-mpm:sim-mesh sim) 1d-5)
+  (update-damage sim dt)
+  (g2p-damage sim dt)
+  (update-ybar sim dt)
+  (format t "Crit ~E~%" (criteria sim)))
+
+(defun criteria (sim)
+  (let ((y-inc 0d0)
+        (y 0d0)
+        (oobf 0d0))
+    (cl-mpm::iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (when (cl-mpm/mesh::node-active node)
+         (incf oobf
+               (expt
+                 (-
+                  (cl-mpm/mesh::node-y-damage node)
+                  (cl-mpm/mesh::node-ybar-force node)
+                  )
+                2
+                ))
+         (incf y (expt (cl-mpm/mesh::node-y-damage node) 2))
+         ;; (incf y-inc
+         ;;       (cl-mpm/mesh::node-ybar-dash node))
+         ;; (incf y (cl-mpm/mesh::node-y-damage node))
+         )))
+    (format t "y-inc ~E~%" y-inc)
+    (format t "y ~E~%" y)
+    (format t "oobf ~E~%" oobf)
+    (setf oobf (sqrt (/ oobf y)))
+    ;; (break)
+    ;; (let ((crit (if (= 0d0 y) 0d0 (/ (abs y-inc) y))))
+    ;;   crit)
+    oobf
+    ))
+
+(defun update-damage (sim dt)
+  (cl-mpm:iterate-over-nodes
+   (cl-mpm:sim-mesh sim)
+   (lambda (node)
+     (with-accessors ((ybar cl-mpm/mesh::node-ybar-damage)
+                      (y cl-mpm/mesh::node-y-damage)
+                      (ybar-dash cl-mpm/mesh::node-ybar-dash)
+                      (ybar-force cl-mpm/mesh::node-ybar-force)
+                      (mass cl-mpm/mesh::node-mass)
+                      (active cl-mpm/mesh::node-active)
+                      )
+         node
+         (when active
+           ;; (setf ybar-dash (/ (- ybar-force y) mass))
+           (setf ybar (/ ybar mass))
+           (setf y (/ y mass))
+           (setf ybar-force (/ ybar-force mass))
+           (setf ybar-dash (- y (- ybar ybar-force)))
+           (incf ybar (* dt ybar-dash))
+           )))))
+(defun update-ybar (sim dt)
+  (cl-mpm:iterate-over-nodes
+   (cl-mpm:sim-mesh sim)
+   (lambda (node)
+     (with-accessors ((ybar cl-mpm/mesh::node-ybar-damage)
+                      (ybar-last cl-mpm/mesh::node-ybar-damage-prev)
+                      (active cl-mpm/mesh::node-active)
+                      )
+         node
+       (when active
+         (setf ybar-last ybar)
+         )))))
+
+(defun p2g-damage (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (with-accessors ((y cl-mpm/particle::mp-damage-y-local)
+                      (ybar cl-mpm/particle::mp-damage-ybar)
+                      (volume cl-mpm/particle::mp-volume)
+                      (len cl-mpm/particle::mp-true-local-length)
+                      ;; (mass cl-mpm/particle::mp-mass)
+                      )
+         mp
+       (let ((mass 1d0))
+         (cl-mpm:iterate-over-neighbours
+          (cl-mpm:sim-mesh sim)
+          mp
+          (lambda (mesh mp node svp grads fsvp fgrads)
+            (sb-thread:with-mutex ((cl-mpm/mesh::node-lock node))
+              (setf
+               (cl-mpm/mesh::node-active node) t)
+              (incf
+               (cl-mpm/mesh:node-mass node)
+               (* svp mass))
+              (incf
+               (cl-mpm/mesh::node-ybar-damage node)
+               (* svp mass ybar))
+              (incf
+               (cl-mpm/mesh::node-y-damage node)
+               (* svp mass y))
+              (incf
+               (cl-mpm/mesh::node-ybar-force node)
+               (*
+                ;; 0d0
+                -1d0
+                mass
+                ;; volume
+                ;; svp
+                (*
+                 ;; (expt len 2)
+                 len
+                 (cl-mpm/fastmaths::dot
+                  (cl-mpm/utils:vector-from-list grads)
+                  (cl-mpm/utils:vector-from-list grads))
+                 ybar)))))))))))
+
+(defun g2p-damage (sim dt)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (let ((y-bar 0d0))
+       ;; (cl-mpm:iterate-over-neighbours
+       ;;  (cl-mpm:sim-mesh sim)
+       ;;  mp
+       ;;  (lambda (mesh mp node svp grads fsvp fgrads)
+       ;;    (incf
+       ;;     y-bar
+       ;;     (*
+       ;;      svp
+       ;;      (cl-mpm/mesh::node-ybar-damage node)
+       ;;      ))))
+       ;; (setf (cl-mpm/particle::mp-damage-ybar mp) y-bar)
+
+       (cl-mpm:iterate-over-neighbours
+        (cl-mpm:sim-mesh sim)
+        mp
+        (lambda (mesh mp node svp grads fsvp fgrads)
+          (incf
+           y-bar
+           (*
+            svp
+            (cl-mpm/mesh::node-ybar-dash node)
+            ;; (cl-mpm/mesh::node-ybar-damage node)
+            ))))
+       (incf (cl-mpm/particle::mp-damage-ybar mp)
+             ;; y-bar
+             (* dt y-bar)
+             )
+       ))))
+
+(defun test-inter ()
+  (let* ((dt 1d-1)
+         (steps 1000)
+         (y 2)
+         (y-bar 0)
+         ;; (data-y (list ))
+         (data-step (list ))
+         (data-y-bar (list ))
+         )
+    (loop for i from 0 to steps
+          do
+             (push i data-step)
+             (push y-bar data-y-bar)
+             (incf y-bar
+                   (* dt (- y y-bar))))
+    (vgplot:close-all-plots)
+    (vgplot:figure)
+    (vgplot:plot (reverse data-step)
+                 (reverse data-y-bar))
+    ))

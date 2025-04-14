@@ -230,14 +230,14 @@
     (:documentation "MPM computational mesh"))
 
 
-(defun make-node (index pos h)
+(defun make-node (node-type index pos h)
   "Default initialise a 2d node at pos"
-  (make-instance 'node
+  (make-instance node-type
                  :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
                  :position pos
                  ))
 
-(defun make-nodes (mesh size h)
+(defun make-nodes (mesh size h node-type)
   "Make a 2d mesh of specific size"
   (make-array size :initial-contents
       (loop for x from 0 to (- (nth 0 size) 1)
@@ -246,7 +246,9 @@
                           collect
                           (loop for z from 0 to (- (nth 2 size) 1)
                                 collect
-                                (make-node (list x y z)
+                                (make-node
+                                 node-type
+                                 (list x y z)
                                            (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
                                            h))))))
 
@@ -362,7 +364,7 @@
                     (push (apply #'aref cells di) neighbours)))))))))
     cells))
 
-(defun make-mesh (size resolution shape-function)
+(defun make-mesh (size resolution shape-function &key (node-type 'node))
   "Create a 2D mesh and fill it with nodes"
   (let ((nD (length size)))
     (if (= nD 2)
@@ -382,7 +384,7 @@
                                   :boundary-order boundary-order
                                   )))
         (setf (mesh-nodes mesh)
-              (make-nodes mesh meshcount resolution))
+              (make-nodes mesh meshcount resolution node-type))
         (if (= nD 2)
             (setf (mesh-cells mesh) (make-cells-2d mesh meshcount resolution))
             (setf (mesh-cells mesh) (make-cells mesh meshcount resolution)))

@@ -212,6 +212,16 @@
            (calculate-average-damage mesh mp ll)))))
 
 
+(defun calculate-y-local-damage (sim)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt))
+      sim
+    (cl-mpm:iterate-over-mps
+     mps
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle:particle-damage)
+         (damage-model-calculate-y mp dt))))))
 
 (defun calculate-damage (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -239,7 +249,6 @@
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (damage-model-calculate-y mp dt)
            )))
-
       (if non-local-damage
           (progn
             (when (sim-enable-length-localisation sim)
@@ -251,6 +260,7 @@
        (lambda (mp)
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (update-damage mp dt)))))
+    ;;apply damage degredation
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)

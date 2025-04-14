@@ -170,11 +170,13 @@
   (:documentation "Explicit simulation with update stress last update"))
 
 
-(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
+(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf)
+                                                         (node-type 'cl-mpm/mesh::node)
+                                                         )
   "Constructs an mp with critical infomation like mesh and number of dimentions"
   (make-instance sim-type
                  :dt (coerce dt 'double-float)
-                 :mesh (make-mesh size resolution shape-function)
+                 :mesh (make-mesh size resolution shape-function :node-type node-type)
                  :mps (make-array 0 :adjustable t :fill-pointer 0)))
 
 

@@ -17,14 +17,16 @@
 
 
 
-(defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
+(defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf)
+                                                   (node-type 'cl-mpm/mesh::node)
+                                                   )
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x resolution)) element-count))
-           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type)))
+           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type :node-type node-type)))
       (progn
-        ;; (setf (cl-mpm:sim-mps sim) #())
-        (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+        (setf (cl-mpm:sim-bcs sim)
+              (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
         sim))))
 
 (defun make-block (res element-count &key (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
