@@ -111,7 +111,7 @@
                        )))))))
        (if (= mass 0d0)
            0d0
-           energy)
+           (/ energy mass))
        ))))
 
 (defgeneric estimate-oobf (sim))
@@ -251,7 +251,6 @@
     (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
       (continue ())
       (retry-convergence ()
-        
         (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
         ))
     (setf (cl-mpm::sim-velocity-algorithm sim) current-vel)))
