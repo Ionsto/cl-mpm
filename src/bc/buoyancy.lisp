@@ -805,6 +805,7 @@
                     (with-accessors ((force cl-mpm/mesh::node-force)
                                      (active cl-mpm/mesh:node-active)
                                      (mass cl-mpm/mesh:node-mass)
+                                     (velocity cl-mpm/mesh:node-velocity)
                                      (volume cl-mpm/mesh::node-volume)
                                      (boundary cl-mpm/mesh::node-boundary-node)
                                      (lock cl-mpm/mesh::node-lock)
@@ -814,15 +815,20 @@
                         (cl-mpm/fastmaths:fast-.-
                          force
                          (cl-mpm/fastmaths:fast-scale-vector
-                          mp-velocity
+                          ;; mp-velocity
+                          velocity
                           (*
                            ;; (cl-mpm/fastmaths:mag vel)
                            1/2
                            damping
                            svp
-                           ;; (* rho mp-volume)
+                           (sqrt mp-volume)
                            rho
-                           (sqrt mp-boundary)
+                           (sqrt (max 0d0 (- boundary-scalar)))
+                           ;; (sqrt mp-volume)
+                           ;; rho
+                           ;; (sqrt mp-boundary)
+                           ;; mp-boundary
                            )
                           )
                          force)))
