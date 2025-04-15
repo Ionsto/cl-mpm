@@ -768,42 +768,32 @@
      :oobf-crit 1d-2
      :energy-crit 1d-2)
     (cl-mpm/damage::calculate-y-local-damage *sim*)
+    ;; (cl-mpm:iterate-over-mps
+    ;;  (cl-mpm:sim-mps *sim*)
+    ;;  (lambda (mp)
+    ;;    (setf (cl-mpm/particle::mp-damage-ybar mp)
+    ;;          (cl-mpm/particle::mp-damage-y-local mp))))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh *sim*)
+     (lambda (node)
+       (setf (cl-mpm/mesh::node-ybar-damage node) 0d0)))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
 
-    (if nil
-        (progn
-          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" 0)) *sim*)
-          (cl-mpm/damage::update-delocalisation-list (cl-mpm:sim-mesh *sim*) (cl-mpm:sim-mps *sim*))
-          (cl-mpm/damage::delocalise-damage *sim*)
-          (cl-mpm:iterate-over-mps
-           (cl-mpm:sim-mps *sim*)
-           (lambda (mp)
-             (setf (cl-mpm/particle::mp-damage-ybar mp)
-                   (cl-mpm/particle::mp-damage-increment mp))))
-          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" 1)) *sim*)
-          (plot *sim*))
-        (progn
-          (cl-mpm:iterate-over-nodes
-           (cl-mpm:sim-mesh *sim*)
-           (lambda (node)
-             (setf (cl-mpm/mesh::node-ybar-damage node) 0d0)))
-          (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-          (let ((f 1d0))
-            (loop for sim-step from 0 to 1000
-                  while *run-sim*
-                  while (> f 1d-5)
-                  do (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                            (dt (* 0.25d0 (/ (expt h 2) (expt l 2)))))
-                       (format t "Step ~D - ~E~%" sim-step f)
-                       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" sim-step)) *sim*)
-                       (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" sim-step)) *sim*)
-                       (time
-                        (dotimes (i 1)
-                          (solve-helmholtz *sim* dt)))
-                       (plot *sim*)
-                       (setf f (criteria *sim*))
-                       ;; (format t "Criteria ~E~%" f)
-                       (swank.live:update-swank))))))))
-
+    (loop for sim-step from 0 to 1000
+          while *run-sim*
+          do (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                    (dt (* 0.25d0 (/ (expt h 2) (expt l 1)))))
+               (format t "Step ~D~%" sim-step)
+               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" sim-step)) *sim*)
+               (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" sim-step)) *sim*)
+               (time
+                (dotimes (i 1)
+                  (solve-helmholtz *sim* dt)))
+               (plot *sim*)
+               (format t "Criteria ~E~%" (criteria *sim*))
+               (swank.live:update-swank))))
+  ;; )
+  )
 (defun solve-helmholtz (sim dt)
   (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
   (p2g-damage sim)
@@ -863,7 +853,9 @@
            ;; (setf ybar (/ ybar mass))
            (setf y (/ y mass))
            (setf ybar-force (/ ybar-force mass))
-           (setf ybar-dash (- y ybar-force))
+           (setf ybar-dash (- y
+                              (- ybar ybar-force)
+                              ))
            (incf ybar (* dt ybar-dash))
 
            )))))
@@ -911,21 +903,16 @@
                (* svp mass y))
               (incf
                (cl-mpm/mesh::node-ybar-force node)
-               (* mass
-                  (+
-                   (* svp
-                      ;; ybar
-                      (cl-mpm/mesh::node-ybar-damage node)
-                      )
-                   (*
-                    0.5d0
-                    (expt len 2)
-                    (cl-mpm/fastmaths::dot
-                     (cl-mpm/utils:vector-from-list grads)
-                     (cl-mpm/utils:vector-from-list grads))
-                    ;; ybar
-                    (cl-mpm/mesh::node-ybar-damage node)
-                    ))))))))))))
+               (*
+                -1d0
+                mass
+                ;; svp
+                (*
+                 (expt len 2)
+                 (cl-mpm/fastmaths::dot
+                  (cl-mpm/utils:vector-from-list grads)
+                  (cl-mpm/utils:vector-from-list grads))
+                 (cl-mpm/mesh::node-ybar-damage node))))))))))))
 
 (defun g2p-damage (sim dt)
   (cl-mpm:iterate-over-mps
@@ -980,71 +967,4 @@
     (vgplot:figure)
     (vgplot:plot (reverse data-step)
                  (reverse data-y-bar))
-    ))
-
-(defun partial-eps-test (func eps)
-  (let* ((eps-eq (list))
-         (E 1d9)
-         (nu 0.25d0)
-         (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
-         )
-    (loop for e in eps
-          do
-             (let* (
-                    ;; (strain (cl-mpm/utils:voigt-from-list (list e 0d0 0d0 0d0 0d0 0d0)))
-                    ;; (stress (magicl:@ de strain))
-                    (stress (cl-mpm/utils:voigt-from-list (list e 0d0 0d0 0d0 0d0 0d0)))
-                    (strain (magicl:.realpart (magicl:linear-solve de stress)))
-                    )
-               (push (funcall func strain stress de) eps-eq)
-               ))
-    (reverse eps-eq)))
-(defun eps-test ()
-  (let* ((E 1d9)
-         (nu 0.25d0)
-         (eps (loop for x from 0d0 to 1d6 by 1d4 collect x))
-         (eq-se
-           (partial-eps-test
-            (lambda (strain stress de)
-              (cl-mpm/damage::tensile-energy-norm strain E de))
-            eps))
-         (eq-mc-20
-           (partial-eps-test
-            (lambda (strain stress de)
-              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-               stress
-               (* 20d0 (/ pi 180d0))))
-            eps))
-         (eq-mc-40
-           (partial-eps-test
-            (lambda (strain stress de)
-              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-               stress
-               (* 40d0 (/ pi 180d0))))
-            eps))
-         (eq-mc-60
-           (partial-eps-test
-            (lambda (strain stress de)
-              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-               stress
-               (* 60d0 (/ pi 180d0))))
-            eps))
-         )
-    ;; (pprint eq-mc-60)
-    ;; (pprint eq-mc-20)
-    (vgplot:close-all-plots)
-    (vgplot:plot
-     eps
-     eq-se
-     "eq-se"
-     eps
-     eq-mc-20
-     "eq-mc-20"
-     eps
-     eq-mc-40
-     "eq-mc-40"
-     eps
-     eq-mc-60
-     "eq-mc-60"
-     )
     ))
