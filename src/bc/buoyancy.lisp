@@ -781,51 +781,94 @@
                     ;;         (pressure-at-depth (tref p 1 0) datum rho)))
                     (setf mp-datum datum
                           mp-head rho)
-                    (incf mp-boundary (* svp (cl-mpm/mesh::node-boundary-scalar node)))
+                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                     ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
                     ;; (setf mp-boundary 1d3)
                     ))))))))
+
       (let ((damping (bc-viscous-damping bc)))
-        (cl-mpm:iterate-over-nodes
-         mesh
-         (lambda (node)
-           (with-accessors ((vel cl-mpm/mesh:node-velocity)
-                            (force cl-mpm/mesh::node-force)
-                            (active cl-mpm/mesh:node-active)
-                            (mass cl-mpm/mesh:node-mass)
-                            (volume cl-mpm/mesh::node-volume)
-                            (boundary cl-mpm/mesh::node-boundary-node)
-                            (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-               node
-               (when (and active boundary)
-                 (let ((h (cl-mpm/mesh:mesh-resolution mesh))
-                       (nd (cl-mpm/mesh:mesh-nd mesh))
-                       (bs (abs (min boundary-scalar 0d0))))
-                   (when (and (> bs 0d0)
-                              ;; (> mass 1d-10)
-                              )
-                     (cl-mpm/fastmaths:fast-.-
-                      force
-                      (cl-mpm/fastmaths:fast-scale-vector
-                       vel
-                       (*
-                        ;; (cl-mpm/fastmaths:mag vel)
-                        1/2
-                        damping
-                        ;; (/
-                        ;;  mass
-                        ;;  )
-                        mass
-                        ;; (* rho volume)
-                        ;; rho
-                        ;; (expt h 2)
-                        ;; (/ 1d0 (expt h 2))
-                        bs
-                        ;; (expt bs 1/2)
-                        )
-                       ;(* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs)))))
-                       )
-                      force))))))))
+        (cl-mpm:iterate-over-mps
+         mps
+         (lambda (mp)
+           (with-accessors ((pos cl-mpm/particle:mp-position)
+                            (pressure cl-mpm/particle::mp-pressure)
+                            (mp-boundary cl-mpm/particle::mp-boundary)
+                            (mp-volume cl-mpm/particle::mp-volume)
+                            (mp-velocity cl-mpm/particle::mp-velocity)
+                            )
+               mp
+             (when (> mp-boundary 0d0)
+               (cl-mpm::iterate-over-neighbours
+                mesh mp
+                (lambda (mesh mp node svp grads fsvp fgrad)
+                  (when (cl-mpm/mesh:node-active node)
+                    (with-accessors ((force cl-mpm/mesh::node-force)
+                                     (active cl-mpm/mesh:node-active)
+                                     (mass cl-mpm/mesh:node-mass)
+                                     (volume cl-mpm/mesh::node-volume)
+                                     (boundary cl-mpm/mesh::node-boundary-node)
+                                     (lock cl-mpm/mesh::node-lock)
+                                     (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                        node
+                      (sb-thread:with-mutex (lock)
+                        (cl-mpm/fastmaths:fast-.-
+                         force
+                         (cl-mpm/fastmaths:fast-scale-vector
+                          mp-velocity
+                          (*
+                           ;; (cl-mpm/fastmaths:mag vel)
+                           1/2
+                           damping
+                           svp
+                           ;; (* rho mp-volume)
+                           rho
+                           (sqrt mp-boundary)
+                           )
+                          )
+                         force)))
+                  ))))))))
+      ;;Nodal based damping?
+      ;; (let ((damping (bc-viscous-damping bc)))
+      ;;   (cl-mpm:iterate-over-nodes
+      ;;    mesh
+      ;;    (lambda (node)
+      ;;      (with-accessors ((vel cl-mpm/mesh:node-velocity)
+      ;;                       (force cl-mpm/mesh::node-force)
+      ;;                       (active cl-mpm/mesh:node-active)
+      ;;                       (mass cl-mpm/mesh:node-mass)
+      ;;                       (volume cl-mpm/mesh::node-volume)
+      ;;                       (boundary cl-mpm/mesh::node-boundary-node)
+      ;;                       (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+      ;;          node
+      ;;          (when (and active boundary)
+      ;;            (let ((h (cl-mpm/mesh:mesh-resolution mesh))
+      ;;                  (nd (cl-mpm/mesh:mesh-nd mesh))
+      ;;                  (bs (abs (min boundary-scalar 0d0))))
+      ;;              (when (and (> bs 0d0)
+      ;;                         ;; (> mass 1d-10)
+      ;;                         )
+      ;;                (cl-mpm/fastmaths:fast-.-
+      ;;                 force
+      ;;                 (cl-mpm/fastmaths:fast-scale-vector
+      ;;                  vel
+      ;;                  (*
+      ;;                   ;; (cl-mpm/fastmaths:mag vel)
+      ;;                   1/2
+      ;;                   damping
+      ;;                   ;; (/
+      ;;                   ;;  mass
+      ;;                   ;;  )
+      ;;                   ;; mass
+      ;;                   (* rho volume)
+      ;;                   ;; rho
+      ;;                   ;; (expt h 2)
+      ;;                   ;; (/ 1d0 (expt h 2))
+      ;;                   (min bs 0d0)
+      ;;                   ;; (expt bs 1/2)
+      ;;                   )
+      ;;                  ;(* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs)))))
+      ;;                  )
+      ;;                 force))))))))
       )))
 (defun apply-viscous-damping ())
 
