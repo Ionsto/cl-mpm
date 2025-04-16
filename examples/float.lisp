@@ -204,7 +204,7 @@
              t
              ;; (< (cl-mpm/utils:varef pos 1) datum)
              )
-           :visc-damping 1d-3;(* 1d-3 (* 1000d0 (expt h 2)))
+           :visc-damping 1d-1;(* 1d-3 (* 1000d0 (expt h 2)))
            ))
         ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d-5)
         (setf *water-height* ocean-y)
@@ -298,8 +298,10 @@
 
 (defun stop ()
   (setf *run-sim* nil))
-(defun run ()
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames "output/mesh.vtk")
+(defun run (&key (output-dir "./output/"))
+  (uiop:ensure-all-directories-exist (list (uiop:merge-pathnames* output-dir)))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-dir "mesh.vtk")
                           *sim*)
   (defparameter *run-sim* t)
     ;; (vgplot:close-all-plots)
@@ -316,12 +318,12 @@
   ;;     (vgplot:format-plot t "set ytics ~f" h)
   ;;     (vgplot:format-plot t "set xtics ~f" h))
   ;; (vgplot:figure)
-  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
+  (with-open-file (stream (merge-pathnames output-dir "terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%"))
 
   (let* ((target-time 0.25d0)
          (dt (cl-mpm:sim-dt *sim*))
-         (dt-scale 0.5d0)
+         (dt-scale 0.8d0)
          (substeps (floor target-time dt)))
     (cl-mpm::update-sim *sim*)
     (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
@@ -336,8 +338,8 @@
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
-                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "output/sim_csv_~5,'0d.csv" *sim-step*)) *sim*)
 
                      (push *t* *time*)
@@ -355,7 +357,7 @@
                               sum (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
                        (length (cl-mpm:sim-mps *sim*)))
                       *s-xx*)
-                     (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :append)
+                     (with-open-file (stream (merge-pathnames output-dir "terminus_position.csv") :direction :output :if-exists :append)
                        (format stream "~f, ~f ~%" *t* *x*))
                      (let ((cfl 0))
                        (time (dotimes (i substeps)
@@ -396,7 +398,7 @@
                      (sleep .01)
 
                      ))))
-  (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
+  (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
   ;; (plot-s-xx *far-field-mps* 125d0)
   (plot-disp)
   ;; (with-open-file (stream (merge-pathnames "output/far-field-stress.csv") :direction :output :if-exists :append)
@@ -408,35 +410,35 @@
   ;; (vgplot:plot *time* *x-pos*)
   ;; (plot-cfl)
 
-  (with-open-file (stream (merge-pathnames "output/terminus_position.csv") :direction :output :if-exists :supersede)
+  (with-open-file (stream (merge-pathnames output-dir "terminus_position.csv") :direction :output :if-exists :supersede)
     (format stream "Time (s),Terminus position~%")
     (loop for tim in (reverse *time*)
           for x in (reverse *x-pos*)
           do (format stream "~f, ~f ~%" tim x)))
 
-  (with-open-file (stream (merge-pathnames "output/far-field.csv") :direction :output :if-exists :supersede)
-    (format stream "y,s_xx,s_an~%")
-    (let* ((mps *far-field-mps*)
-           (H 125)
-           (rho-ice 900)
-           (E (cl-mpm/particle::mp-e (first mps)))
-           (nu (cl-mpm/particle::mp-nu (first mps)))
-           (g (cl-mpm/particle::mp-gravity (first mps)))
-           (s-xx (loop for mp in mps
-                       collect
-                       (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
-           (y (loop for mp in mps
-                    collect
-                    (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
-           (s-an (mapcar
-                  (lambda (y)
-                    (* (/ nu (- 1 nu)) rho-ice g -1d0 (- y (/ H 2d0))))
-                  y)))
-      (loop for yi in y
-            for si in s-xx
-            for sai in s-an
-            do
-               (format stream "~f, ~f, ~f ~%" yi si sai))))
+  ;; (with-open-file (stream (merge-pathnames "output/far-field.csv") :direction :output :if-exists :supersede)
+  ;;   (format stream "y,s_xx,s_an~%")
+  ;;   (let* ((mps *far-field-mps*)
+  ;;          (H 125)
+  ;;          (rho-ice 900)
+  ;;          (E (cl-mpm/particle::mp-e (first mps)))
+  ;;          (nu (cl-mpm/particle::mp-nu (first mps)))
+  ;;          (g (cl-mpm/particle::mp-gravity (first mps)))
+  ;;          (s-xx (loop for mp in mps
+  ;;                      collect
+  ;;                      (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0)))
+  ;;          (y (loop for mp in mps
+  ;;                   collect
+  ;;                   (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
+  ;;          (s-an (mapcar
+  ;;                 (lambda (y)
+  ;;                   (* (/ nu (- 1 nu)) rho-ice g -1d0 (- y (/ H 2d0))))
+  ;;                 y)))
+  ;;     (loop for yi in y
+  ;;           for si in s-xx
+  ;;           for sai in s-an
+  ;;           do
+  ;;              (format stream "~f, ~f, ~f ~%" yi si sai))))
   )
 (defun plot-disp ()
   (let* ()
@@ -476,11 +478,13 @@
 
 
 (defun plot-conv ()
-  (apply #'vgplot:plot (reduce #'append (mapcar #'list
-                                                (append *conv-data-t* (list *time*))
-                                                (append *conv-data-v* (list *x-pos*))
-                                                (mapcar (lambda (x) (format nil "~A" x)) (append *conv-data-refine* (list *refine*)))
-                                                ))))
+  (apply #'vgplot:plot
+         (reduce #'append (mapcar #'list
+                                  (append *conv-data-t* (list *time*))
+                                  (append *conv-data-v* (list *x-pos*))
+                                  (mapcar (lambda (x) (format nil "~A" x))
+                                          (append *conv-data-refine* (list *refine*)))
+                                  ))))
 
 (defun run-conv ()
   (vgplot:close-all-plots)
@@ -488,12 +492,12 @@
   (defparameter *conv-data-v* (list))
   (defparameter *conv-data-refine* (list))
   (setf *run-sim* t)
-  (loop for r in (list 1 2 4 8)
+  (loop for r in (list 2 3 4 8 16 32)
         while *run-sim*
         do (progn
              (defparameter *refine* r)
-             (setup :refine r :mps 3)
-             (run)
+             (setup :refine 4 :mps r)
+             (run :output-dir (format nil "./output-~D/" r))
              (vgplot:title (format nil "~D" r))
              (push *time*  *conv-data-t*)
              (push *x-pos* *conv-data-v*)
@@ -502,3 +506,8 @@
              (vgplot:print-plot
               (merge-pathnames (format nil "refine_~5,'0d.png" r))
               :terminal "png size 1920,1080"))))
+
+(defun save-debug (&key (output-dir "./"))
+  (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "debug.vtk")) *sim*)
+  (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "debug_nodes.vtk")) *sim*)
+  )
