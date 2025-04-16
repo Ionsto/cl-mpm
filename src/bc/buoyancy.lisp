@@ -235,7 +235,8 @@
   ;; (<= (magicl:tref pos 1 0) 300)
   ;; t
   )
-(defun populate-cells-volume (sim clip-function)
+(defgeneric populate-cells-volume (sim clip-function))
+(defmethod populate-cells-volume ((sim cl-mpm:mpm-sim) clip-function)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
@@ -250,58 +251,91 @@
                           (boundary cl-mpm/mesh::cell-boundary)
                           (pos cl-mpm/mesh::cell-centroid)
                           (vt cl-mpm/mesh::cell-volume)
+                          (active cl-mpm/mesh::cell-active)
                           )
              cell
            (setf boundary nil)
-           (flet ((check-cell (c)
-                    (with-accessors ((pos cl-mpm/mesh::cell-centroid)
-                                     (neighbours cl-mpm/mesh::cell-neighbours)
-                                     (vt cl-mpm/mesh::cell-volume)
-                                     (nns cl-mpm/mesh::cell-nodes)
-                                     )
-                        c
-                      (when (and (funcall clip-function pos))
-                        (let ((vest 0d0))
-                          (loop for n in nns
-                                do
-                                   (when (cl-mpm/mesh:node-active n)
-                                     (incf vest
-                                           (* 0.25d0 (/
-                                                      (cl-mpm/mesh::node-volume n)
-                                                      (cl-mpm/mesh::node-volume-true n))))))
-                          (when (< vest 0.5d0)
-                            (setf boundary t)
-                            (loop for n in nodes
+           (setf active (cl-mpm/mpi::in-computational-domain sim pos))
+           (when active
+             (flet ((check-cell (c)
+                      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                                       (neighbours cl-mpm/mesh::cell-neighbours)
+                                       (vt cl-mpm/mesh::cell-volume)
+                                       (nns cl-mpm/mesh::cell-nodes)
+                                       )
+                          c
+                        (when (and (funcall clip-function pos))
+                          (let ((vest 0d0))
+                            (loop for n in nns
                                   do
                                      (when (cl-mpm/mesh:node-active n)
-                                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))
-                            ))
+                                       (incf vest
+                                             (* 0.25d0 (/
+                                                        (cl-mpm/mesh::node-volume n)
+                                                        (cl-mpm/mesh::node-volume-true n))))))
+                            (when (< vest 0.5d0)
+                              (setf boundary t)
+                              (loop for n in nodes
+                                    do
+                                       (when (cl-mpm/mesh:node-active n)
+                                         (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                           (setf (cl-mpm/mesh::node-boundary-node n) t))))
+                              ))
 
-                        ))))
-             (check-cell cell)
-             (loop for neighbour in neighbours
-                   do (check-cell neighbour))
-
-             ;; (loop for neighbour in neighbours
-             ;;       do
-             ;;          (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
-             ;;            (let ((vest 0d0))
-             ;;              (loop for n in nodes
-             ;;                    do
-             ;;                       (when (cl-mpm/mesh:node-active n)
-             ;;                         (incf vest
-             ;;                               (* 0.25d0 (cl-mpm/mesh::node-volume n)))
-             ;;                         ))
-             ;;              (when (< vest (* 0.95d0 vt))
-             ;;                (setf boundary t)
-             ;;                (loop for n in nodes
-             ;;                      do
-             ;;                         (when (cl-mpm/mesh:node-active n)
-             ;;                           (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-             ;;                             (setf (cl-mpm/mesh::node-boundary-node n) t))))))))
-             ))))
+                          ))))
+               (check-cell cell)
+               (loop for neighbour in neighbours
+                     do (check-cell neighbour)))))))
       )))
+
+;; (defmethod populate-cells-volume ((sim cl-mpm/mpi:mpm-sim-mpi) clip-function)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh))
+;;       sim
+;;     (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+;;       (cl-mpm::iterate-over-cells
+;;        mesh
+;;        (lambda (cell)
+;;          (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+;;                           (neighbours cl-mpm/mesh::cell-neighbours)
+;;                           (index cl-mpm/mesh::cell-index)
+;;                           (nodes cl-mpm/mesh::cell-nodes)
+;;                           (pruned cl-mpm/mesh::cell-pruned)
+;;                           (boundary cl-mpm/mesh::cell-boundary)
+;;                           (pos cl-mpm/mesh::cell-centroid)
+;;                           (vt cl-mpm/mesh::cell-volume)
+;;                           )
+;;              cell
+;;            (setf boundary nil)
+;;            (flet ((check-cell (c)
+;;                     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+;;                                      (neighbours cl-mpm/mesh::cell-neighbours)
+;;                                      (vt cl-mpm/mesh::cell-volume)
+;;                                      (nns cl-mpm/mesh::cell-nodes)
+;;                                      )
+;;                         c
+;;                       (when (and (funcall clip-function pos))
+;;                         (let ((vest 0d0))
+;;                           (loop for n in nns
+;;                                 do
+;;                                    (when (cl-mpm/mesh:node-active n)
+;;                                      (incf vest
+;;                                            (* 0.25d0 (/
+;;                                                       (cl-mpm/mesh::node-volume n)
+;;                                                       (cl-mpm/mesh::node-volume-true n))))))
+;;                           (when (< vest 0.5d0)
+;;                             (setf boundary t)
+;;                             (loop for n in nodes
+;;                                   do
+;;                                      (when (cl-mpm/mesh:node-active n)
+;;                                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+;;                                          (setf (cl-mpm/mesh::node-boundary-node n) t))))
+;;                             ))
+
+;;                         ))))
+;;              (check-cell cell)
+;;              (loop for neighbour in neighbours
+;;                    do (check-cell neighbour))))))
+;;       )))
 (defun populate-nodes-volume (mesh clip-function)
   (cl-mpm::iterate-over-nodes
    mesh
@@ -678,6 +712,48 @@
       )))
 
 
+(in-package :cl-mpm/mpi)
+(make-mpi-ser
+ node-buoyancy
+ ((index index cl-mpm/mesh::node-index)
+  (int boundary-node (lambda (mp) (if (cl-mpm/mesh::node-boundary-node mp) 1 0)))
+  (float scalar cl-mpm/mesh::node-boundary-scalar)
+  ))
+(in-package :cl-mpm/buoyancy)
+(defgeneric exchange-bc-data (sim bc))
+(defmethod exchange-bc-data ((sim cl-mpm:mpm-sim) bc))
+(defmethod exchange-bc-data ((sim cl-mpm/mpi:mpm-sim-mpi) bc)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+   sim
+   (cl-mpm/mpi::exchange-node-like
+    sim
+    #'cl-mpm/mpi::serialise-node-buoyancy
+    #'cl-mpm/mpi::deserialise-node-buoyancy
+    (lambda (node-list)
+      (lparallel:pdotimes (i (length node-list))
+        (let* ((mpi-node (aref node-list i))
+               (index (cl-mpm/mpi::mpi-object-node-buoyancy-index mpi-node))
+               (mpi-boundary (= 1 (cl-mpm/mpi::mpi-object-node-buoyancy-boundary-node mpi-node)))
+               (node (cl-mpm/mesh:get-node mesh index)))
+          (if node
+              (with-accessors ((active cl-mpm/mesh:node-active)
+                               (boundary cl-mpm/mesh::node-boundary-node)
+                               (scalar cl-mpm/mesh::node-boundary-scalar)
+                               )
+                  node
+                (declare (double-float scalar))
+                (if (cl-mpm/mpi::in-computational-domain-buffer sim (cl-mpm/mesh::node-position node) 1)
+                    (progn
+                      (setf boundary (or
+                                      mpi-boundary
+                                      boundary))
+                      (incf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node))))
+                    (progn
+                      (setf boundary mpi-boundary)
+                      (setf scalar (the double-float (cl-mpm/mpi::mpi-object-node-buoyancy-scalar mpi-node))))
+                    ))
+              (error "Buoancy MPI exchange touched invalid node?"))))))))
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
@@ -714,18 +790,7 @@
              (and
               (funcall clip-func pos datum)))
            datum)))
-    ;; (apply-buoyancy-body-damage
-    ;;  (cl-mpm:sim-mesh sim)
-    ;;  (cl-mpm:sim-mps sim)
-    ;;  (lambda (mp)
-    ;;    (calculate-val-mp
-    ;;     mp
-    ;;     (lambda (pos)
-    ;;       (buoyancy-virtual-div (tref pos 1 0) datum rho))))
-    ;;  (lambda (pos)
-    ;;    (funcall clip-func pos datum))
-    ;;  datum)
-
+    (exchange-bc-data sim bc)
     ;;Reset pressure on MPs
     (with-accessors ((mesh cl-mpm:sim-mesh)
                      (mps cl-mpm:sim-mps))
@@ -824,13 +889,7 @@
                            svp
                            (sqrt mp-volume)
                            rho
-                           (sqrt (max 0d0 (- boundary-scalar)))
-                           ;; (sqrt mp-volume)
-                           ;; rho
-                           ;; (sqrt mp-boundary)
-                           ;; mp-boundary
-                           )
-                          )
+                           (sqrt (max 0d0 (- boundary-scalar)))))
                          force)))
                   ))))))))
       ;;Nodal based damping?

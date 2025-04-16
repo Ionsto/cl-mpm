@@ -281,7 +281,10 @@
   (vector force-buoyancy cl-mpm/mesh::node-buoyancy-force)
   ))
 
-(defun exchange-nodes (sim func)
+(defun exchange-node-like (sim
+                           serialise
+                           deserialise
+                           func)
   (declare (function func))
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -321,8 +324,8 @@
                              (declare (fixnum left-neighbor right-neighbor))
                              ;; (format t "Rank ~D - left ~A~%" rank (length left-filter))
                              ;; (format t "Rank ~D - righ ~A~%" rank (length right-filter))
-                             (let* ((cl-mpi-extensions::*standard-encode-function* #'serialise-node)
-                                    (cl-mpi-extensions::*standard-decode-function* #'deserialise-node)
+                             (let* ((cl-mpi-extensions::*standard-encode-function* serialise)
+                                    (cl-mpi-extensions::*standard-decode-function* deserialise)
                                     (recv
                                       (cond
                                         ((and (not (= left-neighbor -1))
@@ -366,6 +369,14 @@
                                         (destructuring-bind (rank tag object) packet
                                           (when object
                                             (funcall func object))))))))))))))))
+
+(defun exchange-nodes (sim func)
+  (declare (function func))
+  (exchange-node-like
+   sim
+   #'serialise-node
+   #'deserialise-node
+   func))
 
 (defun exchange-domain-bounds (sim)
   (with-accessors ((mesh sim-mesh)
@@ -471,6 +482,9 @@
 ;;           )))))
 
 
+
+
+
 (defun mpi-sync-momentum (sim)
   ;; (format t "Sync momentum ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -516,7 +530,7 @@
                  (progn
                    (with-accessors ((j-inc cl-mpm/mesh::node-jacobian-inc))
                        node
-                     (declare (double-float mass svp vol pmod))
+                     (declare (double-float j-inc))
                      (incf j-inc (the double-float (mpi-object-node-j-inc mpi-node)))))
                  (error "MPI exchange touched invalid node?"))))))))
 
@@ -546,7 +560,7 @@
                    (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)
                    (cl-mpm/fastmaths::fast-.+ force-buoyancy (mpi-object-node-force-buoyancy mpi-node) force-buoyancy)
                    ))
-               (error "MPI force exchange touched invalid node" index))))))))
+               (error "MPI force exchange touched invalid node ~A" index))))))))
 
 (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
 (defun mpi-sync-damage-mps (sim &optional halo-depth)
