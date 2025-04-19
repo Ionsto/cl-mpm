@@ -529,6 +529,7 @@
                      (force node-force)
                      (force-ext cl-mpm/mesh::node-external-force)
                      (force-int cl-mpm/mesh::node-internal-force)
+                     (force-dam cl-mpm/mesh::node-damping-force)
                      (acc   node-acceleration))
         node
       (declare (double-float mass dt damping mass-scale))
@@ -538,7 +539,7 @@
         ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmaths::fast-.+-vector force-int force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) 1d0))
+        (cl-mpm/fastmaths::fast-.+-vector force-damping force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
         ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
