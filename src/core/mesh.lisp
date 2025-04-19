@@ -83,7 +83,10 @@
     :accessor node-external-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
-
+   (damping-force
+    :accessor node-damping-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (buoyancy-force
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -585,6 +588,7 @@
                (force force)
                (int-force internal-force)
                (ext-force external-force)
+               (damping-force damping-force)
                (buoyancy-force buoyancy-force))
                 node
     (declare (double-float mass volume p-wave damage svp-sum))
@@ -604,6 +608,7 @@
     (cl-mpm/fastmaths::fast-zero force)
     (cl-mpm/fastmaths::fast-zero int-force)
     (cl-mpm/fastmaths::fast-zero ext-force)
+    (cl-mpm/fastmaths::fast-zero damping-force)
     (cl-mpm/fastmaths::fast-zero buoyancy-force)
     ))
 

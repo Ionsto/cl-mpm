@@ -278,6 +278,7 @@
   (vector force cl-mpm/mesh::node-force)
   (vector force-int cl-mpm/mesh::node-internal-force)
   (vector force-ext cl-mpm/mesh::node-external-force)
+  (vector force-damping cl-mpm/mesh::node-damping-force)
   (vector force-buoyancy cl-mpm/mesh::node-buoyancy-force)
   ))
 
@@ -552,12 +553,12 @@
                                   (force cl-mpm/mesh:node-force)
                                   (force-int cl-mpm/mesh::node-internal-force)
                                   (force-ext cl-mpm/mesh::node-external-force)
-                                  (force-buoyancy cl-mpm/mesh::node-buoyancy-force)
-                                  )
+                                  (force-damping cl-mpm/mesh::node-damping-force)
+                                  (force-buoyancy cl-mpm/mesh::node-buoyancy-force))
                      node
-                   ;; (cl-mpm/fastmaths::fast-.+ force (mpi-object-node-force mpi-node) force)
                    (cl-mpm/fastmaths::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
                    (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)
+                   (cl-mpm/fastmaths::fast-.+ force-damping (mpi-object-node-force-damping mpi-node) force-damping)
                    (cl-mpm/fastmaths::fast-.+ force-buoyancy (mpi-object-node-force-buoyancy mpi-node) force-buoyancy)
                    ))
                (error "MPI force exchange touched invalid node ~A" index))))))))

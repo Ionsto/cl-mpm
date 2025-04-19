@@ -915,7 +915,7 @@
                 mesh mp
                 (lambda (mesh mp node svp grads fsvp fgrad)
                   (when (cl-mpm/mesh:node-active node)
-                    (with-accessors ((force cl-mpm/mesh::node-force)
+                    (with-accessors ((force cl-mpm/mesh::node-damping-force)
                                      (active cl-mpm/mesh:node-active)
                                      (mass cl-mpm/mesh:node-mass)
                                      (velocity cl-mpm/mesh:node-velocity)
@@ -939,50 +939,8 @@
                            rho
                            (sqrt (max 0d0 (- boundary-scalar)))))
                          force)))
-                  ))))))))
-      ;;Nodal based damping?
-      ;; (let ((damping (bc-viscous-damping bc)))
-      ;;   (cl-mpm:iterate-over-nodes
-      ;;    mesh
-      ;;    (lambda (node)
-      ;;      (with-accessors ((vel cl-mpm/mesh:node-velocity)
-      ;;                       (force cl-mpm/mesh::node-force)
-      ;;                       (active cl-mpm/mesh:node-active)
-      ;;                       (mass cl-mpm/mesh:node-mass)
-      ;;                       (volume cl-mpm/mesh::node-volume)
-      ;;                       (boundary cl-mpm/mesh::node-boundary-node)
-      ;;                       (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-      ;;          node
-      ;;          (when (and active boundary)
-      ;;            (let ((h (cl-mpm/mesh:mesh-resolution mesh))
-      ;;                  (nd (cl-mpm/mesh:mesh-nd mesh))
-      ;;                  (bs (abs (min boundary-scalar 0d0))))
-      ;;              (when (and (> bs 0d0)
-      ;;                         ;; (> mass 1d-10)
-      ;;                         )
-      ;;                (cl-mpm/fastmaths:fast-.-
-      ;;                 force
-      ;;                 (cl-mpm/fastmaths:fast-scale-vector
-      ;;                  vel
-      ;;                  (*
-      ;;                   ;; (cl-mpm/fastmaths:mag vel)
-      ;;                   1/2
-      ;;                   damping
-      ;;                   ;; (/
-      ;;                   ;;  mass
-      ;;                   ;;  )
-      ;;                   ;; mass
-      ;;                   (* rho volume)
-      ;;                   ;; rho
-      ;;                   ;; (expt h 2)
-      ;;                   ;; (/ 1d0 (expt h 2))
-      ;;                   (min bs 0d0)
-      ;;                   ;; (expt bs 1/2)
-      ;;                   )
-      ;;                  ;(* damping mass (sqrt (max 0d0 (min 1d0 (/ (expt h nd) bs)))))
-      ;;                  )
-      ;;                 force))))))))
-      )))
+                  )))))))))))
+
 (defun apply-viscous-damping ())
 
 (defun set-pressure-all (sim bc)
