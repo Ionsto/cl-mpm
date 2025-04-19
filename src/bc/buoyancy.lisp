@@ -464,7 +464,7 @@
              (when (and (= mp-count 0)
                         (funcall clip-function pos)
                         (not pruned))
-               ;; (setf boundary t)
+               (setf boundary t)
                ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
                ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
                (loop for neighbour in neighbours

@@ -45,9 +45,6 @@
                     (g2p mesh mps dt vel-algo)
                     ;;2nd round of momentum mapping
                     (reset-grid-velocity mesh)
-                    ;; (reset-grid mesh)
-                    ;; (when (> mass-filter 0d0)
-                    ;;   (filter-grid mesh (sim-mass-filter sim)))
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                      (filter-grid-velocity mesh (sim-mass-filter sim)))

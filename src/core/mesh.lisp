@@ -554,7 +554,6 @@
       node
     (setf
      active nil
-     boundary nil
      volume 0d0
      svp 0d0
      damage 0d0
