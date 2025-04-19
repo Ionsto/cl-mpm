@@ -184,12 +184,13 @@
   :in-order-to ((test-op (load-op "test/all")))
   :perform (test-op (o c) (symbol-call :test/all :test-suite))
   :serial t
-  :components (
-               (:file "src/cl-mpm")
+  :components ((:file "src/cl-mpm")
                (:file "src/core/iterate")
                (:file "src/core/domain-update")
                (:file "src/core/stress-update")
                (:file "src/core")
+               (:file "src/solvers/usf")
+               (:file "src/solvers/usl")
                ))
 (defsystem "cl-mpm/mpi"
   :depends-on ("cl-mpm"

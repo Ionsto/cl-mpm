@@ -14,13 +14,17 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
+  )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
   (cl-mpm::scale-domain-size mesh mp))
-(defmethod cl-mpm::update-dynamic-stats (sim)
+
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm::mpm-sim-usf))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
                    (stats-power cl-mpm::sim-stats-power))
@@ -150,13 +154,13 @@
 (defun stop ()
   (setf *run-sim* nil))
 
-(defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
+(defun setup-test-column (size block-size sim-type &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-simple-sim;-sd
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type
                ;; 'cl-mpm::mpm-sim-sd
-               :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type sim-type
                ;; 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -180,7 +184,7 @@
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
                 'cl-mpm/particle::particle-elastic
                 ;; 'cl-mpm/particle::particle-vm
-                :E 1d6
+                :E 0.5d6
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
@@ -195,7 +199,7 @@
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       ;; (format t "Charictoristic time ~E~%" (/ ))
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) nil)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
@@ -256,10 +260,12 @@
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))
     ))
 
-(defun setup (&key (refine 1) (mps 2))
+(defun setup (&key (refine 1) (mps 2)
+              (sim-type 'cl-mpm:mpm-sim-usf)
+                )
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column '(32 16) '(8 8) refine mps-per-dim))
+    (defparameter *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim))
     )
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
@@ -274,6 +280,7 @@
 (defun run (&key (output-dir "./output/")
               (ms 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-dir "mesh.vtk")
                           *sim*)
 
@@ -295,7 +302,7 @@
          (dt-min (cl-mpm:sim-dt *sim*))
          )
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d-2
+          (* 1d-1
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
@@ -306,7 +313,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (format t "Substeps ~D~%" substeps)
-    (time (loop for steps from 0 to 500
+    (time (loop for steps from 0 to 100
                 while *run-sim*
                 do
                    (let ((energy 0d0)
@@ -328,7 +335,7 @@
                         ;; (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                         (incf oobf (cl-mpm::sim-stats-oobf *sim*))
                         (incf energy (cl-mpm::sim-stats-energy *sim*))
-                        (incf work (abs (cl-mpm::sim-stats-power *sim*)))
+                        (incf work (cl-mpm::sim-stats-power *sim*))
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
 
                      (setf
@@ -347,11 +354,12 @@
                      ;; (setf (cl-mpm:sim-dt *sim*) (* dt-min dt-scale))
                      ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                      (format t "Substeps ~D~%" substeps)
-                     (let ((energy 0d0))
-                       (setf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-                       (push energy *data-energy*)
-                       (push steps *data-steps*)
-                       (format t "Energy ~F~%" energy))
+                     ;; (let ((energy 0d0))
+                     ;;   (setf energy (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
+                     ;;   (push energy *data-energy*)
+                     ;;   (push steps *data-steps*)
+                     ;;   (format t "Energy ~F~%" energy))
+                     (format t "~E ~E~%" energy oobf)
 
                      (incf *sim-step*)
                      (plot *sim*)
@@ -537,74 +545,90 @@
   (defparameter *data-name* (list))
 
   (vgplot:figure)
-  (dolist (algo (list :FLIP))
-    (dolist (dt-scale (list 0.5d0))
-      (dolist (refine (list 1 2))
-        (let* ((steps (list))
-               (energy (list))
-               (oobf (list))
-               ;; (dt-scale 0.5d0)
-               (substeps (round 10 dt-scale))
-               (path (merge-pathnames "./analysis_scripts/vel_algo/data/"))
-               )
-          (setup :refine refine :mps 4)
-          (setf (cl-mpm:sim-damping-factor *sim*) 
-                (* 1d-2 (cl-mpm/setup::estimate-critical-damping *sim*)))
-          (setf
-           (cl-mpm::sim-velocity-algorithm *sim*)
-           algo)
-          (let ((name (format nil "~A-~E-~A"
-                              (cl-mpm::sim-velocity-algorithm *sim*)
-                              dt-scale
-                              refine
-                              )))
-            (vgplot:title name)
-            (cl-mpm/dynamic-relaxation:converge-quasi-static
-             *sim*
-             :dt-scale dt-scale
-             :energy-crit 1d-6
-             :oobf-crit 1d-6
-             :substeps substeps
-             :conv-steps 1000
-             :dt-scale dt-scale
-             :pic-update nil
-             :post-iter-step
-             (lambda (i e o)
-               ;; (plot *sim*)
-               (push i steps)
-               (push e energy)
-               (push o oobf)
-               ;; (vgplot:semilogy
-               ;;  steps energy "energy"
-               ;;  steps oobf "oobf")
-               (apply #'vgplot:semilogy
-                      (reduce #'append
-                              (append 
-                               (mapcar #'list
-                                       (append *data-steps* (list steps))
-                                       (append *data-energy*  (list energy))
-                                       (append *data-name* (list (format nil "energy - ~A" name)))
-                                       )
-                               (mapcar #'list
-                                       (append *data-steps* (list steps))
-                                       (append *data-oobf*  (list oobf))
-                                       (append *data-name*  (list name))
-                                       )))))
-             )
-            (with-open-file (stream (merge-pathnames path (format nil "~A.csv" name)) :direction :output :if-exists :supersede)
-              (format stream "step,energy,oobf~%")
-              (loop for s in steps
-                    for e in energy
-                    for o in oobf
-                    do (format stream "~D,~F,~F~%" s e o)))
-            (cl-mpm/output:save-vtk (merge-pathnames path (format nil "sim_~A.vtk" name)) *sim*)
-            (cl-mpm/output:save-vtk-nodes (merge-pathnames path (format nil "sim_nodes_~A.vtk" name)) *sim*)
+  (let ((path (merge-pathnames "./analysis_scripts/vel_algo/data/")))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* path)) do (uiop:delete-file-if-exists f))
+    (dolist (algo (list :FLIP))
+      (dolist (dt-scale (list 0.5d0))
+        (dolist (refine (list 1 2 3))
+          (dolist (fbar (list nil))
+            (dolist (sim-type (list
+                               'cl-mpm::mpm-sim-usf
+                               'cl-mpm::mpm-sim-usl
+                               ))
+              (let* ((steps (list))
+                     (energy (list))
+                     (oobf (list))
+                     ;; (dt-scale 0.5d0)
+                     (substeps (round 50 dt-scale))
+                     )
+                (setup :refine refine :mps 3
+                       :sim-type sim-type
+                       )
+                ;; (change-class *sim* sim-type)
+                (setf (cl-mpm:sim-damping-factor *sim*)
+                      (* 1d-2 (cl-mpm/setup::estimate-critical-damping *sim*)))
+                (setf
+                 (cl-mpm::sim-velocity-algorithm *sim*)
+                 algo
+                 (cl-mpm::sim-enable-fbar *sim*) fbar)
+                (let ((name (format nil "~A-~A-~E-~A-~A"
+                                    sim-type
+                                    (cl-mpm::sim-velocity-algorithm *sim*)
+                                    dt-scale
+                                    refine
+                                    fbar
+                                    )))
+                  (vgplot:title name)
+                  (handler-case
+                      (cl-mpm/dynamic-relaxation:converge-quasi-static
+                       *sim*
+                       :dt-scale dt-scale
+                       :energy-crit 1d-3
+                       :oobf-crit 1d-3
+                       :substeps substeps
+                       :conv-steps 100
+                       :dt-scale dt-scale
+                       :pic-update nil
+                       :post-iter-step
+                       (lambda (i e o)
+                         ;; (plot *sim*)
+                         (push i steps)
+                         (push e energy)
+                         (push o oobf)
+                         ;; (vgplot:semilogy
+                         ;;  steps energy "energy"
+                         ;;  steps oobf "oobf")
+                         (apply #'vgplot:semilogy
+                                (reduce #'append
+                                        (append
+                                         ;; (mapcar #'list
+                                         ;;         (append *data-steps* (list steps))
+                                         ;;         (append *data-energy*  (list energy))
+                                         ;;         (append *data-name* (list (format nil "energy - ~A" name)))
+                                         ;;         )
+                                         (mapcar #'list
+                                                 (append *data-steps* (list steps))
+                                                 (append *data-oobf*  (list oobf))
+                                                 (append *data-name*  (list name))
+                                                 )))))
+                       )
+                    (cl-mpm/dynamic-relaxation::non-convergence-error (c)
+                      (format t "Sim failed to converge~%"))
+                    )
+                  (with-open-file (stream (merge-pathnames path (format nil "~A.csv" name)) :direction :output :if-exists :supersede)
+                    (format stream "step,energy,oobf~%")
+                    (loop for s in steps
+                          for e in energy
+                          for o in oobf
+                          do (format stream "~D,~F,~F~%" s e o)))
+                  (cl-mpm/output:save-vtk (merge-pathnames path (format nil "sim_~A.vtk" name)) *sim*)
+                  (cl-mpm/output:save-vtk-nodes (merge-pathnames path (format nil "sim_nodes_~A.vtk" name)) *sim*)
 
-            (push steps *data-steps*)
-            (push energy *data-energy*)
-            (push oobf *data-oobf*)
-            (push name *data-name*)
-            ))))))
+                  (push steps *data-steps*)
+                  (push energy *data-energy*)
+                  (push oobf *data-oobf*)
+                  (push name *data-name*)
+                  )))))))))
 
 (defun plot-all ()
   (apply #'vgplot:semilogy
@@ -652,3 +676,15 @@
            (progn
              (setup :refine 2)
              (run :output-dir (format nil "./output-~F/" ms) :ms ms))))
+
+(defun test-usl-usf ()
+  (setf *run-sim* t)
+  (loop for sim-type in (list
+                         'cl-mpm::mpm-sim-usf
+                         'cl-mpm::mpm-sim-usl)
+        while *run-sim*
+        do
+           (progn
+             (setup :refine 8 :mps 2 :sim-type sim-type)
+             (setf (cl-mpm:sim-enable-fbar *sim*) t)
+             (run :output-dir (format nil "./output-~A/" sim-type)))))

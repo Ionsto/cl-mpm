@@ -286,7 +286,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 1d-2)
+           :visc-damping 5d-1)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -719,7 +719,7 @@
 
              (setf (cl-mpm:sim-damping-factor *sim*)
                    (* 1d-6
-                      ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
+                      (sqrt (cl-mpm:sim-mass-scale *sim*))
                       crit-damp))
              (swank.live:update-swank)
              (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
@@ -911,13 +911,13 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.5
+  (setup :refine 0.25
          :friction 0.0
          :bench-length 000d0
-         :ice-height 400d0
+         :ice-height 800d0
          :mps 2
          :cryo-static t
-         :aspect 3
+         :aspect 1
          )
   (plot-domain)
   (run)

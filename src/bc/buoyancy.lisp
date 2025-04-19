@@ -236,7 +236,57 @@
   ;; t
   )
 (defgeneric populate-cells-volume (sim clip-function))
+
 (defmethod populate-cells-volume ((sim cl-mpm:mpm-sim) clip-function)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                          (neighbours cl-mpm/mesh::cell-neighbours)
+                          (index cl-mpm/mesh::cell-index)
+                          (nodes cl-mpm/mesh::cell-nodes)
+                          (pruned cl-mpm/mesh::cell-pruned)
+                          (boundary cl-mpm/mesh::cell-boundary)
+                          (pos cl-mpm/mesh::cell-centroid)
+                          (vt cl-mpm/mesh::cell-volume)
+                          (active cl-mpm/mesh::cell-active)
+                          )
+             cell
+           (setf boundary nil)
+           (when t
+             (flet ((check-cell (c)
+                      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                                       (neighbours cl-mpm/mesh::cell-neighbours)
+                                       (vt cl-mpm/mesh::cell-volume)
+                                       (nns cl-mpm/mesh::cell-nodes)
+                                       )
+                          c
+                        (when (and (funcall clip-function pos))
+                          (let ((vest 0d0))
+                            (loop for n in nns
+                                  do
+                                     (when (cl-mpm/mesh:node-active n)
+                                       (incf vest
+                                             (* 0.25d0 (/
+                                                        (cl-mpm/mesh::node-volume n)
+                                                        (cl-mpm/mesh::node-volume-true n))))))
+                            (when (< vest 0.5d0)
+                              (setf boundary t)
+                              (loop for n in nodes
+                                    do
+                                       (when (cl-mpm/mesh:node-active n)
+                                         (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                                           (setf (cl-mpm/mesh::node-boundary-node n) t))))
+                              ))))))
+               (check-cell cell)
+               (loop for neighbour in neighbours
+                     do (check-cell neighbour)))))))
+      )))
+
+(defmethod populate-cells-volume ((sim cl-mpm/mpi::mpm-sim-mpi) clip-function)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
     (let ((cells (cl-mpm/mesh::mesh-cells mesh)))
@@ -280,9 +330,7 @@
                                        (when (cl-mpm/mesh:node-active n)
                                          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
                                            (setf (cl-mpm/mesh::node-boundary-node n) t))))
-                              ))
-
-                          ))))
+                              ))))))
                (check-cell cell)
                (loop for neighbour in neighbours
                      do (check-cell neighbour)))))))

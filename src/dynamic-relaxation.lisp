@@ -157,12 +157,11 @@
                             ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                             (cl-mpm/fastmaths::mag-squared
                              f-ext))))))))))
-    (when (> dmax 0d0)
+    (if (> dmax 0d0)
       (setf oobf (sqrt (/ nmax dmax)))
-      ;; (setf oobf (/ nmax dmax))
+      ;;Very odd case, we have external force but no internal forces
+      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0))
       )
-    ;; (setf oobf (/ oobf-norm (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
-    ;; (setf oobf oobf-norm)
     oobf))
 (defmethod estimate-oobf ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((oobf 0d0)
@@ -311,7 +310,7 @@
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                     (let ((power (estimate-power-norm sim)))
+                     (let ((power (cl-mpm::sim-stats-power sim)))
                        (incf *work* power)
                        (when kinetic-damping
                          (if (< (* power-last power) 0d0)
@@ -327,29 +326,14 @@
                              (setf power-last power)))
                        ))
                    (setf load cl-mpm/penalty::*debug-force*)
-                   (setf energy-total (estimate-energy-norm sim))
+                   (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)
                        (setf fnorm (abs (/ energy-total *work*))))
-                   (setf oobf (estimate-oobf sim))
+                   (setf oobf (cl-mpm::sim-stats-oobf sim))
                    (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
-                   ;; (when kinetic-damping
-                   ;;   (push energy-total energy-list)
-                   ;;   (when (> (length energy-list) 2)
-                   ;;     (when (and
-                   ;;            (< (nth 0 energy-list) (nth 1 energy-list))
-                   ;;            (> (nth 1 energy-list) (nth 2 energy-list))
-                   ;;                      ;(> (nth 2 energy-list) (nth 3 energy-list))
-                   ;;            )
-                   ;;       (format t "Peak found resetting KE~%")
-                   ;;       (cl-mpm:iterate-over-mps
-                   ;;        mps
-                   ;;        (lambda (mp)
-                   ;;          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                   ;;          (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
-                   ;;       )))
                    (when (and
                           (if convergance-criteria (funcall convergance-criteria sim) t)
                           (< fnorm energy-crit)
@@ -407,7 +391,7 @@
                    (dotimes (j substeps)
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
-                     (let ((power (estimate-power-norm sim)))
+                     (let ((power (cl-mpm::sim-stats-power sim)))
                        (incf *work* power)
                        (when kinetic-damping
                          (if (< (* power-last power) 0d0)
@@ -423,12 +407,12 @@
                              (setf power-last power)))))
 
                    (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
-                   (setf energy-total (estimate-energy-norm sim))
+                   (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)
                        (setf fnorm (abs (/ energy-total *work*))))
 
-                   (setf oobf (estimate-oobf sim))
+                   (setf oobf (cl-mpm::sim-stats-oobf sim))
                    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
 
                    (when (= 0 rank)

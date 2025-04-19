@@ -75,7 +75,6 @@
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (def cl-mpm/particle::mp-deformation-gradient)
                      ;(damage-driving-factor cl-mpm/particle::mp-damage-driving-factor)
-                     (damage-tensor cl-mpm/particle::mp-damage-tensor)
                      (ybar-tensor cl-mpm/particle::mp-damage-ybar-tensor)
                      (local-length cl-mpm/particle::mp-local-length)
                      (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
@@ -136,7 +135,6 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -851,6 +849,7 @@ Calls the function with the mesh mp and node"
                     ;; ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt vel-algo)
                     (cl-mpm::update-dynamic-stats sim)
+                    (cl-mpm::update-particles sim)
 
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
@@ -912,6 +911,7 @@ Calls the function with the mesh mp and node"
 
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm/damage::calculate-damage sim)
+      (cl-mpm::update-particles sim)
       (when remove-damage
         (cl-mpm::remove-material-damaged sim))
       (when split
@@ -1078,7 +1078,6 @@ Calls the function with the mesh mp and node"
   (with-accessors ((stress cl-mpm/particle:mp-stress)
                    (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                    (damage cl-mpm/particle:mp-damage)
-                   (log-damage cl-mpm/particle::mp-log-damage)
                    (damage-inc cl-mpm/particle::mp-damage-increment)
                    (ybar cl-mpm/particle::mp-damage-ybar)
                    (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -1106,7 +1105,6 @@ Calls the function with the mesh mp and node"
   (with-accessors ((stress cl-mpm/particle:mp-stress)
                    (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                    (damage cl-mpm/particle:mp-damage)
-                   (log-damage cl-mpm/particle::mp-log-damage)
                    (damage-inc cl-mpm/particle::mp-damage-increment)
                    (ybar cl-mpm/particle::mp-damage-ybar)
                    (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -1382,7 +1380,6 @@ Calls the function with the mesh mp and node"
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -1453,7 +1450,6 @@ Calls the function with the mesh mp and node"
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)

@@ -760,6 +760,7 @@
                     (cl-mpm::update-node-forces sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
                     (cl-mpm::g2p mesh mps dt vel-algo)
+                    (cl-mpm::update-particles sim)
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
@@ -810,6 +811,7 @@
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::update-dynamic-stats sim)
                   (cl-mpm::g2p mesh mps dt vel-algo)
+                  (cl-mpm::update-particles sim)
                   (when remove-damage
                     (cl-mpm::remove-material-damaged sim))
                   (when split
@@ -954,13 +956,6 @@
                   (cl-mpm::apply-bcs mesh bcs dt)
                   (cl-mpm::g2p mesh mps dt vel-algo)
 
-                  ;;Must be done here
-                  (set-mp-mpi-index sim)
-                  (exchange-mps sim 0d0)
-                  (set-mp-mpi-index sim)
-                  (clear-ghost-mps sim)
-                  (cl-mpm::check-mps sim)
-                  (cl-mpm::check-single-mps sim)
 
                   ;;2nd round of mapping for USL
                   (cl-mpm::reset-grid-velocity mesh)
@@ -973,11 +968,21 @@
 
                   (cl-mpm::update-stress mesh mps dt fbar)
                   (cl-mpm/damage::calculate-damage sim)
+                  (cl-mpm::update-particles sim)
 
                   (when remove-damage
                     (cl-mpm::remove-material-damaged sim))
                   (when split
                     (cl-mpm::split-mps sim))
+
+                  ;;Must be done here
+                  (set-mp-mpi-index sim)
+                  (exchange-mps sim 0d0)
+                  (set-mp-mpi-index sim)
+                  (clear-ghost-mps sim)
+                  (cl-mpm::check-mps sim)
+                  (cl-mpm::check-single-mps sim)
+
                     )))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-mpi))
@@ -1023,6 +1028,7 @@
                                         ;(exchange-mps sim)
                     ;;Get new MPS
 
+                    (cl-mpm::update-particles sim)
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split

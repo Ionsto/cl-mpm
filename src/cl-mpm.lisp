@@ -17,6 +17,8 @@
    )
   (:export
    #:mpm-sim
+   #:mpm-sim-usf
+   #:mpm-sim-usl
    #:make-mpm-sim
    #:update-sim
    #:make-shape-function-linear
@@ -28,6 +30,8 @@
    #:sim-damping-factor
    #:sim-mass-filter
    #:sim-mass-scale
+   #:sim-enable-fbar
+   #:sim-enable-damage
    #:sim-allow-mp-split
    #:post-stress-step
    #:iterate-over-nodes
@@ -161,14 +165,6 @@
 (defclass mpm-sf-mpm ()())
 (defclass mpm-sf-gimp ()())
 (defclass mpm-sim-quasi-static (mpm-sim) ())
-
-(defclass mpm-sim-usf (mpm-sim)
-  ()
-  (:documentation "Explicit simulation with update stress first update"))
-(defclass mpm-sim-usl (mpm-sim)
-  ()
-  (:documentation "Explicit simulation with update stress last update"))
-
 
 (defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
   "Constructs an mp with critical infomation like mesh and number of dimentions"

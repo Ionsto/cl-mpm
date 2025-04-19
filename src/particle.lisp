@@ -71,8 +71,7 @@
 ;;   )
 
 (defclass particle ()
-  (
-   (position
+  ((position
     :accessor mp-position
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros)
@@ -145,10 +144,6 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :stress
     :initform (cl-mpm/utils:voigt-zeros))
-   (int-force
-    :accessor mp-int-force
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:vector-zeros))
    (strain-n
     :accessor mp-strain-n
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -164,10 +159,6 @@
     :initform (cl-mpm/utils::matrix-zeros))
    (stretch-tensor-fbar
     :accessor mp-stretch-tensor-fbar
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils::matrix-zeros))
-   (strain-rate-tensor
-    :accessor mp-strain-rate-tensor
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::matrix-zeros))
    (strain-rate
@@ -240,6 +231,10 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :body-force
      :initform (cl-mpm/utils::vector-zeros))
+   (displacement-increment
+    :accessor mp-displacement-increment
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::vector-zeros))
    (displacement
     :accessor mp-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -800,17 +795,7 @@
 (defclass particle-damage-fundemental ()
   ())
 (defclass particle-damage (particle particle-damage-fundemental)
-  (
-   (log-damage
-    :accessor mp-log-damage
-    :type DOUBLE-FLOAT
-    :initform 0d0)
-   ;; (damage
-   ;;  :accessor mp-damage
-   ;;  :type DOUBLE-FLOAT
-   ;;  :initarg :damage
-   ;;  :initform 0d0)
-   (local-damage
+  ((local-damage
     :accessor mp-local-damage
     :type DOUBLE-FLOAT
     :initform 0d0)
@@ -894,19 +879,9 @@
     :initform nil
     ;:initform (cl-mpm/utils::vector-zeros)
     )
-   (damage-tensor
-    :accessor mp-damage-tensor
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils::matrix-zeros)
-    )
-   (damage-ybar-tensor
-    :accessor mp-damage-ybar-tensor
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils::matrix-zeros))
    (damage-model
     :accessor mp-damage-model
-    :initarg :damage-model
-    )
+    :initarg :damage-model)
    (enable-damage
     :accessor mp-enable-damage
     :initarg :enable-damage

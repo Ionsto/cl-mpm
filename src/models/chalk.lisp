@@ -116,7 +116,16 @@
   ()
   (:documentation "A chalk damage model based on grassl"))
 (defclass particle-chalk-anisotropic (particle-chalk-delayed)
-  ()
+  ((damage-tensor
+    :accessor mp-damage-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::matrix-zeros)
+    )
+   (damage-ybar-tensor
+    :accessor mp-damage-ybar-tensor
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::matrix-zeros))
+   )
   (:documentation "A chalk damage model"))
 
 
@@ -497,7 +506,6 @@
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -703,7 +711,6 @@
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -784,7 +791,6 @@
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -863,7 +869,6 @@
                      (ybar-tensor cl-mpm/particle::mp-damage-ybar-tensor)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -969,7 +974,6 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -1099,7 +1103,6 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
@@ -1190,7 +1193,6 @@
                      (damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
-                     (log-damage cl-mpm/particle::mp-log-damage)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (init-stress cl-mpm/particle::mp-initiation-stress)

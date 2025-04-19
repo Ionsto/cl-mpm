@@ -617,33 +617,7 @@
   (when refine
     (setf *refine* (parse-integer (uiop:getenv "REFINE")))))
 
-;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-vm) dt)
-;;   ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-;;   ;;                  (rho cl-mpm/particle::mp-rho))
-;;   ;;     mp
-;;   ;;   (let* ((rho-0 200d3)
-;;   ;;          (rho-1 200d2)
-;;   ;;          (soft 100d0)
-;;   ;;          )
-;;   ;;     (setf rho (+ rho-1 (* (- rho-0 rho-1) (exp (- (* soft ps))))))))
-;;   )
 
-;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
-;;   ;; (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-;;   ;;                  (c cl-mpm/particle::mp-c)
-;;   ;;                  (phi cl-mpm/particle::mp-phi)
-;;   ;;                  )
-;;   ;;     mp
-;;   ;;   (let ((phi_0 (* 42d0 (/ pi 180)))
-;;   ;;         (phi_1 (* 30d0 (/ pi 180)))
-;;   ;;         (c_0 131d3)
-;;   ;;         (soft 1000d0;(* 100d0 *mesh-resolution*)
-;;   ;;               ))
-;;   ;;     (setf
-;;   ;;      c (* c_0 (exp (- (* soft ps))))
-;;   ;;      phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
-;;   )
-;; (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt))
 
 
 (defun make-penalty-object (bc)

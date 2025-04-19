@@ -1,0 +1,66 @@
+(in-package :cl-mpm)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+
+(defclass mpm-sim-usl (mpm-sim)
+  ()
+  (:documentation "Explicit simulation with update stress last update"))
+
+(defmethod update-sim ((sim mpm-sim-usl))
+  "Update stress last algorithm"
+  (declare (cl-mpm::mpm-sim sim))
+  (with-slots ((mesh mesh)
+               (mps mps)
+               (bcs bcs)
+               (bcs-force bcs-force)
+               (dt dt)
+               (mass-filter mass-filter)
+               (split allow-mp-split)
+               (enable-damage enable-damage)
+               (nonlocal-damage nonlocal-damage)
+               (remove-damage allow-mp-damage-removal)
+               (fbar enable-fbar)
+               (bcs-force-list bcs-force-list)
+               (vel-algo velocity-algorithm)
+               )
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    (reset-grid mesh)
+                    ;; Map momentum to grid
+                    (p2g mesh mps)
+                    ;;Reset nodes below our mass-filter
+                    (when (> mass-filter 0d0)
+                      (filter-grid mesh (sim-mass-filter sim)))
+                    ;;Turn momentum into velocity
+                    (update-node-kinematics mesh dt)
+                    (p2g-force mesh mps)
+                    (loop for bcs-f in bcs-force-list
+                          do (apply-bcs mesh bcs-f dt))
+                    ;; (apply-bcs mesh bcs-force dt)
+                    ;;Update our nodes after force mapping
+                    (update-node-forces sim)
+                    ;;Apply velocity bcs
+                    (apply-bcs mesh bcs dt)
+                    ;;Grid to particle mapping
+                    (g2p mesh mps dt vel-algo)
+                    ;;2nd round of momentum mapping
+                    (reset-grid-velocity mesh)
+                    ;; (reset-grid mesh)
+                    ;; (when (> mass-filter 0d0)
+                    ;;   (filter-grid mesh (sim-mass-filter sim)))
+                    (p2g mesh mps)
+                    (when (> mass-filter 0d0)
+                     (filter-grid-velocity mesh (sim-mass-filter sim)))
+                    (update-node-kinematics mesh dt)
+                    (apply-bcs mesh bcs dt)
+                    ;;Update stress last
+                    (update-stress mesh mps dt fbar)
+                    (update-dynamic-stats sim)
+                    (update-particles sim)
+
+                    (when remove-damage
+                      (remove-material-damaged sim))
+                    (when split
+                      (split-mps sim))
+                    (check-mps sim)
+                    )))
