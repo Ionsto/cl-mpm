@@ -127,7 +127,9 @@
      (lambda (node)
        (with-accessors ((active cl-mpm/mesh::node-active)
                         (f-ext cl-mpm/mesh::node-external-force)
-                        (f-int cl-mpm/mesh::node-internal-force))
+                        (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
+                        )
            node
          (when active
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
@@ -149,7 +151,13 @@
                             (expt (cl-mpm/mesh:node-mass node) 2)
                             ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                             (cl-mpm/fastmaths::mag-squared
-                             (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
+                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                                     (list 
+                                      f-ext
+                                      f-int
+                                      f-damp
+                                      )
+                                     ))))
                      dmax (+
                            dmax
                            (*
@@ -175,7 +183,9 @@
      (lambda (node)
        (with-accessors ((active cl-mpm/mesh::node-active)
                         (f-ext cl-mpm/mesh::node-external-force)
-                        (f-int cl-mpm/mesh::node-internal-force))
+                        (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
+                        )
            node
          (when active
            (when (cl-mpm/mpi::in-computational-domain sim (cl-mpm/mesh::node-position node))
@@ -187,7 +197,11 @@
                               (expt (cl-mpm/mesh:node-mass node) 2)
                               ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
                               (cl-mpm/fastmaths::mag-squared
-                               (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))))
+                               (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                                       (list
+                                        f-ext
+                                        f-int
+                                        f-damp)))))
                        dmax (+
                              dmax
                              (*
