@@ -137,8 +137,8 @@
                (setf nmax (+
                            nmax
                            (*
-                            (expt (cl-mpm/mesh:node-mass node) 2)
-                            ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                            ;; (expt (cl-mpm/mesh:node-mass node) 2)
+                            (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                             (cl-mpm/fastmaths::mag-squared
                              (reduce #'cl-mpm/fastmaths::fast-.+-vector
                                      (list
@@ -150,8 +150,8 @@
                      dmax (+
                            dmax
                            (*
-                            (expt (cl-mpm/mesh:node-mass node) 2)
-                            ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                            ;; (expt (cl-mpm/mesh:node-mass node) 2)
+                            (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                             (cl-mpm/fastmaths::mag-squared
                              f-ext))))))))))
     (if (> dmax 0d0)

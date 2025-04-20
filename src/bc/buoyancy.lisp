@@ -824,8 +824,7 @@
              (lambda (pos datum)
                (and
                 (cell-clipping pos datum)
-                (funcall clip-func pos datum)
-                ))
+                (funcall clip-func pos datum)))
              datum)
             )
           (apply-buoyancy
@@ -915,7 +914,7 @@
                 mesh mp
                 (lambda (mesh mp node svp grads fsvp fgrad)
                   (when (cl-mpm/mesh:node-active node)
-                    (with-accessors ((force cl-mpm/mesh::node-external-force)
+                    (with-accessors ((force cl-mpm/mesh::node-damping-force)
                                      (active cl-mpm/mesh:node-active)
                                      (mass cl-mpm/mesh:node-mass)
                                      (velocity cl-mpm/mesh:node-velocity)
