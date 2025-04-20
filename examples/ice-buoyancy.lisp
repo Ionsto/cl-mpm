@@ -3,6 +3,11 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+
+
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
                                                     cl-mpm/particle::particle-erosion)
   ())
@@ -21,10 +26,6 @@
   (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
   ;; (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))
   )
-
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 
 
 
@@ -76,8 +77,7 @@
                    ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
                    stress
                    ;; (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
-                   (cl-mpm/utils:voigt-eye (* 1d0 ;; (magicl:det def)
-                                              (/ (- pressure) 3)))
+                   (cl-mpm/utils:voigt-eye (* 1d0 (/ 1d0 (magicl:det def)) (/ (- pressure) 3)))
                    )
                   (* angle (/ pi 180d0)))
                  )))
@@ -126,13 +126,13 @@
          ;; (density 900d0)
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
-         (offset (* mesh-resolution 2))
+         (offset (* mesh-resolution 0))
          (end-height ice-height)
          (start-height ice-height)
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.85d0))
+         (water-level (* floating-point 0.90d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -143,8 +143,8 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                'cl-mpm/damage::mpm-sim-damage
+                                               ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
     (let* (
@@ -193,7 +193,7 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d4
+        :delay-time 1d3
         :delay-exponent 2
         :enable-plasticity nil
         :enable-damage t
@@ -208,7 +208,8 @@
         ))
 
       (when cryo-static
-        (let ((k 1d0))
+        (let ((k 1d0)
+              )
           (cl-mpm/setup::initialise-stress-self-weight-vardatum
            *sim*
            (lambda (pos)
@@ -267,7 +268,7 @@
           (* 0.1d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (setf (cl-mpm::sim-enable-fbar *sim*) t)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
@@ -286,7 +287,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 5d-1)
+           :visc-damping 2d-1)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -527,13 +528,16 @@
 
   (defparameter *damping-water* 0d0)
   (let ((dt-scale 0.5d0)
-        (visc-damping (cl-mpm/buoyancy::bc-viscous-damping *water-bc*)))
+        (visc-damping (cl-mpm/buoyancy::bc-viscous-damping *water-bc*))
+        (fbar (cl-mpm:sim-enable-fbar *sim*))
+        )
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
     (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d-2
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup:estimate-critical-damping *sim*)))
+    (setf (cl-mpm:sim-enable-fbar *sim*) nil)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :oobf-crit 1d-3
@@ -547,7 +551,7 @@
        (cl-mpm/output::save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" i)) *sim*)
        (cl-mpm/output::save-vtk-cells (uiop:merge-pathnames* output-dir (format nil "sim_conv_cells_~5,'0d.vtk" i)) *sim*)
        (plot-domain)))
-
+    (setf (cl-mpm:sim-enable-fbar *sim*) fbar)
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) visc-damping)
     )
 
@@ -571,10 +575,10 @@
          (accelerate-target-time 1d2)
          (accelerate-mass-scale 1d6)
          (collapse-target-time 1d0)
-         (collapse-mass-scale 1d2)
-         (criteria-energy 5d-2)
-         (criteria-oobf 5d-2)
-         (criteria-hist 2d0)
+         (collapse-mass-scale 1d0)
+         (criteria-energy 2d-2)
+         (criteria-oobf 2d-2)
+         (criteria-hist 1.5d0)
          (target-time 1d0)
          (time 0d0)
          (damage-est 0d0)
@@ -617,7 +621,7 @@
                                           #'+ (cl-mpm:sim-mps *sim*)
                                           :initial-value 0d0)
                    )
-             (with-open-file (stream (merge-pathnames "output/timesteps.csv") :direction :output :if-exists :append)
+             (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
                (format stream "~D,~f,~f,~f,~f,~f,~A,~f~%"
                        step
                        (cl-mpm::sim-time *sim*)
@@ -671,17 +675,6 @@
                    (format t "Changed to accelerate~%")
                    (setf work 0d0)
                    (setf sim-state :accelerate)
-                   ;; (cl-mpm::remove-mps-func
-                   ;;  *sim*
-                   ;;  (lambda (p)
-                   ;;    (and (> (cl-mpm::mp-damage p) 0.99d0)
-                   ;;         (= (cl-mpm/particle::mp-index p) 0))
-                   ;;    ))
-                   ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
-                   ;; (dotimes (i 4)
-                   ;;   (cl-mpm:update-sim *sim*))
-                   ;; ;; (relax-elastic output-dir dt-scale step crit-damp)
-                   ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
                    (cl-mpm:iterate-over-mps
                     (cl-mpm:sim-mps *sim*)
                     (lambda (mp)
@@ -912,15 +905,15 @@
 
 (defun calving-test ()
   (setup :refine 0.25
-         :friction 0.0
+         :friction 0.9d0
          :bench-length 000d0
          :ice-height 800d0
-         :mps 2
+         :mps 3
          :cryo-static t
          :aspect 1
          )
   (plot-domain)
-  (run)
+  (run :output-dir "./output-3/")
   )
 
 (defun test-square ()
@@ -1004,4 +997,3 @@
          (format t "MPs ~D~%" mps)
          (elastic-sim :output-dir (format nil "./output-single-~E/" refine)
                       :dt-scale 0.25d0))))))
-
