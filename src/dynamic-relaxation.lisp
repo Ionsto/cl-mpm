@@ -152,7 +152,7 @@
                             ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                             (cl-mpm/fastmaths::mag-squared
                              (reduce #'cl-mpm/fastmaths::fast-.+-vector
-                                     (list 
+                                     (list
                                       f-ext
                                       f-int
                                       f-damp
