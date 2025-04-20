@@ -215,13 +215,7 @@
         (setf oobf (sqrt (/ nmax dmax)))
         ;; (setf oobf (/ nmax dmax))
       ;;Odd case where we have no forces?
-      (setf oobf sb-ext:double-float-negative-infinity))
-
-    ;; (let ((mass-total (cl-mpm/mpi::mpi-sum
-    ;;                    (lparallel:pmap-reduce #'cl-mpm/particle:mp-mass #'+ (cl-mpm:sim-mps sim))))
-    ;;       (oobf-norm (cl-mpm/mpi::mpi-sum oobf-norm)))
-    ;;   (setf oobf (/ oobf-norm mass-total)))
-
+      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     ;;Sanity check the floating point errors
     (setf oobf (cl-mpm/mpi::mpi-max oobf))
     ;; (setf oobf (cl-mpm/mpi::mpi-max oobf))
