@@ -915,7 +915,7 @@
                 mesh mp
                 (lambda (mesh mp node svp grads fsvp fgrad)
                   (when (cl-mpm/mesh:node-active node)
-                    (with-accessors ((force cl-mpm/mesh::node-damping-force)
+                    (with-accessors ((force cl-mpm/mesh::node-external-force)
                                      (active cl-mpm/mesh:node-active)
                                      (mass cl-mpm/mesh:node-mass)
                                      (velocity cl-mpm/mesh:node-velocity)

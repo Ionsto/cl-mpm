@@ -134,17 +134,6 @@
          (when active
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
-               ;(setf oobf-norm
-               ;      (+
-               ;       oobf-norm
-               ;       (*
-               ;        (cl-mpm/mesh:node-mass node)
-               ;        ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-               ;        (/
-               ;         (cl-mpm/fastmaths::mag-squared
-               ;          (magicl:.+ f-ext f-int))
-               ;         (cl-mpm/fastmaths::mag-squared f-ext)))))
-
                (setf nmax (+
                            nmax
                            (*
@@ -155,7 +144,7 @@
                                      (list
                                       f-ext
                                       f-int
-                                      f-damp
+                                      ;; f-damp
                                       )
                                      ))))
                      dmax (+

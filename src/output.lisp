@@ -403,6 +403,10 @@
           (save-parameter-nodes "force_buoy_x" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 0 0))
           (save-parameter-nodes "force_buoy_y" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 1 0))
           (save-parameter-nodes "force_buoy_z" (magicl:tref (cl-mpm/mesh::node-buoyancy-force node) 2 0))
+
+          (save-parameter-nodes "force_damp_x" (magicl:tref (cl-mpm/mesh::node-damping-force node) 0 0))
+          (save-parameter-nodes "force_damp_y" (magicl:tref (cl-mpm/mesh::node-damping-force node) 1 0))
+          (save-parameter-nodes "force_damp_z" (magicl:tref (cl-mpm/mesh::node-damping-force node) 2 0))
           (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
                                             1d0
                                             (cl-mpm/mesh::node-jacobian-inc node)
@@ -458,6 +462,24 @@
                                        (cl-mpm/mesh::node-mass node)
                                        (/ (cl-mpm/fastmaths::mag-squared
                                            (magicl:.+ f-ext f-int))
+                                          (cl-mpm/fastmaths::mag-squared
+                                           f-ext)))
+                                      0d0)))
+          (save-parameter-nodes "oobf-damp"
+                                (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
+                                                 (f-int cl-mpm/mesh::node-internal-force)
+                                                 (f-damp cl-mpm/mesh::node-damping-force)
+                                                 )
+                                    node
+                                  (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
+                                      (*
+                                        ;(/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+                                       (cl-mpm/mesh::node-mass node)
+                                       (/ (cl-mpm/fastmaths::mag-squared
+                                           (magicl:.+
+                                            (magicl:.+ f-ext f-int)
+                                            f-damp
+                                            ))
                                           (cl-mpm/fastmaths::mag-squared
                                            f-ext)))
                                       0d0)))
