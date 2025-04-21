@@ -576,7 +576,7 @@
 
 (defun huen-integration (k y-0 y-1 k0 tau n dt)
   (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
-         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-0 k0 tau n)))
+         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
     (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
 
 (defun forwards-integration (k y-0 y-1 k0 tau n dt)
@@ -654,11 +654,7 @@
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
         ;;Transform to log damage
         (incf damage damage-inc)
-        ;;Transform to linear damage
         (setf damage (max 0d0 (min 1d0 damage)))
-        ;; (when (> damage critical-damage)
-        ;;   (setf damage 1d0)
-        ;;   (setf damage-inc 0d0))
         )
       (values))))
 
@@ -688,8 +684,6 @@
                stress))))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-delayed) dt)
-  ;; (apply-tensile-vol-degredation mp dt)
-  ;(apply-vol-degredation mp dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (stress cl-mpm/particle::mp-stress)
@@ -697,12 +691,11 @@
                    (enable-damage cl-mpm/particle::mp-enable-damage)
                    )
       mp
-    ;; (apply-tensile-vol-degredation mp dt)
     (when enable-damage
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
       ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
-      (apply-vol-pressure-degredation mp dt (* -0d0 (/ p 3) damage))
+      (apply-vol-pressure-degredation mp dt (* -1d0 (/ p 3) damage))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))
       )
       ;; (cl-mpm/fastmaths:fast-.+ stress
