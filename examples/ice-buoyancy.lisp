@@ -63,22 +63,13 @@
       (progn
         (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
           (setf damage-increment
-                ;; (max 0d0
                 (+
                  ps-y
-                 ;; (cl-mpm/damage::tensile-energy-norm strain E de)
-                 ;; (cl-mpm/damage::criterion-effective-principal-stress stress (/ pressure 3))
-                 ;; (cl-mpm/damage::criterion-effective-principal-strain strain E (* 1d0 1/3 pressure))
-                 ;; (cl-mpm/damage::tensile-energy-norm-pressure strain E de (* (magicl:det def) pressure))
                  (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
                   ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                  ;; stress
                   (cl-mpm/fastmaths:fast-.+
-                   ;; (cl-mpm/constitutive:linear-elastic-mat trial-strain de)
                    stress
-                   ;; (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 1)))
-                   (cl-mpm/utils:voigt-eye (* 1d0 (/ 1d0 (magicl:det def)) (/ (- pressure) 3)))
-                   )
+                   (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 3))))
                   (* angle (/ pi 180d0)))
                  )))
         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
@@ -132,7 +123,7 @@
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.90d0))
+         (water-level (* floating-point 0.80d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -147,12 +138,9 @@
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
-    (let* (
-           (angle 50d0)
+    (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
-           ;; (init-c 1d5)
-           ;; (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
            (gf 1000d0)
            (length-scale (* mesh-resolution 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
@@ -208,19 +196,21 @@
         ))
 
       (when cryo-static
-        (let ((k 1d0)
-              )
-          (cl-mpm/setup::initialise-stress-self-weight-vardatum
-           *sim*
-           (lambda (pos)
-             (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-                                ice-length) ice-length)))
-               (+ offset
-                  (* alpha end-height)
-                  (* (- 1d0 alpha) start-height))))
-           ;; :k-x k
-           ;; :k-z k
-           )))
+        (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset ice-height))
+        ;; (let ((k 1d0)
+        ;;       )
+        ;;   (cl-mpm/setup::initialise-stress-self-weight-vardatum
+        ;;    *sim*
+        ;;    (lambda (pos)
+        ;;      (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
+        ;;                         ice-length) ice-length)))
+        ;;        (+ offset
+        ;;           (* alpha end-height)
+        ;;           (* (- 1d0 alpha) start-height))))
+        ;;    ;; :k-x k
+        ;;    ;; :k-z k
+        ;;    ))
+        )
       (unless (= start-height end-height)
         (cl-mpm/setup::remove-sdf *sim*
                                   (lambda (p)
@@ -287,7 +277,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 2d-1)
+           :visc-damping 5d-1)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -563,21 +553,19 @@
 
   (setf (cl-mpm::sim-enable-damage *sim*) t)
   (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
-  
-
-  (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) t)
-  (let* ((dt-scale 0.50d0)
+  (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil)
+  (let* ((dt-scale 0.90d0)
          (substeps 0d0)
          (work 0d0)
          (oobf 0d0)
          (energy 0d0)
          (sim-state :accelerate)
-         (accelerate-target-time 1d2)
-         (accelerate-mass-scale 1d6)
+         (accelerate-target-time 1d1)
+         (accelerate-mass-scale 1d4)
          (collapse-target-time 1d0)
          (collapse-mass-scale 1d0)
-         (criteria-energy 2d-2)
-         (criteria-oobf 2d-2)
+         (criteria-energy 5d-2)
+         (criteria-oobf 5d-2)
          (criteria-hist 1.5d0)
          (target-time 1d0)
          (time 0d0)
@@ -711,7 +699,7 @@
              (setf substeps (round target-time (cl-mpm:sim-dt *sim*)))
 
              (setf (cl-mpm:sim-damping-factor *sim*)
-                   (* 1d-6
+                   (* 1d-4
                       (sqrt (cl-mpm:sim-mass-scale *sim*))
                       crit-damp))
              (swank.live:update-swank)
@@ -904,17 +892,18 @@
 
 
 (defun calving-test ()
-  (setup :refine 0.25
-         :friction 0.9d0
-         :bench-length 000d0
-         :ice-height 800d0
-         :mps 3
-         :cryo-static t
-         :aspect 1
-         )
-  (plot-domain)
-  (run :output-dir "./output-3/")
-  )
+  (let* ((mps 2))
+    (setup :refine 0.5
+           :friction 0.9d0
+           :bench-length 000d0
+           :ice-height 800d0
+           :mps mps
+           :cryo-static t
+           :aspect 2
+           )
+    (plot-domain)
+    (run ;:output-dir (format nil "./output-~D-0.5/" mps)
+     )))
 
 (defun test-square ()
   (defparameter *bc-square*
