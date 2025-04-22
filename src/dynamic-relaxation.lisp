@@ -111,7 +111,8 @@
                        )))))))
        (if (= mass 0d0)
            0d0
-           (/ energy mass))
+           (/ energy mass)
+           )
        ))))
 
 (defgeneric estimate-oobf (sim))
@@ -129,36 +130,57 @@
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
                         (f-damp cl-mpm/mesh::node-damping-force)
+                        (node-oobf cl-mpm/mesh::node-oobf)
                         )
            node
          (when active
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
-               (setf nmax (+
-                           nmax
-                           (*
-                            ;; (expt (cl-mpm/mesh:node-mass node) 2)
-                            (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
-                            (cl-mpm/fastmaths::mag-squared
-                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
-                                     (list
-                                      f-ext
-                                      f-int
-                                      ;; f-damp
-                                      )
-                                     ))))
-                     dmax (+
-                           dmax
-                           (*
-                            ;; (expt (cl-mpm/mesh:node-mass node) 2)
-                            (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
-                            (cl-mpm/fastmaths::mag-squared
-                             f-ext))))))))))
+               (let ((inc (*
+                           (expt (cl-mpm/mesh:node-mass node) 2)
+                           ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                           (cl-mpm/fastmaths::mag-squared
+                            (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                                    (list
+                                     f-ext
+                                     f-int
+                                     f-damp
+                                     )
+                                    )))))
+                 (incf node-oobf inc)
+                 (setf nmax (+
+                             nmax
+                             inc)
+                       dmax (+
+                             dmax
+                             (*
+                              (expt (cl-mpm/mesh:node-mass node) 2)
+                              ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                              (cl-mpm/fastmaths::mag-squared
+                               f-ext)))))))))))
+    (cl-mpm::iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (f-ext cl-mpm/mesh::node-external-force)
+                        (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
+                        (node-oobf cl-mpm/mesh::node-oobf)
+                        )
+           node
+         (when active
+           (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
+             (sb-thread:with-mutex (lock)
+               (setf node-oobf
+                     (if (> dmax 0d0)
+                         (sqrt (/ node-oobf dmax))
+                         ;;Very odd case, we have external force but no internal forces
+                         (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
+               ))))))
     (if (> dmax 0d0)
       (setf oobf (sqrt (/ nmax dmax)))
       ;;Very odd case, we have external force but no internal forces
-      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0))
-      )
+      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     oobf))
 (defmethod estimate-oobf ((sim cl-mpm/mpi::mpm-sim-mpi))
   (let ((oobf 0d0)

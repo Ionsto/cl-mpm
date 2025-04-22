@@ -353,7 +353,7 @@
         ))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
-        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
+        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
         (cl-mpm/fastmaths::fast-scale! disp-inc dt)
         (cl-mpm/fastmaths:fast-.+
          (cl-mpm/fastmaths:fast-scale-vector

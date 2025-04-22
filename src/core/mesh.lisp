@@ -126,6 +126,11 @@
     :type double-float
     :initform 0d0
     )
+   (oobf
+    :accessor node-oobf
+    :type double-float
+    :initform 0d0
+    )
    (sdf
     :accessor node-sdf
     :initform 0d0)
@@ -585,6 +590,7 @@
                (boundary-scalar boundary-scalar)
                (pressure pressure)
                (force force)
+               (oobf oobf)
                (int-force internal-force)
                (ext-force external-force)
                (damping-force damping-force)
@@ -602,6 +608,7 @@
     (setf j-inc 0d0)
     (setf boundary-scalar 0d0)
     (setf pressure 0d0)
+    (setf oobf 0d0)
     (cl-mpm/fastmaths::fast-zero vel)
     (cl-mpm/fastmaths::fast-zero acc)
     (cl-mpm/fastmaths::fast-zero force)
