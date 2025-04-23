@@ -582,6 +582,7 @@
                                                      :criteria-hist criteria-hist
                                                      :ocean-height *water-height*
                                                      :ice-length *ice-length*
+                                                     :delay-time delay-time
                                                      ))
     (setf (cl-mpm::sim-mass-scale *sim*) accelerate-mass-scale
           target-time accelerate-target-time)
@@ -986,3 +987,6 @@
          (format t "MPs ~D~%" mps)
          (elastic-sim :output-dir (format nil "./output-single-~E/" refine)
                       :dt-scale 0.25d0))))))
+
+
+
