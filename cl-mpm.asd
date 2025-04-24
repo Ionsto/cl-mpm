@@ -114,7 +114,9 @@
                   ((:file "package")
                    (:file "softening")
                    (:file "criteria")
-                   (:file "damage")))
+                   (:file "damage")
+                   (:file "delay-damage")
+                   ))
                  (:file "models/damage"))
                )))
 (defsystem "cl-mpm/eigenerosion"

@@ -622,14 +622,24 @@
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (or (> ybar-prev k0)
-                    (> ybar k0))
+          (when (or (>= ybar-prev k0)
+                    (>= ybar k0))
             (setf k
-                  (huen-integration k ybar-prev ybar-prev
-                                    k0
-                                    tau
-                                    tau-exp
-                                    dt))))
+                  (cl-mpm/damage::midpoint-integration
+                   k
+                   ybar-prev
+                   ybar
+                   k0
+                   tau
+                   tau-exp
+                   dt
+                   )
+                  ;; (huen-integration k ybar-prev ybar-prev
+                  ;;                   k0
+                  ;;                   tau
+                  ;;                   tau-exp
+                  ;;                   dt)
+                  )))
         (let ((new-damage
                 (max
                  damage
