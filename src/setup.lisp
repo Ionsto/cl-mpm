@@ -15,6 +15,7 @@
 
 (in-package :cl-mpm/setup)
 
+;; (defgeneric make-sim ())
 
 
 (defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
@@ -527,3 +528,51 @@
         (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
         (setf (cl-mpm::sim-bcs-p sim) (cl-mpm/bc:make-outside-bc (cl-mpm::sim-mesh-p sim)))
         sim))))
+
+
+(defun setup-bcs (sim &key
+                        (left    (list 0 nil nil))
+                        (right   (list nil 0 nil))
+                        (top     (list nil 0 nil))
+                        (bottom  (list nil nil 0))
+                        (front   (list nil nil 0))
+                        (back    (list nil nil 0)))
+  "Setup fixed or roller outside bcs for a given simulation"
+  (%setup-bcs sim
+              left
+              right
+              top
+              bottom
+              front
+              back))
+(defgeneric %setup-bcs (sim
+                        left
+                        right
+                        top
+                        bottom
+                        front
+                        back)
+  (:documentation "Implements outside bc setup for different sims"))
+
+(defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
+                       left
+                       right
+                       top
+                       bottom
+                       front
+                       back)
+  (cl-mpm/bc::make-outside-bc-varfix
+   (cl-mpm:sim-mesh sim)
+   left right top bottom front back))
+
+
+(defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
+                       left
+                       right
+                       top
+                       bottom
+                       front
+                       back)
+  (cl-mpm/bc::make-outside-bc-varfix
+   (cl-mpm:sim-mesh sim)
+   left right top bottom front back))

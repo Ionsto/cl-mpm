@@ -1,11 +1,11 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
@@ -41,9 +41,9 @@
    *sim*
    :plot :deformed
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
-   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
+   :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
   )
 (defmethod cl-mpm/output::save-vtk (filename (sim cl-mpm/damage::mpm-sim-damage))
@@ -182,14 +182,14 @@
                 ;'cl-mpm/particle::particle-finite-viscoelastic-ice
                 ;; 'cl-mpm/particle::particle-finite-viscoelastic
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-                'cl-mpm/particle::particle-elastic
-                ;; 'cl-mpm/particle::particle-vm
+                ;; 'cl-mpm/particle::particle-elastic
+                'cl-mpm/particle::particle-vm
                 :E 0.5d6
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
                 ;; :visc-power 3d0
-                ;; :rho 30d3
+                :rho 30d3
                 ;; :initiation-stress 1d4
                 ;; :delay-time 1d0
                 ;; :delay-exponent 1d0
@@ -688,3 +688,32 @@
              (setup :refine 8 :mps 2 :sim-type sim-type)
              (setf (cl-mpm:sim-enable-fbar *sim*) t)
              (run :output-dir (format nil "./output-~A/" sim-type)))))
+
+
+(defun p2g (mesh x y)
+  )
+
+;; (defun test ()
+;;   (setup)
+;;   (with-accessors ((mps cl-mpm:sim-mps)
+;;                    (mesh cl-mpm:sim-mesh)
+;;                    )
+;;       *sim*
+;;       (let* ((mps-count (length mps))
+;;              (pos-x (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
+;;              (pos-y (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
+;;              (size-x (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
+;;              (size-y (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
+;;              (index-x (make-array mps-count :initial-element 0 :element-type 'fixnum))
+;;              (index-y (make-array mps-count :initial-element 0 :element-type 'fixnum))
+;;              (h (cl-mpm/mesh:mesh-resolution mesh))
+;;              )
+;;         (loop for x across pos-x
+;;               for y across pos-y
+;;               do
+;;                  (setf index-x (floor x h)
+;;                        index-y (floor y h))
+;;               )
+
+;;         )))
+

@@ -346,6 +346,8 @@
 (defun make-bcs-from-list (bc-list)
   (make-array (length bc-list) :initial-contents bc-list :adjustable t :fill-pointer (length bc-list)))
 
+
+
 (defun make-outside-bc (mesh)
   "Construct reflection bcs over the outside of a mesh"
   (make-outside-bc-varfix
