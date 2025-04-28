@@ -22,6 +22,7 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
+<<<<<<< HEAD
   (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-vm) dt)
@@ -33,6 +34,10 @@
   )
 
 
+=======
+  ;; (cl-mpm::scale-domain-size mesh mp)
+  )
+>>>>>>> 0076062c928785d0442066c9942d57fb0ae47e24
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm::mpm-sim-usf))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
@@ -194,14 +199,21 @@
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
                 'cl-mpm/particle::particle-elastic
                 ;; 'cl-mpm/particle::particle-vm
+<<<<<<< HEAD
                 :E 1d6
+=======
+                :E 0.5d6
+>>>>>>> 0076062c928785d0442066c9942d57fb0ae47e24
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
                 ;; :visc-power 3d0
                 ;; :rho 30d3
+<<<<<<< HEAD
                 ;; :rho-r 1d3
                 ;; :softening 1d0
+=======
+>>>>>>> 0076062c928785d0442066c9942d57fb0ae47e24
                 ;; :initiation-stress 1d4
                 ;; :delay-time 1d0
                 ;; :delay-exponent 1d0
@@ -589,7 +601,7 @@
                        )
                 ;; (change-class *sim* sim-type)
                 (setf (cl-mpm:sim-damping-factor *sim*)
-                      (* 1d-2 (cl-mpm/setup::estimate-critical-damping *sim*)))
+                      (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*)))
                 (setf
                  (cl-mpm::sim-velocity-algorithm *sim*)
                  algo
@@ -606,8 +618,8 @@
                       (cl-mpm/dynamic-relaxation:converge-quasi-static
                        *sim*
                        :dt-scale dt-scale
-                       :energy-crit 1d-3
-                       :oobf-crit 1d-3
+                       :energy-crit 1d-9
+                       :oobf-crit 1d-9
                        :substeps substeps
                        :conv-steps 100
                        :dt-scale dt-scale
@@ -618,17 +630,9 @@
                          (push i steps)
                          (push e energy)
                          (push o oobf)
-                         ;; (vgplot:semilogy
-                         ;;  steps energy "energy"
-                         ;;  steps oobf "oobf")
                          (apply #'vgplot:semilogy
                                 (reduce #'append
                                         (append
-                                         ;; (mapcar #'list
-                                         ;;         (append *data-steps* (list steps))
-                                         ;;         (append *data-energy*  (list energy))
-                                         ;;         (append *data-name* (list (format nil "energy - ~A" name)))
-                                         ;;         )
                                          (mapcar #'list
                                                  (append *data-steps* (list steps))
                                                  (append *data-oobf*  (list oobf))
@@ -748,32 +752,88 @@
                  ;;       index-y (floor y h))
               ))))
 
-;; (defclass test-particle ()
-;;   ((pos
-;;     :accessor test-particle-pos
-;;     :initform (cl-mpm/utils:vector-zeros))
-;;    (disp
-;;     :accessor test-particle-disp
-;;     :initform (cl-mpm/utils:vector-zeros))))
+(defun test-max-conv ()
+  (defparameter *data-steps* (list))
+  (defparameter *data-oobf* (list))
+  (defparameter *data-energy* (list))
+  (defparameter *data-name* (list))
 
-;; (defun test-soa ()
-;;   (let* ((mp-count 100000)
-;;          (mps (make-array mp-count :initial-contents (loop repeat mp-count collect (make-instance 'test-particle)) :element-type 'test-particle))
-;;          (array-pos (make-array mp-count :initial-contents (loop repeat mp-count collect (cl-mpm/utils:vector-zeros)) :element-type 'magicl:matrix/double-float))
-;;          (array-disp (make-array mp-count :initial-contents (loop repeat mp-count collect (cl-mpm/utils:vector-zeros)) :element-type 'magicl:matrix/double-float))
-;;          (iter 1000)
-;;          )
-;;     (time
-;;      (dotimes (it iter)
-;;        (lparallel:pdotimes (i mp-count)
-;;          (with-accessors ((pos test-particle-pos)
-;;                           (disp test-particle-disp))
-;;              (aref mps i)
-;;            (cl-mpm/fastmaths:fast-.+ pos disp)))))
-;;     (time
-;;      (dotimes (it iter)
-;;        (lparallel:pdotimes (i mp-count)
-;;          (cl-mpm/fastmaths:fast-.+ (aref array-pos i)
-;;                                    (aref array-disp i)
-;;                                    ;; (aref array-pos i)
-;;                                    ))))))
+  (vgplot:figure)
+  (let ((path (merge-pathnames "./analysis_scripts/vel_algo/data/")))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* path)) do (uiop:delete-file-if-exists f))
+    (dolist (algo (list :FLIP))
+      (dolist (dt-scale (list 1d0 0.5d0 0.1d0))
+        (dolist (refine (list 1 2 3))
+          (dolist (fbar (list nil))
+            (dolist (sim-type (list
+                               'cl-mpm::mpm-sim-usf
+                               'cl-mpm::mpm-sim-usl
+                               ))
+              (let* ((steps (list))
+                     (energy (list))
+                     (oobf (list))
+                     ;; (dt-scale 0.5d0)
+                     (substeps (round (* refine 50) dt-scale))
+                     )
+                (setup :refine refine :mps 3
+                       :sim-type sim-type
+                       )
+                ;; (change-class *sim* sim-type)
+                (setf (cl-mpm:sim-damping-factor *sim*)
+                      (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*)))
+                (setf
+                 (cl-mpm::sim-velocity-algorithm *sim*)
+                 algo
+                 (cl-mpm::sim-enable-fbar *sim*) fbar)
+                (let ((name (format nil "~A-~A-~E-~A-~A"
+                                    sim-type
+                                    (cl-mpm::sim-velocity-algorithm *sim*)
+                                    dt-scale
+                                    refine
+                                    fbar
+                                    )))
+                  (vgplot:title name)
+                  (let ((work 0d0)
+                        (e 0d0)
+                        (o 0d0)
+                        (sim *sim*)
+                        (max-steps 200))
+                      (loop for i from 0 to max-steps
+                            while *run-sim*
+                            do
+                               (progn
+                                 (dotimes (j substeps)
+                                   (cl-mpm:update-sim *sim*))
+                                 (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                                 (setf e (cl-mpm::sim-stats-energy sim))
+                                 (if (= work 0d0)
+                                     (setf e 0d0)
+                                     (setf e (abs (/ e work))))
+                                 (setf o (cl-mpm::sim-stats-oobf sim))
+                                 (push i steps)
+                                 (push e energy)
+                                 (push o oobf)
+                                 (apply #'vgplot:semilogy
+                                        (reduce #'append
+                                                (append
+                                                 (mapcar #'list
+                                                         (append *data-steps* (list steps))
+                                                         (append *data-oobf*  (list oobf))
+                                                         (append *data-name*  (list name))
+                                                         )))))
+                               (swank.live:update-swank)
+                       ))
+                  (with-open-file (stream (merge-pathnames path (format nil "~A.csv" name)) :direction :output :if-exists :supersede)
+                    (format stream "step,energy,oobf~%")
+                    (loop for s in steps
+                          for e in energy
+                          for o in oobf
+                          do (format stream "~D,~F,~F~%" s e o)))
+                  (cl-mpm/output:save-vtk (merge-pathnames path (format nil "sim_~A.vtk" name)) *sim*)
+                  (cl-mpm/output:save-vtk-nodes (merge-pathnames path (format nil "sim_nodes_~A.vtk" name)) *sim*)
+
+                  (push steps *data-steps*)
+                  (push energy *data-energy*)
+                  (push oobf *data-oobf*)
+                  (push name *data-name*)
+                  )))))))))
