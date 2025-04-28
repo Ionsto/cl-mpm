@@ -486,6 +486,7 @@
 
 
 
+(declaim (notinline mpi-sync-momentum))
 (defun mpi-sync-momentum (sim)
   ;; (format t "Sync momentum ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -536,6 +537,7 @@
                  (error "MPI exchange touched invalid node?"))))))))
 
 
+(declaim (notinline mpi-sync-force))
 (defun mpi-sync-force (sim)
   ;; (format t "Sync force ~%")
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -564,6 +566,7 @@
                (error "MPI force exchange touched invalid node ~A" index))))))))
 
 (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))
+(declaim (notinline mpi-sync-damage-mps))
 (defun mpi-sync-damage-mps (sim &optional halo-depth)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size)))
@@ -1407,6 +1410,14 @@ leaves a hanging mpi domain at the back"
                               (* x (/ (nth i target-size) (nth i size)))
                               x))
                         dim)))))))
+
+;; (defun collect-in-bound-nodes (sim)
+;;   (let (()))
+;;   (cl-mpm:iterate-over-nodes-serial
+;;    (cl-mpm:sim-mesh sim)
+
+;;    )
+;;   )
 
 (defun domain-decompose (sim &key (domain-scaler (lambda (x) x)))
   (%domain-decompose sim domain-scaler)
