@@ -22,7 +22,17 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp))
+  (cl-mpm::scale-domain-size mesh mp)
+  )
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-vm) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;(cl-mpm::update-domain-max-corner-2d mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
+  )
+
+
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm::mpm-sim-usf))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
@@ -182,14 +192,16 @@
                 ;'cl-mpm/particle::particle-finite-viscoelastic-ice
                 ;; 'cl-mpm/particle::particle-finite-viscoelastic
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-                ;; 'cl-mpm/particle::particle-elastic
-                'cl-mpm/particle::particle-vm
-                :E 0.5d6
+                'cl-mpm/particle::particle-elastic
+                ;; 'cl-mpm/particle::particle-vm
+                :E 1d6
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
                 ;; :visc-power 3d0
-                :rho 30d3
+                ;; :rho 30d3
+                ;; :rho-r 1d3
+                ;; :softening 1d0
                 ;; :initiation-stress 1d4
                 ;; :delay-time 1d0
                 ;; :delay-exponent 1d0
@@ -199,9 +211,9 @@
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       ;; (format t "Charictoristic time ~E~%" (/ ))
-      (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-4)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -237,16 +249,19 @@
       ;;        (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
       ;;        (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
       ;;       ))
-      (setf
-       (cl-mpm:sim-bcs sim)
-       (cl-mpm/bc::make-outside-bc-varfix
-        (cl-mpm:sim-mesh sim)
-        '(0 nil 0)
-        '(0 nil 0)
-        '(nil 0 nil)
-        '(nil 0 nil)
-        '(nil nil 0)
-        '(nil nil 0)))
+      (cl-mpm/setup::setup-bcs
+       sim
+       :bottom '(0 0 nil))
+      ;; (setf
+      ;;  (cl-mpm:sim-bcs sim)
+      ;;  (cl-mpm/bc::make-outside-bc-varfix
+      ;;   (cl-mpm:sim-mesh sim)
+      ;;   '(0 nil 0)
+      ;;   '(0 nil 0)
+      ;;   '(nil 0 nil)
+      ;;   '(nil 0 nil)
+      ;;   '(nil nil 0)
+      ;;   '(nil nil 0)))
       sim)))
 
 
@@ -290,11 +305,19 @@
   (setf (cl-mpm:sim-damping-factor *sim*)
         (* 1d-2
            (cl-mpm/setup:estimate-critical-damping *sim*)))
-  ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
-  ;;  *sim*
-  ;;  :dt-scale 0.5d0
-  ;;  :oobf-crit 1d-2
-  ;;  :energy-crit 1d-2)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps *sim*)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
+  (cl-mpm/dynamic-relaxation:converge-quasi-static
+   *sim*
+   :dt-scale 0.5d0
+   :oobf-crit 1d-2
+   :energy-crit 1d-2)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps *sim*)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -302,7 +325,7 @@
          (dt-min (cl-mpm:sim-dt *sim*))
          )
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d-1
+          (* 1d-3
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
@@ -692,28 +715,65 @@
 
 (defun p2g (mesh x y)
   )
+(defclass particle-component ()
+  (
+   (pos-x
+    :accessor particle-component-pos-x
+    ))
+  )
 
-;; (defun test ()
-;;   (setup)
-;;   (with-accessors ((mps cl-mpm:sim-mps)
-;;                    (mesh cl-mpm:sim-mesh)
-;;                    )
-;;       *sim*
-;;       (let* ((mps-count (length mps))
-;;              (pos-x (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
-;;              (pos-y (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
-;;              (size-x (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
-;;              (size-y (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
-;;              (index-x (make-array mps-count :initial-element 0 :element-type 'fixnum))
-;;              (index-y (make-array mps-count :initial-element 0 :element-type 'fixnum))
-;;              (h (cl-mpm/mesh:mesh-resolution mesh))
-;;              )
-;;         (loop for x across pos-x
-;;               for y across pos-y
-;;               do
-;;                  (setf index-x (floor x h)
-;;                        index-y (floor y h))
-;;               )
+(defun test ()
+  (setup)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   )
+      *sim*
+      (let* ((mps-count (length mps))
+             (pos-x (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
+             (pos-y (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
+             (size-x (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
+             (size-y (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
+             ;; (index-x (make-array mps-count :initial-element 0 :element-type 'fixnum))
+             ;; (index-y (make-array mps-count :initial-element 0 :element-type 'fixnum))
+             (h (cl-mpm/mesh:mesh-resolution mesh))
+             )
+        (loop for x across pos-x
+              for y across pos-y
+              do
+                 (let ((index-x (floor x h))
+                       (index-y (floor y h)))
 
-;;         )))
+                   )
+                 ;; (setf index-x (floor x h)
+                 ;;       index-y (floor y h))
+              ))))
 
+;; (defclass test-particle ()
+;;   ((pos
+;;     :accessor test-particle-pos
+;;     :initform (cl-mpm/utils:vector-zeros))
+;;    (disp
+;;     :accessor test-particle-disp
+;;     :initform (cl-mpm/utils:vector-zeros))))
+
+;; (defun test-soa ()
+;;   (let* ((mp-count 100000)
+;;          (mps (make-array mp-count :initial-contents (loop repeat mp-count collect (make-instance 'test-particle)) :element-type 'test-particle))
+;;          (array-pos (make-array mp-count :initial-contents (loop repeat mp-count collect (cl-mpm/utils:vector-zeros)) :element-type 'magicl:matrix/double-float))
+;;          (array-disp (make-array mp-count :initial-contents (loop repeat mp-count collect (cl-mpm/utils:vector-zeros)) :element-type 'magicl:matrix/double-float))
+;;          (iter 1000)
+;;          )
+;;     (time
+;;      (dotimes (it iter)
+;;        (lparallel:pdotimes (i mp-count)
+;;          (with-accessors ((pos test-particle-pos)
+;;                           (disp test-particle-disp))
+;;              (aref mps i)
+;;            (cl-mpm/fastmaths:fast-.+ pos disp)))))
+;;     (time
+;;      (dotimes (it iter)
+;;        (lparallel:pdotimes (i mp-count)
+;;          (cl-mpm/fastmaths:fast-.+ (aref array-pos i)
+;;                                    (aref array-disp i)
+;;                                    ;; (aref array-pos i)
+;;                                    ))))))
