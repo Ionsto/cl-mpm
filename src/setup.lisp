@@ -18,6 +18,7 @@
 ;; (defgeneric make-sim ())
 
 
+
 (defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
   (let ((nd (length element-count)))
     (let* ((nD nd)
@@ -27,6 +28,21 @@
         ;; (setf (cl-mpm:sim-mps sim) #())
         (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
         sim))))
+
+;; (defgeneric %make-mpm-sim (sim-type size element-count))
+;; (defmethod %make-mpm-sim (sim-type size resolution)
+;;   (let* ((nD (length size))
+;;          (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type)))
+;;     (progn
+;;       ;; (setf (cl-mpm:sim-mps sim) #())
+;;       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+;;       sim))
+;;   (make-instance sim-type
+;;                  :dt (coerce dt 'double-float)
+;;                  :mesh (make-mesh size resolution shape-function)
+;;                  :mps (make-array 0 :adjustable t :fill-pointer 0))
+;;   )
+
 
 (defun make-block (res element-count &key (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
                                           (sim-type 'cl-mpm::mpm-sim-usf)
@@ -532,9 +548,9 @@
 
 (defun setup-bcs (sim &key
                         (left    (list 0 nil nil))
-                        (right   (list nil 0 nil))
+                        (right   (list 0 nil nil))
                         (top     (list nil 0 nil))
-                        (bottom  (list nil nil 0))
+                        (bottom  (list nil 0 nil))
                         (front   (list nil nil 0))
                         (back    (list nil nil 0)))
   "Setup fixed or roller outside bcs for a given simulation"
@@ -561,18 +577,24 @@
                        bottom
                        front
                        back)
-  (cl-mpm/bc::make-outside-bc-varfix
-   (cl-mpm:sim-mesh sim)
-   left right top bottom front back))
+  (setf
+   (cl-mpm:sim-bcs sim)
+   (cl-mpm/bc::make-outside-bc-varfix
+    (cl-mpm:sim-mesh sim)
+    left right top bottom front back)))
 
 
-(defmethod %setup-bcs ((sim cl-mpm:mpm-sim)
+(defmethod %setup-bcs ((sim cl-mpm::mpm-sim-multigrid)
                        left
                        right
                        top
                        bottom
                        front
                        back)
-  (cl-mpm/bc::make-outside-bc-varfix
-   (cl-mpm:sim-mesh sim)
-   left right top bottom front back))
+  (loop for mesh in (cl-mpm::sim-mesh-list sim)
+        for i from 0
+        do
+           (setf (nth i (cl-mpm::sim-bcs sim))
+                 (cl-mpm/bc::make-outside-bc-varfix
+                  mesh
+                  left right top bottom front back))))

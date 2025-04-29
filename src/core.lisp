@@ -14,6 +14,7 @@
   #-cl-mpm-pic (print "Compiled with FLIP")
   )
 
+(declaim (notinline check-mps))
 (defun check-mps (sim)
   "Function to check that stresses and positions are sane, deleting mps moving very fast"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -667,6 +668,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         )))
   (values))
 
+(declaim (notinline update-node-kinematics))
 (defun update-node-kinematics (mesh dt)
   (iterate-over-nodes
    mesh
@@ -746,8 +748,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   "Calculate the strain rate, stretch rate and vorticity"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
            (optimize (speed 3) (safety 0)))
-  (with-accessors ((vorticity cl-mpm/particle:mp-vorticity)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
                    ) mp
     (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
@@ -755,8 +756,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (progn
           (cl-mpm/fastmaths::fast-zero stretch-tensor)
           (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
-          (let (
-                )
+          (let ()
             (iterate-over-neighbours
              mesh mp
              (lambda (mesh mp node svp grads fsvp fgrads)

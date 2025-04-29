@@ -692,7 +692,9 @@
         (dxdy (magicl:tref vorticity 2 0))
         )
     (declare (double-float dx dy dxdy))
-    (cl-mpm/utils::matrix-from-list (list dx dxdy (- dxdy) dy))))
+    (cl-mpm/utils::matrix-from-list (list dx dxdy 0d0
+                                          (- dxdy) dy 0d0
+                                          0d0 0d0 0d0))))
 
 (defun objectify-stress (mp)
   (cl-mpm/particle:mp-stress mp))

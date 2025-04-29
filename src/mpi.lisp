@@ -1100,6 +1100,7 @@
          (and (>= i-2 0) (< i-2 s-2))
          (and (>= i-3 0) (< i-3 s-3)))))))
 
+(declaim (notinline exchange-mps))
 (defun exchange-mps (sim &optional halo-depth)
   (let* ((rank (cl-mpi:mpi-comm-rank))
          (size (cl-mpi:mpi-comm-size))

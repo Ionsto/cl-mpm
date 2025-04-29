@@ -244,7 +244,8 @@
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
-    (restart-case (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
+    (restart-case
+        (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
       (continue ())
       (retry-convergence ()
         (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping)
@@ -420,24 +421,9 @@
                      (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
 
                    (push energy-total energy-list)
-                   ;; (when (> (length energy-list) 2)
-                   ;;   (when (and
-                   ;;          (< (nth 0 energy-list) (nth 1 energy-list))
-                   ;;          (> (nth 1 energy-list) (nth 2 energy-list))
-                   ;;                      ;(> (nth 2 energy-list) (nth 3 energy-list))
-                   ;;          )
-                   ;;     (when (= rank 0)
-                   ;;       (format t "Peak found resetting KE~%"))
-                   ;;     (cl-mpm:iterate-over-mps
-                   ;;      mps
-                   ;;      (lambda (mp)
-                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                   ;;        (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))))
-
                    (when (and (< fnorm energy-crit)
                               (< oobf oobf-crit)
-                              (if convergance-criteria (funcall convergance-criteria sim) t)
-                              )
+                              (if convergance-criteria (funcall convergance-criteria sim) t))
                      (when (= 0 rank)
                        (format t "Took ~D steps to converge~%" i))
                      (setf converged t))
