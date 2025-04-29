@@ -822,7 +822,7 @@
                     (cl-mpm::split-mps sim))
                   (cl-mpm::check-mps sim)
                   ;; (cl-mpm::check-single-mps sim)
-                  (set-mp-mpi-index sim)
+                  ;; (set-mp-mpi-index sim)
                   (exchange-mps sim 0d0)
                   (set-mp-mpi-index sim)
                   (clear-ghost-mps sim)
@@ -1121,8 +1121,7 @@
                  (let ((id-delta (list 0 0 0)))
                    (setf (nth i id-delta) 1)
                    (let ((left-neighbor (mpi-index-to-rank sim (mapcar #'- index id-delta)))
-                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta)))
-                         )
+                         (right-neighbor (mpi-index-to-rank sim (mapcar #'+ index id-delta))))
                      (destructuring-bind (bl bu) (nth i bounds-list)
                        (when (not (= bl bu))
                          (labels
@@ -1135,16 +1134,11 @@
                               (left-filter ()
                                 (halo-filter (lambda (pos)
                                                (and
-                                                (< pos (+ bl halo-depth)))
-                                               ))
-                                )
+                                                (< pos (+ bl halo-depth))))))
                               (right-filter ()
                                 (halo-filter (lambda (pos)
                                                (and
-                                                (>= pos (- bu halo-depth)))
-                                               ))))
-
-
+                                                (>= pos (- bu halo-depth)))))))
                            (let* ((cl-mpi-extensions::*standard-encode-function* #'cl-store-encoder)
                                   (cl-mpi-extensions::*standard-decode-function* #'cl-store-decoder)
                                   (recv
