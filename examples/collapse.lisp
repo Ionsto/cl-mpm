@@ -22,7 +22,6 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
-<<<<<<< HEAD
   (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-vm) dt)
@@ -33,11 +32,6 @@
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
-
-=======
-  ;; (cl-mpm::scale-domain-size mesh mp)
-  )
->>>>>>> 0076062c928785d0442066c9942d57fb0ae47e24
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm::mpm-sim-usf))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
