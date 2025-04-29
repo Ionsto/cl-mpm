@@ -48,6 +48,7 @@
 (in-package :cl-mpm)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
+
 (defclass mpm-sim ()
   ((dt
      :accessor sim-dt
@@ -184,3 +185,15 @@
     :initform (make-array 0))
    )
   (:documentation "Explicit simulation with subdivided q2-q1 mesh"))
+
+
+(defclass mpm-sim-multigrid (mpm-sim)
+  ((mesh-list
+    :accessor sim-mesh-list
+    :initarg :mesh-list)
+   (bcs-list
+    :accessor sim-bcs-list
+    :initarg :bcs-list
+    :initform (make-array 0))
+   )
+  (:documentation "Explicit simulation with multiple meshes"))

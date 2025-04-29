@@ -30,6 +30,10 @@
     :accessor mp-yield-func
     :type double-float
     :initform 0d0)
+   (softening
+    :accessor mp-softening
+    :initarg :softening
+    :initform 0d0)
    (plastic-iterations
     :accessor mp-plastic-iterations
     :initform 0)))
@@ -38,6 +42,14 @@
   ((rho
     :accessor mp-rho
     :initarg :rho
+    )
+   (rho-0
+    :accessor mp-rho-0
+    :initarg :rho
+    )
+   (rho-r
+    :accessor mp-rho-r
+    :initarg :rho-r
     )
    (yield-func
     :accessor mp-yield-func
@@ -91,10 +103,7 @@
     :initarg :c-r
     :initform 0d0
     )
-   (softening
-    :accessor mp-softening
-    :initarg :softening
-    :initform 0d0))
+   )
 
   (:documentation "A mohr-coloumb perfectly plastic material point"))
 
@@ -106,6 +115,7 @@
   (with-accessors ((de mp-elastic-matrix)
                    (stress mp-stress)
                    (rho mp-rho)
+                   (soft mp-softening)
                    (plastic-strain mp-strain-plastic)
                    (ps-vm mp-strain-plastic-vm)
                    (strain mp-strain)
@@ -132,6 +142,13 @@
                        (expt (- s2 s3) 2d0)
                        (expt (- s3 s1) 2d0)
                        ) 2d0))))))
+    (when (> soft 0d0)
+      (with-accessors ((rho-r mp-rho-r)
+                       (rho-0 mp-rho-0))
+          mp
+        (declare (double-float rho-0 rho-r))
+        (setf
+         rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))))
     stress
     ))
 

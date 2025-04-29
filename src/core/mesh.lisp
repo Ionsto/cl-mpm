@@ -232,6 +232,13 @@
     :initarg :boundary-order))
     (:documentation "MPM computational mesh"))
 
+(defclass mesh-subset (mesh)
+  ((full-nodes
+    :accessor mesh-full-nodes
+    :initarg :nodes
+    :initform (make-array 0 :fill-pointer 0 :adjustable t :element-type 'node)
+    )))
+
 
 (defun make-node (index pos h)
   "Default initialise a 2d node at pos"
@@ -653,8 +660,8 @@
       ((> n 1)
        (let ((start-point
                (magicl:.+
-                (magicl:scale! (cl-mpm/utils:vector-from-list (list -0.5d0 -0.5d0)) h)
-                (magicl:scale! (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0)) spaceing)
+                (magicl:scale! (cl-mpm/utils:vector-from-list (list -0.5d0 -0.5d0 0d0)) h)
+                (magicl:scale! (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0 0d0)) spaceing)
                 )
                ))
          ;; (break)
