@@ -134,7 +134,7 @@
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
-                                               'cl-mpm/damage::mpm-sim-damage
+                                               'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
                                                ))
@@ -906,6 +906,8 @@
     (run ;:output-dir (format nil "./output-~D-0.5/" mps)
      )))
 
+
+
 (defun test-square ()
   (defparameter *bc-square*
     (cl-mpm/penalty::make-bc-penalty-square
@@ -919,10 +921,10 @@
   )
 
 (defun test ()
-  (setup :refine 0.25
-         :mps 3
-         :aspect 4
-         :bench-length 400d0
+  (setup :refine 1;0.25
+         :mps 2
+         :aspect 1
+         :bench-length 000d0
          )
   (elastic-sim
    :damping 1d-2

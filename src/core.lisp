@@ -771,7 +771,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                    (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
                    )))))
           (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
-          (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt))))
+          (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt)
+          )))
 
 (defun calculate-strain-rate-nofbar (mesh mp dt)
   "Calculate the strain rate, stretch rate and vorticity"
@@ -829,6 +830,31 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                            boolean) (values))
                update-strain-kirchoff))
 
+(defun update-strain-kirchoff-dynamic-relaxation (mesh mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0    cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   ) mp
+    (declare (type double-float volume))
+    (progn
+      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
+        (progn
+          ;(setf df-inc df)
+          (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
+          (cl-mpm/utils:voigt-copy-into strain-n strain)
+          (cl-mpm/ext:kirchoff-update strain df-inc)
+          ;; (setf volume (* volume (the double-float dj)))
+          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+          (when (<= volume 0d0)
+            (error "Negative volume"))))))
+  (values))
+
 (defun update-strain-kirchoff (mesh mp dt fbar)
   "Finite strain kirchhoff strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
@@ -847,15 +873,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
           (cl-mpm/utils:voigt-copy-into strain strain-n)
           (cl-mpm/ext:kirchoff-update strain df)
-          ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-          ;;Post multiply to turn to eng strain
-          ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
           (setf volume (* volume (the double-float dj)))
-          ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-          ;; (setf volume (* volume (the double-float dj)))
           (when (<= volume 0d0)
-            (error "Negative volume"))
-          ))))
+            (error "Negative volume"))))))
   (values))
 
 (defun update-strain-kirchoff-noupdate (mesh mp dt fbar)
@@ -1021,6 +1041,33 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         ;; Check volume constraint!
         ;; (when (<= volume 0d0)
         ;;   (error "Negative volume"))
+        ;; Turn kirchoff stress to cauchy
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+        ))))
+
+(defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
+  "Update stress for a single mp"
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
+           (optimize (speed 3) (safety 0) (debug 0)))
+  (with-accessors ((stress cl-mpm/particle:mp-stress)
+                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
+                   (volume cl-mpm/particle:mp-volume)
+                   (strain cl-mpm/particle:mp-strain)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (strain-rate cl-mpm/particle:mp-strain-rate)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   ) mp
+    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
+             (double-float volume))
+    (progn
+      (progn
+        (calculate-strain-rate mesh mp dt)
+        ;; Turn cauchy stress to kirchoff
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; Update our strains
+        (update-strain-kirchoff-dynamic-relaxation mesh mp dt fbar)
+        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))

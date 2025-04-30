@@ -29,7 +29,7 @@
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
-(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-brittle) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
@@ -54,7 +54,7 @@
 (defparameter *localising* nil)
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (if *localising*
+  (if t;*localising*
       (* local-length
          ;; (- 1d0 (* 0.5d0 damage))
          (max (sqrt (- 1d0 damage)) 1d-10)
@@ -241,9 +241,10 @@
      *sim*
      :plot :deformed
      :colour-func
-     ;; #'cl-mpm/particle::mp-damage
+     ;#'cl-mpm/particle::mp-damage
+     #'cl-mpm/particle::mp-damage-ybar
      ;(lambda (mp ) (magicl:tref (cl-mpm/particle::mp-stress mp) 0 0))
-     (lambda (mp ) (* (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0) 1d3))
+     ;; (lambda (mp ) (* (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0) 1d3))
      ;; (lambda (mp)
      ;;   (if (= 0 (cl-mpm/particle::mp-index mp))
      ;;       (cl-mpm/particle::mp-strain-plastic-vm mp)
@@ -461,7 +462,7 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm::mpm-sim-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-damage
+               :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -562,6 +563,7 @@
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
+      (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
       (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -1673,12 +1675,12 @@
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
 
-    ;; (setf (cl-mpm:sim-damping-factor *sim*)
-    ;;       (* 0.1d0
-    ;;          ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
-    ;;          (cl-mpm/setup::estimate-critical-damping *sim*)))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.1d0
+             ;; (sqrt (cl-mpm:sim-mass-scale *sim*))
+             (cl-mpm/setup::estimate-critical-damping *sim*)))
 
-    (setf (cl-mpm:sim-damping-factor *sim*) 0.8d0)
+    ;; (setf (cl-mpm:sim-damping-factor *sim*) 0.8d0)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
@@ -1713,7 +1715,7 @@
     ;; (push *t* *data-t*)
     ;; (push disp-av *data-disp*)
     ;; (push load-av *data-v*)
-    (setf (cl-mpm::sim-enable-damage *sim*) nil)
+    (setf (cl-mpm::sim-enable-damage *sim*) t)
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
@@ -1729,6 +1731,7 @@
 
                      (let ((load-av 0d0)
                            (disp-av 0d0))
+                       (new-loadstep *sim*)
                        (cl-mpm/dynamic-relaxation:converge-quasi-static
                         *sim*
                         :energy-crit 1d-2
@@ -1740,12 +1743,13 @@
                         (lambda (i energy oobf)
                           (format t "Surcharge load ~E~%" (/ *piston-confinement* *piston-steps*))
                           (plot-domain)
+                          (vgplot:title (format nil "Step ~D - substep ~D" steps i))
                           (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d_~5,'0d.vtk" steps (+ 1 i))) *sim*)
                           (setf *piston-confinement* 0d0
                                 *piston-steps* 0)))
-                       (setf (cl-mpm::sim-enable-damage *sim*) t)
-                       (cl-mpm/damage::calculate-damage *sim*)
-                       (setf (cl-mpm::sim-enable-damage *sim*) nil)
+                       ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
+                       ;; (cl-mpm/damage::calculate-damage *sim*)
+                       ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
                        ;; (let ((damage-0 0d0)
                        ;;       (damage-1 0d0))
                        ;;   (loop for i from 0 to 100
@@ -2282,21 +2286,26 @@
          (cl-mpm::calculate-forces node damping dt mass-scale)
          )))))
 
-;𝑥^3−6𝑥^2−𝑥+30=0
 
-(defun fx (x)
-  (+
-   (expt x 3)
-   (- (* 6d0 (expt x 2)))
-   (- x)
-   30))
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-brittle) dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar))
 
-(defun dfx (x)
-  (+
-   (* 3(expt x 2))
-   (- (* 12d0 (expt x 1)))
-   -1))
-
-(let ((x 0d0))
-  (dotimes (i 10)
-    (pprint (decf x (/ (fx x) (dfx x))))))
+(defun new-loadstep (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (with-accessors ((strain cl-mpm/particle:mp-strain)
+                      (strain-n cl-mpm/particle:mp-strain-n)
+                      (disp cl-mpm/particle::mp-displacement)
+                      (def    cl-mpm/particle:mp-deformation-gradient)
+                      (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                      (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                      (ybar    cl-mpm/particle::mp-damage-ybar)
+                      (ybar-prev    cl-mpm/particle::mp-damage-ybar-prev)
+                      )
+         mp
+       (cl-mpm/utils:matrix-copy-into def def-0)
+       (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+       (cl-mpm/utils:voigt-copy-into strain strain-n)
+       (cl-mpm/fastmaths:fast-zero disp)
+       (setf ybar-prev ybar)))))

@@ -112,6 +112,12 @@ Calls func with only the node"
                       (funcall func (aref mps i)))
   (values))
 
+(defun reduce-over-mps (mps map reduce)
+  (lparallel:pmap-reduce
+   map
+   reduce
+   mps))
+
 (defun iterate-over-mps-serial (mps func)
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"

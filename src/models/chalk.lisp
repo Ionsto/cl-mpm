@@ -508,6 +508,7 @@
                      (Gf cl-mpm/particle::mp-Gf)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -533,8 +534,7 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (when t;(< damage 1d0)
-            (setf ybar damage-inc)
-            (setf k (max k ybar))
+            (setf k (max ybar-prev ybar))
             (setf damage-inc 0d0)
             (let ((new-damage (max damage
                                    (damage-response-exponential k E init-stress ductility))))
@@ -713,6 +713,7 @@
                      (Gf cl-mpm/particle::mp-Gf)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (damage-rate cl-mpm/particle::mp-damage-rate)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -739,27 +740,29 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
-          (when (> ybar k0)
-            ;;Backwards Euler
-            (incf k (the double-float
-                         (*
-                          dt
-                          (/
-                           (* k0
-                              (expt
-                               (/ (the double-float (max 0d0 (- ybar k)))
-                                  k0) a))
-                           tau))))))
+          (when (or (>= ybar-prev k0)
+                  (>= ybar k0))
+            (setf
+             k
+             (cl-mpm/damage::huen-integration
+              k
+              ybar-prev
+              ybar
+              k0
+              tau
+              tau-exp
+              dt
+              ))))
         (let ((new-damage
                 (max
                  damage
                  (damage-response-exponential k E init-stress ductility))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
+        (setf ybar-prev ybar)
         (if peerlings
           (setf
            damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
@@ -819,7 +822,6 @@
                              init-stress ductility))
       (when (< damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
@@ -885,7 +887,6 @@
                      ) mp
       (declare (double-float damage damage-inc critical-damage))
         (progn
-          (setf ybar damage-inc)
           (magicl:scale! ybar-tensor 0d0)
           (when (< damage 1d0)
             (let ((damage-inc-mat (cl-mpm/utils:matrix-zeros))
@@ -927,7 +928,6 @@
                                                  (magicl:@ damage-tensor omega)))
                            damage-tensor))))
           ;;Damage increment holds the delocalised driving factor
-          ;; (setf ybar damage-inc)
           ;; (setf k (max k ybar))
           ;; (setf damage-inc 0d0)
 
@@ -985,7 +985,6 @@
       (declare (double-float damage damage-inc critical-damage))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
           (when (< damage 1d0)
             (setf damage-inc (* dt
                                 ;; (/ 1d0 (- 1d0 damage))
@@ -1114,7 +1113,6 @@
       (declare (double-float damage damage-inc critical-damage))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
           (when (< damage 1d0)
             (setf damage-inc (* dt
                                 ;; (/ 1d0 (- 1d0 damage))
@@ -1212,7 +1210,6 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
           (setf damage-inc 0d0)
           (let ((a tau-exp)
                 (k0 init-stress))

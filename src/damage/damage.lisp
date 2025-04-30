@@ -666,7 +666,7 @@ Calls the function with the mesh mp and node"
              (declare (double-float weight m d mass-total damage-inc))
              (incf mass-total (* weight m))
              (incf damage-inc
-                   (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                   (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
                       weight m)))
            (macrolet ((reflect-axis (axis enable)
                         (declare (fixnum axis))
@@ -686,7 +686,7 @@ Calls the function with the mesh mp and node"
                              (declare (double-float weight m d mass-total damage-inc))
                              (incf mass-total (* weight m))
                              (incf damage-inc
-                                   (* (the double-float (cl-mpm/particle::mp-local-damage-increment mp-other))
+                                   (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
                                       weight m))))))
              (reflect-axis 0 *enable-reflect-x*)
              (reflect-axis 1 *enable-reflect-y*)
@@ -696,9 +696,7 @@ Calls the function with the mesh mp and node"
        ))
     (when (> mass-total 0d0)
       (setf damage-inc (/ damage-inc mass-total)))
-    damage-inc
-    ;; (setf damage-inc (cl-mpm/particle::mp-local-damage-increment mp))
-    ))
+    damage-inc))
 
 (declaim (notinline length-localisation))
 (defun length-localisation (local-length local-length-damaged damage)
@@ -745,18 +743,11 @@ Calls the function with the mesh mp and node"
      mps
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle:particle-damage)
-         ;; (find-nodal-local-length mesh mp)
-         ;; (find-intergral-local-length mesh mp)
-         ;; (setf (cl-mpm/particle::mp-true-local-length mp)
-         ;;       (length-localisation (cl-mpm/particle::mp-local-length mp)
-         ;;                            (cl-mpm/particle::mp-local-length-damaged mp)
-         ;;                            (cl-mpm/particle::mp-damage mp)))
-         (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
-                          (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
+         (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
                           (damage cl-mpm/particle::mp-damage)
                           (local-length-t cl-mpm/particle::mp-true-local-length))
              mp
-           (setf damage-inc (calculate-delocalised-damage mesh mp local-length-t)))))))
+           (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))
 
 
@@ -766,12 +757,10 @@ Calls the function with the mesh mp and node"
    mps
     (lambda (mp)
       (when (typep mp 'cl-mpm/particle:particle-damage)
-        (with-accessors ((damage-inc cl-mpm/particle::mp-damage-increment)
-                         (damage-inc-local cl-mpm/particle::mp-local-damage-increment)
-                         (local-length cl-mpm/particle::mp-local-length)
-                         )
+        (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
+                         (damage-y cl-mpm/particle::mp-damage-y-local))
             mp
-          (setf damage-inc damage-inc-local)))))
+          (setf damage-ybar damage-y)))))
   (values))
 
 

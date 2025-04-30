@@ -119,21 +119,21 @@
                    (plastic-strain mp-strain-plastic)
                    (ps-vm mp-strain-plastic-vm)
                    (strain mp-strain)
+                   (strain-n mp-strain-n)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity))
       mp
     ;;Train elastic strain - plus trail kirchoff stress
-    (setf stress
-          (cl-mpm/constitutive::linear-elastic-mat strain de))
+    (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
         (setf stress
               sig
-              plastic-strain (magicl:.- strain eps-e)
+              plastic-strain (magicl:.- strain-n eps-e)
               strain eps-e
               yield-func f
               ))
-      (incf ps-vm
+      (setf ps-vm
             (multiple-value-bind (l v)
                 (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
               (destructuring-bind (s1 s2 s3) l

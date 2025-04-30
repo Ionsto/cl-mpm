@@ -66,18 +66,17 @@
   (:documentation "A material point with fracture mechanics"))
 
 (defclass particle-elastic-damage (particle-elastic particle-damage)
-  ()
+  ((ductility
+    :accessor mp-ductility
+    :initarg :ductility
+    :initform 1d0)
+   (history-stress
+    :accessor mp-history-stress
+    :initform 0d0))
   (:documentation "A mp with damage influanced elastic model"))
 
 (defclass particle-elastic-damage-delayed (particle-elastic-damage)
-   ((ductility
-     :accessor mp-ductility
-     :initarg :ductility
-     :initform 1d0)
-    (history-stress
-     :accessor mp-history-stress
-     :initform 0d0)
-    (delay-time
+   ((delay-time
      :accessor mp-delay-time
      :initform 1d0
      :initarg :delay-time
@@ -169,7 +168,7 @@
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
                stress))))))
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
+(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage) dt)
   (apply-vol-degredation mp))
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)
@@ -467,15 +466,46 @@
         )
       (values))))
 
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage-delayed) dt)
-  (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
-                     (strain cl-mpm/particle::mp-strain)
+(defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage) dt)
+  (when (cl-mpm/particle::mp-enable-damage mp)
+    (with-accessors ((damage cl-mpm/particle:mp-damage)
                      (E cl-mpm/particle::mp-e)
-                     (de cl-mpm/particle::mp-elastic-matrix)
-                     ) mp
-      (progn
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
-        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-        ))))
+                     (damage-inc cl-mpm/particle::mp-damage-increment)
+                     (ybar cl-mpm/particle::mp-damage-ybar)
+                     (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
+                     (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (length cl-mpm/particle::mp-local-length)
+                     (k cl-mpm/particle::mp-history-stress)
+                     (critical-damage cl-mpm/particle::mp-critical-damage)
+                     (ductility cl-mpm/particle::mp-ductility))
+        mp
+      (declare (double-float damage damage-inc k ybar dt))
+      (when t;(<= damage 1d0)
+        ;;Damage increment holds the delocalised driving factor
+        (setf k (max ybar-prev ybar))
+        (let ((new-damage
+                (cl-mpm/damage::damage-response-exponential-peerlings-residual
+                 k
+                 E init-stress ductility (- 1d0 1d-6))))
+          (declare (double-float new-damage))
+          (setf damage-inc (- new-damage damage)))
+        (when (>= damage 1d0)
+          (setf damage-inc 0d0))
+        (incf damage damage-inc)
+
+        (setf damage (max 0d0 (min 1d0 damage)))
+
+        (when (> damage critical-damage)
+          (setf damage 1d0)
+          (setf damage-inc 0d0))
+        )
+      (values))))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
+  (with-accessors ((strain cl-mpm/particle::mp-strain)
+                   (E cl-mpm/particle::mp-e)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   ) mp
+    (setf y (cl-mpm/damage::tensile-energy-norm strain E de))))
+

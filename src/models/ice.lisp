@@ -488,7 +488,6 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
         (progn
           ;;Damage increment holds the delocalised driving factor
-          (setf ybar damage-inc)
           (setf damage-inc 0d0)
           ;; (setf k (max k ybar))
 
@@ -574,13 +573,6 @@
        tau)
       0d0))
 
-(defun huen-integration (k y-0 y-1 k0 tau n dt)
-  (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
-         (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
-    (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
-
-(defun forwards-integration (k y-0 y-1 k0 tau n dt)
-    (+ k (* dt (deriv-partial k y-0 k0 tau n))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
@@ -618,14 +610,13 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
           (when (or (>= ybar-prev k0)
                     (>= ybar k0))
             (setf k
-                  (cl-mpm/damage::midpoint-integration
+                  (cl-mpm/damage::huen-integration
                    k
                    ybar-prev
                    ybar
