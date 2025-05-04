@@ -36,10 +36,11 @@
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
         (p2g-force mesh mps)
-        (loop for bcs-f in bcs-force-list
-              do (apply-bcs mesh bcs-f dt))
+        (when bcs-force-list
+          (loop for bcs-f in bcs-force-list
+                do (apply-bcs mesh bcs-f dt)))
         (update-node-forces sim)
-        ;; ;; Reapply velocity BCs
+        ;; Reapply velocity BCs
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
         ;; Also updates mps inline

@@ -211,7 +211,11 @@
                     (magicl::matrix/double-float-storage vec))
     v)
   )
+
+(declaim (ftype (function (magicl::matrix/double-float
+                           magicl::matrix/double-float) magicl::matrix/double-float) vector-copy-into))
 (defun vector-copy-into (source target)
+  "Copy a vector from source into target"
   (aops:copy-into (magicl::matrix/double-float-storage target)
                   (magicl::matrix/double-float-storage source))
   target)

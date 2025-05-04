@@ -13,6 +13,10 @@
     :initarg :enable-plasticity
     :initform t
     )
+   (strain-plastic-vm-1
+    :accessor mp-strain-plastic-vm-1
+    :type DOUBLE-FLOAT
+    :initform 0d0)
    (strain-plastic-vm
     :accessor mp-strain-plastic-vm
     :type DOUBLE-FLOAT
@@ -163,13 +167,15 @@
                    (c mp-c)
                    (plastic-strain mp-strain-plastic)
                    (ps-vm mp-strain-plastic-vm)
+                   (ps-vm-1 mp-strain-plastic-vm-1)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
                    (strain mp-strain)
                    (yield-func mp-yield-func)
                    (soft mp-softening)
                    (enabled mp-enable-plasticity)
                    )
       mp
-    (declare (double-float soft ps-vm E nu phi psi c))
+    (declare (double-float soft ps-vm ps-vm-1 ps-vm-inc E nu phi psi c))
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
@@ -193,7 +199,8 @@
                       stress sig
                       strain eps-e
                       yield-func f)
-                     (incf ps-vm inc))
+                     (setf ps-vm-inc inc)
+                     (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)
                    (when (> soft 0d0)
                      (with-accessors ((c-0 mp-c-0)
@@ -208,8 +215,18 @@
                         c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
                         phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
                      )))))
-    stress
-    ))
+    stress))
+
+(defmethod cl-mpm::update-particle (mesh (mp particle-plastic) dt)
+  (with-accessors ((ps-vm-1 mp-strain-plastic-vm-1)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
+                   (ps-vm mp-strain-plastic-vm)
+                   )
+      mp
+    (declare (double-float ps-vm ps-vm-1 ps-vm-inc))
+    (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+  (call-next-method))
+
 
 (defmethod constitutive-model ((mp particle-dp) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -267,3 +284,18 @@
            c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
            phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm)))))))))
     stress))
+
+(defmethod new-loadstep-mp ((mp particle-plastic))
+  (with-accessors ((strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (disp cl-mpm/particle::mp-displacement)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   )
+      mp
+    (cl-mpm/utils:matrix-copy-into def def-0)
+    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    (cl-mpm/utils:voigt-copy-into strain strain-n)
+    (cl-mpm/fastmaths:fast-zero disp)
+    ))

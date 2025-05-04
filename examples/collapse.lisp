@@ -14,8 +14,8 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-vm) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-finite-viscoelastic) dt)
@@ -26,9 +26,10 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-vm) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
+  (cl-mpm::update-domain-stretch mesh mp dt)
+  ;; ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   ;;Each step we reset key metrics to initial pre-psudo step values
   )
 (defun new-loadstep (mp)
@@ -211,22 +212,20 @@
                 ;'cl-mpm/particle::particle-finite-viscoelastic-ice
                 ;; 'cl-mpm/particle::particle-finite-viscoelastic
                 ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-                'cl-mpm/particle::particle-elastic-damage
-                ;; 'cl-mpm/particle::particle-vm
+                ;; 'cl-mpm/particle::particle-elastic-damage
+                'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.24d0
                 ;:viscosity 1.11d6
                 ;; :viscosity 1d08
                 ;; :visc-power 3d0
-                ;; :rho 30d3
+                :rho 30d3
                 ;; :rho-r 1d3
                 ;; :softening 1d0
-                :initiation-stress 1d4
-                ;; :delay-time 1d0
-                ;; :delay-exponent 1d0
-                :local-length (* 2 h)
-                :ductility 100d0
-                :gravity -10.0d0
+                ;; :initiation-stress 1d4
+                ;; :local-length (* 2 h)
+                ;; :ductility 100d0
+                :gravity -00.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       ;; (format t "Charictoristic time ~E~%" (/ ))
@@ -295,7 +294,7 @@
     ))
 
 (defun setup (&key (refine 1) (mps 2)
-              (sim-type 'cl-mpm:mpm-sim-usl)
+              (sim-type 'cl-mpm:mpm-sim-usf)
                 )
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
@@ -726,38 +725,97 @@
 
 (defun p2g (mesh x y)
   )
-(defclass particle-component ()
-  (
-   (pos-x
-    :accessor particle-component-pos-x
-    ))
-  )
+
+(defgeneric )
+(defgeneric dummy-constitutive (a b)
+  (:generic-function-class sealable-metaobjects:fast-generic-function))
+(defclass test-particle ()
+  ((pos
+    :accessor particle-pos
+    :initform (cl-mpm/utils:vector-zeros)
+    )
+   (disp
+    :accessor particle-disp
+    :initform (cl-mpm/utils:vector-zeros)
+    )
+   ))
+(defstruct test-struct-particle
+           (pos (cl-mpm/utils:vector-zeros) :type magicl:matrix/double-float)
+           (disp (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)) :type magicl:matrix/double-float)
+           )
+;; (declaim (inline particle-pos))
+;; (declaim (inline particle-disp))
 
 (defun test ()
-  (setup)
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh)
-                   )
-      *sim*
-      (let* ((mps-count (length mps))
-             (pos-x (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
-             (pos-y (make-array   mps-count :initial-element 0d0 :element-type 'double-float))
-             (size-x (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
-             (size-y (make-array  mps-count :initial-element 0d0 :element-type 'double-float))
-             ;; (index-x (make-array mps-count :initial-element 0 :element-type 'fixnum))
-             ;; (index-y (make-array mps-count :initial-element 0 :element-type 'fixnum))
-             (h (cl-mpm/mesh:mesh-resolution mesh))
-             )
-        (loop for x across pos-x
-              for y across pos-y
-              do
-                 (let ((index-x (floor x h))
-                       (index-y (floor y h)))
+  (let* ((mp-count 100000)
+         (iter 1000))
+    ;; (sb-sprof:start-profiling)
+    ;; (let ((mps (make-array mp-count :element-type 'test-particle :initial-contents
+    ;;                        (loop repeat mp-count collect (make-instance 'test-particle)))))
+    ;;   (time
+    ;;    (dotimes (i iter)
+    ;;      (lparallel:pdotimes (j mp-count)
+    ;;       ;dotimes (j mp-count)
+    ;;       (with-accessors ((pos particle-pos)
+    ;;                        (disp particle-disp))
+    ;;           (aref mps j)
+    ;;         (cl-mpm/fastmaths:fast-zero pos)
+    ;;         (cl-mpm/fastmaths:fast-zero disp)
+    ;;         )))))
+    (let ((mps (make-array mp-count :element-type 'test-struct-particle :initial-contents
+                           (loop repeat mp-count collect (make-test-struct-particle)))))
+      ;; (time
+      ;;  (dotimes (i iter)
+      ;;    (dotimes (j mp-count)
+      ;;      (cl-mpm/fastmaths:fast-.+
+      ;;       (test-struct-particle-pos (aref mps j))
+      ;;       (test-struct-particle-disp (aref mps j))
+      ;;       (test-struct-particle-pos (aref mps j))
+      ;;       )
+      ;;      )))
+      (time
+       (dotimes (i iter)
+         (lparallel:pdotimes (j mp-count)
+           (cl-mpm/fastmaths:fast-.+
+            (test-struct-particle-pos (aref mps j))
+            (test-struct-particle-disp (aref mps j))
+            (test-struct-particle-pos (aref mps j))
+            )
+           )))
+      ;; (loop for mp across mps
+      ;;       do (cl-mpm/fastmaths:fast-zero (test-struct-particle-pos mp)))
+      (cl-mpm::kill-workers)
+      (cl-mpm::make-workers)
+      (format t "Start test~%")
+      ;; (time
+      ;;  (dotimes (i iter)
+      ;;    (cl-mpm::better-pdotimes
+      ;;     mps
+      ;;     (lambda (j)
+      ;;       ;; (format t "step ~D~%" j)
+      ;;       (cl-mpm/fastmaths:fast-.+
+      ;;        (test-struct-particle-pos (aref mps j))
+      ;;        (test-struct-particle-disp (aref mps j))
+      ;;        (test-struct-particle-pos (aref mps j))
+      ;;        )))
+      ;;    ))
+      (time
+       (dotimes (i iter)
+         (cl-mpm::omp mps
+                      (lambda (j)
+            ;; (format t "Hello ~D" j)
+            (cl-mpm/fastmaths:fast-.+
+             (test-struct-particle-pos (aref mps j))
+             (test-struct-particle-disp (aref mps j))
+             (test-struct-particle-pos (aref mps j))
+             )))
+         ))
 
-                   )
-                 ;; (setf index-x (floor x h)
-                 ;;       index-y (floor y h))
-              ))))
+      ;; (pprint mps)
+      )
+    ;; (sb-sprof:stop-profiling)
+    ;; (sb-sprof:report :type :flat)
+    ))
 
 (defun test-max-conv ()
   (defparameter *data-steps* (list))
@@ -930,3 +988,20 @@
                (swank.live:update-swank)
 
             ))))
+
+
+(defun shitty-test ()
+  (setup :refine 16)
+  (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim* :dt-scale 0.5d0))
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (* 1d-2
+           (cl-mpm/setup:estimate-critical-damping *sim*)))
+  (time-form
+   100
+   (progn
+     (format t "Step ~D~%" i)
+     (cl-mpm:update-sim *sim*)))
+  (plot *sim*)
+  )
+
+

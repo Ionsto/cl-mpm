@@ -47,7 +47,7 @@
                  grad-fbar-x
                  grad-fbar-y
                  grad-fbar-z)))
-  (node nil :type cl-mpm/mesh::node)
+  (node nil :type (or null cl-mpm/mesh::node))
   (weight 0d0 :type double-float)
   (grad-x 0d0 :type double-float)
   (grad-y 0d0 :type double-float)
@@ -247,7 +247,7 @@
    (cached-nodes
     :accessor mp-cached-nodes
     :initarg :nc
-    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache))
+    :initform (make-array 8 :fill-pointer 0 :element-type 'node-cache :initial-element (make-node-cache nil 0d0 0d0 0d0 0d0 0d0 0d0 0d0 0d0)))
    (p-modulus
     :accessor mp-p-modulus
     :initform 1d0
@@ -898,3 +898,44 @@
     :initarg :damage-domain-rate
     :initform 0d0))
   (:documentation "A material point with a damage tensor"))
+
+
+
+(defgeneric new-loadstep-mp (mp)
+  (:documentation "Finalise a dynamic relaxation loadstep, setting converged values to previous values"))
+
+(defmethod new-loadstep-mp ((mp cl-mpm::particle))
+  (with-accessors ((strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (disp cl-mpm/particle::mp-displacement)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   )
+      mp
+    (cl-mpm/utils:matrix-copy-into def def-0)
+    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    (cl-mpm/utils:voigt-copy-into strain strain-n)
+    (cl-mpm/fastmaths:fast-zero disp)
+    ))
+
+(defmethod new-loadstep-mp ((mp cl-mpm::particle-damage))
+  (with-accessors ((strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (disp cl-mpm/particle::mp-displacement)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (ybar    cl-mpm/particle::mp-damage-ybar)
+                   (ybar-prev    cl-mpm/particle::mp-damage-ybar-prev)
+                   )
+      mp
+    (cl-mpm/utils:matrix-copy-into def def-0)
+    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    (cl-mpm/utils:voigt-copy-into strain strain-n)
+    (cl-mpm/fastmaths:fast-zero disp)
+    (setf ybar-prev ybar)
+    ))
+
+
+

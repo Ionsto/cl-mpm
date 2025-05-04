@@ -24,7 +24,7 @@
   )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar))
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
 (defun max-v-sum (mp)
   (with-accessors ((vel cl-mpm/particle:mp-velocity))

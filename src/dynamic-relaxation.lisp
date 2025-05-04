@@ -295,6 +295,8 @@
             (energy-list (list))
             (power-last 0d0)
             (power-current 0d0)
+            (energy-first 0d0)
+            (energy-last 0d0)
             )
         (setf *work* 0d0)
         (loop for i from 0 to conv-steps
@@ -308,20 +310,29 @@
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                     (let ((power (cl-mpm::sim-stats-power sim)))
+                     (let ((power (cl-mpm::sim-stats-power sim))
+                           (energy (cl-mpm::sim-stats-energy sim)))
                        (incf *work* power)
                        (when kinetic-damping
-                         (if (< (* power-last power) 0d0)
+                         (if (and
+                              (> energy-last energy-first)
+                              (> energy-last energy))
+                                        ;(< (* power-last power) 0d0)
                              (progn
                                (format t "Peak found resetting KE~%")
+                               ;; (format t "~E ~E ~E ~%" energy-first energy-last energy)
                                (cl-mpm:iterate-over-mps
                                 mps
                                 (lambda (mp)
                                   (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
                                   (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
-                               ;; (setf *work* 0d0)
-                               (setf power-last 0d0))
-                             (setf power-last power)))
+                               (setf power-last 0d0
+                                     energy-first 0d0
+                                     energy-last 0d0))
+                             (progn
+                               (setf energy-first energy-last)
+                               (setf power-last power
+                                     energy-last energy))))
                        ))
                    (setf load cl-mpm/penalty::*debug-force*)
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
@@ -448,3 +459,9 @@
     (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
           stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
           stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))))
+
+(defun new-loadstep (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/particle::new-loadstep-mp mp))))

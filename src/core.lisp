@@ -804,499 +804,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       '(2 2)
                       :type 'double-float
                       )))
-(defun update-strain-linear (mesh mp dt fbar)
-  "Linear small strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
-    (let ((df (calculate-df mesh mp fbar))
-          (dstrain (magicl:scale strain-rate dt)))
-                   (progn
-                     (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-                     (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
-                     (setf volume (* volume-0 (cl-mpm/fastmaths:det-3x3 def)))
-                     ;(update-domain-corner mesh mp dt)
-                     (update-domain-midpoint mesh mp dt)))))
-
-(declaim (inline update-strain-kirchoff))
-(declaim (ftype (function (cl-mpm/mesh::mesh
-                           cl-mpm/particle:particle
-                           double-float
-                           boolean) (values))
-               update-strain-kirchoff))
-
-(defun update-strain-kirchoff-dynamic-relaxation (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (strain-n cl-mpm/particle:mp-strain-n)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (def-0    cl-mpm/particle::mp-deformation-gradient-0)
-                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
-                   ) mp
-    (declare (type double-float volume))
-    (progn
-      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
-        (progn
-          ;(setf df-inc df)
-          (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
-          (cl-mpm/utils:voigt-copy-into strain-n strain)
-          (cl-mpm/ext:kirchoff-update strain df-inc)
-          ;; (setf volume (* volume (the double-float dj)))
-          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-          (when (<= volume 0d0)
-            (error "Negative volume"))))))
-  (values))
-
-(defun update-strain-kirchoff (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (strain-n cl-mpm/particle:mp-strain-n)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume))
-    (progn
-      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
-        (progn
-          (setf df-inc df)
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-          (cl-mpm/utils:voigt-copy-into strain strain-n)
-          (cl-mpm/ext:kirchoff-update strain df)
-          (setf volume (* volume (the double-float dj)))
-          (when (<= volume 0d0)
-            (error "Negative volume"))))))
-  (values))
-
-(defun update-strain-kirchoff-noupdate (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (df-inc cl-mpm/particle::mp-deformation-gradient-increment)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (velocity-rate cl-mpm/particle::mp-velocity-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain))
-    (progn
-      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
-        (progn
-          (setf df-inc df)
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-          ;; (cl-mpm/utils:voigt-copy-into strain strain-rate)
-          (cl-mpm/ext:kirchoff-update strain df)
-          ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-          ;;Post multiply to turn to eng strain
-                                        ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-          ;; (setf volume (* volume (the double-float dj)))
-          ;; (when (<= volume 0d0)
-          ;;   (error "Negative volume"))
-          ))))
-  (values))
-
-
-(declaim
- (inline update-strain-kirchoff-damaged)
- (ftype (function (cl-mpm/mesh::mesh
-                           cl-mpm/particle:particle
-                           double-float
-                           boolean) (values))
-                update-strain-kirchoff-damaged))
-(defun update-strain-kirchoff-damaged (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain))
-    (progn
-      (let ((df (calculate-df mesh mp fbar)))
-        (progn
-          (let ((def-n (cl-mpm/utils::matrix-zeros)))
-            (magicl:mult df def :target def-n)
-            (cl-mpm/utils::matrix-copy-into def-n def))
-          ;; (aops:copy-into (magicl::matrix/double-float-storage eng-strain-rate)
-          ;;                 (magicl::matrix/double-float-storage strain))
-          ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
-          ;;   (error "Pre Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-          (cl-mpm/utils:voigt-copy-into strain strain-rate)
-          (cl-mpm/ext:kirchoff-update strain df)
-          (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-          ;; (when (> (abs (magicl:tref strain 4 0)) 0d0)
-          ;;   (error "Post Nonzero out of plane strain with ~A" (loop for v across (magicl::storage strain) collect v)))
-          ;; (magicl:.- eng-strain-rate strain eng-strain-rate)
-          ;; (magicl:scale! eng-strain-rate (/ 1d0 dt))
-          ;;Post multiply to turn to eng strain
-          (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          (when (<= volume 0d0)
-            (error "Negative volume"))
-          (update-domain-stretch-rate-damage stretch-tensor (cl-mpm/particle::mp-damage mp) domain
-                                             (cl-mpm/particle::mp-damage-domain-update-rate mp))
-          (scale-domain-size mesh mp)
-          )))
-    )
-  (values))
-(defun update-strain-kirchoff-ugimp (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain))
-    (progn
-      (let ((df (calculate-df mesh mp fbar)))
-        (let ((def-n (cl-mpm/utils::matrix-zeros)))
-          (magicl:mult df def :target def-n)
-          (cl-mpm/utils::matrix-copy-into def-n def))
-        (cl-mpm/utils:voigt-copy-into strain strain-rate)
-        (cl-mpm/ext:kirchoff-update strain df)
-        (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-        (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-        (when (<= volume 0d0)
-          (error "Negative volume")))))
-  (values))
-
-(defun update-strain-kirchoff-det (mesh mp dt fbar)
-  "Finite strain kirchhoff strain update algorithm"
-  (with-accessors ((volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-                   ) mp
-    (declare (type double-float volume)
-             (type magicl:matrix/double-float
-                   domain))
-    (progn
-      (let ((df (calculate-df mesh mp fbar)))
-        (let ((def-n (cl-mpm/utils::matrix-zeros)))
-          (magicl:mult df def :target def-n)
-          (cl-mpm/utils::matrix-copy-into def-n def))
-        (cl-mpm/utils:voigt-copy-into strain strain-rate)
-        (cl-mpm/ext:kirchoff-update strain df)
-        (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-        (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-        (update-domain-def mesh mp)
-        (when (<= volume 0d0)
-          (error "Negative volume")))))
-  (values))
-
-
-
-(defun update-stress-kirchoff (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
-             (double-float volume))
-    (progn
-      (progn
-        (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
-        (update-strain-kirchoff mesh mp dt fbar)
-        ;; Update our kirchoff stress with constitutive model
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; Check volume constraint!
-        ;; (when (<= volume 0d0)
-        ;;   (error "Negative volume"))
-        ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-        ))))
-
-(defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
-             (double-float volume))
-    (progn
-      (progn
-        (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
-        (update-strain-kirchoff-dynamic-relaxation mesh mp dt fbar)
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-        ))))
-
-(defun update-stress-kirchoff-mapped-jacobian (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
-             (double-float volume))
-    (progn
-      (progn
-        ;; (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
-        (update-strain-kirchoff-noupdate mesh mp dt fbar)
-        ;; (scale-domain-size mesh mp)
-        ;; Update our kirchoff stress with constitutive model
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
-        ;; Check volume constraint!
-        (when (<= volume 0d0)
-          (error "Negative volume"))
-        ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-        ))))
-
-(defun update-stress-kirchoff-noscale (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
-             (double-float volume))
-    (progn
-      (progn
-        (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
-        (update-strain-kirchoff-noupdate mesh mp dt fbar)
-        ;; (scale-domain-size mesh mp)
-        ;; Update our kirchoff stress with constitutive model
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
-        ;; Check volume constraint!
-        (when (<= volume 0d0)
-          (error "Negative volume"))
-        ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-        ))))
-
-(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-damaged))
-(defun update-stress-kirchoff-damaged (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-    (progn
-      ;; (unless fbar)
-      (calculate-strain-rate mesh mp dt)
-
-      ;; Turn cauchy stress to kirchoff
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      ;; Update our strains
-      (update-strain-kirchoff-damaged mesh mp dt fbar)
-      ;; Update our kirchoff stress with constitutive model
-      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-      ;; Check volume constraint!
-      (when (<= volume 0d0)
-        (error "Negative volume"))
-      ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-      )))
-(declaim (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float boolean) (values)) update-stress-kirchoff-ugimp))
-(defun update-stress-kirchoff-ugimp (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-    (progn
-      ;; (unless fbar)
-      (calculate-strain-rate mesh mp dt)
-
-      ;; Turn cauchy stress to kirchoff
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      ;; Update our strains
-      (update-strain-kirchoff-ugimp mesh mp dt fbar)
-      ;; Update our kirchoff stress with constitutive model
-      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-      ;; Check volume constraint!
-      (when (<= volume 0d0)
-        (error "Negative volume"))
-      ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-      )))
-
-(defun update-stress-kirchoff-det (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-    (progn
-      (calculate-strain-rate mesh mp dt)
-      ;; Turn cauchy stress to kirchoff
-      (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-      ;; Update our strains
-      ;(update-strain-kirchoff-det mesh mp dt fbar)
-      (update-strain-kirchoff-det mesh mp dt fbar)
-      ;; Update our kirchoff stress with constitutive model
-      (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-      ;; Check volume constraint!
-      (when (<= volume 0d0)
-        (error "Negative volume"))
-      ;; Turn kirchoff stress to cauchy
-      (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-      )))
-
-(defun update-stress-linear (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate))
-    (progn
-      ;;   ;;For no FBAR we need to update our strains
-      (progn
-        (calculate-strain-rate mesh mp dt)
-
-        ;; Update our strains
-        (update-strain-linear mesh mp dt fbar)
-
-        ;; Update our kirchoff stress with constitutive model
-        (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
-        ;; Check volume constraint!
-        (when (<= volume 0d0)
-          (error "Negative volume"))
-        ))))
-
-(defun update-particle-kirchoff (mesh mp dt)
-  (with-accessors ((disp cl-mpm/particle::mp-displacement)
-                   (disp-inc cl-mpm/particle::mp-displacement-increment)
-                   (pos cl-mpm/particle::mp-position)
-                   (nc cl-mpm/particle::mp-cached-nodes)
-                   )
-      mp
-    (setf (fill-pointer nc) 0)
-    (cl-mpm/fastmaths::fast-.+-vector pos  disp-inc pos)
-    (cl-mpm/fastmaths::fast-.+-vector disp disp-inc disp)
-    (setf (cl-mpm/particle::mp-penalty-contact-step mp) (cl-mpm/particle::mp-penalty-contact mp))
-    (unless (cl-mpm/particle::mp-penalty-contact mp)
-      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-penalty-frictional-force mp))
-      (setf (cl-mpm/particle::mp-penalty-normal-force mp) 0d0))
-    (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-    )
-  )
-
-(defgeneric update-particle (mesh mp dt)
-  (:documentation "End of step update"))
-(defmethod update-particle (mesh (mp cl-mpm/particle:particle) dt)
-  (update-particle-kirchoff mesh mp dt)
-  (update-domain-corner mesh mp dt)
-  ;; (update-domain-stretch mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
-  )
-
-(declaim (notinline p2g))
-(defun update-particles (sim)
-  "Map particle momentum to the grid"
-  (with-accessors ((mps sim-mps)
-                   (mesh sim-mesh)
-                   (dt sim-dt))
-      sim
-    (iterate-over-mps
-     mps
-     (lambda (mp)
-       (update-particle mesh mp dt)))))
-
-(defgeneric update-stress-mp (mesh mp dt fbar)
-  (:documentation "A mp dependent stress update scheme"))
-
-(defmethod update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
-  (update-stress-kirchoff mesh mp dt fbar)
-  ;; (update-stress-linear mesh mp dt fbar)
-  )
 
 (defun map-jacobian (mesh mp dt)
   (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
@@ -1328,87 +835,49 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                  (incf node-j-inc (* j-inc j-n (/ svp node-svp)))
                  )))))))))
 
-(declaim (inline calculate-df)
-         (ftype (function (cl-mpm/mesh::mesh
-                           cl-mpm/particle:particle
-                           boolean) magicl:matrix/double-float)
-                calculate-df))
-(defun calculate-df (mesh mp fbar)
-  (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (jfbar cl-mpm/particle::mp-j-fbar)
-                   (def cl-mpm/particle:mp-deformation-gradient)
-                   (pos cl-mpm/particle:mp-position)
+
+(defun update-particle-kirchoff (mesh mp dt)
+  (with-accessors ((disp cl-mpm/particle::mp-displacement)
+                   (disp-inc cl-mpm/particle::mp-displacement-increment)
+                   (pos cl-mpm/particle::mp-position)
+                   (nc cl-mpm/particle::mp-cached-nodes)
+                   (contact-step cl-mpm/particle::mp-penalty-contact-step)
+                   (friction-force cl-mpm/particle:mp-penalty-frictional-force)
+                   (normal-force cl-mpm/particle::mp-penalty-normal-force)
+                   (contact cl-mpm/particle::mp-penalty-contact)
                    )
       mp
-    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                 0d0 1d0 0d0
-                                                 0d0 0d0 1d0)))
-           (dJ 1d0))
-      (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
-      (setf dJ (cl-mpm/fastmaths:det-3x3 df))
-      ;;Explicit fbar
-      (when fbar
-        (if nil;;t exp: nil Coobs
-            (progn
-              (let ((j-inc (cl-mpm/fastmaths:det-3x3 df))
-                    (j-n
-                      1d0
-                      ;; (cl-mpm/fastmaths:det-3x3 def)
-                         )
-                    (gather-j 0d0)
-                    (nd (cl-mpm/mesh::mesh-nd mesh))
-                    (svp-sum 0d0)
-                    )
-                (iterate-over-neighbours
-                 mesh mp
-                 (lambda (mesh mp node svp grads fsvp fgrads)
-                   (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                    (node-j-inc cl-mpm/mesh::node-jacobian-inc)
-                                    (node-volume cl-mpm/mesh::node-volume))
-                       node
-                     (when node-active
-                       (incf svp-sum svp)
-                       ;; (incf gather-j (/ (* svp node-j-inc) node-volume))
-                       (incf gather-j (* svp node-j-inc))
-                       ))))
-                ;; (setf gather-j (/ gather-j svp-sum))
+    (setf (fill-pointer nc) 0)
+    (cl-mpm/fastmaths::fast-.+-vector pos  disp-inc pos)
+    (cl-mpm/fastmaths::fast-.+-vector disp disp-inc disp)
+    (setf contact-step (cl-mpm/particle::mp-penalty-contact mp))
+    (unless (cl-mpm/particle::mp-penalty-contact mp)
+      (cl-mpm/fastmaths:fast-zero friction-force)
+      (setf normal-force 0d0))
+    (setf contact nil)))
 
-                (setf (cl-mpm/particle::mp-debug-j mp) (/ gather-j (* j-inc j-n))
-                      (cl-mpm/particle::mp-debug-j-gather mp) gather-j)
+(defgeneric update-particle (mesh mp dt)
+  (:documentation "End of step update"))
+(defmethod update-particle (mesh (mp cl-mpm/particle:particle) dt)
+  (update-particle-kirchoff mesh mp dt)
+  (update-domain-corner mesh mp dt)
+  ;; (update-domain-stretch mesh mp dt)
+  (cl-mpm::scale-domain-size mesh mp)
+  )
 
-                (cl-mpm/fastmaths:fast-scale!
-                 df
-                 (expt
-                  (the double-float (/ gather-j (* j-inc j-n)))
-                  (/ 1 nd)))
-                (when (= nd 2)
-                  (setf (magicl:tref df 2 2) 1d0))
-                )
-              )
-            ;;Coombs fbar
-            (progn
-              (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                                0d0 1d0 0d0
-                                                                0d0 0d0 1d0)))
-                     (nd (cl-mpm/mesh::mesh-nd mesh)))
-                (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-                (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
-                      (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
-                (cl-mpm/fastmaths::fast-scale!
-                 df
-                 (expt
-                  (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                       (cl-mpm/fastmaths:det-3x3 df)))
-                  (the double-float (/ 1d0 nd))))
-                (when (= nd 2)
-                  (setf (magicl:tref df 2 2) 1d0))))))
-      (values df dJ))))
-(defgeneric post-stress-step (mesh mp dt))
-(defmethod post-stress-step (mesh mp dt))
-(defmethod post-stress-step (mesh (mp cl-mpm/particle::particle) dt)
-  (declare (ignore mesh mp dt)))
+(declaim (notinline p2g))
+(defun update-particles (sim)
+  "Map particle momentum to the grid"
+  (with-accessors ((mps sim-mps)
+                   (mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-mps
+     mps
+     (lambda (mp)
+       (update-particle mesh mp dt)))))
+
+
 
 (declaim (ftype (function (cl-mpm/mesh::mesh
                            (array cl-mpm/particle:particle)
@@ -1426,9 +895,20 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
    mps
    (lambda (mp)
      (update-stress-mp mesh mp dt fbar)
-     (post-stress-step mesh mp dt)
+     ;; (post-stress-step mesh mp dt)
      ))
   (values))
+
+
+(defgeneric update-stress-mp (mesh mp dt fbar)
+  (:documentation "A mp dependent stress update scheme"))
+(defmethod update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
+  (update-stress-kirchoff mesh mp dt fbar))
+
+(defgeneric post-stress-step (mesh mp dt)
+  (:documentation "Mp dependent step called after full stress update"))
+(defmethod post-stress-step (mesh (mp cl-mpm/particle::particle) dt)
+  (declare (ignore mesh mp dt)))
 
 (declaim (notinline reset-grid))
 (defun reset-grid (mesh)
@@ -1481,26 +961,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
           (setf (cl-mpm/mesh::node-active node) nil)
           (cl-mpm/mesh:reset-node node)
           )))))
-
-;; (defun delete-mps-func (mps func)
-;;   (declare (function func)
-;;            (vector mps))
-;;   (let* ((mp-count (length mps))
-;;          (bit-vector (make-array mp-count :element-type 'bit :initial-element 0)))
-;;     (declare (dynamic-extent bit-vector))
-;;     (lparallel:pdotimes (i mp-count)
-;;       (setf (aref bit-vector i) (if (funcall func (aref mps i)) 1 0)))
-;;     (loop for i fixnum from 0 below mp-count
-;;           do (when (= 1 (aref bit-vector i))
-;;               (setf (aref mps i) (aref mps (- mp-count 1)))
-;;               (setf (aref bit-vector i) (aref bit-vector (- mp-count 1)))
-;;               (decf mp-count)
-;;               (decf i)
-;;               (decf (fill-pointer mps))
-;;               )))
-;;   (when (and (not (adjustable-array-p mps))
-;;              (= (length mps) 0))
-;;     (setf mps (make-array 0 :adjustable t :fill-pointer 0))))
 
 (defgeneric sim-add-mp (sim mp)
   (:documentation "A function to append an mp to a simulation"))
@@ -1649,240 +1109,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       )) :x)
         (t nil)
         ))))
-(defun copy-particle (original &rest initargs &key &allow-other-keys)
-  "Function for copying a particle, allowing for re-initialising members"
-  (let* ((class (class-of original))
-         (copy (allocate-instance class)))
-    (dolist (slot (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots class)))
-      (when (slot-boundp original slot)
-        (cond
-          ((typep (slot-value original slot) 'magicl::abstract-tensor)
-           (setf (slot-value copy slot)
-                 (magicl:scale (slot-value original slot) 1d0)))
-          (t (setf (slot-value copy slot)
-                  (slot-value original slot))))))
-    (apply #'reinitialize-instance copy initargs)))
-
-(defun split-vector (mp split-vec)
-  "Helper macro for single splitting along cartesian directions "
-  (with-accessors ((lens cl-mpm/particle::mp-domain-size)
-                   (lens-0 cl-mpm/particle::mp-domain-size-0)
-                   (mass cl-mpm/particle::mp-mass)
-                   (pos cl-mpm/particle:mp-position)
-                   (volume cl-mpm/particle:mp-volume)
-                   (true-domain cl-mpm/particle::mp-true-domain)
-                   )
-      mp
-    (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
-          (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
-          (pos-offset (vector-zeros))
-          (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
-          (new-domain nil)
-          (vec-scaler (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/fastmaths:norm split-vec) 0.5d0))
-          )
-      ;; (break)
-      ;; (setf new-size (cl-mpm/fastmaths:fast-.- new-size vec-scaler))
-      (setf new-size-0 (cl-mpm/fastmaths:fast-.- new-size-0 vec-scaler))
-      (let ((domain-scaler (magicl:eye 3)))
-        (setf (tref domain-scaler 0 0) (- 1d0 (abs (varef vec-scaler 0))))
-        (setf (tref domain-scaler 1 1) (- 1d0 (abs (varef vec-scaler 1))))
-        (setf (tref domain-scaler 2 2) (- 1d0 (abs (varef vec-scaler 2))))
-        (setf new-domain (magicl:@ domain-scaler true-domain)))
-
-      (setf pos-offset (magicl:@
-                        true-domain
-                        (cl-mpm/fastmaths::fast-scale-vector vec-scaler 0.5d0)))
-
-      (setf
-       (varef new-size 0)
-       (cl-mpm/fastmaths:mag
-        (cl-mpm/fastmaths::fast-@-matrix-vector
-         new-domain
-         (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
-         ))
-       (varef new-size 1)
-       (cl-mpm/fastmaths:mag
-        (cl-mpm/fastmaths::fast-@-matrix-vector
-         new-domain
-         (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-        ))
-      ;; (cl-mpm/fastmaths::fast-.* lens new-size new-size)
-      (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
-      ;; (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
-      ;; (setf pos-offset (magicl:@ true-domain vec-scaler))
-      ;; (break)
-      (list
-       (copy-particle mp
-                      :mass (/ mass 2)
-                      :volume (/ volume 2)
-                      :size (cl-mpm/utils::vector-copy new-size)
-                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
-                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
-                      :split-depth new-split-depth
-                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                      )
-       (copy-particle mp
-                      :mass (/ mass 2)
-                      :volume (/ volume 2)
-                      :size (cl-mpm/utils::vector-copy new-size)
-                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (magicl:.- pos pos-offset)
-                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
-                      :split-depth new-split-depth
-                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                      )))))
-
-(defmacro split-linear (dir direction dimension)
-  "Helper macro for single splitting along cartesian directions "
-  `((eq ,dir ,direction)
-    (let ((new-size (vector-from-list (list 1d0 1d0 1d0)))
-          (new-size-0 (vector-from-list (list 1d0 1d0 1d0)))
-          (pos-offset (vector-zeros))
-          (new-split-depth (+ (cl-mpm/particle::mp-split-depth mp) 1))
-          (true-domain (cl-mpm/particle::mp-true-domain mp))
-          (new-domain nil))
-      (setf (tref new-size ,dimension 0) 0.5d0)
-      (setf (tref new-size-0 ,dimension 0) 0.5d0)
-      (setf (tref pos-offset ,dimension 0) 0.25d0)
-      (let ((domain-scaler (magicl:eye 3)))
-        (setf (tref domain-scaler ,dimension ,dimension) 0.5d0)
-        (setf new-domain (magicl:@ true-domain domain-scaler)))
-      (cl-mpm/fastmaths::fast-.* lens new-size new-size)
-      (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
-      (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
-      (list
-       (copy-particle mp
-                      :mass (/ mass 2)
-                      :volume (/ volume 2)
-                      :size (cl-mpm/utils::vector-copy new-size)
-                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
-                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
-                      :split-depth new-split-depth
-                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                       )
-       (copy-particle mp
-                      :mass (/ mass 2)
-                      :volume (/ volume 2)
-                      :size (cl-mpm/utils::vector-copy new-size)
-                      :size-0 (cl-mpm/utils::vector-copy new-size-0)
-                      :position (cl-mpm/fastmaths::fast-.--vector pos pos-offset)
-                      :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
-                      :split-depth new-split-depth
-                      :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                      )))))
-(defmacro split-cases (direction)
-  "Another helper macro for splitting mps"
-  `(cond
-     ,(macroexpand-1 '(split-linear direction :x 0))
-     ,(macroexpand-1 '(split-linear direction :y 1))
-     ,(macroexpand-1 '(split-linear direction :z 2))
-     (t nil)
-     ))
-(defun split-mp (mp h direction)
-  "Function to split an mp across a direction
-   Directions should be :x,:y,:z "
-  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
-                   (lens cl-mpm/particle::mp-domain-size)
-                   (lens-0 cl-mpm/particle::mp-domain-size-0)
-                   (pos cl-mpm/particle:mp-position)
-                   (mass cl-mpm/particle:mp-mass)
-                   (volume cl-mpm/particle:mp-volume)
-                   ;; (volume cl-mpm/particle::mp-volume-0)
-                   )
-      mp
-    (split-cases direction)))
-
-(defun abs-vec (v)
-  (let ((v-d (cl-mpm/utils::empty-copy v)))
-    (loop for i from 0 below (length (fast-storage v-d))
-          do (setf (varef v-d i) (abs (varef v i))))
-    v-d))
-
-(defun split-mps-eigenvalue (sim)
-  (declare (optimize (speed 0) (debug 3) (safety 3)))
-  (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-         (crit (* h 0.5d0)))
-    (cl-mpm::split-mps-vector
-     sim
-     (lambda (mp)
-       (let ((split-dir nil))
-         (let ((td (cl-mpm/utils::deep-copy (cl-mpm/particle::mp-true-domain mp))))
-           ;; (setf (magicl:tref td 2 2) 0d0)
-           (multiple-value-bind (l v)
-               (cl-mpm/utils:eig td)
-             (loop ;for i from 0 to 2
-                   for lv in l
-                   for i from 0
-                   while (not split-dir)
-                   do
-                      (progn
-                        (when (> (abs lv) crit)
-                          (setf split-dir (abs-vec (magicl:column v i))))))
-             (unless split-dir
-               (let* ((abs-l (mapcar #'abs l))
-                      (max-l (reduce #'max abs-l))
-                      (min-l (reduce #'min (remove 0d0 abs-l)))
-                      (ratio 2d0))
-                 (when (> max-l (* min-l ratio))
-                   (let ((pos (position max-l abs-l)))
-                     ;; (pprint abs-l)
-                     ;; (pprint v)
-                     (when pos
-                       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))))))
-         ;; (when split-dir
-         ;;     (pprint split-dir))
-         split-dir)))))
-
-(defun split-mps (sim)
-  "Split mps that match the split-criteria"
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh)
-                   (max-split-depth cl-mpm::sim-max-split-depth)
-                   )
-      sim
-    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth))
-                                        (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
-           (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
-      (remove-mps-func sim (lambda (mp) (split-criteria mp h)))
-      (loop for mp across mps-to-split
-            for direction in split-direction
-            do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp)))
-      )))
-
-(defun split-mps-criteria (sim criteria)
-  "Split mps that fail an arbritary criteria"
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
-      sim
-    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
-           (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split)))
-      (remove-mps-func sim (lambda (mp) (funcall criteria mp h)))
-      (loop for mp across mps-to-split
-            for direction in split-direction
-            do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp))))))
-
-(defun split-mps-vector (sim criteria)
-  "Split mps that fail an arbritary criteria"
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
-      sim
-    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (split-directions (lparallel:pmap 'vector criteria mps))
-           (mps-to-split (delete-if-not #'identity (lparallel:pmap 'vector (lambda (mp crit) (when crit mp)) mps split-directions)))
-           ;; (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
-           ;; (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split))
-           )
-      (remove-mps-func sim (lambda (mp) (position mp mps-to-split)))
-      (loop for mp across mps-to-split
-            for direction across (remove-if-not #'identity split-directions)
-            do (loop for new-mp in (split-vector mp direction)
-                     do (sim-add-mp sim new-mp))))))
 
 (defgeneric calculate-min-dt-mps (sim)
   (:documentation "A function for calculating an approximate stable timestep based on MPs"))

@@ -351,8 +351,11 @@
   (declare (double-float p-modulus density))
   (*
    (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-   (the double-float (sqrt (the double-float (cl-mpm::sim-mass-scale sim))))
-   (the double-float (sqrt (the double-float (/ density p-modulus))))))
+   (the double-float
+        (sqrt
+         (*
+          (the double-float (cl-mpm::sim-mass-scale sim))
+          (the double-float (/ density p-modulus)))))))
 
 (defgeneric %estimate-elastic-dt (sim))
 (defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))

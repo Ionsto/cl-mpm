@@ -1,6 +1,100 @@
 (in-package :cl-mpm)
 ;;All the various ways of iterating over the mesh
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+
+
+;; (require 'sb-concurrency)
+;; (defparameter *workers* nil)
+;; (defparameter *workers-array* nil)
+;; (defparameter *work-queue* (sb-concurrency:make-queue))
+;; (defparameter *workers-run* (sb-thread:make-semaphore))
+;; (defparameter *workers-finish* (sb-thread:make-semaphore))
+;; (defparameter *workers-kill* nil)
+;; (defparameter *workers-func* (lambda ()))
+;; (defun make-workers ()
+;;   (unless *workers*
+;;     (let ((thread-count (lparallel:kernel-worker-count)))
+;;       (setf *workers*
+;;             (loop for i fixnum from 0 below thread-count
+;;                   collect
+;;                   (sb-thread:make-thread
+;;                    (lambda (thread-number thread-count)
+;;                      (loop
+;;                        while (not *workers-kill*)
+;;                        do
+;;                        (sb-thread:wait-on-semaphore *workers-run*)
+;;                        (unless *workers-kill*
+;;                          (let ((func (the function (sb-concurrency:dequeue *work-queue*))))
+;;                            (funcall func)))
+;;                        (sb-thread:signal-semaphore *workers-finish*))
+;;                      (values))
+;;                    :arguments (list i thread-count)
+;;                    ))))))
+;; (defun kill-workers ()
+;;   (when *workers*
+;;     (setf *workers-kill* t)
+;;     (sb-thread:signal-semaphore *workers-run* (length *workers*))
+;;     (loop for worker in *workers* do (sb-thread:join-thread worker))
+;;     (setf *workers* nil)
+;;     (setf *workers-kill* nil)
+;;     ))
+;; (defun better-pdotimes (array func)
+;;   (declare (vector array)
+;;            (function func))
+;;   (make-workers)
+;;   (setf *workers-array* array)
+;;   (setf *workers-func* func)
+;;   (let ((length (length *workers*)))
+;;     (loop for i from 0 below length
+;;           do (sb-concurrency:enqueue
+;;               (let ((i-capt i)
+;;                     (length-capt length))
+;;                 (lambda () (funcall func i-capt length-capt))) *work-queue*)))
+;;   ;; (pprint *work-queue*)
+;;   (sb-thread:signal-semaphore *workers-run* (length *workers*))
+;;   (sb-thread:wait-on-semaphore *workers-finish* :n (length *workers*))
+;;   )
+
+;; (defmacro omp (array func)
+;;   (declare (vector array)
+;;            (function func))
+;;   (let ((job-sym (gensym)))
+;;     `(progn
+;;        (let ((,job-sym (lambda (thread-number thread-count)
+;;                          (let* ((array cl-mpm::*workers-array*)
+;;                                 (total-size (length array))
+;;                                 (block-size (round (ceiling total-size thread-count))))
+;;                            (declare (vector array))
+;;                            (loop for j fixnum from (* thread-number block-size) below (min (* (+ thread-number 1) block-size) total-size)
+;;                                  do (funcall ,func j))
+;;                            (values))
+;;                          )))
+;;          (declare (function ,job-sym))
+;;          (cl-mpm::better-pdotimes ,array ,job-sym)
+;;          ))))
+
+;; (defun shit-pdotimes (array func)
+;;   (declare (vector array)
+;;            (function func))
+;;   (let* ((thread-count 12)
+;;          (total-size (length array))
+;;          (block-size (round (ceiling total-size thread-count))))
+;;     (declare (fixnum block-size thread-count))
+;;     (let ((threads (loop for i fixnum from 0 below thread-count
+;;                          collect
+;;                          (progn
+;;                            (sb-thread:make-thread
+;;                             (lambda (thread-number)
+;;                               (loop for j fixnum from (* thread-number block-size) below (min (* (+ thread-number 1) block-size) total-size)
+;;                                     do (funcall func j))
+;;                               (values))
+;;                             :arguments i
+;;                             )))))
+;;       (loop for thread in threads
+;;             do (sb-thread:join-thread thread)))))
+
+
 (declaim (inline iterate-over-nodes)
          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes))
 (defun iterate-over-nodes (mesh func)
@@ -16,6 +110,11 @@
       (let ((node (row-major-aref nodes i)))
         (when node
           (funcall func node))))
+    ;; (let ((wrapper (make-array (array-total-size nodes) :displaced-to nodes)))
+    ;;   (omp
+    ;;    wrapper
+    ;;    (lambda (i)
+    ;;      (funcall func (aref wrapper i)))))
     )
   (values))
 
@@ -110,6 +209,15 @@ Calls func with only the node"
   ;;   (funcall func (aref mps i)))
   (lparallel:pdotimes (i (length mps))
                       (funcall func (aref mps i)))
+  ;; (omp
+  ;;  mps
+  ;;   (lambda (i)
+  ;;     (funcall func (aref mps i))))
+  ;; (better-pdotimes
+  ;;  mps
+  ;;  (lambda (i)
+  ;;    (funcall func (aref mps i))))
+
   (values))
 
 (defun reduce-over-mps (mps map reduce)
