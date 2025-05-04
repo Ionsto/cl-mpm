@@ -297,7 +297,9 @@
                                  (disp-inc cl-mpm/particle::mp-displacement-increment)
                                  (acc cl-mpm/particle::mp-acceleration))
                     mp
-                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
+                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
+                         (mapped-disp (cl-mpm/utils:vector-zeros))
+                         )
                     ;; (declare (dynamic-extent mapped-vel))
                     (progn
                       ;;With special operations we need to reset some params for g2p
@@ -316,6 +318,7 @@
                         (double-float svp))
                        (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
                                         (node-acc cl-mpm/mesh:node-acceleration)
+                                        (node-disp cl-mpm/mesh::node-displacment)
                                         (node-scalar cl-mpm/mesh::node-boundary-scalar)
                                         (node-active cl-mpm/mesh:node-active)
                                         ) node
@@ -323,6 +326,7 @@
                                   (boolean node-active))
                          (when node-active
                            (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
+                           (cl-mpm/fastmaths::fast-fmacc mapped-disp node-disp svp)
                            (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
                            ;; (incf temp (* svp node-scalar))
                            ;;With special operations we want to include this operation
@@ -344,7 +348,7 @@
   (def-g2p-mp g2p-mp-flip
       (progn
         (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
+        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
       (progn
@@ -354,8 +358,9 @@
         ))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
-        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
-        (cl-mpm/fastmaths::fast-scale! disp-inc dt)
+        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
+        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
+        ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
         (cl-mpm/fastmaths:fast-.+
          (cl-mpm/fastmaths:fast-scale-vector
           ;; FLIP value
@@ -510,6 +515,30 @@
       (setf temp (+ (/ temp mass) (* dtemp dt)))
       )))
 
+(defun update-node (node dt)
+  "Calculate velocity from momentum on a single node"
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((vel   node-velocity)
+                     (disp   cl-mpm/mesh::node-displacment)
+                     (residual   cl-mpm/mesh::node-residual)
+                     (residual-prev   cl-mpm/mesh::node-residual-prev)
+                     (force-int cl-mpm/mesh::node-internal-force)
+                     (force-ext cl-mpm/mesh::node-external-force)
+                     )
+        node
+      (cl-mpm/utils::vector-copy-into residual residual-prev)
+      (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
+      (cl-mpm/fastmaths:fast-fmacc disp vel dt))))
+
+(defmethod update-nodes (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (update-node node dt))))))
 (defun calculate-kinematics (node)
   "Calculate velocity from momentum on a single node"
   (when (cl-mpm/mesh:node-active node)
@@ -527,6 +556,7 @@
   (when (cl-mpm/mesh:node-active node)
     (with-accessors ((mass  node-mass)
                      (vel   node-velocity)
+                     (disp   cl-mpm/mesh::node-displacment)
                      (force node-force)
                      (force-ext cl-mpm/mesh::node-external-force)
                      (force-int cl-mpm/mesh::node-internal-force)
@@ -762,16 +792,17 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
              (lambda (mesh mp node svp grads fsvp fgrads)
                (declare (ignore mp svp fsvp))
                (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                                (node-disp cl-mpm/mesh::node-displacment)
                                 (node-active cl-mpm/mesh:node-active))
                    node
                  (declare (magicl:matrix/double-float node-vel)
                           (boolean node-active))
                  (when node-active
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-vel stretch-tensor-fbar)
+                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
+                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar)
                    )))))
-          (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
-          (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt)
+          ;; (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
+          ;; (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt)
           )))
 
 (defun calculate-strain-rate-nofbar (mesh mp dt)
@@ -844,8 +875,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (progn
       (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
         (progn
-          ;(setf df-inc df)
-          (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
+          (setf df-inc df)
+          ;; (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)

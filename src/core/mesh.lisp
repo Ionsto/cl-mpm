@@ -96,6 +96,18 @@
     :initarg :velocity
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (displacment
+    :accessor node-displacment
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (residual
+    :accessor node-residual
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (residual-prev
+    :accessor node-residual-prev
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (local-list
     :accessor node-local-list
     :initform (make-array 0 :fill-pointer 0 :adjustable t))

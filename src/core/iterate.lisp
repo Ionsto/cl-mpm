@@ -112,6 +112,16 @@ Calls func with only the node"
                       (funcall func (aref mps i)))
   (values))
 
+
+(defun reduce-over-nodes (mesh map reduce)
+  (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
+      mesh
+    (lparallel:pmap-reduce
+     map
+     reduce
+     (make-array (array-total-size nodes)
+                 :displaced-to nodes))))
+
 (defun reduce-over-mps (mps map reduce)
   (lparallel:pmap-reduce
    map
