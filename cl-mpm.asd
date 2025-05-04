@@ -6,10 +6,9 @@
   :serial t
   :components ((:file "src/core/symbolic-derivation")))
 
-
 (defsystem "cl-mpm/settings"
   :components ((:file "src/settings"))
-  :description "Dummy package that can be used to prune magicl dependancies, i.e. lisp only implementation")
+  :description "Dummy package that can be used to define settings")
 
 (defsystem "cl-mpm/magicl"
   :depends-on ("magicl"
@@ -18,8 +17,7 @@
 
 (defsystem "cl-mpm/utils"
   :depends-on ("cl-mpm/magicl"
-               "array-operations"
-               )
+               "array-operations")
   :description "MPM utility functions definitions"
   :serial t
   :components ((:file "src/utils")))
@@ -190,6 +188,7 @@
                (:file "src/core/iterate")
                (:file "src/core/domain-update")
                (:file "src/core/stress-update")
+               (:file "src/core/splitting")
                (:file "src/core")
                (:file "src/solvers/usf")
                (:file "src/solvers/usl")
