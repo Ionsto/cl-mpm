@@ -65,6 +65,10 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros)
     )
+   (oobf
+    :accessor node-oobf
+    :type double-float
+    :initform 0d0)
    (ghost
     :accessor node-ghost
     :initarg :acceleration
@@ -94,6 +98,18 @@
    (velocity
     :accessor node-velocity
     :initarg :velocity
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (displacment
+    :accessor node-displacment
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (residual
+    :accessor node-residual
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (residual-prev
+    :accessor node-residual-prev
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
    (local-list

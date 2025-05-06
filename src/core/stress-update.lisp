@@ -149,8 +149,9 @@
       (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
         (progn
           ;(setf df-inc df)
-          (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
+          (cl-mpm/utils:matrix-copy-into df df-inc)
+          ;; (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
           ;(setf volume (* volume (the double-float dj)))

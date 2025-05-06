@@ -122,6 +122,8 @@
                    (soft mp-softening)
                    (plastic-strain mp-strain-plastic)
                    (ps-vm mp-strain-plastic-vm)
+                   (ps-vm-1 mp-strain-plastic-vm-1)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
                    (strain mp-strain)
                    (strain-n mp-strain-n)
                    (yield-func mp-yield-func)
@@ -133,19 +135,22 @@
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
         (setf stress
               sig
-              plastic-strain (magicl:.- strain-n eps-e)
+              plastic-strain (cl-mpm/fastmaths:fast-.- strain-n eps-e)
               strain eps-e
               yield-func f
               ))
-      (setf ps-vm
-            (multiple-value-bind (l v)
-                (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-              (destructuring-bind (s1 s2 s3) l
-                (sqrt
-                 (/ (+ (expt (- s1 s2) 2d0)
-                       (expt (- s2 s3) 2d0)
-                       (expt (- s3 s1) 2d0)
-                       ) 2d0))))))
+      (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp))))
+            ;; (multiple-value-bind (l v)
+            ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix ))
+            ;;   (destructuring-bind (s1 s2 s3) l
+            ;;     (sqrt
+            ;;      (/ (+ (expt (- s1 s2) 2d0)
+            ;;            (expt (- s2 s3) 2d0)
+            ;;            (expt (- s3 s1) 2d0)
+            ;;            ) 2d0))))
+            )
+      (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+      )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))
@@ -217,14 +222,14 @@
                      )))))
     stress))
 
-(defmethod cl-mpm::update-particle (mesh (mp particle-plastic) dt)
+(defmethod cl-mpm/particle::new-loadstep-mp ((mp particle-plastic))
   (with-accessors ((ps-vm-1 mp-strain-plastic-vm-1)
                    (ps-vm-inc mp-strain-plastic-vm-inc)
                    (ps-vm mp-strain-plastic-vm)
                    )
       mp
     (declare (double-float ps-vm ps-vm-1 ps-vm-inc))
-    (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
+    (setf ps-vm-1 ps-vm))
   (call-next-method))
 
 
@@ -285,17 +290,18 @@
            phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm)))))))))
     stress))
 
-(defmethod new-loadstep-mp ((mp particle-plastic))
-  (with-accessors ((strain cl-mpm/particle:mp-strain)
-                   (strain-n cl-mpm/particle:mp-strain-n)
-                   (disp cl-mpm/particle::mp-displacement)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
-                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
-                   )
-      mp
-    (cl-mpm/utils:matrix-copy-into def def-0)
-    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
-    (cl-mpm/utils:voigt-copy-into strain strain-n)
-    (cl-mpm/fastmaths:fast-zero disp)
-    ))
+;; (defmethod new-loadstep-mp ((mp particle-plastic))
+;;   (with-accessors ((strain cl-mpm/particle:mp-strain)
+;;                    (strain-n cl-mpm/particle:mp-strain-n)
+;;                    (disp cl-mpm/particle::mp-displacement)
+;;                    (def    cl-mpm/particle:mp-deformation-gradient)
+;;                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+;;                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+;;                    )
+;;       mp
+;;     (cl-mpm/utils:matrix-copy-into def def-0)
+;;     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+;;     (cl-mpm/utils:voigt-copy-into strain strain-n)
+;;     (cl-mpm/fastmaths:fast-zero disp)
+;;     (break)
+;;     ))

@@ -397,6 +397,10 @@
           (save-parameter-nodes "vel_y" (magicl:tref (cl-mpm/mesh:node-velocity node) 1 0))
           (save-parameter-nodes "vel_z" (magicl:tref (cl-mpm/mesh:node-velocity node) 2 0))
 
+          (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
+          (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
+          (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
+
           (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
           (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))
           (save-parameter-nodes "force_z" (magicl:tref (cl-mpm/mesh:node-force node) 2 0))
@@ -452,19 +456,7 @@
                                        (cl-mpm/fastmaths::mag-squared
                                         f-ext))
                                       0d0)))
-          (save-parameter-nodes "oobf"
-                                (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
-                                                 (f-int cl-mpm/mesh::node-internal-force))
-                                    node
-                                  (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                      (*
-                                       ;(/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                       (cl-mpm/mesh::node-mass node)
-                                       (/ (cl-mpm/fastmaths::mag-squared
-                                           (magicl:.+ f-ext f-int))
-                                          (cl-mpm/fastmaths::mag-squared
-                                           f-ext)))
-                                      0d0)))
+          (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
           (save-parameter-nodes "oobf-damp"
                                 (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
                                                  (f-int cl-mpm/mesh::node-internal-force)
@@ -544,9 +536,15 @@
         ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
         ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
 
-        (save-parameter "disp_x" (magicl:tref (cl-mpm/particle::mp-displacement mp) 0 0))
-        (save-parameter "disp_y" (magicl:tref (cl-mpm/particle::mp-displacement mp) 1 0))
-        (save-parameter "disp_z" (magicl:tref (cl-mpm/particle::mp-displacement mp) 2 0))
+        (save-parameter "disp_x" (magicl:tref (cl-mpm/fastmaths:fast-.+
+                                               (cl-mpm/particle::mp-displacement-increment mp)
+                                               (cl-mpm/particle::mp-displacement mp)) 0 0))
+        (save-parameter "disp_y" (magicl:tref (cl-mpm/fastmaths:fast-.+
+                                               (cl-mpm/particle::mp-displacement-increment mp)
+                                               (cl-mpm/particle::mp-displacement mp)) 1 0))
+        (save-parameter "disp_z" (magicl:tref (cl-mpm/fastmaths:fast-.+
+                                               (cl-mpm/particle::mp-displacement-increment mp)
+                                               (cl-mpm/particle::mp-displacement mp)) 2 0))
 
         (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))

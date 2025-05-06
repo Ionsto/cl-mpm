@@ -109,16 +109,18 @@
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
+                      :volume-0 (/ volume-0 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
                       :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
                       :nc (make-array 8 :fill-pointer 0 :element-type 'node-cache)
                       :split-depth new-split-depth
                       :true-domain (cl-mpm/utils:matrix-copy new-domain)
-                       )
+                      )
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
+                      :volume-0 (/ volume-0 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
                       :position (cl-mpm/fastmaths::fast-.--vector pos pos-offset)
@@ -143,6 +145,7 @@
                    (pos cl-mpm/particle:mp-position)
                    (mass cl-mpm/particle:mp-mass)
                    (volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
                    ;; (volume cl-mpm/particle::mp-volume-0)
                    )
       mp

@@ -123,7 +123,10 @@
    (volume-0
     :accessor mp-volume-0
     :type double-float
+    ;;By specifying both :volume and :volume-0 as initargs, it will capture volume by default
+    ;;but it also allows for direct specification
     :initarg :volume
+    :initarg :volume-0
     :initform 1d0)
    (size-0
     :accessor mp-domain-size-0
@@ -935,6 +938,7 @@
     (cl-mpm/utils:voigt-copy-into strain strain-n)
     (cl-mpm/fastmaths:fast-zero disp)
     (setf ybar-prev ybar)
+    (call-next-method)
     ))
 
 

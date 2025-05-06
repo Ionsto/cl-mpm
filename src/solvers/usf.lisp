@@ -33,6 +33,7 @@
           (filter-grid mesh (sim-mass-filter sim)))
         (update-node-kinematics mesh dt )
         (apply-bcs mesh bcs dt)
+        (update-nodes sim)
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
         (p2g-force mesh mps)
@@ -43,9 +44,11 @@
         ;; Reapply velocity BCs
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
+        ;; (update-nodes sim)
         ;; Also updates mps inline
         (g2p mesh mps dt vel-algo)
-        (update-particles sim)
+        ;; (update-particles sim)
+        (new-loadstep sim)
         (when split
           (split-mps sim))
         (check-mps sim)

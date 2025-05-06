@@ -41,19 +41,21 @@
                     (update-node-forces sim)
                     ;;Apply velocity bcs
                     (apply-bcs mesh bcs dt)
+                    (update-nodes sim)
                     ;;Grid to particle mapping
                     (g2p mesh mps dt vel-algo)
                     ;;2nd round of momentum mapping
                     (reset-grid-velocity mesh)
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
-                     (filter-grid-velocity mesh (sim-mass-filter sim)))
+                      (filter-grid-velocity mesh (sim-mass-filter sim)))
                     (update-node-kinematics mesh dt)
                     (apply-bcs mesh bcs dt)
                     ;;Update stress last
                     (update-stress mesh mps dt fbar)
                     (update-dynamic-stats sim)
-                    (update-particles sim)
+                    ;; (update-particles sim)
+                    (new-loadstep sim)
 
                     (when remove-damage
                       (remove-material-damaged sim))

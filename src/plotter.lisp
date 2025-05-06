@@ -15,16 +15,21 @@
                                         ;    #:make-shape-function
 (in-package :cl-mpm/plotter)
 
-(defun simple-plot-3d (sim &key (plot :point) (colour-func (lambda (mp) 0d0)))
+(defun simple-plot-3d (sim &key (plot :point) (colour-func (lambda (mp) 0d0))
+                             (trial nil)
+                             )
   (declare (function colour-func))
   "A simple GIMP plot that display only the position and size of the MPs in a sim"
   (vgplot:format-plot t "set palette defined (0 'blue', 1 'red')")
   (when (> (length (cl-mpm:sim-mps sim)) 0)
     (multiple-value-bind (x y z lx ly lz c)
         (loop for mp across (cl-mpm:sim-mps sim)
-              collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-              collect (magicl:tref (cl-mpm::mp-position mp) 2 0) into y
-              collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into z
+              collect (+ (varef (cl-mpm::mp-position mp) 0)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 0) 0)) into x
+              collect (+ (varef (cl-mpm::mp-position mp) 2)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 1) 0)) into y
+              collect (+ (varef (cl-mpm::mp-position mp) 1)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 2) 0)) into z
               collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
               collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 2 0) into ly
               collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into lz
@@ -56,7 +61,7 @@
       )
   (vgplot:replot))
 
-(defun simple-plot (sim &key (plot :point) (colour-func (lambda (mp) 0d0)))
+(defun simple-plot (sim &key (plot :point) (colour-func (lambda (mp) 0d0)) (trial nil))
   (declare (function colour-func))
   "A simple GIMP plot that display only the position and size of the MPs in a sim"
   (vgplot:format-plot t "set palette defined (0 'blue', 2 'red')")
@@ -65,8 +70,10 @@
   (when (> (length (cl-mpm:sim-mps sim)) 0)
     (multiple-value-bind (x y lx ly c)
         (loop for mp across (cl-mpm:sim-mps sim)
-              collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-              collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
+              collect (+ (varef (cl-mpm::mp-position mp) 0)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 0) 0)) into x
+              collect (+ (varef (cl-mpm::mp-position mp) 1)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 1) 0)) into y
               collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
               collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
               collect (funcall colour-func mp) into c

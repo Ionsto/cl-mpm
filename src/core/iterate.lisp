@@ -220,6 +220,18 @@ Calls func with only the node"
 
   (values))
 
+
+(defun reduce-over-nodes (mesh map reduce)
+  (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
+      mesh
+    (lparallel:pmap-reduce
+     ;; (lambda (node)
+     ;;   (when (cl-mpm::node-active node)))
+     map
+     reduce
+     (make-array (array-total-size nodes)
+                 :displaced-to nodes))))
+
 (defun reduce-over-mps (mps map reduce)
   (lparallel:pmap-reduce
    map
