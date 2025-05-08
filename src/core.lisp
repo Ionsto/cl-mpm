@@ -347,6 +347,7 @@
                 "Map one MP from the grid"
                 (with-accessors ((vel mp-velocity)
                                  (pos mp-position)
+                                 (pos-trial cl-mpm/particle::mp-position-trial)
                                  (disp cl-mpm/particle::mp-displacement)
                                  (disp-inc cl-mpm/particle::mp-displacement-increment)
                                  (acc cl-mpm/particle::mp-acceleration))
@@ -402,17 +403,21 @@
   (def-g2p-mp g2p-mp-flip
       (progn
         (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
+        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
+        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
       (progn
         (cl-mpm/utils::vector-copy-into mapped-vel vel)
         (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
+        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
+        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
+        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
         ))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
         (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
+        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
         ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
         ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
         (cl-mpm/fastmaths:fast-.+
@@ -1441,6 +1446,10 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
+  (cl-mpm::iterate-over-cells
+   (cl-mpm:sim-mesh sim)
+   (lambda (cell)
+     (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::cell-displacement cell))))
   ;; (check-single-mps sim)
   (cl-mpm:iterate-over-nodes
    (cl-mpm:sim-mesh sim)

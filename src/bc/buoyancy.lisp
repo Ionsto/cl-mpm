@@ -73,7 +73,7 @@
 
 (declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
 (defun calculate-val-mp (mp func)
-  (with-accessors ((pos cl-mpm/particle:mp-position))
+  (with-accessors ((pos cl-mpm/particle::mp-position-trial))
       mp
     (funcall func pos)))
 
@@ -845,7 +845,7 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (with-accessors ((pos cl-mpm/particle:mp-position)
+         (with-accessors ((pos cl-mpm/particle::mp-position-trial)
                           (pressure cl-mpm/particle::mp-pressure)
                           (mp-datum cl-mpm/particle::mp-pressure-datum)
                           (mp-pfunc cl-mpm/particle::mp-pressure-func)
@@ -869,7 +869,7 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (with-accessors ((pos cl-mpm/particle:mp-position)
+         (with-accessors ((pos cl-mpm/particle::mp-position-trial)
                           (pressure cl-mpm/particle::mp-pressure)
                           (mp-datum cl-mpm/particle::mp-pressure-datum)
                           (mp-head cl-mpm/particle::mp-pressure-head)
@@ -979,13 +979,25 @@
    (lambda (cell)
      ;;Iterate over a cells nodes
      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
-                      (cell-active cl-mpm/mesh::cell-active))
+                      (cell-active cl-mpm/mesh::cell-active)
+                      (cell-pressure cl-mpm/mesh::cell-pressure)
+                      (disp cl-mpm/mesh::cell-displacement))
          cell
        (when cell-active
-         (let ((cell-stress (funcall func-stress pos))
-               (cell-div (funcall func-div pos))
-               (f-stress (cl-mpm/utils:vector-zeros))
-               (f-div (cl-mpm/utils:vector-zeros)))
+         (cl-mpm/fastmaths:fast-zero disp)
+         (cl-mpm/mesh::cell-iterate-over-neighbours
+          mesh
+          cell
+          (lambda (mesh cell centr vol node weight grads)
+            (cl-mpm/fastmaths:fast-fmacc disp (cl-mpm/mesh::node-displacment node) 0.25d0)))
+         ;; (pprint trial-disp)
+         ;; (break)
+         (let* ((pos (cl-mpm/fastmaths:fast-.+ pos disp))
+                (cell-stress (funcall func-stress pos))
+                (cell-div (funcall func-div pos))
+                (f-stress (cl-mpm/utils:vector-zeros))
+                (f-div (cl-mpm/utils:vector-zeros)))
+           (setf cell-pressure (varef cell-stress 0))
            (cl-mpm/mesh::cell-iterate-over-neighbours
             mesh cell
             (lambda (mesh cell p volume node svp grads)
@@ -1003,7 +1015,8 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           (funcall clip-func node-pos))
+                           ;; (funcall clip-func node-pos)
+                           )
                   ;;Lock node
                   (cl-mpm/fastmaths:fast-zero f-stress)
                   (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
@@ -1026,7 +1039,7 @@
    mps
     (lambda (mp)
       (with-accessors ((volume cl-mpm/particle:mp-volume)
-                       (pos cl-mpm/particle::mp-position)
+                       (pos cl-mpm/particle::mp-position-trial)
                        (damage cl-mpm/particle::mp-damage))
           mp
         (when t;(funcall clip-func pos)
@@ -1051,7 +1064,8 @@
                      node
                    (declare (double-float volume svp))
                    (when (and node-boundary
-                              (funcall clip-func node-pos))
+                              ;; (funcall clip-func node-pos)
+                              )
                      (cl-mpm/fastmaths:fast-zero f-stress)
                      (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                      (cl-mpm/fastmaths:fast-scale-vector

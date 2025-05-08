@@ -170,6 +170,9 @@
    (mp-count
     :accessor cell-mp-count
     :initform 0)
+   (pressure
+    :accessor cell-pressure
+    :initform 0d0)
    (volume
     :accessor cell-volume
     :initarg :volume
@@ -178,6 +181,10 @@
    (centroid
     :accessor cell-centroid
     :initarg :centroid
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (displacement
+    :accessor cell-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
    (deformation-gradient
@@ -195,9 +202,7 @@
    (pruned
     :accessor cell-pruned
     :type boolean
-    :initform nil)
-   )
-   )
+    :initform nil)))
 
 (defclass node-fracture (node)
   ((strain-energy-density
@@ -757,12 +762,10 @@
             do
                (with-accessors ((n-pos node-position))
                    node
-                 (let* ((dist-vec (magicl:.- centroid n-pos))
-                        (dist (list (mtref dist-vec 0 0) (mtref dist-vec 1 0)))
+                 (let* ((dist-vec (cl-mpm/fastmaths:fast-.- centroid n-pos))
+                        (dist (list (cl-mpm/utils:varef dist-vec 0) (cl-mpm/utils:varef dist-vec 1)))
                         (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
                         (weight (reduce #'* weights))
-                        ;; (grads (mapcar (lambda (d w) (* (cl-mpm/shape-function::shape-linear-dsvp d h) w))
-                        ;;                dist (nreverse weights)))
                         (lin-grads
                           (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
                                            dist))

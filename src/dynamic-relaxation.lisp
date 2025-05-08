@@ -378,7 +378,7 @@
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                     ;; (setf (cl-mpm:sim-damping-factor sim) (dr-estimate-damping sim))
+                     (setf (cl-mpm:sim-damping-factor sim) (* 1d-1 (dr-estimate-damping sim)))
                      (let ((power (cl-mpm::sim-stats-power sim))
                            (energy (cl-mpm::sim-stats-energy sim)))
                        (incf *work* power)

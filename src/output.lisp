@@ -10,6 +10,7 @@
 
 (in-package :cl-mpm/output)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defun save-sim (sim)
   "Save a simulation such that it can be restarted from that point")
@@ -379,10 +380,13 @@
                        (let ((node (aref nodes i j k)))
                          (when node
                            ;; (incf node-count)
-                           (format fs "~E ~E ~E ~%"
-                                   (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 0 0) 'single-float)
-                                   (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 1 0) 'single-float)
-                                   (coerce (magicl:tref (cl-mpm/mesh::node-position (aref nodes i j k)) 2 0) 'single-float))))))))
+                           (let ((pos (cl-mpm/fastmaths:fast-.+
+                                       (cl-mpm/mesh::node-position node)
+                                       (cl-mpm/mesh::node-displacment node))))
+                             (format fs "~E ~E ~E ~%"
+                                     (coerce (cl-mpm/utils::varef pos 0) 'single-float)
+                                     (coerce (cl-mpm/utils::varef pos 1) 'single-float)
+                                     (coerce (cl-mpm/utils::varef pos 2) 'single-float)))))))))
         (format fs "~%")
         (let ((id 1))
           (declare (special id))
@@ -457,24 +461,24 @@
                                         f-ext))
                                       0d0)))
           (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
-          (save-parameter-nodes "oobf-damp"
-                                (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
-                                                 (f-int cl-mpm/mesh::node-internal-force)
-                                                 (f-damp cl-mpm/mesh::node-damping-force)
-                                                 )
-                                    node
-                                  (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                      (*
-                                        ;(/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                       (cl-mpm/mesh::node-mass node)
-                                       (/ (cl-mpm/fastmaths::mag-squared
-                                           (magicl:.+
-                                            (magicl:.+ f-ext f-int)
-                                            f-damp
-                                            ))
-                                          (cl-mpm/fastmaths::mag-squared
-                                           f-ext)))
-                                      0d0)))
+          ;; (save-parameter-nodes "oobf-damp"
+          ;;                       (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
+          ;;                                        (f-int cl-mpm/mesh::node-internal-force)
+          ;;                                        (f-damp cl-mpm/mesh::node-damping-force)
+          ;;                                        )
+          ;;                           node
+          ;;                         (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
+          ;;                             (*
+          ;;                               ;(/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
+          ;;                              (cl-mpm/mesh::node-mass node)
+          ;;                              (/ (cl-mpm/fastmaths::mag-squared
+          ;;                                  (magicl:.+
+          ;;                                   (magicl:.+ f-ext f-int)
+          ;;                                   f-damp
+          ;;                                   ))
+          ;;                                 (cl-mpm/fastmaths::mag-squared
+          ;;                                  f-ext)))
+          ;;                             0d0)))
 
           (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
 
@@ -510,10 +514,18 @@
       (format fs "DATASET UNSTRUCTURED_GRID~%")
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
-            do (format fs "~E ~E ~E ~%"
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)))
+            do
+               (let ((pos
+                       (cl-mpm/particle::mp-position-trial mp)
+                       ;; (cl-mpm/fastmaths:fast-.+
+                       ;;  (cl-mpm/particle::mp-position mp)
+                       ;;     (cl-mpm/particle::mp-displacement-increment mp)
+                       ;;     )
+                          ))
+                 (format fs "~E ~E ~E ~%"
+                         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
+                         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
+                         (coerce (cl-mpm/utils:varef pos 2) 'single-float))))
       (format fs "~%")
 
       ;; (with-parameter-list fs mps
@@ -706,16 +718,21 @@
                            (let ((node (aref cells i j k)))
                              (when node
                                ;; (incf node-count)
-                               (format fs "~E ~E ~E ~%"
-                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 0 0) 'single-float)
-                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 1 0) 'single-float)
-                                       (coerce (magicl:tref (cl-mpm/mesh::cell-centroid (aref cells i j k)) 2 0) 'single-float))))))))
+                               (let ((pos
+                                       (cl-mpm/fastmaths:fast-.+
+                                        (cl-mpm/mesh::cell-centroid node)
+                                        (cl-mpm/mesh::cell-displacement node))))
+                                 (format fs "~E ~E ~E ~%"
+                                         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
+                                         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
+                                         (coerce (cl-mpm/utils:varef pos 2) 'single-float)))))))))
             (format fs "~%")
             (let ((id 1))
               (declare (special id))
               (format fs "POINT_DATA ~d~%" node-count)
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
+              (save-parameter-cells "pressure" (cl-mpm/mesh::cell-pressure cell))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               ))
           ))))

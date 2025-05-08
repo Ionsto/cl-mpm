@@ -243,6 +243,11 @@
     :accessor mp-displacement-increment
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::vector-zeros))
+   (position-trial
+    :accessor mp-position-trial
+    ;; :initarg :position
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (displacement
     :accessor mp-displacement
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -371,12 +376,16 @@
 
 (defmethod initialize-instance :after ((p particle) &key)
   (with-accessors ((domain mp-domain-size)
-                   (domain-true mp-true-domain))
+                   (domain-true mp-true-domain)
+                   (position mp-position)
+                   (position-trial mp-position-trial)
+                   )
       p
-      (setf
-       (magicl:tref domain-true 0 0) (varef domain 0)
-       (magicl:tref domain-true 1 1) (varef domain 1)
-       (magicl:tref domain-true 2 2) (varef domain 2)))
+    (cl-mpm/utils:matrix-copy-into position position-trial)
+    (setf
+     (magicl:tref domain-true 0 0) (varef domain 0)
+     (magicl:tref domain-true 1 1) (varef domain 1)
+     (magicl:tref domain-true 2 2) (varef domain 2)))
   )
 
 (defmethod reinitialize-instance :after ((p particle) &key)
@@ -910,7 +919,7 @@
 (defmethod new-loadstep-mp ((mp cl-mpm::particle))
   (with-accessors ((strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
-                   (disp cl-mpm/particle::mp-displacement)
+                   (disp cl-mpm/particle::mp-displacement-increment)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
@@ -919,13 +928,13 @@
     (cl-mpm/utils:matrix-copy-into def def-0)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
-    (cl-mpm/fastmaths:fast-zero disp)
+    ;; (cl-mpm/fastmaths:fast-zero disp)
     ))
 
 (defmethod new-loadstep-mp ((mp cl-mpm::particle-damage))
   (with-accessors ((strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
-                   (disp cl-mpm/particle::mp-displacement)
+                   (disp cl-mpm/particle::mp-displacement-increment)
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
@@ -936,7 +945,7 @@
     (cl-mpm/utils:matrix-copy-into def def-0)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
-    (cl-mpm/fastmaths:fast-zero disp)
+    ;; (cl-mpm/fastmaths:fast-zero disp)
     (setf ybar-prev ybar)
     (call-next-method)
     ))

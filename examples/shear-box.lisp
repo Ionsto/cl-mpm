@@ -1,9 +1,11 @@
 (defpackage :cl-mpm/examples/shear-box
-  (:use :cl))
+  (:use :cl)
+  (:import-from
+   :cl-mpm/utils varef))
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
 (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+(setf *block-compile-default* t)
 ;; (asdf:compile-system :cl-mpm/examples/shear-box :full t)
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
@@ -16,7 +18,7 @@
 (defparameter *elastic-constant* 1d9)
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-mc) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
@@ -27,7 +29,7 @@
   ;; (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-brittle) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -163,38 +165,41 @@
   "A simple GIMP plot that display only the position and size of the MPs in a sim"
   (vgplot:format-plot t "set palette defined (0 'blue', 2 'red')")
   (vgplot:format-plot t "set ticslevel 0")
-  (multiple-value-bind (x y lx ly c)
-    (loop for mp across (cl-mpm:sim-mps sim)
-          collect (magicl:tref (cl-mpm::mp-position mp) 0 0) into x
-          collect (magicl:tref (cl-mpm::mp-position mp) 1 0) into y
-          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
-          collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
-          collect (funcall colour-func mp) into c
-          finally (return (values x y lx ly c)))
-    (let* ((points
-             ;; (cl-mpm/penalty::get-contact-points *shear-box-struct*)
-             (reduce #'append
-                     (mapcar #'cl-mpm/penalty::get-contact-points contact-bcs)
-                     )
-             ;; (append
-             ;;        ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*)
-             ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*)
-             ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*)
-             ;;        )
-             )
-           (c-x (loop for p in points collect (magicl:tref p 0 0)))
-           (c-y (loop for p in points collect (magicl:tref p 1 0)))
-           (c-v (loop for p in points collect 1d0)))
-      (vgplot:format-plot t "set cbrange [~f:~f]" (reduce #'min c) (+ 1d-5 (reduce #'max c)))
-      (cond
-        ((eq plot :point)
-         (vgplot:plot x y c ";;with points pt 7 lc palette"))
-        ((eq plot :deformed)
-         (if (and contact-bcs
-                  points)
-             (vgplot:plot x y lx ly c ";;with ellipses lc palette"
-                          c-x c-y ";;with points pt 7")
-             (vgplot:plot x y lx ly c ";;with ellipses lc palette"))))))
+  (let ((trial t))
+    (multiple-value-bind (x y lx ly c)
+        (loop for mp across (cl-mpm:sim-mps sim)
+              collect (+ (varef (cl-mpm::mp-position mp) 0)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 0) 0)) into x
+              collect (+ (varef (cl-mpm::mp-position mp) 1)
+                         (if trial (varef (cl-mpm/particle::mp-displacement-increment mp) 1) 0)) into y
+              collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0) into lx
+              collect (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0) into ly
+              collect (funcall colour-func mp) into c
+              finally (return (values x y lx ly c)))
+      (let* ((points
+               ;; (cl-mpm/penalty::get-contact-points *shear-box-struct*)
+               (reduce #'append
+                       (mapcar #'cl-mpm/penalty::get-contact-points contact-bcs)
+                       )
+               ;; (append
+               ;;        ;; (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*)
+               ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-left*)
+               ;;        (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct-right*)
+               ;;        )
+               )
+             (c-x (loop for p in points collect (magicl:tref p 0 0)))
+             (c-y (loop for p in points collect (magicl:tref p 1 0)))
+             (c-v (loop for p in points collect 1d0)))
+        (vgplot:format-plot t "set cbrange [~f:~f]" (reduce #'min c) (+ 1d-5 (reduce #'max c)))
+        (cond
+          ((eq plot :point)
+           (vgplot:plot x y c ";;with points pt 7 lc palette"))
+          ((eq plot :deformed)
+           (if (and contact-bcs
+                    points)
+               (vgplot:plot x y lx ly c ";;with ellipses lc palette"
+                            c-x c-y ";;with points pt 7")
+               (vgplot:plot x y lx ly c ";;with ellipses lc palette")))))))
   ;; (setf (cl-mpm/penalty::bc-penalty-structure-contact-points *shear-box-struct*) nil)
   ;; (loop for bcs in contact-bcs
   ;;       do (setf (cl-mpm/penalty::bc-penalty-structure-contact-points bcs) nil))
@@ -217,7 +222,7 @@
     (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
            (ms-x (first ms))
            (ms-y (second ms))
-           (offset (* 0d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))))
+           (offset (* 2d0 (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))))
       (vgplot:format-plot t "set object 1 rect from 0,~f to ~f,~f fc rgb 'black' fs transparent solid 0.8 noborder behind"
                           (+ (* 0.5d0 *box-size*) offset)
                           *box-size*
@@ -370,7 +375,7 @@
   'cl-mpm/particle::particle-mc
   :E *elastic-constant*
   :nu 0.24d0
-  :psi (* 0d0 (/ pi 180))
+  :psi (* 42d0 (/ pi 180))
   :phi (* 42d0 (/ pi 180))
   :c 131d3
   :phi-r (* 42d0 (/ pi 180))
@@ -470,7 +475,8 @@
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type 'cl-mpm::mpm-sim-usj
-               :sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               ;:sim-type 'cl-mpm/damage::mpm-sim-usl-damage
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
                ;; :sim-type 'cl-mpm::mpm-sim-usl
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
@@ -512,11 +518,11 @@
         (format t "Estimated oversize ~E~%" oversize)
         ;; (make-mps-mc-residual)
         ;; (make-mps-vm)
-        ;; (make-mps-mc-peak)
+        (make-mps-mc-peak)
         ;; (make-mps-mc-softening)
         ;; (make-mps-dp-peak)
         ;; (make-mps-damage)
-        (make-mps-plastic-damage)
+        ;; (make-mps-plastic-damage)
         ;; (make-mps-elastic)
         )
       (let* ((sur-height h-x)
@@ -569,14 +575,14 @@
       (defparameter *mesh-resolution* h-x)
       (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :PIC);;Conv in 29
-      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND);; Conv in 29
+      (setf (cl-mpm::sim-velocity-algorithm sim) :PIC);;Conv in 29
+      ;; (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND);; Conv in 29
       ;; (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
       (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
         (setf (cl-mpm::sim-nonlocal-damage sim) t)
         (setf (cl-mpm/damage::sim-enable-length-localisation sim) t))
-      (setf (cl-mpm::sim-enable-fbar sim) t)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-3)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -830,7 +836,7 @@
                  )
          (corner-x (* 1d0 corner))
          (corner-y (* 1d0 corner))
-         (damping 0d0)
+         (damping 1d0)
          (all-bcs (list))
          )
     (defparameter *box-left* left-x)
@@ -853,7 +859,8 @@
        (cl-mpm/utils:vector-from-list (list left-x (+ corner-y height) 0d0))
        epsilon
        0d0
-       0d0))
+       damping
+       ))
     (defparameter *shear-box-left-static-bevel*
       (cl-mpm/penalty::make-bc-penalty-smooth-corner
        sim
@@ -863,7 +870,8 @@
        smoothness
        epsilon
        0d0
-       0d0))
+       damping
+       ))
     (defparameter *shear-box-right-static*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
@@ -871,7 +879,8 @@
        (cl-mpm/utils:vector-from-list (list right-x (* 4 height) 0d0))
        epsilon
        0d0
-       0d0))
+       damping
+       ))
     (defparameter *shear-box-right-static-bevel*
       (cl-mpm/penalty::make-bc-penalty-smooth-corner
        sim
@@ -881,7 +890,8 @@
        smoothness
        epsilon
        0d0
-       0d0))
+       damping
+       ))
     (defparameter *shear-box-right-static-slide*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
@@ -889,7 +899,8 @@
        (cl-mpm/utils:vector-from-list (list (+ right-x corner-x) height 0d0))
        epsilon
        0d0
-       0d0))
+       damping
+       ))
 
     (defparameter *shear-box-left-slide*
       (cl-mpm/penalty::make-bc-penalty-line-segment
@@ -898,7 +909,8 @@
        (cl-mpm/utils:vector-from-list (list (- left-x corner-x) height 0d0))
        epsilon
        0d0
-       0d0))
+       damping
+       ))
 
     ;; (defparameter *shear-box-left-bevel*
     ;;   (cl-mpm/penalty::make-bc-penalty-line-segment
@@ -918,7 +930,8 @@
        smoothness
        epsilon
        0d0
-       0d0))
+       damping
+       ))
 
     (defparameter *shear-box-left-dynamic*
       (cl-mpm/penalty::make-bc-penalty-line-segment
@@ -927,7 +940,8 @@
        (cl-mpm/utils:vector-from-list (list left-x (- h) 0d0))
        epsilon
        0d0
-       0d0))
+       damping
+       ))
     (defparameter *shear-box-right-dynamic*
       (cl-mpm/penalty::make-bc-penalty-line-segment
        sim
@@ -935,7 +949,8 @@
        (cl-mpm/utils:vector-from-list (list right-x (- height corner-y) 0d0))
        epsilon
        0d0
-       0d0)
+       damping
+       )
       )
     (defparameter *shear-box-right-dynamic-bevel*
       (cl-mpm/penalty::make-bc-penalty-smooth-corner
@@ -946,7 +961,7 @@
        smoothness
        epsilon
        0d0
-       0d0)
+       damping)
       )
     (defparameter *shear-box-floor*
       (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -1784,8 +1799,10 @@
                   do
                      (progn
                        (format t "Step ~d ~%" steps)
-                       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
+                       ;; (cl-mpm::new-loadstep *sim*)
                        (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                       (cl-mpm::new-loadstep *sim*)
+                       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                        (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*)
                        (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.vtk" *sim-step*)) *sim*)
 
@@ -1793,7 +1810,6 @@
                              (disp-av 0d0)
                              (elastic-step t)
                              )
-                         (cl-mpm/dynamic-relaxation::new-loadstep *sim*)
                          (setf (cl-mpm:sim-damping-factor *sim*)
                                (* 0.01d0
                                   (cl-mpm/setup::estimate-critical-damping *sim*)))
@@ -1801,37 +1817,44 @@
                          (loop for mp across (cl-mpm:sim-mps *sim*)
                                do (when (typep mp 'cl-mpm/particle::particle-plastic)
                                     (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
-                         (cl-mpm/dynamic-relaxation:converge-quasi-static
-                          *sim*
-                          :energy-crit 1d-2
-                          :oobf-crit 1d-2
-                          :substeps 50
-                          :conv-steps 1000
-                          :dt-scale dt-scale
-                          :post-iter-step
-                          (lambda (i energy oobf)
-                            (format t "Surcharge load ~E~%" (/ *piston-confinement* *piston-steps*))
-                            ;; (plot-domain)
-                            (vgplot:title (format nil "Step ~D - substep ~D" steps i))
-                            (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d_~5,'0d.vtk" steps (+ 1 i))) *sim*)
-                            (setf *piston-confinement* 0d0
-                                  *piston-steps* 0)
-                            (when (and (< energy 1d-1) (< oobf 1d-1) elastic-step)
-                              (setf (cl-mpm:sim-damping-factor *sim*)
-                                    (* 0.01d0
-                                       (cl-mpm/setup::estimate-critical-damping *sim*)))
-                              (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
-                              (cl-mpm:iterate-over-mps
-                               (cl-mpm:sim-mps *sim*)
-                               (lambda (mp)
-                                 (when (typep mp 'cl-mpm/particle::particle-plastic)
-                                   (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))))
+                         (let ((substeps 50)
+                               (no-trial-elastic nil)
+                               )
+                           (cl-mpm/dynamic-relaxation:converge-quasi-static
+                            *sim*
+                            :energy-crit 1d-2
+                            :oobf-crit 1d-2
+                            :substeps substeps
+                            :conv-steps 1000
+                            :dt-scale dt-scale
+                            :post-iter-step
+                            (lambda (i energy oobf)
+                              (format t "Surcharge load ~E~%" (/ *piston-confinement* *piston-steps*))
+                              (plot-domain)
+                              (vgplot:title (format nil "Step ~D - substep ~D" steps i))
+                              (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_conv_~5,'0d_~5,'0d.vtk" steps (+ 1 i))) *sim*)
+                              (cl-mpm/output:save-vtk-nodes (merge-pathnames output-directory (format nil "sim_conv_nodes_~5,'0d_~5,'0d.vtk" steps (+ 1 i))) *sim*)
+                              (setf *piston-confinement* 0d0
+                                    *piston-steps* 0)
+                              (when (and elastic-step
+                                         (or
+                                          (and (< energy 1d-1) (< oobf 1d-1))
+                                          no-trial-elastic))
+                                ;; (setf (cl-mpm:sim-damping-factor *sim*)
+                                ;;       (* 0.01d0
+                                ;;          (cl-mpm/setup::estimate-critical-damping *sim*)))
+                                (setf (cl-mpm::sim-enable-damage *sim*) enable-damage)
+                                (cl-mpm:iterate-over-mps
+                                 (cl-mpm:sim-mps *sim*)
+                                 (lambda (mp)
+                                   (when (typep mp 'cl-mpm/particle::particle-plastic)
+                                     (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))))
 
-                            (incf total-iter)
-                            (with-open-file (stream (merge-pathnames output-directory "conv.csv") :direction :output :if-exists :append)
-                              (format stream "~D,~D,~f,~f,~f,~f~%" total-iter steps (get-plastic) (get-damage) 
-                                      oobf energy))
-                            ))
+                              (incf total-iter substeps)
+                              (with-open-file (stream (merge-pathnames output-directory "conv.csv") :direction :output :if-exists :append)
+                                (format stream "~D,~D,~f,~f,~f,~f~%" total-iter steps (get-plastic) (get-damage) 
+                                        oobf energy))
+                              )))
                          (setf load-av (get-load))
                          (setf disp-av *displacement-increment*)
 
@@ -2152,10 +2175,10 @@
   (setf *run-sim* t)
   (loop for refine in (list
                        ;; 2
-                       4
-                       8
+                       ;; 4
+                       ;; 8
                        ;; 16
-                       ;; 32
+                       32
                        ;; 4.5
                        ;; 8.5
                        ;; 16
@@ -2167,7 +2190,7 @@
                (dolist (localising (list t))
                  (dolist (epsilon-scale (list
                                          ;; 1d2
-                                         1d2
+                                         1d1
                                               ))
                    (dolist (piston-scale (list 1d0))
                      (dolist (mps (list 3))
@@ -2183,8 +2206,8 @@
                                   ;; 0d0
                                   ;; 5d4
                                   10d4
-                                  20d4
-                                  30d4
+                                  ;; 20d4
+                                  ;; 30d4
                                   ;; 40d4
                                   ;; 50d4
                                   ;; 401d3
@@ -2256,12 +2279,12 @@
                                       ;;  )
                                       (run-static
                                        (format nil "../ham-shear-box/output-~A_~f_~D_~f_~f_~f-~F/" name refine mps scale piston-scale epsilon-scale s)
-                                       :displacment 0.1d-3
-                                       :surcharge-load s
-                                       :load-steps 100
+                                       :displacment 6d-3
+                                       ;; :surcharge-load s
+                                       :load-steps 10
                                        :dt-scale (/ 0.5d0 (* (sqrt piston-scale) (sqrt (* 1d-1 epsilon-scale))))
                                        :enable-damage t
-                                       :enable-plasticity nil
+                                       :enable-plasticity t
                                        )
                                       (when *skip*
                                         (setf *run-sim* t))))))))))))))

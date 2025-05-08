@@ -270,7 +270,7 @@
          (cl-mpm/utils:vector-from-list (list (* (first size) 0.5d0) (float (second block-size) 0d0) 0d0))
          (* (first size) 0.5d0)
          (* 1d6 1d0)
-         0d0
+         0.5d0
          1.0d0
          ))
       (cl-mpm:add-bcs-force-list
