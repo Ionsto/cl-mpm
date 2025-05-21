@@ -128,6 +128,14 @@
     :initarg :volume
     :initarg :volume-0
     :initform 1d0)
+   (volume-n
+    :accessor mp-volume-n
+    :type double-float
+    ;;By specifying both :volume and :volume-0 as initargs, it will capture volume by default
+    ;;but it also allows for direct specification
+    :initarg :volume
+    :initarg :volume-n
+    :initform 1d0)
    (size-0
     :accessor mp-domain-size-0
     :type magicl:matrix/double-float
@@ -262,6 +270,11 @@
     )
    (damage
     :accessor mp-damage
+    :type DOUBLE-FLOAT
+    :initarg :damage
+    :initform 0d0)
+   (damage-n
+    :accessor mp-damage-n
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
@@ -868,6 +881,11 @@
     :initform 0d0
     :initarg :damage-y
     )
+   (damage-y-local-prev
+    :accessor mp-damage-y-local-prev
+    :type DOUBLE-FLOAT
+    :initform 0d0
+    :initarg :damage-y)
    (time-averaged-ybar
     :accessor mp-time-averaged-ybar
     :initform 1d0)
@@ -913,10 +931,57 @@
 
 
 
+(defgeneric reset-loadstep-mp (mp)
+  (:documentation "Finalise a dynamic relaxation loadstep, setting converged values to previous values"))
+
+(defmethod reset-loadstep-mp ((mp particle))
+  (with-accessors ((strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (disp cl-mpm/particle::mp-displacement-increment)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (volume    cl-mpm/particle::mp-volume)
+                   (volume-n    cl-mpm/particle::mp-volume-n)
+                   (position    cl-mpm/particle::mp-position)
+                   (position-trial    cl-mpm/particle::mp-position-trial)
+                   )
+      mp
+    (cl-mpm/utils:matrix-copy-into def-0 def)
+    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    (cl-mpm/utils:voigt-copy-into strain-n strain)
+    (cl-mpm/utils:vector-copy-into position position-trial)
+    (setf volume volume-n)
+    ))
+(defmethod reset-loadstep-mp ((mp particle-damage))
+  (with-accessors ((strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (disp cl-mpm/particle::mp-displacement-increment)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0 cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (ybar    cl-mpm/particle::mp-damage-ybar)
+                   (ybar-prev    cl-mpm/particle::mp-damage-ybar-prev)
+                   (y    cl-mpm/particle::mp-damage-y-local)
+                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   (damage    cl-mpm/particle::mp-damage)
+                   (damage-n    cl-mpm/particle::mp-damage-n)
+                   (volume    cl-mpm/particle::mp-volume)
+                   (volume-n    cl-mpm/particle::mp-volume-n)
+                   (position    cl-mpm/particle::mp-position)
+                   (position-trial    cl-mpm/particle::mp-position-trial)
+                   )
+      mp
+    (setf ybar ybar-prev)
+    (setf y y-prev)
+    (setf damage damage-n)
+    (call-next-method)
+    ))
+
 (defgeneric new-loadstep-mp (mp)
   (:documentation "Finalise a dynamic relaxation loadstep, setting converged values to previous values"))
 
-(defmethod new-loadstep-mp ((mp cl-mpm::particle))
+(defmethod new-loadstep-mp ((mp particle))
   (with-accessors ((strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
                    (disp cl-mpm/particle::mp-displacement-increment)
@@ -931,7 +996,7 @@
     ;; (cl-mpm/fastmaths:fast-zero disp)
     ))
 
-(defmethod new-loadstep-mp ((mp cl-mpm::particle-damage))
+(defmethod new-loadstep-mp ((mp particle-damage))
   (with-accessors ((strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
                    (disp cl-mpm/particle::mp-displacement-increment)
@@ -940,6 +1005,12 @@
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (ybar    cl-mpm/particle::mp-damage-ybar)
                    (ybar-prev    cl-mpm/particle::mp-damage-ybar-prev)
+                   (damage    cl-mpm/particle::mp-damage)
+                   (damage-n    cl-mpm/particle::mp-damage-n)
+                   (y    cl-mpm/particle::mp-damage-y-local)
+                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   (volume    cl-mpm/particle::mp-volume)
+                   (volume-n    cl-mpm/particle::mp-volume-n)
                    )
       mp
     (cl-mpm/utils:matrix-copy-into def def-0)
@@ -947,6 +1018,9 @@
     (cl-mpm/utils:voigt-copy-into strain strain-n)
     ;; (cl-mpm/fastmaths:fast-zero disp)
     (setf ybar-prev ybar)
+    (setf y-prev y)
+    (setf damage-n damage)
+    (setf volume-n volume)
     (call-next-method)
     ))
 

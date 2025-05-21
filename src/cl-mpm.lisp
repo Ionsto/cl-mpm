@@ -57,6 +57,9 @@
     :accessor sim-time
     :initform 0d0
     :initarg :time)
+   (run-sim
+    :accessor sim-run-sim
+    :initform t)
    (stats-mps-removed
     :accessor sim-stats-mps-removed
     :initform 0d0
@@ -98,7 +101,7 @@
    (allow-mp-split
     :type boolean
     :accessor sim-allow-mp-split
-    :initarg :splitting
+    :initarg :enable-split
     :initform nil)
    (enable-damage
     :type boolean
@@ -109,6 +112,10 @@
     :type boolean
     :accessor sim-enable-fbar
     :initarg :enable-fbar
+    :initform nil)
+   (ghost-factor
+    :accessor sim-ghost-factor
+    :initarg :ghost-factor
     :initform nil)
    (nonlocal-damage
     :type boolean
@@ -143,6 +150,11 @@
     :accessor sim-max-split-depth
     :initarg :max-split-depth
     :initform 3)
+   (split-factor
+    :type double-float
+    :accessor sim-split-factor
+    :initarg :split-factor
+    :initform 0.55d0)
    (stats-energy
     :type double-float
     :accessor sim-stats-energy
@@ -167,12 +179,17 @@
 (defclass mpm-sf-gimp ()())
 (defclass mpm-sim-quasi-static (mpm-sim) ())
 
-(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf))
+(defun make-mpm-sim (size resolution dt shape-function &key (sim-type 'mpm-sim-usf)
+                                                         (args-list nil))
   "Constructs an mp with critical infomation like mesh and number of dimentions"
-  (make-instance sim-type
-                 :dt (coerce dt 'double-float)
-                 :mesh (make-mesh size resolution shape-function)
-                 :mps (make-array 0 :adjustable t :fill-pointer 0)))
+  (apply #'make-instance
+         (append
+          (list
+           sim-type
+           :dt (coerce dt 'double-float)
+           :mesh (make-mesh size resolution shape-function)
+           :mps (make-array 0 :adjustable t :fill-pointer 0))
+          args-list)))
 
 
 (defclass mpm-sim-sd (mpm-sim)

@@ -24,6 +24,10 @@
 
 (defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
 
+(defmethod cl-mpm::reset-loadstep ((sim mpm-sim-damage))
+  (call-next-method)
+  (calculate-damage sim 1d0))
+
 (defgeneric cl-mpm/particle::post-damage-step (mp dt))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
 
@@ -211,10 +215,9 @@
 
 
 
-(defun calculate-damage (sim)
+(defun calculate-damage (sim dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
-                   (dt cl-mpm:sim-dt)
                    (enable-damage cl-mpm::sim-enable-damage)
                    (delocal-counter sim-damage-delocal-counter)
                    (delocal-counter-max sim-damage-delocal-counter-max)
@@ -804,6 +807,7 @@ Calls the function with the mesh mp and node"
                (bcs-force-list cl-mpm::bcs-force-list)
                (dt cl-mpm::dt)
                (mass-filter cl-mpm::mass-filter)
+               (ghost-factor cl-mpm::ghost-factor)
                (split cl-mpm::allow-mp-split)
                (enable-damage cl-mpm::enable-damage)
                (nonlocal-damage cl-mpm::nonlocal-damage)
@@ -820,26 +824,29 @@ Calls the function with the mesh mp and node"
                     (cl-mpm::p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-                    (cl-mpm::update-node-kinematics mesh dt)
+                    (cl-mpm::update-node-kinematics sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
-
+                    (cl-mpm::update-nodes sim)
                     (cl-mpm::update-stress mesh mps dt fbar)
-
-                    (cl-mpm/damage::calculate-damage sim)
+                    (cl-mpm/damage::calculate-damage sim dt)
                     ;; ;Map forces onto nodes
                     (cl-mpm::p2g-force mesh mps)
-
                     (loop for bcs-f in bcs-force-list
                           do (cl-mpm::apply-bcs mesh bcs-f dt))
-
                     (cl-mpm::update-node-forces sim)
+
+                    (when ghost-factor
+                      (cl-mpm/ghost::apply-ghost sim ghost-factor))
                     ;; ;Reapply velocity BCs
                     (cl-mpm::apply-bcs mesh bcs dt)
+
+                    ;; (cl-mpm::reset-node-displacement sim)
+                    ;; (cl-mpm::update-nodes sim)
+
+                    (cl-mpm::update-dynamic-stats sim)
                     ;; ;Also updates mps inline
                     (cl-mpm::g2p mesh mps dt vel-algo)
-                    (cl-mpm::update-dynamic-stats sim)
-                    (cl-mpm::update-particles sim)
-
+                    (cl-mpm::new-loadstep sim)
                     (when remove-damage
                       (cl-mpm::remove-material-damaged sim))
                     (when split
@@ -864,8 +871,7 @@ Calls the function with the mesh mp and node"
                (remove-damage cl-mpm::allow-mp-damage-removal)
                (fbar cl-mpm::enable-fbar)
                (vel-algo cl-mpm::velocity-algorithm)
-               (time cl-mpm::time)
-               )
+               (time cl-mpm::time))
       sim
     (declare (type double-float mass-filter))
     (progn
@@ -875,19 +881,18 @@ Calls the function with the mesh mp and node"
       ;;Do optional mass filter
       (when (> mass-filter 0d0)
         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-      (cl-mpm::update-node-kinematics mesh dt)
+      (cl-mpm::update-node-kinematics sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-                                        ;Map forces onto nodes
+      ;; Map forces onto nodes
       (cl-mpm::p2g-force mesh mps)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
       (cl-mpm::update-node-forces sim)
-                                        ;Reapply velocity BCs
+      ;; Reapply velocity BCs
       (cl-mpm::apply-bcs mesh bcs dt)
-                                        ;Also updates mps inline
-      (cl-mpm::update-dynamic-stats sim)
+      (cl-mpm::reset-node-displacement sim)
+      (cl-mpm::update-nodes sim)
       (cl-mpm::g2p mesh mps dt vel-algo)
-
       ;;Update stress last
       (cl-mpm::reset-grid-velocity mesh)
       (cl-mpm::p2g mesh mps)
@@ -895,17 +900,16 @@ Calls the function with the mesh mp and node"
       ;;Do optional mass filter
       (when (> mass-filter 0d0)
         (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
-      (cl-mpm::update-node-kinematics mesh dt)
+      (cl-mpm::update-node-kinematics sim)
+      (cl-mpm::reset-node-displacement sim)
+      (cl-mpm::update-nodes sim)
       (cl-mpm::apply-bcs mesh bcs dt)
+      (cl-mpm::update-cells sim)
+      (cl-mpm::update-dynamic-stats sim)
 
       (cl-mpm::update-stress mesh mps dt fbar)
-      (cl-mpm/damage::calculate-damage sim)
-      (cl-mpm::update-particles sim)
-      (when remove-damage
-        (cl-mpm::remove-material-damaged sim))
-      (when split
-        (cl-mpm::split-mps sim))
-      (cl-mpm::check-mps sim)
+      (cl-mpm/damage::calculate-damage sim dt)
+      (cl-mpm::new-loadstep sim)
       (incf time dt)
       )))
 
@@ -1133,13 +1137,13 @@ Calls the function with the mesh mp and node"
       (format fs "DATASET UNSTRUCTURED_GRID~%")
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
-            do (format fs "~E ~E ~E ~%"
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 1 0) 'single-float)
-                       (coerce (magicl:tref (cl-mpm/particle:mp-position mp) 2 0) 'single-float)
-                       ))
+            do
+               (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+                 (format fs "~E ~E ~E ~%"
+                         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
+                         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
+                         (coerce (cl-mpm/utils:varef pos 2) 'single-float))))
       (format fs "~%")
-
       ;; (cl-mpm/output::with-parameter-list fs mps
       ;;   ("mass" 'cl-mpm/particle:mp-mass)
       ;;   ("density" (lambda (mp) (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp))))
@@ -1222,13 +1226,17 @@ Calls the function with the mesh mp and node"
                                          (nth 2 (sort l #'>))))
 
         (cl-mpm/output::save-parameter "su_1"
-                                       (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
+                                       (if (typep mp 'cl-mpm/particle::particle-damage)
+                                           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
 
-                                         (nth 0 (sort l #'>))))
+                                             (nth 0 (sort l #'>)))
+                                           0d0))
         (cl-mpm/output::save-parameter "su_3"
-                                       (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
+                                       (if (typep mp 'cl-mpm/particle::particle-damage)
+                                           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle::mp-undamaged-stress mp)))
 
-                                         (nth 2 (sort l #'>))))
+                                             (nth 2 (sort l #'>)))
+                                           0d0))
         ;; (cl-mpm/output::save-parameter "e_1"
         ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-strain mp)))
         ;;                                  (loop for sii in l maximize sii)))
@@ -1266,6 +1274,10 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "damage-ybar"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
                                            (cl-mpm/particle::mp-damage-ybar mp)
+                                           0d0))
+        (cl-mpm/output::save-parameter "damage-ybar-prev"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar-prev)
+                                           (cl-mpm/particle::mp-damage-ybar-prev mp)
                                            0d0))
         (cl-mpm/output::save-parameter "damage-ybar-scaled"
                                        (if (slot-exists-p mp 'cl-mpm/particle::damage-ybar)
@@ -1307,7 +1319,9 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "split-depth"
                                        (cl-mpm/particle::mp-split-depth mp))
 
-        (cl-mpm/output::save-parameter "plastic-iterations" (cl-mpm/particle::mp-plastic-iterations mp))
+        (cl-mpm/output::save-parameter "plastic-iterations"
+                                       (if (slot-exists-p mp 'cl-mpm/particle::plastic-iterations)
+                                           (cl-mpm/particle::mp-plastic-iterations mp) 0d0))
         (cl-mpm/output::save-parameter
          "plastic_strain"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)

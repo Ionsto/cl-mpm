@@ -19,11 +19,13 @@
 
 
 
-(defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf))
+(defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf) (args-list nil))
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x resolution)) element-count))
-           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type)))
+           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil
+                                     :sim-type sim-type
+                                     :args-list args-list)))
       (progn
         ;; (setf (cl-mpm:sim-mps sim) #())
         (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))

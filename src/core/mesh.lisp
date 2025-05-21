@@ -27,7 +27,8 @@
   ))
 
 (in-package :cl-mpm/mesh)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defclass node ()
@@ -69,11 +70,15 @@
     :accessor node-oobf
     :type double-float
     :initform 0d0)
-   (ghost
-    :accessor node-ghost
-    :initarg :acceleration
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:vector-zeros))
+   ;; (ghost
+   ;;  :accessor node-ghost
+   ;;  :initarg :acceleration
+   ;;  :type MAGICL:MATRIX/DOUBLE-FLOAT
+   ;;  :initform (cl-mpm/utils:vector-zeros))
+   (agg
+    :accessor node-agg
+    :type boolean
+    :initform nil)
   (force
     :accessor node-force
     :initarg :force
@@ -89,6 +94,10 @@
     :initform (cl-mpm/utils:vector-zeros))
    (damping-force
     :accessor node-damping-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (ghost-force
+    :accessor node-ghost-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
    (buoyancy-force
@@ -178,8 +187,16 @@
     :initarg :volume
     :initform 0d0
     :type double-float)
+   (ghost-element
+    :accessor cell-ghost-element
+    :initform nil)
    (centroid
     :accessor cell-centroid
+    :initarg :centroid
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (trial-centroid
+    :accessor cell-trial-centroid
     :initarg :centroid
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
@@ -203,6 +220,13 @@
     :accessor cell-pruned
     :type boolean
     :initform nil)))
+(defmethod initialize-instance :after ((p cell) &key)
+  (with-accessors ((pos cell-centroid)
+                   (pos-trial cell-trial-centroid)
+                   )
+      p
+    (setf pos-trial (cl-mpm/utils:vector-copy pos))
+    ))
 
 (defclass node-fracture (node)
   ((strain-energy-density
@@ -615,11 +639,14 @@
                (force force)
                (int-force internal-force)
                (ext-force external-force)
+               (ghost-force ghost-force)
                (damping-force damping-force)
+               (agg agg)
                (buoyancy-force buoyancy-force))
-                node
+      node
     (declare (double-float mass volume p-wave damage svp-sum))
     (setf active nil)
+    (setf agg nil)
     (setf boundary nil)
     (setf mass 0d0)
     (setf volume 0d0)
@@ -636,6 +663,7 @@
     (cl-mpm/fastmaths::fast-zero int-force)
     (cl-mpm/fastmaths::fast-zero ext-force)
     (cl-mpm/fastmaths::fast-zero damping-force)
+    (cl-mpm/fastmaths::fast-zero ghost-force)
     (cl-mpm/fastmaths::fast-zero buoyancy-force)
     ))
 

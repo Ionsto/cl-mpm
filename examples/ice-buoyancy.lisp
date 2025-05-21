@@ -3,9 +3,12 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
@@ -28,6 +31,28 @@
   )
 
 
+(defun get-damage ()
+  (lparallel:pmap-reduce
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-damage)
+         (*
+          1d2
+          (cl-mpm/particle::mp-mass mp)
+          (cl-mpm/particle:mp-damage mp))
+         0d0))
+   #'+
+   (cl-mpm:sim-mps *sim*)))
+(defun get-plastic ()
+  (lparallel:pmap-reduce
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-plastic)
+         (*
+          (cl-mpm/particle::mp-mass mp)
+          (cl-mpm/particle::mp-strain-plastic-vm mp))
+         0d0))
+   #'+
+   (cl-mpm:sim-mps *sim*)))
+
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
@@ -37,6 +62,7 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   )
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
@@ -49,6 +75,13 @@
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
+
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-ice-delayed) dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  )
+
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-ice-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
@@ -59,9 +92,41 @@
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
+;; (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
+;;   (let ((damage-increment 0d0))
+;;     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+;;                      (strain cl-mpm/particle::mp-strain)
+;;                      (trial-strain cl-mpm/particle::mp-trial-strain)
+;;                      (plastic-strain cl-mpm/particle::mp-strain-plastic)
+;;                      (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
+;;                      (damage cl-mpm/particle:mp-damage)
+;;                      (pressure cl-mpm/particle::mp-pressure)
+;;                      (init-stress cl-mpm/particle::mp-initiation-stress)
+;;                      (ybar cl-mpm/particle::mp-damage-ybar)
+;;                      (angle cl-mpm/particle::mp-friction-angle)
+;;                      (de cl-mpm/particle::mp-elastic-matrix)
+;;                      (def cl-mpm/particle::mp-deformation-gradient)
+;;                      (E cl-mpm/particle::mp-e))
+;;         mp
+;;       (progn
+;;         (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
+;;           (setf damage-increment
+;;                 (+
+;;                  ps-y
+;;                  (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+;;                   ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+;;                   (cl-mpm/fastmaths:fast-.+
+;;                    stress
+;;                    (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 3))))
+;;                   (* angle (/ pi 180d0)))
+;;                  )))
+;;         (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
+;;         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+;;         ))))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (let ((damage-increment 0d0))
     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                     (y cl-mpm/particle::mp-damage-y-local)
                      (strain cl-mpm/particle::mp-strain)
                      (trial-strain cl-mpm/particle::mp-trial-strain)
                      (plastic-strain cl-mpm/particle::mp-strain-plastic)
@@ -77,9 +142,9 @@
         mp
       (progn
         (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
-          (setf damage-increment
+          (setf y
                 (+
-                 ps-y
+                 ;; ps-y
                  (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
                   ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                   (cl-mpm/fastmaths:fast-.+
@@ -87,9 +152,35 @@
                    (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 3))))
                   (* angle (/ pi 180d0)))
                  )))
-        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
-        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
+        ;; (setf y (cl-mpm/damage::tensile-energy-norm strain E de))
+        ;; (setf (cl-mpm/particle::mp-damage-y-local mp) )
         ))))
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
+  (with-accessors ((strain cl-mpm/particle::mp-strain)
+                   (stress cl-mpm/particle::mp-undamaged-stress)
+                   (E cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (pressure cl-mpm/particle::mp-pressure)
+                   ) mp
+    (let ((angle 60d0))
+      (setf y
+            (+
+             (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+              stress
+              ;; (cl-mpm/fastmaths:fast-.+
+              ;;  (cl-mpm/utils:voigt-eye (* 1d0 (magicl:det def) (/ (- pressure) 3)))
+              ;;  )
+              (* angle (/ pi 180d0)))
+             )))
+    ;; (setf y (cl-mpm/damage::tensile-energy-norm-pressure strain E nu de
+    ;;                                                      0d0
+    ;;                                                      ;; (* 0.3d0 ;(magicl:det def)
+    ;;                                                      ;;    pressure)
+    ;;                                                      ))
+    ))
 
 
 (defun plot-domain ()
@@ -132,13 +223,13 @@
          ;; (density 900d0)
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
-         (offset (* mesh-resolution 2))
+         (offset (* mesh-resolution 0))
          (end-height ice-height)
          (start-height ice-height)
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.90d0))
+         (water-level (* floating-point 0.80d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -152,14 +243,18 @@
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
-                                               ))
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul-usl
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
+                                               :args-list
+                                               (list
+                                                :enable-fbar t)))
     (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 10000d0)
            (length-scale (* mesh-resolution 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
+           (ductility 5d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -180,30 +275,35 @@
         block-size
         (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
         density
-        'cl-mpm/particle::particle-elastic
-        :E 1d9
-        :nu 0.24d0
-        ;; 'cl-mpm/particle::particle-ice-erodable
+        ;; 'cl-mpm/particle::particle-elastic-damage-delayed
         ;; :E 1d9
         ;; :nu 0.24d0
-        ;; ;; :nu 0d0
+        ;; :initiation-stress 1d5
+        ;; :local-length (* 2 mesh-resolution)
+        ;; :ductility 10d0
+        ;; :delay-time 1d0
+        ;; :delay-exponent 2d0
+        'cl-mpm/particle::particle-ice-erodable
+        :E 1d9
+        :nu 0.24d0
+        ;; :nu 0d0
 
-        ;; :kt-res-ratio 1d0
-        ;; :kc-res-ratio 0d0
-        ;; :g-res-ratio 0.5d0
+        :kt-res-ratio 1d0
+        :kc-res-ratio 0d0
+        :g-res-ratio 0.5d0
 
-        ;; :initiation-stress init-stress;18d3
-        ;; :friction-angle angle
-        ;; :psi (* 0d0 (/ pi 180))
-        ;; :phi (* angle (/ pi 180))
-        ;; :c (* init-c oversize)
-        ;; :softening 0d0
-        ;; :ductility ductility
-        ;; :local-length length-scale
-        ;; :delay-time 1d3
-        ;; :delay-exponent 2
-        ;; :enable-plasticity nil
-        ;; :enable-damage t
+        :initiation-stress init-stress;18d3
+        :friction-angle angle
+        :psi (* 0d0 (/ pi 180))
+        :phi (* angle (/ pi 180))
+        :c (* init-c oversize)
+        :softening 0d0
+        :ductility ductility
+        :local-length length-scale
+        :delay-time 10d0
+        :delay-exponent 2
+        :enable-plasticity t
+        :enable-damage t
         ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
         ;; :E 1d9
         ;; :nu 0.325d0
@@ -278,11 +378,14 @@
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
-    (setf (cl-mpm::sim-enable-fbar *sim*) t)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
     (setf (cl-mpm::sim-max-split-depth *sim*) 3)
+    (setf (cl-mpm::sim-ghost-factor *sim*)
+          nil
+          ;; (* E 1d-4)
+          )
     ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
     (setf (cl-mpm:sim-dt *sim*) (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
@@ -296,7 +399,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 5d-1)
+           :visc-damping 5d-2)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -318,9 +421,9 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* E 0.01d0)
+         (* E 0.1d0)
          friction
-         0.1d0)))
+         0.5d0)))
 
     (defparameter *bc-erode*
       (cl-mpm/erosion::make-bc-erode
@@ -755,16 +858,20 @@
           (oobf-list (list))
           (superstep 0)
           )
-      (dotimes (i 10)
+      (dotimes (i 50)
+        (setf (cl-mpm:sim-enable-damage *sim*) nil)
         (cl-mpm/dynamic-relaxation:converge-quasi-static
          *sim*
          :oobf-crit 1d-3
          :energy-crit 1d-3
          :dt-scale dt-scale
+         :kinetic-damping nil
          :conv-steps 1000
          :substeps 50
          :post-iter-step
          (lambda (i energy oobf)
+           (when (and (< energy 1d-1) (< oobf 1d-1))
+             (setf (cl-mpm:sim-enable-damage *sim*) t))
            (incf current-step)
            (push current-step step-list)
            (push energy energy-list)
@@ -781,7 +888,7 @@
             (reverse oobf-list)
             "OOBF")
            (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_conv_~5,'0d.png" i)) :terminal "png size 3840,2160")))
-        (cl-mpm::new-loadstep *sim*)
+        (cl-mpm::finalise-loadstep *sim*)
         (let ((i superstep))
           (cl-mpm/output:save-vtk (uiop:merge-pathnames* output-dir (format nil "sim_conv_~5,'0d.vtk" (1+ i))) *sim*)
           (cl-mpm/output:save-vtk-nodes (uiop:merge-pathnames* output-dir (format nil "sim_conv_nodes_~5,'0d.vtk" (1+ i))) *sim*)
@@ -886,9 +993,15 @@
   (setf cl-mpm/dynamic-relaxation::*run-convergance* nil))
 
 (defun body-pressure-test ()
-  (let ((mps 2)
+  (let ((mps 3)
         (refine 0.25))
-    (setup :refine refine :mps mps :pressure-condition t :friction 0.5d0)
+    (setup :refine refine
+           :mps mps
+           :pressure-condition t
+           :friction 0.5d0
+           ::bench-length 800d0
+           :aspect 4
+           )
     (elastic-sim :output-dir "./output-cryo-pressure/")
     ;; (setup :refine refine :mps mps :pressure-condition nil)
     ;; (elastic-sim :output-dir "./output-cryo-body/")
@@ -906,6 +1019,7 @@
     (elastic-sim :output-dir "./output-0.0/")
     (setup :refine refine :mps mps :friction 0.5d0)
     (elastic-sim :output-dir "./output-0.5/")))
+
 (defun test-bench ()
   (let ((mps 3)
         (refine 0.125)
@@ -923,18 +1037,36 @@
 
 
 (defun calving-test ()
-  (let* ((mps 2))
-    (setup :refine 0.5
-           :friction 0.9d0
-           :bench-length 000d0
-           :ice-height 800d0
-           :mps mps
-           :cryo-static t
-           :aspect 2
-           )
-    (plot-domain)
-    (run ;:output-dir (format nil "./output-~D-0.5/" mps)
-     )))
+  (loop for dt in (list 5d0)
+        do
+           (let* ((mps 2))
+             (setup :refine 0.5
+                    :friction 0d0
+                    :bench-length 000d0
+                    :ice-height 400d0
+                    :mps mps
+                    :cryo-static t
+                    :aspect 1d0
+                    )
+             (plot-domain)
+             (cl-mpm/dynamic-relaxation::run-multi-stage
+              *sim*
+              :output-dir "./output/"
+              :dt dt
+              :steps 1000
+              )
+             ;; (let (;(dt 0.125d0)
+             ;;       (total-time 100d0))
+             ;;   (quasi-time
+             ;;    :output-dir (format nil "./output-~E/" dt)
+             ;;    :time-steps (round total-time dt)
+             ;;    :time total-time
+             ;;    :enable-damage t
+             ;;    :enable-plastic nil
+             ;;    :dt-scale 0.5d0))
+             ;; (run ;:output-dir (format nil "./output-~D-0.5/" mps)
+             ;;  )
+             )))
 
 
 
@@ -1021,4 +1153,163 @@
                       :dt-scale 0.25d0))))))
 
 
+
+
+(declaim (notinline quasi-time))
+(defun quasi-time (&key (output-dir "./output/")
+                     (time-steps 10)
+                     (time 1d0)
+                     (enable-damage t)
+                     (enable-plastic t)
+                     (dt-scale 0.5d0))
+  (uiop:ensure-all-directories-exist (list output-dir))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+  (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (* 1d-1
+           (cl-mpm/setup:estimate-critical-damping *sim*)))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
+      (format stream "iter,step,damage,plastic,oobf,energy~%"))
+    (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
+      (format stream "steps,time,damage,plastic,energy,oobf,step-type,mass~%"))
+    (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
+      (format stream "~D,~f,~f,~f,~f,~f,~A,~f~%"
+              0
+              (cl-mpm::sim-time *sim*)
+              (get-damage)
+              (get-plastic)
+              0d0
+              0d0
+              :QUASI-STATIC
+              0d0
+              ))
+    (let ((step 0))
+      (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim*)
+      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) *sim*)
+      (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) *sim*)
+      (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
+      )
+    (let* ((total-iter 0))
+      (loop for step from 1 to time-steps
+            while *run-sim*
+            do
+               (let ((crit (cl-mpm/setup:estimate-critical-damping *sim*)))
+                 (setf (cl-mpm:sim-damping-factor *sim*)
+                       (* 0.1d0 crit))
+                 ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
+                 (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep *sim*) (/ time time-steps))
+                 (defparameter *ke-last* 0d0)
+                 (let ((conv-steps 0)
+                       (substeps 10)
+                       (damping 1d-1)
+                       (damage-prev 0d0))
+                   (time
+                    (progn
+                      (cl-mpm:iterate-over-mps
+                       (cl-mpm:sim-mps *sim*)
+                       (lambda (mp)
+                         (when (typep mp 'cl-mpm/particle::particle-damage)
+                           (setf (cl-mpm/particle::mp-enable-damage mp) nil))
+                         (when (typep mp 'cl-mpm/particle::particle-plastic)
+                           (setf (cl-mpm/particle::mp-enable-plasticity mp) nil))))
+                      (setf (cl-mpm:sim-enable-damage *sim*) nil)
+                      (cl-mpm/dynamic-relaxation:converge-quasi-static
+                       *sim*
+                       :oobf-crit 1d-2
+                       :energy-crit 1d-2
+                       :kinetic-damping t
+                       :dt-scale dt-scale
+                       :substeps substeps
+                       :conv-steps 1000
+                       :damping-factor 1d-2
+                       :post-iter-step
+                       (lambda (i e o)
+                         (plot-domain)
+                         (incf conv-steps)
+                         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step conv-steps)) *sim*)
+                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step conv-steps)) *sim*)
+                         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step conv-steps)) *sim*) (incf total-iter substeps)
+                         (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+                           (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (get-plastic) (get-damage) 
+                                   o e)))
+                       )
+                      (cl-mpm:iterate-over-mps
+                       (cl-mpm:sim-mps *sim*)
+                       (lambda (mp)
+                         (when (typep mp 'cl-mpm/particle::particle-damage)
+                           (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
+                         (when (typep mp 'cl-mpm/particle::particle-plastic)
+                           (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
+                      (when enable-damage
+                        (cl-mpm/damage:calculate-damage *sim* (cl-mpm/dynamic-relaxation::sim-dt-loadstep *sim*)))
+                      (setf (cl-mpm:sim-enable-damage *sim*) enable-damage)
+                      (let ((damage-prev (get-damage)))
+                        (cl-mpm/dynamic-relaxation:converge-quasi-static
+                         *sim*
+                         :oobf-crit 1d-2
+                         :energy-crit 1d-2
+                         :convergance-criteria
+                         (lambda (sim fnorm oobf)
+                           (let* ((dn (get-damage))
+                                  (dconv (if (> dn 0d0)
+                                             (if (> damage-prev 0d0) (/ (- dn damage-prev) damage-prev) sb-ext:double-float-positive-infinity)
+                                             0d0
+                                             )))
+                             (format t "d-conv ~E~%" dconv)
+                             (setf damage-prev dn)
+                             (and
+                              (< fnorm 1d-2)
+                              (< oobf 1d-2)
+                              (< dconv 1d-3)
+                              )))
+                         :kinetic-damping t
+                         :dt-scale dt-scale
+                         :substeps substeps
+                         :conv-steps 100
+                         :damping-factor 1d-2
+                         :post-iter-step
+                         (lambda (i e o)
+                           (plot-domain)
+                           (incf conv-steps)
+                           (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step conv-steps)) *sim*)
+                           (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step conv-steps)) *sim*)
+                           (incf total-iter substeps)
+                           (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+                             (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (get-plastic) (get-damage) 
+                                     o e)))))))
+                   (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
+                   ))
+               ;; (cl-mpm/penalty::bc-increment-center *bc-squish* (cl-mpm/utils:vector-from-list (list 0d0 load-inc 0d0)))
+               (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm::finalise-loadstep *sim*)
+               (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
+                                  :terminal "png size 1920,1080"
+                                  )
+               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
+               (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
+                 (format stream "~D,~f,~f,~f,~f,~f,~A,~f~%"
+                         step
+                         (cl-mpm::sim-time *sim*)
+                         (get-damage)
+                         (get-plastic)
+                         0d0
+                         0d0
+                         :QUASI-STATIC
+                         0d0
+                         ))
+               (sleep 0.1d0)
+               (swank.live:update-swank)
+
+            ))))
+
+(defun save-test-vtks (&key (output-dir "./output/"))
+  (cl-mpm::finalise-loadstep *sim*)
+  (cl-mpm/output:save-vtk (merge-pathnames "test.vtk" output-dir) *sim*)
+  (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes.vtk" output-dir) *sim*)
+  (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*)
+  )
 

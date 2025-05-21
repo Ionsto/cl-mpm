@@ -17,6 +17,7 @@
    ))
 (in-package :cl-mpm/shape-function)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmacro shape-linear-form (x)
@@ -34,9 +35,12 @@
          (ftype (function (double-float double-float) double-float) shape-linear-dsvp))
 (defun shape-linear-dsvp (x h)
   (declare (type double-float x h))
-  (the double-float (/ (if (>= x 0d0)
-                               -1d0
-                               1d0) h)
+  (the double-float (/
+                     (- (signum x))
+                     ;; (if (>= x 0d0)
+                     ;;           -1d0
+                     ;;           1d0)
+                     h)
   ;; (the double-float (/ (signum x) h)
        ))
 

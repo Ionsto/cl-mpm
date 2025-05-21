@@ -72,8 +72,28 @@
     :initform 1d0)
    (history-stress
     :accessor mp-history-stress
+    :initform 0d0)
+   (residual-strength
+    :initarg :residual-strength
+    :accessor mp-residual-strength
+    :initform 1d-6)
+   (history-stress-n
+    :accessor mp-history-stress-n
     :initform 0d0))
   (:documentation "A mp with damage influanced elastic model"))
+
+(defmethod reset-loadstep-mp ((mp particle-elastic-damage))
+  (with-accessors ((k    cl-mpm/particle::mp-history-stress)
+                   (k-n    cl-mpm/particle::mp-history-stress-n))
+      mp
+    (setf k k-n)
+    (call-next-method)))
+(defmethod new-loadstep-mp ((mp particle-elastic-damage))
+  (with-accessors ((k    cl-mpm/particle::mp-history-stress)
+                   (k-n    cl-mpm/particle::mp-history-stress-n))
+      mp
+    (setf k-n k)
+    (call-next-method)))
 
 (defclass particle-elastic-damage-delayed (particle-elastic-damage)
    ((delay-time
@@ -414,8 +434,10 @@
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                      (init-stress cl-mpm/particle::mp-initiation-stress)
+                     (residual-strength cl-mpm/particle::mp-residual-strength)
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
+                     (k-n cl-mpm/particle::mp-history-stress-n)
                      (tau cl-mpm/particle::mp-delay-time)
                      (tau-exp cl-mpm/particle::mp-delay-exponent)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
@@ -424,31 +446,19 @@
       (declare (double-float damage damage-inc k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf ybar damage-inc)
-        (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
           (when (or
                  (>= ybar-prev k0)
                  (>= ybar k0))
             (setf k
-                  (huen-integration k ybar-prev ybar
-                                        k0
-                                        tau
-                                        tau-exp
-                                        dt))
-            ;; (setf k
-            ;;       (forwards-integration k ybar-prev ybar
-            ;;                             k0
-            ;;                             tau
-            ;;                             tau-exp
-            ;;                             dt))
-            ))
-        (setf ybar-prev ybar)
+                  (huen-integration k-n ybar-prev ybar
+                                    k0
+                                    tau
+                                    tau-exp
+                                        dt))))
         (let ((new-damage
-                (max
-                 damage
-                 (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility (- 1d0 1d-6)))))
+                (cl-mpm/damage::damage-response-exponential-peerlings-residual k E init-stress ductility (- 1d0 residual-strength))))
           (declare (double-float new-damage))
           (setf damage-inc (- new-damage damage)))
         (when (>= damage 1d0)

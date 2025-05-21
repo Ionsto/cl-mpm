@@ -314,7 +314,14 @@
   "Make a stress matrix 3x3 of zeros"
   (magicl::make-matrix/double-float 6 6 36 :column-major (make-array 36 :element-type 'double-float
                                                                         :initial-contents elements
-                                                                     )))
+                                                                        )))
+
+(declaim (inline arb-matrix-from-list)
+         (ftype (function (list)
+                          magicl:matrix/double-float) matrix-from-list))
+(defun arb-matrix-from-list (elements x y)
+  (magicl::make-matrix/double-float x y (* x y) :column-major
+                                    (make-array (* x y) :element-type 'double-float :initial-contents elements)))
 
 (declaim (inline matrix-from-diag)
          (ftype (function (list)
@@ -328,18 +335,30 @@
 
 
 (declaim (inline matrix-to-voight)
-         (ftype (function (magicl:matrix/double-float)
-                          magicl:matrix/double-float) matrix-to-voight))
-(defun matrix-to-voight (matrix)
+         (ftype (function (magicl:matrix/double-float
+                           &optional (or null magicl:matrix/double-float))
+                          magicl:matrix/double-float
+                          ) matrix-to-voight))
+(defun matrix-to-voight (matrix &optional (result nil))
   "Stress matrix to voigt"
-  (let* ( (exx (mtref matrix 0 0))
-          (eyy (mtref matrix 1 1))
-          (ezz (mtref matrix 2 2))
-          (eyz (mtref matrix 2 1))
-          (exy (mtref matrix 1 0))
-          (ezx (mtref matrix 2 0))
-          )
-    (voigt-from-list (list exx eyy ezz eyz ezx exy))))
+  (let ((result (if result result (voigt-zeros))))
+        (let* ((exx (mtref matrix 0 0))
+               (eyy (mtref matrix 1 1))
+               (ezz (mtref matrix 2 2))
+               (eyz (mtref matrix 2 1))
+               (exy (mtref matrix 1 0))
+               (ezx (mtref matrix 2 0)))
+          (setf
+           (varef result 0) exx
+           (varef result 1) eyy
+           (varef result 2) ezz
+           (varef result 3) eyz
+           (varef result 4) ezx
+           (varef result 5) exy
+           )
+          result
+          ;; (voigt-from-list (list exx eyy ezz eyz ezx exy))
+          )))
 
 (declaim (inline voight-to-matrix)
          (ftype (function (magicl:matrix/double-float)
@@ -708,3 +727,6 @@
   (* degrees (/ pi 180)))
 (defun r2d (radians)
   (* radians (/ 180 pi)))
+
+(defun pull-back-voigt-stress (stress df)
+  (cl-mpm/utils:matrix-to-voight (magicl:@ (cl-mpm/utils:voight-to-matrix stress) (magicl:inv df)) stress))

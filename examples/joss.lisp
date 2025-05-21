@@ -435,27 +435,18 @@
            'cl-mpm/particle::particle-chalk-erodable
            :E E
            :nu 0.24d0
-
-
            :enable-damage t
            :enable-plasticity t
-
            :friction-angle angle
-
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
-           ;:g-res-ratio 0.01d0
            :g-res-ratio 0.51d0
            :peerlings-damage t
-
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
            :delay-time 1d0
            :delay-exponent 2d0
-
-           ;; :ductility 5d0
            :ductility ductility
-
            :critical-damage 1d0;(- 1.0d0 1d-3)
            :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
 

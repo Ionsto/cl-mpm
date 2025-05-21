@@ -1,6 +1,7 @@
 (in-package :cl-mpm)
 ;;MP splitting code goes in here
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
@@ -12,7 +13,9 @@
         (cond
           ((typep (slot-value original slot) 'magicl::abstract-tensor)
            (setf (slot-value copy slot)
-                 (magicl:scale (slot-value original slot) 1d0)))
+                 ;; (magicl:deep-copy-tensor (slot-value original slot))
+                 (magicl:scale (slot-value original slot) 1d0)
+                 ))
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
     (apply #'reinitialize-instance copy initargs)))
@@ -69,6 +72,7 @@
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
+                      :volume-0 (/ volume-0 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
                       :position (cl-mpm/fastmaths::fast-.+-vector pos pos-offset)
@@ -79,6 +83,7 @@
        (copy-particle mp
                       :mass (/ mass 2)
                       :volume (/ volume 2)
+                      :volume-0 (/ volume-0 2)
                       :size (cl-mpm/utils::vector-copy new-size)
                       :size-0 (cl-mpm/utils::vector-copy new-size-0)
                       :position (magicl:.- pos pos-offset)
@@ -136,6 +141,20 @@
      ,(macroexpand-1 '(split-linear direction :z 2))
      (t nil)
      ))
+(defun split-criteria-variable (mp h factor)
+  "Some numerical splitting estimates"
+  (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
+                   (lens cl-mpm/particle::mp-domain-size)
+                   (lens-0 cl-mpm/particle::mp-domain-size-0)
+                   (split-depth cl-mpm/particle::mp-split-depth))
+      mp
+    (when t;(< split-depth *max-split-depth*)
+      (let ((h-factor (* factor h)))
+        (cond
+          ((< h-factor (varef lens 0)) :x)
+          ((< h-factor (varef lens 1)) :y)
+          ((< h-factor (varef lens 2)) :z)
+          (t nil))))))
 (defun split-mp (mp h direction)
   "Function to split an mp across a direction
    Directions should be :x,:y,:z "
@@ -197,18 +216,18 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth)
+                   (split-factor cl-mpm::sim-split-factor)
                    )
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth))
-                                        (remove-if-not (lambda (mp) (split-criteria mp h)) mps)))
-           (split-direction (map 'list (lambda (mp) (split-criteria mp h)) mps-to-split)))
-      (remove-mps-func sim (lambda (mp) (split-criteria mp h)))
+                                        (remove-if-not (lambda (mp) (split-criteria-variable mp h split-factor)) mps)))
+           (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor)) mps-to-split)))
+      (remove-mps-func sim (lambda (mp) (split-criteria-variable mp h split-factor)))
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp)))
-      )))
+                     do (sim-add-mp sim new-mp))))))
 
 (defun split-mps-criteria (sim criteria)
   "Split mps that fail an arbritary criteria"

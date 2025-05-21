@@ -1,6 +1,7 @@
 (in-package :cl-mpm)
 ;;All the various ways of iterating over the mesh
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 
@@ -582,7 +583,9 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                      (grads-vec (sb-simd-avx:f64.2*
                                                  (linear-grads-simd dist h)
                                                  (sb-simd-avx:f64.2-shuffle weights weights 1)))
-                                     (grads (multiple-value-list (sb-simd-avx:f64.2-values grads-vec)))
+                                     (grads (append (multiple-value-list (sb-simd-avx:f64.2-values grads-vec))
+                                                    (list 0d0)
+                                                    ))
                                      )
                                 (declare (double-float weight))
                                 (when (< 0d0 weight)

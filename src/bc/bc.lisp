@@ -132,19 +132,21 @@
   "Fixed velocity BC over some dimensions"
   (with-accessors ((lock cl-mpm/mesh:node-lock))
       node
-      (with-slots ((value value))
-          bc
-        (loop for d fixnum from 0 to 2;below (length value)
-              for v in value
-              do
-                 (when v
-                   (sb-thread:with-mutex (lock)
-                     (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
-                     (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
-                     (setf (varef (cl-mpm/mesh::node-displacment node) d) 0d0)
-                     (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
-                     (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
-                     (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
+    (with-slots ((value value))
+        bc
+      (loop for d fixnum from 0 to 2;below (length value)
+            for v in value
+            do
+               (when v
+                 (sb-thread:with-mutex (lock)
+                   (setf (varef (cl-mpm/mesh:node-velocity node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh:node-acceleration node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-displacment node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-ghost-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-damping-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
 
 (defmethod apply-bc ((bc bc-constant-velocity) node mesh dt)
   "Fixed velocity BC over some dimensions"

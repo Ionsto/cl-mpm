@@ -222,6 +222,14 @@
                      )))))
     stress))
 
+(defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-plastic))
+  (with-accessors ((ps-vm-1 mp-strain-plastic-vm-1)
+                   (ps-vm mp-strain-plastic-vm)
+                   )
+      mp
+    (declare (double-float ps-vm ps-vm-1))
+    (setf ps-vm ps-vm-1))
+  (call-next-method))
 (defmethod cl-mpm/particle::new-loadstep-mp ((mp particle-plastic))
   (with-accessors ((ps-vm-1 mp-strain-plastic-vm-1)
                    (ps-vm-inc mp-strain-plastic-vm-inc)

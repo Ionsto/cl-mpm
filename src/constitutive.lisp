@@ -667,8 +667,8 @@
                            (setf (magicl:tref b 6 0) b-f)))
                        ))
           (setf inc (the double-float
-                           (cl-mpm/fastmaths::vector-principal-von-mises
-                            (cl-mpm/fastmaths::fast-.--vector
+                           (cl-mpm/fastmaths::voigt-von-mises
+                            (cl-mpm/fastmaths::fast-.--voigt
                              eps-e
                              trial-elastic-strain))))
           (values sig eps-e f inc)

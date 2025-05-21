@@ -1,5 +1,6 @@
 (defpackage :cl-mpm/output
-  (:use :cl)
+  (:use :cl
+   :cl-mpm/utils)
   (:export
    #:save-vtk-mesh
    #:save-vtk
@@ -340,15 +341,11 @@
 (defun format-scalar-node (stream name id nodes accessor)
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
-  (destructuring-bind (n m l) (array-dimensions nodes)
-    (loop for i from 0 below n do
-      (loop for j from 0 below m
-        do (loop for k from 0 below l
-                 do
-                    (let ((node (aref nodes i j k)))
-                      (when node
-                        (format stream "~E ~%"
-                                (coerce (funcall accessor node) 'single-float))))))))
+  (loop for i from 0 below (array-total-size nodes)
+        do
+           (let ((node (row-major-aref nodes i)))
+             (when node
+               (format stream "~E ~%" (coerce (funcall accessor node) 'single-float)))))
   (format stream "~%")
   )
 (defmacro save-parameter-nodes (name accessor)
@@ -365,36 +362,35 @@
       (format fs "ASCII~%")
       (format fs "DATASET UNSTRUCTURED_GRID~%")
 
-      (let ((node-count 0))
-        (cl-mpm:iterate-over-nodes-serial
-         mesh
-         (lambda (n)
-           (declare (ignore n))
-           (incf node-count)))
-        (format fs "POINTS ~d double~%" node-count)
-        (destructuring-bind (n m l) (array-dimensions nodes)
-          (loop for i from 0 below n do
-            (loop for j from 0 below m do
-              (loop for k from 0 below l
-                    do
-                       (let ((node (aref nodes i j k)))
-                         (when node
-                           ;; (incf node-count)
-                           (let ((pos (cl-mpm/fastmaths:fast-.+
-                                       (cl-mpm/mesh::node-position node)
-                                       (cl-mpm/mesh::node-displacment node))))
-                             (format fs "~E ~E ~E ~%"
-                                     (coerce (cl-mpm/utils::varef pos 0) 'single-float)
-                                     (coerce (cl-mpm/utils::varef pos 1) 'single-float)
-                                     (coerce (cl-mpm/utils::varef pos 2) 'single-float)))))))))
+      (let* ((node-count (array-total-size nodes))
+             (nodes (remove-if-not #'cl-mpm/mesh:node-active
+                                   (make-array node-count :displaced-to nodes)))
+             (node-count (array-total-size nodes))
+             )
+        (format fs "POINTS ~d double~%" (array-total-size nodes))
+        (loop for i from 0 below (array-total-size nodes)
+              do
+                 (let ((node (row-major-aref nodes i)))
+                   (when node
+                     ;; (incf node-count)
+                     (let ((pos (cl-mpm/fastmaths:fast-.+
+                                 (cl-mpm/mesh::node-position node)
+                                 (cl-mpm/mesh::node-displacment node))))
+                       (format fs "~E ~E ~E ~%"
+                               (coerce (cl-mpm/utils::varef pos 0) 'single-float)
+                               (coerce (cl-mpm/utils::varef pos 1) 'single-float)
+                               (coerce (cl-mpm/utils::varef pos 2) 'single-float))))))
         (format fs "~%")
         (let ((id 1))
           (declare (special id))
-          (format fs "POINT_DATA ~d~%" node-count)
+          (format fs "POINT_DATA ~d~%" (array-total-size nodes))
 
 
           (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
           (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
+          (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
+                                               (/ 1d0 (cl-mpm/mesh:node-mass node))
+                                               0d0))
 
           (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
           (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
@@ -415,6 +411,9 @@
           (save-parameter-nodes "force_damp_x" (magicl:tref (cl-mpm/mesh::node-damping-force node) 0 0))
           (save-parameter-nodes "force_damp_y" (magicl:tref (cl-mpm/mesh::node-damping-force node) 1 0))
           (save-parameter-nodes "force_damp_z" (magicl:tref (cl-mpm/mesh::node-damping-force node) 2 0))
+
+          (save-parameter-nodes "force_ghost_x" (varef (cl-mpm/mesh::node-ghost-force node) 0))
+          (save-parameter-nodes "force_ghost_y" (varef (cl-mpm/mesh::node-ghost-force node) 1))
           (save-parameter-nodes "j-inc" (if (= (cl-mpm/mesh::node-jacobian-inc node) 0d0)
                                             1d0
                                             (cl-mpm/mesh::node-jacobian-inc node)
@@ -515,13 +514,7 @@
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
             do
-               (let ((pos
-                       (cl-mpm/particle::mp-position-trial mp)
-                       ;; (cl-mpm/fastmaths:fast-.+
-                       ;;  (cl-mpm/particle::mp-position mp)
-                       ;;     (cl-mpm/particle::mp-displacement-increment mp)
-                       ;;     )
-                          ))
+               (let ((pos (cl-mpm/particle::mp-position-trial mp)))
                  (format fs "~E ~E ~E ~%"
                          (coerce (cl-mpm/utils:varef pos 0) 'single-float)
                          (coerce (cl-mpm/utils:varef pos 1) 'single-float)
@@ -538,6 +531,7 @@
 
         (save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
+        (save-parameter "volume" (cl-mpm/particle:mp-volume mp))
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
         (save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
         (save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
@@ -678,15 +672,12 @@
 (defun format-scalar-cell (stream name id cells accessor)
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
-  (destructuring-bind (n m l) (array-dimensions cells)
-    (loop for i from 0 below n do
-      (loop for j from 0 below m
-        do (loop for k from 0 below l
-                 do
-                    (let ((cell (aref cells i j k)))
-                      (when cell
-                        (format stream "~E ~%"
-                                (coerce (funcall accessor cell) 'single-float))))))))
+  (loop for i from 0 below (array-total-size cells)
+        do
+           (let ((cell (row-major-aref cells i)))
+             (when cell
+               (format stream "~E ~%"
+                       (coerce (funcall accessor cell) 'single-float)))))
   (format stream "~%"))
 (defmacro save-parameter-cells (name accessor)
   `(progn
@@ -703,37 +694,35 @@
           (format fs "ASCII~%")
           (format fs "DATASET UNSTRUCTURED_GRID~%")
 
-          (let ((node-count 0))
-            (cl-mpm::iterate-over-cells-serial
-             mesh
-             (lambda (n)
-               (declare (ignore n))
-               (incf node-count)))
-            (format fs "POINTS ~d double~%" node-count)
-            (destructuring-bind (n m l) (array-dimensions cells)
-              (loop for i from 0 below n do
-                (loop for j from 0 below m do
-                  (loop for k from 0 below l
-                        do
-                           (let ((node (aref cells i j k)))
-                             (when node
-                               ;; (incf node-count)
-                               (let ((pos
-                                       (cl-mpm/fastmaths:fast-.+
-                                        (cl-mpm/mesh::cell-centroid node)
-                                        (cl-mpm/mesh::cell-displacement node))))
-                                 (format fs "~E ~E ~E ~%"
-                                         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
-                                         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
-                                         (coerce (cl-mpm/utils:varef pos 2) 'single-float)))))))))
+          (let (;; (node-count 0)
+                (cells (remove-if-not #'cl-mpm/mesh::cell-active
+                                      (make-array (array-total-size cells) :displaced-to cells)))
+                )
+            ;; (cl-mpm::iterate-over-cells-serial
+            ;;  mesh
+            ;;  (lambda (n)
+            ;;    (declare (ignore n))
+            ;;    (incf node-count)))
+            (format fs "POINTS ~d double~%" (array-total-size cells))
+            (loop for i from 0 below (array-total-size cells)
+                  do
+                     (let ((cell (row-major-aref cells i)))
+                       (when cell
+                         ;; (incf node-count)
+                         (let ((pos (cl-mpm/mesh::cell-trial-centroid cell)))
+                           (format fs "~E ~E ~E ~%"
+                                   (coerce (cl-mpm/utils::varef pos 0) 'single-float)
+                                   (coerce (cl-mpm/utils::varef pos 1) 'single-float)
+                                   (coerce (cl-mpm/utils::varef pos 2) 'single-float))))))
             (format fs "~%")
             (let ((id 1))
               (declare (special id))
-              (format fs "POINT_DATA ~d~%" node-count)
+              (format fs "POINT_DATA ~d~%" (array-total-size cells))
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "pressure" (cl-mpm/mesh::cell-pressure cell))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
+              (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))
               ))
           ))))
 

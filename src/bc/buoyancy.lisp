@@ -970,6 +970,15 @@
                        mp-head rho)
                  )))))
 
+(defun get-cell-df (mesh point)
+  (let ((dF (cl-mpm/utils:matrix-eye 1d0)))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     point
+     (lambda (mesh node weight grads)
+       (when (cl-mpm/mesh::node-active node)
+         (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) df))))
+    dF))
 
 (defun apply-force-cells-3d (mesh func-stress func-div clip-func)
   "Update force on nodes, with virtual stress field from cells"
@@ -979,24 +988,23 @@
    (lambda (cell)
      ;;Iterate over a cells nodes
      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                      (trial-pos cl-mpm/mesh::cell-trial-centroid)
                       (cell-active cl-mpm/mesh::cell-active)
                       (cell-pressure cl-mpm/mesh::cell-pressure)
+                      (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
        (when cell-active
-         (cl-mpm/fastmaths:fast-zero disp)
-         (cl-mpm/mesh::cell-iterate-over-neighbours
-          mesh
-          cell
-          (lambda (mesh cell centr vol node weight grads)
-            (cl-mpm/fastmaths:fast-fmacc disp (cl-mpm/mesh::node-displacment node) 0.25d0)))
-         ;; (pprint trial-disp)
-         ;; (break)
-         (let* ((pos (cl-mpm/fastmaths:fast-.+ pos disp))
-                (cell-stress (funcall func-stress pos))
-                (cell-div (funcall func-div pos))
+         (let* (
+                ;; (pos (cl-mpm/fastmaths:fast-.+ pos disp))
+                (cell-stress (funcall func-stress trial-pos))
+                ;; (cell-stress (cl-mpm/utils::pull-back-voigt-stress cell-stress df))
+                (cell-div (funcall func-div trial-pos))
                 (f-stress (cl-mpm/utils:vector-zeros))
-                (f-div (cl-mpm/utils:vector-zeros)))
+                (f-div (cl-mpm/utils:vector-zeros))
+                ;; (df (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0)
+                ;;                               ))
+                )
            (setf cell-pressure (varef cell-stress 0))
            (cl-mpm/mesh::cell-iterate-over-neighbours
             mesh cell
@@ -1040,13 +1048,15 @@
     (lambda (mp)
       (with-accessors ((volume cl-mpm/particle:mp-volume)
                        (pos cl-mpm/particle::mp-position-trial)
+                       (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
         (when t;(funcall clip-func pos)
-          (let ((mp-stress (funcall func-stress mp))
-                (mp-div (funcall func-div mp))
-                (f-stress (cl-mpm/utils:vector-zeros))
-                (f-div (cl-mpm/utils:vector-zeros)))
+          (let* ((mp-stress (funcall func-stress mp))
+                 ;; (mp-stress (cl-mpm/utils::pull-back-voigt-stress mp-stress df))
+                 (mp-div (funcall func-div mp))
+                 (f-stress (cl-mpm/utils:vector-zeros))
+                 (f-div (cl-mpm/utils:vector-zeros)))
             ;;Iterate over neighbour nodes
             (cl-mpm::iterate-over-neighbours
              mesh mp
@@ -1067,7 +1077,8 @@
                               ;; (funcall clip-func node-pos)
                               )
                      (cl-mpm/fastmaths:fast-zero f-stress)
-                     (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
+                     (let ((grads (cl-mpm::gradient-push-forwards grads df)))
+                       (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress))
                      (cl-mpm/fastmaths:fast-scale-vector
                       mp-div
                       (* volume svp)

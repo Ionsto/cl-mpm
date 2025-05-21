@@ -951,6 +951,7 @@
 (defun voigt-von-mises (stress)
   (sqrt (* 3d0 (voigt-j2 (cl-mpm/utils::deviatoric-voigt stress)))))
 
+
 (defun vector-principal-von-mises (stress)
   (the double-float
        (sqrt
@@ -1226,3 +1227,29 @@
     (when (> (abs (- z (* w (exp w)))) tol)
       (error "Lambert W failed to solve"))
     w))
+
+(defun voigt-det (voigt)
+  (let ((a (varef voigt 0))
+        (d (varef voigt 1))
+        (f (varef voigt 2))
+        (b (* 0.5d0 (varef voigt 5)))
+        (c (* 0.5d0 (varef voigt 4)))
+        (e (* 0.5d0 (varef voigt 3)))
+        )
+    (+
+     (* a (- (* d f) (* e e)))
+     (* b (- (* c e) (* b f)))
+     (* c (- (* b e) (* d c))))))
+
+(defun voight-det (voigt)
+  (let ((a (varef voigt 0))
+        (b (varef voigt 5))
+        (c (varef voigt 4))
+        (d (varef voigt 1))
+        (e (varef voigt 3))
+        (f (varef voigt 2))
+        )
+    (+
+     (* a (- (* d f) (* e e)))
+     (* b (- (* c e) (* b f)))
+     (* c (- (* b e) (* d c))))))

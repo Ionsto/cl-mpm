@@ -1,8 +1,10 @@
 ;    #:make-shape-function
 (in-package :cl-mpm)
 
+;(declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   #+cl-mpm-special (print "Compiled with special hooks")
@@ -22,26 +24,6 @@
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    ;; loop for mp across mps do
-    ;; (cl-mpm::iterate-over-mps
-    ;;  mps
-    ;;  (lambda (mp)
-    ;;    (progn
-    ;;      (with-accessors ((pos cl-mpm/particle::mp-position)
-    ;;                       (vel cl-mpm/particle::mp-velocity)
-    ;;                       (domain cl-mpm/particle::mp-domain-size)
-    ;;                       ) mp
-    ;;        (loop for i from 0 to 2
-    ;;              do (progn
-    ;;                   (when (sb-ext:float-nan-p (varef pos i)) 
-    ;;                     (pprint mp)
-    ;;                     (error "NaN location found for ~A" mp))
-    ;;                   (when (equal (abs (varef vel i)) #.sb-ext:double-float-positive-infinity)
-    ;;                     (pprint mp)
-    ;;                     (error "Infinite velocity found"))
-    ;;                   (when (> (abs (varef vel i)) 1e10)
-    ;;                     (pprint mp)
-    ;;                     (error "High velocity found"))))))))
     (remove-mps-func
        sim
        (lambda (mp)
@@ -49,13 +31,8 @@
                           (def cl-mpm/particle::mp-deformation-gradient))
              mp
            (or
-            (gimp-removal-criteria mp h)
-            ;; (cl-mpm/mesh::in-bounds-array mesh (magicl::matrix/double-float-storage
-            ;;                                     (cl-mpm/particle::mp-position mp)))
-            ))))
-    )))
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+            (gimp-removal-criteria mp h))))))))
+
 (defun check-single-mps (sim)
   "Function to check and remove single material points"
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -76,205 +53,6 @@
 (defgeneric update-sim (sim)
   (:documentation "Update an mpm simulation by one timestep"))
 
-(defgeneric special-p2g (mp node svp dsvp)
-  (:documentation "P2G behaviour for specific features")
-  (:method (mp node svp dsvp)))
-
-(defmethod special-p2g ((mp cl-mpm/particle::particle-thermal) node svp dsvp)
-  (with-accessors ((node-mass  cl-mpm/mesh:node-mass)
-                   (node-temp  cl-mpm/mesh:node-temperature)
-                   (node-dtemp  cl-mpm/mesh:node-dtemp)
-                   (node-volume  cl-mpm/mesh::node-volume)
-                   (node-lock  cl-mpm/mesh:node-lock)) node
-    (with-accessors ((mp-mass cl-mpm/particle:mp-mass)
-                     (mp-temp cl-mpm/particle::mp-temperature)
-                     (mp-heat-capaciy cl-mpm/particle::mp-heat-capacity)
-                     (mp-thermal-conductivity cl-mpm/particle::mp-thermal-conductivity)
-                     (mp-volume cl-mpm/particle:mp-volume)
-                     ) mp
-            (progn
-              (let* ((weighted-temp (* mp-temp mp-mass svp))
-                     (weighted-dtemp (* (/ mp-volume
-                                           (* mp-mass
-                                              mp-heat-capaciy))
-                                        mp-thermal-conductivity
-                                        mp-temp
-                                        (magicl::sum
-                                         (cl-mpm/fastmaths::fast-.* dsvp dsvp)))))
-                (sb-thread:with-mutex (node-lock)
-                    (setf node-temp
-                          (+ node-temp weighted-temp))
-                    (setf node-dtemp
-                          (+ node-dtemp weighted-dtemp))))))))
-
-(declaim
- (inline p2g-mp)
- (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values))
-                p2g-mp))
-(defun p2g-mp (mesh mp)
-  "P2G transfer for one MP"
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp))
-  (with-accessors ((mp-vel  cl-mpm/particle:mp-velocity)
-                   (mp-mass cl-mpm/particle:mp-mass)
-                   (mp-volume cl-mpm/particle:mp-volume)
-                   (mp-pmod cl-mpm/particle::mp-p-modulus)
-                   (mp-disp cl-mpm/particle::mp-displacement-increment)
-                   (mp-damage cl-mpm/particle::mp-damage))
-      mp
-    (let ((mp-mass mp-mass)
-          (mp-vel mp-vel)
-          (mp-volume mp-volume)
-          (mp-pmod mp-pmod)
-          (mp-damage mp-damage))
-      (declare (type double-float mp-mass mp-volume))
-      (iterate-over-neighbours
-       mesh mp
-       (lambda (mesh mp node svp grads fsvp fgrads)
-         (declare
-          (cl-mpm/particle:particle mp)
-          (cl-mpm/mesh::node node)
-          (double-float svp)
-          (ignore mesh))
-         (with-accessors ((node-vel   cl-mpm/mesh:node-velocity)
-                          (node-active  cl-mpm/mesh::node-active)
-                          (node-mass  cl-mpm/mesh:node-mass)
-                          (node-volume  cl-mpm/mesh::node-volume)
-                          (node-volume-true  cl-mpm/mesh::node-volume-true)
-                          (node-svp-sum  cl-mpm/mesh::node-svp-sum)
-                          (node-force cl-mpm/mesh:node-force)
-                          (node-p-wave cl-mpm/mesh::node-pwave)
-                          (node-damage cl-mpm/mesh::node-damage)
-                          (node-disp cl-mpm/mesh::node-displacment)
-                          (node-lock  cl-mpm/mesh:node-lock))
-             node
-           (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)
-                    (type sb-thread:mutex node-lock))
-           (sb-thread:with-mutex (node-lock)
-             (setf node-active t)
-             (incf node-mass (* mp-mass svp))
-             (incf node-volume (* mp-volume svp))
-             (incf node-p-wave (* mp-pmod svp))
-             (incf node-damage (* mp-damage svp))
-             (incf node-svp-sum svp)
-             (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))
-             ;; (cl-mpm/fastmaths::fast-fmacc node-disp mp-disp (* mp-mass svp))
-             )
-           ;;Ideally we include these generic functions for special mapping operations, however they are slow
-           ;; (special-p2g mp node svp dsvp)
-           )))
-      ))
-  (values))
-
-(declaim (notinline p2g))
-(defun p2g (mesh mps)
-  "Map particle momentum to the grid"
-  (declare (type (vector cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (p2g-mp mesh mp))))
-
-(declaim (inline p2g-force-mp)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
-         )
-(defun p2g-force-mp (mesh mp)
-  "Map particle forces to the grid for one mp"
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp))
-  (iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare
-        (cl-mpm/particle:particle mp)
-        (cl-mpm/mesh::node node)
-        (double-float svp)
-        (ignore mesh fsvp fgrads))
-       (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                        (node-int-force cl-mpm/mesh::node-internal-force)
-                        (node-ext-force cl-mpm/mesh::node-external-force)
-                        (node-lock  cl-mpm/mesh:node-lock))
-           node
-         (declare (boolean node-active)
-                  (sb-thread:mutex node-lock)
-                  (magicl:matrix/double-float node-int-force node-ext-force))
-         (when node-active
-           ;; (cl-mpm/fastmaths:fast-zero f-int)
-           ;; (cl-mpm/fastmaths:fast-zero f-ext)
-           ;; (det-ext-force mp node svp f-ext)
-           ;; (det-int-force-unrolled mp grads f-int)
-           (sb-thread:with-mutex (node-lock)
-             (det-ext-force mp node svp node-ext-force)
-             (det-int-force-unrolled mp grads node-int-force)
-             ;; (cl-mpm/fastmaths::fast-.+-vector node-ext-force f-ext node-ext-force)
-             ;; (cl-mpm/fastmaths::fast-.+-vector node-int-force f-int node-int-force)
-             )))))
-  (values))
-(declaim (notinline p2g-force-mp-2d)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp-2d)
-         )
-(defun p2g-force-mp-2d (mesh mp)
-  "Map particle forces to the grid for one mp"
-  (declare (cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp))
-    (iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare
-        (cl-mpm/particle:particle mp)
-        (cl-mpm/mesh::node node)
-        (double-float svp))
-       (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                        (node-int-force cl-mpm/mesh::node-internal-force)
-                        (node-ext-force cl-mpm/mesh::node-external-force)
-                        (node-lock  cl-mpm/mesh:node-lock)) node
-         (declare (boolean node-active)
-                  (sb-thread:mutex node-lock)
-                  (magicl:matrix/double-float node-int-force node-ext-force))
-         (when node-active
-           (sb-thread:with-mutex (node-lock)
-             (det-ext-force-2d mp node svp node-ext-force)
-             (det-int-force-unrolled-2d mp grads node-int-force)
-             ;; (det-ext-force mp node svp node-ext-force)
-             ;; (det-int-force mp grads node-int-force)
-             )))))
-  (values))
-
-(declaim (inline p2g-force))
-(defun p2g-force (mesh mps)
-  "Map particle forces to the grid"
-  (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp-2d mesh mp)))
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp mesh mp)))))
-
-(defgeneric special-g2p (mesh mp node svp grads)
-  (:documentation "G2P behaviour for specific features")
-  (:method (mesh mp node svp grads)))
-
-(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-thermal) node svp grads)
-  (declare (ignore mesh))
-  "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-temp cl-mpm/mesh:node-temperature)) node
-    (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
-      (progn
-        (setf temp (+ temp (* node-temp svp)))))))
-
-(defmethod special-g2p (mesh (mp cl-mpm/particle::particle-damage) node svp grads)
-  (declare (ignore mesh))
-  "Map grid to particle for one mp-node pair"
-  (with-accessors ((node-damage cl-mpm/mesh::node-damage)
-                   (node-temp cl-mpm/mesh::node-temp)) node
-    (with-accessors ((temp cl-mpm/particle::mp-damage)) mp
-      (progn
-        (setf temp (+ temp (* node-temp svp)))
-        ))))
 
 (defun update-node-disp (node dt)
   "Calculate velocity from momentum on a single node"
@@ -316,6 +94,91 @@
       ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
       (cl-mpm/fastmaths:fast-fmacc disp vel dt))))
 
+(defun get-cell-df (mesh point)
+  (let ((dF (cl-mpm/utils:matrix-eye 1d0)))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     point
+     (lambda (mesh node weight grads)
+       (when (cl-mpm/mesh::node-active node)
+         (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) df))))
+    dF))
+
+(defun filter-cell (mesh cell dt)
+  (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                   (active cl-mpm/mesh::cell-active)
+                   (neighbours cl-mpm/mesh::cell-neighbours)
+                   (index cl-mpm/mesh::cell-index)
+                   (nodes cl-mpm/mesh::cell-nodes)
+                   (df cl-mpm/mesh::cell-deformation-gradient)
+                   (disp cl-mpm/mesh::cell-displacement)
+                   (centroid cl-mpm/mesh::cell-centroid)
+                   (trial-pos cl-mpm/mesh::cell-trial-centroid)
+                   )
+      cell
+    (setf mp-count t)
+    (setf active nil)
+    (loop for n in nodes
+          do
+             (let ((oc (cl-mpm/mesh:node-active n)))
+               (setf mp-count (and mp-count oc))
+               (setf active (or active oc))))
+    (setf mp-count (if mp-count 1 0))))
+
+(defgeneric filter-cells (sim))
+(defmethod filter-cells (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-cells
+     mesh
+     (lambda (cell)
+       (filter-cell mesh cell dt)))))
+
+(defun update-cell (mesh cell dt)
+  "Update cell data, useful for ghost penalty"
+  (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                   (active cl-mpm/mesh::cell-active)
+                   (neighbours cl-mpm/mesh::cell-neighbours)
+                   (index cl-mpm/mesh::cell-index)
+                   (nodes cl-mpm/mesh::cell-nodes)
+                   (df cl-mpm/mesh::cell-deformation-gradient)
+                   (disp cl-mpm/mesh::cell-displacement)
+                   (centroid cl-mpm/mesh::cell-centroid)
+                   (trial-pos cl-mpm/mesh::cell-trial-centroid)
+                   )
+      cell
+    (when active
+      (cl-mpm/utils:matrix-copy-into (get-cell-df mesh centroid) df)
+      (cl-mpm/fastmaths:fast-zero disp)
+      (cl-mpm/fastmaths:fast-zero df)
+      (setf (varef df 0) 1d0
+            (varef df 4) 1d0
+            (varef df 8) 1d0)
+      (cl-mpm::iterate-over-neighbours-point-linear
+       mesh
+       centroid
+       (lambda (mesh node weight grads)
+         (let ((ndisp (cl-mpm/mesh::node-displacment node)))
+           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
+           (cl-mpm/fastmaths:fast-fmacc
+            disp
+            ndisp weight))))
+      (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos)))
+  )
+
+(defgeneric update-cells (sim))
+(defmethod update-cells (sim)
+  (with-accessors ((mesh sim-mesh)
+                   (dt sim-dt))
+      sim
+    (iterate-over-cells
+     mesh
+     (lambda (cell)
+       (filter-cell mesh cell dt)
+       (update-cell mesh cell dt)))))
+
+(defgeneric update-nodes (sim))
 (defmethod update-nodes (sim)
   (with-accessors ((mesh sim-mesh)
                    (dt sim-dt))
@@ -326,161 +189,8 @@
        (when (cl-mpm/mesh:node-active node)
          (update-node node dt))))))
 
-
-(defgeneric reset-mps-g2p (mp)
-  (:method (mp)))
-
-(defmethod reset-mps-g2p ((mp cl-mpm/particle::particle-thermal))
-  (with-accessors ((temp cl-mpm/particle::mp-temperature)) mp
-      (setf temp 0d0)))
-(declaim
- (notinline g2p-mp)
- (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values))
-                g2p-mp))
-
-
-(macrolet ((def-g2p-mp (name &body update)
-             `(defun ,name (mesh mp dt)
-                (declare (cl-mpm/mesh::mesh mesh)
-                         (cl-mpm/particle:particle mp)
-                         (double-float dt))
-                "Map one MP from the grid"
-                (with-accessors ((vel mp-velocity)
-                                 (pos mp-position)
-                                 (pos-trial cl-mpm/particle::mp-position-trial)
-                                 (disp cl-mpm/particle::mp-displacement)
-                                 (disp-inc cl-mpm/particle::mp-displacement-increment)
-                                 (acc cl-mpm/particle::mp-acceleration))
-                    mp
-                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
-                         (mapped-disp (cl-mpm/utils:vector-zeros))
-                         )
-                    ;; (declare (dynamic-extent mapped-vel))
-                    (progn
-                      ;;With special operations we need to reset some params for g2p
-                      ;; (reset-mps-g2p mp)
-                      ;(setf temp 0d0)
-                      )
-                    (cl-mpm/fastmaths::fast-zero acc)
-                    ;; Map variables
-                    (iterate-over-neighbours
-                     mesh mp
-                     (lambda (mesh mp node svp grads fsvp fgrads)
-                       (declare
-                        (ignore mp mesh fsvp fgrads)
-                        (cl-mpm/mesh::node node)
-                        (cl-mpm/particle:particle mp)
-                        (double-float svp))
-                       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                        (node-acc cl-mpm/mesh:node-acceleration)
-                                        (node-disp cl-mpm/mesh::node-displacment)
-                                        (node-scalar cl-mpm/mesh::node-boundary-scalar)
-                                        (node-active cl-mpm/mesh:node-active)
-                                        ) node
-                         (declare (double-float node-scalar)
-                                  (boolean node-active))
-                         (when node-active
-                           (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
-                           (cl-mpm/fastmaths::fast-fmacc mapped-disp node-disp svp)
-                           (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
-                           ;; (incf temp (* svp node-scalar))
-                           ;;With special operations we want to include this operation
-                           #+cl-mpm-special (special-g2p mesh mp node svp grads)
-                           )
-                         )
-                       ;; (g2p-mp-node mp node svp grads)
-                       ))
-                    ;;Update particle
-                    (progn
-                      ;;Invalidate shapefunction/gradient cache
-                      ;; (update-particle mesh mp dt)
-                      ,@update
-                      ))
-                  ))
-
-             ))
-
-  (def-g2p-mp g2p-mp-flip
-      (progn
-        (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
-        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
-        (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
-  (def-g2p-mp g2p-mp-pic
-      (progn
-        (cl-mpm/utils::vector-copy-into mapped-vel vel)
-        (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
-        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
-        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
-        ))
-  (def-g2p-mp g2p-mp-blend
-      (let ((pic-value 1d-3))
-        (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
-        (cl-mpm/fastmaths:fast-.+ pos mapped-disp pos-trial)
-        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
-        ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
-        (cl-mpm/fastmaths:fast-.+
-         (cl-mpm/fastmaths:fast-scale-vector
-          ;; FLIP value
-          (cl-mpm/fastmaths:fast-.+ vel (cl-mpm/fastmaths:fast-scale-vector acc dt))
-          (- 1d0 pic-value))
-         ;; PIC update
-         (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
-         vel)))
-  (def-g2p-mp g2p-mp-blend-2nd-order
-      (let* ((pic-value (/ 1d-3 dt))
-             (vel-inc
-               (cl-mpm/fastmaths::fast-scale!
-                (cl-mpm/fastmaths::fast-.--vector
-                 acc
-                 (cl-mpm/fastmaths:fast-scale!
-                  (cl-mpm/fastmaths::fast-.--vector vel mapped-vel) pic-value))
-                dt)))
-        (cl-mpm/fastmaths::fast-.+-vector vel vel-inc vel)
-        (let ((dx (cl-mpm/fastmaths::fast-.-
-                   (cl-mpm/fastmaths:fast-scale-vector mapped-vel dt)
-                   (cl-mpm/fastmaths:fast-scale-vector vel-inc (* 0.5d0 dt)))))
-          (cl-mpm/fastmaths::fast-scale! disp-inc dt)))))
-
-
-(defgeneric pre-particle-update-hook (particle dt)
-  )
+(defgeneric pre-particle-update-hook (particle dt))
 (defmethod pre-particle-update-hook (particle dt))
-
-(declaim (notinline g2p))
-;; (defun g2p-flip (mesh mps dt)
-;;   (declare (cl-mpm/mesh::mesh mesh) (array mps))
-;;   "Map grid values to all particles"
-;;   (iterate-over-mps
-;;    mps
-;;    (lambda (mp)
-;;      (g2p-mp mesh mp dt))))
-
-(defun g2p (mesh mps dt &optional (update-type :FLIP))
-  (ecase update-type
-    (:FLIP
-     (iterate-over-mps
-      mps
-      (lambda (mp)
-        (g2p-mp-flip mesh mp dt))))
-    (:PIC
-     (iterate-over-mps
-      mps
-      (lambda (mp)
-        (g2p-mp-pic mesh mp dt))))
-    (:BLEND
-     (iterate-over-mps
-      mps
-      (lambda (mp)
-        (g2p-mp-blend mesh mp dt))))
-    (:BLEND-2ND-ORDER
-     (iterate-over-mps
-      mps
-      (lambda (mp)
-        (g2p-mp-blend-2nd-order mesh mp dt))))))
-
-
 
 (defgeneric special-update-node (mesh dt node damping)
   (:documentation "Update node method")
@@ -495,20 +205,6 @@
       (setf temp (+ (/ temp mass) (* dtemp dt)))
       )))
 
-(defun calculate-kinematics (node)
-  "Calculate velocity from momentum on a single node"
-  (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((mass  node-mass)
-                     (vel   node-velocity)
-                     (disp   cl-mpm/mesh::node-displacment)
-                     )
-        node
-      (declare (double-float mass))
-      (progn
-        (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass))
-        ;; (cl-mpm/fastmaths::fast-scale! disp (/ 1.0d0 mass))
-        ))))
-
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
 (defun calculate-forces (node damping dt mass-scale)
@@ -520,6 +216,7 @@
                      (force-ext cl-mpm/mesh::node-external-force)
                      (force-int cl-mpm/mesh::node-internal-force)
                      (force-damp cl-mpm/mesh::node-damping-force)
+                     (force-ghost cl-mpm/mesh::node-ghost-force)
                      (residual   cl-mpm/mesh::node-residual)
                      (residual-prev   cl-mpm/mesh::node-residual-prev)
                      (acc   node-acceleration))
@@ -531,15 +228,16 @@
         ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmaths::fast-.+-vector force-int force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+        (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+        (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) (sqrt mass-scale)))
-        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (* damping -1d0))
-        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
 
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
+        (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
         )))
   (values))
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)
@@ -662,12 +360,27 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         )))
   (values))
 
-(declaim (notinline update-node-kinematics))
-(defun update-node-kinematics (mesh dt)
-  (iterate-over-nodes
-   mesh
-   (lambda (node)
-     (calculate-kinematics node))))
+(defun calculate-kinematics (node)
+  "Calculate velocity from momentum on a single node"
+  (when (cl-mpm/mesh:node-active node)
+    (with-accessors ((mass  node-mass)
+                     (vel   node-velocity)
+                     (disp   cl-mpm/mesh::node-displacment)
+                     )
+        node
+      (declare (double-float mass))
+      (progn
+        (cl-mpm/fastmaths::fast-scale! vel (/ 1.0d0 mass))))))
+
+(defgeneric update-node-kinematics (sim))
+(defmethod update-node-kinematics ((sim mpm-sim))
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (calculate-kinematics node)))))
+
 (defgeneric update-node-forces (sim)
   (:documentation "Update the acceleration from forces and apply any damping"))
 (defmethod update-node-forces ((sim mpm-sim))
@@ -735,61 +448,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       (error "BC attempted to get a nil node ~A ~A" bc index))))))))))
 
 
-;Could include this in p2g but idk
-(declaim (notinline calculate-strain-rate)
-         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
-(defun calculate-strain-rate (mesh mp dt)
-  "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
-  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   ) mp
-    (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
-             (double-float dt))
-        (progn
-          (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
-          (let ()
-            (iterate-over-neighbours
-             mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
-               (declare (ignore mp svp fsvp))
-               (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                (node-disp cl-mpm/mesh::node-displacment)
-                                (node-active cl-mpm/mesh:node-active))
-                   node
-                 (declare (magicl:matrix/double-float node-vel)
-                          (boolean node-active))
-                 (when node-active
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
-                   (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar)
-                   )))))
-          ;; (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)
-          ;; (cl-mpm/fastmaths::fast-scale! stretch-tensor-fbar dt)
-          )))
-
-(defun calculate-strain-rate-nofbar (mesh mp dt)
-  "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
-  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)) mp
-    (declare (magicl:matrix/double-float stretch-tensor)
-             (double-float dt))
-        (progn
-          (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (iterate-over-neighbours
-           mesh mp
-           (lambda (mesh mp node svp grads fsvp fgrads)
-             (declare (ignore mesh mp svp fsvp fgrads))
-             (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                              (node-active cl-mpm/mesh:node-active))
-                 node
-               (declare (magicl:matrix/double-float node-vel)
-                        (boolean node-active))
-               (when node-active
-                 (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
-          (cl-mpm/fastmaths::fast-scale! stretch-tensor dt))))
 
 
 (defun rotation-matrix (degrees)
@@ -845,8 +503,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (setf (fill-pointer nc) 0)
     (cl-mpm/fastmaths::fast-.+-vector pos  disp-inc pos)
     (cl-mpm/fastmaths::fast-.+-vector disp disp-inc disp)
-    (setf contact-step (cl-mpm/particle::mp-penalty-contact mp))
-    (unless (cl-mpm/particle::mp-penalty-contact mp)
+    (setf contact-step contact)
+    (unless contact
       (cl-mpm/fastmaths:fast-zero friction-force)
       (setf normal-force 0d0))
     (setf contact nil)))
@@ -1037,7 +695,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
         (t nil)
         ))))
 
-(defparameter *max-split-depth* 3)
 (defun split-criteria (mp h)
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
@@ -1276,107 +933,6 @@ This modifies the dt of the simulation in the process
         )
       (incf time dt))))
 
-(defun update-stress-kirchoff-p (mesh mp dt fbar)
-  "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (with-accessors ((stress cl-mpm/particle:mp-stress)
-                   (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
-                   (volume cl-mpm/particle:mp-volume)
-                   (strain cl-mpm/particle:mp-strain)
-                   (def    cl-mpm/particle:mp-deformation-gradient)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   ) mp
-    (declare (magicl:matrix/double-float stress stress-kirchoff strain def strain-rate)
-             (double-float volume))
-    (progn
-      (progn
-        (calculate-strain-rate-nofbar mesh mp dt)
-        ;; (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
-        (update-strain-kirchoff mesh mp dt fbar)
-        ;; Update our kirchoff stress with constitutive model
-        (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; Turn kirchoff stress to cauchy
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-        ))))
-
-(defun calculate-strain-rate-p (mesh mp dt)
-  "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
-  (declare (double-float dt))
-  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor-fbar))
-      mp
-    (cl-mpm/fastmaths::fast-zero stretch-tensor)
-    (iterate-over-neighbours
-     mesh mp
-     (lambda (mesh mp node svp grads fsvp fgrads)
-       (declare (ignore mesh mp svp fsvp fgrads))
-       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                        (node-active cl-mpm/mesh:node-active))
-           node
-         (declare (magicl:matrix/double-float node-vel)
-                  (boolean node-active))
-         (when node-active
-           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
-    (cl-mpm/fastmaths::fast-scale! stretch-tensor dt)))
-
-;; (defun update-strain-kirchoff-p (mesh mesh-p mp dt fbar)
-;;   "Finite strain kirchhoff strain update algorithm"
-;;   (with-accessors ((volume cl-mpm/particle:mp-volume)
-;;                    (volume-0 cl-mpm/particle::mp-volume-0)
-;;                    (strain cl-mpm/particle:mp-strain)
-;;                    (strain-n cl-mpm/particle:mp-strain-n)
-;;                    (def    cl-mpm/particle:mp-deformation-gradient)
-;;                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
-;;                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-;;                    (velocity-rate cl-mpm/particle::mp-velocity-rate)
-;;                    (domain cl-mpm/particle::mp-domain-size)
-;;                    (domain-0 cl-mpm/particle::mp-domain-size-0)
-;;                    (eng-strain-rate cl-mpm/particle::mp-eng-strain-rate)
-;;                    ) mp
-;;     (declare (type double-float volume)
-;;              (type magicl:matrix/double-float
-;;                    domain))
-;;     (progn
-;;       (multiple-value-bind (df dj) (calculate-df mesh mp nil)
-;;         (let ((nd (cl-mpm/mesh:mesh-nd mesh)))
-;;           (cl-mpm/fastmaths::fast-scale!
-;;            df
-;;            (expt
-;;             (the double-float (/ (calculate-strain-rate-p mesh mp dt)
-;;                                  (cl-mpm/fastmaths:det-3x3 df)))
-;;             (the double-float (/ 1d0 nd))))
-;;           (setf df-inc df)
-;;           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-;;           (cl-mpm/utils:voigt-copy-into strain strain-n)
-;;           (cl-mpm/ext:kirchoff-update strain df)
-;;           ;; (cl-mpm/fastmaths:fast-.- strain strain-rate strain-rate)
-;;           ;;Post multiply to turn to eng strain
-;;                                         ;(setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-;;           (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-;;           ;; (setf volume (* volume (the double-float dj)))
-;;           (when (<= volume 0d0)
-;;             (error "Negative volume"))
-;;           ;; ;;Stretch rate update
-;;           ;; (update-domain-corner mesh mp dt)
-;;           ;; (scale-domain-size mesh mp)
-;;           ))))
-;;   (values))
-
-(defun update-stress-p (mesh mps dt)
-  "Update all stresses, with optional f-bar"
-  (declare ((array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (iterate-over-mps
-   mps
-   (lambda (mp)
-     (calculate-strain-rate-p mesh mp dt)))
-  (values))
 
 (defgeneric update-dynamic-stats (sim))
 (defmethod update-dynamic-stats (sim))
@@ -1392,70 +948,57 @@ This modifies the dt of the simulation in the process
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (calculate-forces node damping dt mass-scale))))
-    ;; (iterate-over-nodes
-    ;;  mesh-p
-    ;;  (lambda (node)
-    ;;    (when (cl-mpm/mesh:node-active node)
-    ;;      (calculate-forces node damping dt mass-scale))))
-    ))
+         (calculate-forces node damping dt mass-scale))))))
 
-(defun calculate-df-p (mesh mp fbar)
-  (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
-                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (jfbar cl-mpm/particle::mp-j-fbar)
-                   (def cl-mpm/particle:mp-deformation-gradient)
-                   (pos cl-mpm/particle:mp-position)
-                   )
-      mp
-    (let* ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                 0d0 1d0 0d0
-                                                 0d0 0d0 1d0)))
-           (dJ 1d0))
-      (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
-      (setf dJ (cl-mpm/fastmaths:det-3x3 df))
-      ;;Explicit fbar
-      (when fbar
-        ;;Coombs fbar
-        (progn
-          (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                            0d0 1d0 0d0
-                                                            0d0 0d0 1d0)))
-                 (nd (cl-mpm/mesh::mesh-nd mesh)))
-            (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
-            (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
-                  (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
-            (cl-mpm/fastmaths::fast-scale!
-             df
-             (expt
-              (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
-                                   (cl-mpm/fastmaths:det-3x3 df)))
-              1d0
-              ;; (the double-float (/ 1d0 nd))
-              ))
-            (when (= nd 2)
-              (setf (magicl:tref df 2 2) 1d0)))))
-      (values df dJ))))
+
+(defgeneric finalise-loadstep (sim)
+  )
+(defmethod finalise-loadstep ((sim mpm-sim))
+  ;;Standard MPM do not need to do anything fancy for finalisation as we set each step as a new loadstep anyway
+  ;; (incf (sim-time sim) (cl-mpm:sim-dt sim))
+  )
+
+(defgeneric reset-loadstep (sim)
+  )
+(defmethod reset-loadstep ((sim mpm-sim))
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/particle::reset-loadstep-mp mp)))
+  ;; (when (cl-mpm::sim-allow-mp-split sim)
+  ;;   (split-mps sim))
+  ;; (check-mps sim)
+  (reset-node-displacement sim)
+  )
 
 (defgeneric new-loadstep (sim)
   )
 
-(defmethod new-loadstep ((sim mpm-sim))
-  (update-particles sim)
-  (when (cl-mpm::sim-allow-mp-split sim)
-    (split-mps sim))
-  (check-mps sim)
+(defun reset-node-displacement (sim)
   (cl-mpm::iterate-over-cells
    (cl-mpm:sim-mesh sim)
    (lambda (cell)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::cell-displacement cell))))
-  ;; (check-single-mps sim)
   (cl-mpm:iterate-over-nodes
    (cl-mpm:sim-mesh sim)
    (lambda (node)
-     (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment node))))
+     (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment node)))))
+
+(defmethod new-loadstep ((sim mpm-sim))
+  (update-particles sim)
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
-     (cl-mpm/particle::new-loadstep-mp mp))))
+     (cl-mpm/particle::new-loadstep-mp mp)))
+  (when (cl-mpm::sim-allow-mp-split sim)
+    (split-mps sim))
+  (check-mps sim)
+  (reset-node-displacement sim)
+  )
+
+(defun gradient-push-forwards (grads df)
+  (let* ((grads-vec (magicl:linear-solve df (cl-mpm/utils:vector-from-list grads)))
+         (grads (list (varef grads-vec 0)
+                      (varef grads-vec 1)
+                      (varef grads-vec 2))))
+    grads))

@@ -32,7 +32,7 @@
                     (when (> mass-filter 0d0)
                       (filter-grid mesh (sim-mass-filter sim)))
                     ;;Turn momentum into velocity
-                    (update-node-kinematics mesh dt)
+                    (update-node-kinematics sim)
                     (p2g-force mesh mps)
                     (loop for bcs-f in bcs-force-list
                           do (apply-bcs mesh bcs-f dt))
@@ -49,7 +49,7 @@
                     (p2g mesh mps)
                     (when (> mass-filter 0d0)
                       (filter-grid-velocity mesh (sim-mass-filter sim)))
-                    (update-node-kinematics mesh dt)
+                    (update-node-kinematics sim)
                     (apply-bcs mesh bcs dt)
                     ;;Update stress last
                     (update-stress mesh mps dt fbar)

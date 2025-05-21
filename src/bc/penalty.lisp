@@ -479,6 +479,7 @@
     (fast-.- pos
                (fast-.* normal (cl-mpm/fastmaths:fast-scale-vector domain 0.5d0)))))
 
+
 (defun apply-displacement-control-mps (mesh mps dt normal datum epsilon friction)
   "Update force on nodes, with virtual stress field from mps"
   (declare (double-float datum dt epsilon friction))
@@ -556,17 +557,19 @@
 
 (defun make-bc-penalty-structure (sim epsilon friction damping sub-bcs)
   (make-instance 'bc-penalty-structure
-                  :index nil
-                  :sim sim
-                  :epsilon epsilon
-                  :friction friction
-                  :damping damping
-                  :sub-bcs sub-bcs))
+                 :index nil
+                 :sim sim
+                 :epsilon epsilon
+                 :friction friction
+                 :damping damping
+                 :sub-bcs sub-bcs))
 
 (defstruct (contact
             (:constructor make-contact
-              (point datum penetration normal sub-bc)))
+                (point datum penetration normal sub-bc)))
   (point nil :type (or magicl:matrix/double-float null))
+  (trial-point nil :type (or magicl:matrix/double-float null))
+  (disp nil :type (or magicl:matrix/double-float null))
   (datum 0d0 :type double-float)
   (penetration 0d0 :type double-float)
   (normal nil :type (or magicl:matrix/double-float null))
@@ -584,7 +587,11 @@
     ;; (cl-mpm/particle::mp-p-modulus mp)
     )))
 
-(defun apply-penalty-point (mesh bc mp point dt)
+(defun apply-penalty-point (mesh bc mp
+                            point
+                            trial-point
+                            disp-inc
+                            dt)
   (with-accessors ((nd cl-mpm/mesh:mesh-nd))
       mesh
     (with-accessors ((datum bc-penalty-datum)
@@ -600,7 +607,7 @@
       (with-accessors ((volume cl-mpm/particle:mp-volume)
                        (pressure cl-mpm/particle::mp-pressure)
                        (mp-vel cl-mpm/particle::mp-velocity)
-                       (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
+                       ;; (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
                        (mp-mass cl-mpm/particle::mp-mass)
                        (mp-contact cl-mpm/particle::mp-penalty-contact)
                        (mp-friction cl-mpm/particle::mp-penalty-frictional-force)
@@ -612,18 +619,23 @@
                               (expt penetration 1)
                               epsilon
                               contact-area))
-               (point (cl-mpm/fastmaths::fast-.- point mp-disp-inc point))
+               ;; (point (cl-mpm/fastmaths::fast-.- point mp-disp-inc point))
+               ;; (point trial-point)
                )
           (sb-thread:with-mutex (debug-mutex)
             (incf debug-load normal-force))
           (setf mp-contact t)
           (let ((new-stiff (compute-mp-stiffness mp)))
             (setf mp-stiffness (min new-stiff (if mp-stiffness mp-stiffness new-stiff))))
-          (let* ((force (cl-mpm/utils:vector-zeros))
+          (let* (;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
+                 (mp-disp-inc disp-inc)
+                 (force (cl-mpm/utils:vector-zeros))
                  (resultant-vel (cl-mpm/fastmaths:fast-.- mp-vel pen-vel))
                  (rel-vel (cl-mpm/fastmaths:dot normal resultant-vel))
                  (rel-disp (cl-mpm/fastmaths:dot normal mp-disp-inc))
-                 (tang-disp (cl-mpm/fastmaths:fast-.- mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector normal rel-disp)))
+                 (tang-disp (cl-mpm/fastmaths:fast-.-
+                             mp-disp-inc
+                             (cl-mpm/fastmaths:fast-scale-vector normal rel-disp)))
                  (tang-disp-norm-squared (cl-mpm/fastmaths::mag-squared tang-disp))
                  ;; (tang-vel (cl-mpm/fastmaths:fast-.- resultant-vel
                  ;;                                     (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
@@ -637,11 +649,13 @@
             ;; update trial frictional force
 
             (when (> friction 0d0)
+              ;; (pprint tang-disp-norm-squared)
               (when (> tang-disp-norm-squared 0d0)
+                ;; (pprint tang-disp)
                 (cl-mpm/fastmaths::fast-fmacc
                  force-friction
                  tang-disp
-                 (* -1d0 (/ epsilon 2d0) dt)))
+                 (* -1d0 (/ epsilon 2d0))))
 
               (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
                 (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
@@ -664,7 +678,7 @@
                                          normal-force)
             (cl-mpm::iterate-over-neighbours-point-linear
              mesh
-             point
+             trial-point
              (lambda (mesh node svp grads)
                (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
                                 (node-damp-force cl-mpm/mesh::node-damping-force)
@@ -719,6 +733,20 @@
   (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
         sum (reset-load sub-bc)))
 
+(defun compute-corner-displacement (mesh mp corner)
+  ;; (cl-mpm/fastmaths:fast-.+ corner (cl-mpm/particle::mp-displacement-increment mp))
+  (let ((corner-disp (cl-mpm/utils::vector-zeros)))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     corner
+     (lambda (mesh node svp grads)
+       (with-accessors ((node-disp cl-mpm/mesh::node-displacment)
+                        (node-active  cl-mpm/mesh:node-active))
+           node
+         (when node-active
+           (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
+    corner-disp))
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty) node mesh dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
@@ -752,10 +780,13 @@
               mesh
               mp
               (lambda (corner-trial)
-                (let ((corner
-                        ;; corner-trial
-                        (cl-mpm/fastmaths:fast-.+ corner-trial (cl-mpm/particle::mp-displacement-increment mp))
-                        ))
+                (let* (
+                       (disp (compute-corner-displacement mesh mp corner-trial))
+                       (corner
+                         ;; corner-trial
+                         (cl-mpm/fastmaths:fast-.+ corner-trial disp)
+                         ;; (cl-mpm/fastmaths:fast-.+ corner-trial (cl-mpm/particle::mp-displacement-increment mp))
+                         ))
                   (let* ((penetration-dist (penetration-distance-point corner datum normal)))
                     (declare (double-float penetration-dist))
                     (when (and
@@ -778,10 +809,15 @@
                             (setf in-contact t)
                             (setf
                              (contact-point closest-point) corner
+                             (contact-trial-point closest-point) corner-trial
+                             (contact-disp closest-point) disp
                              (contact-penetration closest-point) penetration-dist))))))))
              (when in-contact
                (push (contact-point closest-point) (bc-penalty-contact-points bc))
-               (apply-penalty-point mesh bc mp (contact-point closest-point) dt)))))))))
+               (apply-penalty-point mesh bc mp (contact-point closest-point)
+                                    (contact-trial-point closest-point)
+                                    (contact-disp closest-point)
+                                    dt)))))))))
 
 
 (defgeneric resolve-closest-contact (bc corner))
@@ -847,21 +883,30 @@
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
-         (let ((disp-inc (cl-mpm/particle::mp-displacement-increment mp)))
+         (let (;; (disp-inc (cl-mpm/particle::mp-displacement-increment mp))
+               )
            (when t;(early-sweep-intersection bc mp)
-             (cl-mpm::iterate-over-corners
+             (
+              cl-mpm::iterate-over-midpoints
+              ;cl-mpm::iterate-over-corners
               mesh
               mp
-              (lambda (corner)
-                (let ((corner (cl-mpm/fastmaths:fast-.+ corner disp-inc)))
+              (lambda (corner-trial)
+                (let* ((disp (compute-corner-displacement mesh mp corner-trial))
+                       (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
                   (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
                   (multiple-value-bind (in-contact pen closest-point) (resolve-closest-contact bc corner)
                     ;; (cl-mpm/fastmaths:fast-.- (contact-point closest-point) disp-inc (contact-point closest-point))
                     (when in-contact
+                      (setf (contact-trial-point closest-point) corner-trial
+                             (contact-disp closest-point) disp)
                       (let ((load (apply-penalty-point mesh
                                                        (contact-sub-bc closest-point)
                                                        mp
-                                                       (contact-point closest-point) dt)))
+                                                       (contact-point closest-point)
+                                                       (contact-trial-point closest-point)
+                                                       (contact-disp closest-point)
+                                                       dt)))
                         (push (contact-point closest-point) (bc-penalty-contact-points bc))
                         (sb-thread:with-mutex (debug-mutex)
                           (incf debug-force load)))))))))))))))
