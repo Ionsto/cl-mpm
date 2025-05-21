@@ -17,6 +17,7 @@
 
 (defsystem "cl-mpm/utils"
   :depends-on ("cl-mpm/magicl"
+               "cl-mpm/settings"
                "array-operations")
   :description "MPM utility functions definitions"
   :serial t
@@ -100,6 +101,7 @@
                "cl-mpm/utils"
                "cl-mpm/constitutive"
                "cl-mpm/output"
+               "cl-mpm/ghost"
                "cl-mpm/particle")
   :description "MPM damage mechanics"
   :serial t
@@ -146,11 +148,22 @@
   :depends-on ("cl-mpm"
                "cl-mpm/penalty"
                "cl-mpm/mpi"
+               "cl-mpm/damage"
                "swank.live"
                "cl-mpm/utils")
   :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"
   :serial t
-  :components ((:file "src/dynamic-relaxation")))
+  :components
+  ((:module "src"
+    :serial t
+    :components
+    ((:module "dynamic-relaxation"
+      :serial t
+      :components
+      ((:file "dynamic-relaxation")
+       (:file "solvers")
+       (:file "algorithms"))))))
+  )
 (defsystem "cl-mpm/ext"
   :depends-on ("cl-mpm/magicl"
                "cffi"
@@ -189,6 +202,8 @@
                (:file "src/core/domain-update")
                (:file "src/core/stress-update")
                (:file "src/core/splitting")
+               (:file "src/core/p2g")
+               (:file "src/core/g2p")
                (:file "src/core")
                (:file "src/solvers/usf")
                (:file "src/solvers/usl")
@@ -242,17 +257,20 @@
   :depends-on ("cl-mpm"
                "cl-mpm/bc")
   :description ""
-  :components (
-               (:file "src/bc/penalty")
-               ))
+  :components ((:file "src/bc/penalty")))
 
 (defsystem "cl-mpm/ghost"
   :depends-on ("cl-mpm"
                "cl-mpm/bc")
   :description ""
-  :components (
-               (:file "src/ghost")
-               ))
+  :components ((:file "src/ghost")))
+
+(defsystem "cl-mpm/aggregate"
+  :depends-on ("cl-mpm"
+               "cl-mpm/bc")
+  :description ""
+  :components ((:file "src/aggregate")))
+
 
 (defsystem "cl-mpm/test"
   :depends-on ("cl-mpm"))
@@ -483,6 +501,7 @@
                "cl-mpm/all"
                "vgplot"
                "cl-mpm/models/visco"
+               "cl-mpm/models/chalk"
                "swank.live")
   :serial t
   :components ((:file "examples/collapse")))
