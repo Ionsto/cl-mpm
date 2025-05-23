@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import json
 import pandas as pd
-output_dir = "./output/"
+output_dir = "../output/"
 df = pd.read_csv(output_dir+"timesteps.csv")
 print(df)
 energy_max = 1e-2
