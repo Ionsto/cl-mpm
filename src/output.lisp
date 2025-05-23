@@ -695,7 +695,12 @@
           (format fs "DATASET UNSTRUCTURED_GRID~%")
 
           (let (;; (node-count 0)
-                (cells (remove-if-not #'cl-mpm/mesh::cell-active
+                (cells (remove-if-not (lambda (cell)
+                                        (or
+                                         (cl-mpm/mesh::cell-active cell)
+                                         (and
+                                          (cl-mpm/mesh::cell-mp-count cell)
+                                          (= (cl-mpm/mesh::cell-mp-count cell) 1))))
                                       (make-array (array-total-size cells) :displaced-to cells)))
                 )
             ;; (cl-mpm::iterate-over-cells-serial

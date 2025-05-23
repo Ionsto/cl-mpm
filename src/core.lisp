@@ -84,14 +84,10 @@
   (when (cl-mpm/mesh:node-active node)
     (with-accessors ((vel   node-velocity)
                      (disp   cl-mpm/mesh::node-displacment)
-                     ;; (residual   cl-mpm/mesh::node-residual)
-                     ;; (residual-prev   cl-mpm/mesh::node-residual-prev)
                      (force-int cl-mpm/mesh::node-internal-force)
                      (force-ext cl-mpm/mesh::node-external-force)
                      )
         node
-      ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
-      ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
       (cl-mpm/fastmaths:fast-fmacc disp vel dt))))
 
 (defun get-cell-df (mesh point)
@@ -155,15 +151,21 @@
       (setf (varef df 0) 1d0
             (varef df 4) 1d0
             (varef df 8) 1d0)
-      (cl-mpm::iterate-over-neighbours-point-linear
-       mesh
-       centroid
-       (lambda (mesh node weight grads)
-         (let ((ndisp (cl-mpm/mesh::node-displacment node)))
-           (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
-           (cl-mpm/fastmaths:fast-fmacc
-            disp
-            ndisp weight))))
+      (let ((w 0d0))
+        (cl-mpm::iterate-over-neighbours-point-linear
+         mesh
+         centroid
+         (lambda (mesh node weight grads)
+           (when (cl-mpm::node-active node)
+             (incf w weight)
+             (let ((ndisp (cl-mpm/mesh::node-displacment node)))
+               (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads ndisp df)
+               (cl-mpm/fastmaths:fast-fmacc
+                disp
+                ndisp weight)))))
+        (when (> w 0d0)
+          (cl-mpm::fast-scale! disp (/ 1d0 w)))
+        )
       (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos)))
   )
 
@@ -210,30 +212,27 @@
 (defun calculate-forces (node damping dt mass-scale)
   "Update forces and nodal velocities with viscous damping"
   (when (cl-mpm/mesh:node-active node)
-    (with-accessors ((mass  node-mass)
-                     (vel   node-velocity)
+    (with-accessors ((mass node-mass)
+                     (vel node-velocity)
                      (force node-force)
                      (force-ext cl-mpm/mesh::node-external-force)
                      (force-int cl-mpm/mesh::node-internal-force)
                      (force-damp cl-mpm/mesh::node-damping-force)
                      (force-ghost cl-mpm/mesh::node-ghost-force)
-                     (residual   cl-mpm/mesh::node-residual)
-                     (residual-prev   cl-mpm/mesh::node-residual-prev)
-                     (acc   node-acceleration))
+                     (residual cl-mpm/mesh::node-residual)
+                     (residual-prev cl-mpm/mesh::node-residual-prev)
+                     (acc node-acceleration))
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
         (cl-mpm/fastmaths:fast-zero acc)
         ;;Set acc to f/m
-        ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext force)
         (cl-mpm/fastmaths::fast-.+-vector force-int force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
         (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        ;; (cl-mpm/fastmaths:fast-fmacc acc vel (/ (* damping -1d0) mass-scale))
-
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
         (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
@@ -503,6 +502,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
     (setf (fill-pointer nc) 0)
     (cl-mpm/fastmaths::fast-.+-vector pos  disp-inc pos)
     (cl-mpm/fastmaths::fast-.+-vector disp disp-inc disp)
+    ;; (break)
     (setf contact-step contact)
     (unless contact
       (cl-mpm/fastmaths:fast-zero friction-force)
@@ -580,6 +580,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
    (lambda (node)
      (when (cl-mpm/mesh:node-active node)
        (cl-mpm/mesh::reset-node-velocity node)))))
+
+(defun zero-grid-velocity (mesh)
+  "Reset all velocity map on grid for MUSL"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (iterate-over-nodes
+   mesh
+   (lambda (node)
+     (when (cl-mpm/mesh:node-active node)
+       (cl-mpm/fastmaths::fast-zero (cl-mpm/mesh::node-velocity node))))))
 
 
 (defun filter-grid (mesh mass-thresh)

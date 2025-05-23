@@ -31,11 +31,11 @@
         (p2g mesh mps)
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-        (filter-cell sim)
+        ;; (filter-cells sim)
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
         (update-nodes sim)
-        (update-cell sim)
+        (update-cells sim)
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
         (p2g-force mesh mps)

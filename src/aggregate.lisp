@@ -79,7 +79,59 @@
            (loop for n in (cl-mpm/mesh::cell-nodes cell)
                  do (setf (cl-mpm/mesh::node-agg n) t)))))))
 
+(defun accumulate-over-shape-function (mesh pos)
+  )
+
+
+(defun find-local-coords-agg (mesh cell pos)
+  (let ((tol 1d-9)
+        (iters 0)
+        (gp-loc (cl-mpm/utils:vector-zeros)))
+    (loop for i from 0 to 2
+          do
+             (let ((tr-loc (cl-mpm/utils:vector-zeros))
+                   (grad-loc (cl-mpm/utils:matrix-zeros)))
+               (cl-mpm::iterate-over-cell-linear-3d
+                mesh
+                cell
+                pos
+                (lambda (node weight grads)
+                  (cl-mpm/fastmaths:fast-fmacc tr-loc (cl-mpm/mesh::node-position node) weight)
+                  (destructuring-bind (dx dy dz) grads
+                    (fast-.+
+                     (magicl:@
+                      (vector-from-list (list dx dy dz))
+                      (magicl:transpose (cl-mpm/mesh::node-position node)))
+                     grad-loc
+                     grad-loc))))
+               (when (= (cl-mpm/mesh:mesh-nd mesh) 2)
+                 (setf (mtref grad-loc 2 2) 1d0))
+               (format t "Tr ~A~%" tr-loc)
+               (cl-mpm/fastmaths:fast-.+
+                (magicl:linear-solve grad-loc (cl-mpm/fastmaths:fast-.- pos tr-loc))
+                gp-loc
+                gp-loc)))
+    (values gp-loc)))
+
+
+
+
 (defun update-aggregate-elements (sim)
+  )
+
+(defun assemble-mass (sim elem)
+  (let ((m (make-array 6 :initial-element 0d0))
+        (E (agg-shape-functions elem)))
+    (dolist (cell (agg-cell-list elem))
+      (dolist (n (cl-mpm/mesh::cell-nodes cell))
+        (setf m (cl-mpm/mesh::node-mass n))))
+    (magicl:@
+     E
+     m
+     (magicl:transpose E))))
+
+(defun calculate-kinematics-agg-elem (sim elem)
+  ;; (let (()))
   )
 
 (declaim (notinline update-node-kinematics))

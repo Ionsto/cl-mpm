@@ -354,6 +354,7 @@
                              (progn
                                (format t "Peak found resetting KE~%")
                                ;; (format t "~E ~E ~E ~%" energy-first energy-last energy)
+                               (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
                                (cl-mpm:iterate-over-mps
                                 mps
                                 (lambda (mp)
@@ -504,7 +505,9 @@
   (:documentation "DR psudo-linear step with update stress last update"))
 
 (defclass mpm-sim-dr-ul (mpm-sim-dr)
-  ()
+  ((initial-setup
+    :initform nil
+    :accessor sim-initial-setup))
   (:documentation "DR psudo-linear using one displacement step"))
 
 (defclass mpm-sim-dr-ul-usl (mpm-sim-dr)
@@ -658,6 +661,13 @@
                     ;;   (cl-mpm::split-mps sim))
                     ;; (cl-mpm::check-mps sim)
                     )))
+(defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-ul))
+  ;;DR algorithm requires that finalisation is called once
+  (setf (sim-initial-setup sim) nil)
+  ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  ;; (cl-mpm::new-loadstep sim)
+  (call-next-method)
+  )
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -674,20 +684,33 @@
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
+               (initial-setup initial-setup)
                (vel-algo cl-mpm::velocity-algorithm))
                 sim
     (declare (type double-float mass-filter))
     (progn
-      (cl-mpm::reset-grid mesh)
-      (cl-mpm::p2g mesh mps)
-      (when (> mass-filter 0d0)
-        (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-      (cl-mpm::update-node-kinematics sim)
+      (unless initial-setup
+        (cl-mpm::reset-grid mesh)
+        (cl-mpm::p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (cl-mpm::update-node-kinematics sim)
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (setf initial-setup t))
+      ;; (cl-mpm::reset-grid mesh)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
+
+      ;; (cl-mpm::zero-grid-velocity mesh)
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (n)
+         (when (cl-mpm/mesh::node-active n)
+           (cl-mpm/mesh::reset-node-force n))))
+
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;; (update-node-fictious-mass sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
@@ -698,8 +721,8 @@
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
-      (cl-mpm::g2p mesh mps dt vel-algo))
-    ))
+      (cl-mpm::g2p mesh mps dt vel-algo)
+      )))
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul-usl))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))

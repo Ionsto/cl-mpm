@@ -83,7 +83,8 @@
                ;; :sim-type sim-type
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
+               ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm::mpm-sim-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
@@ -177,8 +178,8 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
-      ;; (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-7))
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-1)
+      ;; (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-5))
       (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -947,7 +948,7 @@
   (setup :mps 2 :refine 1)
   (run-static
    :output-dir "./output/"
-   :dt-scale (/ 0.8d0 (sqrt 1d0))
+   :dt-scale (/ 0.5d0 (sqrt 1d0))
    :load-steps 20
    )
   ;; (loop for r in (list 2d0 4d0 8d0 16d0)
@@ -1042,7 +1043,7 @@
                        ;;   (format t "Critical damping ~E~%" (/ est crit))
                        ;;   (setf (cl-mpm:sim-damping-factor *sim*)
                        ;;         est))
-                       (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-1 (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
+                       ;; (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-1 (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
                        )))
                    (plot *sim*)
                    (vgplot:title (format nil "Step ~D - ~D" step conv-steps))

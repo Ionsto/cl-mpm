@@ -204,7 +204,7 @@
              t
              ;; (< (cl-mpm/utils:varef pos 1) datum)
              )
-           :visc-damping 1d-1;(* 1d-3 (* 1000d0 (expt h 2)))
+           :visc-damping 1d0;(* 1d-3 (* 1000d0 (expt h 2)))
            ))
         ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d-5)
         (setf *water-height* ocean-y)

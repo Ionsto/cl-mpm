@@ -1305,3 +1305,63 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
       (iterate-over-midpoints-2d mesh mp func)
       (iterate-over-midpoints-3d mesh mp func)))
+
+(defun iterate-over-cell-linear-3d (mesh cell position func)
+  "Iterating over a given cell's basis functions"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec (cl-mpm/mesh::cell-centroid cell))
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+      (declare (dynamic-extent pos pos-index pos-vec))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (loop for dz from 0 to 1
+                              do (let* ((id (mapcar #'+ pos-index (list dx dy dz))))
+                                   (declare (dynamic-extent id))
+                                   (when (cl-mpm/mesh:in-bounds mesh id)
+                                     (let* ((dist (mapcar #'- pos (cl-mpm/mesh:index-to-position mesh id)))
+                                            (node (cl-mpm/mesh:get-node mesh id))
+                                            (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                            (weight (reduce #'* weights))
+                                            (lin-grads (mapcar (lambda (d)
+                                                                 (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                                               dist))
+                                            (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
+                                       (declare
+                                        (double-float weight)
+                                        (dynamic-extent dist weights))
+                                       (when t;(< 0d0 weight)
+                                         (funcall func node weight grads)))))))))))
+
+(defun iterate-over-cell-linear-3d (mesh cell local-position func)
+  "Iterating over a given cell's basis functions"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec local-position)
+           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor))
+           (cell-index (cl-mpm/mesh::cell-index cell))
+           )
+      (declare (dynamic-extent pos pos-index pos-vec))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (loop for dz from 0 to 1
+                              do (let* ((id (mapcar #'+ pos-index (list dx dy dz))))
+                                   (declare (dynamic-extent id))
+                                   (when t;(cl-mpm/mesh:in-bounds mesh id)
+                                     (let* ((dist (mapcar #'- pos (list dx dy dz)))
+                                            (node (cl-mpm/mesh:get-node mesh id))
+                                            (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                            (weight (reduce #'* weights))
+                                            (lin-grads (mapcar (lambda (d)
+                                                                 (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                                               dist))
+                                            (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
+                                       (declare
+                                        (double-float weight)
+                                        (dynamic-extent dist weights))
+                                       (when t;(< 0d0 weight)
+                                         (funcall func node weight grads)))))))))))

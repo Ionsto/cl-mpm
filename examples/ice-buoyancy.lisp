@@ -124,37 +124,36 @@
 ;;         (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
 ;;         ))))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-ice-delayed) dt)
-  (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
-                     (y cl-mpm/particle::mp-damage-y-local)
-                     (strain cl-mpm/particle::mp-strain)
-                     (trial-strain cl-mpm/particle::mp-trial-strain)
-                     (plastic-strain cl-mpm/particle::mp-strain-plastic)
-                     (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
-                     (damage cl-mpm/particle:mp-damage)
-                     (pressure cl-mpm/particle::mp-pressure)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
-                     (angle cl-mpm/particle::mp-friction-angle)
-                     (de cl-mpm/particle::mp-elastic-matrix)
-                     (def cl-mpm/particle::mp-deformation-gradient)
-                     (E cl-mpm/particle::mp-e))
-        mp
-      (progn
-        (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
-          (setf y
-                (+
-                 ;; ps-y
-                 (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
-                  ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-                  (cl-mpm/fastmaths:fast-.+
-                   stress
-                   (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 3))))
-                  (* angle (/ pi 180d0)))
-                 )))
-        ;; (setf y (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;; (setf (cl-mpm/particle::mp-damage-y-local mp) )
-        ))))
+  (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (strain cl-mpm/particle::mp-strain)
+                   (trial-strain cl-mpm/particle::mp-trial-strain)
+                   (plastic-strain cl-mpm/particle::mp-strain-plastic)
+                   (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
+                   (damage cl-mpm/particle:mp-damage)
+                   (pressure cl-mpm/particle::mp-pressure)
+                   (init-stress cl-mpm/particle::mp-initiation-stress)
+                   (ybar cl-mpm/particle::mp-damage-ybar)
+                   (angle cl-mpm/particle::mp-friction-angle)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (E cl-mpm/particle::mp-e))
+      mp
+    (progn
+      (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
+        (setf y
+              (+
+               ;; ps-y
+               (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+                ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+                (cl-mpm/fastmaths:fast-.+
+                 stress
+                 (cl-mpm/utils:voigt-eye (* 0d0 (magicl:det def) (/ (- pressure) 3))))
+                (* angle (/ pi 180d0)))
+               )))
+      ;; (setf y (cl-mpm/damage::tensile-energy-norm strain E de))
+      ;; (setf (cl-mpm/particle::mp-damage-y-local mp) )
+      )))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
   (with-accessors ((strain cl-mpm/particle::mp-strain)
                    (stress cl-mpm/particle::mp-undamaged-stress)
@@ -185,15 +184,6 @@
 
 (defun plot-domain ()
   (when *sim*
-    ;; (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
-    ;;        (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-    ;;        (floor-datum (* 2 h))
-    ;;        (ms-x (first ms))
-    ;;        (ms-y (second ms)))
-    ;;   (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*)
-    ;;   (vgplot:format-plot t "set style fill solid")
-    ;;   (vgplot:format-plot t "set yrange [~f:~f]" floor-datum ms-y)
-    ;;   (vgplot:format-plot t "set size ratio ~f" (/ (- ms-y floor-datum) ms-x)))
     (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
            (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
            (ms-x (first ms))
@@ -252,9 +242,9 @@
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 10000d0)
-           (length-scale (* mesh-resolution 2d0))
+           (length-scale (* mesh-resolution 4d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (ductility 5d0)
+           (ductility 10d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -399,7 +389,7 @@
            water-density
            (lambda (pos datum)
              (>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0)))
-           :visc-damping 5d-2)
+           :visc-damping 1d0)
           (cl-mpm/buoyancy::make-bc-buoyancy-body
            *sim*
            datum
@@ -421,9 +411,9 @@
                                          offset
                                          0d0))
          (* domain-half 1.1d0)
-         (* E 0.1d0)
+         (* E 0.01d0)
          friction
-         0.5d0)))
+         0.1d0)))
 
     (defparameter *bc-erode*
       (cl-mpm/erosion::make-bc-erode
@@ -1040,7 +1030,7 @@
   (loop for dt in (list 5d0)
         do
            (let* ((mps 2))
-             (setup :refine 0.5
+             (setup :refine 2
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
@@ -1049,23 +1039,16 @@
                     :aspect 1d0
                     )
              (plot-domain)
+             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
              (cl-mpm/dynamic-relaxation::run-multi-stage
               *sim*
               :output-dir "./output/"
               :dt dt
               :steps 1000
-              )
-             ;; (let (;(dt 0.125d0)
-             ;;       (total-time 100d0))
-             ;;   (quasi-time
-             ;;    :output-dir (format nil "./output-~E/" dt)
-             ;;    :time-steps (round total-time dt)
-             ;;    :time total-time
-             ;;    :enable-damage t
-             ;;    :enable-plastic nil
-             ;;    :dt-scale 0.5d0))
-             ;; (run ;:output-dir (format nil "./output-~D-0.5/" mps)
-             ;;  )
+              :plotter (lambda (sim) (plot-domain))
+              :post-conv-step
+              (lambda (sim)
+                (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0)))
              )))
 
 
@@ -1313,3 +1296,15 @@
   (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*)
   )
 
+
+(defun agg-test ()
+  (let* ((mesh (cl-mpm:sim-mesh *sim*))
+         (cell (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
+         (pos (cl-mpm/utils:vector-from-list (list 10d0 0d0 0d0)))
+         )
+    (pprint cell)
+    (pprint (cl-mpm/mesh:mesh-resolution mesh))
+    (cl-mpm/aggregate::find-local-coords-agg mesh cell pos)
+    ))
+
+(setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 10d0)
