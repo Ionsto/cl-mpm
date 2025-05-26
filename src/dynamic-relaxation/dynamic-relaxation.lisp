@@ -177,7 +177,9 @@
                      (if (> dmax 0d0)
                          (sqrt (/ node-oobf dmax))
                          ;;Very odd case, we have external force but no internal forces
-                         (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
+                         0d0
+                         ;; (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)
+                         ))
                ))))))
     (if (> dmax 0d0)
       (setf oobf (sqrt (/ nmax dmax)))
@@ -319,11 +321,12 @@
            (total-step 0)
            (load 0d0)
            (converged nil))
-      (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
+      (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale (* 0.1d0 dt-scale)))
+      (setf (cl-mpm:sim-damping-factor sim) (cl-mpm/setup::estimate-critical-damping sim))
       (format t "Substeps ~D~%" substeps)
       (let ((full-load (list))
             (full-step (list))
-            (full-energy (list))
+            (full-enegy (list))
             (energy-list (list))
             (power-last 0d0)
             (power-current 0d0)
@@ -341,7 +344,7 @@
                    (dotimes (j substeps)
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
-                     ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                      (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim)))
                      (let ((power (cl-mpm::sim-stats-power sim))
                            (energy (cl-mpm::sim-stats-energy sim)))
@@ -701,16 +704,13 @@
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
-
-      ;; (cl-mpm::zero-grid-velocity mesh)
       (cl-mpm::iterate-over-nodes
        mesh
        (lambda (n)
          (when (cl-mpm/mesh::node-active n)
            (cl-mpm/mesh::reset-node-force n))))
-
-      (when ghost-factor
-        (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      ;; (when ghost-factor
+      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;; (update-node-fictious-mass sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
@@ -720,6 +720,7 @@
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
+      (cl-mpm/ghost::apply-half-step-ghost sim)
       (cl-mpm::update-dynamic-stats sim)
       (cl-mpm::g2p mesh mps dt vel-algo)
       )))

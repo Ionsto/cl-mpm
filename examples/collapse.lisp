@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* nil)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* nil)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
@@ -89,7 +89,7 @@
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
                            :enable-fbar t
-                           :enable-split t)
+                           :enable-split nil)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -178,9 +178,9 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-1)
-      ;; (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-5))
-      (setf (cl-mpm::sim-ghost-factor sim) nil)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
+      (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-5))
+      ;; (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
@@ -934,10 +934,10 @@
             ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" i)) *sim*)
             ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" i)) *sim*)
             (vgplot:plot data-steps data-oobf "OOBF")
-            (let ((est-crit (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
-              (format t "Est crit ~E" (* 100 (/ est-crit crit)))
-              (setf (cl-mpm:sim-damping-factor *sim*) est-crit)
-              )
+            ;; (let ((est-crit (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
+            ;;   (format t "Est crit ~E" (* 100 (/ est-crit crit)))
+            ;;   (setf (cl-mpm:sim-damping-factor *sim*) est-crit)
+            ;;   )
             ;; (vgplot:plot data-steps data-energy "energy")
             ))
          (cl-mpm::new-loadstep *sim*)
@@ -1014,7 +1014,7 @@
                        (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
                  (let ((conv-steps 0)
-                       (substeps 10))
+                       (substeps 1))
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
@@ -1172,7 +1172,8 @@
 
 (defun save-test-vtks (&key (output-dir "./output/"))
   (cl-mpm/output:save-vtk (merge-pathnames "test.vtk" output-dir) *sim*)
-  (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes.vtk" output-dir) *sim*)
+  (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes_0.vtk" output-dir) *sim*)
+  (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes_1.vtk" output-dir) *sim*)
   (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*)
   )
 
@@ -1421,18 +1422,53 @@
 
 (require 'sb-sprof)
 (defun test-ghost ()
-  (setup :refine 8)
+  (setup :refine 1)
   (format t "Time: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (setf (cl-mpm:sim-dt *sim*) (* 1d-5 (cl-mpm/setup::estimate-elastic-dt *sim*)))
   (cl-mpm:update-sim *sim*)
-  (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3))
-  (setf (cl-mpm::sim-enable-damage *sim*) nil)
+  (cl-mpm:iterate-over-nodes
+   (cl-mpm:sim-mesh *sim*)
+   (lambda (node)
+     (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 0) 0d0)))
+  (let ((node
+          (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
+    (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0)
+    )
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (cl-mpm/setup::estimate-critical-damping *sim*))
+  (let ((step 0)
+        (dt-scale 0.5d0)
+        (output-dir (merge-pathnames "./output/"))
+        )
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+    ;; (cl-mpm:update-sim *sim*)
+    (setf (cl-mpm:sim-mps *sim*) (make-array 0))
+    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d0))
+    (loop for i from 0 to 200
+          while *run-sim*
+          do
+             (progn
+               (format t "Step ~D~%" i)
+               (cl-mpm:update-sim *sim*)
+               (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
+               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+               (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+               (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+
+               )))
+  ;; (cl-mpm::update-cells *sim*)
+  ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3))
+  ;; (cl-mpm/ghost::apply-ghost *sim* (cl-mpm::sim-ghost-factor *sim*))
+  ;; (save-test-vtks)
+  ;; (setf (cl-mpm::sim-enable-damage *sim*) nil)
   ;; (sb-sprof:profile-call-counts "CL-MPM")
   ;; (sb-sprof:with-profiling (:report :flat
   ;;                           :mode :cpu))
-  (time-form
-   100
-   (cl-mpm:update-sim *sim*)
-   ))
+  ;; (time-form
+  ;;  100
+  ;;  (cl-mpm:update-sim *sim*)
+  ;;  )
+  )
 
 ;; (let* ((nodes (cl-mpm/mesh:mesh-nodes (cl-mpm:sim-mesh *sim*)))
 ;;        (node-count (array-total-size nodes))
@@ -1441,3 +1477,14 @@
 
 ;;   (pprint (type-of nodes))
 ;;   )
+
+
+(defun test-agg ()
+  (let* ((mesh (cl-mpm:sim-mesh *sim*))
+         (cell-a (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
+         (cell-b (cl-mpm/mesh::get-cell mesh (list 1 0 0)))
+         (agg-elem (make-instance 'cl-mpm/aggregate::aggregate-element :interior-cell cell-a :boundary-cell cell-b))
+         )
+    (cl-mpm/aggregate::compute-extension-matrix *sim* agg-elem)
+    (cl-mpm/aggregate::assemble-mass *sim* agg-elem)
+    ))

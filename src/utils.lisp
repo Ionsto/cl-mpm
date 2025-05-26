@@ -322,6 +322,9 @@
 (defun arb-matrix-from-list (elements x y)
   (magicl::make-matrix/double-float x y (* x y) :column-major
                                     (make-array (* x y) :element-type 'double-float :initial-contents elements)))
+(defun arb-matrix (x y)
+  (magicl::make-matrix/double-float x y (* x y) :column-major
+                                    (make-array (* x y) :element-type 'double-float :initial-element 0d0)))
 
 (declaim (inline matrix-from-diag)
          (ftype (function (list)

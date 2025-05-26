@@ -13,10 +13,14 @@
 (in-package :cl-mpm/aggregate)
 
 (defclass aggregate-element ()
-  ((cell-list
+  ((boundary-cell
     :initform nil
-    :initarg :cell-list
-    :accessor agg-cell-list)
+    :initarg :boundary-cell
+    :accessor agg-boundary-cell)
+   (interior-cell
+    :initform nil
+    :initarg :interior-cell
+    :accessor agg-interior-cell)
    (shape-functions
     :initform nil
     :accessor agg-shape-functions)
@@ -60,7 +64,9 @@
                           (when (= (cl-mpm/mesh::cell-mp-count neighbour) 0)
                             ;;Make aggregate element
                             (push
-                             (make-instance 'aggregate-element :cell-list (list cell neighbour))
+                             (make-instance 'aggregate-element
+                                             :boundary-cell cell
+                                             :interior-cell neighbour)
                              agg-elem))))))))))
     (make-array (length agg-elem) :initial-contents agg-elem)))
 
@@ -75,7 +81,7 @@
       (iterate-over-agg-elem
        agg-elems
        (lambda (agg-elem)
-         (dolist (cell (agg-cell-list agg-elem))
+         (dolist (cell (list (agg-boundary-cell agg-elem) (agg-interior-cell agg-elem)))
            (loop for n in (cl-mpm/mesh::cell-nodes cell)
                  do (setf (cl-mpm/mesh::node-agg n) t)))))))
 
@@ -113,26 +119,155 @@
                 gp-loc)))
     (values gp-loc)))
 
+(defun iterate-over-cell-shape-local (mesh cell local-position func)
+  "Iterating over a given cell's basis functions"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (pos-vec local-position)
+           (pos (list (varef pos-vec 0) (varef pos-vec 1) (varef pos-vec 2)))
+           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor))
+           (cell-index (cl-mpm/mesh::cell-index cell))
+           )
+      (declare (dynamic-extent pos pos-index pos-vec))
+      (loop for dx from 0 to 1
+            do (loop for dy from 0 to 1
+                     do (loop for dz from 0 to 1
+                              do (let* ((id (mapcar #'+ cell-index (list dx dy dz))))
+                                   (declare (dynamic-extent id))
+                                   (when (cl-mpm/mesh:in-bounds mesh id)
+                                     (let* ((dist (mapcar #'- pos (list dx dy dz)))
+                                            (node (cl-mpm/mesh:get-node mesh id))
+                                            (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+                                            (weight (reduce #'* weights))
+                                            (lin-grads (mapcar (lambda (d)
+                                                                 (cl-mpm/shape-function::shape-linear-dsvp d h))
+                                                               dist))
+                                            (grads (cl-mpm/shape-function::grads-3d weights lin-grads)))
+                                       (declare
+                                        (double-float weight)
+                                        (dynamic-extent dist weights))
+                                       (when t
+                                         (funcall func node weight grads)))))))))))
 
-
-
+(defun compute-extension-matrix (sim elem)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+           (E (cl-mpm/utils::arb-matrix (* 3 2 (expt 2 nd) ) (expt 2 nd))))
+      (let ((iter 0))
+        (dolist (cell (list (agg-boundary-cell elem)
+                            (agg-interior-cell elem)))
+          (dolist (n (cl-mpm/mesh::cell-nodes cell))
+            (let ((rank 0))
+              (iterate-over-cell-shape-local
+               mesh
+               (agg-interior-cell elem)
+               (cl-mpm/mesh::node-position n)
+               (lambda (cn weight grads)
+                 (setf (mtref E iter rank) weight)
+                 (setf (mtref E (+ iter 1) rank) weight)
+                 (setf (mtref E (+ iter 2) rank) weight)
+                 (incf rank))))
+            (incf iter 3))))
+      (setf (agg-shape-functions elem) E))))
 (defun update-aggregate-elements (sim)
+
+  
   )
 
 (defun assemble-mass (sim elem)
-  (let ((m (make-array 6 :initial-element 0d0))
-        (E (agg-shape-functions elem)))
-    (dolist (cell (agg-cell-list elem))
-      (dolist (n (cl-mpm/mesh::cell-nodes cell))
-        (setf m (cl-mpm/mesh::node-mass n))))
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (m (cl-mpm/utils::arb-matrix
+             (* 3 2 (expt 2 nd))
+             (* 3 2 (expt 2 nd))))
+         (E (agg-shape-functions elem)))
+    (let ((iter 0))
+      (dolist (cell (list (agg-boundary-cell elem)
+                          (agg-interior-cell elem)))
+        (dolist (n (cl-mpm/mesh::cell-nodes cell))
+          (setf (mtref m iter iter) (cl-mpm/mesh::node-mass n))
+          (incf iter)
+          (setf (mtref m iter iter) (cl-mpm/mesh::node-mass n))
+          (incf iter)
+          (setf (mtref m iter iter) (cl-mpm/mesh::node-mass n))
+          (incf iter))))
+    ;; (pprint m)
+    ;; (pprint E)
     (magicl:@
-     E
+     (magicl:transpose E)
      m
-     (magicl:transpose E))))
+     E
+     )))
+(defun assemble-force (sim elem)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (f (cl-mpm/utils::arb-matrix
+             (* 3 2 (expt 2 nd))
+             1))
+         (E (agg-shape-functions elem)))
+    (let ((iter 0))
+      (dolist (cell (list (agg-boundary-cell elem)
+                          (agg-interior-cell elem)))
+        (dolist (n (cl-mpm/mesh::cell-nodes cell))
+          (with-accessors ((vel cl-mpm/mesh::node-force))
+              n
+            (setf (mtref f (+ iter 0) 0) (varef vel 0)
+                  (mtref f (+ iter 1) 0) (varef vel 1)
+                  (mtref f (+ iter 2) 0) (varef vel 2))
+            (incf iter 3)))))
+    f
+    ;; (magicl:@
+    ;;  (magicl:transpose E)
+    ;;  m
+    ;;  E
+    ;;  )
+    ))
+(defun assemble-vel (sim elem)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (v (cl-mpm/utils::arb-matrix
+             (* 3 2 (expt 2 nd))
+             1))
+         (E (agg-shape-functions elem)))
+    (let ((iter 0))
+      (dolist (cell (list (agg-boundary-cell elem)
+                          (agg-interior-cell elem)))
+        (dolist (n (cl-mpm/mesh::cell-nodes cell))
+          (with-accessors ((vel cl-mpm/mesh::node-velocity))
+              n
+            (setf (mtref v (+ iter 0) 0) (varef vel 0)
+                  (mtref v (+ iter 1) 0) (varef vel 1)
+                  (mtref v (+ iter 2) 0) (varef vel 2))
+            (incf iter 3)))))
+    (magicl:@
+     (magicl:transpose E)
+     m
+     E
+     )))
+(defun project-acc (sim elem acc)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (E (agg-shape-functions elem)))
+    (let ((iter 0))
+      (dolist (cell (list (agg-boundary-cell elem)
+                          (agg-interior-cell elem)))
+        (dolist (n (cl-mpm/mesh::cell-nodes cell))
+          (with-accessors ((n-acc cl-mpm/mesh::node-acceleration))
+              n
+            (setf (varef n-acc 0) (mtref acc (+ iter 0) 0)
+                  (varef n-acc 1) (mtref acc (+ iter 1) 0)
+                  (varef n-acc 2) (mtref acc (+ iter 2) 0))
+            (incf iter 3)))))))
 
 (defun calculate-kinematics-agg-elem (sim elem)
-  ;; (let (()))
-  )
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (acc (cl-mpm/utils::arb-matrix
+               (* 3 2 (expt 2 nd))
+               1))
+         (E (agg-shape-functions elem))
+         (m (assemble-mass sim elem))
+         (f (assemble-force sim elem))
+         )
+    (let ((acc (magicl:linear-solve m f)))
+      (project-acc sim elem acc))))
 
 (declaim (notinline update-node-kinematics))
 (defmethod update-node-kinematics ((sim mpm-sim-aggregated))
@@ -149,6 +284,7 @@
     (iterate-over-agg-elem
      agg-elems
      (lambda (elem)
+       (calculate-kinematics-agg-elem sim elem)
        ))))
 
 
