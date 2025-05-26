@@ -10,20 +10,6 @@
 ;; (setf *block-compile-default* t)
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
-(defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
-  (with-accessors ((damping cl-mpm::sim-damping-factor)
-                   (mass-scale cl-mpm::sim-mass-scale)
-                   (mesh cl-mpm::sim-mesh)
-                   (dt cl-mpm::sim-dt))
-      sim
-    (cl-mpm::iterate-over-nodes
-     mesh
-     (lambda (node)
-       (cl-mpm::calculate-forces node damping dt mass-scale)
-       ;; (cl-mpm::calculate-forces-cundall-conservative node damping dt mass-scale)
-       ;; (cl-mpm::calculate-forces-cundall node damping dt mass-scale)
-       ))))
-
 (defun pescribe-velocity (sim load-mps vel)
   (let ((mps (cl-mpm:sim-mps sim)))
     (loop for mp in load-mps
@@ -142,19 +128,16 @@
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let ((nd (length block-size)))
-    (let* ((sim (cl-mpm/setup::make-block (/ 1d0 e-scale)
-                                          (mapcar (lambda (x) (* e-scale x)) size)
-                                          ;; (if (= nd 2)
-                                          ;;     (list
-                                          ;;      (* 1 (first size))
-                                          ;;      (* e-scale (second size))
-                                          ;;      )
-                                          ;;     (list
-                                          ;;      (* 1 (first size))
-                                          ;;      (* e-scale (second size))
-                                          ;;      (* 1 (nth 2 size))
-                                          ;;      ))
-                                          :sim-type 'cl-mpm::mpm-sim-usf)
+    (let* ((sim
+             (cl-mpm/setup::make-simple-sim;
+              (/ 1d0 e-scale)
+              (mapcar (lambda (x) (* x e-scale)) size)
+              :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+              ;; :sim-type 'cl-mpm::mpm-sim-usl
+              ;; :args-list (list
+              ;;             :enable-fbar t
+              ;;             :enable-split nil)
+              )
                 )
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
            (h-x (/ h 1d0))
@@ -174,37 +157,39 @@
         (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
                                     (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
           ;; (print block-position)
-          (setf (cl-mpm:sim-mps sim)
-                (cl-mpm/setup::make-block-mps
-                 ;; block-position
-                 (list 0 0 0)
-                 block-size
-                 (mapcar (lambda (e mp-s)
-                           (round  (* e mp-s) h-x)
-                           ) block-size
-                             (list
-                              mp-scale
-                              ;; 1
-                              mp-scale
-                              1
-                              ;; mp-scale
+          (cl-mpm::add-mps
+           sim
+           (cl-mpm/setup::make-block-mps
+            ;; block-position
+            (list 0 0 0)
+            block-size
+            (mapcar (lambda (e mp-s)
+                      (round  (* e mp-s) h-x)
+                      ) block-size
+                        (list
+                         mp-scale
+                         ;; 1
+                         mp-scale
+                         1
+                         ;; mp-scale
                                         ;mp-scale
                                         ;mp-scale
-                                   ))
-                 ;; (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
+                         ))
+            ;; (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                                         ;(list 1 (* e-scale mp-scale (second block-size)))
-                 density
-                 'cl-mpm/particle::particle-elastic
-                 :E 1d5
-                 :nu 0.0d0
-                 :gravity -00.0d0
-                 )))
+            density
+            'cl-mpm/particle::particle-elastic
+            :E 1d5
+            :nu 0.0d0
+            :gravity -10.0d0
+            )))
 
         (setf (cl-mpm:sim-damping-factor sim)
               (* 
-               0.01d0
+               0.1d0
                (cl-mpm/setup::estimate-critical-damping sim)))
         (setf (cl-mpm:sim-mass-filter sim) 1d-15)
+        ;; (setf (cl-mpm::sim-ghost-factor sim) (* 1d5 1d-5))
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (setf (cl-mpm:sim-bcs sim)
               (cl-mpm/bc::make-outside-bc-var (cl-mpm:sim-mesh sim)
@@ -243,30 +228,12 @@
            (* 1d5 0.1)
            ;; (* 1d5 10)
            0d0))
-        (setf (cl-mpm::sim-bcs-force-list sim)
-              (list
-               (cl-mpm/bc:make-bcs-from-list
-                (list
-                 *penalty-bc*
-                 ;; (cl-mpm/bc::make-bc-closure
-                 ;;  nil
-                 ;;  (lambda ()
-                 ;;    (with-accessors ((mesh cl-mpm:sim-mesh)
-                 ;;                     (dt cl-mpm::sim-dt))
-                 ;;        sim
-                 ;;      (let ((datum (- (+ *initial-surface* *target-displacement*)))
-                 ;;            (normal (cl-mpm/utils:vector-from-list  '(0d0 -1d0 0d0))))
-                 ;;        (cl-mpm/penalty::apply-displacement-control-mps
-                 ;;         ;; cl-mpm/penalty::apply-force-mps
-                 ;;         mesh
-                 ;;         (coerce *terminus-mps* 'vector)
-                 ;;         dt
-                 ;;         normal
-                 ;;         datum
-                 ;;         (* 1d5 0.1)
-                 ;;         0d0)
-                 ;;        ))))
-                 ))))
+        ;; (setf (cl-mpm::sim-bcs-force-list sim)
+        ;;       (list
+        ;;        (cl-mpm/bc:make-bcs-from-list
+        ;;         (list
+        ;;          *penalty-bc*
+        ;;          ))))
         ;; (setf (cl-mpm::sim-bcs-force-list sim)
         ;;       (list
         ;;        (cl-mpm/bc:make-bcs-from-list
@@ -371,13 +338,11 @@
                                      L
                                      )
                                     (/ 1d0 h)
-                                    2
+                                    3
                                     )))
              ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ elements 50) 2))
              (setf (cl-mpm:sim-dt *sim*)
-                   (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.8d0)
-                   ;; (* 1d-2 (/ 16 elements))
-                   )
+                   (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.5d0))
              (format t "Running sim size ~a ~%" elements)
              (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
              (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
@@ -391,14 +356,16 @@
                          (progn
                            (dotimes (i substeps)
                              (cl-mpm::update-sim *sim*))
+                           ;; (cl-mpm::finalise-loadstep *sim*)
                            (plot-sigma-yy)
                            (swank.live:update-swank)
                            ))))
              ;; (plot *sim*)
              (plot-sigma-yy)
              (sleep .01)
-             (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
-             (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)))
+             ;; (cl-mpm/output:save-csv (merge-pathnames (format nil "conv_files/elements_~d.csv" elements)) *sim*)
+             ;; (cl-mpm/output:save-vtk (merge-pathnames (format nil "conv_files/elements_~d.vtk" elements)) *sim*)
+             ))
   )
 
 (defun stop ()
@@ -474,9 +441,9 @@
                      ))))
   (vgplot:figure)
   (plot-sigma-yy)
-    ;; (vgplot:title "Velocity over time")
-    ;; (vgplot:plot *time* *velocity*)
-    )
+  ;; (vgplot:title "Velocity over time")
+  ;; (vgplot:plot *time* *velocity*)
+  )
 (defun plot-sigma-yy ()
   (with-accessors ((mps cl-mpm:sim-mps))
       *sim*
@@ -484,17 +451,21 @@
            (mp-list
              (loop for mp across mps
                    when (>= (magicl:tref (cl-mpm/particle:mp-position mp) 0 0) (- x-slice-pos 0.001))
-                   collect mp))
-           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+                     collect mp))
+           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position-trial mp) 1 0)))
            (y-ref (loop for mp in mp-list collect
-                                          (magicl:tref (magicl:.- (cl-mpm/particle::mp-position mp)
-                                                                  (cl-mpm/particle::mp-displacement mp)
-                                                                  ) 1 0)))
+                                          (magicl:tref
+                                           (magicl:.-
+                                            (cl-mpm/particle::mp-position mp)
+                                            (cl-mpm/particle::mp-displacement mp)
+                                            )
+                                            1 0)))
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
            (rho 80d0)
-           (E 1d6)
+           (E 1d5)
            (g 10d0)
-           (max-y (+ (reduce #'max y-ref) (magicl:tref (cl-mpm/particle::mp-domain-size-0 (first mp-list)) 1 0)))
+           (max-y 32)
+           ;; (max-y (+ (reduce #'max y-ref) (magicl:tref (cl-mpm/particle::mp-domain-size-0 (first mp-list)) 1 0)))
            (syy-ref (mapcar (lambda (x) (* rho g (- x max-y))) y-ref))
            )
       ;; (vgplot:figure)
@@ -795,3 +766,79 @@
 ;;   (time (dotimes (i iter)
 ;;           (cl-mpm::iterate-over-neighbours-point-linear-simd (cl-mpm:sim-mesh *sim*) (cl-mpm/utils:vector-from-list (list h h 0d0)) (lambda (m n w g)))))
 ;;   )
+(defun run-static (&key (output-dir "./output/")
+                        (load-steps 10)
+                     (dt-scale 0.5d0))
+
+  (defparameter *run-sim* t)
+  (uiop:ensure-all-directories-exist (list output-dir))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+  (setf (cl-mpm:sim-damping-factor *sim*)
+        (* 1d-1
+           (cl-mpm/setup:estimate-critical-damping *sim*)))
+  (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
+    (format stream "iter,step,damage,plastic,oobf,energy~%"))
+  (with-accessors ((mps cl-mpm:sim-mps))
+      *sim*
+    (let* ((load-0 0d0)
+           ;; (load -5d0)
+           (load (cl-mpm/particle::mp-gravity (aref (cl-mpm:sim-mps *sim*) 0)))
+           (load-inc (/ (- load load-0) load-steps))
+           (current-load load-0)
+           (total-iter 0)
+           )
+      (loop for step from 0 below load-steps
+            while *run-sim*
+            do
+               (incf current-load load-inc)
+               (cl-mpm:iterate-over-mps
+                mps
+                (lambda (mp)
+                  (setf (cl-mpm/particle:mp-gravity mp) current-load)))
+               ;; (cl-mpm/penalty::bc-increment-center *bc-squish* (cl-mpm/utils:vector-from-list (list 0d0 load-inc 0d0)))
+               (let ((crit (cl-mpm/setup:estimate-critical-damping *sim*)))
+                 (setf (cl-mpm:sim-damping-factor *sim*)
+                       (* 0.1d0 crit))
+                 (defparameter *ke-last* 0d0)
+                 (let ((conv-steps 0)
+                       (substeps 1))
+                   (time
+                    (cl-mpm/dynamic-relaxation:converge-quasi-static
+                     *sim*
+                     :oobf-crit 1d-2
+                     :energy-crit 1d-2
+                     :kinetic-damping t
+                     :damping-factor 1d-2
+                     :dt-scale dt-scale
+                     :substeps substeps
+                     :conv-steps 1000
+                     :post-iter-step
+                     (lambda (i energy oobf)
+                       (setf conv-steps (* substeps i))
+                       (plot *sim*)
+                       (vgplot:title (format nil "Step ~D - substep ~D - KE ~E - OOBF ~E"  step i energy oobf))
+                       (format t "Substep ~D~%" i)
+                       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                       (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                       (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+                         (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (cl-mpm/dynamic-relaxation::get-plastic *sim*) (cl-mpm/dynamic-relaxation::get-damage *sim*)
+                                 oobf energy))
+                       (incf total-iter)
+                       )))
+                   (plot *sim*)
+                   (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
+                   ))
+               ;; (cl-mpm/penalty::bc-increment-center *bc-squish* (cl-mpm/utils:vector-from-list (list 0d0 load-inc 0d0)))
+               (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm::finalise-loadstep *sim*)
+               (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
+                                  :terminal "png size 1920,1080"
+                                  )
+               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) *sim*)
+               (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
+               (sleep 0.1d0)
+               (swank.live:update-swank)
+
+            ))))

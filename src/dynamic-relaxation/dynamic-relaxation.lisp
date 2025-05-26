@@ -117,7 +117,7 @@
        ))))
 
 (defun estimate-oobf-debug (sim)
-(let ((oobf 0d0)
+  (let ((oobf 0d0)
         (nmax 0d0)
         (dmax 0d0)
         (oobf-norm 0d0)
@@ -131,6 +131,7 @@
                         (f-int cl-mpm/mesh::node-internal-force)
                         (f-damp cl-mpm/mesh::node-damping-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
+                        (residual cl-mpm/mesh::node-residual)
                         (node-oobf cl-mpm/mesh::node-oobf)
                         )
            node
@@ -143,10 +144,11 @@
                            (cl-mpm/fastmaths::mag-squared
                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
                                     (list
-                                     f-ext
-                                     f-int
-                                     ;; f-damp
-                                     f-ghost
+                                     residual
+                                     ;; f-ext
+                                     ;; f-int
+                                     ;; ;; f-damp
+                                     ;; f-ghost
                                      )
                                     )))))
                  (incf node-oobf inc)
@@ -507,7 +509,7 @@
     :accessor sim-dt-loadstep))
   (:documentation "DR psudo-linear step with update stress last update"))
 
-(defclass mpm-sim-dr-ul (mpm-sim-dr)
+(defclass mpm-sim-dr-ul (mpm-sim-dr cl-mpm/aggregate::mpm-sim-aggregated)
   ((initial-setup
     :initform nil
     :accessor sim-initial-setup))
@@ -697,8 +699,10 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-        (cl-mpm::update-node-kinematics sim)
+        ;; (cl-mpm::update-node-kinematics sim)
         (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-cells sim)
+        (cl-mpm/aggregate::update-aggregate-elements sim)
         (setf initial-setup t))
       ;; (cl-mpm::reset-grid mesh)
       (cl-mpm::apply-bcs mesh bcs dt)
@@ -720,7 +724,7 @@
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-      (cl-mpm/ghost::apply-half-step-ghost sim)
+      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
       (cl-mpm::update-dynamic-stats sim)
       (cl-mpm::g2p mesh mps dt vel-algo)
       )))

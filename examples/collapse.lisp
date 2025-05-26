@@ -178,8 +178,11 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
-      (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-7))
+      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
+      (setf (cl-mpm::sim-ghost-factor sim)
+            ;; (* 1d6 1d-7)
+            nil
+            )
       ;; (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
@@ -945,7 +948,7 @@
 
 
 (defun test-static ()
-  (setup :mps 2 :refine 1)
+  (setup :mps 3 :refine 1)
   (run-static
    :output-dir "./output/"
    :dt-scale (/ 0.5d0 (sqrt 1d0))
@@ -1014,7 +1017,7 @@
                        (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
                  (let ((conv-steps 0)
-                       (substeps 1))
+                       (substeps 10))
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
@@ -1061,6 +1064,8 @@
                (swank.live:update-swank)
 
             ))))
+
+
 
 (defun get-damage ()
   (lparallel:pmap-reduce
@@ -1481,10 +1486,34 @@
 
 (defun test-agg ()
   (let* ((mesh (cl-mpm:sim-mesh *sim*))
-         (cell-a (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
-         (cell-b (cl-mpm/mesh::get-cell mesh (list 1 0 0)))
-         (agg-elem (make-instance 'cl-mpm/aggregate::aggregate-element :interior-cell cell-a :boundary-cell cell-b))
+         ;; (cell-a (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
+         ;; (cell-b (cl-mpm/mesh::get-cell mesh (list 1 0 0)))
+         ;; (agg-elem (make-instance 'cl-mpm/aggregate::aggregate-element :interior-cell cell-a :boundary-cell cell-b))
+         (agg-elem (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 4))
          )
-    (cl-mpm/aggregate::compute-extension-matrix *sim* agg-elem)
-    (cl-mpm/aggregate::assemble-mass *sim* agg-elem)
+    ;; (pprint (cl-mpm/aggregate::make-elem-node-list ))
+    (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+           (E (cl-mpm/aggregate::compute-extension-matrix *sim* agg-elem))
+           (m (cl-mpm/aggregate::assemble-mass *sim* agg-elem))
+           (f (cl-mpm/aggregate::assemble-force *sim* agg-elem)))
+      ;; (pprint (magicl:@ (magicl:transpose E) f))
+      (let ((acc (magicl:linear-solve m (magicl:@ (magicl:transpose E) f))))
+        (pprint E)
+        (pprint m)
+        (pprint f)
+        (pprint acc)
+        (pprint (magicl:@ E acc))
+        ;; (project-acc sim elem acc)
+        ;; (project-force sim elem f))
+      ))
+    ;; (cl-mpm/aggregate::calculate-forces-agg-elem *sim* agg-elem)
+    ;; (pprint (cl-mpm/mesh::cell-centroid cell-a))
+    ;; (format t "~%")
+
+    ;; (cl-mpm/aggregate::iterate-over-cell-shape-local
+    ;;  mesh
+    ;;  cell-b
+    ;;  (cl-mpm/utils:vector-from-list (list 4d0 0d0 0d0))
+    ;;  (lambda (node weight grads)
+    ;;    (format t "Node ~A - ~E ~%" node weight)))
     ))

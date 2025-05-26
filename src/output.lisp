@@ -387,6 +387,7 @@
 
 
           (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
+          (save-parameter-nodes "aggregate" (if (cl-mpm/mesh::node-agg node) 1 0))
           (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
           (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
                                                (/ 1d0 (cl-mpm/mesh:node-mass node))

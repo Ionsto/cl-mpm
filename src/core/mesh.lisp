@@ -176,6 +176,10 @@
     :accessor cell-neighbours
     :type list
     :initform '())
+   (cartesian-neighbours
+    :accessor cell-cartesian-neighbours
+    :type list
+    :initform '())
    (mp-count
     :accessor cell-mp-count
     :initform 0)
@@ -368,7 +372,9 @@
                  collect (make-cell mesh (list x y z) h)))))))
     (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
       (let* ((cell (aref cells i j k)))
-        (with-accessors ((neighbours cell-neighbours))
+
+        (with-accessors ((neighbours cell-neighbours)
+                         )
             cell
           (setf neighbours (list))
 
@@ -381,7 +387,19 @@
                            (= dz 0))
                 (let ((di (mapcar #'+ (list i j k) (list dx dy dz))))
                   (when (in-bounds-cell mesh di)
-                    (push (apply #'aref cells di) neighbours)))))))))
+                    (push (apply #'aref cells di) neighbours)))))))
+        (with-accessors ((cart-neighbours cell-cartesian-neighbours))
+            cell
+          (setf cart-neighbours (list))
+          (loop for dimension from 0 to 2
+                do (loop for direction in (list -1 1)
+                         do
+                            (let ((di (list i j k)))
+                              (incf (nth dimension di) direction)
+                              (break)
+                              (when (in-bounds-cell mesh di)
+                                (push (apply #'aref cells di) cart-neighbours))))))
+        ))
     cells))
 (defun make-cells-2d (mesh size h)
   "Make a 3d mesh of specific size"
@@ -414,7 +432,18 @@
                            (= dz 0))
                 (let ((di (mapcar #'+ (list i j k) (list dx dy dz))))
                   (when (in-bounds-cell mesh di)
-                    (push (apply #'aref cells di) neighbours)))))))))
+                    (push (apply #'aref cells di) neighbours)))))))
+        (with-accessors ((cart-neighbours cell-cartesian-neighbours))
+            cell
+          (setf cart-neighbours (list))
+          (loop for dimension from 0 to 1
+                do (loop for direction in (list -1 1)
+                         do
+                            (let ((di (list i j k)))
+                              (incf (nth dimension di) direction)
+                              (when (in-bounds-cell mesh di)
+                                (push (apply #'aref cells di) cart-neighbours))))))
+        ))
     cells))
 
 (defun make-mesh (size resolution shape-function)
@@ -895,6 +924,15 @@
                      )
         obj
       (format stream "index: ~a, mass: ~a, vel: ~a" index mass vel))))
+
+(defmethod print-cell ((obj cell) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-accessors ((index cell-index)
+                     (active cell-active)
+                     (ghost-element cell-ghost-element)
+                     )
+        obj
+      (format stream "index: ~a, active: ~a, ghost: ~a" index active ghost-element))))
 
 
 (defun clamp-point-to-bounds (mesh point)
