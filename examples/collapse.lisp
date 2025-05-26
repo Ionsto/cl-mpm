@@ -179,7 +179,7 @@
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
       (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
-      (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-5))
+      (setf (cl-mpm::sim-ghost-factor sim) (* 1d6 1d-7))
       ;; (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
