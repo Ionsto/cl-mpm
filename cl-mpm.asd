@@ -136,19 +136,20 @@
   :description "MPM output helper functions"
   :serial t
   :components ((:file "src/output")))
-;
+                                        ;
 (defsystem "cl-mpm/shape-function"
- :depends-on ("cl-mpm/magicl"
-              "symbolic-derivation")
- :description "MPM shape function definitions"
- :serial t
- :components ((:file "src/core/shape-function")))
+  :depends-on ("cl-mpm/magicl"
+               "symbolic-derivation")
+  :description "MPM shape function definitions"
+  :serial t
+  :components ((:file "src/core/shape-function")))
 
 (defsystem "cl-mpm/dynamic-relaxation"
   :depends-on ("cl-mpm"
                "cl-mpm/penalty"
                "cl-mpm/mpi"
                "cl-mpm/damage"
+               "cl-mpm/aggregate"
                "swank.live"
                "cl-mpm/utils")
   :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"

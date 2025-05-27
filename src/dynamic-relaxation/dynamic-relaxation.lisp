@@ -713,14 +713,14 @@
        (lambda (n)
          (when (cl-mpm/mesh::node-active n)
            (cl-mpm/mesh::reset-node-force n))))
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;; (update-node-fictious-mass sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)

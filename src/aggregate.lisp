@@ -36,7 +36,11 @@
   ((agg-elems
     :initform (make-array 0)
     :accessor sim-agg-elems
-    )))
+    )
+   (enable-aggregate
+    :initform t
+    :initarg :enable-aggregate
+    :accessor sim-enable-aggregate)))
 
 
 (defun locate-aggregate-elements (sim)
@@ -53,7 +57,6 @@
        mesh
        (lambda (cell)
          (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                          (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
                           (index cl-mpm/mesh::cell-index)
                           (nodes cl-mpm/mesh::cell-nodes)
                           (active cl-mpm/mesh::cell-active)
@@ -68,7 +71,8 @@
        mesh
        (lambda (cell)
          (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                          (neighbours cl-mpm/mesh::cell-neighbours)
+                          ;; (neighbours cl-mpm/mesh::cell-neighbours)
+                          (neighbours cl-mpm/mesh::cell-cartesian-neighbours)
                           (index cl-mpm/mesh::cell-index)
                           (nodes cl-mpm/mesh::cell-nodes)
                           (pruned cl-mpm/mesh::cell-pruned)
@@ -115,6 +119,10 @@
                               (setf dist dist-tr
                                     closest-elem neighbour)))))
                (when closest-elem
+                 (setf (cl-mpm/mesh::cell-agg-int cell)
+                       ;; 1
+                       (nth 0 (cl-mpm/mesh::cell-index closest-elem))
+                       )
                  (push
                   (make-instance 'aggregate-element
                                  :boundary-cell cell
@@ -415,6 +423,7 @@
                    (damping sim-damping-factor)
                    (damping-algo sim-damping-algorithm)
                    (agg-elems sim-agg-elems)
+                   (enable-aggregate sim-enable-aggregate)
                    (dt sim-dt))
       sim
     (iterate-over-nodes
@@ -425,10 +434,11 @@
              (cl-mpm::calculate-forces node damping 0d0 mass-scale)
              (cl-mpm::calculate-forces node damping dt mass-scale)))))
     ;;For each aggregated element set solve mass matrix and velocity
-    (iterate-over-agg-elem
-     agg-elems
-     (lambda (elem)
-       (calculate-forces-agg-elem sim elem)))
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (calculate-forces-agg-elem sim elem))))
     ;; (break)
     (iterate-over-nodes
      mesh

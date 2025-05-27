@@ -89,6 +89,7 @@
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
                            :enable-fbar t
+                           :enable-aggregate nil
                            :enable-split nil)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -178,10 +179,10 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
-            ;; (* 1d6 1d-7)
-            nil
+            (* 1d6 1d-3)
+            ;; nil
             )
       ;; (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -952,37 +953,9 @@
   (run-static
    :output-dir "./output/"
    :dt-scale (/ 0.5d0 (sqrt 1d0))
-   :load-steps 20
-   )
-  ;; (loop for r in (list 2d0 4d0 8d0 16d0)
-  ;;       do
-  ;;          (setup :mps 3 :refine r)
-  ;;          (ignore-errors
-  ;;           (run-static
-  ;;            :output-dir (format nil "./output-~E/" r)
-  ;;            :dt-scale (/ 0.8d0 (sqrt 1d0))
-  ;;            :load-steps 50
-  ;;            )))
-  ;; (loop for gs in (list 1d0)
-  ;;       do
-  ;;          (setup :mps 3 :refine 1)
-  ;;          (setf (cl-mpm::sim-ghost-factor *sim*)
-  ;;                (* gs (cl-mpm::sim-ghost-factor *sim*)))
-  ;;          (let ((output-dir (format nil "./output-~E/" gs)))
-  ;;            ;; (ignore-errors)
-  ;;            (run-static
-  ;;             :output-dir output-dir
-  ;;             :dt-scale (/ 0.25d0 (sqrt 1d0))
-  ;;             :load-steps 20
-  ;;             )))
-  )
+   :load-steps 50
+   ))
 
-;; (defun KE-conv-crit (sim)
-;;   (let* ((ke (max 1d-15 (cl-mpm::sim-stats-energy sim)))
-;;          (diff (abs (/ (- *ke-last* ke) ke))))
-;;     (format t "Diff ~E~%" diff)
-;;     (setf *ke-last* ke)
-;;     (< diff 1d-5)))
 
 (defun run-static (&key (output-dir "./output/")
                         (load-steps 10)
@@ -1011,20 +984,19 @@
                 mps
                 (lambda (mp)
                   (setf (cl-mpm/particle:mp-gravity mp) current-load)))
-               ;; (cl-mpm/penalty::bc-increment-center *bc-squish* (cl-mpm/utils:vector-from-list (list 0d0 load-inc 0d0)))
                (let ((crit (cl-mpm/setup:estimate-critical-damping *sim*)))
                  (setf (cl-mpm:sim-damping-factor *sim*)
                        (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
                  (let ((conv-steps 0)
-                       (substeps 10))
+                       (substeps 1))
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
                      :oobf-crit 1d-2
                      :energy-crit 1d-2
                      :kinetic-damping t
-                     :damping-factor 1d-2
+                     :damping-factor 1d-1
                      :dt-scale dt-scale
                      :substeps substeps
                      :conv-steps 1000
@@ -1041,12 +1013,6 @@
                          (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (get-plastic) (get-damage)
                                  oobf energy))
                        (incf total-iter)
-                       ;; (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d_~5,'0d.vtk" step i)) *sim* )
-                       ;; (let ((est (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
-                       ;;   (format t "Critical damping ~E~%" (/ est crit))
-                       ;;   (setf (cl-mpm:sim-damping-factor *sim*)
-                       ;;         est))
-                       ;; (setf (cl-mpm:sim-damping-factor *sim*) (* 1d-1 (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
                        )))
                    (plot *sim*)
                    (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
@@ -1430,15 +1396,33 @@
   (setup :refine 1)
   (format t "Time: ~D~%" (length (cl-mpm:sim-mps *sim*)))
   (setf (cl-mpm:sim-dt *sim*) (* 1d-5 (cl-mpm/setup::estimate-elastic-dt *sim*)))
-  (cl-mpm:update-sim *sim*)
+
+
+  ;; (cl-mpm:update-sim *sim*)
   (cl-mpm:iterate-over-nodes
    (cl-mpm:sim-mesh *sim*)
    (lambda (node)
      (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 0) 0d0)))
-  (let ((node
-          (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
-    (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0)
-    )
+
+  (let ((node (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
+    (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0))
+  ;; (let ((node (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 2 1 0))))
+  ;;   (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0))
+
+  ;; (let* ((mesh (cl-mpm:sim-mesh *sim*))
+  ;;        (cell-a (cl-mpm/mesh::get-cell mesh '(0 0 0)))
+  ;;        (cell-b (cl-mpm/mesh::get-cell mesh '(1 0 0))))
+  ;;   (loop for x from 0 to 2
+  ;;         do (loop for y from 0 to 1
+  ;;                  do (setf (cl-mpm/mesh::node-active (cl-mpm/mesh::get-node mesh (list x y 0))) t)))
+  ;;   (cl-mpm::update-cells *sim*)
+  ;;   (setf (cl-mpm/mesh::cell-ghost-element cell-a) t
+  ;;         (cl-mpm/mesh::cell-ghost-element cell-b) t
+  ;;         (cl-mpm/mesh::cell-mp-count cell-a) 1
+  ;;         (cl-mpm/mesh::cell-mp-count cell-b) 1)
+  ;;   (cl-mpm/ghost::apply-ghost-cells-new mesh cell-a cell-b 1d5)
+  ;;   (save-test-vtks)
+  ;;   )
   (setf (cl-mpm:sim-damping-factor *sim*)
         (cl-mpm/setup::estimate-critical-damping *sim*))
   (let ((step 0)
@@ -1448,8 +1432,12 @@
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     ;; (cl-mpm:update-sim *sim*)
     (setf (cl-mpm:sim-mps *sim*) (make-array 0))
-    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d0))
-    (loop for i from 0 to 200
+    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-1))
+    (cl-mpm::update-cells *sim*)
+    ;; (let ((cell (cl-mpm/mesh::get-cell (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
+    ;;   (pprint cell)
+    ;;   (break))
+    (loop for i from 0 to 500
           while *run-sim*
           do
              (progn
@@ -1461,6 +1449,7 @@
                (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
 
                )))
+
   ;; (cl-mpm::update-cells *sim*)
   ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3))
   ;; (cl-mpm/ghost::apply-ghost *sim* (cl-mpm::sim-ghost-factor *sim*))

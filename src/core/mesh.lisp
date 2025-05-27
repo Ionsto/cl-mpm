@@ -133,8 +133,7 @@
    (boundary-node
     :accessor node-boundary-node
     :type boolean
-    :initform nil
-    )
+    :initform nil)
    (boundary-scalar
     :accessor node-boundary-scalar
     :initform 0d0)
@@ -172,6 +171,10 @@
     :initarg :nodes
     :type list
     :initform '())
+
+   (agg-int
+    :accessor cell-agg-int
+    :initform 0)
    (neighbours
     :accessor cell-neighbours
     :type list

@@ -728,9 +728,8 @@
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "pressure" (cl-mpm/mesh::cell-pressure cell))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
-              (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))
-              ))
-          ))))
+              (save-parameter-cells "agg-int" (cl-mpm/mesh::cell-agg-int cell))
+              (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))))))))
 
 (defun save-vtk-bcs (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
