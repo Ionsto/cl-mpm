@@ -1,17 +1,18 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* nil)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
 
 (in-package :cl-mpm/examples/collapse)
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 ;; (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
 ;;   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
@@ -1506,3 +1507,17 @@
     ;;  (lambda (node weight grads)
     ;;    (format t "Node ~A - ~E ~%" node weight)))
     ))
+
+
+(let* ((mesh (cl-mpm:sim-mesh *sim*))
+       (cell (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
+       (pos (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0 0d0))))
+  (cl-mpm::iterate-over-cell-shape-local
+   mesh
+   cell
+   pos
+   (lambda (node weight grad)
+     (print weight)
+     (print grad)
+     )))
+

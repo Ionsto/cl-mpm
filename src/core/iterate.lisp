@@ -366,7 +366,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec (cl-mpm/particle:mp-position mp))
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
                      do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
@@ -397,7 +397,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec (cl-mpm/particle:mp-position mp))
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)  (tref pos-vec 2 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
                      do
@@ -438,7 +438,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
@@ -464,7 +464,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
@@ -493,7 +493,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
@@ -696,7 +696,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
         mp
       (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
              (pos (list (varef pos-vec 0) (varef pos-vec 1) (varef pos-vec 2)))
-             (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec))
+             (pos-index (cl-mpm/mesh:position-to-index-round mesh pos-vec))
              )
         (declare (dynamic-extent pos pos-index))
         (declare (type double-float h)
@@ -1043,7 +1043,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (pos-vec (cl-mpm/particle:mp-position mp))
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) 0))
            ;; (pos-index (magicl:scale pos-vec (/ 1 h)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'round))
+           (pos-index (cl-mpm/mesh:position-to-index-round mesh pos-vec))
            (border (not (and (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 2 2 0)))
                              (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list -2 -2 0)))
                              ;; (cl-mpm/mesh:in-bounds mesh (mapcar #'+ pos-index (list 2 -2 0)))
@@ -1054,7 +1054,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
                  (pos-vec (cl-mpm/particle:mp-position mp))
                  (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-                 (pos-index (cl-mpm/mesh:position-to-index mesh pos-vec #'floor)))
+                 (pos-index (cl-mpm/mesh:position-to-index-round mesh pos-vec #'floor)))
             (loop for dx from 0 to 1
                   do (loop for dy from 0 to 1
                            do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))
@@ -1373,7 +1373,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
            (cell-vec (cl-mpm/mesh::cell-centroid cell))
            (pos-vec position)
            (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
-           (pos-index (cl-mpm/mesh:position-to-index mesh cell-vec #'floor)))
+           (pos-index (cl-mpm/mesh:position-to-index-floor mesh cell-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1

@@ -23,13 +23,30 @@
     #:reset-node
     #:in-bounds
     #:position-to-index
+    #:position-to-index-round
+    #:position-to-index-floor
     #:index-to-position
   ))
 
 (in-package :cl-mpm/mesh)
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+
+
+(declaim (inline make-index))
+(defun make-index (x y z)
+  (let ((res (make-array 3 :element-type 'fixnum)))
+    (setf (aref res 0) x)
+    (setf (aref res 1) y)
+    (setf (aref res 2) z)
+     res))
+;; (defstruct (index
+;;             (:constructor make-index
+;;               (x y z)))
+;;   (x 0 :type fixnum)
+;;   (y 0 :type fixnum)
+;;   (z 0 :type fixnum))
 
 (defclass node ()
   ((active
@@ -529,13 +546,20 @@
  (inline position-to-index-array)
  (ftype (function (cl-mpm/mesh::mesh
                    magicl:matrix/double-float &optional function)
-                  (simple-array double-float)) position-to-index-array))
+                  (simple-array fixnum)) position-to-index-array))
 (defun position-to-index-array (mesh pos &optional (round-operator #'round))
   "Turn a vector position into a list of indexes with rounding"
   (let ((h (mesh-resolution mesh))
         (p-a (magicl::matrix/double-float-storage pos)))
-    (declare (double-float h))
-    (aops:each (lambda (x) (/ (the double-float x) h)) p-a)))
+    (declare (double-float h) (function round-operator)
+             ((simple-array double-float (3)) p-a)
+             )
+    (let ((res (make-array 3 :element-type 'fixnum)))
+      (loop for v across p-a
+            do (setf (aref res 0) (coerce (funcall round-operator (/ (the double-float (mtref pos 0 0)) (the double-float h))) 'fixnum)))
+      res)
+    ;; (aops:each (lambda (x) (/ (the double-float x) h)) p-a)
+    ))
 
 (declaim
  (inline position-to-index)
@@ -556,6 +580,47 @@
   ;;                                                 (the double-float (mesh-resolution mesh))))
   ;;                        ) '(0 1 2))
   )
+(declare (inline position-to-index-round))
+(defun position-to-index-round (mesh pos)
+  (declare (type magicl:matrix/double-float pos))
+  "Turn a vector position into a list of indexes with rounding"
+  (let ((h (mesh-resolution mesh)))
+    (declare (double-float h))
+    (list
+     (the fixnum(round (the double-float (/ (the double-float (varef pos 0)) h))))
+     (the fixnum(round (the double-float (/ (the double-float (varef pos 1)) h))))
+     (the fixnum(round (the double-float (/ (the double-float (varef pos 2)) h))))
+     )))
+
+(declare (inline position-to-index-floor))
+(defun position-to-index-floor (mesh pos)
+  (declare (type magicl:matrix/double-float pos))
+  "Turn a vector position into a list of indexes with rounding"
+  (let ((h (mesh-resolution mesh)))
+    (declare (double-float h))
+    (list
+     (the fixnum (floor (the double-float (varef pos 0)) h))
+     (the fixnum (floor (the double-float (varef pos 1)) h))
+     (the fixnum (floor (the double-float (varef pos 2)) h))
+     )))
+
+(defun position-to-index-struct (mesh pos &optional (round-operator #'round))
+  (declare (type function round-operator)
+           (type magicl:matrix/double-float pos))
+  "Turn a vector position into a list of indexes with rounding"
+  (let ((h (mesh-resolution mesh))
+        (p-a (magicl::matrix/double-float-storage pos)))
+    (declare (double-float h)
+             ((simple-array double-float (3)) p-a))
+    ;; (make-index
+    ;; (funcall round-operator (/ (the double-float (aref p-a 0)) h))
+    ;; (funcall round-operator (/ (the double-float (aref p-a 1)) h))
+    ;; (funcall round-operator (/ (the double-float (aref p-a 2)) h)))
+    (make-index
+     (round (/ (the double-float (aref p-a 0)) h))
+     (round (/ (the double-float (aref p-a 1)) h))
+     (round (/ (the double-float (aref p-a 2)) h)))
+    ))
 
 (defun index-to-position-array (mesh index)
   "Turn a vector position into a list of indexes with rounding"
