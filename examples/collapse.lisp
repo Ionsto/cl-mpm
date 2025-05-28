@@ -182,7 +182,7 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-7)
             nil
@@ -992,7 +992,7 @@
                        (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
                  (let ((conv-steps 0)
-                       (substeps 1))
+                       (substeps 10))
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
@@ -1522,4 +1522,22 @@
 ;;      (print weight)
 ;;      (print grad)
 ;;      )))
+
+(defun print-agg ()
+  (let ((agg-list (list)))
+    (cl-mpm/aggregate::iterate-over-agg-elem
+     (cl-mpm/aggregate::sim-agg-elems *sim*)
+     (lambda (agg-elem)
+       (cl-mpm/aggregate::iterate-over-agg-elem-nodes
+        *sim*
+        agg-elem
+        (lambda (node)
+          (push (list node (cl-mpm/aggregate::agg-interior-cell agg-elem))
+                agg-list)))))
+    (setf agg-list (remove-duplicates agg-list :key #'first))
+    (pprint agg-list)
+    (dolist (ag-n agg-list)
+      (destructuring-bind (node inter) ag-n
+        (format t "Agg ~A - interior ~A~%" (cl-mpm/mesh:node-index node) (cl-mpm/mesh::cell-index inter))))
+    ))
 

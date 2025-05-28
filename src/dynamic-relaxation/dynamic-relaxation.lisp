@@ -347,7 +347,7 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim)))
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
@@ -676,6 +676,22 @@
   ;; (cl-mpm::new-loadstep sim)
   (call-next-method)
   )
+(defun set-mass (sim)
+  (let ((max-mass 0d0))
+    (cl-mpm:iterate-over-nodes-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (and
+              (cl-mpm/mesh:node-active n)
+              (> (cl-mpm/mesh:node-mass n) max-mass))
+         (setf max-mass (cl-mpm/mesh:node-mass n)))))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (setf (cl-mpm/mesh:node-mass n) max-mass)))))
+  (setf (cl-mpm:sim-dt sim) (* 0.5d0 (cl-mpm::calculate-min-dt sim))))
+
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -702,6 +718,7 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        ;; (set-mass sim)
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
         (cl-mpm/aggregate::update-aggregate-elements sim)
