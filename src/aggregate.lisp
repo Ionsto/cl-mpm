@@ -9,7 +9,9 @@
   ;; (:export
   ;;  #:apply-ghost)
   )
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
+
 (in-package :cl-mpm/aggregate)
 
 (defclass aggregate-element ()
@@ -32,6 +34,20 @@
     :initform nil
     :accessor agg-mass-matrix
     )))
+
+;; (defclass aggregate-node ()
+;;   ((interior-cell
+;;     :initform nil
+;;     :initarg :interior-cell
+;;     :accessor agg-interior-cell)
+;;    (shape-functions
+;;     :initform nil
+;;     :accessor agg-shape-functions)
+;;    (mass-matrix
+;;     :initform nil
+;;     :accessor agg-mass-matrix
+;;     )))
+
 (defclass mpm-sim-aggregated (mpm-sim)
   ((agg-elems
     :initform (make-array 0)
@@ -42,6 +58,113 @@
     :initarg :enable-aggregate
     :accessor sim-enable-aggregate)))
 
+
+
+(defclass mpm-sim-aggregated (mpm-sim)
+  ((agg-elems
+    :initform (make-array 0)
+    :accessor sim-agg-elems
+    )
+   (enable-aggregate
+    :initform t
+    :initarg :enable-aggregate
+    :accessor sim-enable-aggregate)))
+
+(defun get-closest-cell (sim node)
+  (let ((closest-elem nil)
+        (dist 0d0)
+        (mutex (sb-thread:make-mutex))
+        (pos (cl-mpm/mesh::node-position node)))
+    (cl-mpm::iterate-over-cells
+     (cl-mpm:sim-mesh sim)
+     (lambda (cell)
+       (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                        (index cl-mpm/mesh::cell-index)
+                        (centroid cl-mpm/mesh::cell-centroid)
+                        (active cl-mpm/mesh::cell-active)
+                        (ghost cl-mpm/mesh::cell-ghost-element))
+           cell
+         (when (and
+                (cl-mpm/mesh::cell-active cell)
+                (= (cl-mpm/mesh::cell-mp-count cell) 1)
+                (not (cl-mpm/mesh::cell-ghost-element cell)))
+           (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                           pos
+                           centroid)))
+             (when (or
+                    (not closest-elem)
+                    (> dist dist-tr))
+               (sb-thread:with-mutex (mutex)
+                 (when (or
+                        (not closest-elem)
+                        (> dist dist-tr))
+                   (setf dist dist-tr
+                         closest-elem cell))))))
+         )))
+    closest-elem))
+
+(defun locate-aggregate-node-elements (sim)
+  (let ((agg-elem (list))
+        (mutex (sb-thread:make-mutex)))
+    (with-accessors ((mps cl-mpm:sim-mps)
+                     (mesh cl-mpm:sim-mesh))
+        sim
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (setf (cl-mpm/mesh::node-agg node) nil)))
+
+      ;;First set all outside nodes as aggregate
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                          (index cl-mpm/mesh::cell-index)
+                          (nodes cl-mpm/mesh::cell-nodes)
+                          (active cl-mpm/mesh::cell-active))
+             cell
+           (when (and active (= mp-count 0))
+             (loop for n in nodes
+                   do (when (cl-mpm/mesh::node-active n)
+                        (setf (cl-mpm/mesh::node-agg n) t)))))))
+
+      ;;Next markup any cells that are touching aggregates as invalid as support
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                          (index cl-mpm/mesh::cell-index)
+                          (nodes cl-mpm/mesh::cell-nodes)
+                          (ghost cl-mpm/mesh::cell-ghost-element)
+                          (active cl-mpm/mesh::cell-active))
+             cell
+           (setf ghost nil)
+           (when (and active)
+             (loop for n in nodes
+                   while (not ghost)
+                   do (when (and (cl-mpm/mesh::node-active n)
+                                 (cl-mpm/mesh::node-agg n))
+                        (setf ghost t)))))))
+
+      ;;For each aggregate node, locate the closest support cell
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (node)
+         (with-accessors ((active cl-mpm/mesh::node-active)
+                          (agg cl-mpm/mesh::node-agg))
+             node
+           (when (and active agg)
+             (let ((closest-elem (get-closest-cell sim node)))
+               (when closest-elem
+                 (sb-thread:with-mutex (mutex)
+                   (push
+                    (make-instance 'aggregate-element
+                                   :interior-cell closest-elem
+                                   :node-list (append
+                                               (list node)
+                                               (cl-mpm/mesh::cell-nodes closest-elem)))
+                    agg-elem)))))))))
+    (make-array (length agg-elem) :initial-contents agg-elem)))
 
 (defun locate-aggregate-elements (sim)
   (let ((agg-elem (list)))
@@ -242,21 +365,7 @@
 (defun iterate-over-agg-elem-nodes (sim elem func)
   (declare (function func))
   (loop for n in (agg-node-list elem)
-        do (funcall func n))
-  ;; (dolist (cell (list (agg-boundary-cell elem)
-  ;;                     (agg-interior-cell elem)))
-  ;;   (dolist (n (cl-mpm/mesh::cell-nodes cell))
-  ;;     (let ((rank 0))
-  ;;       (iterate-over-cell-shape-local
-  ;;        mesh
-  ;;        (agg-interior-cell elem)
-  ;;        (cl-mpm/mesh::node-position n)
-  ;;        (lambda (cn weight grads)
-  ;;          (loop for i from 0 below nd
-  ;;                do (setf (mtref E (+ iter i) rank) weight))
-  ;;          (incf rank)))
-  ;;       (incf iter nd))))
-  )
+        do (funcall func n)))
 
 (defun compute-extension-matrix (sim elem)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -285,7 +394,7 @@
 (defun update-aggregate-elements (sim)
   (setf
    (sim-agg-elems sim)
-   (locate-aggregate-elements sim))
+   (locate-aggregate-node-elements sim))
   (set-aggregate-nodes sim)
   (iterate-over-agg-elem
    (sim-agg-elems sim)
@@ -316,6 +425,23 @@
      m
      E)
     ))
+(defun assemble-vector (sim elem accessor)
+  (declare (function accessor))
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (nc (length (agg-node-list elem)))
+         (f (cl-mpm/utils::arb-matrix
+             (* nd nc)
+             1)))
+    (let ((iter 0))
+      (iterate-over-agg-elem-nodes
+       sim
+       elem
+       (lambda (n)
+         (let ((force (funcall accessor n)))
+           (loop for i from 0 below nd
+                 do (setf (mtref f (+ iter i) 0) (varef force i))))
+         (incf iter nd))))
+    f))
 (defun assemble-force (sim elem)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (nc (length (agg-node-list elem)))
@@ -368,6 +494,26 @@
              (incf iter nd)))))
       )))
 
+(defun project-sub-forces (sim elem f-int f-ext)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (E (agg-shape-functions elem))
+         (f-int (magicl:@ E (magicl:transpose E) f-int))
+         (f-ext (magicl:@ E (magicl:transpose E) f-ext))
+         )
+    (let ((iter 0))
+      (iterate-over-agg-elem-nodes
+       sim
+       elem
+       (lambda (n)
+         (when (cl-mpm/mesh::node-agg n)
+           (with-accessors ((n-force-int cl-mpm/mesh::node-internal-force)
+                            (n-force-ext cl-mpm/mesh::node-external-force))
+               n
+             (loop for i from 0 below nd
+                   do (setf (varef n-force-int i) (mtref f-int (+ iter i) 0)
+                            (varef n-force-ext i) (mtref f-ext (+ iter i) 0)))
+             (incf iter nd))))))))
+
 (defun project-residual (sim elem residual)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (E (agg-shape-functions elem))
@@ -391,11 +537,13 @@
          (E (agg-shape-functions elem))
          (m (agg-mass-matrix elem))
          (f (assemble-force sim elem))
-         (res (assemble-residual sim elem))
+         (f-int (assemble-vector sim elem #'cl-mpm/mesh::node-internal-force))
+         (f-ext (assemble-vector sim elem #'cl-mpm/mesh::node-external-force))
+         ;; (res (assemble-residual sim elem))
          )
     (let ((acc (magicl:linear-solve m (magicl:@ (magicl:transpose E) f))))
       (project-acc sim elem acc)
-      (project-residual sim elem res)
+      (project-sub-forces sim elem f-int f-ext)
       )))
 
 (declaim (notinline update-node-kinematics))
@@ -413,8 +561,7 @@
     (iterate-over-agg-elem
      agg-elems
      (lambda (elem)
-       (calculate-kinematics-agg-elem sim elem)
-       ))))
+       (calculate-kinematics-agg-elem sim elem)))))
 
 (defmethod cl-mpm::update-node-forces ((sim mpm-sim-aggregated))
   ;;For non-aggregate nodes, use simple mass matrix inversion

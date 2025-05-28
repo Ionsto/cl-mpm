@@ -229,14 +229,17 @@
         ;;Set acc to f/m
         (cl-mpm/fastmaths::fast-.+-vector force-int force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+        ;;Include velocity prop damping
         (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
-        (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
+        (cl-mpm/utils::vector-copy-into force residual)
+        ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
+        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
         )))
   (values))
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)
@@ -777,9 +780,10 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
-    (let ((inner-factor most-positive-double-float))
+    (let ((inner-factor most-positive-double-float)
+          (lock (sb-thread:make-mutex)))
       (declare (double-float inner-factor mass-scale))
-      (iterate-over-nodes-serial
+      (iterate-over-nodes
        mesh
        (lambda (node)
          (with-accessors ((node-active  cl-mpm/mesh:node-active)
@@ -794,8 +798,11 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                       (> pmod 0d0)
                       (> svp-sum 0d0))
              (let ((nf (+ (/ mass (* vol (+ (/ pmod svp-sum)))))))
-                 (when (< nf inner-factor)
-                   (setf inner-factor nf)))))))
+               ;;Double checked lock
+               (when (< nf inner-factor)
+                   (sb-thread:with-mutex (lock)
+                     (when (< nf inner-factor)
+                       (setf inner-factor nf)))))))))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
           (cl-mpm:sim-dt sim)))))

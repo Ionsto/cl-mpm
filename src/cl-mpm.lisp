@@ -98,6 +98,11 @@
     :accessor sim-mass-scale
     :initarg :mass-scale
     :initform 1d0)
+   (dt-scale
+    :type double-float
+    :accessor sim-dt-scale
+    :initarg :dt-scale
+    :initform 0.5d0)
    (allow-mp-split
     :type boolean
     :accessor sim-allow-mp-split
