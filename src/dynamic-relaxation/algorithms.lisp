@@ -97,7 +97,7 @@
          :post-iter-step
          (lambda (i energy oobf)
            (save-conv-step sim output-dir (+ total-iter total-steps) global-step oobf energy)
-           (incf total-iter)))
+           (incf total-iter substeps)))
         (cl-mpm:iterate-over-mps
          (cl-mpm:sim-mps sim)
          (lambda (mp)
@@ -153,7 +153,7 @@
                (setf (cl-mpm:sim-enable-damage sim) dev)
                (setf damage-eval dev))
              (save-conv-step sim output-dir (+ total-iter total-steps) global-step o e)
-             (incf total-iter)
+             (incf total-iter substeps)
              )))
         (cl-mpm::finalise-loadstep sim)
         (save-timestep sim output-dir global-step :QUASI-STATIC)
@@ -263,7 +263,8 @@
     (setf (cl-mpm:sim-damping-factor sim)
           (* 1d-2 (cl-mpm/setup:estimate-critical-damping sim)))
     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
-    (let ((total-iter 0))
+    (let ((total-iter 0)
+          (substeps 50))
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        sim
        :oobf-crit 1d-2
@@ -271,13 +272,13 @@
        :kinetic-damping t
        :dt-scale dt-scale
        :conv-steps 1000
-       :substeps 10
+       :substeps substeps
        :damping-factor 1d-2
        :post-iter-step
        (lambda (i e o)
          ;; (plot sim)
          (save-conv-step sim output-dir total-iter 0 o e)
-         (incf total-iter)
+         (incf total-iter substeps)
          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)

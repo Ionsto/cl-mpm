@@ -3,12 +3,12 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
@@ -237,7 +237,9 @@
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                                                :args-list
                                                (list
-                                                :enable-fbar t)))
+                                                :enable-fbar t
+                                                ;; :enable-aggregate t
+                                                )))
     (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
@@ -367,7 +369,7 @@
           (* 0.1d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-3)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
@@ -1030,7 +1032,7 @@
   (loop for dt in (list 5d0)
         do
            (let* ((mps 2))
-             (setup :refine 2
+             (setup :refine 1
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
@@ -1306,5 +1308,3 @@
     (pprint (cl-mpm/mesh:mesh-resolution mesh))
     (cl-mpm/aggregate::find-local-coords-agg mesh cell pos)
     ))
-
-(setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 10d0)

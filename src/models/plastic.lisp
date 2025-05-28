@@ -139,16 +139,7 @@
               strain eps-e
               yield-func f
               ))
-      (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp))))
-            ;; (multiple-value-bind (l v)
-            ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix ))
-            ;;   (destructuring-bind (s1 s2 s3) l
-            ;;     (sqrt
-            ;;      (/ (+ (expt (- s1 s2) 2d0)
-            ;;            (expt (- s2 s3) 2d0)
-            ;;            (expt (- s3 s1) 2d0)
-            ;;            ) 2d0))))
-            )
+      (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
       (setf ps-vm (+ ps-vm-1 ps-vm-inc))
       )
     (when (> soft 0d0)

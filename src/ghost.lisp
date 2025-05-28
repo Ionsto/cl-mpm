@@ -287,34 +287,6 @@
                                                       nz  0d0 nx)
                                                      3
                                                      6))))
-             ;; (format t "Start~%")
-             ;; (break)
-             ;; (cl-mpm::iterate-over-cell-shape-local
-             ;;  mesh
-             ;;  cell-a
-             ;;  gp-loc
-             ;;  (lambda (node weight grads)
-             ;;    (setf (nth 2 grads) 0d0)
-             ;;    (let ((dsvp
-             ;;            (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d
-             ;;                                (cl-mpm::gradient-push-forwards
-             ;;                                 grads
-             ;;                                 (cl-mpm/mesh::cell-deformation-gradient cell-a))))))
-             ;;      (format t "~A ~A ~% ~A~%" (cl-mpm/mesh::node-index node) grads dsvp))))
-             ;; (format t "Negative ~%")
-             ;; (cl-mpm::iterate-over-cell-shape-local
-             ;;  mesh
-             ;;  cell-b
-             ;;  gp-loc
-             ;;  (lambda (node weight grads)
-             ;;    (setf (nth 2 grads) 0d0)
-             ;;    (let ((dsvp
-             ;;            (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d
-             ;;                                (cl-mpm::gradient-push-forwards
-             ;;                                 grads
-             ;;                                 (cl-mpm/mesh::cell-deformation-gradient cell-b))))))
-             ;;      (format t "~A ~A ~% ~A~%" (cl-mpm/mesh::node-index node) grads dsvp))))
-             ;; (break)
              (cl-mpm/ghost::iterate-over-bicell-nodes
               mesh
               cell-a
@@ -334,7 +306,6 @@
                                                 (cl-mpm/mesh::cell-deformation-gradient cell-p))
                                                ))
                            (* fact-p))))
-                    ;; (format t "~A ~A ~% ~A~%" (cl-mpm/mesh::node-index node) grads dsvp-p)
                     (iterate-over-bicell-nodes
                      mesh
                      cell-a
@@ -348,7 +319,6 @@
                                   (fast-scale!
                                    (magicl:transpose!
                                     (cl-mpm/shape-function::assemble-dsvp-3d
-                                     ;; grads-b
                                      (cl-mpm::gradient-push-forwards
                                       grads-b
                                       (cl-mpm/mesh::cell-deformation-gradient cell-n))
@@ -522,29 +492,7 @@
                                (apply-ghost-cells-new mesh cell
                                                       (cl-mpm/mesh::get-cell mesh index-b)
                                                       ghost-factor
-                                                      )))))))))
-
-      ;;Instant ghost integration
-      ;; (let ((mass-scale (cl-mpm:sim-mass-scale sim))
-      ;;       (dt (cl-mpm:sim-dt sim)))
-      ;;   (cl-mpm::iterate-over-nodes
-      ;;    mesh
-      ;;    (lambda (node)
-      ;;      (when (cl-mpm/mesh:node-active node)
-      ;;        (with-accessors ((mass  node-mass)
-      ;;                         (vel   node-velocity)
-      ;;                         (disp   cl-mpm/mesh::node-displacment)
-      ;;                         (acc   node-acc)
-      ;;                         (force node-force)
-      ;;                         (residual   cl-mpm/mesh::node-residual)
-      ;;                         (force-ghost cl-mpm/mesh::node-ghost-force))
-      ;;            node
-      ;;          (progn
-      ;;            ;; (cl-mpm/fastmaths:fast-fmacc vel force-ghost (* dt (/ 1d0 (* mass mass-scale))))
-      ;;            ;; (cl-mpm/fastmaths:fast-fmacc disp force-ghost (* dt dt (/ 1d0 (* mass mass-scale))))
-      ;;            ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
-      ;;            ))))))
-      )))
+                                                      ))))))))))))
 
 ;; (let* ((nx 1d0)
 ;;        (ny 0d0)

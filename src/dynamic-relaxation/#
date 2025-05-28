@@ -343,35 +343,34 @@
                  (progn
                    (setf fnorm 0d0
                          load 0d0)
-                   (time
-                    (dotimes (j substeps)
-                      (setf cl-mpm/penalty::*debug-force* 0d0)
-                      (cl-mpm:update-sim sim)
-                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                      (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim)))
-                      (let ((power (cl-mpm::sim-stats-power sim))
-                            (energy (cl-mpm::sim-stats-energy sim)))
-                        (incf *work* power)
-                        (when kinetic-damping
-                          (if (and
-                               (> energy-last energy-first)
-                               (> energy-last energy))
-                              (progn
-                                (format t "Peak found resetting KE~%")
-                                ;; (format t "~E ~E ~E ~%" energy-first energy-last energy)
-                                (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-                                (cl-mpm:iterate-over-mps
-                                 mps
-                                 (lambda (mp)
-                                   (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
-                                (setf power-last 0d0
-                                      energy-first 0d0
-                                      energy-last 0d0))
-                              (progn
-                                (setf energy-first energy-last)
-                                (setf power-last power
-                                      energy-last energy))))
-                        )))
+                   (dotimes (j substeps)
+                     (setf cl-mpm/penalty::*debug-force* 0d0)
+                     (cl-mpm:update-sim sim)
+                     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                     (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim)))
+                     (let ((power (cl-mpm::sim-stats-power sim))
+                           (energy (cl-mpm::sim-stats-energy sim)))
+                       (incf *work* power)
+                       (when kinetic-damping
+                         (if (and
+                              (> energy-last energy-first)
+                              (> energy-last energy))
+                             (progn
+                               (format t "Peak found resetting KE~%")
+                               ;; (format t "~E ~E ~E ~%" energy-first energy-last energy)
+                               (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+                               (cl-mpm:iterate-over-mps
+                                mps
+                                (lambda (mp)
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
+                               (setf power-last 0d0
+                                     energy-first 0d0
+                                     energy-last 0d0))
+                             (progn
+                               (setf energy-first energy-last)
+                               (setf power-last power
+                                     energy-last energy))))
+                       ))
                    (setf load cl-mpm/penalty::*debug-force*)
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
@@ -668,10 +667,6 @@
 (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-ul))
   ;;DR algorithm requires that finalisation is called once
   (setf (sim-initial-setup sim) nil)
-  ;; (cl-mpm::g2p (cl-mpm:sim-mesh sim)
-  ;;              (cl-mpm:sim-mps sim)
-  ;;              (cl-mpm:sim-dt sim)
-  ;;              (cl-mpm::sim-velocity-algorithm sim))
   ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
   ;; (cl-mpm::new-loadstep sim)
   (call-next-method)
@@ -702,12 +697,13 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        ;; (cl-mpm::update-node-kinematics sim)
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
         (cl-mpm/aggregate::update-aggregate-elements sim)
-        (setf initial-setup t)
-        (cl-mpm::apply-bcs mesh bcs dt))
+        (setf initial-setup t))
       ;; (cl-mpm::reset-grid mesh)
+      (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::iterate-over-nodes
@@ -715,18 +711,18 @@
        (lambda (n)
          (when (cl-mpm/mesh::node-active n)
            (cl-mpm/mesh::reset-node-force n))))
-
+      ;; (update-node-fictious-mass sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-      (cl-mpm/ghost::apply-half-step-ghost sim)
+      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
       (cl-mpm::update-dynamic-stats sim)
       (cl-mpm::g2p mesh mps dt vel-algo)
       )))
@@ -804,7 +800,7 @@
        (when (cl-mpm/mesh:node-active node)
          (setf (cl-mpm/mesh:node-mass node) 1d0))))))
 
-(defclass mpm-sim-dr-damage-ul (mpm-sim-dr-ul cl-mpm/damage:mpm-sim-damage)
+(defclass mpm-sim-dr-damage-ul (mpm-sim-dr-damage-usf)
   ()
   (:documentation "DR psudo-linear step with update stress last update"))
 
@@ -829,22 +825,16 @@
                (ghost-factor cl-mpm::ghost-factor)
                (fbar cl-mpm::enable-fbar)
                (bcs-force-list cl-mpm::bcs-force-list)
-               (initial-setup initial-setup)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (declare (type double-float mass-filter))
     (progn
-      (unless initial-setup
-        (cl-mpm::reset-grid mesh)
-        (cl-mpm::p2g mesh mps)
-        (when (> mass-filter 0d0)
-          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-        (cl-mpm::apply-bcs mesh bcs dt)
-        (cl-mpm::update-cells sim)
-        (cl-mpm/aggregate::update-aggregate-elements sim)
-        (setf initial-setup t)
-        (cl-mpm::apply-bcs mesh bcs dt))
-
+      (cl-mpm::reset-grid mesh)
+      (cl-mpm::p2g mesh mps)
+      (when (> mass-filter 0d0)
+        (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+      (cl-mpm::update-node-kinematics sim)
+      (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
@@ -853,8 +843,9 @@
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
 
@@ -919,9 +910,8 @@
 
 
 (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-damage-UL))
-  ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
-  ;; (cl-mpm::new-loadstep sim)
-  (call-next-method))
+  (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  (cl-mpm::new-loadstep sim))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-usf))
   "Update stress last algorithm"

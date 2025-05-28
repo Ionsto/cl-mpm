@@ -51,13 +51,7 @@
              (incf node-p-wave (* mp-pmod svp))
              (incf node-damage (* mp-damage svp))
              (incf node-svp-sum svp)
-             (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))
-             ;; (cl-mpm/fastmaths::fast-fmacc node-disp mp-disp (* mp-mass svp))
-             )
-           ;;Ideally we include these generic functions for special mapping operations, however they are slow
-           ;; (special-p2g mp node svp dsvp)
-           )))
-      ))
+             (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))))))))
   (values))
 
 

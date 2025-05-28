@@ -1,11 +1,11 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* nil)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
@@ -89,9 +89,9 @@
                ;; :sim-type 'cl-mpm::mpm-sim-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
-                           :enable-fbar t
-                           :enable-aggregate nil
-                           :enable-split nil)
+                           :enable-fbar nil
+                           :enable-aggregate t
+                           :enable-split t)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -131,9 +131,12 @@
                 :E 1d6
                 :nu 0.24d0
                 :rho 30d3
-                ;; ;; :phi 00d0
-                ;; ;; :psi 00d0
-                ;; ;; :c 30d3
+                ;; 'cl-mpm/particle::particle-mc
+                ;; :E 1d6
+                ;; :nu 0.24d0
+                ;; :phi 00d0
+                ;; :psi 00d0
+                ;; :c 30d3
                 ;; ;:viscosity 1.11d6
                 ;; ;; :viscosity 1d08
                 ;; ;; :visc-power 3d0
@@ -145,7 +148,6 @@
                 ;; :ductility 100d0
                 ;; 'cl-mpm/particle::particle-elastic
                 ;; 'cl-mpm/particle::particle-vm
-                ;; 'cl-mpm/particle::particle-mc
 
 ;; Chalk
                 ;; 'cl-mpm/particle::particle-chalk-delayed
@@ -166,7 +168,7 @@
                 ;; :phi (* 40d0 (/ pi 180))
                 ;; :c (* init-c oversize)
 
-                :gravity -30.0d0
+                :gravity -20.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (cl-mpm/setup::initialise-stress-self-weight
@@ -175,15 +177,15 @@
       ;; (format t "Charictoristic time ~E~%" (/ ))
       ;; (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-max-split-depth sim) 6)
-      (setf (cl-mpm::sim-split-factor sim) 0.40d0)
+      (setf (cl-mpm::sim-split-factor sim) 0.55d0)
       (setf (cl-mpm::sim-enable-damage sim) t)
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
       (setf (cl-mpm::sim-ghost-factor sim)
-            (* 1d6 1d-3)
-            ;; nil
+            ;; (* 1d6 1d-7)
+            nil
             )
       ;; (setf (cl-mpm::sim-ghost-factor sim) nil)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
@@ -954,12 +956,12 @@
   (run-static
    :output-dir "./output/"
    :dt-scale (/ 0.5d0 (sqrt 1d0))
-   :load-steps 50
+   :load-steps 10
    ))
 
 
 (defun run-static (&key (output-dir "./output/")
-                        (load-steps 10)
+                     (load-steps 10)
                      (dt-scale 0.5d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
@@ -1371,7 +1373,7 @@
             while *run-sim*
             do
                (let ((quasi-conv nil))
-                 (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4))
+                 (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-5))
                  (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep *sim*) dt)
                  (setf quasi-conv (step-quasi-time *sim* step))
                  (unless quasi-conv
@@ -1394,19 +1396,19 @@
 
 (require 'sb-sprof)
 (defun test-ghost ()
-  (setup :refine 1)
-  (format t "Time: ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  (setf (cl-mpm:sim-dt *sim*) (* 1d-5 (cl-mpm/setup::estimate-elastic-dt *sim*)))
+  ;; (setup :refine 1)
+  ;; (format t "Time: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  ;; (setf (cl-mpm:sim-dt *sim*) (* 1d-5 (cl-mpm/setup::estimate-elastic-dt *sim*)))
 
 
-  ;; (cl-mpm:update-sim *sim*)
-  (cl-mpm:iterate-over-nodes
-   (cl-mpm:sim-mesh *sim*)
-   (lambda (node)
-     (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 0) 0d0)))
+  ;; ;; (cl-mpm:update-sim *sim*)
+  ;; (cl-mpm:iterate-over-nodes
+  ;;  (cl-mpm:sim-mesh *sim*)
+  ;;  (lambda (node)
+  ;;    (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 0) 0d0)))
 
-  (let ((node (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
-    (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0))
+  ;; (let ((node (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
+  ;;   (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0))
   ;; (let ((node (cl-mpm/mesh:get-node (cl-mpm:sim-mesh *sim*) (list 2 1 0))))
   ;;   (setf (cl-mpm/utils:varef (cl-mpm/mesh::node-displacment node) 1) 1d0))
 
@@ -1424,17 +1426,17 @@
   ;;   (cl-mpm/ghost::apply-ghost-cells-new mesh cell-a cell-b 1d5)
   ;;   (save-test-vtks)
   ;;   )
-  (setf (cl-mpm:sim-damping-factor *sim*)
-        (cl-mpm/setup::estimate-critical-damping *sim*))
+  ;; (setf (cl-mpm:sim-damping-factor *sim*)
+  ;;       (cl-mpm/setup::estimate-critical-damping *sim*))
   (let ((step 0)
         (dt-scale 0.5d0)
         (output-dir (merge-pathnames "./output/"))
         )
-    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+    ;; (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     ;; (cl-mpm:update-sim *sim*)
-    (setf (cl-mpm:sim-mps *sim*) (make-array 0))
-    (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-1))
-    (cl-mpm::update-cells *sim*)
+    ;; (setf (cl-mpm:sim-mps *sim*) (make-array 0))
+    ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-1))
+    ;; (cl-mpm::update-cells *sim*)
     ;; (let ((cell (cl-mpm/mesh::get-cell (cl-mpm:sim-mesh *sim*) (list 8 8 0))))
     ;;   (pprint cell)
     ;;   (break))
@@ -1509,15 +1511,15 @@
     ))
 
 
-(let* ((mesh (cl-mpm:sim-mesh *sim*))
-       (cell (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
-       (pos (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0 0d0))))
-  (cl-mpm::iterate-over-cell-shape-local
-   mesh
-   cell
-   pos
-   (lambda (node weight grad)
-     (print weight)
-     (print grad)
-     )))
+;; (let* ((mesh (cl-mpm:sim-mesh *sim*))
+;;        (cell (cl-mpm/mesh::get-cell mesh (list 0 0 0)))
+;;        (pos (cl-mpm/utils:vector-from-list (list 0.5d0 0.5d0 0d0))))
+;;   (cl-mpm::iterate-over-cell-shape-local
+;;    mesh
+;;    cell
+;;    pos
+;;    (lambda (node weight grad)
+;;      (print weight)
+;;      (print grad)
+;;      )))
 

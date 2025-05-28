@@ -580,19 +580,18 @@
   ;;                                                 (the double-float (mesh-resolution mesh))))
   ;;                        ) '(0 1 2))
   )
-(declare (inline position-to-index-round))
+(declaim (inline position-to-index-round))
 (defun position-to-index-round (mesh pos)
   (declare (type magicl:matrix/double-float pos))
   "Turn a vector position into a list of indexes with rounding"
   (let ((h (mesh-resolution mesh)))
     (declare (double-float h))
     (list
-     (the fixnum(round (the double-float (/ (the double-float (varef pos 0)) h))))
-     (the fixnum(round (the double-float (/ (the double-float (varef pos 1)) h))))
-     (the fixnum(round (the double-float (/ (the double-float (varef pos 2)) h))))
-     )))
+     (the fixnum (round (the double-float (varef pos 0)) h))
+     (the fixnum (round (the double-float (varef pos 1)) h))
+     (the fixnum (round (the double-float (varef pos 2)) h)))))
 
-(declare (inline position-to-index-floor))
+(declaim (inline position-to-index-floor))
 (defun position-to-index-floor (mesh pos)
   (declare (type magicl:matrix/double-float pos))
   "Turn a vector position into a list of indexes with rounding"
