@@ -131,7 +131,7 @@
                         (f-int cl-mpm/mesh::node-internal-force)
                         (f-damp cl-mpm/mesh::node-damping-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
-                        (residual cl-mpm/mesh::node-residual)
+                        ;; (residual cl-mpm/mesh::node-residual)
                         (node-oobf cl-mpm/mesh::node-oobf)
                         )
            node
@@ -144,9 +144,9 @@
                            (cl-mpm/fastmaths::mag-squared
                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
                                     (list
-                                     residual
-                                     ;; f-ext
-                                     ;; f-int
+                                     ;; residual
+                                     f-ext
+                                     f-int
                                      ;; ;; f-damp
                                      ;; f-ghost
                                      )
@@ -718,6 +718,7 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (setf (cl-mpm:sim-dt sim) (* 0.1d0 (cl-mpm::calculate-min-dt sim)))
         ;; (set-mass sim)
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
@@ -732,7 +733,6 @@
        (lambda (n)
          (when (cl-mpm/mesh::node-active n)
            (cl-mpm/mesh::reset-node-force n))))
-
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
@@ -743,7 +743,7 @@
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-      (cl-mpm/ghost::apply-half-step-ghost sim)
+      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
       (cl-mpm::update-dynamic-stats sim)
       (cl-mpm::g2p mesh mps dt vel-algo)
       )))
