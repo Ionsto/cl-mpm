@@ -89,7 +89,8 @@
                ;; :sim-type 'cl-mpm::mpm-sim-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
-                           :enable-fbar nil
+                           :dt-scale 0.5d0
+                           :enable-fbar t
                            :enable-aggregate t
                            :enable-split t)
                ))
@@ -127,6 +128,9 @@
                 ;; :initiation-stress 1d3
                 ;; :local-length (* 2 h)
                 ;; :ductility 100d0
+                ;; 'cl-mpm/particle::particle-elastic
+                ;; :E 1d6
+                ;; :nu 0.24d0
                 'cl-mpm/particle::particle-vm
                 :E 1d6
                 :nu 0.24d0
@@ -182,7 +186,7 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-7)
             nil
@@ -199,8 +203,7 @@
               (* 0d-1
                  (cl-mpm/setup:estimate-critical-damping sim))))
 
-      (setf *eta* (* 0.5d0
-                     (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d6 density)))
+      (setf *eta* (* 0.5d0 (cl-mpm/setup::estimate-stiffness-critical-damping sim 1d6 density)))
 
       (let ((dt-scale 1d0))
         (setf
@@ -952,7 +955,7 @@
 
 
 (defun test-static ()
-  (setup :mps 3 :refine 1)
+  (setup :mps 2 :refine 1)
   (run-static
    :output-dir "./output/"
    :dt-scale (/ 0.5d0 (sqrt 1d0))
@@ -991,15 +994,20 @@
                  (setf (cl-mpm:sim-damping-factor *sim*)
                        (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
+                 (cl-mpm:update-sim *sim*)
                  (let ((conv-steps 0)
-                       (substeps 10))
+                       (substeps 50)
+                       (i 0))
+                   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                   (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
                      :oobf-crit 1d-2
                      :energy-crit 1d-2
                      :kinetic-damping t
-                     :damping-factor 1d-1
+                     :damping-factor nil
                      :dt-scale dt-scale
                      :substeps substeps
                      :conv-steps 1000
@@ -1009,9 +1017,10 @@
                        (plot *sim*)
                        (vgplot:title (format nil "Step ~D - substep ~D - KE ~E - OOBF ~E"  step i energy oobf))
                        (format t "Substep ~D~%" i)
-                       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-                       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-                       (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                       (let ((i (+ 1 i)))
+                         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*))
                        (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
                          (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (get-plastic) (get-damage)
                                  oobf energy))
@@ -1523,21 +1532,42 @@
 ;;      (print grad)
 ;;      )))
 
+;; (defun print-agg ()
+;;   (let ((agg-list (list)))
+;;     (cl-mpm/aggregate::iterate-over-agg-elem
+;;      (cl-mpm/aggregate::sim-agg-elems *sim*)
+;;      (lambda (agg-elem)
+;;        (let ((node (first (cl-mpm/aggregate::agg-node-list agg-elem))))
+;;          (push (list node (cl-mpm/aggregate::agg-interior-cell agg-elem))
+;;                agg-list))))
+;;     (setf agg-list (remove-duplicates agg-list :key #'first))
+;;     (pprint agg-list)
+;;     (dolist (ag-n agg-list)
+;;       (destructuring-bind (node inter) ag-n
+;;         (format t "Agg ~A - interior ~A~%" (cl-mpm/mesh:node-index node) (cl-mpm/mesh::cell-index inter))))
+;;     ))
+
 (defun print-agg ()
-  (let ((agg-list (list)))
-    (cl-mpm/aggregate::iterate-over-agg-elem
-     (cl-mpm/aggregate::sim-agg-elems *sim*)
-     (lambda (agg-elem)
-       (cl-mpm/aggregate::iterate-over-agg-elem-nodes
-        *sim*
-        agg-elem
-        (lambda (node)
-          (push (list node (cl-mpm/aggregate::agg-interior-cell agg-elem))
-                agg-list)))))
-    (setf agg-list (remove-duplicates agg-list :key #'first))
-    (pprint agg-list)
-    (dolist (ag-n agg-list)
-      (destructuring-bind (node inter) ag-n
-        (format t "Agg ~A - interior ~A~%" (cl-mpm/mesh:node-index node) (cl-mpm/mesh::cell-index inter))))
-    ))
+  (loop for elem across (cl-mpm/aggregate::sim-agg-elems *sim*)
+        do (let* (;(elem (aref  8))
+                  (map-size 4)
+                  (map (make-array (list map-size map-size) :initial-element "-"))
+                  (center-index (cl-mpm/mesh::cell-index (cl-mpm/aggregate::agg-interior-cell elem))))
+             (cl-mpm/aggregate::iterate-over-agg-elem-nodes
+              *sim*
+              elem
+              (lambda (n)
+                (let ((ni (cl-mpm/mesh::node-index n)))
+                  (let ((index-diff (mapcar #'+ (list 1 1) (mapcar #'- ni center-index))))
+                    (setf (aref map (first index-diff) (second index-diff)) "x"))
+                  (format t "~a~%" ni))))
+             (loop for x from (- map-size 1) downto 0
+                   do (progn
+                        (loop for y from 0 below map-size
+                              do (format t "~A" (aref map y x))
+                              )
+                        (format t "~%")))
+             ;; (pprint (cl-mpm/aggregate::agg-shape-functions elem))
+             )))
+
 

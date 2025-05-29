@@ -395,7 +395,7 @@
   (setf
    (sim-agg-elems sim)
    (locate-aggregate-node-elements sim))
-  (set-aggregate-nodes sim)
+  ;; (set-aggregate-nodes sim)
   (iterate-over-agg-elem
    (sim-agg-elems sim)
    (lambda (elem)
@@ -425,13 +425,29 @@
      m
      E)
     ))
+(defun assemble-full-mass (sim elem)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (nc (length (agg-node-list elem)))
+         (m (cl-mpm/utils::arb-matrix
+             (* nd nc)
+             (* nd nc)))
+         (E (agg-shape-functions elem)))
+    (let ((iter 0))
+      (iterate-over-agg-elem-nodes
+       sim
+       elem
+       (lambda (n)
+         (let ((mi (cl-mpm/mesh::node-mass n)))
+           (loop for i from 0 below nd
+                 do (progn
+                      (setf (mtref M iter iter) mi)
+                      (incf iter)))))))
+    m))
 (defun assemble-vector (sim elem accessor)
   (declare (function accessor))
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (nc (length (agg-node-list elem)))
-         (f (cl-mpm/utils::arb-matrix
-             (* nd nc)
-             1)))
+         (f (cl-mpm/utils::arb-matrix (* nd nc) 1)))
     (let ((iter 0))
       (iterate-over-agg-elem-nodes
        sim
@@ -457,6 +473,27 @@
              n
            (loop for i from 0 below nd
                  do (setf (mtref f (+ iter i) 0) (varef force i)))
+           (incf iter nd)))))
+    f))
+(defun assemble-damping-force (sim elem damping-factor)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (nc (length (agg-node-list elem)))
+         (f (cl-mpm/utils::arb-matrix
+             (* nd nc)
+             1)))
+    (let ((iter 0))
+      (iterate-over-agg-elem-nodes
+       sim
+       elem
+       (lambda (n)
+         (with-accessors ((vel cl-mpm/mesh::node-velocity))
+             n
+           (loop for i from 0 below nd
+                 do (setf (mtref f (+ iter i) 0)
+                          (*
+                           (varef vel i)
+                           damping-factor
+                           -1d0)))
            (incf iter nd)))))
     f))
 (defun assemble-residual (sim elem)
@@ -493,12 +530,28 @@
                    do (setf (varef n-acc i) (mtref acc (+ iter i) 0)))
              (incf iter nd)))))
       )))
+(defun project-vel (sim elem acc)
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (E (agg-shape-functions elem))
+         (acc (magicl:@ E acc)))
+    (let ((iter 0))
+      (iterate-over-agg-elem-nodes
+       sim
+       elem
+       (lambda (n)
+         (when (cl-mpm/mesh::node-agg n)
+           (with-accessors ((n-acc cl-mpm/mesh::node-velocity))
+               n
+             (loop for i from 0 below nd
+                   do (setf (varef n-acc i) (mtref acc (+ iter i) 0)))
+             (incf iter nd))))))))
 
-(defun project-sub-forces (sim elem f-int f-ext)
+(defun project-sub-forces (sim elem f-int f-ext f-total)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (E (agg-shape-functions elem))
          (f-int (magicl:@ E (magicl:transpose E) f-int))
          (f-ext (magicl:@ E (magicl:transpose E) f-ext))
+         ;; (f-damp (magicl:@ E (magicl:transpose E) f-damp))
          )
     (let ((iter 0))
       (iterate-over-agg-elem-nodes
@@ -507,12 +560,21 @@
        (lambda (n)
          (when (cl-mpm/mesh::node-agg n)
            (with-accessors ((n-force-int cl-mpm/mesh::node-internal-force)
-                            (n-force-ext cl-mpm/mesh::node-external-force))
+                            (n-force-ext cl-mpm/mesh::node-external-force)
+                            (n-force-damp cl-mpm/mesh::node-damping-force)
+                            (n-force cl-mpm/mesh::node-force)
+                            )
                n
              (loop for i from 0 below nd
                    do (setf (varef n-force-int i) (mtref f-int (+ iter i) 0)
-                            (varef n-force-ext i) (mtref f-ext (+ iter i) 0)))
+                            (varef n-force-ext i) (mtref f-ext (+ iter i) 0)
+                            (varef n-force i) (mtref f-total (+ iter i) 0)
+                            )
+                      ;; (setf (varef))
+                      ;; (incf (varef n-force i) (mtref f-damp (+ iter i) 0))
+                   )
              (incf iter nd))))))))
+
 
 (defun project-residual (sim elem residual)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
@@ -532,18 +594,24 @@
              (incf iter nd)))))
       )))
 
-(defun calculate-forces-agg-elem (sim elem)
+(defun calculate-forces-agg-elem (sim elem damping)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (E (agg-shape-functions elem))
          (m (agg-mass-matrix elem))
          (f (assemble-force sim elem))
          (f-int (assemble-vector sim elem #'cl-mpm/mesh::node-internal-force))
          (f-ext (assemble-vector sim elem #'cl-mpm/mesh::node-external-force))
+         ;; (f-damp (magicl:@ M (magicl:transpose E) (assemble-damping-force sim elem damping)))
          ;; (res (assemble-residual sim elem))
          )
-    (let ((acc (magicl:linear-solve m (magicl:@ (magicl:transpose E) f))))
+    ;; (break)
+    ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+    (let ((acc (magicl:linear-solve m (magicl:@ (magicl:transpose E)
+                                                f
+                                                ))))
       (project-acc sim elem acc)
-      (project-sub-forces sim elem f-int f-ext)
+      ;; (project-damping sim elem f-int f-ext)
+      (project-sub-forces sim elem f-int f-ext (magicl:@ E (magicl:transpose E) f))
       )))
 
 (declaim (notinline update-node-kinematics))
@@ -585,7 +653,7 @@
       (iterate-over-agg-elem
        agg-elems
        (lambda (elem)
-         (calculate-forces-agg-elem sim elem))))
+         (calculate-forces-agg-elem sim elem damping))))
     ;; (break)
     (iterate-over-nodes
      mesh
@@ -594,6 +662,17 @@
                   (cl-mpm/mesh::node-agg node))
          (cl-mpm/fastmaths:fast-fmacc
           (cl-mpm/mesh::node-velocity node)
-          (cl-mpm/mesh::node-acceleration node) dt))))))
+          (cl-mpm/mesh::node-acceleration node) dt))))
+    ;; (when enable-aggregate
+    ;;   (iterate-over-agg-elem
+    ;;    agg-elems
+    ;;    (lambda (elem)
+    ;;      (let* ((E (agg-shape-functions elem))
+    ;;             (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity))
+    ;;             (m-i (assemble-full-mass sim elem))
+    ;;             (m (agg-mass-matrix elem)))
+    ;;        ;; (break)
+    ;;        (project-vel sim elem (magicl:linear-solve m (magicl:@ (magicl:transpose E) (magicl:@ m-i v-i))))))))
+    ))
 
 
