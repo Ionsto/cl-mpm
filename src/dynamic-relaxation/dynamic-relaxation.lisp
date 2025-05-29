@@ -139,7 +139,7 @@
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
                (let ((inc (*
-                           (expt (cl-mpm/mesh:node-mass node) 2)
+                           (expt (cl-mpm/mesh:node-mass node) 1)
                            ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                            (cl-mpm/fastmaths::mag-squared
                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
@@ -158,7 +158,7 @@
                        dmax (+
                              dmax
                              (*
-                              (expt (cl-mpm/mesh:node-mass node) 2)
+                              (expt (cl-mpm/mesh:node-mass node) 1)
                               ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
                               (cl-mpm/fastmaths::mag-squared
                                f-ext)))))))))))

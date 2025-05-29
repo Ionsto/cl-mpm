@@ -15,8 +15,9 @@
    #:make-bc-penalty-distance-point
    #:save-vtk-penalties
    #:bc-penalty-friction))
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/penalty)
 
 (defclass bc-penalty-structure (bc-penalty)
@@ -503,6 +504,7 @@
                                    epsilon
                                    ;; h
                                    (expt volume (/ (- nd 1) nd)))))
+             (pprint normal-force)
              (sb-thread:with-mutex (*debug-mutex*)
                (incf *debug-force* (* normal-force 1d0))
                (incf *debug-force-count* 1))
@@ -618,10 +620,7 @@
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
                               (expt penetration 1)
                               epsilon
-                              contact-area))
-               ;; (point (cl-mpm/fastmaths::fast-.- point mp-disp-inc point))
-               ;; (point trial-point)
-               )
+                              contact-area)))
           (sb-thread:with-mutex (debug-mutex)
             (incf debug-load normal-force))
           (setf mp-contact t)
@@ -691,6 +690,7 @@
                  (declare (double-float volume svp))
                  ;;Lock node for multithreading
                  (when node-active
+                   ;; (break)
                    ;;Lock node for multithreading
                    ;; (let ((svp (* svp (/ node-volume node-volume-t)))))
                    (sb-thread:with-mutex (node-lock)
@@ -780,13 +780,8 @@
               mesh
               mp
               (lambda (corner-trial)
-                (let* (
-                       (disp (compute-corner-displacement mesh mp corner-trial))
-                       (corner
-                         ;; corner-trial
-                         (cl-mpm/fastmaths:fast-.+ corner-trial disp)
-                         ;; (cl-mpm/fastmaths:fast-.+ corner-trial (cl-mpm/particle::mp-displacement-increment mp))
-                         ))
+                (let* ((disp (compute-corner-displacement mesh mp corner-trial))
+                       (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
                   (let* ((penetration-dist (penetration-distance-point corner datum normal)))
                     (declare (double-float penetration-dist))
                     (when (and

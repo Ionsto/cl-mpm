@@ -35,7 +35,7 @@
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-stretch mesh mp dt)
   ;; ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
+  (cl-mpm::scale-domain-size mesh mp)
   ;;Each step we reset key metrics to initial pre-psudo step values
   )
 
@@ -74,9 +74,13 @@
 
 (defun stop ()
   (setf *run-sim* nil))
+(defclass mpm-sim-agg-usf (cl-mpm::mpm-sim-usf cl-mpm/aggregate::mpm-sim-aggregated)
+  ()
+  (:documentation "Explicit simulation with update stress first update"))
 
 (defun setup-test-column (size block-size sim-type &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-simple-sim;-sd
+  (let* (
+         (sim (cl-mpm/setup::make-simple-sim;-sd
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type
@@ -85,13 +89,13 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               :sim-type 'mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
-                           :dt-scale 0.5d0
+                           :dt-scale 0.8d0
                            :enable-fbar t
-                           :enable-aggregate t
+                           :enable-aggregate nil
                            :enable-split t)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -99,6 +103,7 @@
          (h-y (/ h 1d0))
          (density 1d3)
          (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
+         (offset (* h 2))
          )
     (declare (double-float h density))
     (progn
@@ -114,7 +119,9 @@
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
-                (mapcar (lambda (x) 0) size)
+                (mapcar #'+
+                          (mapcar (lambda (x) 0) size)
+                          (list 0 offset 0))
                 block-size
                 (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
                 density
@@ -172,12 +179,12 @@
                 ;; :phi (* 40d0 (/ pi 180))
                 ;; :c (* init-c oversize)
 
-                :gravity -20.0d0
+                :gravity -1.0d0
                 :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
                 ))))
       (cl-mpm/setup::initialise-stress-self-weight
        sim
-       (second block-size))
+       (+ offset (second block-size)))
       ;; (format t "Charictoristic time ~E~%" (/ ))
       ;; (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-max-split-depth sim) 6)
@@ -238,32 +245,26 @@
          0.5d0
          0.5d0
          ))
-      ;; (cl-mpm:add-bcs-force-list
-      ;;  sim
-      ;;  *bc-squish*)
-      ;; (defparameter *water*
-      ;;   (cl-mpm/buoyancy::make-bc-buoyancy-clip
-      ;;    sim
-      ;;    4d0
-      ;;    1000d0
-      ;;    (lambda (pos datum)
-      ;;      t
-      ;;      ;(>= (cl-mpm/utils:varef pos 1) (* mesh-resolution 0))
-      ;;      )
-      ;;    :visc-damping 0d0))
-      ;; (cl-mpm:add-bcs-force-list
-      ;;  sim
-      ;;  *water*)
-      ;; (setf
-      ;;  (cl-mpm:sim-bcs sim)
-      ;;  (cl-mpm/bc::make-outside-bc-varfix
-      ;;   (cl-mpm:sim-mesh sim)
-      ;;   '(0 nil 0)
-      ;;   '(0 nil 0)
-      ;;   '(nil 0 nil)
-      ;;   '(nil 0 nil)
-      ;;   '(nil nil 0)
-      ;;   '(nil nil 0)))
+
+      (let ((domain-half (* 0.5d0 (first block-size)))
+            (friction 0.1d0)
+            (E 1d6))
+        (defparameter *floor-bc*
+          (cl-mpm/penalty::make-bc-penalty-distance-point
+           *sim*
+           (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+           (cl-mpm/utils:vector-from-list (list
+                                           domain-half
+                                           offset
+                                           0d0))
+           (* domain-half 1d0)
+           (* E 1d2)
+           friction
+           0.1d0)))
+      (when (> offset 0d0)
+        (cl-mpm:add-bcs-force-list
+         sim
+         *floor-bc*))
       sim)))
 
 
@@ -324,9 +325,8 @@
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
-         (dt-min (cl-mpm:sim-dt *sim*))
-         )
+         (dt-scale 0.1d0)
+         (dt-min (cl-mpm:sim-dt *sim*)))
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d-3
              (cl-mpm/setup:estimate-critical-damping *sim*)))
@@ -352,6 +352,7 @@
                      (format t "Step ~d ~%" steps)
                      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" *sim-step*)) *sim* )
                      ;; (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_p_~5,'0d.vtk" *sim-step*)) (cl-mpm::sim-mesh-p *sim*))
                      (setf dt-min (cl-mpm::calculate-min-dt *sim*))
                      (time
@@ -373,10 +374,10 @@
                          (setf energy (abs (/ energy work))))
 
                      (format t "Min dt est ~f~%" dt-min)
-                     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                       (format t "CFL dt estimate: ~f~%" dt-e)
-                       (format t "CFL step count estimate: ~D~%" substeps-e)
-                       (setf substeps substeps-e))
+                     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                     ;;   (format t "CFL dt estimate: ~f~%" dt-e)
+                     ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
+                     ;;   (setf substeps substeps-e))
                      ;; (setf (cl-mpm:sim-dt *sim*) (* dt-min dt-scale))
                      ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                      (format t "Substeps ~D~%" substeps)
@@ -957,8 +958,8 @@
 (defun test-static ()
   (setup :mps 2 :refine 1)
   (run-static
-   :output-dir "./output/"
-   :dt-scale (/ 0.5d0 (sqrt 1d0))
+   :output-dir "./output-agg/"
+   :dt-scale (/ 0.8d0 (sqrt 1d0))
    :load-steps 10
    ))
 
@@ -991,23 +992,23 @@
                 (lambda (mp)
                   (setf (cl-mpm/particle:mp-gravity mp) current-load)))
                (let ((crit (cl-mpm/setup:estimate-critical-damping *sim*)))
-                 (setf (cl-mpm:sim-damping-factor *sim*)
-                       (* 0.1d0 crit))
+                 ;; (setf (cl-mpm:sim-damping-factor *sim*)
+                 ;;       (* 0.1d0 crit))
                  (defparameter *ke-last* 0d0)
-                 (cl-mpm:update-sim *sim*)
+                 ;; (cl-mpm:update-sim *sim*)
                  (let ((conv-steps 0)
                        (substeps 50)
                        (i 0))
-                   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-                   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-                   (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                   ;; (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                   ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+                   ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*)
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      *sim*
                      :oobf-crit 1d-2
                      :energy-crit 1d-2
                      :kinetic-damping t
-                     :damping-factor nil
+                     :damping-factor 1d-2
                      :dt-scale dt-scale
                      :substeps substeps
                      :conv-steps 1000
@@ -1017,7 +1018,7 @@
                        (plot *sim*)
                        (vgplot:title (format nil "Step ~D - substep ~D - KE ~E - OOBF ~E"  step i energy oobf))
                        (format t "Substep ~D~%" i)
-                       (let ((i (+ 1 i)))
+                       (let ((i (+ 0 i)))
                          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
                          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
                          (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*))
@@ -1548,26 +1549,59 @@
 ;;     ))
 
 (defun print-agg ()
-  (loop for elem across (cl-mpm/aggregate::sim-agg-elems *sim*)
-        do (let* (;(elem (aref  8))
-                  (map-size 4)
-                  (map (make-array (list map-size map-size) :initial-element "-"))
-                  (center-index (cl-mpm/mesh::cell-index (cl-mpm/aggregate::agg-interior-cell elem))))
-             (cl-mpm/aggregate::iterate-over-agg-elem-nodes
-              *sim*
-              elem
-              (lambda (n)
-                (let ((ni (cl-mpm/mesh::node-index n)))
-                  (let ((index-diff (mapcar #'+ (list 1 1) (mapcar #'- ni center-index))))
-                    (setf (aref map (first index-diff) (second index-diff)) "x"))
-                  (format t "~a~%" ni))))
-             (loop for x from (- map-size 1) downto 0
-                   do (progn
-                        (loop for y from 0 below map-size
-                              do (format t "~A" (aref map y x))
-                              )
-                        (format t "~%")))
-             ;; (pprint (cl-mpm/aggregate::agg-shape-functions elem))
-             )))
+  ;; (loop for elem across (cl-mpm/aggregate::sim-agg-elems *sim*)
+  ;;       do)
+  (let* ((elem (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 8))
+         (map-size 4)
+         (map (make-array (list map-size map-size) :initial-element "-"))
+         (center-index (cl-mpm/mesh::cell-index (cl-mpm/aggregate::agg-interior-cell elem))))
+    (cl-mpm/aggregate::iterate-over-agg-elem-nodes
+     *sim*
+     elem
+     (lambda (n)
+       (let ((ni (cl-mpm/mesh::node-index n)))
+         (let ((index-diff (mapcar #'+ (list 1 1) (mapcar #'- ni center-index))))
+           (setf (aref map (first index-diff) (second index-diff)) "x"))
+         (format t "~a ~A~%" ni (cl-mpm/mesh::node-agg n)))))
+    (loop for x from (- map-size 1) downto 0
+          do (progn
+               (loop for y from 0 below map-size
+                     do (format t "~A" (aref map y x)))
+               (format t "~%")))
+    (let ((E (cl-mpm/aggregate::agg-shape-functions elem))
+          (m (cl-mpm/aggregate::agg-mass-matrix elem))
+          (mii (cl-mpm/aggregate::assemble-full-mass *sim* elem))
+          (v (cl-mpm/aggregate::assemble-vector *sim* elem #'cl-mpm/mesh::node-velocity))
+          )
+      ;; (pprint mii)
+      ;; (pprint m)
+      (pprint (magicl:@ E (magicl:transpose E) v))
+      (pprint v)
+      ;; (pprint
+      ;;  (magicl:@
+      ;;   E
+      ;;   (magicl:linear-solve
+      ;;    m
+      ;;    (magicl:@ (magicl:transpose E) (magicl:@ mii v)))))
+
+      ;; (let ((temp
+      ;;         (magicl:@
+      ;;          E
+      ;;          (magicl:inv m)
+      ;;          (magicl:@ (magicl:transpose E) (magicl:@ mii)))
+      ;;         ))
+      ;;   (pprint 
+      ;;    (magicl:@ (cl-mpm/aggregate::agg-vel-projection-matrix elem) v))
+      ;;   (pprint
+      ;;    (magicl:@ temp v)
+      ;;    ))
+      ;; (pprint
+      ;;  (magicl:@
+      ;;   (cl-mpm/aggregate::agg-vel-projection-matrix elem)
+      ;;   v
+      ;; ;;   ))
+      ;; (pprint v)
+      )
+    ))
 
 

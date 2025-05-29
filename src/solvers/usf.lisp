@@ -47,6 +47,8 @@
         (apply-bcs mesh bcs dt)
         ;; (reset-node-displacement sim)
         ;; (update-nodes sim)
+        (apply-bcs mesh bcs dt)
+
         (update-dynamic-stats sim)
         ;; (update-nodes sim)
         ;; Also updates mps inline

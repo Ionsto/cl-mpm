@@ -33,7 +33,13 @@
    (mass-matrix
     :initform nil
     :accessor agg-mass-matrix
-    )))
+    )
+   (init-mass-matrix
+    :initform nil
+    :accessor agg-init-mass-matrix)
+   (vel-projection-matrix
+    :initform nil
+    :accessor agg-vel-projection-matrix)))
 
 ;; (defclass aggregate-node ()
 ;;   ((interior-cell
@@ -400,7 +406,17 @@
    (sim-agg-elems sim)
    (lambda (elem)
      (compute-extension-matrix sim elem)
-     (setf (agg-mass-matrix elem) (assemble-mass sim elem)))))
+     (setf (agg-mass-matrix elem) (assemble-mass sim elem)
+           (agg-init-mass-matrix elem) (assemble-full-mass sim elem))
+     (let* ((E (agg-shape-functions elem))
+            (m-i (agg-init-mass-matrix elem))
+            (m (agg-mass-matrix elem)))
+       (setf (agg-vel-projection-matrix elem)
+             (magicl:@
+              E
+              (magicl:inv m)
+              (magicl:@ (magicl:transpose E) m-i))))
+     )))
 
 
 (defun assemble-mass (sim elem)
@@ -531,9 +547,7 @@
              (incf iter nd)))))
       )))
 (defun project-vel (sim elem acc)
-  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-         (E (agg-shape-functions elem))
-         (acc (magicl:@ E acc)))
+  (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim))))
     (let ((iter 0))
       (iterate-over-agg-elem-nodes
        sim
@@ -549,8 +563,10 @@
 (defun project-sub-forces (sim elem f-int f-ext f-total)
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (E (agg-shape-functions elem))
-         (f-int (magicl:@ E (magicl:transpose E) f-int))
-         (f-ext (magicl:@ E (magicl:transpose E) f-ext))
+         (proj (magicl:@ E (magicl:transpose E)))
+         (f-int (magicl:@ proj f-int))
+         (f-ext (magicl:@ proj f-ext))
+         (f-total (magicl:@ proj f-total))
          ;; (f-damp (magicl:@ E (magicl:transpose E) f-damp))
          )
     (let ((iter 0))
@@ -611,14 +627,22 @@
                                                 ))))
       (project-acc sim elem acc)
       ;; (project-damping sim elem f-int f-ext)
-      (project-sub-forces sim elem f-int f-ext (magicl:@ E (magicl:transpose E) f))
+      (project-sub-forces sim elem f-int f-ext f)
       )))
+(defun calculate-kinematics-agg-elem (sim elem)
+  (let* ((vel-project (agg-vel-projection-matrix elem))
+         (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity)))
+    (project-vel sim elem
+                 (magicl:@
+                  vel-project
+                  v-i))))
 
 (declaim (notinline update-node-kinematics))
 (defmethod update-node-kinematics ((sim mpm-sim-aggregated))
   ;;For non-aggregate nodes, use simple mass matrix inversion
   (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (agg-elems sim-agg-elems))
+                   (agg-elems sim-agg-elems)
+                   (enable-aggregate sim-enable-aggregate))
       sim
     (cl-mpm:iterate-over-nodes
      mesh
@@ -626,10 +650,11 @@
        (unless (cl-mpm/mesh::node-agg node)
          (cl-mpm::calculate-kinematics node))))
     ;;For each aggregated element set solve mass matrix and velocity
-    (iterate-over-agg-elem
-     agg-elems
-     (lambda (elem)
-       (calculate-kinematics-agg-elem sim elem)))))
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (calculate-kinematics-agg-elem sim elem))))))
 
 (defmethod cl-mpm::update-node-forces ((sim mpm-sim-aggregated))
   ;;For non-aggregate nodes, use simple mass matrix inversion
@@ -641,6 +666,18 @@
                    (enable-aggregate sim-enable-aggregate)
                    (dt sim-dt))
       sim
+
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (let* ((vel-project (agg-vel-projection-matrix elem))
+                (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity)))
+           (project-vel sim elem
+                        (magicl:@
+                         vel-project
+                          v-i))))))
+
     (iterate-over-nodes
      mesh
      (lambda (node)
@@ -663,16 +700,31 @@
          (cl-mpm/fastmaths:fast-fmacc
           (cl-mpm/mesh::node-velocity node)
           (cl-mpm/mesh::node-acceleration node) dt))))
+
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (let* ((vel-project (agg-vel-projection-matrix elem))
+                (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity)))
+           (project-vel sim elem
+                        (magicl:@
+                         vel-project
+                         v-i))))))
     ;; (when enable-aggregate
     ;;   (iterate-over-agg-elem
     ;;    agg-elems
     ;;    (lambda (elem)
     ;;      (let* ((E (agg-shape-functions elem))
-    ;;             (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity))
-    ;;             (m-i (assemble-full-mass sim elem))
-    ;;             (m (agg-mass-matrix elem)))
-    ;;        ;; (break)
-    ;;        (project-vel sim elem (magicl:linear-solve m (magicl:@ (magicl:transpose E) (magicl:@ m-i v-i))))))))
+    ;;             (m-i (agg-init-mass-matrix elem))
+    ;;             (m (agg-mass-matrix elem))
+    ;;             (v-i (assemble-vector sim elem #'cl-mpm/mesh::node-velocity)))
+    ;;        (project-vel sim elem
+    ;;                     (magicl:@
+    ;;                      E
+    ;;                      (magicl:linear-solve
+    ;;                       m
+    ;;                       (magicl:@ (magicl:transpose E) m-i v-i))))))))
     ))
 
 
