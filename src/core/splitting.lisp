@@ -216,9 +216,9 @@
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth)
-                   (split-factor cl-mpm::sim-split-factor)
-                   )
+                   (split-factor cl-mpm::sim-split-factor))
       sim
+    (declare (fixnum max-split-depth))
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth))
                                         (remove-if-not (lambda (mp) (split-criteria-variable mp h split-factor)) mps)))

@@ -111,12 +111,16 @@
              (G (/ E (* 2 (+ 1d0 nu))))
              (identity (cl-mpm/utils:matrix-eye 1d0))
              (d-neq
-               (cl-mpm/fastmaths::fast-scale!
-                (cl-mpm/utils:matrix-from-list (list
-                                                (- 1d0 nu) nu nu
-                                                nu (- 1d0 nu) nu
-                                                nu nu (- 1d0 nu)))
-                (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
+               (fast-scale
+                dev
+                G)
+               ;; (cl-mpm/fastmaths::fast-scale!
+               ;;  (cl-mpm/utils:matrix-from-list (list
+               ;;                                  (- 1d0 nu) nu nu
+               ;;                                  nu (- 1d0 nu) nu
+               ;;                                  nu nu (- 1d0 nu)))
+               ;;  (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+               )
              ;; (d-neq (cl-mpm/fastmaths::fast-scale
              ;;         dev
              ;;         (* 2 G)))

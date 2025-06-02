@@ -118,6 +118,11 @@
     :accessor sim-enable-fbar
     :initarg :enable-fbar
     :initform nil)
+   (mp-removal-size
+    :type (or null double-float)
+    :accessor sim-mp-removal-size
+    :initarg :mp-removal-size
+    :initform 1d0)
    (ghost-factor
     :accessor sim-ghost-factor
     :initarg :ghost-factor

@@ -273,16 +273,11 @@
     (progn
       (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
         (progn
-          ;(setf df-inc df)
           (cl-mpm/utils:matrix-copy-into df df-inc)
-          ;; (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
-          ;(setf volume (* volume (the double-float dj)))
-          ;; (setf volume (* volume (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-          ;; (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def-0))))
+          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def-0))))
           (when (<= volume 0d0)
             (error "Negative volume"))))))
   (values))
@@ -376,7 +371,7 @@
         ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ;; (cl-mpm/fastmaths::m-)
-        (setf stress (cl-mpm/utils:matrix-to-voight (magicl:@ (cl-mpm/utils:voight-to-matrix stress-kirchoff) (magicl:inv df-inc)) stress))
+        (setf stress (cl-mpm/utils:matrix-to-voight (magicl:linear-solve df-inc (cl-mpm/utils:voight-to-matrix stress-kirchoff)) stress))
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def-0))))
         ))))
 

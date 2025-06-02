@@ -14,6 +14,9 @@
             type
             0d0)))
 
+(defun save-conv-preamble (output-dir)
+  (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
+    (format stream "iter,step,plastic,damage,oobf,energy~%")))
 (defun save-conv-step (sim output-dir total-iter step oobf energy)
   (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
     (format stream "~D,~D,~f,~f,~f,~f~%" total-iter step (get-plastic sim) (get-damage sim)
@@ -249,8 +252,7 @@
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
       (format stream "steps,time,damage,plastic,energy,oobf,step-type,mass~%"))
-    (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
-      (format stream "iter,step,plastic,damage,oobf,energy~%"))
+    (save-conv-preamble output-dir)
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)
      (lambda (mp)
@@ -346,3 +348,88 @@
 ;;   )
 
 
+
+
+(defun run-load-control (sim
+                         &key (output-dir "./output/")
+                           (loading-function nil)
+                           (load-steps 10)
+                           (substeps 50)
+                           (damping 1d-1)
+                           (kinetic-damping t)
+                           (adaptive-damping t)
+                           (criteria 1d-3)
+                           (post-conv-step (lambda (sim)))
+                           (plotter (lambda (sim)))
+                           (save-vtk-dr t)
+                           (save-vtk-loadstep t)
+                           (dt-scale 0.5d0))
+  (uiop:ensure-all-directories-exist (list output-dir))
+  (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+  (save-conv-preamble output-dir)
+  (with-accessors ((mps cl-mpm:sim-mps))
+      sim
+    (let* ((load (cl-mpm/particle::mp-gravity (aref (cl-mpm:sim-mps sim) 0)))
+           (total-iter 0))
+      (unless loading-function
+        (setf loading-function (lambda (percent)
+                                 (format t "Loading factor ~E~%" percent)
+                                 (cl-mpm:iterate-over-mps
+                                  mps
+                                  (lambda (mp)
+                                    (setf (cl-mpm/particle:mp-gravity mp) (* load percent)))))))
+      (when damping
+        (setf (cl-mpm::sim-damping-factor sim)
+              (* damping (cl-mpm/setup:estimate-critical-damping sim))))
+      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+      (loop for step from 1 to load-steps
+            while (cl-mpm::sim-run-sim sim)
+            do
+               (progn
+                 (defparameter *ke-last* 0d0)
+                 ;; (pprint step)
+                 (funcall loading-function (/ (float step) load-steps))
+                 (let ((conv-steps 0)
+                       (i 0))
+                   (time
+                    (cl-mpm/dynamic-relaxation:converge-quasi-static
+                     sim
+                     :oobf-crit criteria
+                     :energy-crit criteria
+                     :kinetic-damping kinetic-damping
+                     :damping-factor (if adaptive-damping damping nil)
+                     :dt-scale dt-scale
+                     :substeps substeps
+                     :conv-steps 1000
+                     :post-iter-step
+                     (lambda (i energy oobf)
+                       (setf conv-steps (* substeps i))
+                       (vgplot:title (format nil "Step ~D - substep ~D - KE ~E - OOBF ~E"  step (* i substeps) energy oobf))
+                       (format t "Substep ~D~%" i)
+                       (let ((i (+ 0 i)))
+                         (when save-vtk-dr
+                           (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
+                           (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
+                           (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) sim)))
+                       (save-conv-step sim output-dir total-iter step oobf energy)
+                       (funcall plotter sim)
+                       (incf total-iter substeps)
+                       )))
+                   (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
+                   ))
+               (funcall post-conv-step sim)
+               (when save-vtk-loadstep
+                 (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
+                 (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
+               (cl-mpm::finalise-loadstep sim)
+               (funcall plotter sim)
+               (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
+                                  :terminal "png size 1920,1080"
+                                  )
+               (when save-vtk-loadstep
+                 (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
+                 (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
+               (sleep 0.1d0)
+               (swank.live:update-swank)
+
+            ))))

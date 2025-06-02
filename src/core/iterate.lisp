@@ -221,13 +221,29 @@ Calls func with only the node"
 
   (values))
 
+(defun iterate-over-mps (mps func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (array cl-mpm/particle:particle) mps))
+  ;; (dotimes (i (length mps))
+  ;;   (funcall func (aref mps i)))
+  (lparallel:pdotimes (i (length mps))
+    (funcall func (aref mps i)))
+  ;; (omp
+  ;;  mps
+  ;;   (lambda (i)
+  ;;     (funcall func (aref mps i))))
+  ;; (better-pdotimes
+  ;;  mps
+  ;;  (lambda (i)
+  ;;    (funcall func (aref mps i))))
+  (values))
 
 (defun reduce-over-nodes (mesh map reduce)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
       mesh
     (lparallel:pmap-reduce
-     ;; (lambda (node)
-     ;;   (when (cl-mpm::node-active node)))
      map
      reduce
      (make-array (array-total-size nodes)
@@ -1276,8 +1292,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (flet ((update (x y)
            (let ((domain (cl-mpm/particle::mp-domain-size mp))
                  (position (cl-mpm/particle:mp-position mp))
-                 (corner (cl-mpm/utils:vector-zeros))
-                 )
+                 (corner (cl-mpm/utils:vector-zeros)))
              (declare (double-float x y))
              (cl-mpm/fastmaths::fast-.+-vector
               position

@@ -416,7 +416,6 @@
                          do
                             (let ((di (list i j k)))
                               (incf (nth dimension di) direction)
-                              (break)
                               (when (in-bounds-cell mesh di)
                                 (push (apply #'aref cells di) cart-neighbours))))))
         ))

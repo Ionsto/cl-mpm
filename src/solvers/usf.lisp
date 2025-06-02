@@ -36,6 +36,7 @@
         (apply-bcs mesh bcs dt)
         (update-nodes sim)
         (update-cells sim)
+
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
         (p2g-force mesh mps)
@@ -44,11 +45,10 @@
                 do (apply-bcs mesh bcs-f dt)))
         (update-node-forces sim)
         ;; Reapply velocity BCs
+        ;; (apply-bcs mesh bcs dt)
+        (reset-node-displacement sim)
+        (update-nodes sim)
         (apply-bcs mesh bcs dt)
-        ;; (reset-node-displacement sim)
-        ;; (update-nodes sim)
-        (apply-bcs mesh bcs dt)
-
         (update-dynamic-stats sim)
         ;; (update-nodes sim)
         ;; Also updates mps inline

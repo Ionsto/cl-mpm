@@ -1,1 +1,350 @@
 (in-package :cl-mpm/dynamic-relaxation)
+
+
+
+(defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr))
+  ;;DR algorithm requires that finalisation is called once
+  (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  (cl-mpm::new-loadstep sim))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-dr-usf))
+  "Update stress last algorithm"
+  (declare (cl-mpm::mpm-sim sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (vel-algo cl-mpm::velocity-algorithm))
+                sim
+    (declare (type double-float mass-filter))
+                (progn
+                    (cl-mpm::reset-grid mesh)
+                    (cl-mpm::p2g mesh mps)
+                    (when (> mass-filter 0d0)
+                      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+                    (cl-mpm::update-node-kinematics sim)
+                    (cl-mpm::apply-bcs mesh bcs dt)
+
+                    (cl-mpm::update-nodes sim)
+
+                    (cl-mpm::update-stress mesh mps dt fbar)
+                    (cl-mpm::p2g-force mesh mps)
+                    (cl-mpm::apply-bcs mesh bcs-force dt)
+                    (loop for bcs-f in bcs-force-list
+                          do (cl-mpm::apply-bcs mesh bcs-f dt))
+                    ;;Update our nodes after force mapping
+                    (cl-mpm::update-node-forces sim)
+                    (cl-mpm::apply-bcs mesh bcs dt)
+                    ;; (cl-mpm::update-nodes sim)
+                    (cl-mpm::update-dynamic-stats sim)
+                    (cl-mpm::g2p mesh mps dt vel-algo)
+                    ;; (when remove-damage
+                    ;;   (cl-mpm::remove-material-damaged sim))
+                    ;; (when split
+                    ;;   (cl-mpm::split-mps sim))
+                    ;; (cl-mpm::check-mps sim)
+                    )))
+(defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-ul))
+  ;;DR algorithm requires that finalisation is called once
+  (setf (sim-initial-setup sim) nil)
+
+  (cl-mpm::update-nodes sim)
+  (cl-mpm::g2p (cl-mpm:sim-mesh sim)
+               (cl-mpm:sim-mps sim)
+               (cl-mpm:sim-dt sim)
+               (cl-mpm::sim-velocity-algorithm sim))
+  ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  ;; (cl-mpm::new-loadstep sim)
+  (call-next-method)
+  )
+(defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
+  "Update stress last algorithm"
+  (declare (cl-mpm::mpm-sim sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (ghost-factor cl-mpm::ghost-factor)
+               (initial-setup initial-setup)
+               (vel-algo cl-mpm::velocity-algorithm))
+                sim
+    (declare (type double-float mass-filter))
+    (progn
+      (unless initial-setup
+        (cl-mpm::reset-grid mesh)
+        (cl-mpm::p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        ;; (set-mass sim)
+        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
+        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-cells sim)
+        (cl-mpm/aggregate::update-aggregate-elements sim)
+        (setf initial-setup t)
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (midpoint-starter sim))
+
+      (cl-mpm::update-nodes sim)
+      (cl-mpm::update-cells sim)
+
+      (cl-mpm::reset-nodes-force sim)
+      (cl-mpm::update-stress mesh mps dt fbar)
+      (cl-mpm::p2g-force mesh mps)
+      (cl-mpm::apply-bcs mesh bcs-force dt)
+      (loop for bcs-f in bcs-force-list
+            do (cl-mpm::apply-bcs mesh bcs-f dt))
+      ;; (when ghost-factor
+      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      ;;Update our nodes after force mapping
+      (cl-mpm::update-node-forces sim)
+      (cl-mpm::apply-bcs mesh bcs dt)
+      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
+      (cl-mpm::update-dynamic-stats sim)
+      ;; (cl-mpm::g2p mesh mps dt vel-algo)
+      )))
+
+(defun midpoint-starter (sim)
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list))
+                sim
+    (progn
+      (cl-mpm::update-stress mesh mps dt fbar)
+      (cl-mpm::p2g-force mesh mps)
+      (cl-mpm::apply-bcs mesh bcs-force dt)
+      (loop for bcs-f in bcs-force-list
+            do (cl-mpm::apply-bcs mesh bcs-f dt))
+      (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
+      (cl-mpm::apply-bcs mesh bcs dt))
+    ))
+
+(defmethod cl-mpm::update-cells ((sim mpm-sim-dr-ul))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt)
+                   (agg cl-mpm::sim-enable-aggregate)
+                   )
+      sim
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (cl-mpm::filter-cell mesh cell dt)
+       (cl-mpm::update-cell mesh cell dt)))))
+
+
+
+
+(defun set-mass (sim)
+  (let ((max-mass 0d0))
+    (setf max-mass
+          (cl-mpm::reduce-over-nodes
+           (cl-mpm:sim-mesh sim)
+           (lambda (n)
+             (if (and
+                  (cl-mpm/mesh:node-active n))
+                 (cl-mpm/mesh:node-mass n)
+                 sb-ext:double-float-negative-infinity))
+           #'max))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh:node-active n)
+         (setf (cl-mpm/mesh:node-mass n) max-mass))))))
+
+(defun update-node-fictious-mass (sim)
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt))
+      sim
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (setf (cl-mpm/mesh:node-mass node) 1d0))))))
+
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-UL))
+  "Update stress last algorithm"
+  (declare (cl-mpm::mpm-sim sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (dt-loadstep dt-loadstep)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (ghost-factor cl-mpm::ghost-factor)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (initial-setup initial-setup)
+               (vel-algo cl-mpm::velocity-algorithm))
+      sim
+    (declare (type double-float mass-filter))
+    (progn
+      (unless initial-setup
+        (cl-mpm::reset-grid mesh)
+        (cl-mpm::p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-cells sim)
+        (cl-mpm/aggregate::update-aggregate-elements sim)
+        (setf initial-setup t)
+        (cl-mpm::apply-bcs mesh bcs dt))
+
+      (cl-mpm::update-nodes sim)
+      (cl-mpm::update-cells sim)
+      (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+      (cl-mpm/damage::calculate-damage sim dt-loadstep)
+      (cl-mpm::p2g-force mesh mps)
+      (cl-mpm::apply-bcs mesh bcs-force dt)
+      (loop for bcs-f in bcs-force-list
+            do (cl-mpm::apply-bcs mesh bcs-f dt))
+      ;; (when ghost-factor
+      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
+      (cl-mpm::update-node-forces sim)
+      (cl-mpm::apply-bcs mesh bcs dt)
+
+      (cl-mpm::update-dynamic-stats sim)
+      (cl-mpm::g2p mesh mps dt vel-algo)
+      )))
+
+
+
+
+(defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-damage-UL))
+  ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  ;; (cl-mpm::new-loadstep sim)
+  (call-next-method))
+
+(defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-usf))
+  "Update stress last algorithm"
+  (declare (cl-mpm::mpm-sim sim))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (dt-loadstep dt-loadstep)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (vel-algo cl-mpm::velocity-algorithm))
+      sim
+    (declare (type double-float mass-filter))
+    (progn
+      (cl-mpm::reset-grid mesh)
+      (when (> (length mps) 0)
+        (cl-mpm::p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (cl-mpm::update-node-kinematics sim)
+        ;; (update-node-fictious-mass sim)
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-nodes sim)
+        (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+        (cl-mpm/damage::calculate-damage sim dt-loadstep)
+
+        (cl-mpm::p2g-force mesh mps)
+        ;; (cl-mpm::apply-bcs mesh bcs-force dt)
+        (loop for bcs-f in bcs-force-list
+              do (cl-mpm::apply-bcs mesh bcs-f dt))
+        ;;Update our nodes after force mapping
+        (cl-mpm::update-node-forces sim)
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-dynamic-stats sim)
+        (cl-mpm::g2p mesh mps dt vel-algo)
+        ;;
+        (cl-mpm::update-particles sim)
+        (cl-mpm::reset-node-displacement sim)
+
+        (when remove-damage
+          (cl-mpm::remove-material-damaged sim))
+        (when split
+          (cl-mpm::split-mps sim))
+        (cl-mpm::check-mps sim))
+      )))
+
+;; (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-damage-usf))
+;;   (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+;;   (cl-mpm:iterate-over-mps
+;;    (cl-mpm:sim-mps sim)
+;;    (lambda (mp)
+;;      (cl-mpm/particle::new-loadstep-mp mp))))
+
+
+(in-package :cl-mpm/aggregate)
+(defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
+  ;;For non-aggregate nodes, use simple mass matrix inversion
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mass-scale sim-mass-scale)
+                   (damping sim-damping-factor)
+                   (damping-algo sim-damping-algorithm)
+                   (agg-elems sim-agg-elems)
+                   (enable-aggregate sim-enable-aggregate)
+                   (dt sim-dt))
+      sim
+    (declare (double-float dt damping))
+
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (reproject-velocity sim elem))))
+
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (cl-mpm/mesh:node-active node)
+         (cl-mpm::calculate-forces-midpoint node damping 0d0 mass-scale))))
+    ;;For each aggregated element set solve mass matrix and velocity
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (calculate-forces-agg-elem sim elem damping))))
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (and (cl-mpm/mesh:node-active node)
+                  ;; (cl-mpm/mesh::node-agg node)
+                  )
+         (with-accessors ((mass node-mass)
+                          (vel node-velocity)
+                          (force node-force)
+                          (acc node-acceleration))
+             node
+           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
+    (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (reproject-velocity sim elem))))
+    ))
