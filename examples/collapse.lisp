@@ -910,13 +910,13 @@
    *sim*
    :output-dir "./output-reproj/"
    :plotter #'plot
-   :load-steps 40
+   :load-steps 10
    :damping 0.1d0
    :substeps 100
    :criteria 1d-3
-   :adaptive-damping nil
+   :adaptive-damping t
    :kinetic-damping nil
-   :dt-scale 0.5d0
+   :dt-scale 0.4d0
    )
   ;; (run-static
   ;;  :output-dir "./output/"

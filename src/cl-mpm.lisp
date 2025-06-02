@@ -165,6 +165,10 @@
     :accessor sim-split-factor
     :initarg :split-factor
     :initform 0.55d0)
+   (enable-stats
+    :type boolean
+    :initform t
+    :accessor sim-enable-stats)
    (stats-energy
     :type double-float
     :accessor sim-stats-energy

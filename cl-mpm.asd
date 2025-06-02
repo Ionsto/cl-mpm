@@ -277,7 +277,10 @@
   :depends-on ("cl-mpm"))
 
 (defsystem "cl-mpm/example"
-  :depends-on ("cl-mpm/all")
+  :depends-on ("cl-mpm/all"
+               "vgplot"
+               "swank.live"
+               "lisp-stat")
   :serial t
   :components ((:file "examples/core")))
 
@@ -290,11 +293,7 @@
   :components ((:file "examples/bounce")))
 
 (defsystem "cl-mpm/examples/column"
-  :depends-on ("cl-mpm"
-               "cl-mpm/all"
-               "vgplot"
-               "swank.live"
-               "cl-mpm/magicl")
+  :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/column")))
 

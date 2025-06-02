@@ -149,20 +149,7 @@
                      (vel cl-mpm/particle:mp-velocity)
                      ) mp
       (declare (type double-float volume))
-      ;; (print dsvp)
-      ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
-      (@-dsvp-vec-simd dsvp stress volume f-out)
-      ;; (cl-mpm/fastmaths::fast-fmacc f-out
-      ;;                              vel
-      ;;                              (* -1d0 damping volume))
-      ;; (cl-mpm/fastmaths::@-dsvp-vec dsvp stress volume f-out)
-      ;; (mult-force dsvp stress volume f-out)
-      ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
-      ;; (mult-force dsvp (plane-strain-transform stress) volume f-out)
-      ;; (mult-force-plane-strain dsvp stress volume f-out)
-      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) (plane-strain-transform stress)) volume) f-out)
-      ;; (magicl:.- f-out (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) f-out)
-      )
+      (@-dsvp-vec-simd dsvp stress volume f-out))
     f-out))
 
 (defun det-stress-force-unrolled (stress grads volume &optional f-out)

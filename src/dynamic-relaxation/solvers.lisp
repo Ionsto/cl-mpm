@@ -103,19 +103,16 @@
 
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
-
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt fbar)
+
       (cl-mpm::p2g-force mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-      ;; (cl-mpm/ghost::apply-half-step-ghost sim)
       (cl-mpm::update-dynamic-stats sim)
       ;; (cl-mpm::g2p mesh mps dt vel-algo)
       )))
@@ -227,9 +224,8 @@
       ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
-
       (cl-mpm::update-dynamic-stats sim)
-      (cl-mpm::g2p mesh mps dt vel-algo)
+      ;; (cl-mpm::g2p mesh mps dt vel-algo)
       )))
 
 
@@ -313,11 +309,11 @@
       sim
     (declare (double-float dt damping))
 
-    (when enable-aggregate
-      (iterate-over-agg-elem
-       agg-elems
-       (lambda (elem)
-         (reproject-velocity sim elem))))
+    ;; (when enable-aggregate
+    ;;   (iterate-over-agg-elem
+    ;;    agg-elems
+    ;;    (lambda (elem)
+    ;;      (reproject-velocity sim elem))))
 
     (iterate-over-nodes
      mesh
@@ -333,9 +329,7 @@
     (iterate-over-nodes
      mesh
      (lambda (node)
-       (when (and (cl-mpm/mesh:node-active node)
-                  ;; (cl-mpm/mesh::node-agg node)
-                  )
+       (when (and (cl-mpm/mesh:node-active node))
          (with-accessors ((mass node-mass)
                           (vel node-velocity)
                           (force node-force)

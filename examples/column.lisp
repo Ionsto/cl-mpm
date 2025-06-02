@@ -103,7 +103,7 @@
               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
-                          :enable-fbar t
+                          :enable-fbar nil
                           :enable-aggregate t
                           :mp-removal-size nil
                           :enable-split nil)
@@ -141,13 +141,10 @@
             :gravity -10.0d0
             )))
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
-
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-
         (cl-mpm/setup::set-mass-filter sim density :proportion 0d-12)
         (setf (cl-mpm:sim-dt sim) 1d-2)
-
         (cl-mpm/setup::setup-bcs
          sim
          :top '(nil nil nil)
@@ -774,14 +771,58 @@
 
 
 (defun test-dr ()
-  (setup :mps 2 :refine 2)
+  (setup :mps 2 :refine -1)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :load-steps 10
    :plotter #'plot-sigma-yy
-   :damping 1d-1
+   :damping 1d0
+   :kinetic-damping nil
+   :adaptive-damping t
+   :substeps 50
+   :dt-scale 0.5d0
    :criteria 1d-5
    ;:plotter #'plot
    ))
 
 
+(defmacro time-form (it form)
+  `(progn
+     (declaim (optimize speed))
+     (let* ((iterations ,it)
+            (start (get-internal-real-time)))
+       (time
+        (dotimes (i ,it)
+          ,form))
+       (let* ((end (get-internal-real-time))
+              (units internal-time-units-per-second)
+              (dt (/ (- end start) (* iterations units)))
+              )
+         (format t "Total time: ~f ~%" (/ (- end start) units)) (format t "Time per iteration: ~f~%" (/ (- end start) (* iterations units)))
+         (format t "Throughput: ~f~%" (/ 1 dt))
+         (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
+         dt))))
+
+(defun test-hotloop ()
+  (setup :refine 8)
+  (cl-mpm:update-sim *sim*)
+  (let ((damping-factor 1d0))
+    (time-form
+     100
+     (progn
+       (cl-mpm:update-sim *sim*)
+       (setf (cl-mpm:sim-damping-factor *sim*) (* damping-factor (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
+       ))))
+
+
+(defun test-inv ()
+  (let ((voigt (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d0 0d0 0d0)))
+        (mat (cl-mpm/utils:matrix-from-list (list 1d0 2d0 3d0 4d0 5d0 6d0 7d0 8d0 0d0))))
+    ;; (pprint (magicl:inv mat))
+    ;; (pprint (cl-mpm/fastmaths::fast-inv-3x3 mat))
+    (pprint (magicl:@ (cl-mpm/utils:voight-to-matrix voigt) (magicl:inv mat)))
+    ;; (pprint (cl-mpm/utils::matrix-to-voight (magicl:linear-solve mat (cl-mpm/utils:voight-to-matrix voigt))))
+    (pprint (cl-mpm/fastmaths::linear-solve-3x3-voigt mat voigt))
+    ;; (time-form 1000000 (cl-mpm/fastmaths::fast-inv-3x3 mat))
+    ;; (time-form 1000000 (magicl::inv mat))
+    ))

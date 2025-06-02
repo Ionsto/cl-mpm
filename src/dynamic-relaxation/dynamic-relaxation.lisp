@@ -34,19 +34,83 @@
   (:documentation "DR psudo-linear step with update stress last update"))
 
 
+(defun combi-stats (sim)
+  (destructuring-bind (mass
+                       energy
+                       oobf-num
+                       oobf-denom
+                       power)
+      (cl-mpm::reduce-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (node)
+         (if (and (cl-mpm/mesh:node-active node) (not (cl-mpm/mesh::node-agg node)))
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (agg cl-mpm/mesh::node-agg)
+                              (f-ext cl-mpm/mesh::node-external-force)
+                              (f-int cl-mpm/mesh::node-internal-force)
+                              (node-oobf cl-mpm/mesh::node-oobf)
+                              (mass cl-mpm/mesh::node-mass)
+                              (vel cl-mpm/mesh::node-velocity)
+                              (disp cl-mpm/mesh::node-displacment)
+                              )
+                 node
+               (declare (double-float mass))
+               (list
+                mass
+                (* mass (cl-mpm/fastmaths::mag-squared vel))
+                (* mass (cl-mpm/fastmaths::mag-squared
+                         (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                (* mass (cl-mpm/fastmaths::mag-squared f-ext))
+                (* mass
+                   (cl-mpm/fastmaths:dot
+                    disp f-ext))))
+             (list 0d0 0d0 0d0 0d0 0d0)))
+       (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+    (declare (double-float mass energy oobf-num oobf-denom power))
+    ;; (format t "Mass - ~E~%" mass)
+    ;; (format t "energy - ~E~%" energy)
+    ;; (format t "oobf-num - ~E~%" oobf-num)
+    ;; (format t "oobf-denom - ~E~%" oobf-denom)
+    ;; (format t "power - ~E~%" power)
+    ;; (break)
+    (let ((oobf 0d0))
+      (if (> oobf-denom 0d0)
+          (setf oobf (sqrt (/ oobf-num oobf-denom)))
+          (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+      (cl-mpm::iterate-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (node)
+         (with-accessors ((active cl-mpm/mesh::node-active)
+                          (agg cl-mpm/mesh::node-agg)
+                          (f-ext cl-mpm/mesh::node-external-force)
+                          (f-int cl-mpm/mesh::node-internal-force)
+                          (n-mass cl-mpm/mesh::node-mass)
+                          (node-oobf cl-mpm/mesh::node-oobf))
+             node
+           (when (and active (not agg))
+             (when t
+               (setf node-oobf
+                     (if (> oobf 0d0)
+                         (sqrt
+                          (/ (* n-mass (cl-mpm/fastmaths::mag-squared
+                                    (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                             oobf-denom))
+                         0d0
+                         )))))))
+      (values (/ energy mass) oobf (/ power mass)))))
+
 (define-condition non-convergence-error (error)
   ((text :initarg :text :reader text)
    (ke-norm :initarg :ke-norm :reader ke-norm)
    (oobf-norm :initarg :oobf-norm :reader oobf-norm)))
 
+
 (defgeneric estimate-energy-norm (sim))
 (defmethod estimate-energy-norm ((sim cl-mpm::mpm-sim))
-  ;; (loop for mp across (cl-mpm:sim-mps sim)
-  ;;           sum (* (cl-mpm/particle:mp-mass mp)
-  ;;                  (cl-mpm/fastmaths::mag (cl-mpm/particle:mp-velocity mp))))
   (let ((energy 0d0)
         (mass 0d0)
-        (lock (sb-thread:make-mutex)))
+        (lock (sb-thread:make-mutex))
+        )
     (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
@@ -60,6 +124,27 @@
                   (cl-mpm/mesh::node-mass n)
                   (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n))
                   ))))))
+    ;; (setf
+    ;;  energy
+    ;;  (cl-mpm::reduce-over-nodes
+    ;;   (cl-mpm:sim-mesh sim)
+    ;;   (lambda (n)
+    ;;     (if (cl-mpm/mesh:node-active n)
+    ;;         (*
+    ;;          (cl-mpm/mesh::node-mass n)
+    ;;          (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity n)))
+    ;;         0d0
+    ;;         ))
+    ;;   #'+))
+    ;; (setf
+    ;;  mass
+    ;;  (cl-mpm::reduce-over-nodes
+    ;;   (cl-mpm:sim-mesh sim)
+    ;;   (lambda (n)
+    ;;     (if (cl-mpm/mesh:node-active n)
+    ;;         (cl-mpm/mesh::node-mass n)
+    ;;         0d0))
+    ;;   #'+))
     (if (= mass 0d0)
         0d0
         (/ energy mass))))
@@ -158,7 +243,6 @@
                         (f-int cl-mpm/mesh::node-internal-force)
                         (f-damp cl-mpm/mesh::node-damping-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
-                        ;; (residual cl-mpm/mesh::node-residual)
                         (node-oobf cl-mpm/mesh::node-oobf)
                         )
            node
@@ -202,9 +286,7 @@
                (setf node-oobf
                      (if (> dmax 0d0)
                          (sqrt (/ node-oobf dmax))
-                         ;;Very odd case, we have external force but no internal forces
                          0d0
-                         ;; (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)
                          ))
                ))))))
     (if (> dmax 0d0)
@@ -524,9 +606,14 @@
                    (stats-oobf cl-mpm::sim-stats-oobf)
                    (stats-power cl-mpm::sim-stats-power))
       sim
-    (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
-          stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
-          stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))))
+    (multiple-value-bind (e o p) (combi-stats sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p))
+    ;; (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
+    ;;       stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
+    ;;       stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))
+    ))
 
 (defun dr-estimate-damping (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)

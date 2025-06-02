@@ -124,17 +124,19 @@
                    )
       cell
     (when active
-      (cl-mpm/utils:matrix-copy-into (get-cell-df mesh centroid) df)
+      ;; (cl-mpm/utils:matrix-copy-into (get-cell-df mesh centroid) df)
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
       (setf (varef df 0) 1d0
             (varef df 4) 1d0
             (varef df 8) 1d0)
       (let ((w 0d0))
+        (declare (double-float w))
         (cl-mpm::iterate-over-neighbours-point-linear
          mesh
          centroid
          (lambda (mesh node weight grads)
+           (declare (double-float weight))
            (when (cl-mpm::node-active node)
              (incf w weight)
              (let ((ndisp (cl-mpm/mesh::node-displacment node)))
@@ -1040,3 +1042,14 @@ This modifies the dt of the simulation in the process
                       (varef grads-vec 1)
                       (varef grads-vec 2))))
     grads))
+(defun gradient-push-forwards-cached (grads df-inv)
+  (let* ((grads-vec
+           (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) df-inv)
+           ;; (cl-mpm/fastmaths::fast-@-matrix-vector df-inv (cl-mpm/utils:vector-from-list grads))
+                    )
+         (grads (list (varef grads-vec 0)
+                      (varef grads-vec 1)
+                      (varef grads-vec 2))))
+    grads))
+
+
