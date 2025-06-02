@@ -386,6 +386,7 @@
             while (cl-mpm::sim-run-sim sim)
             do
                (progn
+                 (format t "Load step ~D~%" step)
                  (defparameter *ke-last* 0d0)
                  ;; (pprint step)
                  (funcall loading-function (/ (float step) load-steps))
