@@ -50,7 +50,6 @@
                     mp
                   (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
                          (acc (cl-mpm/utils:vector-zeros)))
-                    (cl-mpm/fastmaths::fast-zero acc)
                     (cl-mpm/fastmaths:fast-zero disp-inc)
                     ;; Map variables
                     (iterate-over-neighbours

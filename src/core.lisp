@@ -242,9 +242,11 @@
 (defun integrate-vel-midpoint (vel acc force mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
-    (cl-mpm/fastmaths:fast-scale! vel (/ (- 2d0 (* dt damping))
-                                         (+ 2d0 (* dt damping))))
-    (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 (* dt damping))))))
+    (let ((damp-dt (* dt damping)))
+      (cl-mpm/fastmaths:fast-scale! vel (/ (- 2d0 damp-dt)
+                                           (+ 2d0 damp-dt)))
+      (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 damp-dt))))))
+
 (declaim (notinline calculate-forces-midpoint)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces-midpoint))
 (defun calculate-forces-midpoint (node damping dt mass-scale)
@@ -807,31 +809,29 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
-    (let ((inner-factor most-positive-double-float)
-          (lock (sb-thread:make-mutex)))
+    (let ((inner-factor most-positive-double-float))
       (declare (double-float inner-factor mass-scale))
-      (iterate-over-nodes
-       mesh
-       (lambda (node)
-         ;; (break)
-         (unless (cl-mpm/mesh::node-agg node)
-           (with-accessors ((node-active  cl-mpm/mesh:node-active)
-                            (pmod cl-mpm/mesh::node-pwave)
-                            (mass cl-mpm/mesh::node-mass)
-                            (svp-sum cl-mpm/mesh::node-svp-sum)
-                            (vol cl-mpm/mesh::node-volume)
-                            (vel cl-mpm/mesh::node-velocity)
-                            ) node
-             (when (and node-active
-                        (> vol 0d0)
-                        (> pmod 0d0)
-                        (> svp-sum 0d0))
-               (let ((nf (+ (/ mass (* vol (+ (/ pmod svp-sum)))))))
-                 ;;Double checked lock
-                 (when (< nf inner-factor)
-                   (sb-thread:with-mutex (lock)
-                     (when (< nf inner-factor)
-                       (setf inner-factor nf))))))))))
+      (setf inner-factor
+            (reduce-over-nodes
+             mesh
+             (lambda (node)
+               (if (and (cl-mpm/mesh::node-active node)
+                        (not (cl-mpm/mesh::node-agg node)))
+                   (with-accessors ((node-active  cl-mpm/mesh:node-active)
+                                    (pmod cl-mpm/mesh::node-pwave)
+                                    (mass cl-mpm/mesh::node-mass)
+                                    (svp-sum cl-mpm/mesh::node-svp-sum)
+                                    (vol cl-mpm/mesh::node-volume)
+                                    (vel cl-mpm/mesh::node-velocity)
+                                    ) node
+                     (if (and (> vol 0d0)
+                              (> pmod 0d0)
+                              (> svp-sum 0d0))
+                         (let ((nf (+ (/ mass (* vol (+ (/ pmod svp-sum)))))))
+                           nf)
+                         most-positive-double-float))
+                   most-positive-double-float))
+             #'min))
       (if (< inner-factor most-positive-double-float)
           (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
           (cl-mpm:sim-dt sim)))))

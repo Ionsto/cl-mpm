@@ -116,10 +116,9 @@
                                        args
                                        (list
                                         :position (cl-mpm/fastmaths::fast-.+ position-vec origin-vec)
-                                        ;; :position-0 (cl-mpm/utils:vector-copy position-vec)
                                         :mass (coerce (* density volume) 'double-float)
                                         :volume volume
-                                        :size size-vec
+                                        :size (cl-mpm/utils:vector-copy size-vec)
                                         :size-0 (cl-mpm/utils:vector-copy size-vec)
                                         ))))
                   (incf iter)))))
@@ -185,12 +184,12 @@
               :initial-contents mp-list))
 
 (defun make-block-mps (offset size mps constructor &rest args)
-  (apply #'make-block-mps-fast offset size mps constructor args)
-  ;; (if (= (length size) 2)
-  ;;     (append size '(1)))
+  ;; (apply #'make-block-mps-fast offset size mps constructor args)
+  (if (= (length size) 2)
+      (append size '(1)))
 
-  ;; (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
-  ;;   (make-mps-from-list data))
+  (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
+    (make-mps-from-list data))
   )
 
 (defun make-block-mps-clipped (offset size mps clip-func constructor &rest args)

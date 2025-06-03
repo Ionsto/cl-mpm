@@ -602,11 +602,11 @@
                    (agg-elems sim-agg-elems)
                    (enable-aggregate sim-enable-aggregate))
       sim
-    (when enable-aggregate
-      (iterate-over-agg-elem
-       agg-elems
-       (lambda (elem)
-         (reproject-velocity sim elem))))
+    ;; (when enable-aggregate
+    ;;   (iterate-over-agg-elem
+    ;;    agg-elems
+    ;;    (lambda (elem)
+    ;;      (reproject-velocity sim elem))))
 
     (iterate-over-nodes
      mesh

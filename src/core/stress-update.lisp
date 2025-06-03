@@ -338,6 +338,7 @@
         (update-strain-kirchoff-dynamic-relaxation mesh mp dt fbar)
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         ;; ;; Turn kirchoff stress to cauchy
+        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 

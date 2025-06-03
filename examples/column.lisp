@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
@@ -17,7 +17,8 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;(cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::update-domain-midpoint mesh mp dt)
+  (cl-mpm::update-domain-deformation mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
@@ -105,7 +106,7 @@
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate nil
+                          :enable-aggregate t
                           :mp-removal-size nil
                           :enable-split nil)
               )
@@ -119,11 +120,9 @@
       (progn
         (let ((block-position (list (* h-x (+ 0 (/ 1d0 (* 2d0 mp-scale)) ));mp-scale->1
                                     (* h-y (+ 0 (/ 1d0 (* 2d0 mp-scale)) )))))
-          ;; (print block-position)
           (cl-mpm::add-mps
            sim
            (cl-mpm/setup::make-block-mps
-            ;; block-position
             (list 0 0 0)
             block-size
             (mapcar (lambda (e mp-s)
@@ -144,7 +143,7 @@
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-        (cl-mpm/setup::set-mass-filter sim density :proportion 1d-3)
+        (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (cl-mpm/setup::setup-bcs
          sim
@@ -267,14 +266,14 @@
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                 :load-steps 40
-                :substeps (* 10 refine)
+                :substeps (* 20 refine)
                 :plotter #'plot-sigma-yy
                 :damping 1d0
                 :adaptive-damping t
                 :kinetic-damping nil
-                :save-vtk-dr t
+                :save-vtk-dr nil
                 :save-vtk-loadstep t
-                :dt-scale 0.5d0
+                :dt-scale 0.25d0
                 :criteria 1d-9)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)

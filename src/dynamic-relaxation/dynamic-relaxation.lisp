@@ -457,18 +457,20 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       (when damping-factor
                         (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
+
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
                         (incf *work* power)
                         (when kinetic-damping
                           (if (and
+                               ;; (< (* power power-last) 0d0)
                                (> energy-last energy-first)
                                (> energy-last energy))
                               (progn
-                                (format t "Peak found resetting KE~%")
+                                (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
                                 (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
                                 (cl-mpm:iterate-over-mps
                                  mps
@@ -694,7 +696,7 @@
                 #'+)))
       (if (= denom 0d0)
           (cl-mpm/setup::estimate-critical-damping sim)
-          (* 2d0 (max 1d0 (sqrt (/ (max 0d0 num) denom))))))))
+          (* 2d0 (sqrt (/ (max 0d0 num) denom)))))))
 
 
 (defun reset-mp-velocity (sim)
