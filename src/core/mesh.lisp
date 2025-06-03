@@ -318,16 +318,28 @@
 
 (defun make-nodes (mesh size h)
   "Make a 2d mesh of specific size"
-  (make-array size :initial-contents
-      (loop for x from 0 to (- (nth 0 size) 1)
-            collect
-            (loop for y from 0 to (- (nth 1 size) 1)
-                          collect
-                          (loop for z from 0 to (- (nth 2 size) 1)
-                                collect
-                                (make-node (list x y z)
-                                           (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
-                                           h))))))
+  (destructuring-bind (lx ly lz) size
+    (let ((nodes (make-array size)))
+      (loop for x from 0 to (- lx 1)
+            do
+               (loop for y from 0 to (- ly 1)
+                     do
+                        (loop for z from 0 to (- lz 1)
+                              do (setf (aref nodes x y z)
+                                       (make-node (list x y z)
+                                                  (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z))) h)))))
+      nodes))
+  ;; (make-array size :initial-contents
+  ;;     (loop for x from 0 to (- (nth 0 size) 1)
+  ;;           collect
+  ;;           (loop for y from 0 to (- (nth 1 size) 1)
+  ;;                         collect
+  ;;                         (loop for z from 0 to (- (nth 2 size) 1)
+  ;;                               collect
+  ;;                               (make-node (list x y z)
+  ;;                                          (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z)))
+  ;;                                          h)))))
+  )
 
 (defun cell-calculate-centroid (nodes)
   (let ((centroid (cl-mpm/utils:vector-zeros)))
@@ -426,17 +438,12 @@
           (make-array
            (list (- (nth 0 size) 1)
                  (- (nth 1 size) 1)
-                 1
-                 ) :initial-contents
-           (loop
-             for x from 0 below (- (nth 0 size) 1)
-             collect
-             (loop
-               for y from 0 below (- (nth 1 size) 1)
-               collect
-               (loop
-                 for z from 0 below 1
-                 collect (make-cell-2d mesh (list x y 0) h)))))))
+                 1))))
+    (loop for x from 0 below (- (nth 0 size) 1)
+      do
+      (loop for y from 0 below (- (nth 1 size) 1) do
+        (loop for z from 0 below 1
+              do (setf (aref cells x y z) (make-cell-2d mesh (list x y 0) h)))))
     (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
       (let* ((cell (aref cells i j k)))
         (with-accessors ((neighbours cell-neighbours))

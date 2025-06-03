@@ -199,9 +199,13 @@
 (defun integrate-vel-euler (vel acc force mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
-    (let ((exp-fac (exp (- (* damping dt)))))
-      (cl-mpm/fastmaths:fast-scale! vel exp-fac)
-      (cl-mpm/fastmaths:fast-fmacc acc force (* (- 1d0 exp-fac) (/ 1d0 (* mass mass-scale)))))))
+    (if (= damping 0d0)
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        (let ((exp-fac (exp (- (* damping dt)))))
+          ;; (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+          (cl-mpm/fastmaths:fast-scale! vel exp-fac)
+          (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))
+          ))))
 
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
@@ -228,6 +232,7 @@
         ;;Include velocity prop damping
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (integrate-vel-euler vel acc force mass mass-scale dt damping)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
         (cl-mpm/utils::vector-copy-into force residual))))
@@ -270,8 +275,7 @@
         (integrate-vel-midpoint vel acc force mass mass-scale dt damping)
 
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force-int residual)
-        )))
+        (cl-mpm/utils::vector-copy-into force-int residual))))
   (values))
 
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)

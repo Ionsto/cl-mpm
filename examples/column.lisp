@@ -16,8 +16,9 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;(cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
 (defun get-disp (load-mps)
@@ -104,7 +105,7 @@
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate t
+                          :enable-aggregate nil
                           :mp-removal-size nil
                           :enable-split nil)
               )
@@ -129,47 +130,47 @@
                       (round  (* e mp-s) h-x)
                       ) block-size
                         (list
-                         mp-scale
-                         ;; 1
+                         ;; mp-scale
+                         1
                          mp-scale
                          1
                          ))
             density
             'cl-mpm/particle::particle-elastic
-            :E 1d5
+            :E 10d3
             :nu 0.0d0
             :gravity -10.0d0
             )))
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-        (cl-mpm/setup::set-mass-filter sim density :proportion 0d-12)
+        (cl-mpm/setup::set-mass-filter sim density :proportion 1d-3)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (cl-mpm/setup::setup-bcs
          sim
          :top '(nil nil nil)
          :bottom '(0 0 nil))
-        (let* ((crack-pos
-               (loop for mp across (cl-mpm:sim-mps sim)
-                     maximize (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
-             (above-crack
-               (loop for mp across (cl-mpm:sim-mps sim)
-                     when
-                     (and
-                      (>= (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                          crack-pos))
-                     collect mp)))
-        (defparameter *terminus-mps* above-crack)
-          (defparameter *initial-surface* (+ crack-pos
-                                             (* 0.5d0
-                                                (magicl:tref
-                                                 (cl-mpm/particle::mp-domain-size
-                                                  (first *terminus-mps*))
-                                                 1 0))))
-          (defparameter *target-displacement* 0d0))
+        ;; (let* ((crack-pos
+        ;;        (loop for mp across (cl-mpm:sim-mps sim)
+        ;;              maximize (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
+        ;;      (above-crack
+        ;;        (loop for mp across (cl-mpm:sim-mps sim)
+        ;;              when
+        ;;              (and
+        ;;               (>= (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
+        ;;                   crack-pos))
+        ;;              collect mp)))
+        ;;   (defparameter *terminus-mps* above-crack)
+        ;;   (defparameter *initial-surface* (+ crack-pos
+        ;;                                      (* 0.5d0
+        ;;                                         (magicl:tref
+        ;;                                          (cl-mpm/particle::mp-domain-size
+        ;;                                           (first *terminus-mps*))
+        ;;                                          1 0))))
+        ;;   (defparameter *target-displacement* 0d0))
 
         (defparameter *original-configuration*
-          (loop for mp across (cl-mpm:sim-mps sim) collect (cl-mpm/utils:vector-copy (cl-mpm/particle:mp-position mp))))
+          (loop for mp across (cl-mpm:sim-mps sim) collect (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1)))
         (defparameter *original-size*
           (loop for mp across (cl-mpm:sim-mps sim) collect (cl-mpm/utils:vector-copy (cl-mpm/particle::mp-domain-size mp))))
 
@@ -215,16 +216,13 @@
                  collect mp))
          (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
          (y-ref (loop for pos in *original-configuration*
-                      for size in *original-size*
-                      collect (float (+ (cl-mpm/utils:varef pos 1)
-                                        (* 0d0 (cl-mpm/utils:varef size 1))) 1e0)))
+                      collect (float pos 1e0)))
 
          (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1e0)))
          (rho 80d0)
          (E 1d5)
          (g 10d0)
-         (vp-0-list (loop for pos in *original-configuration*
-                          for size in *original-size*
+         (vp-0-list (loop for size in *original-size*
                           collect (float (* (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1)) 1e0)))
          (max-y 50)
          (syy-ref (mapcar (lambda (x) (float (* rho g (- x max-y)) 1e0)) y-ref))
@@ -242,7 +240,7 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i from 11 to 13
+  (loop for i from 2 to 8
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -260,8 +258,8 @@
                                     (list h L)
                                     (/ 1d0 h)
                                     mps))
-               (setf (cl-mpm:sim-dt *sim*)
-                     (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.5d0))
+               ;; (setf (cl-mpm:sim-dt *sim*)
+               ;;       (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.5d0))
                (format t "Running sim size ~a ~%" elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
@@ -269,15 +267,15 @@
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                 :load-steps 40
-                :substeps (* 50 refine)
+                :substeps (* 10 refine)
                 :plotter #'plot-sigma-yy
                 :damping 1d0
                 :adaptive-damping t
                 :kinetic-damping nil
-                :save-vtk-dr nil
-                :save-vtk-loadstep nil
-                :dt-scale 1d0
-                :criteria 1d-3)
+                :save-vtk-dr t
+                :save-vtk-loadstep t
+                :dt-scale 0.5d0
+                :criteria 1d-9)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
@@ -345,9 +343,7 @@
                      collect mp))
            (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
            (y-ref (loop for pos in *original-configuration*
-                        for size in *original-size*
-                        collect (+ (cl-mpm/utils:varef pos 1)
-                                   (* 0d0 (cl-mpm/utils:varef size 1)))))
+                        collect pos))
 
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
            (rho 80d0)
@@ -371,12 +367,9 @@
                      collect mp))
            (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
            (y-ref (loop for pos in *original-configuration*
-                        for size in *original-size*
-                        collect (+ (cl-mpm/utils:varef pos 1)
-                                   (* 0d0 (cl-mpm/utils:varef size 1)))))
+                        collect pos))
 
-           (vp-0-list (loop for pos in *original-configuration*
-                            for size in *original-size*
+           (vp-0-list (loop for size in *original-size*
                             collect (*  (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1))))
            (vl-0 (loop for vp-0 in vp-0-list sum vp-0))
 
@@ -803,15 +796,19 @@
          (format t "Time per MP: ~E~%" (/ dt (length (cl-mpm:sim-mps *sim*))))
          dt))))
 
+
 (defun test-hotloop ()
-  (setup :refine 8)
-  (cl-mpm:update-sim *sim*)
+  (format t "Setup~%")
+  (time (setup :refine 10))
+  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (time (cl-mpm:update-sim *sim*))
+  (setf (cl-mpm:sim-dt *sim*) (* 0.25d0 (cl-mpm::calculate-min-dt *sim*)))
   (let ((damping-factor 1d0))
     (time-form
-     100
+     1000
      (progn
        (cl-mpm:update-sim *sim*)
-       (setf (cl-mpm:sim-damping-factor *sim*) (* damping-factor (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
+       ;; (setf (cl-mpm:sim-damping-factor *sim*) (* damping-factor (cl-mpm/dynamic-relaxation::dr-estimate-damping *sim*)))
        ))))
 
 

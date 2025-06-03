@@ -46,10 +46,10 @@
                                  (pos mp-position)
                                  (pos-trial cl-mpm/particle::mp-position-trial)
                                  (disp cl-mpm/particle::mp-displacement)
-                                 (disp-inc cl-mpm/particle::mp-displacement-increment)
-                                 (acc cl-mpm/particle::mp-acceleration))
+                                 (disp-inc cl-mpm/particle::mp-displacement-increment))
                     mp
-                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros)))
+                  (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
+                         (acc (cl-mpm/utils:vector-zeros)))
                     (cl-mpm/fastmaths::fast-zero acc)
                     (cl-mpm/fastmaths:fast-zero disp-inc)
                     ;; Map variables

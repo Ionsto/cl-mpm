@@ -122,7 +122,7 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((df-inv (magicl:inv (cl-mpm/particle::mp-deformation-gradient-increment mp))))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (mesh mp node svp grads fsvp fgrads)
@@ -137,8 +137,8 @@
          (declare (boolean node-active)
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
-         (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
-           (when node-active
+         (when node-active
+           (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
              (sb-thread:with-mutex (node-lock)
                (det-ext-force-2d mp node svp node-ext-force)
                (det-int-force-unrolled-2d mp grads node-int-force))))))))

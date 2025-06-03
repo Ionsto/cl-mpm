@@ -97,20 +97,18 @@
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
         (cl-mpm/aggregate::update-aggregate-elements sim)
-        (setf initial-setup t)
         (cl-mpm::apply-bcs mesh bcs dt)
-        (midpoint-starter sim))
-
+        (midpoint-starter sim)
+        (setf initial-setup t))
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt fbar)
-
       (cl-mpm::p2g-force mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
-      ;;Update our nodes after force mapping
+      ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
@@ -326,6 +324,7 @@
        agg-elems
        (lambda (elem)
          (calculate-forces-agg-elem sim elem damping))))
+    ;; (setf (cl-mpm:sim-damping-factor sim) (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))
     (iterate-over-nodes
      mesh
      (lambda (node)
@@ -335,7 +334,8 @@
                           (force node-force)
                           (acc node-acceleration))
              node
-           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
+           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)
+           ))))
     ;; (when enable-aggregate
     ;;   (iterate-over-agg-elem
     ;;    agg-elems

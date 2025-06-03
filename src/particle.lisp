@@ -10,7 +10,6 @@
     #:mp-volume
     #:mp-position
     #:mp-velocity
-    #:mp-acceleration
     #:mp-stress
     #:mp-strain
     #:mp-strain-n
@@ -141,10 +140,6 @@
     :type magicl:matrix/double-float
     :initarg :size-0
     :initform (cl-mpm/utils:vector-zeros))
-   (acceleration
-    :accessor mp-acceleration
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:vector-zeros))
    (stress
      :accessor mp-stress
      :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -205,6 +200,10 @@
        :accessor mp-deformation-gradient-increment
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initarg :deformation-gradient-increment
+       :initform (cl-mpm/utils:matrix-eye 1d0))
+   (deformation-gradient-increment-inverse
+       :accessor mp-deformation-gradient-increment-inverse
+       :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (cl-mpm/utils:matrix-eye 1d0))
    (gravity
      :type double-float
@@ -378,13 +377,6 @@
   (update-elastic-matrix p))
 
 (defmethod (setf mp-domain-size) :after (value (p particle))
-  ;; (with-accessors ((domain-true mp-true-domain))
-  ;;     p
-  ;;   (break)
-  ;;   (setf
-  ;;    (magicl:tref domain-true 0 0) (varef value 0)
-  ;;    (magicl:tref domain-true 1 1) (varef value 1)
-  ;;    (magicl:tref domain-true 2 2) (varef value 2)))
   )
 
 (defmethod initialize-instance :after ((p particle) &key)
@@ -988,13 +980,14 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (volume    cl-mpm/particle::mp-volume)
+                   (volume-n    cl-mpm/particle::mp-volume-n)
                    )
       mp
     (cl-mpm/utils:matrix-copy-into def def-0)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
-    ;; (cl-mpm/fastmaths:fast-zero disp)
-    ))
+    (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))
   (with-accessors ((strain cl-mpm/particle:mp-strain)

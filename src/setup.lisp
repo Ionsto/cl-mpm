@@ -13,6 +13,9 @@
    #:estimate-critical-damping
   ))
 
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+
 (in-package :cl-mpm/setup)
 
 ;; (defgeneric make-sim ())
@@ -71,6 +74,56 @@
       (setf (cl-mpm:sim-mps sim) #())
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm/mesh:mesh-count (cl-mpm:sim-mesh sim)))) 
       sim)))
+
+(defun make-block-mps-fast (offset size mps density constructor &rest args &key (clip-func (lambda (x y z) t)) &allow-other-keys)
+  (if (= (length size) 2)
+      (setf mps (append mps '(1))
+            size (append size '(0))
+            offset (append offset '(0))))
+  (let*  ((mps-list (make-array (reduce #'* mps)))
+          (nD 3)
+          (args (alexandria:remove-from-plist args :clip-func))
+          (spacing (mapcar (lambda (s m) (/ (coerce s 'double-float)
+                                            (coerce m 'double-float)
+                                            )) size mps))
+          (offset (mapcar #'+ offset (mapcar (lambda (x) (* x 0.5d0)) spacing)))
+          (volume (reduce #'* (remove-if (lambda (x) (= 0d0 x)) spacing)))
+          (angle 0d0)
+          (iter 0)
+          )
+    (pprint size)
+    (pprint spacing)
+    (pprint offset)
+    (loop for x from 0 to (- (nth 0 mps) 1)
+          do
+          (loop for y from 0 to (- (nth 1 mps) 1)
+            do
+            (loop for z from 0 to (- (nth 2 mps) 1)
+              when (funcall clip-func
+                            (+ (* (nth 0 spacing) x) (nth 0 offset))
+                            (+ (* (nth 1 spacing) y) (nth 1 offset))
+                            (+ (* (nth 2 spacing) z) (nth 2 offset)))
+                do
+                (let* ((rot (cl-mpm/utils::rotation-matrix angle))
+                       (origin-vec (cl-mpm/utils:vector-from-list offset))
+                       (position-vec (cl-mpm/utils:vector-from-list (list (* (nth 0 spacing) x)
+                                                                          (* (nth 1 spacing) y)
+                                                                          (* (nth 2 spacing) z))))
+                       (size-vec (vector-from-list spacing)))
+                  (setf (aref mps-list iter)
+                        (apply #'make-instance
+                               (append (list constructor)
+                                       args
+                                       (list
+                                        :position (cl-mpm/fastmaths::fast-.+ position-vec origin-vec)
+                                        ;; :position-0 (cl-mpm/utils:vector-copy position-vec)
+                                        :mass (coerce (* density volume) 'double-float)
+                                        :volume volume
+                                        :size size-vec
+                                        :size-0 (cl-mpm/utils:vector-copy size-vec)
+                                        ))))
+                  (incf iter)))))
+    mps-list))
 
 (defun make-block-mps-list (offset size mps density constructor &rest args &key (angle 0) (clip-func (lambda (x y z) t))&allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"
@@ -132,11 +185,13 @@
               :initial-contents mp-list))
 
 (defun make-block-mps (offset size mps constructor &rest args)
-  (if (= (length size) 2)
-      (append size '(1)))
+  (apply #'make-block-mps-fast offset size mps constructor args)
+  ;; (if (= (length size) 2)
+  ;;     (append size '(1)))
 
-  (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
-    (make-mps-from-list data)))
+  ;; (let*  ((data (apply #'make-block-mps-list offset size mps constructor args)))
+  ;;   (make-mps-from-list data))
+  )
 
 (defun make-block-mps-clipped (offset size mps clip-func constructor &rest args)
   (if (= (length size) 2)
@@ -149,8 +204,8 @@
 (defun make-column-mps (size mp-spacing constructor &rest args)
   (let* ((mp-spacing-x (first mp-spacing))
         (mp-spacing-y (second mp-spacing))
-        (data (loop for i from 0 to (- size 1) collect 
-                    (apply constructor (append '(2) args 
+        (data (loop for i from 0 to (- size 1) collect
+                    (apply constructor (append '(2) args
                                                (list
                                                  :position (list (/ mp-spacing-x 2d0)
                                                             (+ (/ mp-spacing-y 2d0) (* mp-spacing-y i)))

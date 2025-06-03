@@ -356,26 +356,26 @@
       (setf (agg-internal-selector elem) (magicl:transpose E)))))
 
 (defun update-aggregate-elements (sim)
-  (setf
-   (sim-agg-elems sim)
-   (locate-aggregate-node-elements sim))
-  ;; (set-aggregate-nodes sim)
-  (iterate-over-agg-elem
-   (sim-agg-elems sim)
-   (lambda (elem)
-     (compute-extension-matrix sim elem)
-     (compute-internal-matrix sim elem)
-     (setf (agg-mass-matrix elem) (assemble-mass sim elem)
-           (agg-init-mass-matrix elem) (assemble-full-mass sim elem))
-     (let* ((E (agg-shape-functions elem))
-            (m-i (agg-init-mass-matrix elem))
-            (m (agg-mass-matrix elem)))
-       (setf (agg-vel-projection-matrix elem)
-             (magicl:@
-              E
-              (magicl:inv m)
-              (magicl:@ (magicl:transpose E) m-i))))
-     )))
+  (when (sim-enable-aggregate sim)
+    (setf
+     (sim-agg-elems sim)
+     (locate-aggregate-node-elements sim))
+    ;; (set-aggregate-nodes sim)
+    (iterate-over-agg-elem
+     (sim-agg-elems sim)
+     (lambda (elem)
+       (compute-extension-matrix sim elem)
+       (compute-internal-matrix sim elem)
+       (setf (agg-mass-matrix elem) (assemble-mass sim elem)
+             (agg-init-mass-matrix elem) (assemble-full-mass sim elem))
+       (let* ((E (agg-shape-functions elem))
+              (m-i (agg-init-mass-matrix elem))
+              (m (agg-mass-matrix elem)))
+         (setf (agg-vel-projection-matrix elem)
+               (magicl:@
+                E
+                (magicl:inv m)
+                (magicl:@ (magicl:transpose E) m-i))))))))
 
 
 (defun assemble-mass (sim elem)
@@ -687,20 +687,20 @@
       proj
       d-i))))
 
-(defmethod cl-mpm::update-nodes (sim)
-  (with-accessors ((mesh sim-mesh)
-                   (dt sim-dt)
-                   (agg sim-enable-aggregate))
-      sim
-    (iterate-over-nodes
-     mesh
-     (lambda (node)
-       (when (cl-mpm/mesh:node-active node)
-         (cl-mpm::update-node node dt))))
-    ;; (when agg
-    ;;   (iterate-over-agg-elem
-    ;;    (sim-agg-elems sim)
-    ;;    (lambda (elem)
-    ;;      (reproject-displacements sim elem))))
-    ))
+;; (defmethod cl-mpm::update-nodes (sim)
+;;   (with-accessors ((mesh sim-mesh)
+;;                    (dt sim-dt)
+;;                    (agg sim-enable-aggregate))
+;;       sim
+;;     (iterate-over-nodes
+;;      mesh
+;;      (lambda (node)
+;;        (when (cl-mpm/mesh:node-active node)
+;;          (cl-mpm::update-node node dt))))
+;;     ;; (when agg
+;;     ;;   (iterate-over-agg-elem
+;;     ;;    (sim-agg-elems sim)
+;;     ;;    (lambda (elem)
+;;     ;;      (reproject-displacements sim elem))))
+;;     ))
 

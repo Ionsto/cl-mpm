@@ -429,10 +429,12 @@
            (total-step 0)
            (load 0d0)
            (converged nil))
+
       (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
       (when damping-factor
         (setf (cl-mpm:sim-damping-factor sim)
               (* damping-factor (cl-mpm/setup::estimate-critical-damping sim))))
+
       (format t "Substeps ~D~%" substeps)
       (let ((full-load (list))
             (full-step (list))
@@ -467,7 +469,6 @@
                                (> energy-last energy))
                               (progn
                                 (format t "Peak found resetting KE~%")
-                                ;; (format t "~E ~E ~E ~%" energy-first energy-last energy)
                                 (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
                                 (cl-mpm:iterate-over-mps
                                  mps
@@ -475,7 +476,8 @@
                                    (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
                                 (setf power-last 0d0
                                       energy-first 0d0
-                                      energy-last 0d0))
+                                      energy-last 0d0
+                                      energy 0d0))
                               (progn
                                 (setf energy-first energy-last)
                                 (setf power-last power
@@ -560,8 +562,7 @@
                                (cl-mpm:iterate-over-mps
                                 mps
                                 (lambda (mp)
-                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))
-                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-acceleration mp))))
+                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
                                (setf power-last 0d0))
                              (setf power-last power)))))
 
@@ -615,6 +616,48 @@
     ;;       stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))
     ))
 
+;; (defun dr-estimate-damping (sim)
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (dt cl-mpm:sim-dt))
+;;       sim
+;;     (let ((num 0d0)
+;;           (denom 0d0))
+;;       (setf num
+;;             (cl-mpm::reduce-over-nodes
+;;              mesh
+;;              (lambda (node)
+;;                (if (and (cl-mpm/mesh:node-active node)
+;;                         (not (cl-mpm/mesh::node-agg node)))
+;;                    (/ 
+;;                     (cl-mpm/fastmaths:dot
+;;                      (cl-mpm/mesh:node-velocity node)
+;;                      ;; (cl-mpm/mesh::node-internal-force node)
+;;                      (cl-mpm/fastmaths:fast-.-
+;;                       (cl-mpm/mesh::node-residual node)
+;;                       (cl-mpm/mesh::node-residual-prev node)
+;;                       )
+;;                      )
+;;                     dt
+;;                     )
+;;                    0d0))
+;;              #'+))
+;;       (setf denom
+;;             (* ;dt
+;;                (cl-mpm::reduce-over-nodes
+;;                 mesh
+;;                 (lambda (node)
+;;                   (if (and (cl-mpm/mesh:node-active node)
+;;                            (not (cl-mpm/mesh::node-agg node)))
+;;                       (* (cl-mpm/mesh:node-mass node)
+;;                          (cl-mpm/fastmaths::dot
+;;                           (cl-mpm/mesh::node-displacment node)
+;;                           (cl-mpm/mesh::node-displacment node)))
+;;                       0d0))
+;;                 #'+)))
+;;       (if (= denom 0d0)
+;;           (cl-mpm/setup::estimate-critical-damping sim)
+;;           (* 2d0 (sqrt (/ (max 0d0 num) denom)))))))
+
 (defun dr-estimate-damping (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (dt cl-mpm:sim-dt))
@@ -630,8 +673,10 @@
                    (cl-mpm/fastmaths:dot
                     (cl-mpm/mesh:node-velocity node)
                     (cl-mpm/fastmaths:fast-.-
+                     (cl-mpm/mesh::node-residual-prev node)
                      (cl-mpm/mesh::node-residual node)
-                     (cl-mpm/mesh::node-residual-prev node)))
+                     )
+                    )
                    0d0))
              #'+))
       (setf denom
@@ -642,13 +687,14 @@
                   (if (and (cl-mpm/mesh:node-active node)
                            (not (cl-mpm/mesh::node-agg node)))
                       (* (cl-mpm/mesh:node-mass node)
-                         (cl-mpm/fastmaths::mag-squared
+                         (cl-mpm/fastmaths::dot
+                          (cl-mpm/mesh:node-velocity node)
                           (cl-mpm/mesh:node-velocity node)))
                       0d0))
                 #'+)))
       (if (= denom 0d0)
-          (cl-mpm:sim-damping-factor sim)
-          (* 2d0 (sqrt (abs (/ num denom))))))))
+          (cl-mpm/setup::estimate-critical-damping sim)
+          (* 2d0 (max 1d0 (sqrt (/ (max 0d0 num) denom))))))))
 
 
 (defun reset-mp-velocity (sim)

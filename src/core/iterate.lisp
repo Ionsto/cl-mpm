@@ -221,25 +221,6 @@ Calls func with only the node"
 
   (values))
 
-(defun iterate-over-mps (mps func)
-  "Helper function for iterating over all nodes in a mesh
-   Calls func with only the node"
-  (declare (type function func)
-           (type (array cl-mpm/particle:particle) mps))
-  ;; (dotimes (i (length mps))
-  ;;   (funcall func (aref mps i)))
-  (lparallel:pdotimes (i (length mps))
-    (funcall func (aref mps i)))
-  ;; (omp
-  ;;  mps
-  ;;   (lambda (i)
-  ;;     (funcall func (aref mps i))))
-  ;; (better-pdotimes
-  ;;  mps
-  ;;  (lambda (i)
-  ;;    (funcall func (aref mps i))))
-  (values))
-
 (defun reduce-over-nodes (mesh map reduce)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
       mesh
@@ -1070,7 +1051,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
                  (pos-vec (cl-mpm/particle:mp-position mp))
                  (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
-                 (pos-index (cl-mpm/mesh:position-to-index-round mesh pos-vec #'floor)))
+                 (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
             (loop for dx from 0 to 1
                   do (loop for dy from 0 to 1
                            do (let* ((id (mapcar #'+ pos-index (list dx dy 0))))

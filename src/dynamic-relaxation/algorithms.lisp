@@ -378,9 +378,6 @@
                                   mps
                                   (lambda (mp)
                                     (setf (cl-mpm/particle:mp-gravity mp) (* load percent)))))))
-      (when damping
-        (setf (cl-mpm::sim-damping-factor sim)
-              (* damping (cl-mpm/setup:estimate-critical-damping sim))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (loop for step from 1 to load-steps
             while (cl-mpm::sim-run-sim sim)
@@ -392,6 +389,9 @@
                  (funcall loading-function (/ (float step) load-steps))
                  (let ((conv-steps 0)
                        (i 0))
+                   (when damping
+                     (setf (cl-mpm::sim-damping-factor sim)
+                           (* damping (cl-mpm/setup:estimate-critical-damping sim))))
                    (time
                     (cl-mpm/dynamic-relaxation:converge-quasi-static
                      sim
@@ -405,7 +405,10 @@
                      :post-iter-step
                      (lambda (i energy oobf)
                        (setf conv-steps (* substeps i))
-                       (vgplot:title (format nil "Step ~D - substep ~D - KE ~E - OOBF ~E"  step (* i substeps) energy oobf))
+                       (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
+                                             (/ (cl-mpm::sim-damping-factor sim)
+                                                (cl-mpm/setup:estimate-critical-damping sim))
+                                             ))
                        (format t "Substep ~D~%" i)
                        (let ((i (+ 0 i)))
                          (when save-vtk-dr

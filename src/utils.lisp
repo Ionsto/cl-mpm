@@ -731,5 +731,3 @@
 (defun r2d (radians)
   (* radians (/ 180 pi)))
 
-(defun pull-back-voigt-stress (stress df)
-  (cl-mpm/utils:matrix-to-voight (magicl:@ (cl-mpm/utils:voight-to-matrix stress) (magicl:inv df)) stress))
