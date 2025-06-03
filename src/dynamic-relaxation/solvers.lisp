@@ -336,9 +336,9 @@
                           (acc node-acceleration))
              node
            (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
-    (when enable-aggregate
-      (iterate-over-agg-elem
-       agg-elems
-       (lambda (elem)
-         (reproject-velocity sim elem))))
+    ;; (when enable-aggregate
+    ;;   (iterate-over-agg-elem
+    ;;    agg-elems
+    ;;    (lambda (elem)
+    ;;      (reproject-velocity sim elem))))
     ))
