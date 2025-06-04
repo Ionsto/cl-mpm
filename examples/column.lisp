@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (setf *block-compile-default* t)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
@@ -233,13 +233,14 @@
                                  (coerce vp-0-list 'vector)))))
     (lisp-stat:write-csv df output-file :add-first-row t)))
 
+(/ 0.664d0 (* 160 512))
 (defparameter *run-sim* nil)
 (defun run-conv ()
   ;; (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./analysis_scripts/column/data/")) do (uiop:delete-file-if-exists f))
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i from 2 to 8
+  (loop for i from 12 to 13
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -271,9 +272,9 @@
                 :damping 1d0
                 :adaptive-damping t
                 :kinetic-damping nil
-                :save-vtk-dr nil
+                :save-vtk-dr t
                 :save-vtk-loadstep t
-                :dt-scale 0.25d0
+                :dt-scale 0.5d0
                 :criteria 1d-9)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
@@ -763,14 +764,17 @@
 
 
 (defun test-dr ()
-  (setup :mps 2 :refine -1)
+  (setup :mps 2 :refine 1)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
-   :load-steps 10
+   :output-dir "./output-k-0.1/"
+   :load-steps 40
    :plotter #'plot-sigma-yy
-   :damping 1d0
-   :kinetic-damping nil
+   :damping 0d0
+   :kinetic-damping t
    :adaptive-damping t
+   :save-vtk-dr nil
+   :save-vtk-loadstep nil
    :substeps 50
    :dt-scale 0.5d0
    :criteria 1d-5

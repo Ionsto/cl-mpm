@@ -67,12 +67,6 @@
              (list 0d0 0d0 0d0 0d0 0d0)))
        (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
     (declare (double-float mass energy oobf-num oobf-denom power))
-    ;; (format t "Mass - ~E~%" mass)
-    ;; (format t "energy - ~E~%" energy)
-    ;; (format t "oobf-num - ~E~%" oobf-num)
-    ;; (format t "oobf-denom - ~E~%" oobf-denom)
-    ;; (format t "power - ~E~%" power)
-    ;; (break)
     (let ((oobf 0d0))
       (if (> oobf-denom 0d0)
           (setf oobf (sqrt (/ oobf-num oobf-denom)))
@@ -457,10 +451,9 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       (when damping-factor
                         (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
-
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
                         (incf *work* power)
@@ -470,7 +463,7 @@
                                (> energy-last energy-first)
                                (> energy-last energy))
                               (progn
-                                (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
+                                ;; (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
                                 (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
                                 (cl-mpm:iterate-over-mps
                                  mps
@@ -532,9 +525,7 @@
            (oobf 0d0)
            (rank (cl-mpi:mpi-comm-rank))
            (load 0d0)
-           ;; (estimated-t 0.5d0)
            (target-time 1d-4)
-           ;; (work 0d0)
            (converged nil))
       (setf (cl-mpm:sim-dt sim)
             (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))

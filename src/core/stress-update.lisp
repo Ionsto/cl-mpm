@@ -126,12 +126,14 @@
     (cl-mpm/fastmaths::fast-.+-matrix df inc df)
     df))
 
-(declaim (inline calculate-df)
+(declaim (notinline calculate-df)
          (ftype (function (cl-mpm/mesh::mesh
                            cl-mpm/particle:particle
-                           boolean) magicl:matrix/double-float)
+                           boolean
+                           &optional (or null magicl:matrix/double-float)
+                           ) magicl:matrix/double-float)
                 calculate-df))
-(defun calculate-df (mesh mp fbar)
+(defun calculate-df (mesh mp fbar &optional (result nil))
   (with-accessors ((dstrain cl-mpm/particle::mp-strain-rate)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
@@ -139,13 +141,14 @@
                    (def cl-mpm/particle:mp-deformation-gradient)
                    (pos cl-mpm/particle:mp-position))
       mp
-    (let* ((df (cl-mpm/utils:matrix-eye 1d0))
+    (let* ((df (if result
+                   (cl-mpm/utils::matrix-reset-identity result)
+                   (cl-mpm/utils:matrix-eye 1d0)))
            (dJ 1d0))
       (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       (when (< dJ 0d0)
         (error "Negative jacobian of dF"))
-      
       ;;Explicit fbar
       (when fbar
         (if nil;;t exp: nil Coobs
@@ -187,15 +190,11 @@
               )
             ;;Coombs fbar
             (progn
-              (let* ((df-fbar (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                                                0d0 1d0 0d0
-                                                                0d0 0d0 1d0)))
+              (let* ((df-fbar (cl-mpm/utils::matrix-eye 1d0))
                      (nd (cl-mpm/mesh::mesh-nd mesh)))
                 (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
                 (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
                   (error "Negative jacobian of dF-bar"))
-                ;; (setf (cl-mpm/particle::mp-debug-j mp) (cl-mpm/fastmaths:det-3x3 df)
-                ;;       (cl-mpm/particle::mp-debug-j-gather mp) (cl-mpm/fastmaths:det-3x3 df-fbar))
                 (cl-mpm/fastmaths::fast-scale!
                  df
                  (expt
@@ -272,9 +271,9 @@
                    ) mp
     (declare (type double-float volume))
     (progn
-      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
+      (multiple-value-bind (df dj) (calculate-df mesh mp fbar df-inc)
         (progn
-          (cl-mpm/utils:matrix-copy-into df df-inc)
+          ;; (cl-mpm/utils:matrix-copy-into df df-inc)
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
@@ -302,16 +301,14 @@
       (progn
         (calculate-strain-rate mesh mp dt)
         ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
         ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
-
-        ))))
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))))))
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
   "Update stress for a single mp"
@@ -333,7 +330,7 @@
       (progn
         (calculate-strain-rate-disp mesh mp dt)
         ;; Turn cauchy stress to kirchoff
-        (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; ;; Update our strains
         (update-strain-kirchoff-dynamic-relaxation mesh mp dt fbar)
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)

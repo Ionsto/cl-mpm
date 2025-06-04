@@ -54,6 +54,8 @@ for f in output_list:
 data_h = np.array(data_h)
 data_e = np.array(data_e)
 plt.scatter(1/data_h,data_e,label="MPM")
+plt.xlabel("1/h")
+plt.ylabel("normalised error")
 plt.xscale("log")
 plt.yscale("log")
 plt.show()

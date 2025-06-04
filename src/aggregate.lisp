@@ -422,6 +422,7 @@
   `(let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh ,sim))))
      (let ((computed-v ,vector))
        (let ((iter 0))
+         (declare (fixnum iter))
          (iterate-over-agg-elem-agg-nodes
           ,sim
           ,elem
@@ -429,7 +430,7 @@
             (with-accessors ((n-acc ,accessor))
                 n
               (loop for i from 0 below nd
-                    do (setf (varef n-acc i) (mtref computed-v (+ iter i) 0)))
+                    do (setf (the double-float (varef n-acc i)) (the double-float (mtref computed-v (+ iter i) 0))))
               (incf iter nd))))))))
 
 
@@ -546,10 +547,10 @@
          )
     (let ((acc (magicl:linear-solve m (magicl:@ (magicl:transpose E) f))))
       (project-acc sim elem acc)
-      ;; (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
-      ;; (reproject-vector sim elem cl-mpm/mesh::node-external-force)
+      (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
+      (reproject-vector sim elem cl-mpm/mesh::node-external-force)
+      (reproject-vector sim elem cl-mpm/mesh::node-residual)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-force)
-      ;; (reproject-vector sim elem cl-mpm/mesh::node-residual)
       ;; (project-damping sim elem f-int f-ext)
       ;; (project-sub-forces sim elem f-int f-ext f)
       )))

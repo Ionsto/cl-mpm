@@ -94,7 +94,7 @@
                ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
                :args-list (list
                            :split-factor 0.50d0
-                           :enable-fbar t
+                           :enable-fbar nil
                            :enable-aggregate t
                            :enable-split t)
                ))
@@ -196,7 +196,7 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-7)
             nil
@@ -905,18 +905,18 @@
 
 
 (defun test-static ()
-  (setup :mps 3 :refine 1)
+  (setup :mps 2 :refine 1)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir "./output-reproj/"
    :plotter #'plot
    :load-steps 10
-   :damping 0.1d0
+   :damping 1d0
    :substeps 100
    :criteria 1d-3
    :adaptive-damping t
    :kinetic-damping nil
-   :dt-scale 0.4d0
+   :dt-scale 0.25d0
    )
   ;; (run-static
   ;;  :output-dir "./output/"

@@ -62,10 +62,7 @@
   "Calculate velocity from momentum on a single node"
   (when (cl-mpm/mesh:node-active node)
     (with-accessors ((vel   node-velocity)
-                     (disp   cl-mpm/mesh::node-displacment)
-                     (force-int cl-mpm/mesh::node-internal-force)
-                     (force-ext cl-mpm/mesh::node-external-force)
-                     )
+                     (disp   cl-mpm/mesh::node-displacment))
         node
       (cl-mpm/fastmaths:fast-fmacc disp vel dt))))
 
@@ -124,7 +121,6 @@
                    )
       cell
     (when active
-      ;; (cl-mpm/utils:matrix-copy-into (get-cell-df mesh centroid) df)
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
       (setf (varef df 0) 1d0

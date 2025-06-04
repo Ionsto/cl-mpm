@@ -93,8 +93,8 @@
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
         ;; (set-mass sim)
-        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
-        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
+        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
+        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         (format t "Min dt~E~%" (cl-mpm:sim-dt sim))
         (cl-mpm::apply-bcs mesh bcs dt)
@@ -102,8 +102,9 @@
         (cl-mpm::apply-bcs mesh bcs dt)
         (midpoint-starter sim)
         (setf initial-setup t))
+
       (cl-mpm::update-nodes sim)
-      (cl-mpm::update-cells sim)
+      ;; (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
@@ -152,21 +153,30 @@
 
 
 (defun set-mass (sim)
-  (let ((max-mass 0d0))
-    (setf max-mass
-          (cl-mpm::reduce-over-nodes
-           (cl-mpm:sim-mesh sim)
-           (lambda (n)
-             (if (and
-                  (cl-mpm/mesh:node-active n))
-                 (cl-mpm/mesh:node-mass n)
-                 sb-ext:double-float-negative-infinity))
-           #'max))
-    (cl-mpm:iterate-over-nodes
+  (let ((alpha 2d0))
+    (cl-mpm::iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
-       (when (cl-mpm/mesh:node-active n)
-         (setf (cl-mpm/mesh:node-mass n) max-mass))))))
+       (when (cl-mpm/mesh::node-active n)
+         (setf (cl-mpm/mesh::node-mass n)
+               (* alpha (cl-mpm/mesh::node-pwave n)))))))
+  ;; (let ((max-mass 0d0))
+  ;;   (setf max-mass
+  ;;         (cl-mpm::reduce-over-nodes
+  ;;          (cl-mpm:sim-mesh sim)
+  ;;          (lambda (n)
+  ;;            (if (and
+  ;;                 (cl-mpm/mesh:node-active n))
+  ;;                ;; (cl-mpm/mesh:node-mass n)
+  ;;                ;; (/ (cl-mpm/mesh::node-pwave n) (cl-mpm/mesh::node-pwave n))
+  ;;                sb-ext:double-float-negative-infinity))
+  ;;          #'max))
+  ;;   (cl-mpm:iterate-over-nodes
+  ;;    (cl-mpm:sim-mesh sim)
+  ;;    (lambda (n)
+  ;;      (when (cl-mpm/mesh:node-active n)
+  ;;        (setf (cl-mpm/mesh:node-mass n) max-mass)))))
+  )
 
 (defun update-node-fictious-mass (sim)
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -336,8 +346,7 @@
                           (force node-force)
                           (acc node-acceleration))
              node
-           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)
-           ))))
+           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
     ;; (when enable-aggregate
     ;;   (iterate-over-agg-elem
     ;;    agg-elems
