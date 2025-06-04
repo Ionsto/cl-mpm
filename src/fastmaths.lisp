@@ -1346,3 +1346,12 @@
                )
               )))))
     result))
+
+
+
+(defun matrix-reset-identity (matrix)
+  (cl-mpm/fastmaths:fast-zero matrix)
+  (setf (varef matrix 0) 1d0
+        (varef matrix 4) 1d0
+        (varef matrix 8) 1d0)
+  matrix)

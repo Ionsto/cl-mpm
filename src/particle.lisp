@@ -384,9 +384,10 @@
                    (domain-true mp-true-domain)
                    (position mp-position)
                    (position-trial mp-position-trial)
-                   )
+                   (gravity-axis mp-gravity-axis))
       p
     (cl-mpm/utils:matrix-copy-into position position-trial)
+    (setf gravity-axis (cl-mpm/utils::deep-copy gravity-axis))
     (setf
      (magicl:tref domain-true 0 0) (varef domain 0)
      (magicl:tref domain-true 1 1) (varef domain 1)

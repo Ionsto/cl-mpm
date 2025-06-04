@@ -32,9 +32,7 @@
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics sim)
                     (cl-mpm::apply-bcs mesh bcs dt)
-
                     (cl-mpm::update-nodes sim)
-
                     (cl-mpm::update-stress mesh mps dt fbar)
                     (cl-mpm::p2g-force mesh mps)
                     (cl-mpm::apply-bcs mesh bcs-force dt)
@@ -92,7 +90,8 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
-        (set-mass sim)
+        ;; (set-mass sim)
+        ;; (setf (cl-mpm:sim-dt sim) (cl-mpm::calculate-min-dt sim))
         (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
@@ -100,7 +99,7 @@
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
         (cl-mpm::apply-bcs mesh bcs dt)
-        (midpoint-starter sim)
+        ;; (midpoint-starter sim)
         (setf initial-setup t))
 
       (cl-mpm::update-nodes sim)
@@ -153,15 +152,15 @@
 
 
 (defun set-mass (sim)
-  ;; (let ((alpha 2d0))
-  ;;   (cl-mpm::iterate-over-nodes
-  ;;    (cl-mpm:sim-mesh sim)
-  ;;    (lambda (n)
-  ;;      (when (cl-mpm/mesh::node-active n)
-  ;;        (setf (cl-mpm/mesh::node-mass n)
-  ;;              ;; (* 50d0 (cl-mpm/mesh::node-mass n))
-  ;;              ;; (* alpha (/(cl-mpm/mesh::node-pwave n) (cl-mpm/mesh::node-svp-sum n)))
-  ;;              )))))
+  (let ((alpha 2d0))
+    (cl-mpm::iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh::node-active n)
+         (setf (cl-mpm/mesh::node-mass n)
+               (* 100d0 (cl-mpm/mesh::node-mass n))
+               ;; (* alpha (/(cl-mpm/mesh::node-pwave n) (cl-mpm/mesh::node-svp-sum n)))
+               )))))
   ;; (let ((max-mass 0d0))
   ;;   (setf max-mass
   ;;         (cl-mpm::reduce-over-nodes

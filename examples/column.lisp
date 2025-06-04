@@ -108,9 +108,7 @@
                           :enable-fbar nil
                           :enable-aggregate t
                           :mp-removal-size nil
-                          :enable-split nil)
-              )
-                )
+                          :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
            (h-x (/ h 1d0))
            (h-y (/ h 1d0))
@@ -138,8 +136,10 @@
             'cl-mpm/particle::particle-elastic
             :E 10d3
             :nu 0.0d0
-            :gravity -10.0d0
+            :gravity -1.0d0
+            ;; :gravity-axis (cl-mpm/utils:vector-zeros)
             )))
+        ;; (setf  (cl-mpm/utils::varef (cl-mpm/particle::mp-gravity-axis (aref (cl-mpm:sim-mps sim) (- (length (cl-mpm:sim-mps sim)) 1))) 1) 1d0)
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
@@ -240,7 +240,7 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i from 10 to 10
+  (loop for i from 5 to 7
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -263,20 +263,25 @@
                (format t "Running sim size ~a ~%" elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
-               (setf (cl-mpm::sim-mass-scale *sim*) 1d3)
-               (cl-mpm/dynamic-relaxation::run-load-control
-                *sim*
-                :output-dir (merge-pathnames (format nil "./outputmk-~A_~D/" i mps))
-                :load-steps 40
-                :substeps (* 20 refine)
-                :plotter #'plot-sigma-yy
-                :damping 1d0
-                :adaptive-damping t
-                :kinetic-damping nil
-                :save-vtk-dr nil
-                :save-vtk-loadstep t
-                :dt-scale 0.5d0
-                :criteria 1d-9)
+               ;; (setf (cl-mpm::sim-mass-scale *sim*) (float (expt 2d0 (- i 2d0)) 0d0))
+               (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
+                      ;; (ms (/ 1d0 h))
+                      (ms 1d0)
+                      )
+                 (setf (cl-mpm::sim-mass-scale *sim*) ms)
+                 (cl-mpm/dynamic-relaxation::run-load-control
+                  *sim*
+                  :output-dir (merge-pathnames (format nil "./output0.9-~A_~D/" i mps))
+                  :load-steps 1
+                  :substeps (* 10 refine)
+                  :plotter #'plot-sigma-yy
+                  :damping 0.9d0;(* 1d0 ms)
+                  :adaptive-damping t
+                  :kinetic-damping nil
+                  :save-vtk-dr nil
+                  :save-vtk-loadstep t
+                  :dt-scale 0.4d0
+                  :criteria 1d-5))
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
@@ -285,6 +290,7 @@
              )))
 
 (defun stop ()
+  (setf (cl-mpm::sim-run-sim *sim*) nil)
   (setf *run-sim* nil))
 
 (defun run (&key (plotter (lambda (sim) (plot sim))))

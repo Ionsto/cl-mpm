@@ -142,7 +142,7 @@
                    (pos cl-mpm/particle:mp-position))
       mp
     (let* ((df (if result
-                   (cl-mpm/utils::matrix-reset-identity result)
+                   (cl-mpm/fastmaths::matrix-reset-identity result)
                    (cl-mpm/utils:matrix-eye 1d0)))
            (dJ 1d0))
       (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)

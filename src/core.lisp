@@ -231,7 +231,7 @@
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (integrate-vel-euler vel acc force mass mass-scale dt damping)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force residual))))
+        (cl-mpm/utils::vector-copy-into force-int residual))))
   (values))
 
 

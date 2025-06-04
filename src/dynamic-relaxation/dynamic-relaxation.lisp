@@ -58,8 +58,7 @@
                (list
                 mass
                 (* mass (cl-mpm/fastmaths::mag-squared vel))
-                (* mass (cl-mpm/fastmaths::mag-squared
-                         (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                (* mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
                 (* mass (cl-mpm/fastmaths::mag-squared f-ext))
                 (* mass
                    (cl-mpm/fastmaths:dot
@@ -86,8 +85,7 @@
                (setf node-oobf
                      (if (> oobf 0d0)
                          (sqrt
-                          (/ (* n-mass (cl-mpm/fastmaths::mag-squared
-                                    (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                          (/ (* n-mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
                              oobf-denom))
                          0d0
                          )))))))
@@ -442,6 +440,7 @@
         (setf *work* 0d0)
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
+                         (cl-mpm::sim-run-sim sim)
                          (not converged))
               do
                  (progn
@@ -451,7 +450,7 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       (when damping-factor
                         (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
                       (let ((power (cl-mpm::sim-stats-power sim))
@@ -476,8 +475,7 @@
                               (progn
                                 (setf energy-first energy-last)
                                 (setf power-last power
-                                      energy-last energy))))
-                        )))
+                                      energy-last energy)))))))
                    (setf load cl-mpm/penalty::*debug-force*)
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
@@ -685,6 +683,8 @@
                           (cl-mpm/mesh:node-velocity node)))
                       0d0))
                 #'+)))
+      ;; (if (< num 0d0)
+      ;;     (* 2d0 1.9d0))
       (if (= denom 0d0)
           (cl-mpm/setup::estimate-critical-damping sim)
           (* 2d0 (sqrt (/ (max 0d0 num) denom)))))))
