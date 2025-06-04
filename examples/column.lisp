@@ -240,7 +240,7 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i from 12 to 13
+  (loop for i from 10 to 10
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -263,16 +263,17 @@
                (format t "Running sim size ~a ~%" elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
+               (setf (cl-mpm::sim-mass-scale *sim*) 1d3)
                (cl-mpm/dynamic-relaxation::run-load-control
                 *sim*
-                :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
+                :output-dir (merge-pathnames (format nil "./outputmk-~A_~D/" i mps))
                 :load-steps 40
                 :substeps (* 20 refine)
                 :plotter #'plot-sigma-yy
                 :damping 1d0
                 :adaptive-damping t
                 :kinetic-damping nil
-                :save-vtk-dr t
+                :save-vtk-dr nil
                 :save-vtk-loadstep t
                 :dt-scale 0.5d0
                 :criteria 1d-9)
