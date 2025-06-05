@@ -80,6 +80,7 @@
                (bcs-force-list cl-mpm::bcs-force-list)
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
+               (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (vel-algo cl-mpm::velocity-algorithm))
                 sim
     (declare (type double-float mass-filter))
@@ -98,12 +99,14 @@
         (format t "Min dt~E~%" (cl-mpm:sim-dt sim))
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-cells sim)
+        (when enable-aggregate
+          (cl-mpm/aggregate::update-aggregate-elements sim))
         (cl-mpm::apply-bcs mesh bcs dt)
-        ;; (midpoint-starter sim)
+        (midpoint-starter sim)
         (setf initial-setup t))
 
       (cl-mpm::update-nodes sim)
-      ;; (cl-mpm::update-cells sim)
+      (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm::p2g-force mesh mps)
@@ -116,6 +119,21 @@
       (cl-mpm::update-dynamic-stats sim)
       ;; (cl-mpm::g2p mesh mps dt vel-algo)
       )))
+
+
+(defmethod cl-mpm::update-cells ((sim mpm-sim-dr-ul))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt)
+                   (agg sim-enable-aggregate))
+      sim
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (cl-mpm::filter-cell mesh cell dt)
+       (cl-mpm::update-cell mesh cell dt)))
+    ;; (when agg
+    ;;   (cl-mpm/aggregate::update-aggregate-elements sim))
+    ))
 
 (defun midpoint-starter (sim)
   (with-slots ((mesh cl-mpm::mesh)
@@ -348,9 +366,10 @@
                           (acc node-acceleration))
              node
            (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
-    ;; (when enable-aggregate
     ;;   (iterate-over-agg-elem
     ;;    agg-elems
     ;;    (lambda (elem)
-    ;;      (reproject-velocity sim elem))))
+    ;;      (reproject-velocity sim elem)
+    ;;      (reproject-displacements sim elem)
+    ;;      ))
     ))

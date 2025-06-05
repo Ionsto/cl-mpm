@@ -136,7 +136,7 @@
             'cl-mpm/particle::particle-elastic
             :E 10d3
             :nu 0.0d0
-            :gravity -1.0d0
+            :gravity -10.0d0
             ;; :gravity-axis (cl-mpm/utils:vector-zeros)
             )))
         ;; (setf  (cl-mpm/utils::varef (cl-mpm/particle::mp-gravity-axis (aref (cl-mpm:sim-mps sim) (- (length (cl-mpm:sim-mps sim)) 1))) 1) 1d0)
@@ -240,7 +240,7 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i from 5 to 7
+  (loop for i in '(2 4 6 8 10 12)
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -258,36 +258,33 @@
                                     (list h L)
                                     (/ 1d0 h)
                                     mps))
-               ;; (setf (cl-mpm:sim-dt *sim*)
-               ;;       (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale 0.5d0))
-               (format t "Running sim size ~a ~%" elements)
+               (format t "Running sim size ~a ~a ~%" refine elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
-               ;; (setf (cl-mpm::sim-mass-scale *sim*) (float (expt 2d0 (- i 2d0)) 0d0))
                (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                      ;; (ms (/ 1d0 h))
-                      (ms 1d0)
-                      )
+                      (ms 1d0))
                  (setf (cl-mpm::sim-mass-scale *sim*) ms)
                  (cl-mpm/dynamic-relaxation::run-load-control
                   *sim*
                   :output-dir (merge-pathnames (format nil "./output0.9-~A_~D/" i mps))
-                  :load-steps 1
-                  :substeps (* 10 refine)
+                  :load-steps 10
+                  :substeps (* 50 refine)
                   :plotter #'plot-sigma-yy
                   :damping 0.9d0;(* 1d0 ms)
-                  :adaptive-damping t
+                  :adaptive-damping nil
                   :kinetic-damping nil
                   :save-vtk-dr nil
                   :save-vtk-loadstep t
                   :dt-scale 0.4d0
-                  :criteria 1d-5))
+                  :criteria 1d-9))
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
              (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
              (save-csv (merge-pathnames (format nil "./analysis_scripts/column/data/data-~A_~D.csv" i mps)))
              )))
+
+;; (defun run-)
 
 (defun stop ()
   (setf (cl-mpm::sim-run-sim *sim*) nil)
