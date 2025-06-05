@@ -93,8 +93,8 @@
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
         ;; (set-mass sim)
         ;; (setf (cl-mpm:sim-dt sim) (cl-mpm::calculate-min-dt sim))
-        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
-        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
+        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
+        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         (format t "Min dt~E~%" (cl-mpm:sim-dt sim))
         (cl-mpm::apply-bcs mesh bcs dt)
@@ -349,12 +349,31 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node damping 0d0 mass-scale))))
+
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
+      ;; (iterate-over-agg-elem
+      ;;  agg-elems
+      ;;  (lambda (elem)
+      ;;    (calculate-forces-agg-elem sim elem damping)))
       (iterate-over-agg-elem
        agg-elems
        (lambda (elem)
-         (calculate-forces-agg-elem sim elem damping))))
+         (partial-project-force sim elem damping)
+         ))
+      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (partial-project-acc sim elem damping)
+         ))
+      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      )
+
+    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+
     ;; (setf (cl-mpm:sim-damping-factor sim) (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))
     (iterate-over-nodes
      mesh
@@ -366,10 +385,11 @@
                           (acc node-acceleration))
              node
            (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
-    ;;   (iterate-over-agg-elem
-    ;;    agg-elems
-    ;;    (lambda (elem)
-    ;;      (reproject-velocity sim elem)
-    ;;      (reproject-displacements sim elem)
-    ;;      ))
+    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      ;; (iterate-over-agg-elem
+      ;;  agg-elems
+      ;;  (lambda (elem)
+      ;;    (reproject-velocity sim elem)
+      ;;    (reproject-displacements sim elem)
+      ;;    ))
     ))

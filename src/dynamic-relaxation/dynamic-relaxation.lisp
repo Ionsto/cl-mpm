@@ -55,14 +55,15 @@
                               )
                  node
                (declare (double-float mass))
-               (list
-                mass
-                (* mass (cl-mpm/fastmaths::mag-squared vel))
-                (* mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
-                (* mass (cl-mpm/fastmaths::mag-squared f-ext))
-                (* mass
-                   (cl-mpm/fastmaths:dot
-                    disp f-ext))))
+               (let ((mass 1d0))
+                 (list
+                  mass
+                  (* mass (cl-mpm/fastmaths::mag-squared vel))
+                  (* mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                  (* mass (cl-mpm/fastmaths::mag-squared f-ext))
+                  (* mass
+                     (cl-mpm/fastmaths:dot
+                      disp f-ext)))))
              (list 0d0 0d0 0d0 0d0 0d0)))
        (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
     (declare (double-float mass energy oobf-num oobf-denom power))
@@ -665,9 +666,7 @@
                     (cl-mpm/mesh:node-velocity node)
                     (cl-mpm/fastmaths:fast-.-
                      (cl-mpm/mesh::node-residual-prev node)
-                     (cl-mpm/mesh::node-residual node)
-                     )
-                    )
+                     (cl-mpm/mesh::node-residual node)))
                    0d0))
              #'+))
       (setf denom
@@ -683,8 +682,6 @@
                           (cl-mpm/mesh:node-velocity node)))
                       0d0))
                 #'+)))
-      ;; (if (< num 0d0)
-      ;;     (* 2d0 1.9d0))
       (if (= denom 0d0)
           (cl-mpm/setup::estimate-critical-damping sim)
           (* 2d0 (sqrt (/ (max 0d0 num) denom)))))))

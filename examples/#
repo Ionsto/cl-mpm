@@ -909,13 +909,13 @@
    *sim*
    :output-dir "./output-reproj/"
    :plotter #'plot
-   :load-steps 40
-   :damping 0d0
+   :load-steps 20
+   :damping 1d0
    :substeps 100
-   :criteria 1d-5
-   :adaptive-damping nil
-   :kinetic-damping t
-   :dt-scale (/ 0.25d0 (sqrt 1d0))
+   :criteria 1d-3
+   :adaptive-damping t
+   :kinetic-damping nil
+   :dt-scale (/ 0.4d0 (sqrt 1d0))
    )
   ;; (run-static
   ;;  :output-dir "./output/"
@@ -1510,82 +1510,79 @@
 ;;     ))
 
 (defun print-agg ()
-  ;; (loop for elem across (cl-mpm/aggregate::sim-agg-elems *sim*)
-  ;;       do)
-  (let* ((elem (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 2))
-         (map-size 4)
-         (map (make-array (list map-size map-size) :initial-element "-"))
-         (center-index (cl-mpm/mesh::cell-index (cl-mpm/aggregate::agg-interior-cell elem))))
-    (cl-mpm/aggregate::iterate-over-agg-elem-nodes
-     *sim*
-     elem
-     (lambda (n)
-       (let ((ni (cl-mpm/mesh::node-index n)))
-         (let ((index-diff (mapcar #'+ (list 1 1) (mapcar #'- ni center-index))))
-           (setf (aref map (first index-diff) (second index-diff)) "x"))
-         (format t "~a ~A~%" ni (cl-mpm/mesh::node-agg n)))))
-    (loop for x from (- map-size 1) downto 0
-          do (progn
-               (loop for y from 0 below map-size
-                     do (format t "~A" (aref map y x)))
-               (format t "~%")))
-    (let ((E (cl-mpm/aggregate::agg-shape-functions elem))
-          (m (cl-mpm/aggregate::agg-mass-matrix elem))
-          (proj (cl-mpm/aggregate::agg-internal-selector elem))
-          (mii (cl-mpm/aggregate::assemble-full-mass *sim* elem))
-          (f (cl-mpm/aggregate::assemble-vector *sim* elem #'cl-mpm/mesh::node-force))
-          (id (cl-mpm/aggregate::compute-identity *sim* (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 0)))
-          )
-      ;; (pprint E)
-      (pprint proj)
-      ;; (pprint (magicl:transpose E))
-      ;; (pprint f)
-      ;; (pprint (magicl:@ proj f))
-      ;; (pprint (magicl:@ E f))
-      ;; (pprint (magicl:@ E (magicl:transpose E)))
-      ;; (pprint (magicl:@ (magicl:transpose E) f))
-      ;; (pprint (magicl:@ E (magicl:transpose E) f))
-      ;; (pprint (magicl:@ id (magicl:@ proj f)))
-      ;; (pprint (magicl:@ E (magicl:@ (magicl:inv m) (magicl:transpose E) f)))
-      ;; (pprint (magicl:@ (magicl:inv mii) f))
-      ;; (pprint (magicl:@ E (magicl:transpose E) f))
-      ;; (pprint (magicl:@ (magicl:transpose E) f))
-      ;; (pprint (magicl:@ E proj f))
-      ;; (format t "Full mat:~%")
-      ;; (pprint mii)
-      ;; (format t "~%")
-      ;; (format t "Mass mat:~%")
-      ;; (pprint m)
-      ;; (format t "~%")
-      ;; (pprint m)
-      ;; (pprint (magicl:@ E (magicl:transpose E) v))
-      ;; (pprint v)
-      ;; (pprint
-      ;;  (magicl:@
-      ;;   E
-      ;;   (magicl:linear-solve
-      ;;    m
-      ;;    (magicl:@ (magicl:transpose E) (magicl:@ mii v)))))
+  (loop for elem across (cl-mpm/aggregate::sim-agg-elems *sim*)
+        do
+           (let* (;; (elem (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 2))
+                  (map-size 4)
+                  (map (make-array (list map-size map-size) :initial-element "-"))
+                  (center-index (cl-mpm/mesh::cell-index (cl-mpm/aggregate::agg-interior-cell elem))))
+             (cl-mpm/aggregate::iterate-over-agg-elem-nodes
+              *sim*
+              elem
+              (lambda (n)
+                (let ((ni (cl-mpm/mesh::node-index n)))
+                  (let ((index-diff (mapcar #'+ (list 1 1) (mapcar #'- ni center-index))))
+                    (setf (aref map (first index-diff) (second index-diff)) "x"))
+                  (format t "~a ~A~%" ni (cl-mpm/mesh::node-agg n)))))
+             (loop for x from (- map-size 1) downto 0
+                   do (progn
+                        (loop for y from 0 below map-size
+                              do (format t "~A" (aref map y x)))
+                        (format t "~%")))
+             (let ((E (cl-mpm/aggregate::agg-shape-functions elem))
+                   (m (cl-mpm/aggregate::agg-mass-matrix elem))
+                   (proj (cl-mpm/aggregate::agg-internal-selector elem))
+                   (mii (cl-mpm/aggregate::assemble-full-mass *sim* elem))
+                   (f (cl-mpm/aggregate::assemble-vector *sim* elem #'cl-mpm/mesh::node-force))
+                   (id (cl-mpm/aggregate::compute-identity *sim* (aref (cl-mpm/aggregate::sim-agg-elems *sim*) 0)))
+                   )
+               ;; (pprint E)
+               ;; (pprint id)
+               ;; (pprint (magicl:transpose E))
+               ;; (pprint f)
+               ;; (pprint (magicl:@ proj f))
+               ;; (pprint (magicl:@ E proj f))
+               ;; (pprint (magicl:@ id (magicl:@ proj f)))
+               ;; (pprint (magicl:@ E (magicl:@ (magicl:inv m) (magicl:transpose E) f)))
+               ;; (pprint (magicl:@ (magicl:inv mii) f))
+               ;; (pprint (magicl:@ E (magicl:transpose E) f))
+               ;; (pprint (magicl:@ (magicl:transpose E) f))
+               ;; (pprint (magicl:@ E proj f))
+               ;; (format t "Full mat:~%")
+               ;; (pprint mii)
+               ;; (format t "~%")
+               ;; (format t "Mass mat:~%")
+               ;; (pprint m)
+               ;; (format t "~%")
+               ;; (pprint m)
+               ;; (pprint (magicl:@ E (magicl:transpose E) v))
+               ;; (pprint v)
+               ;; (pprint
+               ;;  (magicl:@
+               ;;   E
+               ;;   (magicl:linear-solve
+               ;;    m
+               ;;    (magicl:@ (magicl:transpose E) (magicl:@ mii v)))))
 
-      ;; (let ((temp
-      ;;         (magicl:@
-      ;;          E
-      ;;          (magicl:inv m)
-      ;;          (magicl:@ (magicl:transpose E) (magicl:@ mii)))
-      ;;         ))
-      ;;   (pprint 
-      ;;    (magicl:@ (cl-mpm/aggregate::agg-vel-projection-matrix elem) v))
-      ;;   (pprint
-      ;;    (magicl:@ temp v)
-      ;;    ))
-      ;; (pprint
-      ;;  (magicl:@
-      ;;   (cl-mpm/aggregate::agg-vel-projection-matrix elem)
-      ;;   v
-      ;; ;;   ))
-      ;; (pprint v)
-      )
-    ))
+               ;; (let ((temp
+               ;;         (magicl:@
+               ;;          E
+               ;;          (magicl:inv m)
+               ;;          (magicl:@ (magicl:transpose E) (magicl:@ mii)))
+               ;;         ))
+               ;;   (pprint 
+               ;;    (magicl:@ (cl-mpm/aggregate::agg-vel-projection-matrix elem) v))
+               ;;   (pprint
+               ;;    (magicl:@ temp v)
+               ;;    ))
+               ;; (pprint
+               ;;  (magicl:@
+               ;;   (cl-mpm/aggregate::agg-vel-projection-matrix elem)
+               ;;   v
+               ;; ;;   ))
+               ;; (pprint v)
+               )
+             )))
 
 
 

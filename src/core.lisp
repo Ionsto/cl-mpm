@@ -238,7 +238,7 @@
 (defun integrate-vel-midpoint (vel acc force mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
-    (let ((damp-dt (/(* dt damping) mass-scale)))
+    (let ((damp-dt (/ (* dt damping) mass-scale)))
       (cl-mpm/fastmaths:fast-scale! vel (/ (- 2d0 damp-dt)
                                            (+ 2d0 damp-dt)))
       (cl-mpm/fastmaths:fast-fmacc vel acc (/ (* dt 2d0) (+ 2d0 damp-dt))))))
