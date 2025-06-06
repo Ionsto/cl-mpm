@@ -240,6 +240,9 @@
     :accessor cell-active
     :type boolean
     :initform t)
+   (aggregate-element
+    :accessor cell-aggregate-element
+    :initform nil)
    (pruned
     :accessor cell-pruned
     :type boolean
@@ -313,8 +316,7 @@
   "Default initialise a 2d node at pos"
   (make-instance 'node
                  :index (mapcar (lambda (x) (coerce x 'fixnum)) index)
-                 :position pos
-                 ))
+                 :position pos))
 
 (defun make-nodes (mesh size h)
   "Make a 2d mesh of specific size"
@@ -326,8 +328,9 @@
                      do
                         (loop for z from 0 to (- lz 1)
                               do (setf (aref nodes x y z)
-                                       (make-node (list x y z)
-                                                  (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z))) h)))))
+                                       (make-node
+                                        (list x y z)
+                                        (cl-mpm/utils:vector-from-list (index-to-position mesh (list x y z))) h)))))
       nodes))
   ;; (make-array size :initial-contents
   ;;     (loop for x from 0 to (- (nth 0 size) 1)

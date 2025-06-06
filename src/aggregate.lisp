@@ -38,6 +38,9 @@
    (shape-functions
     :initform nil
     :accessor agg-shape-functions)
+   (contribution-list
+    :initform nil
+    :accessor agg-contribution-list)
    (internal-selector
     :initform nil
     :accessor agg-internal-selector)
@@ -88,6 +91,24 @@
     :accessor sim-enable-aggregate)))
 
 
+(defmacro project-vector-internal (sim elem accessor vector)
+  `(let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh ,sim)))
+          ;; (contr (agg-contribution-list ,elem))
+          )
+     (let ((computed-v ,vector))
+       (let ((iter 0))
+         (declare (fixnum iter))
+         (iterate-over-agg-elem-nodes
+          ,sim
+          ,elem
+          (lambda (n)
+            (with-accessors ((n-acc ,accessor))
+                n
+              (when (not (cl-mpm/mesh::node-agg n))
+                (loop for i from 0 below nd
+                      ;; when (aref contr (+ iter i))
+                      do (setf (the double-float (varef n-acc i)) (the double-float (mtref computed-v (+ iter i) 0))))
+                (incf iter nd)))))))))
 
 (defmacro project-vector (sim elem accessor vector)
   `(let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh ,sim))))
@@ -102,20 +123,19 @@
                 n
               (when t;(cl-mpm/mesh::node-agg n)
                 (loop for i from 0 below nd
-                      do (setf (the double-float (varef n-acc i)) (the double-float (mtref computed-v (+ iter i) 0)))))
+                      do (setf (the double-float (varef n-acc i)) (the double-float (varef computed-v (+ iter i))))))
               (incf iter nd))))))))
 
 (defmacro reproject-vector (sim elem accessor)
   `(let* ((E (agg-shape-functions ,elem))
           ;; (proj (agg-internal-selector ,elem))
-          (d-i (assemble-vector sim ,elem #',accessor)))
+          (d-i (assemble-vector ,sim ,elem #',accessor)))
      (project-vector
       ,sim
       ,elem
       ,accessor
       (magicl:@
        E
-       ;; proj
        (magicl:transpose E)
        d-i))))
 
@@ -206,13 +226,25 @@
              (let ((closest-elem (get-closest-cell sim node)))
                (when closest-elem
                  (sb-thread:with-mutex (mutex)
-                   (push
-                    (make-instance 'aggregate-element
-                                   :agg-node node
-                                   :interior-cell closest-elem
-                                   :node-list (make-elem-node-list mesh node closest-elem)
-                                   )
-                    agg-elem)))))))))
+                   (if (cl-mpm/mesh::cell-aggregate-element closest-elem)
+                       (progn
+                         (setf (agg-node-list (cl-mpm/mesh::cell-aggregate-element closest-elem))
+                               (append
+                                (agg-node-list (cl-mpm/mesh::cell-aggregate-element closest-elem))
+                                (list node)
+                                ))
+                         )
+                       (progn
+                         (setf
+                          (cl-mpm/mesh::cell-aggregate-element closest-elem)
+                          (make-instance 'aggregate-element
+                                         ;; :agg-node node
+                                         :interior-cell closest-elem
+                                         :node-list (make-elem-node-list mesh node closest-elem)
+                                         ))
+                         (push
+                          (cl-mpm/mesh::cell-aggregate-element closest-elem)
+                          agg-elem)))))))))))
     (make-array (length agg-elem) :initial-contents agg-elem)))
 
 
@@ -333,7 +365,9 @@
      (cl-mpm/mesh::cell-centroid interior-cell)
      (lambda (cn weight grads)
        (push cn node-list)))
-    (reverse node-list)))
+    (reverse node-list)
+    ;; (push agg-node node-list)
+    ))
 
 (defun iterate-over-agg-elem-agg-nodes (sim elem func)
   (declare (function func))
@@ -349,9 +383,23 @@
       sim
     (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
            (nc (length (agg-node-list elem)))
+           ;; (contrib (make-array (* nd (expt 2 nd))))
            (E (cl-mpm/utils::arb-matrix (* nd nc)
                                         (* nd (expt 2 nd)))))
       (let ((iter 0))
+        ;; (iterate-over-agg-elem-agg-nodes
+        ;;  sim
+        ;;  elem
+        ;;  (lambda (n)
+        ;;    (let ((rank 0))
+        ;;      (iterate-over-cell-shape-local
+        ;;       mesh
+        ;;       (agg-interior-cell elem)
+        ;;       (cl-mpm/mesh::node-position n)
+        ;;       (lambda (cn weight grads)
+        ;;         (loop for i from 0 below nd
+        ;;               do (setf (aref contrib (+ rank i)) (not (= weight 0d0))))
+        ;;         (incf rank nd))))))
         (iterate-over-agg-elem-nodes
          sim
          elem
@@ -366,6 +414,7 @@
                       do (setf (mtref E (+ iter i) (+ rank i)) weight))
                 (incf rank nd)))
              (incf iter nd)))))
+      ;; (setf (agg-contribution-list elem) contrib)
       (setf (agg-shape-functions elem) E))))
 
 (defun compute-identity (sim elem)
@@ -392,6 +441,31 @@
                   (incf rank nd)))
                (incf iter nd))))))
       (setf (agg-shape-functions elem) E))))
+
+(defun compute-internal-expander (sim elem)
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (let* ((nd (cl-mpm/mesh:mesh-nd mesh))
+           (nc (length (agg-node-list elem)))
+           (E (cl-mpm/utils::arb-matrix (* nd nc)
+                                        (* nd (expt 2 nd)))))
+      (let ((iter 0))
+        (iterate-over-agg-elem-nodes
+         sim
+         elem
+         (lambda (n)
+           (let ((rank 0))
+             (iterate-over-cell-shape-local
+              mesh
+              (agg-interior-cell elem)
+              (cl-mpm/mesh::node-position n)
+              (lambda (cn weight grads)
+                (loop for i from 0 below nd
+                      do (setf (mtref E (+ iter i) (+ rank i)) (if (eq cn n) 1d0 0d0)))
+                (incf rank nd)))
+             (incf iter nd)))))
+      E)))
+
 
 (defun compute-internal-matrix (sim elem)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -589,12 +663,21 @@
   (let* ((nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (E (agg-shape-functions elem))
          (m (agg-mass-matrix elem))
+         (expander )
          (f (assemble-vector sim elem #'cl-mpm/mesh:node-force)))
-    (project-vector
+    (project-vector-internal
      sim
      elem
      cl-mpm/mesh::node-force
-     (magicl:@ E (magicl:inv m) (magicl:transpose E) f))
+     (magicl:@ (magicl:transpose E) f)
+     )
+
+    ;; (project-vector-partial
+    ;;  sim
+    ;;  elem
+    ;;  cl-mpm/mesh::node-force
+    ;;  (magicl:@ (magicl:transpose E) f)
+    ;;  nil)
     ))
 
 (defun partial-project-acc (sim elem damping)
@@ -602,11 +685,45 @@
          (E (agg-shape-functions elem))
          (proj (agg-internal-selector elem))
          (m (agg-mass-matrix elem))
-         (f (assemble-vector sim elem #'cl-mpm/mesh:node-force)))
-    (let ((acc (magicl:@ E proj f)))
+         (f (assemble-vector sim elem #'cl-mpm/mesh::node-force))
+         ;; (f-int (assemble-vector sim elem #'cl-mpm/mesh::node-internal-force))
+         ;; (f-ext (assemble-vector sim elem #'cl-mpm/mesh::node-external-force))
+         )
+    (let ((acc (magicl:@ E (magicl:inv m) proj f)))
       (project-acc sim elem acc)
-      (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
-      (reproject-vector sim elem cl-mpm/mesh::node-external-force)
+
+      ;; (project-vector-internal
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-force
+      ;;  (magicl:@ (magicl:transpose E) (assemble-vector sim elem #'cl-mpm/mesh::node-internal-force)))
+
+      ;; (project-vector-internal
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-force
+      ;;  (magicl:@ (magicl:transpose E) (assemble-vector sim elem #'cl-mpm/mesh::node-external-force)))
+      ;; (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
+      ;; (reproject-vector sim elem cl-mpm/mesh::node-external-force)
+      ;; (project-vector
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-acceleration
+      ;;  acc)
+      ;; (project-vector-partial
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-internal-force
+      ;;  (magicl:@ (magicl:transpose E) f-int)
+      ;;  nil)
+      ;; (project-vector-partial
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-external-force
+      ;;  (magicl:@ (magicl:transpose E) f-ext)
+      ;;  nil)
+      ;; (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
+      ;; (reproject-vector sim elem cl-mpm/mesh::node-external-force)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-residual)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-force)
       )))
@@ -618,8 +735,23 @@
          (f (assemble-vector sim elem #'cl-mpm/mesh:node-force)))
     (let ((acc (magicl:@ E (magicl:inv m) (magicl:@ (magicl:transpose E) f))))
       (project-acc sim elem acc)
+      ;; (project-vector
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-acceleration
+      ;;  acc)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-internal-force)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-external-force)
+      ;; (project-vector
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-force
+      ;;  (magicl:@ (magicl:transpose E) (assemble-vector sim elem #'cl-mpm/mesh::node-internal-force)))
+      ;; (project-vector
+      ;;  sim
+      ;;  elem
+      ;;  cl-mpm/mesh::node-force
+      ;;  (magicl:@ (magicl:transpose E) (assemble-vector sim elem #'cl-mpm/mesh::node-external-force)))
       ;; (reproject-vector sim elem cl-mpm/mesh::node-residual)
       ;; (reproject-vector sim elem cl-mpm/mesh::node-force)
       ;; (project-damping sim elem f-int f-ext)
@@ -759,3 +891,64 @@
     ;;      (reproject-displacements sim elem))))
     ))
 
+
+(defun filter-nodes (sim filter)
+  (let ((nodes (cl-mpm/mesh::mesh-nodes (cl-mpm:sim-mesh sim))))
+    (remove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))))
+
+(defun assemble-global-full-mass (sim)
+  (let* ((active-nodes (filter-nodes sim #'cl-mpm/mesh::node-active))
+         (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (ndofs (* (length active-nodes) nd))
+         (m (cl-mpm/utils::arb-matrix ndofs ndofs))
+         (mii nil)
+         )
+    (pprint ndofs)
+    (let ((i 0))
+      (loop for n across active-nodes
+            do (loop for d from 0 below nd
+                     do (progn
+                          (setf (cl-mpm/utils::mtref m i i) (cl-mpm/mesh::node-mass n))
+                          (incf i)))))
+    (setf mii (cl-mpm/utils::deep-copy m))
+
+    (iterate-over-agg-elem
+     (sim-agg-elems sim)
+     (lambda (elem)
+       (let ((ma (agg-mass-matrix elem))
+             (index-map nil)
+             (iter 0)
+             (node-count (length (agg-node-list elem))))
+         (iterate-over-agg-elem-nodes
+          sim
+          elem
+          (lambda (n)
+            (let ((index (* nd (position n active-nodes))))
+              (push index index-map))))
+         (setf index-map (make-array (length index-map) :initial-contents (nreverse index-map)))
+         (loop for x from 0 below node-count
+              do
+                 (loop for y from 0 below node-count
+                       do
+                          (loop for i from 0 below nd
+                                do (let ((index (aref index-map x)))
+                                     (setf (mtref m (+ (aref index-map x) i) (+ (aref index-map y) i))
+                                           (mtref ma (+ x i) (+ y i)))))))
+
+         ;; (iterate-over-agg-elem-nodes
+         ;;  sim
+         ;;  elem
+         ;;  (lambda (n)
+         ;;    (let ((index (* nd (position n active-nodes))))
+         ;;      (let ((mi (cl-mpm/mesh::node-mass n)))
+         ;;        (loop for i from 0 below nd
+         ;;              do (progn
+         ;;                   (setf (mtref m (+ index i) (+ index i))
+         ;;                         (mtref ma (+ iter i) (+ iter i)))
+         ;;                   ))))
+         ;;    (incf iter)))
+         )))
+
+    (values m mii)
+    ;; nil
+    ))

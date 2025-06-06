@@ -235,7 +235,7 @@
   (values))
 
 
-(defun integrate-vel-midpoint (vel acc force mass mass-scale dt damping)
+(defun integrate-vel-midpoint (vel acc mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
   (unless (= dt 0d0)
     (let ((damp-dt (/ (* dt damping) mass-scale)))
@@ -270,7 +270,7 @@
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
 
-        (integrate-vel-midpoint vel acc force mass mass-scale dt damping)
+        (integrate-vel-midpoint vel acc mass mass-scale dt damping)
 
         (cl-mpm/utils::vector-copy-into residual residual-prev)
         (cl-mpm/utils::vector-copy-into force-int residual))))

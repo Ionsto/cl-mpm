@@ -354,22 +354,20 @@
 
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
+      (iterate-over-agg-elem
+       agg-elems
+       (lambda (elem)
+         (calculate-forces-agg-elem sim elem damping)))
       ;; (iterate-over-agg-elem
       ;;  agg-elems
       ;;  (lambda (elem)
-      ;;    (calculate-forces-agg-elem sim elem damping)))
-      (iterate-over-agg-elem
-       agg-elems
-       (lambda (elem)
-         (partial-project-force sim elem damping)
-         ))
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-      (iterate-over-agg-elem
-       agg-elems
-       (lambda (elem)
-         (partial-project-acc sim elem damping)
-         ))
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      ;;    (partial-project-force sim elem damping)))
+      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      ;; (iterate-over-agg-elem
+      ;;  agg-elems
+      ;;  (lambda (elem)
+      ;;    (partial-project-acc sim elem damping)))
+      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )
 
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
@@ -381,10 +379,9 @@
        (when (and (cl-mpm/mesh:node-active node))
          (with-accessors ((mass node-mass)
                           (vel node-velocity)
-                          (force node-force)
                           (acc node-acceleration))
              node
-           (cl-mpm::integrate-vel-midpoint vel acc force mass mass-scale dt damping)))))
+           (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping)))))
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       ;; (iterate-over-agg-elem
       ;;  agg-elems

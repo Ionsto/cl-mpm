@@ -741,3 +741,9 @@
                )
   :components ((:file "examples/ice-visco")))
 
+
+(defsystem "cl-mpm/examples/aggregate-condition"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/aggregate")
+  :components ((:file "examples/aggregate-condition")))
+
