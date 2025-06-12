@@ -96,6 +96,10 @@
     :accessor node-agg
     :type boolean
     :initform nil)
+   (interior
+    :accessor node-interior
+    :type boolean
+    :initform nil)
   (force
     :accessor node-force
     :initarg :force

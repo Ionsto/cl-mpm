@@ -346,8 +346,8 @@
                    (true-domain cl-mpm/particle::mp-true-domain)
                    (D cl-mpm/particle::mp-stretch-tensor))
       mp
-    (setf (varef true-domain 2) 1d0)
-    (setf (magicl:tref df 2 2) 1d0)
+    ;; (setf (varef true-domain 2) 1d0)
+    ;; (setf (magicl:tref df 2 2) 1d0)
     (multiple-value-bind (u s vt) (magicl:svd dF)
       (let* ((R (magicl:@ u vt))
              (U (magicl:@ (magicl:transpose vt) s vt)))
@@ -380,15 +380,18 @@
 
     (setf
      (varef domain 0)
+     ;; (mtref true-domain 0 0)
      (cl-mpm/fastmaths:mag
       (cl-mpm/fastmaths::fast-@-matrix-vector
        true-domain
        (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
      (varef domain 1)
+     ;; (mtref true-domain 1 1)
      (cl-mpm/fastmaths:mag
       (cl-mpm/fastmaths::fast-@-matrix-vector
        true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))))
+       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+     )
     ))
 
 (defun update-domain-corner-2d (mesh mp dt)

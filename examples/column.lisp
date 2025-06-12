@@ -1,13 +1,13 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
@@ -86,10 +86,10 @@
   (let ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
     (vgplot:format-plot t "set ytics ~f" h)
     (vgplot:format-plot t "set xtics ~f" h))
-  (simple-plot-contact
+  (cl-mpm/plotter::simple-plot
    sim
    :plot :deformed
-   :contact-bcs *penalty-bc*
+   ;; :contact-bcs *penalty-bc*
    ))
 
 (defparameter *original-configuration* (list))
@@ -106,7 +106,7 @@
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate t
+                          :enable-aggregate nil
                           :mp-removal-size nil
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -830,3 +830,38 @@
     ;; (time-form 1000000 (cl-mpm/fastmaths::fast-inv-3x3 mat))
     ;; (time-form 1000000 (magicl::inv mat))
     ))
+
+(defun test-refine ()
+  (loop for r in (list 2 3 4 5 6 7 8 9 10)
+        do (progn
+             (let* ((refine r)
+                    (elements (expt 2 refine))
+                    (mps 2)
+                    (final-time 15))
+             (let* ((e elements)
+                    (L 50d0)
+                    (h (/ L e)))
+               (defparameter
+                   *sim*
+                 (setup-test-column (list h (+ L h))
+                                    (list h L)
+                                    (/ 1d0 h)
+                                    mps))))
+             (cl-mpm::iterate-over-mps
+              (cl-mpm:sim-mps *sim*)
+              (lambda (mp)
+                (setf (cl-mpm/particle::mp-gravity mp) -1d0)))
+             ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d-2)
+             (cl-mpm/dynamic-relaxation::run-load-control
+              *sim*
+              :output-dir (format nil "./output-~D_~F/" r (cl-mpm::sim-mass-scale *sim*))
+              :plotter #'plot
+              :load-steps 1
+              :damping (* (sqrt (cl-mpm::sim-mass-scale *sim*)) 1d0)
+              :substeps 50
+              :criteria 1d-5
+              :adaptive-damping t
+              :kinetic-damping nil
+              :save-vtk-dr t
+              :dt-scale (/ 0.4d0 (sqrt 1d0))
+              ))))

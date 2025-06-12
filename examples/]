@@ -941,12 +941,12 @@
    :output-dir (format nil "./output/")
    :plotter #'plot
    :load-steps 20
-   :damping 1d0
+   :damping 0d0
    :substeps 10
    :criteria 1d-5
    :adaptive-damping t
-   :kinetic-damping nil
-   :dt-scale (/ 0.8d0 (sqrt 1d0))
+   :kinetic-damping t
+   :dt-scale (/ 0.4d0 (sqrt 1d0))
    )
   ;; (run-static
   ;;  :output-dir "./output/"

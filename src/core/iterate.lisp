@@ -628,8 +628,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                        (sb-simd-avx:f64.2*
                         d0a 0.5d0)
                        )
-                      h)))
-               )
+                      h))))
           (multiple-value-bind (ix iy) (sb-simd-avx:f64.2-values ia)
             (multiple-value-bind (dox doy) (sb-simd-avx:f64.2-values d0a)
               (multiple-value-bind (cx cy) (sb-simd-avx:f64.2-values ca)
@@ -675,8 +674,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                          (grads-fbar
                                                            (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
                                                                  (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                                                 0d0))
-                                                         )
+                                                                 0d0)))
                                                     (declare (double-float gradx grady))
                                                     (funcall func mesh mp node
                                                              weight (list gradx grady gradz)

@@ -71,25 +71,26 @@
       (if (> oobf-denom 0d0)
           (setf oobf (sqrt (/ oobf-num oobf-denom)))
           (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-      (cl-mpm::iterate-over-nodes
-       (cl-mpm:sim-mesh sim)
-       (lambda (node)
-         (with-accessors ((active cl-mpm/mesh::node-active)
-                          (agg cl-mpm/mesh::node-agg)
-                          (f-ext cl-mpm/mesh::node-external-force)
-                          (f-int cl-mpm/mesh::node-internal-force)
-                          (n-mass cl-mpm/mesh::node-mass)
-                          (node-oobf cl-mpm/mesh::node-oobf))
-             node
-           (when (and active (not agg))
-             (when t
-               (setf node-oobf
-                     (if (> oobf 0d0)
-                         (sqrt
-                          (/ (* n-mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
-                             oobf-denom))
-                         0d0
-                         )))))))
+      (when (> oobf-denom 0d0)
+        (cl-mpm::iterate-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (with-accessors ((active cl-mpm/mesh::node-active)
+                            (agg cl-mpm/mesh::node-agg)
+                            (f-ext cl-mpm/mesh::node-external-force)
+                            (f-int cl-mpm/mesh::node-internal-force)
+                            (n-mass cl-mpm/mesh::node-mass)
+                            (node-oobf cl-mpm/mesh::node-oobf))
+               node
+             (when (and active (not agg))
+               (when t
+                 (setf node-oobf
+                       (if (> oobf 0d0)
+                           (sqrt
+                            (/ (* n-mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                               oobf-denom))
+                           0d0
+                           ))))))))
       (values (/ energy mass) oobf (/ power mass)))))
 
 (define-condition non-convergence-error (error)
@@ -451,7 +452,7 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       (when damping-factor
                         (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
                       (let ((power (cl-mpm::sim-stats-power sim))
@@ -678,13 +679,15 @@
                            (not (cl-mpm/mesh::node-agg node)))
                       (* (cl-mpm/mesh:node-mass node)
                          (cl-mpm/fastmaths::dot
-                          (cl-mpm/mesh:node-velocity node)
-                          (cl-mpm/mesh:node-velocity node)))
+                          (cl-mpm/mesh::node-velocity node)
+                          (cl-mpm/mesh::node-velocity node)))
                       0d0))
                 #'+)))
-      (if (= denom 0d0)
-          (cl-mpm/setup::estimate-critical-damping sim)
-          (* 2d0 (sqrt (/ (max 0d0 num) denom)))))))
+      (if (> num 0d0)
+          (if (= denom 0d0)
+              (cl-mpm/setup::estimate-critical-damping sim)
+              (* 2d0 (sqrt (/ num denom))))
+          0d0))))
 
 
 (defun reset-mp-velocity (sim)
