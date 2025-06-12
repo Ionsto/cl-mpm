@@ -143,6 +143,7 @@
    (velocity-algorithm
     :type symbol
     :accessor sim-velocity-algorithm
+    :initarg :vel-algo
     :initform :BLEND)
    (damping-algorithm
     :type symbol
