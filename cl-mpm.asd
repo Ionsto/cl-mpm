@@ -297,6 +297,11 @@
   :serial t
   :components ((:file "examples/column")))
 
+(defsystem "cl-mpm/examples/column-virtual-stress"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/column-virtual-stress")))
+
 
 (defsystem "cl-mpm/plotter"
   :depends-on ("cl-mpm"
