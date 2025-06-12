@@ -21,6 +21,7 @@
                (fbar enable-fbar)
                (bcs-force-list bcs-force-list)
                (vel-algo velocity-algorithm)
+               (damping damping-factor)
                )
                 sim
     (declare (type double-float mass-filter))
@@ -43,7 +44,7 @@
                     (apply-bcs mesh bcs dt)
                     (update-nodes sim)
                     ;;Grid to particle mapping
-                    (g2p mesh mps dt vel-algo)
+                    (g2p mesh mps dt damping vel-algo)
                     ;;2nd round of momentum mapping
                     (reset-grid-velocity mesh)
                     (p2g mesh mps)

@@ -1,6 +1,6 @@
-(defpackage :cl-mpm/examples/column
+(defpackage :cl-mpm/examples/column-virtual-stress
   (:use :cl))
-(in-package :cl-mpm/examples/column)
+(in-package :cl-mpm/examples/column-virtual-stress)
 (sb-ext:restrict-compiler-policy 'speed  0 0)
 (sb-ext:restrict-compiler-policy 'debug  3 3)
 (sb-ext:restrict-compiler-policy 'safety 3 3)
@@ -8,7 +8,9 @@
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar))
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -100,6 +102,7 @@
               (mapcar (lambda (x) (* x e-scale)) size)
               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
+              ;; :sim-type 'cl-mpm:mpm-sim-usf
               :args-list (list
                           :enable-fbar nil
                           :enable-aggregate nil
@@ -132,13 +135,14 @@
             'cl-mpm/particle::particle-elastic
             :E 10d3
             :nu 0.0d0
-            :gravity 0.0d0
+            :gravity -0.0d0
             ;; :gravity-axis (cl-mpm/utils:vector-zeros)
             )))
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
+        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-        (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
+        ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (cl-mpm/setup::setup-bcs
          sim
@@ -148,7 +152,7 @@
           (cl-mpm/buoyancy::make-bc-pressure
            sim
            0d0
-           1d3))
+           -1d4))
         (cl-mpm:add-bcs-force-list
          sim
          *bc-pressure*)
@@ -176,7 +180,7 @@
         *sim*
       (setup-test-column (list
                           h
-                          (+ L h)
+                          (+ L (* 2 h))
                           ;; h
                           )
                          (list
@@ -282,17 +286,13 @@
     (vgplot:close-all-plots)
     (vgplot:figure)
   (sleep 1)
-  (let* ((target-time 1d0)
+  (let* ((target-time 2d0)
          (dt (cl-mpm:sim-dt *sim*))
          (dt-scale 0.1d0)
          (substeps (floor target-time dt)))
-    (cl-mpm::update-sim *sim*)
-    (let* ((dt-e (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
-           (substeps-e (floor target-time dt-e)))
-      (format t "CFL dt estimate: ~f~%" dt-e)
-      (format t "CFL step count estimate: ~D~%" substeps-e)
-      (setf (cl-mpm:sim-dt *sim*) dt-e)
-      (setf substeps substeps-e))
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 1d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
+    (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (format t "Substeps ~D~%" substeps)
     (time (loop for steps from 0 to 100
                 while *run-sim*
@@ -303,15 +303,13 @@
                       (dotimes (i substeps)
                         (cl-mpm::update-sim *sim*)
                         (setf *t* (+ *t* (cl-mpm::sim-dt *sim*)))))
-                     (format t "Disp ~E ~%" (get-disp *terminus-mps*))
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
                        (format t "CFL step count estimate: ~D~%" substeps-e)
                        (setf substeps substeps-e))
-                     (cl-mpm/output:save-vtk (asdf:system-relative-pathname "cl-mpm" (format nil "output/sim_~5,'0d.vtk" *sim-step*))
-                                             *sim*)
-
+                     (cl-mpm/output:save-vtk (merge-pathnames (format nil "output/sim_~5,'0d.vtk" *sim-step*)) *sim*)
                      (cl-mpm/output::save-vtk-nodes (merge-pathnames (format nil "output/sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (cl-mpm/output::save-vtk-cells (merge-pathnames (format nil "output/sim_cells_~5,'0d.vtk" *sim-step*)) *sim*)
                      (incf *sim-step*)
                      (funcall plotter *sim*)
                      (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" steps)))
@@ -756,17 +754,18 @@
   (setup :mps 2 :refine 1)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
-   :output-dir "./output-k-0.1/"
-   :load-steps 40
+   :output-dir "./output/"
+   :load-steps 10
    :plotter #'plot-sigma-yy
-   :damping 0d0
-   :kinetic-damping t
+   :damping 1d0
+   :kinetic-damping nil
    :adaptive-damping t
-   :save-vtk-dr nil
-   :save-vtk-loadstep nil
+   :save-vtk-dr t
+   :save-vtk-loadstep t
    :substeps 50
    :dt-scale 0.5d0
    :criteria 1d-5
+   :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
    ;:plotter #'plot
    ))
 
@@ -850,3 +849,39 @@
               :save-vtk-dr t
               :dt-scale (/ 0.4d0 (sqrt 1d0))
               ))))
+
+
+
+(defun test-inter ()
+  (let ((data-x (list 0d0))
+        (data-v (list 0d0))
+        (time (list 0d0))
+        (m 1d0)
+        (x 0d0)
+        (v 1d0)
+        (stiffness 1d0)
+        (final-time 20d0)
+        (dt 0.01d0)
+        (damping 1.1d0)
+        (ct 0d0)
+        )
+    (setf *run-sim* t)
+    (loop for i from 0 to (round final-time dt)
+          while *run-sim*
+          do (progn
+               (dotimes (i 10)
+                 (let* ((fi (* x stiffness -1))
+                        (fd (* -1d0 v damping m))
+                        (R (+ fi fd)))
+                   ;; (setf v (+ v (* dt (/ R m))))
+                   (let ((damping-f (exp (* -1d0 damping dt))))
+                     (setf v (+ (* v damping-f) (* (/ fi m) (/ 1d0 damping) (- 1d0 damping-f)))))
+                   (setf x (+ x (* dt v)))
+                   (incf ct dt)
+                   ))
+               (push x data-x)
+               (push v data-v)
+               (push ct time)
+               (vgplot:plot time data-x)
+               (vgplot:format-plot t "set xrange [~f:~f]" 0d0 final-time)
+               (swank.live:update-swank)))))

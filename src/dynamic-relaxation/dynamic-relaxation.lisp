@@ -67,6 +67,7 @@
              (list 0d0 0d0 0d0 0d0 0d0)))
        (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
     (declare (double-float mass energy oobf-num oobf-denom power))
+    ;; (break)
     (let ((oobf 0d0))
       (if (> oobf-denom 0d0)
           (setf oobf (sqrt (/ oobf-num oobf-denom)))

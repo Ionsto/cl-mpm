@@ -58,6 +58,7 @@
   (cl-mpm::g2p (cl-mpm:sim-mesh sim)
                (cl-mpm:sim-mps sim)
                (cl-mpm:sim-dt sim)
+               (cl-mpm:sim-damping-factor sim)
                (cl-mpm::sim-velocity-algorithm sim))
   ;; (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
   ;; (cl-mpm::new-loadstep sim)
@@ -81,6 +82,7 @@
                (ghost-factor cl-mpm::ghost-factor)
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
+               (damping cl-mpm::damping-factor)
                (vel-algo cl-mpm::velocity-algorithm))
                 sim
     (declare (type double-float mass-filter))
@@ -91,6 +93,7 @@
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+        (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
         ;; (set-mass sim)
         ;; (setf (cl-mpm:sim-dt sim) (cl-mpm::calculate-min-dt sim))
         (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
@@ -117,7 +120,7 @@
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
-      ;; (cl-mpm::g2p mesh mps dt vel-algo)
+      (cl-mpm::g2p mesh mps dt damping vel-algo)
       )))
 
 

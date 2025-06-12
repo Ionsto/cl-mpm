@@ -22,6 +22,7 @@
                (fbar enable-fbar)
                (time time)
                (vel-algo velocity-algorithm)
+               (damping damping-factor)
                )
                 sim
     (declare (double-float mass-filter dt time))
@@ -34,6 +35,7 @@
         ;; (filter-cells sim)
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
+        ;;Trial update displacments
         (update-nodes sim)
         (update-cells sim)
 
@@ -45,15 +47,14 @@
                 do (apply-bcs mesh bcs-f dt)))
         (update-node-forces sim)
         ;; Reapply velocity BCs
-        ;; (apply-bcs mesh bcs dt)
+        (apply-bcs mesh bcs dt)
+        ;;Compute true displacements
         (reset-node-displacement sim)
         (update-nodes sim)
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
-        ;; (update-nodes sim)
         ;; Also updates mps inline
-        (g2p mesh mps dt vel-algo)
-        ;; (update-particles sim)
+        (g2p mesh mps dt damping vel-algo)
         (new-loadstep sim)
         (when split
           (split-mps sim))

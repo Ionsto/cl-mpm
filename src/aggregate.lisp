@@ -245,12 +245,13 @@
              cell
            (setf ghost nil)
            (when (and active)
-             (loop for d from 0 below 2
-                   do (let ((di (list 0 0 0)))
-                        (setf (nth d di) 1)
-                        (when (or (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'+ index di)))
-                                  (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'- index di))))
-                          (setf ghost t))))
+             ;;Remove boundary cells
+             ;; (loop for d from 0 below 2
+             ;;       do (let ((di (list 0 0 0)))
+             ;;            (setf (nth d di) 1)
+             ;;            (when (or (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'+ index di)))
+             ;;                      (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'- index di))))
+             ;;              (setf ghost t))))
              (loop for n in nodes
                    while (not ghost)
                    do (when (and (cl-mpm/mesh::node-active n)
@@ -922,7 +923,7 @@
                           (force node-force)
                           (acc node-acceleration))
              node
-           (cl-mpm::integrate-vel-euler vel acc force mass mass-scale dt damping)))))
+           (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping)))))
     ;; (when enable-aggregate
     ;;   (iterate-over-agg-elem
     ;;    agg-elems

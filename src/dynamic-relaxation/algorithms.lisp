@@ -355,6 +355,7 @@
   (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) sim)
   )
 
+
 (defun run-load-control (sim
                          &key (output-dir "./output/")
                            (loading-function nil)

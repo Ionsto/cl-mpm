@@ -37,7 +37,7 @@
 
 
 (macrolet ((def-g2p-mp (name &body update)
-             `(defun ,name (mesh mp dt)
+             `(defun ,name (mesh mp dt damping)
                 (declare (cl-mpm/mesh::mesh mesh)
                          (cl-mpm/particle:particle mp)
                          (double-float dt))
@@ -98,6 +98,32 @@
         (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         ))
+  (def-g2p-mp g2p-mp-quasi-static
+      (progn
+        (declare (ignore mapped-vel acc))
+        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
+  ;; (def-g2p-mp g2p-mp-blend
+  ;;     (let ((pic-value 1d-3))
+  ;;       ;; (cl-mpm/utils::vector-copy-into disp-inc disp-inc)
+  ;;       (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
+  ;;       ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
+  ;;       ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
+  ;;       (let* ((flip-vel vel))
+  ;;         (if (= damping 0d0)
+  ;;             (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+  ;;             (let ((exp-fac (exp (- (* damping dt)))))
+  ;;               (declare (double-float exp-fac))
+  ;;               (cl-mpm/fastmaths:fast-scale! vel exp-fac)
+  ;;               (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))))
+  ;;         (cl-mpm/fastmaths:fast-.+ vel (cl-mpm/fastmaths:fast-scale-vector acc dt) flip-vel)
+  ;;         (cl-mpm/fastmaths:fast-.+
+  ;;          (cl-mpm/fastmaths:fast-scale!
+  ;;           ;; FLIP value
+  ;;           flip-vel
+  ;;           (- 1d0 pic-value))
+  ;;          ;; PIC update
+  ;;          (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
+  ;;          vel))))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
         ;; (cl-mpm/utils::vector-copy-into disp-inc disp-inc)
@@ -129,25 +155,31 @@
 
 (declaim (notinline g2p))
 
-(defun g2p (mesh mps dt &optional (update-type :FLIP))
+(defun g2p (mesh mps dt damping &optional (update-type :FLIP))
+  (declare (double-float dt damping))
   (ecase update-type
+    (:QUASI-STATIC
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-quasi-static mesh mp dt damping))))
     (:FLIP
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-flip mesh mp dt))))
+        (g2p-mp-flip mesh mp dt damping))))
     (:PIC
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-pic mesh mp dt))))
+        (g2p-mp-pic mesh mp dt damping))))
     (:BLEND
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-blend mesh mp dt))))
+        (g2p-mp-blend mesh mp dt damping))))
     (:BLEND-2ND-ORDER
      (iterate-over-mps
       mps
       (lambda (mp)
-        (g2p-mp-blend-2nd-order mesh mp dt))))))
+        (g2p-mp-blend-2nd-order mesh mp dt damping))))))
