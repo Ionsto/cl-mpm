@@ -246,12 +246,12 @@
            (setf ghost nil)
            (when (and active)
              ;;Remove boundary cells
-             (loop for d from 0 below 2
-                   do (let ((di (list 0 0 0)))
-                        (setf (nth d di) 1)
-                        (when (or (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'+ index di)))
-                                  (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'- index di))))
-                          (setf ghost t))))
+             ;; (loop for d from 0 below 2
+             ;;       do (let ((di (list 0 0 0)))
+             ;;            (setf (nth d di) 1)
+             ;;            (when (or (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'+ index di)))
+             ;;                      (not (cl-mpm/mesh::in-bounds-cell mesh (mapcar #'- index di))))
+             ;;              (setf ghost t))))
              (loop for n in nodes
                    while (not ghost)
                    do (when (and (cl-mpm/mesh::node-active n)

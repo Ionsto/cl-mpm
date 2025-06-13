@@ -70,10 +70,6 @@
           for i from 0
           while (cl-mpm::sim-run-sim *sim*)
           do
-             ;; (cl-mpm::iterate-over-mps
-             ;;  (cl-mpm:sim-mps *sim*)
-             ;;  (lambda (mp)
-             ;;    (incf (cl-mpm/utils::varef (cl-mpm/particle::mp-position mp) 0) p)))
              (cl-mpm::iterate-over-mps
               (cl-mpm:sim-mps *sim*)
               (lambda (mp)
@@ -96,6 +92,52 @@
     (plot-condition)
     ;; (save-data)
     ))
+
+(defun test-cfl (&key (resolution 10)
+                         (save-vtk nil)
+                         )
+  (ensure-directories-exist (merge-pathnames "./output/"))
+  (setup)
+  (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
+         (dx (/ h resolution))
+         (x (coerce (loop for x from 0d0 below (* 1 h) by dx collect x) 'vector))
+         (condition-ma (make-array (length x)))
+         (condition-mii (make-array (length x))))
+    (defparameter *cond-x* x)
+    (defparameter *cond-ma* condition-ma)
+    (defparameter *cond-mii* condition-mii)
+    (setup)
+    (loop for p across x
+          for i from 0
+          while (cl-mpm::sim-run-sim *sim*)
+          do
+             (cl-mpm::iterate-over-mps
+              (cl-mpm:sim-mps *sim*)
+              (lambda (mp)
+                (incf (cl-mpm/utils::varef (cl-mpm/particle::mp-position mp) 0) dx)))
+             (cl-mpm:update-sim *sim*)
+             ;(plot-condition)
+             (plot-domain)
+             (setf (aref condition-ma i) (cl-mpm::calculate-min-dt *sim*))
+
+             (cl-mpm::iterate-over-nodes
+              (cl-mpm:sim-mesh *sim*)
+              (lambda (n)
+                (setf (cl-mpm/mesh::node-agg n) nil)))
+
+             (setf (aref condition-mii i) (cl-mpm::calculate-min-dt *sim*))
+             ;; (let* ((mii (cl-mpm/aggregate::assemble-global-mass *sim*))
+             ;;        (E (cl-mpm/aggregate::assemble-global-e *sim*))
+             ;;        (ma (magicl:@  (magicl:transpose E) mii E)))
+             ;;   (setf (aref condition-ma i) (condition-number ma)
+             ;;         (aref condition-mii i) (condition-number mii)))
+             (when save-vtk
+               (save-vtks "./output/" i)))
+    (vgplot:figure)
+    (plot-condition)
+    ))
+
+
 
 
 (defun vec-to-single-float (vec)

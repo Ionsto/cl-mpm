@@ -74,7 +74,6 @@
     (vgplot:format-plot t "set xtics ~f" h))
   (vgplot:replot))
 
-
 (defun plot (sim &optional (plot :deformed))
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -99,14 +98,14 @@
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let ((nd (length block-size)))
     (let* ((sim
-             (cl-mpm/setup::make-simple-sim;
+             (cl-mpm/setup::make-simple-sim
               (/ 1d0 e-scale)
               (mapcar (lambda (x) (* x e-scale)) size)
               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate nil
+                          :enable-aggregate t
                           :mp-removal-size nil
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -136,45 +135,23 @@
             'cl-mpm/particle::particle-elastic
             :E 10d3
             :nu 0.0d0
-            :gravity -10.0d0
-            ;; :gravity-axis (cl-mpm/utils:vector-zeros)
-            )))
-        ;; (setf  (cl-mpm/utils::varef (cl-mpm/particle::mp-gravity-axis (aref (cl-mpm:sim-mps sim) (- (length (cl-mpm:sim-mps sim)) 1))) 1) 1d0)
+            :gravity -10.0d0)))
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-        (cl-mpm/setup::set-mass-filter sim density :proportion 0d-15)
+        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+        (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (cl-mpm/setup::setup-bcs
          sim
          :top '(nil nil nil)
          :bottom '(0 0 nil))
-        ;; (let* ((crack-pos
-        ;;        (loop for mp across (cl-mpm:sim-mps sim)
-        ;;              maximize (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)))
-        ;;      (above-crack
-        ;;        (loop for mp across (cl-mpm:sim-mps sim)
-        ;;              when
-        ;;              (and
-        ;;               (>= (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-        ;;                   crack-pos))
-        ;;              collect mp)))
-        ;;   (defparameter *terminus-mps* above-crack)
-        ;;   (defparameter *initial-surface* (+ crack-pos
-        ;;                                      (* 0.5d0
-        ;;                                         (magicl:tref
-        ;;                                          (cl-mpm/particle::mp-domain-size
-        ;;                                           (first *terminus-mps*))
-        ;;                                          1 0))))
-        ;;   (defparameter *target-displacement* 0d0))
-
         (defparameter *original-configuration*
           (loop for mp across (cl-mpm:sim-mps sim) collect (cl-mpm/utils:varef (cl-mpm/particle:mp-position mp) 1)))
         (defparameter *original-size*
           (loop for mp across (cl-mpm:sim-mps sim) collect (cl-mpm/utils:vector-copy (cl-mpm/particle::mp-domain-size mp))))
-
         sim))))
-;; (setf lparallel:*kernel* (lparallel:make-kernel 4 :name "custom-kernel"))
+
 (defun simple-time ()
   (setup)
   (time
@@ -182,7 +159,6 @@
      (cl-mpm::update-sim *sim*))))
 ;Setup
 (defun setup (&key (refine 0d0) (mps 2d0))
-  ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
   (let* ((e (expt 2 (+ 4 refine)))
          (L 50d0)
          (h (/ L e)))
@@ -191,7 +167,7 @@
         *sim*
       (setup-test-column (list
                           h
-                          (+ L h)
+                          (+ L (* 2 h))
                           ;; h
                           )
                          (list
@@ -240,7 +216,8 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(2 4 6 8 10 12)
+  (loop for i in '(;; 2 4 6 8 
+                   10 12)
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -270,12 +247,12 @@
                   :load-steps 10
                   :substeps (* 50 refine)
                   :plotter #'plot-sigma-yy
-                  :damping 0.9d0;(* 1d0 ms)
-                  :adaptive-damping nil
+                  :damping 1d0
+                  :adaptive-damping t
                   :kinetic-damping nil
-                  :save-vtk-dr nil
+                  :save-vtk-dr t
                   :save-vtk-loadstep t
-                  :dt-scale 0.4d0
+                  :dt-scale 0.25d0
                   :criteria 1d-9))
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
@@ -852,10 +829,9 @@
               (cl-mpm:sim-mps *sim*)
               (lambda (mp)
                 (setf (cl-mpm/particle::mp-gravity mp) -1d0)))
-             ;; (setf (cl-mpm::sim-mass-scale *sim*) 1d-2)
              (cl-mpm/dynamic-relaxation::run-load-control
               *sim*
-              :output-dir (format nil "./output-~D_~F/" r (cl-mpm::sim-mass-scale *sim*))
+              :output-dir (format nil "./output-~D_~F/" r 2) 
               :plotter #'plot
               :load-steps 1
               :damping (* (sqrt (cl-mpm::sim-mass-scale *sim*)) 1d0)

@@ -142,6 +142,9 @@
     :accessor node-residual-prev
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (fixities
+    :accessor node-fixities
+    :initform (make-array 3 :initial-element nil :element-type 'boolean))
    (local-list
     :accessor node-local-list
     :initform (make-array 0 :fill-pointer 0 :adjustable t))
