@@ -102,6 +102,7 @@
                "cl-mpm/constitutive"
                "cl-mpm/output"
                "cl-mpm/ghost"
+               "cl-mpm/aggregate"
                "cl-mpm/particle")
   :description "MPM damage mechanics"
   :serial t

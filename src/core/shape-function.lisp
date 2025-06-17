@@ -598,7 +598,7 @@
                                         ;Dx/dy
        (aref s (+ 4 (* 9 1))) dx
                                         ;dz/dx
-       (aref s (+ 5 (* 9 0))) dz 
+       (aref s (+ 5 (* 9 0))) dz
                                         ;dx/dz
        (aref s (+ 6 (* 9 2))) dx
                                         ;Dz/dy

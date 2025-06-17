@@ -20,8 +20,8 @@
 ;;   ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
 ;;   )
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   ;(cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
   )
 
@@ -87,14 +87,14 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-damage
+               :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                :args-list (list
                            :split-factor 0.52d0
                            :enable-fbar t
                            :enable-aggregate t
-                           :vel-algo :QUASI-STATIC
+                           :vel-algo :BLEND
                            :enable-split t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -129,21 +129,21 @@
           ;; :nu 0.24d0
           ;; :viscosity 1d08
           ;; :visc-power 3d0
-          ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-          ;; :E 1d6
-          ;; :nu 0.24d0
-          ;; :residual-strength 1d0
-          ;; :delay-time 1d2
-          ;; :initiation-stress 1d3
-          ;; :local-length (* 2 h)
-          ;; :ductility 100d0
+          'cl-mpm/particle::particle-elastic-damage-delayed
+          :E 1d6
+          :nu 0.24d0
+          :residual-strength (- 1d0 1d-9)
+          :delay-time 1d2
+          :initiation-stress 1d3
+          :local-length (* 2 h)
+          :ductility 100d0
           ;; 'cl-mpm/particle::particle-elastic
           ;; :E 1d5
           ;; :nu 0.24d0
-          'cl-mpm/particle::particle-vm
-          :E 1d6
-          :nu 0.3d0
-          :rho 20d3
+          ;; 'cl-mpm/particle::particle-vm
+          ;; :E 1d6
+          ;; :nu 0.3d0
+          ;; :rho 20d3
           ;; 'cl-mpm/particle::particle-mc
           ;; :E 1d6
           ;; :nu 0.24d0
@@ -181,12 +181,12 @@
           ;; :phi (* 40d0 (/ pi 180))
           ;; :c (* init-c oversize)
 
-          :gravity -20.0d0
+          :gravity -10.0d0
           :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
-      (cl-mpm/setup::initialise-stress-self-weight
-       sim
-       (+ offset (second block-size)))
+      ;; (cl-mpm/setup::initialise-stress-self-weight
+      ;;  sim
+      ;;  (+ offset (second block-size)))
       ;; (format t "Charictoristic time ~E~%" (/ ))
       ;; (setf (cl-mpm:sim-allow-mp-split sim) t)
       (setf (cl-mpm::sim-max-split-depth sim) 6)
@@ -307,7 +307,8 @@
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps *sim*)
    (lambda (mp)
-     (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
+     (when (typep mp 'cl-mpm/particle::particle-plastic)
+       (setf (cl-mpm/particle::mp-enable-plasticity mp) nil))))
   ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
   ;;  *sim*
   ;;  :dt-scale 0.5d0
@@ -316,7 +317,8 @@
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps *sim*)
    (lambda (mp)
-     (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+     (when (typep mp 'cl-mpm/particle::particle-plastic)
+       (setf (cl-mpm/particle::mp-enable-plasticity mp) t))))
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -371,10 +373,10 @@
                          (setf energy (abs (/ energy work))))
 
                      (format t "Min dt est ~f~%" dt-min)
-                     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                     ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                     ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                     ;;   (setf substeps substeps-e))
+                     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf substeps substeps-e))
                      ;; (setf (cl-mpm:sim-dt *sim*) (* dt-min dt-scale))
                      ;; (setf substeps (floor target-time (cl-mpm:sim-dt *sim*)))
                      (format t "Substeps ~D~%" substeps)
@@ -936,15 +938,15 @@
   )
 
 (defun test-static ()
-  (setup :mps 2 :refine 2)
+  (setup :mps 2 :refine 1)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
-   :output-dir (format nil "./output/")
+   :output-dir (format nil "./output-agg/")
    :plotter #'plot
    :load-steps 20
    :damping 1d0
-   :substeps 10
-   :criteria 1d-5
+   :substeps 50
+   :criteria 1d-3
    :adaptive-damping t
    :kinetic-damping nil
    :dt-scale (/ 0.25d0 (sqrt 1d0))

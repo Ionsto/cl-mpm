@@ -14,9 +14,30 @@
 
 (in-package :cl-mpm/aggregate)
 
-(defclass mpm-sim-agg-usf (cl-mpm::mpm-sim-usf cl-mpm/aggregate::mpm-sim-aggregated)
-  ()
-  (:documentation "Explicit simulation with update stress first update"))
+(defmacro project-global-vec (sim force accessor)
+  `(progn
+     ;; (declare (function accessor))
+     (let* ((agg-nodes (filter-nodes ,sim #'cl-mpm/mesh::node-interior))
+            (active-nodes (filter-nodes ,sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
+                                                             (cl-mpm/mesh::node-interior n)))))
+            (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh ,sim)))
+            (proj-val ,force)
+            )
+       (iterate-over-agg-elem
+        (sim-agg-elems ,sim)
+        (lambda (elem)
+          (let* ((nc (length (agg-node-list elem))))
+            (iterate-over-agg-elem-nodes
+             ,sim
+             elem
+             (lambda (n)
+               (let ((index (* nd (position n active-nodes))))
+                 (with-accessors ((vec ,accessor))
+                     n
+                   (loop for i from 0 below nd
+                         do (setf
+                             (varef vec i)
+                             (mtref proj-val (+ index i) 0)))))))))))))
 
 (defclass aggregate-element ()
   ((boundary-cell
@@ -56,6 +77,14 @@
    (vel-projection-matrix
     :initform nil
     :accessor agg-vel-projection-matrix)))
+
+
+
+(defclass mpm-sim-agg-usf (cl-mpm::mpm-sim-usf cl-mpm/aggregate::mpm-sim-aggregated)
+  ()
+  (:documentation "Explicit simulation with update stress first update"))
+
+
 
 ;; (defclass aggregate-node ()
 ;;   ((interior-cell
@@ -803,33 +832,49 @@
     (let* ((E (cl-mpm/aggregate::assemble-global-e sim))
            (mii (cl-mpm/aggregate::assemble-global-mass sim))
            (f (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force))
-           (fa (magicl:@ E (magicl:transpose E) f)))
+           (acc
+             (magicl:@
+              E
+              (magicl:inv (magicl:@ (magicl:transpose E) mii E))
+              (magicl:transpose E)
+              f)))
+      (cl-mpm/aggregate::project-global-vec sim acc cl-mpm/mesh::node-acceleration)
 
-      (cl-mpm/aggregate::project-global-vec sim fa cl-mpm/mesh::node-force)
-
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-      (iterate-over-nodes
-       mesh
-       (lambda (node)
-         (with-accessors ((agg cl-mpm/mesh::node-agg)
-                          (active node-active)
-                          (force node-force))
-             node
-           (when (and active agg)
-             (fast-zero force)))))
-
-      (let* ((f (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force))
-             (acc
-               (magicl:@
-                E
-                (magicl:inv (magicl:@ (magicl:transpose E) mii E))
-                (magicl:transpose E)
-                f)))
-        (cl-mpm/aggregate::project-global-vec sim acc cl-mpm/mesh::node-acceleration))
       (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)) cl-mpm/mesh::node-internal-force)
       (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force)) cl-mpm/mesh::node-external-force)
       (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual)) cl-mpm/mesh::node-residual)
-      ))
+      )
+    ;; (let* ((E (cl-mpm/aggregate::assemble-global-e sim))
+    ;;        (mii (cl-mpm/aggregate::assemble-global-mass sim))
+    ;;        (f (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force))
+    ;;        (fa (magicl:@ E (magicl:transpose E) f)))
+
+    ;;   (cl-mpm/aggregate::project-global-vec sim fa cl-mpm/mesh::node-force)
+
+    ;;   (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+    ;;   (iterate-over-nodes
+    ;;    mesh
+    ;;    (lambda (node)
+    ;;      (with-accessors ((agg cl-mpm/mesh::node-agg)
+    ;;                       (active node-active)
+    ;;                       (force node-force))
+    ;;          node
+    ;;        (when (and active agg)
+    ;;          (fast-zero force)))))
+
+    ;;   (let* ((f (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force))
+    ;;          (acc
+    ;;            (magicl:@
+    ;;             E
+    ;;             (magicl:inv (magicl:@ (magicl:transpose E) mii E))
+    ;;             (magicl:transpose E)
+    ;;             f)))
+    ;;     (cl-mpm/aggregate::project-global-vec sim acc cl-mpm/mesh::node-acceleration))
+    ;;   (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)) cl-mpm/mesh::node-internal-force)
+    ;;   (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force)) cl-mpm/mesh::node-external-force)
+    ;;   (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual)) cl-mpm/mesh::node-residual)
+    ;;   )
+    )
   )
 
 (defun calculate-forces-agg-elem (sim elem damping)
@@ -867,6 +912,7 @@
          (cl-mpm::calculate-kinematics node))))
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
+      ;; (cl-mpm/aggregate::update-aggregate-elements sim)
       (calculate-kinematic-global-agg sim)
       ;; (iterate-over-agg-elem
       ;;  agg-elems
@@ -890,11 +936,6 @@
                    (agg-elems sim-agg-elems)
                    (enable-aggregate sim-enable-aggregate))
       sim
-    ;; (when enable-aggregate
-    ;;   (iterate-over-agg-elem
-    ;;    agg-elems
-    ;;    (lambda (elem)
-    ;;      (reproject-velocity sim elem))))
 
     (iterate-over-nodes
      mesh
@@ -903,16 +944,30 @@
          (if (cl-mpm/mesh::node-agg node)
              (cl-mpm::calculate-forces node damping 0d0 mass-scale)
              (cl-mpm::calculate-forces node damping dt mass-scale)))))
-
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
-      (calculate-forces-global-agg sim)
+      (let* ((E (cl-mpm/aggregate::assemble-global-e sim))
+             (mii (cl-mpm/aggregate::assemble-global-mass sim))
+             (f (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force))
+             )
+        (let* ((acc
+                 (magicl:@
+                  E
+                  (magicl:inv (magicl:@ (magicl:transpose E) mii E))
+                  (magicl:transpose E)
+                  f)))
+          (project-global-vec sim acc cl-mpm/mesh::node-acceleration))
+
+        (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)) cl-mpm/mesh::node-internal-force)
+        (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force)) cl-mpm/mesh::node-external-force)
+        (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual)) cl-mpm/mesh::node-residual)
+        )
+      ;; (calculate-forces-global-agg sim)
       ;; (iterate-over-agg-elem
       ;;  agg-elems
       ;;  (lambda (elem)
       ;;    (calculate-forces-agg-elem sim elem damping)))
       )
-    ;; (break)
     (iterate-over-nodes
      mesh
      (lambda (node)
@@ -923,20 +978,27 @@
                           (force node-force)
                           (acc node-acceleration))
              node
-           (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping)))))
-    ;; (when enable-aggregate
-    ;;   (iterate-over-agg-elem
-    ;;    agg-elems
-    ;;    (lambda (elem)
-    ;;      (reproject-velocity sim elem))))
-    )
-  )
+           (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping)))))))
 
 (defmethod cl-mpm::update-node-forces ((sim mpm-sim-aggregated))
   ;;For non-aggregate nodes, use simple mass matrix inversion
-  (update-node-forces-agg sim (cl-mpm:sim-dt sim)))
+  (update-node-forces-agg sim (cl-mpm:sim-dt sim))
+  )
 
 
+
+(defmethod cl-mpm::filter-cells ((sim mpm-sim-aggregated))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (dt cl-mpm::sim-dt)
+                   (agg sim-enable-aggregate))
+      sim
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
+       (cl-mpm::filter-cell mesh cell dt)))
+    (when agg
+      (cl-mpm/aggregate::update-aggregate-elements sim))
+    ))
 
 (defmethod cl-mpm::update-cells ((sim mpm-sim-aggregated))
   (with-accessors ((mesh cl-mpm::sim-mesh)
@@ -946,10 +1008,11 @@
     (cl-mpm::iterate-over-cells
      mesh
      (lambda (cell)
-       (cl-mpm::filter-cell mesh cell dt)
+       ;; (cl-mpm::filter-cell mesh cell dt)
        (cl-mpm::update-cell mesh cell dt)))
-    (when agg
-      (cl-mpm/aggregate::update-aggregate-elements sim))))
+    ;; (when agg
+    ;;   (cl-mpm/aggregate::update-aggregate-elements sim))
+    ))
 
 
 (defun reproject-displacements (sim elem)
@@ -1091,30 +1154,7 @@
                              (varef vec i)))))))))
     (values v)))
 
-(defmacro project-global-vec (sim force accessor)
-  `(progn
-     ;; (declare (function accessor))
-     (let* ((agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
-            (active-nodes (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
-                                                            (cl-mpm/mesh::node-interior n)))))
-            (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-            (force ,force)
-            )
-       (iterate-over-agg-elem
-        (sim-agg-elems sim)
-        (lambda (elem)
-          (let* ((nc (length (agg-node-list elem))))
-            (iterate-over-agg-elem-nodes
-             sim
-             elem
-             (lambda (n)
-               (let ((index (* nd (position n active-nodes))))
-                 (with-accessors ((vec ,accessor))
-                     n
-                   (loop for i from 0 below nd
-                         do (setf
-                             (varef vec i)
-                             (mtref force (+ index i) 0)))))))))))))
+
 
 (defun assemble-global-mass (sim)
   (let* ((agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))

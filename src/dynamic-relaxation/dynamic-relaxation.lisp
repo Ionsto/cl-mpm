@@ -13,6 +13,8 @@
     :initform 1d0
     :initarg :dt-loadstep
     :accessor sim-dt-loadstep))
+  (:default-initargs
+   :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
 
 (defclass mpm-sim-dr-ul (mpm-sim-dr cl-mpm/aggregate::mpm-sim-aggregated)
@@ -658,32 +660,34 @@
       sim
     (let ((num 0d0)
           (denom 0d0))
-      (setf num
-            (cl-mpm::reduce-over-nodes
-             mesh
-             (lambda (node)
-               (if (and (cl-mpm/mesh:node-active node)
-                        (not (cl-mpm/mesh::node-agg node)))
-                   (cl-mpm/fastmaths:dot
-                    (cl-mpm/mesh:node-velocity node)
-                    (cl-mpm/fastmaths:fast-.-
-                     (cl-mpm/mesh::node-residual-prev node)
-                     (cl-mpm/mesh::node-residual node)))
-                   0d0))
-             #'+))
-      (setf denom
-            (* dt
-               (cl-mpm::reduce-over-nodes
-                mesh
-                (lambda (node)
-                  (if (and (cl-mpm/mesh:node-active node)
-                           (not (cl-mpm/mesh::node-agg node)))
-                      (* (cl-mpm/mesh:node-mass node)
-                         (cl-mpm/fastmaths::dot
-                          (cl-mpm/mesh::node-velocity node)
-                          (cl-mpm/mesh::node-velocity node)))
-                      0d0))
-                #'+)))
+      (setf
+       num
+       (cl-mpm::reduce-over-nodes
+        mesh
+        (lambda (node)
+          (if (and (cl-mpm/mesh:node-active node)
+                   (not (cl-mpm/mesh::node-agg node)))
+              (cl-mpm/fastmaths:dot
+               (cl-mpm/mesh:node-velocity node)
+               (cl-mpm/fastmaths:fast-.-
+                (cl-mpm/mesh::node-residual-prev node)
+                (cl-mpm/mesh::node-residual node)))
+              0d0))
+        #'+))
+      (setf
+       denom
+       (* dt
+          (cl-mpm::reduce-over-nodes
+           mesh
+           (lambda (node)
+             (if (and (cl-mpm/mesh:node-active node)
+                      (not (cl-mpm/mesh::node-agg node)))
+                 (* (cl-mpm/mesh:node-mass node)
+                    (cl-mpm/fastmaths::dot
+                     (cl-mpm/mesh::node-velocity node)
+                     (cl-mpm/mesh::node-velocity node)))
+                 0d0))
+           #'+)))
       (if (> num 0d0)
           (if (= denom 0d0)
               (cl-mpm/setup::estimate-critical-damping sim)

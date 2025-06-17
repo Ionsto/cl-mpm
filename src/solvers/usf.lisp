@@ -32,10 +32,10 @@
         (p2g mesh mps)
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
-        ;; (filter-cells sim)
+        (filter-cells sim)
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
-        ;;Trial update displacments
+        ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
 
@@ -49,16 +49,13 @@
         ;; Reapply velocity BCs
         (apply-bcs mesh bcs dt)
         ;;Compute true displacements
-        (reset-node-displacement sim)
-        (update-nodes sim)
+        ;; (reset-node-displacement sim)
+        ;; (update-nodes sim)
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
         (new-loadstep sim)
-        (when split
-          (split-mps sim))
-        (check-mps sim)
-        (check-single-mps sim)
+        ;; (check-single-mps sim)
         )
       (incf time dt))))

@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/column
   (:use :cl))
 (in-package :cl-mpm/examples/column)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* t)
 
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
@@ -105,7 +105,7 @@
               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate t
+                          :enable-aggregate nil
                           :mp-removal-size nil
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -216,8 +216,9 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(;; 2 4 6 8 
-                   10 12)
+  (loop for i in '(;2 4 6 8
+                   ;10
+                   12)
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -243,7 +244,7 @@
                  (setf (cl-mpm::sim-mass-scale *sim*) ms)
                  (cl-mpm/dynamic-relaxation::run-load-control
                   *sim*
-                  :output-dir (merge-pathnames (format nil "./output0.9-~A_~D/" i mps))
+                  :output-dir (merge-pathnames (format nil "./outputlaced-~A_~D/" i mps))
                   :load-steps 10
                   :substeps (* 50 refine)
                   :plotter #'plot-sigma-yy

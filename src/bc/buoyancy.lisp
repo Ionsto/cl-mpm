@@ -743,7 +743,9 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       ;; (locate-mps-cells sim clip-function)
-      (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+      ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+      (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+      ;; (locate-mps-cells sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
@@ -1065,7 +1067,6 @@
                       (cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
                       (incf node-boundary-scalar
                             (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate)))))
-
                     )))))))))))
 
 (defun apply-force-mps-3d (mesh mps func-stress func-div clip-func)
@@ -1105,7 +1106,7 @@
                               ;; (funcall clip-func node-pos)
                               )
                      (cl-mpm/fastmaths:fast-zero f-stress)
-                     (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
+                     (let (;(grads (cl-mpm::gradient-push-forwards grads df))
                            )
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress))
                      (cl-mpm/fastmaths:fast-scale-vector

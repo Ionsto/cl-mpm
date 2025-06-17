@@ -143,8 +143,7 @@
    (velocity-algorithm
     :type symbol
     :accessor sim-velocity-algorithm
-    :initarg :vel-algo
-    :initform :BLEND)
+    :initarg :vel-algo)
    (damping-algorithm
     :type symbol
     :accessor sim-damping-algorithm
@@ -187,6 +186,8 @@
      :accessor sim-mass-filter
      :initarg :mass-filter
      :initform 1d-15))
+  (:default-initargs
+   :vel-algo :BLEND)
   (:documentation "A self contained mpm simulation"))
 (defclass mpm-nd-2d ()())
 (defclass mpm-nd-3d ()())

@@ -53,13 +53,6 @@
    #'+
    (cl-mpm:sim-mps *sim*)))
 
-
-(defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
-  (declare (double-float local-length damage))
-  ;; (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  (* local-length (max (- 1d0 damage) 1d-10))
-  )
-
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
@@ -68,9 +61,9 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
-  ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
+  (cl-mpm::co-domain-corner-2d mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::update-domain-midpoint mesh mp dt)
+  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
   ;; (cl-mpm::update-domain-deformation mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
@@ -219,7 +212,7 @@
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.80d0))
+         (water-level (* floating-point 0.70d0))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -233,12 +226,12 @@
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul-usl
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                                                :args-list
                                                (list
                                                 :enable-fbar t
-                                                ;; :enable-aggregate t
+                                                :enable-aggregate nil
                                                 )))
     (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
@@ -1029,7 +1022,7 @@
 
 
 (defun calving-test ()
-  (loop for dt in (list 5d0)
+  (loop for dt in (list 4d0)
         do
            (let* ((mps 2))
              (setup :refine 1
@@ -1042,12 +1035,27 @@
                     )
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+             (setf (cl-mpm::sim-dt-scale *sim*) 0.25d0)
+             ;; (let ((step 0)
+             ;;       (output-dir (merge-pathnames "./output/")))
+             ;;   (cl-mpm/dynamic-relaxation:converge-quasi-static
+             ;;    *sim*
+             ;;    :substeps 50
+             ;;    :post-iter-step
+             ;;    (lambda (i energy oobf)
+             ;;      (plot-domain *sim*)
+             ;;      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+             ;;      (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
+             ;;      (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*))
+             ;;    ))
              (cl-mpm/dynamic-relaxation::run-multi-stage
               *sim*
               :output-dir "./output/"
               :dt dt
+              :dt-scale 0.25d0
               :steps 1000
               :plotter (lambda (sim) (plot-domain))
+              :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
               :post-conv-step
               (lambda (sim)
                 (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0)))

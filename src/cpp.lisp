@@ -133,6 +133,20 @@
         (input-ptr :pointer)
         (output-ptr :pointer))
 
+
+      (defcfun "dr_make_sim" :bool
+        (h :double)
+        (e-x :int)
+        (e-y :int)
+        (e-z :int))
+
+      (defcfun "dr_make_mp" :bool
+        (position :pointer)
+        (strain_n :pointer)
+        (de :pointer)
+        (l_n :pointer)
+        )
+
       (defcfun "test" :void
         (flags :pointer))
       (format t "~&Using accelerated kirchoff update~%")
@@ -172,8 +186,7 @@
                         (values stress strain (aref f-arr 0) 0d0))
                     )))
               )
-            (values stress strain 0d0 0d0)
-            ))
+            (values stress strain 0d0 0d0)))
       (defun constitutive-viscoelastic (stress de strain E nu dt viscosity)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu viscosity dt))
@@ -188,8 +201,7 @@
           (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage mat))
                                                   (sp-out (cl-mpm/utils:fast-storage output)))
             (MatrixSqrt sp sp-out))
-          output))
-      )
+          output)))
 
     (cffi::load-foreign-library-error (c)
       (progn

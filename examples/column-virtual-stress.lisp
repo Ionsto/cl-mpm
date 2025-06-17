@@ -255,22 +255,22 @@
                  (setf (cl-mpm::sim-mass-scale *sim*) ms)
                  (cl-mpm/dynamic-relaxation::run-load-control
                   *sim*
-                  :output-dir (merge-pathnames (format nil "./output0.9-~A_~D/" i mps))
+                  :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                   :load-steps 10
                   :substeps (* 50 refine)
                   :plotter #'plot-sigma-yy
-                  :damping 0.9d0;(* 1d0 ms)
-                  :adaptive-damping nil
+                  :damping 1d0;(* 1d0 ms)
+                  :adaptive-damping t
                   :kinetic-damping nil
                   :save-vtk-dr nil
                   :save-vtk-loadstep t
-                  :dt-scale 0.4d0
-                  :criteria 1d-9))
+                  :dt-scale 0.25d0
+                  :criteria 1d-5))
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
              (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
-             (save-csv (merge-pathnames (format nil "./analysis_scripts/column/data/data-~A_~D.csv" i mps)))
+             (save-csv (merge-pathnames (format nil "./analysis_scripts/column-virtual-stress/data/data-~A_~D.csv" i mps)))
              )))
 
 ;; (defun run-)
@@ -333,11 +333,9 @@
                         collect pos))
 
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (rho 80d0)
-           (E 1d5)
-           (g 10d0)
+           (pressure -1d4)
            (max-y 50)
-           (syy-ref (mapcar (lambda (x) (* rho g (- x max-y))) y-ref))
+           (syy-ref (mapcar (lambda (x) pressure) y-ref))
            )
       (vgplot:plot syy y-ref "first;;with points pt 7"
                    syy-ref y-ref "Ref;;with points pt 7"
@@ -361,16 +359,14 @@
            (vl-0 (loop for vp-0 in vp-0-list sum vp-0))
 
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (rho 80d0)
-           (E 1d5)
-           (g 10d0)
+           (pressure -1d4)
            (max-y 50)
-           (syy-ref (mapcar (lambda (x) (* rho g (- x max-y))) y-ref))
+           (syy-ref (mapcar (lambda (x) pressure) y-ref))
            )
       (loop for ref in syy-ref
             for val in syy
             for vp-0 in vp-0-list
-            sum (/ (* (abs (- ref val)) vp-0) (* g rho max-y) vl-0)))))
+            sum (/ (* (abs (- ref val)) vp-0) (* max-y vl-0))))))
 
 (defun save-sigma-yy (&optional sim)
   (with-accessors ((mps cl-mpm:sim-mps))
@@ -763,7 +759,7 @@
    :save-vtk-dr t
    :save-vtk-loadstep t
    :substeps 50
-   :dt-scale 0.5d0
+   :dt-scale 0.25d0
    :criteria 1d-5
    :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
    ;:plotter #'plot
