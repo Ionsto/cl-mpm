@@ -92,3 +92,13 @@ Eigen::Matrix<double,3,3> voigt_to_matrix_stress(Eigen::Matrix<double,6,1> voigt
           voigt(5), voigt(1), voigt(3),
           voigt(4), voigt(3), voigt(2)).finished();
 }
+
+
+
+Eigen::Matrix<double,3,3> stretch_to_matrix(Eigen::Matrix<double,6,1> voigt) {
+  return (Eigen::Matrix3d() <<
+          voigt(0), 0.5*voigt(5), 0.5*voigt(4),
+          0.5*voigt(5), voigt(1), 0.5*voigt(3),
+          0.5*voigt(4), 0.5*voigt(3), voigt(2)).finished();
+}
+

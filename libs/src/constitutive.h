@@ -5,6 +5,22 @@
 #include "utils.h"
 #include <iostream>
 
+
+Eigen::Matrix<double,6,6> AssembleDE(double E, double nu){
+  const double nm = (1.0 - nu);
+  const double gf = 0.5*(1.0 - (2 * nu));
+  Eigen::Matrix<double,6,6> De;
+  De<<
+    nm,nu,nu,0.0,0.0,0.0,
+    nm,nu,nu,0.0,0.0,0.0,
+    nm,nu,nu,0.0,0.0,0.0,
+    0.0,0.0,0.0,gf,0.0,0.0,
+    0.0,0.0,0.0,0.0,gf,0.0,
+    0.0,0.0,0.0,0.0,0.0,gf;
+  De *= E/((1+nu)*(1-(2*nu)));
+  return De;
+}
+
 int rotate(int i){
   return (i+1)%3;
 }
@@ -38,6 +54,7 @@ Eigen::Matrix<double,6,6> AssembleQMatrix(Eigen::Matrix<double,3,3> eigen_vector
   benificial to run complicated constitutive models in c++ leaning on the optimised
   eigen library to do all linalg operations
 */
+
 Eigen::Matrix<double,6,1> DruckerPrager(Eigen::Matrix<double,6,1> elastic_strain,
                     double E, double nu, double phi, double psi, double c) {
 
@@ -177,8 +194,7 @@ double MC_princ_yield_func(Eigen::Matrix<double,3,1> sig, double phi, double c)
 
 using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool>;
 
-MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
-                                                            double E, double nu, double phi, double psi, double c) {
+MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double phi, double psi, double c) {
 
 
   Eigen::Matrix<double,3,3> Ce = (Eigen::Matrix<double,3,3>()<<
@@ -218,7 +234,7 @@ MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain,
     Eigen::Matrix<double,3,1> df = (Eigen::Matrix<double,3,1>() << k, 0.0, -1.0).finished();
     Eigen::Matrix<double,3,1> dg = (Eigen::Matrix<double,3,1>() << m, 0.0, -1.0).finished();
 
-    Eigen::Matrix<double,3,1> rp = (De3 * dg) * (1.0 / (dg.transpose() * De3 * df)[0,0]);
+    Eigen::Matrix<double,3,1> rp = (De3 * dg) * (1.0 / (dg.transpose() * De3 * df)(0,0));
     const double t1 = (rg1.transpose() * Ce * (sig - siga))[0] / (rg1.transpose() * Ce * r1)[0];
     const double t2 = (rg2.transpose() * Ce * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
     const double f12 = (rp.cross(r1).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
@@ -320,4 +336,33 @@ Eigen::Matrix<double,6,1> Viscoelastic(Eigen::Matrix<double,6,1> elastic_strain,
 
   elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
   return elastic_strain;
+}
+
+
+Eigen::Matrix<double,6,1> log_strain_update(const Eigen::Matrix<double,6,1> & strain, const Eigen::Matrix3d& df){
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(strain));
+  if (eigensolver.info() != Eigen::Success)
+    {
+      abort();
+    }
+  auto eigen_values = eigensolver.eigenvalues();
+  auto eigen_vectors = eigensolver.eigenvectors();
+  auto trial_lgs = df * (eigen_vectors
+                         * (eigen_values.array() * 2.0).exp().matrix().asDiagonal()
+                         * eigen_vectors.transpose()) * df.transpose();
+  //0.5 * (trial_lgs + trial_lgs.transpose())
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> trialeigensolver(trial_lgs);
+  if (trialeigensolver.info() != Eigen::Success)
+    {
+      abort();
+      // return false;
+    }
+  auto l = trialeigensolver.eigenvalues();
+  auto v = trialeigensolver.eigenvectors();
+  // if ((l.array() <= 0.0).any())
+  //   {
+  //     abort();
+  //     // return false;
+  //   }
+  return (matrix_to_voigt(v * l.array().log().matrix().asDiagonal() * v.transpose()).array() * 0.5).matrix();
 }
