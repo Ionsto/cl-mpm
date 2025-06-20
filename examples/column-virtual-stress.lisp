@@ -105,7 +105,7 @@
               ;; :sim-type 'cl-mpm:mpm-sim-usf
               :args-list (list
                           :enable-fbar nil
-                          :enable-aggregate nil
+                          :enable-aggregate t
                           :mp-removal-size nil
                           :enable-split nil)))
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -142,7 +142,8 @@
         (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
-        ;; (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
+        ;; (cl-mpm/setup::set-mass-filter sim density :proportion 0d-9)
+        (setf (cl-mpm:sim-mass-filter sim) 0d0)
         (setf (cl-mpm:sim-dt sim) 1d-2)
         (cl-mpm/setup::setup-bcs
          sim
@@ -205,15 +206,15 @@
          (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
          (y-ref (loop for pos in *original-configuration*
                       collect (float pos 1e0)))
-
          (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1e0)))
          (rho 80d0)
          (E 1d5)
          (g 10d0)
          (vp-0-list (loop for size in *original-size*
                           collect (float (* (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1)) 1e0)))
+         (pressure -1e4)
          (max-y 50)
-         (syy-ref (mapcar (lambda (x) (float (* rho g (- x max-y)) 1e0)) y-ref))
+         (syy-ref (mapcar (lambda (x) pressure) y-ref))
          (df (lisp-stat:make-df '(:y :syy :syy-ref :vp)
                                 (list
                                  (coerce y-ref '(vector single-float))
@@ -235,21 +236,19 @@
            (let* (;(elements (expt 2 i))
                   (refine i)
                   (elements (expt 2 refine))
-                  (mps 2)
-                  (final-time 15))
+                  (mps 2))
              (let* ((e elements)
                     (L 50d0)
                     (h (/ L e)))
                (format t "H:~E~%" h)
                (defparameter
                    *sim*
-                 (setup-test-column (list h (+ L h))
+                 (setup-test-column (list h (+ L (* 2 h)))
                                     (list h L)
                                     (/ 1d0 h)
                                     mps))
                (format t "Running sim size ~a ~a ~%" refine elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
-               (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
                (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
                       (ms 1d0))
                  (setf (cl-mpm::sim-mass-scale *sim*) ms)
@@ -264,8 +263,10 @@
                   :kinetic-damping nil
                   :save-vtk-dr nil
                   :save-vtk-loadstep t
-                  :dt-scale 0.25d0
-                  :criteria 1d-5))
+                  :dt-scale 0.5d0
+                  :criteria 1d-9
+                  :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
+                  ))
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
@@ -759,7 +760,7 @@
    :save-vtk-dr t
    :save-vtk-loadstep t
    :substeps 50
-   :dt-scale 0.25d0
+   :dt-scale 0.5d0
    :criteria 1d-5
    :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
    ;:plotter #'plot

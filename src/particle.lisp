@@ -1016,8 +1016,7 @@
     (setf y-prev y)
     (setf damage-n damage)
     (setf volume-n volume)
-    (call-next-method)
-    ))
+    (call-next-method)))
 
 
 
