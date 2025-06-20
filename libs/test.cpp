@@ -7,6 +7,8 @@
 #include "src/constitutive.h"
 
 extern "C" {
+  using namespace utils;
+  using namespace constitutive;
 
   void test(double * strain_ptr){
     strain_ptr[0] = 1.0;
