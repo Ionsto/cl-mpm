@@ -13,24 +13,17 @@ using Vec_vel = Eigen::Matrix<double,Eigen::Dynamic,3>;
 
 struct nodecache {
 public:
+  int nc_index = 0;
   int node = 0;
   int mp = 0;
   double svp = 0;
+  bool active = false;
   Vector grads = Vector::Zero();
 };
 
-struct gpu_mp{
+struct super_node_cache{
   int index = 0;
-  Vector position = Vector::Zero();
-  Vector disp_inc = Vector::Zero();
-  Voigt strain_n = Voigt::Zero();
-  Voigt strain = Voigt::Zero();
-  Voigt stress = Voigt::Zero();
-  Eigen::Matrix3d f_n = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d f = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d df = Eigen::Matrix3d::Identity();
-  double volume_n = 1;
-  double volume = 1;
+  int count = 0;
 };
 
 struct mp {
@@ -51,6 +44,8 @@ struct mp {
   double volume_n = 1;
   double volume = 1;
   std::vector<nodecache> nc;
+  super_node_cache snc;
+
   mp() = default;
   void set_elastic(double e, double nu){
     de = constitutive::AssembleDE(e,nu);
@@ -64,12 +59,8 @@ struct mp {
 struct node{
   int index = 0;
   std::vector<nodecache> nc;
+  super_node_cache snc;
   Eigen::Matrix<double,3,1> position;
-};
-
-struct super_node_cache{
-  int index = 0;
-  int count = 0;
 };
 
 
@@ -84,12 +75,11 @@ public:
   Eigen::Matrix<double,Eigen::Dynamic,3> force;
   Eigen::Matrix<double,Eigen::Dynamic,3> displacement;
   Eigen::Matrix<double,Eigen::Dynamic,3> bcs;
+  std::vector<int> fds;
 
   std::vector<int> compact_bcs_index;
   std::vector<Eigen::Matrix<double,3,1>> compact_bcs_values;
-
-  std::vector<int> index_indirection;
-
+  std::vector<int> node_index_indirection;
   std::vector<node> nodes;
   std::unique_ptr<std::vector<std::mutex>> node_locks;
 
@@ -109,6 +99,11 @@ public:
     velocity = Vec_vel::Zero(node_count,3);
     displacement = Vec_vel::Zero(node_count,3);
     nodes = std::vector<node>(node_count);
+
+    fds.reserve(node_count);
+    for(int i = 0;i < node_count;++i){
+      fds.push_back(i);
+    }
 
     for(int x = 0;x < element_count_x;++x){
       for(int y = 0;y < element_count_y;++y){
@@ -131,10 +126,23 @@ public:
     }
   }
   void add_bc(Eigen::Vector3i index, Eigen::Vector3d values){
-    compact_bcs_index.push_back(location_to_index(index));
-    compact_bcs_values.push_back(values);
+    // bcs.row(location_to_index(index)) = values.transpose();
+    // compact_bcs_index.push_back(location_to_index(index));
+    // compact_bcs_values.push_back(values);
   }
   void compact_mesh(){
+    std::vector<node> compact_nodes;
+    int total_count = 0;
+    fds.clear();
+    for(int i = 0; i < nodes.size();++i){
+      if(mass(i,0) > 0.0){
+        fds.push_back(i);
+        // fds.push_back((i*3)+1);
+        // fds.push_back((i*3)+2);
+        // compact_nodes.push_back(nodes[i]);
+        // total_count++;
+      }
+    }
   }
 };
 
@@ -145,8 +153,11 @@ struct Sim{
   std::unique_ptr<Mesh> mesh;
   std::vector<mp> mps;
 
-  std::vector<super_node_cache> global_nodecache_mp_indirection;
-  std::vector<super_node_cache> global_nodecache_node_indirection;
+  // std::vector<super_node_cache> global_super_nodecache_mp_indirection;
+  // std::vector<super_node_cache> global_super_nodecache_node_indirection;
+  //Blocks of packed node-caches
+  std::vector<int> global_nodecache_mp_indirection;
+  std::vector<int> global_nodecache_node_indirection;
   std::vector<nodecache> global_nodecache;
 
   Sim(double h_0, int element_count_x, int element_count_y, int element_count_z){
@@ -190,12 +201,4 @@ struct Sim{
         return damping;
       }
   }
-
-  // inline
-  // template <typename F>
-  // void iterate_over_neighbours(mp & mp, F&& func){
-  //   for (auto &n : mp.nc){
-  //     func(mesh->nodes[n.node],n);
-  //   }
-  // }
 };
