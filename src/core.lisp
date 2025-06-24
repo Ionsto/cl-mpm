@@ -896,15 +896,19 @@ This modifies the dt of the simulation in the process
             (loop for mp across mps-array
                   do (sim-add-mp sim mp))))))
 
-(defun add-bcs (sim bcs-array)
+(defun add-bcs (sim new-bcs)
   "Add nodal essential bcs"
   (with-accessors ((bcs cl-mpm:sim-bcs))
       sim
-    (if (> (length bcs) 0)
-        (progn
-          (loop for bc across bcs-array
-                do (vector-push-extend bc bcs)))
-        (setf bcs bcs-array))))
+    (typecase new-bcs
+      (array
+       (if (> (length bcs) 0)
+           (progn
+             (loop for bc across new-bcs
+                   do (vector-push-extend bc bcs)))
+           (setf bcs new-bcs)))
+      (cl-mpm/bc::bc
+       (vector-push-extend new-bcs bcs)))))
 (defun add-bcs-force-list (sim new-bcs)
   "Add bcs that apply forces, ordered in a FILO"
   (with-accessors ((bcs-force-list cl-mpm:sim-bcs-force-list))

@@ -411,16 +411,6 @@
         (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force)) cl-mpm/mesh::node-external-force)
         (cl-mpm/aggregate::project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual)) cl-mpm/mesh::node-residual)
         )
-      ;; (iterate-over-agg-elem
-      ;;  agg-elems
-      ;;  (lambda (elem)
-      ;;    (partial-project-force sim elem damping)))
-      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-      ;; (iterate-over-agg-elem
-      ;;  agg-elems
-      ;;  (lambda (elem)
-      ;;    (partial-project-acc sim elem damping)))
-      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )
 
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
@@ -442,9 +432,6 @@
             (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment))
             (disp-proj (cl-mpm/aggregate::assemble-global-internal-vec sim #'cl-mpm/mesh::node-displacment))
             )
-        ;; (pprint disp)
-        ;; (pprint disp-proj)
-        ;; (pprint (magicl:@ E disp-proj))
         (cl-mpm/aggregate::project-global-vec sim (magicl:@ E disp-proj) cl-mpm/mesh::node-displacment))
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
     ))
