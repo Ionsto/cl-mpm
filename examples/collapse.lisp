@@ -71,14 +71,14 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-               :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
+               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                ;; :sim-type 'cl-mpm::mpm-sim-usf
-               ;; :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm::mpm-sim-usf
                :args-list (list
                            :split-factor 0.52d0
                            :enable-fbar t
-                           :enable-aggregate t
+                           ;; :enable-aggregate t
                            :vel-algo :FLIP
                            :enable-split t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -129,11 +129,11 @@
           ;; :nu 0.3d0
           ;; :rho 20d3
           'cl-mpm/particle::particle-mc
-          :E 1d6
+          :E 1d9
           :nu 0.24d0
-          :phi 50d0
+          :phi 48d0
           :psi 00d0
-          :c 10d3
+          :c 131d3
           ;; :softening 0d0
           ;; ;:viscosity 1.11d6
           ;; ;; :viscosity 1d08
@@ -179,7 +179,7 @@
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       ;; (setf (cl-mpm::sim-mass-filter sim) 0d0)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-9)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-7)
             nil
@@ -261,7 +261,7 @@
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim))
+    (defparameter *sim* (setup-test-column '(30 30) '(15 15) sim-type refine mps-per-dim))
     )
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
@@ -341,7 +341,7 @@
          (substeps (floor target-time dt))
          (dt-min (cl-mpm:sim-dt *sim*)))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d-1
+          (* 1d0
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
@@ -1603,3 +1603,20 @@
     ;; (cl-mpm/aggregate::project-global-vec sim acc cl-mpm/mesh::node-acceleration)
     (save-test-vtks)
     ))
+
+(defun test-ssr ()
+  (cl-mpm/dynamic-relaxation::run-load-control
+   *sim*
+   :output-dir (format nil "./output/")
+   :plotter #'plot
+   :load-steps 1
+   :damping 1d0
+   :substeps 10
+   :criteria 1d-5
+   :adaptive-damping nil
+   :kinetic-damping nil
+   :dt-scale 0.5d0
+   :loading-function (lambda ()
+                       )
+   )
+  )

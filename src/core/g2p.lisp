@@ -95,9 +95,7 @@
   (def-g2p-mp g2p-mp-pic
       (progn
         (cl-mpm/utils::vector-copy-into mapped-vel vel)
-        (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
-        ))
+        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-quasi-static
       (progn
         ;; (declare (ignore mapped-vel acc))
