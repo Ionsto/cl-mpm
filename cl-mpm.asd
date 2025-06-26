@@ -508,6 +508,7 @@
                "vgplot"
                "cl-mpm/models/visco"
                "cl-mpm/models/chalk"
+               "lisp-stat"
                "swank.live")
   :serial t
   :components ((:file "examples/collapse")))

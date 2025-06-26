@@ -125,14 +125,14 @@
 
 
 
-(defclass mpm-sim-aggregated (mpm-sim)
-  ((agg-elems
-    :initform (make-array 0)
-    :accessor sim-agg-elems)
-   (enable-aggregate
-    :initform t
-    :initarg :enable-aggregate
-    :accessor sim-enable-aggregate)))
+;; (defclass mpm-sim-aggregated (mpm-sim)
+;;   ((agg-elems
+;;     :initform (make-array 0)
+;;     :accessor sim-agg-elems)
+;;    (enable-aggregate
+;;     :initform t
+;;     :initarg :enable-aggregate
+;;     :accessor sim-enable-aggregate)))
 
 
 (defmacro project-vector-internal (sim elem accessor vector)

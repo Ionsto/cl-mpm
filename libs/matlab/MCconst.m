@@ -1,4 +1,4 @@
-function [epsE] = MCconst(epsTr)
+function [epsE] = MCconst(epsTr,mCst)
 
 %Mohr-Coulomb linear elastic perfectly plastic constitutive model
 %--------------------------------------------------------------------------
@@ -28,12 +28,12 @@ function [epsE] = MCconst(epsTr)
 % 
 %--------------------------------------------------------------------------
 
-%E=mCst(1); v=mCst(2); phi=mCst(4); psi=mCst(5); c=mCst(6);                  % material constants
-E = 1;
-v = 0.1;
-phi=0.1;                                                                   % friction angle (opening angle of yield surface)
-psi=0.05;                                                                  % dilation angle (set equal to phi for associated flow)
-c=0.5;                                                                        % cohesion
+E=mCst(1); v=mCst(2); phi=mCst(3); psi=mCst(4); c=mCst(5);                  % material constants
+%E = 1e6;
+%v = 0.24;
+%phi=50*pi/180;                                                                   % friction angle (opening angle of yield surface)
+%psi=0;                                                                  % dilation angle (set equal to phi for associated flow)
+%c=10e3;                                                                        % cohesion
 
 tol=1e-12;
 Ce=(-ones(3)*v+(1+v)*eye(3))/E;                                             % principal elastic compliance matrix

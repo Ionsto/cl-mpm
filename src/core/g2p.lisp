@@ -102,34 +102,9 @@
       (progn
         ;; (declare (ignore mapped-vel acc))
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
-  ;; (def-g2p-mp g2p-mp-blend
-  ;;     (let ((pic-value 1d-3))
-  ;;       ;; (cl-mpm/utils::vector-copy-into disp-inc disp-inc)
-  ;;       (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
-  ;;       ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
-  ;;       ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
-  ;;       (let* ((flip-vel vel))
-  ;;         (if (= damping 0d0)
-  ;;             (cl-mpm/fastmaths:fast-fmacc vel acc dt)
-  ;;             (let ((exp-fac (exp (- (* damping dt)))))
-  ;;               (declare (double-float exp-fac))
-  ;;               (cl-mpm/fastmaths:fast-scale! vel exp-fac)
-  ;;               (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))))
-  ;;         (cl-mpm/fastmaths:fast-.+ vel (cl-mpm/fastmaths:fast-scale-vector acc dt) flip-vel)
-  ;;         (cl-mpm/fastmaths:fast-.+
-  ;;          (cl-mpm/fastmaths:fast-scale!
-  ;;           ;; FLIP value
-  ;;           flip-vel
-  ;;           (- 1d0 pic-value))
-  ;;          ;; PIC update
-  ;;          (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
-  ;;          vel))))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
-        ;; (cl-mpm/utils::vector-copy-into disp-inc disp-inc)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
-        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc )
-        ;; (cl-mpm/fastmaths::fast-scale! disp-inc dt)
         (cl-mpm/fastmaths:fast-.+
          (cl-mpm/fastmaths:fast-scale-vector
           ;; FLIP value

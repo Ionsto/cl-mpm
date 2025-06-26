@@ -628,7 +628,8 @@
             ;; (break)
             (let ((new-stiff (compute-mp-stiffness mp)))
               (setf mp-stiffness (min new-stiff (if mp-stiffness mp-stiffness new-stiff))))
-            (let* (;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
+            (let* (
+                   ;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
                    (mp-disp-inc disp-inc)
                    (force (cl-mpm/utils:vector-zeros))
                    (resultant-vel (cl-mpm/fastmaths:fast-.- mp-vel pen-vel))
@@ -699,7 +700,6 @@
                        (cl-mpm/fastmaths::fast-fmacc node-ext-force
                                                      force
                                                      svp)
-                       ;; (format t "~E~%" damping-force)
                        (cl-mpm/fastmaths::fast-fmacc node-damp-force
                                                      normal
                                                      (* -1d0 svp damping-force))

@@ -1,16 +1,20 @@
 (in-package :cl-mpm/dynamic-relaxation)
 
 
+(defun save-timestep-preamble (output-dir)
+  (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
+    (format stream "steps,time,damage,plastic,energy,oobf,work,step-type,mass~%")))
 
 (defun save-timestep (sim output-dir step type)
   (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
-    (format stream "~D,~f,~f,~f,~f,~f,~A,~f~%"
+    (format stream "~D,~f,~f,~f,~f,~f,~f,~A,~f~%"
             step
             (cl-mpm::sim-time sim)
             (get-damage sim)
             (get-plastic sim)
-            0d0
-            0d0
+            (cl-mpm::sim-stats-energy sim)
+            (cl-mpm::sim-stats-oobf sim)
+            (cl-mpm::sim-stats-work sim)
             type
             0d0)))
 
@@ -249,8 +253,7 @@
   (let ()
     (uiop:ensure-all-directories-exist (list output-dir))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-    (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
-      (format stream "steps,time,damage,plastic,energy,oobf,step-type,mass~%"))
+    (save-timestep-preamble output-dir)
     (save-conv-preamble output-dir)
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)

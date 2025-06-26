@@ -1165,9 +1165,10 @@
            (magicl:matrix/double-float stress de trial-elastic-strain))
   (let* ((tol 1d-9)
          (initial-f 0d0))
+
     (let ((f-dp (dp-yield-mc-circumscribe stress phi c)))
       ;;Early check for if we should yield - DP eval is much faster?
-      (if (> f-dp tol)
+      (if t;(> f-dp tol)
           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix trial-elastic-strain))
             (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
                    (l (mapcar #'car l-sort))
@@ -1205,21 +1206,21 @@
                      (rho (sqrt (cl-mpm/fastmaths:dot s s)))
                      (f (- rho (* alfa xi)))
                      (initial-f f))
-
                 (if (> f tol)
                     (let* ((epsTr (cl-mpm/utils:vector-copy epsE))
                            (fap (if (not (= bta 0d0))
-                                    (/
                                      (+
-                                      (* rho (sqrt (+ 1 nu)))
-                                      (* xi (sqrt (- 1 (* 2 nu)))))
-                                     (* bta
-                                        (/
-                                         (sqrt (+ 1 nu))
-                                         (sqrt (- 1 (* 2 nu))))))
+                                      (* rho (sqrt (+ 1d0 nu)))
+                                      (/
+                                       (* xi (sqrt (- 1d0 (* 2d0 nu))))
+                                       (* bta
+                                          (/
+                                           (sqrt (+ 1d0 nu))
+                                           (sqrt (- 1d0 (* 2d0 nu)))))))
                                     (* xi sb-ext:double-float-negative-infinity)))
                            (path :no-path)
                            (Q (Q-matrix v)))
+                      (break)
                       (cond
                         ((< fap tol)
                          (setf path :apex-return)
@@ -1240,7 +1241,7 @@
                                     (/ bta (sqrt 3))))
                                (dgg
                                  (magicl:.-
-                                  (cl-mpm/fastmaths:fast-scale! 
+                                  (cl-mpm/fastmaths:fast-scale!
                                    (magicl:.-
                                     (magicl:eye 3 :value 3)
                                     (magicl:ones (list 3 3))

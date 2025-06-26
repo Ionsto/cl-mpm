@@ -25,12 +25,13 @@ function [epsE] = DPconst(epsTr,mcst)
 
 E = mcst(1);
 v = mcst(2);
-tol=1e-12;                                                                  % convergence tolerance for NR iterations
-tolf=1e-6;                                                                  % yield function tolerance
-maxit=5;                                                                    % maximum NR iterations for convergence
 phi=mcst(3);                                                                   % friction angle (opening angle of yield surface)
 psi=mcst(4);                                                                  % dilation angle (set equal to phi for associated flow)
 c=mcst(5);                                                                        % cohesion
+
+tol=1e-12;                                                                  % convergence tolerance for NR iterations
+tolf=1e-6;                                                                  % yield function tolerance
+maxit=5;                                                                    % maximum NR iterations for convergence
 alfa=-tan(phi);                                                             % yield surface slope (xi-rho space)
 bta=-tan(psi);                                                              % plastic potential slope (xi-rho space)
 xsic=sqrt(3)*cot(phi)*c;                                                    % apex hydrostatic stress
@@ -45,8 +46,6 @@ De3=De(1:3,1:3)                                                            % pri
 epsTr=[epsVal(1); epsVal(5); epsVal(9)];                                    % principal strains
 [epsTr,sO]=sort(epsTr,'descend');                                           % order principal strains
 t=t(:,sO);                                                                  % order principal directions
-t
-epsTr
 
 Q=[t(1)*t(1)   t(2)*t(2)   t(3)*t(3)   t(1)*t(2)           t(2)*t(3)           t(3)*t(1)           ;  % principal to 6 component mapping matrix 
    t(4)*t(4)   t(5)*t(5)   t(6)*t(6)   t(4)*t(5)           t(5)*t(6)           t(6)*t(4)           ;
