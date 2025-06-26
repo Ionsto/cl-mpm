@@ -123,28 +123,20 @@
 
 (deftest test-mohr-coloumb ()
   ;;Not a good test
-  (is (voigt-list-test (test-plastic-mc 1d0 0d0 0d0 0d0 0d0 0d0)
-                       (list
-                        0.979934879811914d0
-                        0.009077457299942d0
-                        0.009077457299942d0
-                        0d0
-                        0d0
-                        0d0
-                        )
-                      ))
+  (is (voigt-list-test (test-plastic-mc 1d0 0d0 0d0 0d0 0d0 0d0) (list 0.979934879811914d0 0.009077457299942d0 0.009077457299942d0 0d0 0d0 0d0)))
   (is (voigt-list-test (test-plastic-mc -1d0 0d0 0d0 0d0 0d0 0d0) (list -1d0 0d0 0d0 0d0 0d0 0d0)))
-  (is (voigt-test (test-plastic-mc 1d0 2d0 3d0 1d0 2d0 3d0)
-       (cl-mpm/utils:voigt-from-list
-        (list
-         1.851075535530768d0
-         1.855075170381020d0
-         2.099777263559730d0
-         0.198854005878051d0
-         0.374783968105772d0
-         0.367321581130859d0
-         )))
-      )
+  (is (voigt-test (test-plastic-mc 1d0 2d0 3d0 1d0 2d0 3d0) (cl-mpm/utils:voigt-from-list (list 1.851075535530768d0 1.855075170381020d0 2.099777263559730d0 0.198854005878051d0 0.374783968105772d0 0.367321581130859d0))))
+  (is (voigt-test (test-plastic-mc -5d0 0d0 0d0 0d0 0d0 0d0) (cl-mpm/utils:voigt-from-list
+                                                             (list
+                                                              -2.8276d0
+                                                              -1.2005d0
+                                                              -1.2005d0
+                                                              0d0
+                                                              0d0
+                                                              0d0
+
+                                                              )
+                                                             )))
   )
 
 (deftest test-von-mises ()
@@ -241,14 +233,316 @@
                                                                out-e-xy)))
                (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
                (stress (magicl:@ de strain)))
-          (multiple-value-bind (stress strain f y) (cl-mpm/constitutive::plastic-dp stress de strain e nu phi psi c)
+          (multiple-value-bind (stress eps f y) (cl-mpm/constitutive::plastic-dp stress de strain e nu phi psi c)
             ;; (pprint strain)
-            (if (voigt-test-lax strain strain-expected)
+            (if (voigt-test-lax eps strain-expected)
                 (incf test-pass)
                 (progn
                   (incf test-fail)
+                  (format t "Failed at~%")
+                  (loop for v across (cl-mpm/utils:fast-storage strain) do (format t "~F " v))
                   (format t "Test failed with~%")
-                  (dolist (s (list strain strain-expected))
+                  (dolist (s (list eps strain-expected))
+                    (loop for v across (cl-mpm/utils:fast-storage s) do (format t "~F " v))
+                    (format t "~%"))
+                  (format t "Params E:~A Nu:~A Phi:~A Psi:~A C:~A~%" E nu phi psi c)))))))
+    (format t "Test fail rate: ~F%~%" (* 100d0 (/ test-fail tests)))
+    (format t "Test pass: ~D/~D~%" test-pass tests)
+    (format t "Test fail: ~D/~D~%" test-fail tests))
+  )
+
+(defun test-plastic-mc (&rest strain-list)
+  (let* ((E 2d0)
+         (nu 0.24d0)
+         (phi 0.1d0)
+         (psi 0.1d0)
+         (c 10d3)
+         (strain (cl-mpm/constitutive::swizzle-coombs->voigt (voigt-from-list strain-list)))
+         (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+         (stress (magicl:@ de strain)))
+    (multiple-value-bind (sig eps f) (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
+      (cl-mpm/constitutive::swizzle-voigt->coombs eps))))
+
+(defun print-voigt (stress)
+  (loop for val across (cl-mpm/utils:fast-storage stress)
+         do (format t "~E " val)))
+
+(defun test-ext-mc-all ()
+  (let* ((test-data (lisp-stat:read-csv (uiop:read-file-string "./libs/matlab/mc_test_data.csv")))
+         (tests (length (lisp-stat:rows test-data)))
+         (test-pass 0)
+         (test-fail 0)
+         )
+    (lisp-stat:do-rows
+      test-data
+      (loop for k across (lisp-stat:keys test-data) collect k)
+      (lambda (in-e-xx
+               in-e-yy
+               in-e-zz
+               in-e-xy
+               in-e-yz
+               in-e-zx
+               E
+               nu
+               phi
+               psi
+               c
+               out-e-xx
+               out-e-yy
+               out-e-zz
+               out-e-xy
+               out-e-yz
+               out-e-zx
+               )
+        (macrolet ((coerce-list (&rest vars)
+                     `(progn
+                        ,@(mapcar (lambda (var) `(setf ,var (coerce ,var 'double-float))) vars)
+                        )
+                     ))
+          (coerce-list
+           in-e-xx
+           in-e-yy
+           in-e-zz
+           in-e-xy
+           in-e-yz
+           in-e-zx
+           E
+           nu
+           phi
+           psi
+           c
+           out-e-xx
+           out-e-yy
+           out-e-zz
+           out-e-xy
+           out-e-yz
+           out-e-zx))
+        (let* ((strain (cl-mpm/utils:voigt-from-list (list
+                                                      in-e-xx
+                                                      in-e-yy
+                                                      in-e-zz
+                                                      in-e-yz
+                                                      in-e-zx
+                                                      in-e-xy)))
+               (strain-expected (cl-mpm/utils:voigt-from-list (list
+                                                               out-e-xx
+                                                               out-e-yy
+                                                               out-e-zz
+                                                               out-e-yz
+                                                               out-e-zx
+                                                               out-e-xy)))
+               (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+               (stress (magicl:@ de strain)))
+          (multiple-value-bind (stress eps f y) (cl-mpm/constitutive::mc-plastic stress de strain e nu phi psi c)
+            (let (;; (eps (cl-mpm/constitutive::swizzle-voigt->coombs))
+                  ))
+            ;; (pprint strain)
+            (if (voigt-test-lax eps strain-expected)
+                (incf test-pass)
+                (progn
+                  (incf test-fail)
+                  (format t "Failed with~%")
+                  (loop for v across (cl-mpm/utils:fast-storage strain) do (format t "~F " v))
+                  (format t "~%Test failed at~%")
+                  (dolist (s (list eps strain-expected))
+                    (loop for v across (cl-mpm/utils:fast-storage s) do (format t "~F " v))
+                    (format t "~%"))
+                  (format t "Params E:~A Nu:~A Phi:~A Psi:~A C:~A~%" E nu phi psi c)))))))
+    (format t "Test fail rate: ~F%~%" (* 100d0 (/ test-fail tests)))
+    (format t "Test pass: ~D/~D~%" test-pass tests)
+    (format t "Test fail: ~D/~D~%" test-fail tests))
+  )
+
+
+(defun test-failed-case ()
+  (let ((*read-default-float-format* 'double-float))
+    (let* ((strain (cl-mpm/utils:voigt-from-list (list
+                                                  -15.5913110798307 9.76195134112692 2.59893240801835 19.0395407623297 4.09318197180819 -15.8508955283125
+                                                  )))
+           (strain-expected (cl-mpm/utils:voigt-from-list (list
+                                                    -3.62183004945326 -1.55870655610107 -2.14159772011974 1.54934395413067 0.333082967721838 -1.28986772637592
+                                                    )))
+           (E 9.92969028487503d0)
+           (nu 0.304957091385821d0)
+           (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+           (stress (magicl:@ de strain))
+           (phi 0.1d0)
+           (psi 0.1d0)
+           (C 2.92907060239431d0)
+           )
+
+      (multiple-value-bind (stress eps f y) (cl-mpm/constitutive::plastic-dp stress de strain e nu phi psi c)
+        (format t "~A~%" (voigt-test-lax eps strain-expected))
+        (dolist (s (list eps strain-expected))
+          (loop for v across (cl-mpm/utils:fast-storage s) do (format t "~F " v))
+          (format t "~%"))
+        )
+      ))
+  )
+
+(defun test-ext-dp-all ()
+  (let* ((test-data (lisp-stat:read-csv (uiop:read-file-string "./libs/matlab/dp_test_data.csv")))
+         (tests (length (lisp-stat:rows test-data)))
+         (test-pass 0)
+         (test-fail 0)
+         )
+    (lisp-stat:do-rows
+      test-data
+      (loop for k across (lisp-stat:keys test-data) collect k)
+      (lambda (in-e-xx
+               in-e-yy
+               in-e-zz
+               in-e-xy
+               in-e-yz
+               in-e-zx
+               E
+               nu
+               phi
+               psi
+               c
+               out-e-xx
+               out-e-yy
+               out-e-zz
+               out-e-xy
+               out-e-yz
+               out-e-zx
+               )
+        (macrolet ((coerce-list (&rest vars)
+                     `(progn
+                        ,@(mapcar (lambda (var) `(setf ,var (coerce ,var 'double-float))) vars)
+                        )
+                     ))
+          (coerce-list
+           in-e-xx
+           in-e-yy
+           in-e-zz
+           in-e-xy
+           in-e-yz
+           in-e-zx
+           E
+           nu
+           phi
+           psi
+           c
+           out-e-xx
+           out-e-yy
+           out-e-zz
+           out-e-xy
+           out-e-yz
+           out-e-zx))
+        (let* ((strain (cl-mpm/utils:voigt-from-list (list
+                                                      in-e-xx
+                                                      in-e-yy
+                                                      in-e-zz
+                                                      in-e-yz
+                                                      in-e-zx
+                                                      in-e-xy)))
+               (strain-expected (cl-mpm/utils:voigt-from-list (list
+                                                               out-e-xx
+                                                               out-e-yy
+                                                               out-e-zz
+                                                               out-e-yz
+                                                               out-e-zx
+                                                               out-e-xy)))
+               (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+               (stress (magicl:@ de strain)))
+          (multiple-value-bind (stress eps f y) (cl-mpm/ext::constitutive-drucker-prager strain de e nu phi psi c)
+            ;; (pprint strain)
+            (if (voigt-test-lax eps strain-expected)
+                (incf test-pass)
+                (progn
+                  (incf test-fail)
+                  (format t "Failed at~%")
+                  (loop for v across (cl-mpm/utils:fast-storage strain) do (format t "~F " v))
+                  (format t "Test failed with~%")
+                  (dolist (s (list eps strain-expected))
+                    (loop for v across (cl-mpm/utils:fast-storage s) do (format t "~F " v))
+                    (format t "~%"))
+                  (format t "Params E:~A Nu:~A Phi:~A Psi:~A C:~A~%" E nu phi psi c)))))))
+    (format t "Test fail rate: ~F%~%" (* 100d0 (/ test-fail tests)))
+    (format t "Test pass: ~D/~D~%" test-pass tests)
+    (format t "Test fail: ~D/~D~%" test-fail tests))
+  )
+
+
+(defun test-mc-all ()
+  (let* ((test-data (lisp-stat:read-csv (uiop:read-file-string "./libs/matlab/mc_test_data.csv")))
+         (tests (length (lisp-stat:rows test-data)))
+         (test-pass 0)
+         (test-fail 0)
+         )
+    (lisp-stat:do-rows
+      test-data
+      (loop for k across (lisp-stat:keys test-data) collect k)
+      (lambda (in-e-xx
+               in-e-yy
+               in-e-zz
+               in-e-xy
+               in-e-yz
+               in-e-zx
+               E
+               nu
+               phi
+               psi
+               c
+               out-e-xx
+               out-e-yy
+               out-e-zz
+               out-e-xy
+               out-e-yz
+               out-e-zx
+               )
+        (macrolet ((coerce-list (&rest vars)
+                     `(progn
+                        ,@(mapcar (lambda (var) `(setf ,var (coerce ,var 'double-float))) vars)
+                        )
+                     ))
+          (coerce-list
+           in-e-xx
+           in-e-yy
+           in-e-zz
+           in-e-xy
+           in-e-yz
+           in-e-zx
+           E
+           nu
+           phi
+           psi
+           c
+           out-e-xx
+           out-e-yy
+           out-e-zz
+           out-e-xy
+           out-e-yz
+           out-e-zx))
+        (let* ((strain (cl-mpm/utils:voigt-from-list (list
+                                                      in-e-xx
+                                                      in-e-yy
+                                                      in-e-zz
+                                                      in-e-yz
+                                                      in-e-zx
+                                                      in-e-xy)))
+               (strain-expected (cl-mpm/utils:voigt-from-list (list
+                                                               out-e-xx
+                                                               out-e-yy
+                                                               out-e-zz
+                                                               out-e-yz
+                                                               out-e-zx
+                                                               out-e-xy)))
+               (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+               (stress (magicl:@ de strain)))
+          (multiple-value-bind (stress eps f y) (cl-mpm/ext::constitutive-mohr-coulomb strain de e nu phi psi c)
+            (let (;; (eps (cl-mpm/constitutive::swizzle-voigt->coombs))
+                  ))
+            ;; (pprint strain)
+            (if (voigt-test-lax eps strain-expected)
+                (incf test-pass)
+                (progn
+                  (incf test-fail)
+                  (format t "Failed with~%")
+                  (loop for v across (cl-mpm/utils:fast-storage strain) do (format t "~F " v))
+                  (format t "~%Test failed at~%")
+                  (dolist (s (list eps strain-expected))
                     (loop for v across (cl-mpm/utils:fast-storage s) do (format t "~F " v))
                     (format t "~%"))
                   (format t "Params E:~A Nu:~A Phi:~A Psi:~A C:~A~%" E nu phi psi c)))))))

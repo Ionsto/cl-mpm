@@ -1320,14 +1320,10 @@
     ;;                        (+ soil-boundary 1d0)
     ;;                        (/ 1d0 100d0)))
 
-    (cl-mpm/setup::initialise-stress-self-weight
-     *sim*
-     shelf-height
-     ;; soil-boundary
-     ;; :clipping-func
-     ;; (lambda (pos)
-     ;;   (< (cl-mpm/utils:varef pos 0) shelf-length))
-     )
+    ;; (cl-mpm/setup::initialise-stress-self-weight
+    ;;  *sim*
+    ;;  shelf-height
+    ;;  )
     (when nil
       (let ((transition-point (- shelf-length (* shelf-height-true 1d0))))
         (cl-mpm/setup::initialise-stress-self-weight
@@ -1561,18 +1557,17 @@
           ))
       )
 
-    
-    (let ((notch-height 0.0d0))
-      (cl-mpm/setup:remove-sdf
-       *sim*
-       (lambda (p)
-         (if t
-             (funcall
-              (cl-mpm/setup::rectangle-sdf
-               (list shelf-length (+ notch-height soil-boundary))
-               (list (* 2d0 notch-height) notch-height)
-               ) p)
-             1d0))))
+    ;; (let ((notch-height 0.0d0))
+    ;;   (cl-mpm/setup:remove-sdf
+    ;;    *sim*
+    ;;    (lambda (p)
+    ;;      (if t
+    ;;          (funcall
+    ;;           (cl-mpm/setup::rectangle-sdf
+    ;;            (list shelf-length (+ notch-height soil-boundary))
+    ;;            (list (* 2d0 notch-height) notch-height)
+    ;;            ) p)
+    ;;          1d0))))
 
     (setf cl-mpm::*max-split-depth* 4))
 
@@ -2382,3 +2377,5 @@
                (swank.live:update-swank)
                ))))
 
+
+(defun setup)

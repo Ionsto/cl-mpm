@@ -57,7 +57,8 @@
                               )
                  node
                (declare (double-float mass))
-               (let ((mass 1d0))
+               (let (;; (mass 1d0)
+                     )
                  (list
                   mass
                   (* mass (cl-mpm/fastmaths::mag-squared vel))
@@ -456,8 +457,8 @@
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
                       ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                      (when damping-factor
-                        (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
+                      ;; (when damping-factor
+                      ;;   (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
                         (incf *work* power)
@@ -601,16 +602,14 @@
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm:mpm-sim))
   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
                    (stats-oobf cl-mpm::sim-stats-oobf)
-                   (stats-power cl-mpm::sim-stats-power))
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
       sim
     (multiple-value-bind (e o p) (combi-stats sim)
       (setf stats-energy e
             stats-oobf o
-            stats-power p))
-    ;; (setf stats-energy (cl-mpm/dynamic-relaxation:estimate-energy-norm sim)
-    ;;       stats-oobf (cl-mpm/dynamic-relaxation:estimate-oobf sim)
-    ;;       stats-power (cl-mpm/dynamic-relaxation:estimate-power-norm sim))
-    ))
+            stats-power p)
+      (incf stats-work p))))
 
 ;; (defun dr-estimate-damping (sim)
 ;;   (with-accessors ((mesh cl-mpm:sim-mesh)

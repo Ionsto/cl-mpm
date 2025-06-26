@@ -181,6 +181,10 @@
     :type double-float
     :accessor sim-stats-power
     :initform 0d0)
+   (stats-work
+    :type double-float
+    :accessor sim-stats-work
+    :initform 0d0)
    (mass-filter
      :type double-float
      :accessor sim-mass-filter

@@ -484,21 +484,18 @@
                    (mesh cl-mpm:sim-mesh)) sim
     (with-open-file (fs filename :direction :output :if-exists :supersede)
       (format fs "# vtk DataFile Version 2.0~%")
-      (format fs "Lisp generated vtk file, WMC~%")
+      (format fs "Lisp generated vtk file, SJVS~%")
       (format fs "ASCII~%")
       (format fs "DATASET UNSTRUCTURED_GRID~%")
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
             do
-               (let ((pos (cl-mpm/particle::mp-position-trial mp)))
+               (let ((pos (cl-mpm/particle::mp-position mp)))
                  (format fs "~E ~E ~E ~%"
                          (coerce (cl-mpm/utils:varef pos 0) 'single-float)
                          (coerce (cl-mpm/utils:varef pos 1) 'single-float)
                          (coerce (cl-mpm/utils:varef pos 2) 'single-float))))
       (format fs "~%")
-
-      ;; (with-parameter-list fs mps
-      ;;   ("mass" (lambda (mp) (cl-mpm/particle:mp-mass mp))))
 
       (let ((id 1)
             (nd (cl-mpm/mesh:mesh-nd mesh)))
@@ -554,10 +551,6 @@
           (cl-mpm/output::save-parameter "eps_yz" (magicl:tref (cl-mpm/particle:mp-strain mp) 3 0))
           (cl-mpm/output::save-parameter "eps_zx" (magicl:tref (cl-mpm/particle:mp-strain mp) 4 0)))
 
-        ;; (save-parameter "temp" (cl-mpm/particle::mp-true-visc mp))
-        (save-parameter "j" (magicl:det (cl-mpm/particle::mp-deformation-gradient mp)))
-        (save-parameter "dfdebug" (cl-mpm/particle::mp-debug-j mp))
-        (save-parameter "df0debug" (cl-mpm/particle::mp-debug-j-gather mp))
 
         (save-parameter "size_x" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 0 0))
         (save-parameter "size_y" (magicl:tref (cl-mpm/particle::mp-domain-size mp) 1 0))
@@ -604,15 +597,6 @@
          (if (slot-exists-p mp 'cl-mpm/particle::phi)
              (* (cl-mpm/particle::mp-phi mp) (/ 180 pi))
              0d0))
-
-         ;; (multiple-value-bind (l v)
-         ;;     (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-         ;;   (destructuring-bind (s1 s2 s3) l
-         ;;     (sqrt
-         ;;      (/ (+ (expt (- s1 s2) 2d0)
-         ;;            (expt (- s2 s3) 2d0)
-         ;;            (expt (- s3 s1) 2d0)
-         ;;            ) 2d0)))))
         (save-parameter
          "f"
          (if (slot-exists-p mp 'cl-mpm/particle::yield-func)

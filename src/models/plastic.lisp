@@ -133,14 +133,15 @@
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
+
         (setf stress
               sig
-              plastic-strain (cl-mpm/fastmaths:fast-.- strain-n eps-e)
-              strain eps-e
+              plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
               yield-func f
-              ))
-      (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
-      (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+              )
+        (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
+        (setf strain eps-e)
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
       )
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
@@ -181,14 +182,22 @@
               do
                  (progn
                    (multiple-value-bind (sig eps-e f inc)
-                       (cl-mpm/ext::constitutive-mohr-coulomb stress
-                                                              de
-                                                              strain
-                                                              E
-                                                              nu
-                                                              phi
-                                                              psi
-                                                              c)
+                       ;; (cl-mpm/ext::constitutive-mohr-coulomb stress
+                       ;;                                        de
+                       ;;                                        strain
+                       ;;                                        E
+                       ;;                                        nu
+                       ;;                                        phi
+                       ;;                                        psi
+                       ;;                                        c)
+                       (cl-mpm/constitutive::mc-plastic stress
+                                                       de
+                                                       strain
+                                                       E
+                                                       nu
+                                                       phi
+                                                       psi
+                                                       c)
                      (declare (double-float f inc))
                      (setf f-r (> f 1d-5))
                      (setf

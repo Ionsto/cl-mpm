@@ -49,8 +49,9 @@
         ;; Reapply velocity BCs
         ;; (apply-bcs mesh bcs dt)
         ;;Compute true displacements
-        ;; (reset-node-displacement sim)
-        ;; (update-nodes sim)
+        (reset-node-displacement sim)
+        (update-nodes sim)
+
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
         ;; Also updates mps inline
