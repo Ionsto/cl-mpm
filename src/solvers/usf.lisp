@@ -47,7 +47,7 @@
                 do (apply-bcs mesh bcs-f dt)))
         (update-node-forces sim)
         ;; Reapply velocity BCs
-        (apply-bcs mesh bcs dt)
+        ;; (apply-bcs mesh bcs dt)
         ;;Compute true displacements
         ;; (reset-node-displacement sim)
         ;; (update-nodes sim)
