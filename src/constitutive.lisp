@@ -1220,7 +1220,6 @@
                                     (* xi sb-ext:double-float-negative-infinity)))
                            (path :no-path)
                            (Q (Q-matrix v)))
-                      (break)
                       (cond
                         ((< fap tol)
                          (setf path :apex-return)
@@ -1347,3 +1346,4 @@
 (defun maxwell-forwards-fs ()
 
   )
+

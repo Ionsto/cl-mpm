@@ -30,7 +30,7 @@
   ;; (cl-mpm::update-domain-corner mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
   (cl-mpm::update-domain-polar-2d mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
+  ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
@@ -1112,12 +1112,13 @@
      *sim*
      :output-dir (format nil "./output/")
      :plotter #'plot
-     :load-steps 100
-     :damping 0.5d0
+     :load-steps 50
+     :damping 1d-3
      :substeps 50
+     :conv-steps 1000
      :criteria 1d-2
      :adaptive-damping nil
-     :kinetic-damping nil
+     :kinetic-damping t
      :save-vtk-dr t
      :save-vtk-loadstep t
      :dt-scale 0.8d0

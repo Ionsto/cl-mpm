@@ -176,11 +176,17 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
-      (let ((f-r t))
+      (let ((f-r t)
+            (ps-inc-i 0d0))
         (loop for i from 0 to 0;to 50
-              while f-r
+              while (and f-r
+                         ;; (if (= ps-inc-i 0d0)
+                         ;;     t
+                         ;;     (/ (abs (- ps-vm-inc ps-inc-i)) ps-inc-i))
+                         )
               do
                  (progn
+                   (setf ps-inc-i ps-vm-inc)
                    (multiple-value-bind (sig eps-e f inc)
                        ;; (cl-mpm/ext::constitutive-mohr-coulomb stress
                        ;;                                        de
@@ -207,19 +213,20 @@
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)
-                   (when (> soft 0d0)
-                     (with-accessors ((c-0 mp-c-0)
-                                      (phi-0 mp-phi-0)
-                                      (psi-0 mp-psi-0)
-                                      (c-r mp-c-r)
-                                      (phi-r mp-phi-r)
-                                      (psi-r mp-psi-r))
-                         mp
-                       (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
-                       (setf
-                        c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
-                        phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
-                     )))))
+                   ;; (unless (= soft 0d0)
+                   ;;   (with-accessors ((c-0 mp-c-0)
+                   ;;                    (phi-0 mp-phi-0)
+                   ;;                    (psi-0 mp-psi-0)
+                   ;;                    (c-r mp-c-r)
+                   ;;                    (phi-r mp-phi-r)
+                   ;;                    (psi-r mp-psi-r))
+                   ;;       mp
+                   ;;     (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
+                   ;;     (setf
+                   ;;      c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
+                   ;;      phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
+                   ;;   )
+                   ))))
     stress))
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-plastic))

@@ -88,8 +88,6 @@
 
   (def-g2p-mp g2p-mp-flip
       (progn
-        ;; (cl-mpm/fastmaths::fast-scale! mapped-vel dt)
-        ;; (cl-mpm/utils::vector-copy-into mapped-disp disp-inc)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
