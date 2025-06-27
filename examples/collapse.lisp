@@ -1638,3 +1638,6 @@
                 (+ c-r (* (- 1d0 percent) (- c c-r)))))))
      )
     ))
+
+
+(pprint (asdf:system-relative-pathname :cl-mpm "./config/git-commit-version.txt"))
