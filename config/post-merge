@@ -1,0 +1,2 @@
+#!/bin/sh
+git describe --all --long > config/git-commit-version.txt

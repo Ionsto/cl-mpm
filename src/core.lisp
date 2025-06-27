@@ -9,7 +9,9 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   #+cl-mpm-special (print "Compiled with special hooks")
   #-cl-mpm-special (print "Compiled without special hooks")
-  (format t "Compiled with optimize ~A~%" (sb-ext:restrict-compiler-policy)))
+  (format t "Compiled with optimize ~A~%" (sb-ext:restrict-compiler-policy))
+  (with-open-file (fs (asdf:system-relative-pathname :cl-mpm "./config/git-commit-version.txt") :direction :input)
+    (format t "Git commit ~A~%" (read fs))))
 
 (defun FLIP-status ()
   #+cl-mpm-pic (print "Compiled with PIC")
