@@ -27,6 +27,14 @@
     (format stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
             oobf energy)))
 
+(defun save-conv (sim output-dir iter)
+  (let ((oobf (cl-mpm::sim-stats-oobf sim))
+        (energy (/ (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-work sim)))
+        (real-time (cl-mpm::sim-time sim)))
+    (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+      (format stream "~D,~D,~f,~f,~f,~f,~f~%" iter 0 real-time (get-plastic sim) (get-damage sim)
+              oobf energy))))
+
 (defun get-damage (sim)
   (lparallel:pmap-reduce
    (lambda (mp)

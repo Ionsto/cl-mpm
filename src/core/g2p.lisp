@@ -88,12 +88,18 @@
 
   (def-g2p-mp g2p-mp-flip
       (progn
+        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
+        ;; (cl-mpm/fastmaths:fast-scale! disp-inc dt)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
       (progn
         (cl-mpm/utils::vector-copy-into mapped-vel vel)
-        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
+        ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
+        ;; (cl-mpm/fastmaths:fast-scale! disp-inc dt)
+        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
+        nil
+        ))
   (def-g2p-mp g2p-mp-quasi-static
       (progn
         ;; (declare (ignore mapped-vel acc))

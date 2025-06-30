@@ -25,7 +25,7 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-stretch mesh mp dt)
+  (cl-mpm::update-domain-stretch mesh mp dt)
   ;; ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   ;;Each step we reset key metrics to initial pre-psudo step values
@@ -71,16 +71,16 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-               :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
+               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
-               ;; :sim-type 'cl-mpm::mpm-sim-usf
                :sim-type 'cl-mpm::mpm-sim-usf
+               ;; :sim-type 'cl-mpm::mpm-sim-usf
                :args-list (list
                            :split-factor 0.52d0
-                           :enable-fbar t
-                           :enable-aggregate t
-                           :vel-algo :BLEND
-                           :enable-split t)))
+                           :enable-fbar nil
+                           ;; :enable-aggregate nil
+                           :vel-algo :FLIP
+                           :enable-split nil)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -121,23 +121,23 @@
           ;; :initiation-stress 1d3
           ;; :local-length (* 2 h)
           ;; :ductility 100d0
-          ;; 'cl-mpm/particle::particle-elastic
-          ;; :E 1d5
-          ;; :nu 0.24d0
+          'cl-mpm/particle::particle-elastic
+          :E 1d6
+          :nu 0.24d0
           ;; 'cl-mpm/particle::particle-vm
-          ;; :E 1d6
+          ;; :E 1d9
           ;; :nu 0.3d0
           ;; :rho 20d3
           ;; ;; :rho-r 100d3
           ;; :softening 0d0
-          'cl-mpm/particle::particle-mc
-          :E 1d9
-          :nu 0.24d0
-          :phi (* 50d0 (/ pi 180))
-          :psi 0d0
-          :c 23d3
-          ;; :c-r 0d0
-          :softening 0d0
+          ;; 'cl-mpm/particle::particle-mc
+          ;; :E 1d9
+          ;; :nu 0.24d0
+          ;; :phi (* 50d0 (/ pi 180))
+          ;; :psi 0d0
+          ;; :c 23d3
+          ;; ;; :c-r 0d0
+          ;; :softening 0d0
           ;; :softening 0d0
           ;; ;:viscosity 1.11d6
           ;; ;; :viscosity 1d08
@@ -182,7 +182,7 @@
       (setf (cl-mpm::sim-enable-damage sim) t)
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-9)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-15)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-7)
             nil
@@ -215,7 +215,7 @@
       (cl-mpm/setup::setup-bcs
        sim
        :top '(nil nil nil)
-       :bottom '(0 0 nil))
+       :bottom '(nil 0 nil))
       (defparameter *bc-squish*
         (cl-mpm/penalty::make-bc-penalty-distance-point
          sim
@@ -955,19 +955,40 @@
   )
 
 (defun test-static ()
-  (setup :mps 2 :refine 1)
-  (cl-mpm/dynamic-relaxation::run-load-control
-   *sim*
-   :output-dir (format nil "./output-agg/")
-   :plotter #'plot
-   :load-steps 20
-   :damping 1d0
-   :substeps 50
-   :criteria 1d-3
-   :adaptive-damping t
-   :kinetic-damping nil
-   :dt-scale (/ 0.25d0 (sqrt 1d0))
-   )
+  (let ((output-dir "./output-usf/"))
+    (uiop:ensure-all-directories-exist (list output-dir))
+    (setup :mps 2 :refine 1)
+    (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :dt-scale 0.5d0
+     :kinetic-damping nil
+     :damping-factor 0.1d0
+     :conv-steps 1000
+     :oobf-crit 1d-5
+     :energy-crit 1d-5
+     :pic-update nil
+     :post-iter-step
+     (lambda (i energy oobf)
+       ;; (setf (cl-mpm:sim-damping-factor *sim*)
+       ;;       (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*)))
+       (cl-mpm/dynamic-relaxation::save-conv *sim* output-dir i)
+       (cl-mpm/output:save-vtk (merge-pathnames (format nil "sim_~5,'0d.vtk" i) output-dir) *sim*)
+       (cl-mpm/output:save-vtk-nodes (merge-pathnames (format nil "sim_nodes_~5,'0d.vtk" i) output-dir) *sim*)
+       (plot *sim*))))
+
+  ;; (cl-mpm/dynamic-relaxation::run-load-control
+  ;;  *sim*
+  ;;  :output-dir (format nil "./output-agg/")
+  ;;  :plotter #'plot
+  ;;  :load-steps 20
+  ;;  :damping 1d0
+  ;;  :substeps 50
+  ;;  :criteria 1d-3
+  ;;  :adaptive-damping t
+  ;;  :kinetic-damping nil
+  ;;  :dt-scale (/ 0.25d0 (sqrt 1d0))
+  ;;  )
   ;; (run-static
   ;;  :output-dir "./output/"
   ;;  :dt-scale (/ 0.4d0 (sqrt 1d0))
@@ -1622,7 +1643,7 @@
      :load-steps 50
      :damping 1d-3
      :substeps 50
-     :conv-steps 1000
+     ;; :conv-steps 1000
      :criteria 1d-2
      :adaptive-damping nil
      :kinetic-damping t

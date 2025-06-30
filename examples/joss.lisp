@@ -486,9 +486,9 @@
       ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
       ;;   (format t "Mass filter: ~F~%" mass-filter)
       ;;   (setf (cl-mpm::sim-mass-filter sim) mass-filter))
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-2)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
 
-      (setf (cl-mpm::sim-mass-filter sim) 1d-10)
+      ;; (setf (cl-mpm::sim-mass-filter sim) 1d-10)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
@@ -2378,4 +2378,27 @@
                ))))
 
 
-(defun setup)
+
+(defun test-static ()
+  (let ((output-dir "./output/"))
+    (uiop:ensure-all-directories-exist (list output-dir))
+    (setup :mps 3 :refine 1)
+    (setf (cl-mpm:sim-damping-factor *sim*)
+          (* 0.1d0
+             (cl-mpm/setup::estimate-critical-damping *sim*)))
+    (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
+    (cl-mpm/dynamic-relaxation:converge-quasi-static
+     *sim*
+     :dt-scale 0.5d0
+     :damping-factor 0.1d0
+     :kinetic-damping nil
+     :conv-steps 1000
+     :oobf-crit 1d-5
+     :energy-crit 1d-5
+     :post-iter-step
+     (lambda (i energy oobf)
+       (cl-mpm/dynamic-relaxation::save-conv *sim* output-dir i)
+       (cl-mpm/output:save-vtk (merge-pathnames (format nil "sim_~5,'0d.vtk" i) output-dir) *sim*)
+       (cl-mpm/output:save-vtk-nodes (merge-pathnames (format nil "sim_nodes_~5,'0d.vtk" i) output-dir) *sim*)
+       (plot *sim*))))
+  )

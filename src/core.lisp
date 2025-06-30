@@ -198,17 +198,17 @@
 
 (defun integrate-vel-euler (vel acc mass mass-scale dt damping)
   (declare (double-float mass mass-scale dt damping))
-  (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+  ;; (cl-mpm/fastmaths:fast-fmacc vel acc dt)
   ;; Better integration of damping but whatever
-  ;; (unless (= dt 0d0)
-  ;;   (if (= damping 0d0)
-  ;;       (cl-mpm/fastmaths:fast-fmacc vel acc dt)
-  ;;       (let ((exp-fac (exp (- (* damping dt))))
-  ;;             )
-  ;;         (declare (double-float exp-fac))
-  ;;         (cl-mpm/fastmaths:fast-scale! vel exp-fac)
-  ;;         (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac))))))
-  )
+  (unless (= dt 0d0)
+    (if (= damping 0d0)
+        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        (let ((exp-fac (exp (- (* damping dt)))))
+          (declare (double-float exp-fac))
+          ;; (break)
+          (cl-mpm/fastmaths:fast-scale! vel exp-fac)
+          (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))
+          ))))
 
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
@@ -227,22 +227,39 @@
                      (acc node-acceleration))
         node
       (declare (double-float mass dt damping mass-scale))
-      (progn
-        (cl-mpm/fastmaths:fast-zero acc)
-        ;;Set acc to f/m
-        (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-        (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-        ;;Include velocity prop damping
-        (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
-        (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+      (if t
+          (progn
+            (cl-mpm/fastmaths:fast-zero acc)
+            ;;Set acc to f/m
+            (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+            (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+            ;;Include velocity prop damping
+            (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+            (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+            ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+            (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+            (integrate-vel-euler vel acc mass mass-scale dt 0d0)
+            (cl-mpm/utils::vector-copy-into residual residual-prev)
+            (cl-mpm/utils::vector-copy-into force-int residual))
+          (progn
+            ;;Use exponetial integration of damping
+            (cl-mpm/fastmaths:fast-zero acc)
+            ;;Set acc to f/m
+            (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+            (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+            ;;Include velocity prop damping
+            (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
 
-        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+            (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+            (integrate-vel-euler vel acc mass mass-scale dt damping)
+            ;;Acceleration adjustment
+            (cl-mpm/fastmaths:fast-fmacc acc vel (* -1d0 damping (/ 1d0 mass-scale)))
 
-        (integrate-vel-euler vel acc mass mass-scale dt damping)
-        (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force-int residual))))
+            (cl-mpm/utils::vector-copy-into residual residual-prev)
+            (cl-mpm/utils::vector-copy-into force-int residual))
+          )))
   (values))
+
 
 
 (defun integrate-vel-midpoint (vel acc mass mass-scale dt damping)

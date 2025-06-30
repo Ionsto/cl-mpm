@@ -46,6 +46,7 @@
         (apply-bcs mesh bcs dt)
         (reset-node-displacement sim)
         (update-nodes sim)
+        (update-dynamic-stats sim)
         ;;Grid to particle mapping
         (g2p mesh mps dt damping vel-algo)
         ;;2nd round of momentum mapping
@@ -57,10 +58,7 @@
         (reset-node-displacement sim)
         (update-nodes sim)
         (apply-bcs mesh bcs dt)
-        ;;Update stress last
         (update-stress mesh mps dt fbar)
-        (update-dynamic-stats sim)
-        ;; (update-particles sim)
         (new-loadstep sim)
 
         (when remove-damage

@@ -52,6 +52,7 @@
                               (f-int cl-mpm/mesh::node-internal-force)
                               (node-oobf cl-mpm/mesh::node-oobf)
                               (mass cl-mpm/mesh::node-mass)
+                              (volume cl-mpm/mesh::node-volume)
                               (vel cl-mpm/mesh::node-velocity)
                               (disp cl-mpm/mesh::node-displacment)
                               )
@@ -444,6 +445,7 @@
             (energy-last 0d0)
             )
         (setf *work* 0d0)
+        (setf (cl-mpm::sim-stats-work sim) 0d0)
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
                          (cl-mpm::sim-run-sim sim)
