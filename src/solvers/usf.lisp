@@ -23,6 +23,7 @@
                (time time)
                (vel-algo velocity-algorithm)
                (damping damping-factor)
+               (ghost-factor cl-mpm::ghost-factor)
                )
                 sim
     (declare (double-float mass-filter dt time))
@@ -45,7 +46,9 @@
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
                 do (apply-bcs mesh bcs-f dt)))
+        ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
         (update-node-forces sim)
+        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
         ;; Reapply velocity BCs
         ;; (apply-bcs mesh bcs dt)
         ;;Compute true displacements

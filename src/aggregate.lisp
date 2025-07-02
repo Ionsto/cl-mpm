@@ -16,7 +16,6 @@
 
 (defmacro project-global-vec (sim force accessor)
   `(progn
-     ;; (declare (function accessor))
      (let* ((agg-nodes (filter-nodes ,sim #'cl-mpm/mesh::node-interior))
             (active-nodes (filter-nodes ,sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
                                                              (cl-mpm/mesh::node-interior n)))))
@@ -31,7 +30,10 @@
              ,sim
              elem
              (lambda (n)
-               (let ((index (* nd (position n active-nodes))))
+               (let ((index
+                       ;; (* nd (position n active-nodes))
+                       (cl-mpm/mesh::node-agg-fd n)
+                       ))
                  (with-accessors ((vec ,accessor))
                      n
                    (loop for i from 0 below nd
@@ -111,6 +113,14 @@
    (global-fd
     :initform nil
     :accessor sim-global-fd
+    )
+   (global-index
+    :initform nil
+    :accessor sim-global-index
+    )
+   (global-internal-index
+    :initform nil
+    :accessor sim-global-internal-index
     )
    (global-e
     :initform nil
@@ -615,7 +625,6 @@
     (setf
      (sim-agg-elems sim)
      (locate-aggregate-node-elements sim))
-    ;; (set-aggregate-nodes sim)
     (iterate-over-agg-elem
      (sim-agg-elems sim)
      (lambda (elem)
@@ -637,6 +646,7 @@
                 E
                 (magicl:inv m)
                 (magicl:@ (magicl:transpose E) m-i))))))
+    (set-global-fdofs sim)
     (let ((E (cl-mpm/aggregate::assemble-global-e sim)))
       (setf (sim-global-e sim) E)
       (setf (sim-global-ma sim) (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-mass sim) E)))
@@ -981,20 +991,9 @@
                  (magicl:@
                   E
                   (magicl:inv (magicl:@ (magicl:transpose E) mii E))
-                  ;; (magicl:transpose E)
                   fa)))
-          (project-global-vec sim acc cl-mpm/mesh::node-acceleration))
-
-        ;; (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force)) cl-mpm/mesh::node-internal-force)
-        ;; (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force)) cl-mpm/mesh::node-external-force)
-        ;; (project-global-vec sim (magicl:@ E (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual)) cl-mpm/mesh::node-residual)
-        )
-      ;; (calculate-forces-global-agg sim)
-      ;; (iterate-over-agg-elem
-      ;;  agg-elems
-      ;;  (lambda (elem)
-      ;;    (calculate-forces-agg-elem sim elem damping)))
-      )
+          (project-global-vec sim acc cl-mpm/mesh::node-acceleration)
+          )))
     (iterate-over-nodes
      mesh
      (lambda (node)
@@ -1011,10 +1010,8 @@
     (when enable-aggregate
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       (let ((E (sim-global-e sim))
-            ;; (disp-proj (cl-mpm/aggregate::assemble-global-internal-vec sim #'cl-mpm/mesh::node-displacment))
             (vel-proj (cl-mpm/aggregate::assemble-global-internal-vec sim #'cl-mpm/mesh::node-velocity)))
         (cl-mpm/aggregate::project-global-vec sim (magicl:@ E vel-proj) cl-mpm/mesh::node-velocity)
-        ;; (cl-mpm/aggregate::project-global-vec sim (magicl:@ E disp-proj) cl-mpm/mesh::node-displacment)
         )
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
     ))
@@ -1067,22 +1064,22 @@
       proj
       d-i))))
 
-(defmethod cl-mpm::update-nodes (sim)
-  (with-accessors ((mesh sim-mesh)
-                   (dt sim-dt)
-                   (agg sim-enable-aggregate))
-      sim
-    (iterate-over-nodes
-     mesh
-     (lambda (node)
-       (when (cl-mpm/mesh:node-active node)
-         (cl-mpm::update-node node dt))))
-    ;; (when agg
-    ;;   (iterate-over-agg-elem
-    ;;    (sim-agg-elems sim)
-    ;;    (lambda (elem)
-    ;;      (reproject-displacements sim elem))))
-    ))
+;; (defmethod cl-mpm::update-nodes (sim)
+;;   (with-accessors ((mesh sim-mesh)
+;;                    (dt sim-dt)
+;;                    (agg sim-enable-aggregate))
+;;       sim
+;;     (iterate-over-nodes
+;;      mesh
+;;      (lambda (node)
+;;        (when (cl-mpm/mesh:node-active node)
+;;          (cl-mpm::update-node node dt))))
+;;     ;; (when agg
+;;     ;;   (iterate-over-agg-elem
+;;     ;;    (sim-agg-elems sim)
+;;     ;;    (lambda (elem)
+;;     ;;      (reproject-displacements sim elem))))
+;;     ))
 
 
 (defun filter-nodes (sim filter)
@@ -1090,27 +1087,46 @@
     (remove-if-not filter (make-array (array-total-size nodes) :displaced-to nodes))))
 
 
-(defun assemble-global-fdofs (sim)
-  (let* ((active-nodes (filter-nodes sim #'cl-mpm/mesh::node-active))
+;; (defun assemble-global-fdofs (sim)
+;;   (let* ((active-nodes (filter-nodes sim #'cl-mpm/mesh::node-active))
+;;          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+;;          (ndofs (* (length active-nodes) nd))
+;;          (fd (make-array ndofs))
+;;          )
+;;     (iterate-over-agg-elem
+;;      (sim-agg-elems sim)
+;;      (lambda (elem)
+;;        (let ((ma (agg-mass-matrix elem))
+;;              (index-map nil)
+;;              (iter 0)
+;;              (node-count (length (agg-node-list elem))))
+;;          (iterate-over-agg-elem-nodes
+;;           sim
+;;           elem
+;;           (lambda (n)
+;;             (let ((index (* nd (position n active-nodes))))
+;;               (push index index-map))))
+;;          (setf index-map (make-array (length index-map) :initial-contents (nreverse index-map)))
+;;          )))))
+
+(defun set-global-fdofs (sim)
+  (let* ((agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
+         (active-nodes (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
+                                                         (cl-mpm/mesh::node-interior n)))))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-         (ndofs (* (length active-nodes) nd))
-         (fd (make-array ndofs))
          )
     (iterate-over-agg-elem
      (sim-agg-elems sim)
      (lambda (elem)
-       (let ((ma (agg-mass-matrix elem))
-             (index-map nil)
-             (iter 0)
-             (node-count (length (agg-node-list elem))))
-         (iterate-over-agg-elem-nodes
-          sim
-          elem
-          (lambda (n)
-            (let ((index (* nd (position n active-nodes))))
-              (push index index-map))))
-         (setf index-map (make-array (length index-map) :initial-contents (nreverse index-map)))
-         )))))
+       (iterate-over-agg-elem-nodes
+        sim
+        elem
+        (lambda (n)
+          (let ((index (* nd (position n active-nodes))))
+            (setf (cl-mpm/mesh::node-agg-fd n) index))
+          (when (cl-mpm/mesh::node-interior n)
+            (let ((index (* nd (position n agg-nodes))))
+              (setf (cl-mpm/mesh::node-agg-fdc n) index)))))))))
 
 (defun assemble-global-e (sim)
   (let* ((agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
@@ -1134,12 +1150,17 @@
           sim
           elem
           (lambda (n)
-            (let ((index (* nd (position n active-nodes))))
+            (let ((index
+                    (cl-mpm/mesh::node-agg-fd n)
+                    ;; (* nd (position n active-nodes))
+                         ))
               (push index index-map))
             (when (cl-mpm/mesh::node-interior n)
-              (let ((index (* nd (position n agg-nodes))))
-                (push index int-map)))
-            ))
+              (let ((index
+                      (cl-mpm/mesh::node-agg-fdc n)
+                      ;; (* nd (position n agg-nodes))
+                      ))
+                (push index int-map)))))
          (setf index-map (make-array (length index-map) :initial-contents (nreverse index-map)))
          (setf int-map (make-array (length int-map) :initial-contents (nreverse int-map)))
          (loop for x from 0 below nc
@@ -1154,8 +1175,7 @@
 
 (defun assemble-global-vec (sim accessor)
   (declare (function accessor))
-  (let* (;; (agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
-         (active-nodes (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
+  (let* ((active-nodes (filter-nodes sim (lambda (n) (or (cl-mpm/mesh::node-agg n)
                                                          (cl-mpm/mesh::node-interior n)))))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (ndof (* (length active-nodes) nd))
@@ -1167,7 +1187,10 @@
         sim
         elem
         (lambda (n)
-          (let ((index (* nd (position n active-nodes))))
+          (let ((index
+                  (cl-mpm/mesh::node-agg-fd n)
+                  ;; (* nd (position n active-nodes))
+                       ))
             (let ((vec (funcall accessor n)))
               (loop for i from 0 below nd
                     do (setf (mtref v (+ index i) 0)
@@ -1176,8 +1199,7 @@
 
 (defun assemble-global-internal-vec (sim accessor)
   (declare (function accessor))
-  (let* (;; (agg-nodes (filter-nodes sim #'cl-mpm/mesh::node-interior))
-         (active-nodes (filter-nodes sim (lambda (n) (or ;(cl-mpm/mesh::node-agg n)
+  (let* ((active-nodes (filter-nodes sim (lambda (n) (or ;(cl-mpm/mesh::node-agg n)
                                                          (cl-mpm/mesh::node-interior n)))))
          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
          (ndof (* (length active-nodes) nd))
@@ -1190,7 +1212,10 @@
         elem
         (lambda (n)
           (when (cl-mpm/mesh::node-interior n)
-            (let ((index (* nd (position n active-nodes))))
+            (let ((index
+                    (cl-mpm/mesh::node-agg-fdc n)
+                    ;; (* nd (position n active-nodes))
+                    ))
               (let ((vec (funcall accessor n)))
                 (loop for i from 0 below nd
                       do (setf (mtref v (+ index i) 0)
@@ -1218,7 +1243,10 @@
           sim
           elem
           (lambda (n)
-            (let ((index (* nd (position n active-nodes))))
+            (let ((index
+                    (cl-mpm/mesh::node-agg-fd n)
+                    ;; (* nd (position n active-nodes))
+                         ))
               (let ((n-mass (cl-mpm/mesh::node-mass n)))
                 (loop for x from 0 below nc
                       do
@@ -1256,44 +1284,12 @@
                                          (mtref ma (+ x i) (+ y i)))))))))
     (values m)))
 
-;; (defun assemble-global-vector (sim accessor)
-;;   (declare (function accessor))
-;;   (let* ((active-nodes (filter-nodes sim #'cl-mpm/mesh::node-active))
-;;          (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
-;;          (ndofs (* (length active-nodes) nd))
-;;          (v (cl-mpm/utils::arb-matrix ndofs 1))
-;;          )
-;;     (iterate-over-agg-elem
-;;      (sim-agg-elems sim)
-;;      (lambda (elem)
-;;        (let ((ma (agg-mass-matrix elem))
-;;              (index-map nil)
-;;              (iter 0)
-;;              (node-count (length (agg-node-list elem))))
-;;          (iterate-over-agg-elem-nodes
-;;           sim
-;;           elem
-;;           (lambda (n)
-;;             (let ((index (* nd (position n active-nodes))))
-;;               (push index index-map))))
-;;          (setf index-map (make-array (length index-map) :initial-contents (nreverse index-map)))
-;;          (loop for x from 0 below node-count
-;;               do
-;;                  (loop for y from 0 below node-count
-;;                        do
-;;                           (loop for i from 0 below nd
-;;                                 do (let ((index (aref index-map x)))
-;;                                      (setf (mtref m (+ (aref index-map x) i) (+ (aref index-map y) i))
-;;                                            (mtref ma (+ x i) (+ y i))))))))))
-;;     ))
-
-
-
 (defun list< (a b)
   (cond ((null a) (not (null b)))
         ((null b) nil)
         ((= (first a) (first b)) (list< (rest a) (rest b)))
         (t (< (first a) (first b)))))
+
 (defun print-agg (sim)
   (let ((elems (sort (copy-seq (cl-mpm/aggregate::sim-agg-elems sim))
                      #'list<

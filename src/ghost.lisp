@@ -319,6 +319,7 @@
                                   (fast-scale!
                                    (magicl:transpose!
                                     (cl-mpm/shape-function::assemble-dsvp-3d
+                                     ;; grads-b
                                      (cl-mpm::gradient-push-forwards
                                       grads-b
                                       (cl-mpm/mesh::cell-deformation-gradient cell-n))
@@ -418,21 +419,18 @@
                          (let* ((dsvp-n (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d grads-b)))
                                 (dsvp (cl-mpm/fastmaths:fast-.- dsvp-p dsvp-n))
                                 )
-                           ;; (pprint dsvp)
-                           ;; (pprint dsvp-b)
                            (let ((ghost-mat
                                    (cl-mpm/fastmaths:fast-scale!
                                     (magicl:@
-                                     ;; (magicl:inv df)
                                      dsvp
                                      dsvp-adjuster
                                      (magicl:transpose dsvp-adjuster)
                                      (magicl:transpose dsvp)
-                                     ;; (magicl:inv df)
                                      )
                                     (*
                                      -1d0
                                      (/ (* ghost-factor (expt h 3)) 6)
+                                     ;; (* dface dface-b)
                                      face-length
                                      gp-weight))
                                    ))
@@ -565,12 +563,13 @@
         node
       (declare (double-float mass dt damping mass-scale))
       (progn
-        (cl-mpm/fastmaths:fast-zero acc)
+        ;; (cl-mpm/fastmaths:fast-zero acc)
         (cl-mpm/fastmaths:fast-fmacc acc force-ghost (/ 1d0 (* mass mass-scale)))
-        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        (cl-mpm/fastmaths:fast-fmacc vel force-ghost (/ dt (* mass mass-scale)))
+        ;; (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         ;; (cl-mpm/utils::vector-copy-into residual residual-prev)
         ;; (cl-mpm/fastmaths::fast-.+-vector force-int force-ext residual)
-        (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
+        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
         )))
   (values))
 (defun update-node-forces-ghost (sim)
@@ -595,6 +594,8 @@
     (when ghost-factor
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
+      (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (update-node-forces-ghost sim)
-      (cl-mpm::apply-bcs mesh bcs dt))))
+      ;; (cl-mpm::apply-bcs mesh bcs dt)
+      )))

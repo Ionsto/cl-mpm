@@ -67,8 +67,7 @@
    (volume-true
     :accessor node-volume-true
     :type double-float
-    :initform 0d0
-    )
+    :initform 0d0)
    (index
     :accessor node-index
     :initarg :index)
@@ -81,8 +80,13 @@
     :accessor node-acceleration
     :initarg :acceleration
     :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:vector-zeros)
-    )
+    :initform (cl-mpm/utils:vector-zeros))
+   (fd
+    :accessor node-agg-fd
+    :initform nil)
+   (fdc
+    :accessor node-agg-fdc
+    :initform nil)
    (oobf
     :accessor node-oobf
     :type double-float

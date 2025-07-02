@@ -843,27 +843,21 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::p2g-force mesh mps)
                       (loop for bcs-f in bcs-force-list
                             do (cl-mpm::apply-bcs mesh bcs-f dt))
-
                       (cl-mpm::update-node-forces sim)
 
                       ;; (when ghost-factor
                       ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
                       ;; ;Reapply velocity BCs
+
+                      (cl-mpm::reset-node-displacement sim)
+                      (cl-mpm::update-nodes sim)
+
                       (cl-mpm::apply-bcs mesh bcs dt)
-
-                      ;; (cl-mpm::reset-node-displacement sim)
-                      ;; (cl-mpm::update-nodes sim)
-
                       (cl-mpm::update-dynamic-stats sim)
-                      ;; ;Also updates mps inline
                       (cl-mpm::g2p mesh mps dt damping vel-algo)
                       (cl-mpm::new-loadstep sim)
                       (when remove-damage
                         (cl-mpm::remove-material-damaged sim))
-                      ;; (when split
-                      ;;   (cl-mpm::split-mps sim))
-                      ;; (cl-mpm::check-mps sim)
-                      ;; (cl-mpm::check-single-mps sim)
                       (incf time dt))
                     )))
 

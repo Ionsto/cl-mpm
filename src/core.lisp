@@ -201,14 +201,14 @@
   ;; (cl-mpm/fastmaths:fast-fmacc vel acc dt)
   ;; Better integration of damping but whatever
   (unless (= dt 0d0)
-    (if (= damping 0d0)
-        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
-        (let ((exp-fac (exp (- (* damping dt)))))
-          (declare (double-float exp-fac))
-          ;; (break)
-          (cl-mpm/fastmaths:fast-scale! vel exp-fac)
-          (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))
-          ))))
+    (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+    ;; (if (= damping 0d0))
+    ;; (let ((exp-fac (exp (- (* damping dt)))))
+    ;;   (declare (double-float exp-fac))
+    ;;   (cl-mpm/fastmaths:fast-scale! vel exp-fac)
+    ;;   (cl-mpm/fastmaths:fast-fmacc vel acc (* (/ 1d0 damping) (- 1d0 exp-fac)))
+    ;;   )
+    ))
 
 (declaim (notinline calculate-forces)
          (ftype (function (cl-mpm/mesh::node double-float double-float double-float) (vaules)) calculate-forces))
@@ -251,6 +251,7 @@
             (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
 
             (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+
             (integrate-vel-euler vel acc mass mass-scale dt damping)
             ;;Acceleration adjustment
             (cl-mpm/fastmaths:fast-fmacc acc vel (* -1d0 damping (/ 1d0 mass-scale)))
@@ -832,7 +833,8 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale))
       sim
-    (let ((inner-factor most-positive-double-float))
+    (let ((inner-factor most-positive-double-float)
+          (h (cl-mpm/mesh:mesh-resolution mesh)))
       (declare (double-float inner-factor mass-scale))
       (setf inner-factor
             (reduce-over-nodes
@@ -850,13 +852,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                      (if (and (> vol 0d0)
                               (> pmod 0d0)
                               (> svp-sum 0d0))
-                         (let ((nf (+ (/ mass (* vol (+ (/ pmod svp-sum)))))))
+                         (let ((nf (/ mass (* vol (+ (/ pmod svp-sum))))))
                            nf)
+                         ;; (let ((nf (/ mass (* (expt h 2) (+ (/ pmod svp-sum))))))
+                         ;;   nf)
                          most-positive-double-float))
                    most-positive-double-float))
              #'min))
       (if (< inner-factor most-positive-double-float)
-          (* (sqrt mass-scale) (sqrt inner-factor) (cl-mpm/mesh:mesh-resolution mesh))
+          (* (sqrt mass-scale) (sqrt inner-factor) h)
           (cl-mpm:sim-dt sim)))))
 
 (defgeneric calculate-min-dt-bcs (sim))
