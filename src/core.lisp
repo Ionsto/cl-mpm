@@ -853,7 +853,13 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                               (> pmod 0d0)
                               (> svp-sum 0d0))
                          (let ((nf (/ mass (* vol (+ (/ pmod svp-sum))))))
-                           nf)
+                           nf
+                           ;; (* (abs
+                           ;;     (/ (cl-mpm/mesh::node-volume node)
+                           ;;        (cl-mpm/mesh::node-volume-true node)))
+                           ;;    nf)
+                           ;; (break)
+                           )
                          ;; (let ((nf (/ mass (* (expt h 2) (+ (/ pmod svp-sum))))))
                          ;;   nf)
                          most-positive-double-float))

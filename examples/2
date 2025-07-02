@@ -108,9 +108,68 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
+          ;; 'cl-mpm/particle::particle-finite-viscoelastic
+          ;; :E 1d6
+          ;; :nu 0.24d0
+          ;; :viscosity 1d08
+          ;; :visc-power 3d0
+          ;; 'cl-mpm/particle::particle-elastic-damage-delayed
+          ;; :E 1d6
+          ;; :nu 0.24d0
+          ;; :residual-strength (- 1d0 1d-9)
+          ;; :delay-time 1d2
+          ;; :initiation-stress 1d3
+          ;; :local-length (* 2 h)
+          ;; :ductility 100d0
           'cl-mpm/particle::particle-elastic
           :E 1d6
           :nu 0.24d0
+          ;; 'cl-mpm/particle::particle-vm
+          ;; :E 1d9
+          ;; :nu 0.3d0
+          ;; :rho 20d3
+          ;; ;; :rho-r 100d3
+          ;; :softening 0d0
+          ;; 'cl-mpm/particle::particle-mc
+          ;; :E 1d9
+          ;; :nu 0.24d0
+          ;; :phi (* 50d0 (/ pi 180))
+          ;; :psi 0d0
+          ;; :c 23d3
+          ;; ;; :c-r 0d0
+          ;; :softening 0d0
+          ;; :softening 0d0
+          ;; ;:viscosity 1.11d6
+          ;; ;; :viscosity 1d08
+          ;; ;; :visc-power 3d0
+          ;; ;; :rho-r 1d3
+          ;; ;; :softening 1d0
+          ;; :delay-time 1d2
+          ;; :initiation-stress 1d3
+          ;; :local-length (* 2 h)
+          ;; :ductility 100d0
+          ;; 'cl-mpm/particle::particle-elastic
+          ;; 'cl-mpm/particle::particle-vm
+
+          ;; Chalk
+          ;; 'cl-mpm/particle::particle-chalk-delayed
+          ;; :E E
+          ;; :nu 0.24d0
+          ;; :enable-damage t
+          ;; :enable-plasticity t
+          ;; :friction-angle angle
+          ;; :kt-res-ratio 1d0
+          ;; :kc-res-ratio 0d0
+          ;; :g-res-ratio 0.51d0
+          ;; :initiation-stress init-stress;18d3
+          ;; :delay-time 1d0
+          ;; :delay-exponent 1d0
+          ;; :ductility ductility
+          ;; :local-length length-scale
+          ;; :psi (* 0d0 (/ pi 180))
+          ;; :phi (* 40d0 (/ pi 180))
+          ;; :c (* init-c oversize)
+
           :gravity -9.8d0
           :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
@@ -898,14 +957,39 @@
   )
 
 (defun test-static ()
+  ;; (let ((output-dir "./output-BLEND/"))
+  ;;   (defparameter *data-steps* (list))
+  ;;   (defparameter *data-oobf* (list))
+  ;;   (defparameter *data-energy* (list))
+  ;;   (uiop:ensure-all-directories-exist (list output-dir))
+  ;;   (setup :mps 4 :refine 0.5)
+  ;;   (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-2)
+  ;;   (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
+  ;;   (cl-mpm/dynamic-relaxation:converge-quasi-static
+  ;;    *sim*
+  ;;    :dt-scale 0.5d0
+  ;;    :kinetic-damping t
+  ;;    :damping-factor 0d0
+  ;;    :conv-steps 1000
+  ;;    :substeps 10
+  ;;    :oobf-crit 1d-9
+  ;;    :energy-crit 1d-9
+  ;;    :pic-update nil
+  ;;    :post-iter-step
+  ;;    (lambda (i energy oobf)
+  ;;      ;; (setf (cl-mpm:sim-damping-factor *sim*)
+  ;;      ;;       (* 1d-1 (cl-mpm/setup::estimate-critical-damping *sim*)))
+  ;;      (cl-mpm/dynamic-relaxation::save-conv *sim* output-dir i)
+  ;;      (cl-mpm/output:save-vtk (merge-pathnames (format nil "sim_~5,'0d.vtk" i) output-dir) *sim*)
+  ;;      (cl-mpm/output:save-vtk-nodes (merge-pathnames (format nil "sim_nodes_~5,'0d.vtk" i) output-dir) *sim*)
+  ;;      (cl-mpm/output:save-vtk-cells (merge-pathnames (format nil "sim_cells_~5,'0d.vtk" i) output-dir) *sim*)
+  ;;      ;; (plot *sim*)
+  ;;      (push i *data-steps*)
+  ;;      (push oobf *data-energy*)
+  ;;      (plot-load-disp)
+  ;;      )))
   (setup :mps 2 :refine 0.5)
-  (let ((output-dir "./output/")
-        (dt-scale 0.5d0))
-    (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.1d0
-             (cl-mpm/setup:estimate-critical-damping *sim*)))
-    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-    (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+  (let ((output-dir "./output/"))
     (loop for i from 0 to 1000
           while *run-sim*
           do
@@ -917,7 +1001,32 @@
                (cl-mpm/output:save-vtk-cells (merge-pathnames (format nil "sim_cells_~5,'0d.vtk" i) output-dir) *sim*)
                (plot *sim*)
                (vgplot:title (format nil "~D" i))
-               (swank.live:update-swank)))))
+               ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" *sim-step*))
+               ;;                    :terminal "png size 1920,1080"
+               ;;                    )
+
+               (swank.live:update-swank)
+               )
+          ))
+
+  ;; (cl-mpm/dynamic-relaxation::run-load-control
+  ;;  *sim*
+  ;;  :output-dir (format nil "./output-agg/")
+  ;;  :plotter #'plot
+  ;;  :load-steps 20
+  ;;  :damping 1d0
+  ;;  :substeps 50
+  ;;  :criteria 1d-3
+  ;;  :adaptive-damping t
+  ;;  :kinetic-damping nil
+  ;;  :dt-scale (/ 0.25d0 (sqrt 1d0))
+  ;;  )
+  ;; (run-static
+  ;;  :output-dir "./output/"
+  ;;  :dt-scale (/ 0.4d0 (sqrt 1d0))
+  ;;  :load-steps 40
+  ;;  )
+  )
 
 
 (defun run-static (&key (output-dir "./output/")
