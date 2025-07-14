@@ -586,14 +586,10 @@
 
 
 (declaim (inline stretch-to-sym)
-         (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (values)) stretch-to-sym))
-(defun stretch-to-sym (stretch result)
-  (progn
-    (declaim (magicl:matrix/double-float result))
-    ;; (let ((res (matrix-to-voight (magicl:scale! (magicl:.+ stretch (magicl:transpose stretch)) 0.5d0))))
-    ;;   (aops:copy-into (magicl::matrix/double-float-storage result)
-    ;;                   (magicl::matrix/double-float-storage res))
-    ;;   result)
+         (ftype (function (magicl:matrix/double-float &optional magicl:matrix/double-float) (values)) stretch-to-sym))
+(defun stretch-to-sym (stretch &optional result)
+  (let ((result (if result result (voigt-zeros))))
+    (declare (magicl:matrix/double-float result))
     (loop for i from 0 below 3
           do
              (setf (mtref result  i 0)
@@ -607,18 +603,7 @@
     (setf (mtref result 5 0)
           (* 1d0 (+ (the double-float (mtref stretch 0 1))
                     (the double-float (mtref stretch 1 0)))))
-    ;; (setf (mtref result  i 0) (mtref result  i 0))
-    ;; (setf (mtref result  0 0)
-    ;;       (mtref stretch 0 0))
-
-    ;; (setf (mtref result  1 0)
-    ;;       (mtref stretch 1 1))
-    ;; ;;Since off diagonal components get halved, then voigt doubles them this is net 1d0
-    ;; (setf (mtref result 5 0)
-    ;;       (* 1d0 (+ (the double-float (mtref stretch 0 1))
-    ;;                 (the double-float (mtref stretch 1 0)))))
-    )
- result) 
+    result))
 
 
 (declaim (inline stretch-to-skew)

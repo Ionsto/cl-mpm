@@ -5,6 +5,7 @@
   (:export
    #:make-column
    #:make-block-mps
+   #:make-simple-sim
    #:remove-sdf
    #:ellipse-sdf
    #:circle-sdf
@@ -23,6 +24,7 @@
 
 
 (defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf) (args-list nil))
+  "Takes a double float resolution list of element-count and keys of :sim-type with relevent :args-list"
   (let ((nd (length element-count)))
     (let* ((nD nd)
            (size (mapcar (lambda (x) (* x resolution)) element-count))

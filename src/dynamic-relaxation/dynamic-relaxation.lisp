@@ -254,7 +254,7 @@
                (let ((inc (*
                            (expt (cl-mpm/mesh:node-mass node) 1)
                            ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
-                           (cl-mpm/fastmaths::mag-squared
+                           (cl-mpm/fastmaths::mag
                             (reduce #'cl-mpm/fastmaths::fast-.+-vector
                                     (list
                                      ;; residual
@@ -273,7 +273,7 @@
                              (*
                               (expt (cl-mpm/mesh:node-mass node) 1)
                               ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
-                              (cl-mpm/fastmaths::mag-squared
+                              (cl-mpm/fastmaths::mag
                                f-ext)))))))))))
     (cl-mpm::iterate-over-nodes
      (cl-mpm:sim-mesh sim)
@@ -287,12 +287,12 @@
              (sb-thread:with-mutex (lock)
                (setf node-oobf
                      (if (> dmax 0d0)
-                         (sqrt (/ node-oobf dmax))
+                         (/ node-oobf dmax)
                          0d0
                          ))
                ))))))
     (if (> dmax 0d0)
-      (setf oobf (sqrt (/ nmax dmax)))
+      (setf oobf (/ nmax dmax))
       ;;Very odd case, we have external force but no internal forces
       (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     oobf))
@@ -420,6 +420,7 @@
                                    kinetic-damping
                                    damping-factor
                                    )
+  (declare (double-float dt-scale))
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
@@ -462,7 +463,7 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
+                      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                       ;; (format t "dt adjustment ~E~%" (/ (cl-mpm:sim-dt sim) dt-0))
                       ;; (when damping-factor
                       ;;   (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))

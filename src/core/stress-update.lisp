@@ -215,15 +215,21 @@
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
                    (def    cl-mpm/particle:mp-deformation-gradient)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
                    (strain-rate cl-mpm/particle:mp-strain-rate)
                    ) mp
-    (let ((df (calculate-df mesh mp fbar))
-          (dstrain (magicl:scale strain-rate dt)))
-      (progn
-        (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-        (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
-        (setf volume (* volume-0 (cl-mpm/fastmaths:det-3x3 def)))
-        ))))
+    (declare (double-float volume volume-0))
+    (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
+      (let ((dstrain
+              (cl-mpm/fastmaths:fast-scale!
+               (cl-mpm/utils::stretch-to-sym stretch-tensor) (* 0.5d0 dt))))
+        (progn
+          (cl-mpm/utils::voigt-copy-into dstrain strain-rate)
+          (cl-mpm/utils:matrix-copy-into df df-inc)
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
+          (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
+          (setf volume (* volume-0 (cl-mpm/fastmaths:det-3x3 def))))))))
 
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
@@ -300,15 +306,11 @@
     (progn
       (progn
         (calculate-strain-rate mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        ;; Update our strains
         (update-strain-kirchoff mesh mp dt fbar)
-        ;; Update our kirchoff stress with constitutive model
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
-        ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
-        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))))))
+        (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+        ))))
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
   "Update stress for a single mp"
@@ -418,16 +420,13 @@
       ;;   ;;For no FBAR we need to update our strains
       (progn
         (calculate-strain-rate mesh mp dt)
-
         ;; Update our strains
         (update-strain-linear mesh mp dt fbar)
-
         ;; Update our kirchoff stress with constitutive model
         (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
         ;; Check volume constraint!
         (when (<= volume 0d0)
-          (error "Negative volume"))
-        ))))
+          (error "Negative volume"))))))
 
 
 (defun update-stress-kirchoff-p (mesh mp dt fbar)

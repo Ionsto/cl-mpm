@@ -389,9 +389,9 @@
           (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
           (save-parameter-nodes "aggregate" (if (cl-mpm/mesh::node-agg node) 1 0))
           (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
-          ;; (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
-          ;;                                      (/ 1d0 (cl-mpm/mesh:node-mass node))
-          ;;                                      0d0))
+          (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
+                                               (/ 1d0 (cl-mpm/mesh:node-mass node))
+                                               0d0))
 
           (save-parameter-nodes "vel_norm" (cl-mpm/fastmaths::mag (cl-mpm/mesh:node-velocity node)))
           (save-parameter-nodes "vel_x" (magicl:tref (cl-mpm/mesh:node-velocity node) 0 0))
@@ -401,6 +401,10 @@
           (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
           (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
           (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
+
+          ;; (save-parameter-nodes "disp_x" (magicl:tref (cl-mpm/mesh::node-displacment node) 0 0))
+          ;; (save-parameter-nodes "disp_y" (magicl:tref (cl-mpm/mesh::node-displacment node) 1 0))
+          ;; (save-parameter-nodes "disp_z" (magicl:tref (cl-mpm/mesh::node-displacment node) 2 0))
 
           (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
           (save-parameter-nodes "force_y" (magicl:tref (cl-mpm/mesh:node-force node) 1 0))

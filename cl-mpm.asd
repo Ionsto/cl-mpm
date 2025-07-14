@@ -754,3 +754,24 @@
                "cl-mpm/aggregate")
   :components ((:file "examples/aggregate-condition")))
 
+
+(defsystem "cl-mpm/iter-test"
+  :depends-on ("coalton"
+              "cl-mpm")
+  :components((:file "src/core/iterate-test"))
+  )
+
+(defsystem "cl-mpm/ssa"
+  :depends-on ("cl-mpm")
+  :serial t
+  :components ((:file "src/ssa/package")
+               (:file "src/ssa/mesh")
+               (:file "src/ssa/particles")
+               (:file "src/ssa/p2g")
+               (:file "src/ssa/solvers")))
+
+(defsystem "cl-mpm/examples/ssa/box"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/ssa")
+  :components ((:file "examples/ssa/box")))
+

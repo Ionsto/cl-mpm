@@ -240,7 +240,6 @@
     (progn
       (unless initial-setup
         (cl-mpm::reset-grid mesh)
-        (cl-mpm::reset-node-displacement sim)
         (cl-mpm::p2g mesh mps)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))

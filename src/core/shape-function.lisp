@@ -50,7 +50,7 @@
   (declare (type double-float x l h))
   (cond
     ((and (< (- (+ h l)) x) (<= x (- l h)))
-     (/ (expt (+ x h l) 2d0) (* 4d0 h l)))
+     (/ (expt (+ x h l) 2) (* 4d0 h l)))
     ((and (< (- l h) x) (<= x (- l)))
      (+ 1d0 (/ x h)))
     ((and (< (- l) x) (<= x l))
@@ -58,7 +58,7 @@
     ((and (< l x) (<= x (- h l)))
      (- 1d0 (/ x h)))
     ((and (< (- h l) x) (<= x (+ h l)))
-     (/ (expt (- (+ h l) x) 2d0) (* 4d0 h l)))
+     (/ (expt (- (+ h l) x) 2) (* 4d0 h l)))
     (t
      0d0)))
 
@@ -767,13 +767,7 @@
       (list
        (* gx wy wz)
        (* gy wx wz)
-       (* gz wy wx))))
-  ;; (mapcar #'* linear-grads
-  ;;         (list
-  ;;          (* (nth 1 weights) (nth 2 weights))
-  ;;          (* (nth 0 weights) (nth 2 weights))
-  ;;          (* (nth 0 weights) (nth 1 weights))))
-  )
+       (* gz wy wx)))))
 
 (defun grads-2d (weights linear-grads)
   (mapcar #'* linear-grads (nreverse weights))

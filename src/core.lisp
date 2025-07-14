@@ -239,6 +239,7 @@
             ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
             (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
             (integrate-vel-euler vel acc mass mass-scale dt 0d0)
+
             (cl-mpm/utils::vector-copy-into residual residual-prev)
             (cl-mpm/utils::vector-copy-into force-int residual))
           (progn
@@ -616,13 +617,15 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (declare (ignore mesh mp dt)))
 
 (declaim (notinline reset-grid))
-(defun reset-grid (mesh)
+(defun reset-grid (mesh &key (reset-displacement t))
   "Reset all nodes on the grid"
   (declare (cl-mpm/mesh::mesh mesh))
   (iterate-over-nodes
    mesh
    (lambda (node)
      (when (cl-mpm/mesh:node-active node)
+       (when reset-displacement
+         (cl-mpm::fast-zero (cl-mpm/mesh::node-displacment node)))
        (cl-mpm/mesh:reset-node node)))))
 (declaim (notinline reset-grid-velocity))
 (defun reset-grid-velocity (mesh)
@@ -1073,8 +1076,8 @@ This modifies the dt of the simulation in the process
      (cl-mpm/particle::new-loadstep-mp mp)))
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
-  (check-mps sim)
-  (reset-node-displacement sim)
+  ;; (check-mps sim)
+  ;; (reset-node-displacement sim)
   )
 
 (defun gradient-push-forwards (grads df)

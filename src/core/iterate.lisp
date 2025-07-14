@@ -1390,3 +1390,88 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                          (funcall func node weight grads)))))))))))
 
 
+
+
+
+(declaim
+ (notinline iterate-over-neighbours-shape-gimp-test)
+ (ftype
+  (function
+   (cl-mpm/mesh::mesh cl-mpm/particle:particle function)
+   (values)) iterate-over-neighbours-shape-gimp-test))
+(defun iterate-over-neighbours-shape-gimp-test (mesh mp func)
+  "Iterate over a gimp domains neighbours in 2D unrolled, this version is more performant but worse than SIMD"
+  (declare
+   (optimize (speed 3) (safety 0) (debug 0))
+   (type cl-mpm/mesh::mesh mesh)
+   (cl-mpm/particle:particle mp)
+   (function func))
+  (progn
+    (with-accessors ((pos-vec cl-mpm/particle:mp-position)
+                     (d0 cl-mpm/particle::mp-domain-size))
+        mp
+      (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
+        (let* ((pa (cl-mpm/utils:fast-storage pos-vec))
+               (da (cl-mpm/utils:fast-storage d0))
+               (px (the double-float (aref pa 0)))
+               (py (the double-float (aref pa 1)))
+               (ix (the fixnum (truncate (round px h))))
+               (iy (the fixnum (truncate (round py h))))
+               (cx (- px (* h ix)))
+               (cy (- py (* h iy)))
+               (dox (* 0.5d0 (the double-float (aref da 0))))
+               (doy (* 0.5d0 (the double-float (aref da 1))))
+               ;; (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
+               ;; (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
+               ;; (dyf (the fixnum (truncate (ffloor   (- cy doy) h))))
+               ;; (dyc (the fixnum (truncate (fceiling (+ cy doy) h))))
+               )
+          (declare ((simple-array double-float (3)) pa))
+          ;; (declare (dynamic-extent pa))
+          (declare (type double-float h cx cy dox doy px py )
+                   (type fixnum ;dxf dxc dyf dyc
+                         ix iy)
+                   )
+          ;; (loop for dx fixnum from -2 to 2;dxf to dxc
+          ;;       do (loop for dy fixnum from -2 to 2;dyf to dyc
+          ;;                do
+          ;;                   (let* (;; (id (list (+ ix dx)
+          ;;                          ;;           (+ iy dy)
+          ;;                          ;;           0))
+          ;;                          )
+          ;;                     ;; (declare (dynamic-extent id))
+          ;;                     (when t;(cl-mpm/mesh:in-bounds mesh id)
+          ;;                       (let* ((distx (- cx (* h dx)))
+          ;;                              (disty (- cy (* h dy)))
+          ;;                              (weightsx (cl-mpm/shape-function::shape-gimp distx dox h))
+          ;;                              (weightsy (cl-mpm/shape-function::shape-gimp disty doy h))
+          ;;                              (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx dox h)))
+          ;;                              (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty doy h)))
+          ;;                              (weight-fbar (* weights-fbar-x weights-fbar-y))
+          ;;                              (weight (* weightsx weightsy)))
+          ;;                         (declare ;(type double-float h)
+          ;;                          (double-float weight weightsx weightsy distx disty))
+          ;;                         (when (or (> weight 0d0) (> weight-fbar 0d0))
+          ;;                           (let* ((node
+          ;;                                    nil
+          ;;                                    ;; (cl-mpm/mesh:get-node mesh id)
+          ;;                                        )
+          ;;                                  (gradx
+          ;;                                    (* (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
+          ;;                                            weightsy))
+          ;;                                  (grady
+          ;;                                    (* (cl-mpm/shape-function::shape-gimp-dsvp disty doy h)
+          ;;                                            weightsx))
+          ;;                                  (grads-fbar
+          ;;                                    nil
+          ;;                                    ;; (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx dox h))
+          ;;                                    ;;       (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty doy h))
+          ;;                                    ;;       0d0)
+          ;;                                    )
+          ;;                                  )
+          ;;                             (declare (double-float gradx grady))
+          ;;                             (funcall func mesh mp node
+          ;;                                      weight nil
+          ;;                                      weight-fbar
+          ;;                                      grads-fbar))))))))
+          )))))

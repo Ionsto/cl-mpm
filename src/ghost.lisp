@@ -359,95 +359,96 @@
 
 
 
-(defun apply-ghost-cells (mesh cell-a cell-b ghost-factor)
-  (when
-      ;;XOR active element
-      (and
-       (and
-        (= (cl-mpm/mesh::cell-mp-count cell-a) 1)
-        (= (cl-mpm/mesh::cell-mp-count cell-b) 1))
-       (or
-        (cl-mpm/mesh::cell-ghost-element cell-a)
-        (cl-mpm/mesh::cell-ghost-element cell-b)))
-    ;; (setf (cl-mpm/mesh::cell-ghost-element cell-a) t
-    ;;       (cl-mpm/mesh::cell-ghost-element cell-b) t
-    ;;       )
-    (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-        mesh
-      (iterate-over-face-gps
-       mesh
-       cell-a
-       cell-b
-       (lambda (gp-loc gp-weight normal normal-trial)
-         (let (;; (face-length (get-face-displacement mesh normal gp-loc))
-               (df (get-face-df mesh normal gp-loc))
-               (face-length h)
-               )
-           ;; (pprint face-length)
-           (iterate-over-gp-nodes;-positive
-            mesh
-            gp-loc
-            normal
-            (lambda (node weight grads dface dnorm)
-              ;;Add force to node
-              (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
-                               (disp cl-mpm/mesh::node-displacment))
-                  node
-                (let* ((nx (varef normal-trial 0))
-                       (ny (varef normal-trial 1))
-                       (nz (varef normal-trial 2))
-                       (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
-                                                          (list
-                                                           nx  0d0 0d0
-                                                           0d0 ny  0d0
-                                                           0d0 0d0 nz
-                                                           ny  nx  0d0
-                                                           0d0 nz  ny
-                                                           nz  0d0 nx)
-                                                          3
-                                                          6)))
-                       (dsvp-p (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d grads))))
-                  (iterate-over-gp-nodes
-                   mesh
-                   gp-loc
-                   normal
-                   (lambda (node-b weight-b grads-b dface-b dnorm-b)
-                     (when (not (eq node node-b))
-                       (with-accessors ((disp-b cl-mpm/mesh::node-displacment)
-                                        (ghost-b cl-mpm/mesh::node-ghost-force))
-                           node-b
-                         (let* ((dsvp-n (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d grads-b)))
-                                (dsvp (cl-mpm/fastmaths:fast-.- dsvp-p dsvp-n))
-                                )
-                           (let ((ghost-mat
-                                   (cl-mpm/fastmaths:fast-scale!
-                                    (magicl:@
-                                     dsvp
-                                     dsvp-adjuster
-                                     (magicl:transpose dsvp-adjuster)
-                                     (magicl:transpose dsvp)
-                                     )
-                                    (*
-                                     -1d0
-                                     (/ (* ghost-factor (expt h 3)) 6)
-                                     ;; (* dface dface-b)
-                                     face-length
-                                     gp-weight))
-                                   ))
-                             (cl-mpm/fastmaths:fast-.+
-                              ghost
-                              (magicl:@
-                               ghost-mat
-                               disp-b)
-                              ghost)
-                             ;; (cl-mpm/fastmaths:fast-.+
-                             ;;  ghost-b
-                             ;;  (magicl:@
-                             ;;   ghost-mat
-                             ;;   disp)
-                             ;;  ghost-b)
-                             ))))))))))))))
-    ))
+;; (defun apply-ghost-cells (mesh cell-a cell-b ghost-factor)
+;;   (when
+;;       ;;XOR active element
+;;       (and
+;;        (and
+;;         (= (cl-mpm/mesh::cell-mp-count cell-a) 1)
+;;         (= (cl-mpm/mesh::cell-mp-count cell-b) 1))
+;;        (or
+;;         (cl-mpm/mesh::cell-ghost-element cell-a)
+;;         (cl-mpm/mesh::cell-ghost-element cell-b)))
+;;     ;; (setf (cl-mpm/mesh::cell-ghost-element cell-a) t
+;;     ;;       (cl-mpm/mesh::cell-ghost-element cell-b) t
+;;     ;;       )
+;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
+;;         mesh
+;;       (iterate-over-face-gps
+;;        mesh
+;;        cell-a
+;;        cell-b
+;;        (lambda (gp-loc gp-weight normal normal-trial)
+;;          (let (;; (face-length (get-face-displacement mesh normal gp-loc))
+;;                (df (get-face-df mesh normal gp-loc))
+;;                ;; (face-length h)
+;;                (face-length (get-face-displacement mesh normal gp-loc))
+;;                )
+;;            ;; (pprint face-length)
+;;            (iterate-over-gp-nodes;-positive
+;;             mesh
+;;             gp-loc
+;;             normal
+;;             (lambda (node weight grads dface dnorm)
+;;               ;;Add force to node
+;;               (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
+;;                                (disp cl-mpm/mesh::node-displacment))
+;;                   node
+;;                 (let* ((nx (varef normal-trial 0))
+;;                        (ny (varef normal-trial 1))
+;;                        (nz (varef normal-trial 2))
+;;                        (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+;;                                                           (list
+;;                                                            nx  0d0 0d0
+;;                                                            0d0 ny  0d0
+;;                                                            0d0 0d0 nz
+;;                                                            ny  nx  0d0
+;;                                                            0d0 nz  ny
+;;                                                            nz  0d0 nx)
+;;                                                           3
+;;                                                           6)))
+;;                        (dsvp-p (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d grads))))
+;;                   (iterate-over-gp-nodes
+;;                    mesh
+;;                    gp-loc
+;;                    normal
+;;                    (lambda (node-b weight-b grads-b dface-b dnorm-b)
+;;                      (when (not (eq node node-b))
+;;                        (with-accessors ((disp-b cl-mpm/mesh::node-displacment)
+;;                                         (ghost-b cl-mpm/mesh::node-ghost-force))
+;;                            node-b
+;;                          (let* ((dsvp-n (magicl:transpose! (cl-mpm/shape-function::assemble-dsvp-3d grads-b)))
+;;                                 (dsvp (cl-mpm/fastmaths:fast-.- dsvp-p dsvp-n))
+;;                                 )
+;;                            (let ((ghost-mat
+;;                                    (cl-mpm/fastmaths:fast-scale!
+;;                                     (magicl:@
+;;                                      dsvp
+;;                                      dsvp-adjuster
+;;                                      (magicl:transpose dsvp-adjuster)
+;;                                      (magicl:transpose dsvp)
+;;                                      )
+;;                                     (*
+;;                                      -1d0
+;;                                      (/ (* ghost-factor (expt h 3)) 6)
+;;                                      ;; (* dface dface-b)
+;;                                      face-length
+;;                                      gp-weight))
+;;                                    ))
+;;                              (cl-mpm/fastmaths:fast-.+
+;;                               ghost
+;;                               (magicl:@
+;;                                ghost-mat
+;;                                disp-b)
+;;                               ghost)
+;;                              ;; (cl-mpm/fastmaths:fast-.+
+;;                              ;;  ghost-b
+;;                              ;;  (magicl:@
+;;                              ;;   ghost-mat
+;;                              ;;   disp)
+;;                              ;;  ghost-b)
+;;                              ))))))))))))))
+;;     ))
 
 ;; (let* ((nx 1d0)
 ;;        (ny 0d0)
@@ -592,10 +593,14 @@
                    (dt cl-mpm::sim-dt))
       sim
     (when ghost-factor
+
+      (cl-mpm::reset-node-displacement sim)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (update-node-forces-ghost sim)
-      ;; (cl-mpm::apply-bcs mesh bcs dt)
+      (cl-mpm::apply-bcs mesh bcs dt)
+      (cl-mpm::update-nodes sim)
+      (cl-mpm::update-cells sim)
       )))

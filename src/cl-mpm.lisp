@@ -46,7 +46,7 @@
    #:add-bcs-force-list))
 ;; System definition for cl-mpm
 (in-package :cl-mpm)
-(declaim (optimize (debug 0) (safety 0) (speed 3)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 (defclass mpm-sim ()
@@ -70,7 +70,8 @@
     :initarg :stats-mps-added)
    (mesh
      :accessor sim-mesh
-     :initarg :mesh)
+     :initarg :mesh
+     :type cl-mpm/mesh::mesh)
    (mps
      :accessor sim-mps
      :initarg :mps
@@ -189,10 +190,12 @@
      :type double-float
      :accessor sim-mass-filter
      :initarg :mass-filter
-     :initform 1d-15))
+     :initform 1d-15)
+   )
   (:default-initargs
    :vel-algo :BLEND)
   (:documentation "A self contained mpm simulation"))
+
 (defclass mpm-nd-2d ()())
 (defclass mpm-nd-3d ()())
 (defclass mpm-sf-mpm ()())
@@ -234,3 +237,9 @@
     :initform (make-array 0))
    )
   (:documentation "Explicit simulation with multiple meshes"))
+
+
+(defclass test-class ()
+  ((my-slot
+    :initarg :slot
+    :accessor test-slot)))

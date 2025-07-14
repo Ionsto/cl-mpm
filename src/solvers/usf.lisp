@@ -39,6 +39,11 @@
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
+        (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        (cl-mpm/ghost::update-node-forces-ghost sim)
+        (apply-bcs mesh bcs dt)
+        (update-nodes sim)
+        (update-cells sim)
 
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
@@ -48,10 +53,9 @@
                 do (apply-bcs mesh bcs-f dt)))
         ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
         (update-node-forces sim)
+
         ;; (cl-mpm/ghost::apply-half-step-ghost sim)
-        ;; Reapply velocity BCs
-        ;; (apply-bcs mesh bcs dt)
-        ;;Compute true displacements
+
         (reset-node-displacement sim)
         (update-nodes sim)
 
@@ -59,7 +63,5 @@
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
-        (new-loadstep sim)
-        ;; (check-single-mps sim)
-        )
+        (new-loadstep sim))
       (incf time dt))))
