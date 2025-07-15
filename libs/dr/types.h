@@ -73,6 +73,8 @@ public:
   Eigen::Matrix<double,Eigen::Dynamic,3> mass;
   Eigen::Matrix<double,Eigen::Dynamic,3> velocity;
   Eigen::Matrix<double,Eigen::Dynamic,3> force;
+  Eigen::Matrix<double,Eigen::Dynamic,3> force_int;
+  Eigen::Matrix<double,Eigen::Dynamic,3> force_ext;
   Eigen::Matrix<double,Eigen::Dynamic,3> displacement;
   Eigen::Matrix<double,Eigen::Dynamic,3> bcs;
   std::vector<int> fds;
@@ -95,6 +97,8 @@ public:
     gravity << 0.0,-9.8,0.0;
     mass = Vec_vel::Zero(node_count,3);
     force = Vec_vel::Zero(node_count,3);
+    force_int = Vec_vel::Zero(node_count,3);
+    force_ext = Vec_vel::Zero(node_count,3);
     bcs = Vec_vel::Ones(node_count,3);
     velocity = Vec_vel::Zero(node_count,3);
     displacement = Vec_vel::Zero(node_count,3);
@@ -125,6 +129,16 @@ public:
       // add_bc((Eigen::Vector3i()<<0,x,0).finished(),(Eigen::Vector3i()<<0,1,1).finished());
     }
   }
+  void reset(){
+    velocity *= 0;
+    displacement *= 0.0;
+    mass *= 0;
+    fds.clear();
+    for(int i = 0;i < node_count;++i){
+      fds.push_back(i);
+    }
+
+  }
   void add_bc(Eigen::Vector3i index, Eigen::Vector3d values){
     // bcs.row(location_to_index(index)) = values.transpose();
     // compact_bcs_index.push_back(location_to_index(index));
@@ -135,7 +149,7 @@ public:
     int total_count = 0;
     fds.clear();
     for(int i = 0; i < nodes.size();++i){
-      if(mass(i,0) > 0.0){
+      if(mass(i,0) > 1e-9){
         fds.push_back(i);
         // fds.push_back((i*3)+1);
         // fds.push_back((i*3)+2);
@@ -150,6 +164,7 @@ public:
 struct Sim{
   double dt = 1;
   double damping_factor = 0;
+  double mass_filter = 1e-15;
   std::unique_ptr<Mesh> mesh;
   std::vector<mp> mps;
 
@@ -200,5 +215,27 @@ struct Sim{
         }
         return damping;
       }
+  }
+
+  double calculate_dr_damping(){
+    double damping = 0;
+    return damping;
+  }
+
+  double calculate_oobf(){
+    return (mesh->mass(mesh->fds,Eigen::all).array()*(mesh->force_int(mesh->fds,Eigen::all).array() + mesh->force_ext(mesh->fds,Eigen::all).array())).matrix().norm()/(mesh->mass(mesh->fds,Eigen::all).array()*mesh->force_ext(mesh->fds,Eigen::all).array()).matrix().norm();
+  }
+  void setup_mass_filter(double density, double ratio){
+    mass_filter = density * std::pow(mesh->h,2) * ratio;
+  }
+
+  double calculate_ke(){
+    double ke = 0;
+// #pragma omp parallel for reduction(+:ke)
+//     for(int i = 0;i < mps.size();++i){
+//       auto & mp = mps[i];
+//       ke += 0.5*mp.mass * mp.velocity.norm();
+//     }
+    return 0.5 * (mesh->mass(Eigen::all,0).array() * mesh->velocity.rowwise().norm().array()).sum();
   }
 };
