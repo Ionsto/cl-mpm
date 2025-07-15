@@ -39,11 +39,11 @@
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
-        (cl-mpm/ghost::apply-ghost sim ghost-factor)
-        (cl-mpm/ghost::update-node-forces-ghost sim)
-        (apply-bcs mesh bcs dt)
-        (update-nodes sim)
-        (update-cells sim)
+        ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        ;; (cl-mpm/ghost::update-node-forces-ghost sim)
+        ;; (apply-bcs mesh bcs dt)
+        ;; (update-nodes sim)
+        ;; (update-cells sim)
 
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes

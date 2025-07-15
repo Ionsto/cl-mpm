@@ -43,6 +43,21 @@
        (+ 1d-20
           (* visc-factor 2 (expt effective-stress (- visc-power 1)))))))
 
+(defun ssa-maxwell-glen (strain-inc stress E nu visc dt)
+  (let* ((p (+ (varef stress 0)
+               (varef stress 1)))
+         (K (/ E (* 3 (- 1 (* 2 nu)))))
+         (G (/ E (* 2 (+ 1 nu))))
+         (dp (* K (* 0.5d0
+                     (varef strain-inc 0)
+                     (varef strain-inc 1)))))
+    (cl-mpm/fastmaths:fast-.+
+     stress
+     (cl-mpm/utils:vector-from-list (list dp dp 0d0))
+     stress
+     )
+    ))
+
 (defmethod cl-mpm::constitutive-model ((mp cl-mpm/particle::particle-ssa-glen) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
   (with-accessors ((E mp-E)
@@ -68,7 +83,8 @@
                         visc-factor
                         visc-power))
           )
-      (cl-mpm/constitutive::maxwell-exp-v strain-inc stress E nu de visc dt :result-stress stress)
+      (ssa-maxwell-glen strain-inc stress E nu visc dt)
+      ;; (cl-mpm/constitutive::maxwell-exp-v strain-inc stress E nu de visc dt :result-stress stress)
       )
 
     ;; (declare (double-float E visc-factor visc-power))
