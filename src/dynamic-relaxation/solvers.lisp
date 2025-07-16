@@ -95,9 +95,10 @@
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
         (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+        (update-node-fictious-mass sim)
         ;; (set-mass sim)
         ;; (setf (cl-mpm:sim-dt sim) (cl-mpm::calculate-min-dt sim))
-        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
+        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         (format t "Min dt~E~%" (cl-mpm:sim-dt sim))
@@ -107,13 +108,14 @@
           (cl-mpm/aggregate::update-aggregate-elements sim))
         (cl-mpm::apply-bcs mesh bcs dt)
         (midpoint-starter sim)
-        (setf initial-setup t))
+       (setf initial-setup t))
+      (setf dt 1d0)
 
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-      (cl-mpm::p2g-force mesh mps)
+      (cl-mpm::p2g-force-fs mesh mps)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
@@ -121,8 +123,7 @@
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
-      (cl-mpm::g2p mesh mps dt damping vel-algo)
-      )))
+      (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC))))
 
 
 (defmethod cl-mpm::update-cells ((sim mpm-sim-dr-ul))
@@ -180,8 +181,9 @@
      (lambda (n)
        (when (cl-mpm/mesh::node-active n)
          (setf (cl-mpm/mesh::node-mass n)
+               1d0
                ;; (* 100d0 (cl-mpm/mesh::node-mass n))
-               (* 1d0 (cl-mpm/mesh::node-volume n))
+               ;; (* 1d0 (cl-mpm/mesh::node-volume n))
                ;; (* alpha (/(cl-mpm/mesh::node-pwave n) (cl-mpm/mesh::node-svp-sum n)))
                )))))
   ;; (let ((max-mass 0d0))
@@ -210,7 +212,12 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (setf (cl-mpm/mesh:node-mass node) 1d0))))))
+         (setf (cl-mpm/mesh:node-mass node)
+               (* (/ 1d0 (cl-mpm::sim-dt-scale sim))
+                  (cl-mpm/mesh::node-pwave node))))))
+    (setf dt 1d0)
+    )
+  )
 
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
@@ -244,9 +251,9 @@
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
         (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-        ;; (set-mass sim)
+        (update-node-fictious-mass sim)
         ;; (setf (cl-mpm:sim-dt sim) (cl-mpm::calculate-min-dt sim))
-        (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
+        ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm/setup::estimate-elastic-dt sim)))
         ;; (setf (cl-mpm:sim-dt sim) (* (cl-mpm::sim-dt-scale sim) (cl-mpm::calculate-min-dt sim)))
         (format t "Min dt~E~%" (cl-mpm:sim-dt sim))
@@ -260,6 +267,7 @@
         (cl-mpm/damage::calculate-damage sim 0d0)
         (setf (cl-mpm/damage::sim-damage-delocal-counter sim) -1)
         (setf initial-setup t))
+      (setf dt 1d0)
 
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
@@ -414,7 +422,7 @@
 
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
 
-    (setf (cl-mpm:sim-damping-factor sim) (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))
+    ;; (setf (cl-mpm:sim-damping-factor sim) (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))
     (iterate-over-nodes
      mesh
      (lambda (node)

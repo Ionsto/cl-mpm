@@ -1,12 +1,12 @@
 (defpackage :cl-mpm/examples/collapse
   (:use :cl))
 
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 ;; (setf *block-compile-default* nil)
 ;(sb-int:set-floating-point-modes :traps '(:overflow :invalid :inexact :divide-by-zero :underflow))
 ;; (sb-int:set-floating-point-modes :traps '(:overflow :divide-by-zero :underflow))
@@ -16,7 +16,9 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   ;(cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
   )
@@ -74,14 +76,15 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
-               :sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               ;; :sim-type 'cl-mpm::mpm-sim-usf-inc
                ;; :sim-type 'cl-mpm::mpm-sim-usf
                :args-list (list
-                           :split-factor 0.52d0
-                           :enable-fbar nil
-                           ;; :enable-aggregate t
-                           :vel-algo :FLIP
-                           :enable-split nil)))
+                           :split-factor 0.35d0
+                           :enable-fbar t
+                           :enable-aggregate t
+                           :vel-algo :QUASI-STATIC
+                           :enable-split t)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -109,9 +112,10 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
-          'cl-mpm/particle::particle-elastic
+          'cl-mpm/particle::particle-vm
           :E 1d6
-          :nu 0.24d0
+          :nu 0.3d0
+          :rho 20d3
           :gravity -9.8d0
           :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
@@ -124,7 +128,7 @@
       (setf (cl-mpm::sim-enable-damage sim) t)
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       (defparameter *density* density)
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-3)
       (setf (cl-mpm::sim-ghost-factor sim)
             ;; (* 1d6 1d-1)
             nil
@@ -208,7 +212,7 @@
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
     ;(defparameter *sim* (setup-test-column '(16 16 8) '(8 8 8) *refine* mps-per-dim))
-    (defparameter *sim* (setup-test-column '(16 16) '(8 8) sim-type refine mps-per-dim))
+    (defparameter *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim))
     )
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
@@ -869,28 +873,24 @@
       )))
 
 
-(defun test-refine ()
-  (loop for r in (list 6 8 )
-        do (loop for ms in (list 1d0)
-                 do (progn
-                      (setup :mps 2 :refine r)
-                      (cl-mpm::iterate-over-mps
-                       (cl-mpm:sim-mps *sim*)
-                       (lambda (mp)
-                         (setf (cl-mpm/particle::mp-gravity mp) -1d0)))
-                      (setf (cl-mpm::sim-mass-scale *sim*) ms)
-                      (cl-mpm/dynamic-relaxation::run-load-control
-                       *sim*
-                       :output-dir (format nil "./output-~D_~F/" r (cl-mpm::sim-mass-scale *sim*))
-                       :plotter #'plot
-                       :load-steps 1
-                       :damping (* 1d0 (sqrt ms))
-                       :substeps 50
-                       :criteria 1d-5
-                       :adaptive-damping nil
-                       :kinetic-damping nil
-                       :dt-scale (/ 0.4d0 (sqrt 1d0))
-                       ))))
+(defun test-load-control ()
+    (setup :mps 3 :refine 1)
+    ;; (cl-mpm::iterate-over-mps
+    ;;  (cl-mpm:sim-mps *sim*)
+    ;;  (lambda (mp)
+    ;;    (setf (cl-mpm/particle::mp-gravity mp) -1d0)))
+    (cl-mpm/dynamic-relaxation::run-load-control
+     *sim*
+     :output-dir (format nil "./output-dr/")
+     :plotter #'plot
+     :load-steps 50
+     :damping 0d-1
+     :substeps 50
+     :criteria 1d-5
+     :adaptive-damping nil
+     :kinetic-damping t
+     :dt-scale 0.5d0
+     )
   ;; (run-static
   ;;  :output-dir "./output/"
   ;;  :dt-scale (/ 0.4d0 (sqrt 1d0))
@@ -1643,15 +1643,3 @@
         )
       ))
   )
-
-(let* ((mesh (cl-mpm:sim-mesh *sim*))
-       (cell (cl-mpm/mesh::get-cell mesh (list 0 0 0))))
-  (format t "Test ~%")
-  (cl-mpm::iterate-over-cell-shape-local
-   mesh
-   cell
-   (cl-mpm/utils:vector-from-list (list 0d0 0.25d0 0d0))
-   (lambda (n w g)
-     (format t "~A ~%" n)
-     (format t "~A ~%" w)
-     (format t "~A ~%" g))))

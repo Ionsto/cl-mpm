@@ -609,107 +609,13 @@ void solve(Sim & sim,int step){
 }
 
 
-int main(int argc,char ** args) {
-  typedef std::chrono::high_resolution_clock Clock;
-  const double h = 10;
-  const double size = 100.0;
-  Eigen::Vector3d block_size = (Eigen::Vector3d()<<size,size,1.0).finished();
-  Sim sim(h,std::round(block_size[0]/h)+1,std::round(block_size[1]/h)+1,+1);
-  double mps_per_cell = 3;
-  double mp_res = (h/(mps_per_cell));
-  double offset = mp_res*0.5;//(h/(1+mps_per_cell));
-  int x_count = std::floor(block_size[0]/mp_res);
-  int y_count = std::floor(block_size[1]/mp_res);
-  // int x_count = 2;
-  // int y_count = 2;
-  int mp_count = x_count * y_count;
-  sim.mps = std::vector<mp>(mp_count);
-  int i = 0;
-  for(int x = 0; x < x_count;++x){
-    for(int y = 0; y < y_count;++y){
-      sim.mps[i].position[0] = (x * mp_res) + offset;
-      sim.mps[i].position[1] = (y * mp_res) + offset;
-      sim.mps[i].volume = mp_res * mp_res;
-      sim.mps[i].volume_n = sim.mps[i].volume;
-      i++;
-    }
-  }
-  std::cout<<"Setup\n";
-  setup_mps(sim);
-  sim.setup_mass_filter(density,1e-4);
-  save(sim,0);
-  // save_vtk("./test_0.vtk",mps);
-  // save_vtk_nodes("./test_n_0.vtk",m);
-
-  std::cout << "Node count: " << sim.mesh->node_count << "\n";
-  std::cout << "NDOFs: " << (3 * sim.mesh->node_count) << "\n";
-  std::cout << "MPs: " << mp_count << "\n";
-
-
-  int iters = 1000;
-  int substeps = 1;
-  std::cout << "Iters: " << iters << "\n";
-  std::cout << "Substeps: " << substeps << "\n";
-  // std::cout<<sim.mesh->mass;
-  auto t1 = Clock::now();
-  // gpu::setup_sim(sim);
-  p2g(sim);
-  setup_sim(sim);
-  sim.dt = 0.25 * sim.estimate_elastic_dt();
-  // sim.dt = 0.25;
-  sim.damping_factor = 0.0;
-  // sim.damping_factor = 0.1*sim.estimate_critical_damping();
-  std::cout<<"Estimated timestep: " << sim.dt<<"\n";
-  std::cout<<"Estimated damping: " << sim.damping_factor<<"\n";
-  // sim.dt = 1e-3;
-  sim.mesh->gravity *= 0.01;
-  // sim.damping_factor = 0;
-  // sim.mps[0].stress[1] = 1;
-  double time = 0;
-  double ke_0,ke_1 = 0;
-  for(int i = 0;i < iters;++i){
-    std::cout<<"Step: " << i <<"\n";
-    for(int substep = 0;substep < substeps;++substep){
-      reset_force(sim);
-      update_stress(sim);
-      p2g_scatter_force(sim);
-      // p2g_gather_force(sim);
-      integrate(sim);
-      apply_bcs(sim);
-      time += sim.dt;
-      ke_1 = ke_0;
-      ke_0 = sim.calculate_ke();
-      if(ke_0 < ke_1){
-        sim.mesh->velocity *= 0;
-      }
-    }
-    // gpu::sync_sim(sim);
-    // g2p(sim);
-    save(sim,i+1);
-    std::cout<<"OOBF: " << sim.calculate_oobf() << " - E: " << sim.calculate_ke() <<"\n";
-
-    // std::cout <<"\n" << sim.mps[0].f<<"\n";
-    // std::cout <<"\n" << sim.mps[0].df<<"\n";
-  }
-  // gpu::close_sim(sim);
-  auto t2 = Clock::now();
-  std::cout << "Took: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " seconds \n";
-  std::cout << "MP time: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count()/(iters *substeps* mp_count)  << " su/seconds \n";
-  return 0;
-}
-
-
-
 // int main(int argc,char ** args) {
 //   typedef std::chrono::high_resolution_clock Clock;
 //   const double h = 1;
-//   const double dsize = 1000.0;
 //   const double size = 100.0;
-//   Eigen::Vector3d domain_size = (Eigen::Vector3d()<<dsize,dsize,1.0).finished();
 //   Eigen::Vector3d block_size = (Eigen::Vector3d()<<size,size,1.0).finished();
-//   Sim sim(h,std::round(domain_size[0]/h)+1,std::round(domain_size[1]/h)+1,+1);
-//   sim.setup_mass_filter(density,1e-4);
-//   double mps_per_cell = 2;
+//   Sim sim(h,std::round(block_size[0]/h)+1,std::round(block_size[1]/h)+1,+1);
+//   double mps_per_cell = 3;
 //   double mp_res = (h/(mps_per_cell));
 //   double offset = mp_res*0.5;//(h/(1+mps_per_cell));
 //   int x_count = std::floor(block_size[0]/mp_res);
@@ -730,6 +636,7 @@ int main(int argc,char ** args) {
 //   }
 //   std::cout<<"Setup\n";
 //   setup_mps(sim);
+//   sim.setup_mass_filter(density,1e-4);
 //   save(sim,0);
 //   // save_vtk("./test_0.vtk",mps);
 //   // save_vtk_nodes("./test_n_0.vtk",m);
@@ -738,22 +645,168 @@ int main(int argc,char ** args) {
 //   std::cout << "NDOFs: " << (3 * sim.mesh->node_count) << "\n";
 //   std::cout << "MPs: " << mp_count << "\n";
 
-//   int lstps = 100;
+
+//   int iters = 1000;
+//   int substeps = 1;
+//   std::cout << "Iters: " << iters << "\n";
+//   std::cout << "Substeps: " << substeps << "\n";
+//   // std::cout<<sim.mesh->mass;
 //   auto t1 = Clock::now();
-//   Vector gravity;
-//   gravity << 0.0,-9.8,0.0;
-//   // gravity *= 1;
-//   for(int i = 1;i <= lstps;++i){
+//   // gpu::setup_sim(sim);
+//   p2g(sim);
+//   setup_sim(sim);
+//   sim.dt = 0.25 * sim.estimate_elastic_dt();
+//   // sim.dt = 0.25;
+//   sim.damping_factor = 0.0;
+//   // sim.damping_factor = 0.1*sim.estimate_critical_damping();
+//   std::cout<<"Estimated timestep: " << sim.dt<<"\n";
+//   std::cout<<"Estimated damping: " << sim.damping_factor<<"\n";
+//   // sim.dt = 1e-3;
+//   sim.mesh->gravity *= 0.01;
+//   // sim.damping_factor = 0;
+//   // sim.mps[0].stress[1] = 1;
+//   double time = 0;
+//   double ke_0,ke_1 = 0;
+//   for(int i = 0;i < iters;++i){
 //     std::cout<<"Step: " << i <<"\n";
-//     sim.mesh->gravity = gravity * ((double)i / (double)lstps);
-//     solve(sim,i);
-//     save(sim,i);
+//     for(int substep = 0;substep < substeps;++substep){
+//       reset_force(sim);
+//       update_stress(sim);
+//       p2g_scatter_force(sim);
+//       // p2g_gather_force(sim);
+//       integrate(sim);
+//       apply_bcs(sim);
+//       time += sim.dt;
+//       ke_1 = ke_0;
+//       ke_0 = sim.calculate_ke();
+//       if(ke_0 < ke_1){
+//         sim.mesh->velocity *= 0;
+//       }
+//     }
+//     // gpu::sync_sim(sim);
+//     // g2p(sim);
+//     save(sim,i+1);
+//     std::cout<<"OOBF: " << sim.calculate_oobf() << " - E: " << sim.calculate_ke() <<"\n";
+
+//     // std::cout <<"\n" << sim.mps[0].f<<"\n";
+//     // std::cout <<"\n" << sim.mps[0].df<<"\n";
 //   }
+//   // gpu::close_sim(sim);
 //   auto t2 = Clock::now();
 //   std::cout << "Took: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " seconds \n";
-//   std::cout << "MP time: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count()/(total_iters* mp_count)  << " su/seconds \n";
+//   std::cout << "MP time: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count()/(iters *substeps* mp_count)  << " su/seconds \n";
 //   return 0;
 // }
+
+
+void test_loadsteps(){
+  typedef std::chrono::high_resolution_clock Clock;
+  const double h = 1;
+  const double dsize = 1000.0;
+  const double size = 100.0;
+  Eigen::Vector3d domain_size = (Eigen::Vector3d()<<dsize,dsize,1.0).finished();
+  Eigen::Vector3d block_size = (Eigen::Vector3d()<<size,size,1.0).finished();
+  Sim sim(h,std::round(domain_size[0]/h)+1,std::round(domain_size[1]/h)+1,+1);
+  sim.setup_mass_filter(density,1e-4);
+  double mps_per_cell = 2;
+  double mp_res = (h/(mps_per_cell));
+  double offset = mp_res*0.5;//(h/(1+mps_per_cell));
+  int x_count = std::floor(block_size[0]/mp_res);
+  int y_count = std::floor(block_size[1]/mp_res);
+  // int x_count = 2;
+  // int y_count = 2;
+  int mp_count = x_count * y_count;
+  sim.mps = std::vector<mp>(mp_count);
+  int i = 0;
+  for(int x = 0; x < x_count;++x){
+    for(int y = 0; y < y_count;++y){
+      sim.mps[i].position[0] = (x * mp_res) + offset;
+      sim.mps[i].position[1] = (y * mp_res) + offset;
+      sim.mps[i].volume = mp_res * mp_res;
+      sim.mps[i].volume_n = sim.mps[i].volume;
+      i++;
+    }
+  }
+  std::cout<<"Setup\n";
+  setup_mps(sim);
+  save(sim,0);
+  // save_vtk("./test_0.vtk",mps);
+  // save_vtk_nodes("./test_n_0.vtk",m);
+
+  std::cout << "Node count: " << sim.mesh->node_count << "\n";
+  std::cout << "NDOFs: " << (3 * sim.mesh->node_count) << "\n";
+  std::cout << "MPs: " << mp_count << "\n";
+
+  int lstps = 100;
+  auto t1 = Clock::now();
+  Vector gravity;
+  gravity << 0.0,-9.8,0.0;
+  // gravity *= 1;
+  for(int i = 1;i <= lstps;++i){
+    std::cout<<"Step: " << i <<"\n";
+    sim.mesh->gravity = gravity * ((double)i / (double)lstps);
+    solve(sim,i);
+    save(sim,i);
+  }
+  auto t2 = Clock::now();
+  std::cout << "Took: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " seconds \n";
+  std::cout << "MP time: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count()/(total_iters* mp_count)  << " su/seconds \n";
+  
+}
+
+void test_perf(){
+  typedef std::chrono::high_resolution_clock Clock;
+  const double h = 1;
+  const double dsize = 1000.0;
+  const double size = 1000.0;
+  Eigen::Vector3d domain_size = (Eigen::Vector3d()<<dsize,dsize,1.0).finished();
+  Eigen::Vector3d block_size = (Eigen::Vector3d()<<size,size,1.0).finished();
+  Sim sim(h,std::round(domain_size[0]/h)+1,std::round(domain_size[1]/h)+1,+1);
+  sim.setup_mass_filter(density,1e-4);
+  double mps_per_cell = 2;
+  double mp_res = (h/(mps_per_cell));
+  double offset = mp_res*0.5;//(h/(1+mps_per_cell));
+  int x_count = std::floor(block_size[0]/mp_res);
+  int y_count = std::floor(block_size[1]/mp_res);
+  // int x_count = 2;
+  // int y_count = 2;
+  int mp_count = x_count * y_count;
+  sim.mps = std::vector<mp>(mp_count);
+  int i = 0;
+  for(int x = 0; x < x_count;++x){
+    for(int y = 0; y < y_count;++y){
+      sim.mps[i].position[0] = (x * mp_res) + offset;
+      sim.mps[i].position[1] = (y * mp_res) + offset;
+      sim.mps[i].volume = mp_res * mp_res;
+      sim.mps[i].volume_n = sim.mps[i].volume;
+      i++;
+    }
+  }
+  std::cout<<"Setup\n";
+  setup_mps(sim);
+  save(sim,0);
+  // save_vtk("./test_0.vtk",mps);
+  // save_vtk_nodes("./test_n_0.vtk",m);
+
+  std::cout << "Node count: " << sim.mesh->node_count << "\n";
+  std::cout << "NDOFs: " << (3 * sim.mesh->node_count) << "\n";
+  std::cout << "MPs: " << mp_count << "\n";
+
+  int lstps = 100;
+  auto t1 = Clock::now();
+  Vector gravity;
+  gravity << 0.0,-9.8,0.0;
+  gravity *= 0.1;
+  solve(sim,i);
+  auto t2 = Clock::now();
+  std::cout << "Took: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count() << " seconds \n";
+  std::cout << "MP time: " << (std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1)).count()/(total_iters* mp_count)  << " su/seconds \n";
+}
+
+int main(int argc,char ** args) {
+  test_perf();
+  return 0;
+}
 
 // int main(int argc,char ** args) {
 //   double h = 1;

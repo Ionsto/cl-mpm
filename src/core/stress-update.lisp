@@ -341,6 +341,33 @@
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 
+(defun update-strain-kirchoff-dynamic-relaxation-incremental (mesh mp dt fbar)
+  "Finite strain kirchhoff strain update algorithm"
+  (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (strain cl-mpm/particle:mp-strain)
+                   (strain-n cl-mpm/particle:mp-strain-n)
+                   (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0    cl-mpm/particle::mp-deformation-gradient-0)
+                   (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
+                   ) mp
+    (declare (type double-float volume))
+    (progn
+      (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
+        (progn
+          (setf df-inc (cl-mpm/fastmaths::fast-@-matrix-matrix df df-inc))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
+          (cl-mpm/utils:voigt-copy-into strain-n strain)
+          (cl-mpm/ext:kirchoff-update strain df-inc)
+          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+          (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
+          (when (<= volume 0d0)
+            (error "Negative volume"))))))
+  (values))
+
+
+
 (defun update-stress-kirchoff-dynamic-relaxation-incremental (mesh mp dt fbar)
   "Update stress for a single mp"
   (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
