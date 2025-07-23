@@ -45,9 +45,11 @@
       (cl-mpm::reduce-over-nodes
        (cl-mpm:sim-mesh sim)
        (lambda (node)
-         (if (and (cl-mpm/mesh:node-active node) (not (cl-mpm/mesh::node-agg node)))
+         (if (and (cl-mpm/mesh:node-active node)
+                  (or
+                   (not (cl-mpm/mesh::node-agg node))
+                   (cl-mpm/mesh::node-interior node)))
              (with-accessors ((active cl-mpm/mesh::node-active)
-                              (agg cl-mpm/mesh::node-agg)
                               (f-ext cl-mpm/mesh::node-external-force)
                               (f-int cl-mpm/mesh::node-internal-force)
                               (node-oobf cl-mpm/mesh::node-oobf)
@@ -60,14 +62,15 @@
                  node
                (declare (double-float mass))
                (let (;(mass 1d0)
-                     (scale-factor (expt mass 1))
+                     ;; (scale-factor (expt mass 1))
+                     (scale-factor 1d0)
                      ;; (scale-factor (/ volume volume-t))
                      )
                  (list
                   scale-factor
                   (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
-                  (* (expt scale-factor 2) (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
-                  (* (expt scale-factor 2) (cl-mpm/fastmaths::mag-squared f-ext))
+                  (* scale-factor (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                  (* scale-factor (cl-mpm/fastmaths::mag f-ext))
                   (* scale-factor
                      (cl-mpm/fastmaths:dot
                       disp f-ext)))))
@@ -77,7 +80,7 @@
     ;; (break)
     (let ((oobf 0d0))
       (if (> oobf-denom 0d0)
-          (setf oobf (sqrt (/ oobf-num oobf-denom)))
+          (setf oobf (/ oobf-num oobf-denom))
           (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
       (when (> oobf-denom 0d0)
         (cl-mpm::iterate-over-nodes
@@ -90,13 +93,83 @@
                             (n-mass cl-mpm/mesh::node-mass)
                             (node-oobf cl-mpm/mesh::node-oobf))
                node
-             (when (and active (not agg))
+             (when (and active
+                        (or
+                         (not agg) (cl-mpm/mesh::node-interior node)))
                (when t
                  (setf node-oobf
                        (if (> oobf 0d0)
-                           (sqrt
-                            (/ (* n-mass (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
-                               oobf-denom))
+                            (/ (* n-mass (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                               oobf-denom)
+                           0d0
+                           ))))))))
+      (values (/ energy mass) oobf (/ power mass)))))
+
+(defun combi-stats-aggregated (sim)
+  (destructuring-bind (mass
+                       energy
+                       oobf-num
+                       oobf-denom
+                       power)
+      (cl-mpm::reduce-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (node)
+         (if (and (cl-mpm/mesh:node-active node)
+                  (not (cl-mpm/mesh::node-agg node)))
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (f-ext cl-mpm/mesh::node-external-force)
+                              (f-int cl-mpm/mesh::node-internal-force)
+                              (node-oobf cl-mpm/mesh::node-oobf)
+                              (mass cl-mpm/mesh::node-mass)
+                              (volume cl-mpm/mesh::node-volume)
+                              (volume-t cl-mpm/mesh::node-volume-true)
+                              (vel cl-mpm/mesh::node-velocity)
+                              (disp cl-mpm/mesh::node-displacment)
+                              )
+                 node
+               (declare (double-float mass))
+               (let (;(mass 1d0)
+                     ;; (scale-factor (expt mass 1))
+                     (scale-factor 1d0)
+                     ;; (scale-factor (/ volume volume-t))
+                     )
+                 (list
+                  scale-factor
+                  (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
+                  (* scale-factor (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                  (* scale-factor (cl-mpm/fastmaths::mag f-ext))
+                  (* scale-factor
+                     (cl-mpm/fastmaths:dot
+                      disp f-ext)))))
+             (list 0d0 0d0 0d0 0d0 0d0)))
+       (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+
+    ;; (incf )
+
+    (declare (double-float mass energy oobf-num oobf-denom power))
+    ;; (break)
+    (let ((oobf 0d0))
+      (if (> oobf-denom 0d0)
+          (setf oobf (/ oobf-num oobf-denom))
+          (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+      (when (> oobf-denom 0d0)
+        (cl-mpm::iterate-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (with-accessors ((active cl-mpm/mesh::node-active)
+                            (agg cl-mpm/mesh::node-agg)
+                            (f-ext cl-mpm/mesh::node-external-force)
+                            (f-int cl-mpm/mesh::node-internal-force)
+                            (n-mass cl-mpm/mesh::node-mass)
+                            (node-oobf cl-mpm/mesh::node-oobf))
+               node
+             (when (and active
+                        (not agg))
+               (when t
+                 (setf node-oobf
+                       (if (> oobf 0d0)
+                            (/ (* n-mass (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
+                               oobf-denom)
                            0d0
                            ))))))))
       (values (/ energy mass) oobf (/ power mass)))))

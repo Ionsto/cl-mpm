@@ -282,7 +282,7 @@
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
-      (cl-mpm::g2p mesh mps dt damping vel-algo)
+      ;; (cl-mpm::g2p mesh mps dt damping vel-algo)
       ))
   )
 
