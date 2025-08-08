@@ -1,4 +1,5 @@
 (in-package :cl-mpm/particle)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (defclass particle-ssa (particle)
   ((height
     :initarg :height
@@ -48,12 +49,16 @@
                (varef stress 1)))
          (K (/ E (* 3 (- 1 (* 2 nu)))))
          (G (/ E (* 2 (+ 1 nu))))
+         (relaxation-const (/ (* dt G) visc))
          (dp (* K (* 0.5d0
                      (varef strain-inc 0)
                      (varef strain-inc 1)))))
     (cl-mpm/fastmaths:fast-.+
      stress
-     (cl-mpm/utils:vector-from-list (list dp dp 0d0))
+     (cl-mpm/utils:voigt-from-list (list dp dp dp 0d0 0d0 0d0))
+     stress)
+    (cl-mpm/fastmaths:fast-.-
+     stress
      stress
      )
     ))
@@ -81,17 +86,5 @@
                          stress
                          (/ 1d0 (magicl:det def)))
                         visc-factor
-                        visc-power))
-          )
-      (ssa-maxwell-glen strain-inc stress E nu visc dt)
-      ;; (cl-mpm/constitutive::maxwell-exp-v strain-inc stress E nu de visc dt :result-stress stress)
-      )
-
-    ;; (declare (double-float E visc-factor visc-power))
-    ;; (break)
-    ;; (let* ((eng-strain-rate (cl-mpm/fastmaths:fast-scale strain (/ 1d0 dt)))
-    ;;        (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power)))
-    ;;   (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
-    ;;   )
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    ))
+                        visc-power)))
+      (ssa-maxwell-glen strain-inc stress E nu visc dt))))

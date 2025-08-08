@@ -1,5 +1,5 @@
-
 (in-package :cl-mpm/ssa)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defun p2g-mp (mesh mp)
   "P2G transfer for one MP"
@@ -60,7 +60,9 @@
 
 
 (defun det-ext-force (mp node svp grads node-ext-force)
-  (with-accessors ((mass cl-mpm/particle::mp-mass))
+  (with-accessors ((mass cl-mpm/particle::mp-mass)
+                   (volume cl-mpm/particle::mp-volume)
+                   )
       mp
       (let* (;; (dsvp (cl-mpm/shape-function::assemble-dsvp-3d grads))
              ;; (h-v (cl-mpm/particle::mp-height mp))

@@ -1,6 +1,7 @@
 (in-package :asdf-user)
 (defsystem "cl-mpm-tests"
   :depends-on ("cl-mpm/all"
+               "lisp-stat"
                "fiasco")
   :description "cl-mpm tests"
   :serial t

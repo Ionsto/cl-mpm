@@ -81,10 +81,10 @@
                ;; :sim-type 'cl-mpm::mpm-sim-usf
                :args-list (list
                            :split-factor 0.35d0
-                           :enable-fbar t
+                           :enable-fbar nil
                            :enable-aggregate t
                            :vel-algo :QUASI-STATIC
-                           :enable-split t)))
+                           :enable-split nil)))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -116,7 +116,7 @@
           :E 1d6
           :nu 0.3d0
           :rho 20d3
-          :gravity -9.8d0
+          :gravity -10d0
           :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
       ;; (cl-mpm/setup::initialise-stress-self-weight
@@ -874,7 +874,7 @@
 
 
 (defun test-load-control ()
-    (setup :mps 3 :refine 1)
+    (setup :mps 4 :refine 1)
     ;; (cl-mpm::iterate-over-mps
     ;;  (cl-mpm:sim-mps *sim*)
     ;;  (lambda (mp)
@@ -883,12 +883,14 @@
      *sim*
      :output-dir (format nil "./output-dr/")
      :plotter #'plot
-     :load-steps 50
+     :load-steps 40
      :damping 0d-1
      :substeps 50
      :criteria 1d-5
      :adaptive-damping nil
      :kinetic-damping t
+     :save-vtk-dr t
+     :save-vtk-loadstep t
      :dt-scale 0.5d0
      )
   ;; (run-static

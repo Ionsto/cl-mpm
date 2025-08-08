@@ -296,8 +296,7 @@
   (lambda (pos)
     (let* ((pos (magicl:from-list (list
                                    (magicl:tref pos 0 0)
-                                   (magicl:tref pos 1 0)
-                                   ) '(2 1) :type 'double-float))
+                                   (magicl:tref pos 1 0)) '(2 1) :type 'double-float))
            (position (magicl:from-list position '(2 1) :type 'double-float))
            (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
                                 (magicl:from-list size '(2 1) :type 'double-float))))

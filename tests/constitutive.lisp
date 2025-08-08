@@ -333,7 +333,10 @@
                                                                out-e-xy)))
                (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
                (stress (magicl:@ de strain)))
-          (multiple-value-bind (stress eps f y) (cl-mpm/constitutive::mc-plastic stress de strain e nu phi psi c)
+          (multiple-value-bind (stress eps f y)
+              ;; (cl-mpm/constitutive::mc-plastic stress de strain e nu phi psi c)
+              (cl-mpm/ext::constitutive-mohr-coulomb stress de strain e nu phi psi c)
+
             (let (;; (eps (cl-mpm/constitutive::swizzle-voigt->coombs))
                   ))
             ;; (pprint strain)

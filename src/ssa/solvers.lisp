@@ -1,4 +1,5 @@
 (in-package :cl-mpm/ssa)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-ssa))

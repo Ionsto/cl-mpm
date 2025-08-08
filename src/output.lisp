@@ -734,3 +734,36 @@
 (defun save-vtk-line (filename start end)
 
   )
+(defun swap-endian (array)
+  (loop for i from 0 below (length array) by 2
+        do (let ((msb (aref array i))
+                 (lsb (aref array (1+ i))))
+             (setf (aref array i) lsb
+                   (aref array (1+ i)) msb)))
+  array)
+
+(defmethod save-vtk-binary (filename (sim cl-mpm::mpm-sim))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)) sim
+    (with-open-file (fs filename :direction :output :if-exists :supersede)
+      (with-open-file (fs-binary filename :direction :output :if-exists :append
+                                          :element-type '(unsigned-byte 8)
+                                          )
+        
+        (format fs "# vtk DataFile Version 2.0~%")
+        (format fs "Lisp generated vtk file, SJVS~%")
+        (format fs "BINARY~%")
+        (format fs "DATASET UNSTRUCTURED_GRID~%")
+        (format fs "POINTS ~d double~%" (length mps))
+        (loop for mp across mps
+              do
+                 (let ((pos (cl-mpm/particle::mp-position mp)))
+                   (dotimes (i 3)
+                     (write-sequence (swap-endian (cl-intbytes:int32->octets (ieee-floats:encode-float32 (coerce (cl-mpm/utils:varef pos i) 'single-float)))) fs-binary)
+                     )
+                   ;; (format fs "~E ~E ~E ~%"
+                   ;;         (coerce (cl-mpm/utils:varef pos 0) 'single-float)
+                   ;;         (coerce (cl-mpm/utils:varef pos 1) 'single-float)
+                   ;;         (coerce (cl-mpm/utils:varef pos 2) 'single-float))
+                   )))
+      (format fs "~%"))))

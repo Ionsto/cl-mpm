@@ -716,7 +716,6 @@
                                        ;; (incf work (cl-mpm/dynamic-relaxation::estimate-power-norm *sim*))
                                        ;; (incf oobf (cl-mpm/dynamic-relaxation::estimate-oobf *sim*))
                                        ;; (incf energy-estimate (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*))
-
                                        ;; (incf oobf (cl-mpm::sim-stats-oobf *sim*))
                                        ;; (incf energy-estimate (cl-mpm::sim-stats-energy *sim*))
                                        ;; (incf work (cl-mpm::sim-stats-power *sim*))

@@ -6,6 +6,7 @@
 (sb-ext:restrict-compiler-policy 'debug  3 3)
 (sb-ext:restrict-compiler-policy 'safety 3 3)
 
+
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 916.7d0)
          (mesh-resolution (/ 10d0 refine))
@@ -37,7 +38,7 @@
      :bottom '(nil 0 nil))
     (setf (cl-mpm:sim-mass-scale *sim*) 1d2)
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
-    (setf (cl-mpm::sim-velocity-algorithm *sim*) :FLIP)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
     (setf *run-sim* t)
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
    ))

@@ -132,6 +132,8 @@
 (defsystem "cl-mpm/output"
   :depends-on ("cl-mpm/magicl"
                "jonathan"
+               "cl-intbytes"
+               "ieee-floats"
                "cl-mpm"
                "str")
   :description "MPM output helper functions"
@@ -232,8 +234,8 @@
                "cl-mpm/setup"
                "cl-mpi"
                "cl-mpi-extensions"
-               "trivial-with-current-source-form"
-               )
+               "trivial-with-current-source-form")
+
   :description ""
   :components (
                (:file "src/mpi")

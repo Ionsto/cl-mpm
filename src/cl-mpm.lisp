@@ -191,7 +191,10 @@
      :accessor sim-mass-filter
      :initarg :mass-filter
      :initform 1d-15)
-   )
+   (output-functions
+    :type list
+    :accessor sim-output-functions
+    :initform nil))
   (:default-initargs
    :vel-algo :BLEND)
   (:documentation "A self contained mpm simulation"))
