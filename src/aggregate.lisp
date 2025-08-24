@@ -1151,9 +1151,7 @@
           elem
           (lambda (n)
             (let ((index
-                    (cl-mpm/mesh::node-agg-fd n)
-                    ;; (* nd (position n active-nodes))
-                         ))
+                    (cl-mpm/mesh::node-agg-fd n)))
               (push index index-map))
             (when (cl-mpm/mesh::node-interior n)
               (let ((index
@@ -1187,10 +1185,7 @@
         sim
         elem
         (lambda (n)
-          (let ((index
-                  (cl-mpm/mesh::node-agg-fd n)
-                  ;; (* nd (position n active-nodes))
-                       ))
+          (let ((index (cl-mpm/mesh::node-agg-fd n)))
             (let ((vec (funcall accessor n)))
               (loop for i from 0 below nd
                     do (setf (mtref v (+ index i) 0)
@@ -1283,6 +1278,30 @@
                                 do (setf (mtref m (+ (aref index-map x) i) (+ (aref index-map y) i))
                                          (mtref ma (+ x i) (+ y i)))))))))
     (values m)))
+
+(defun apply-internal-bcs (sim vec)
+  (let* ((active-nodes (filter-nodes sim (lambda (n) (or ;(cl-mpm/mesh::node-agg n)
+                                                      (cl-mpm/mesh::node-interior n)))))
+         (nd (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)))
+         (ndof (* (length active-nodes) nd))
+         (v (cl-mpm/utils::arb-matrix ndof 1)))
+    (iterate-over-agg-elem
+     (sim-agg-elems sim)
+     (lambda (elem)
+       (iterate-over-agg-elem-nodes
+        sim
+        elem
+        (lambda (n)
+          (when (cl-mpm/mesh::node-interior n)
+            (let ((index (cl-mpm/mesh::node-agg-fdc n)))
+              (let ((bcs (cl-mpm/mesh::node-bcs n)))
+                (when bcs
+                  (loop for i from 0 below nd
+                        do (setf (mtref v (+ index i) 0)
+                                 (* 
+                                  (varef bcs i)
+                                  (mtref v (+ index i) 0))))))))))))
+    (values v)))
 
 (defun list< (a b)
   (cond ((null a) (not (null b)))

@@ -874,7 +874,7 @@
 
 
 (defun test-load-control ()
-    (setup :mps 4 :refine 1)
+    (setup :mps 2 :refine 1)
     ;; (cl-mpm::iterate-over-mps
     ;;  (cl-mpm:sim-mps *sim*)
     ;;  (lambda (mp)
@@ -884,14 +884,14 @@
      :output-dir (format nil "./output-dr/")
      :plotter #'plot
      :load-steps 40
-     :damping 0d-1
+     :damping 1d0
      :substeps 50
      :criteria 1d-5
-     :adaptive-damping nil
+     :adaptive-damping t
      :kinetic-damping t
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :dt-scale 0.5d0
+     :dt-scale 1d0
      )
   ;; (run-static
   ;;  :output-dir "./output/"

@@ -134,6 +134,12 @@
       node
     (with-slots ((value value))
         bc
+      (unless (cl-mpm/mesh::node-bcs node)
+        (setf (cl-mpm/mesh::node-bcs node) (cl-mpm/utils:vector-from-list (list 1d0 1d0 1d0)))
+        (loop for d fixnum from 0 to 2;below (length value)
+              for v in value
+              do (when v
+                   (setf (varef (cl-mpm/mesh::node-bcs node) d) 0d0))))
       (loop for d fixnum from 0 to 2;below (length value)
             for v in value
             do

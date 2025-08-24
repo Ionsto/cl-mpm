@@ -1085,12 +1085,14 @@ This modifies the dt of the simulation in the process
   )
 
 (defun gradient-push-forwards (grads df)
+  ;;Incorrect!
   (let* ((grads-vec (magicl:linear-solve df (cl-mpm/utils:vector-from-list grads)))
          (grads (list (varef grads-vec 0)
                       (varef grads-vec 1)
                       (varef grads-vec 2))))
     grads))
 (defun gradient-push-forwards-cached (grads df-inv)
+  ;; Correct
   (let* ((grads-vec
            (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) df-inv)
            ;; (cl-mpm/fastmaths::fast-@-matrix-vector df-inv (cl-mpm/utils:vector-from-list grads))

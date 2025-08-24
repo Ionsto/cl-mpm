@@ -147,15 +147,12 @@
                 (< fnorm energy-crit)
                 (< oobf oobf-crit)
                 (< dconv 1d-3)
-                damage-eval
-                ))
-             )
-
+                damage-eval)))
            :kinetic-damping t
            :dt-scale dt-scale
            :substeps substeps
            :conv-steps 200
-           :damping-factor 1d0
+           :damping-factor 0d0
            :post-iter-step
            (lambda (i e o)
              (funcall plotter sim)
@@ -555,3 +552,94 @@
 ;;                  (sleep 0.1d0)
 ;;                  (swank.live:update-swank)
 ;;               )))))
+
+(defun run-quasi-time (sim
+                        &key (output-dir "./output/")
+                          (post-conv-step (lambda (sim)))
+                          (plotter (lambda (sim)))
+                          (dt-scale 0.5d0)
+                          (dt 1d0)
+                          (steps 1d0)
+                          (enable-damage t)
+                          (enable-plastic t)
+                          (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
+  (let ()
+    (uiop:ensure-all-directories-exist (list output-dir))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+    (save-timestep-preamble output-dir)
+    (save-conv-preamble output-dir)
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle::particle-damage)
+         (setf (cl-mpm/particle::mp-enable-damage mp) nil))
+       (when (typep mp 'cl-mpm/particle::particle-plastic)
+         (setf (cl-mpm/particle::mp-enable-plasticity mp) nil))))
+
+    (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+    (setf (cl-mpm:sim-mass-scale sim) 1d0)
+    (setf (cl-mpm:sim-damping-factor sim)
+          (* 1d-2 (cl-mpm/setup:estimate-critical-damping sim)))
+    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+    (let ((total-iter 0)
+          (substeps 50))
+      ;; Find initial quasi-static formation
+      (cl-mpm/dynamic-relaxation:converge-quasi-static
+       sim
+       :oobf-crit 1d-2
+       :energy-crit 1d-2
+       :kinetic-damping t
+       :dt-scale dt-scale
+       :conv-steps 10000
+       :substeps substeps
+       :damping-factor 1d-2
+       :post-iter-step
+       (lambda (i e o)
+         ;; (plot sim)
+         (save-conv-step sim output-dir total-iter 0 0d0 o e)
+         (incf total-iter substeps)
+         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
+         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+         ))
+      (cl-mpm::finalise-loadstep sim)
+      (setf (cl-mpm::sim-time sim) 0d0)
+      (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle::particle-damage)
+           (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
+         (when (typep mp 'cl-mpm/particle::particle-plastic)
+           (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
+      (funcall post-conv-step sim)
+
+      (loop for step from 1 to steps
+            while (cl-mpm::sim-run-sim sim)
+            do
+               (let ((quasi-conv nil))
+                 (setf (cl-mpm::sim-ghost-factor sim)
+                       nil;; (* 1d9 1d-4)
+                       )
+                 (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
+                 (multiple-value-bind (conv inc-steps)
+                     (step-quasi-time sim step
+                                      :total-steps total-iter
+                                      :plotter plotter
+                                      :output-dir output-dir
+                                      :dt-scale dt-scale
+                                      :enable-damage enable-damage
+                                      :enable-plastic enable-plastic)
+                   (setf quasi-conv conv)
+                   (incf total-iter inc-steps))
+
+                 (unless quasi-conv
+                   (setf (cl-mpm::sim-run-sim sim) nil))
+
+                 (funcall plotter sim)
+                 (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
+                 (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
+                 (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
+                 (swank.live:update-swank))))
+    ))

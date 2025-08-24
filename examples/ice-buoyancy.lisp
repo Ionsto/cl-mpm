@@ -207,7 +207,8 @@
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 0))
-         (end-height ice-height)
+         (end-height ice-height)(setup)
+
          (start-height ice-height)
          (ice-height end-height)
          (ice-length (* end-height aspect))
@@ -231,13 +232,13 @@
                                                :args-list
                                                (list
                                                 :enable-fbar t
-                                                :enable-aggregate nil
+                                                :enable-aggregate t
                                                 )))
     (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 10000d0)
-           (length-scale (* mesh-resolution 4d0))
+           (length-scale (* mesh-resolution 1d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (ductility 10d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
@@ -287,7 +288,7 @@
         :local-length length-scale
         :delay-time 10d0
         :delay-exponent 2
-        :enable-plasticity t
+        :enable-plasticity nil
         :enable-damage t
         ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
         ;; :E 1d9
@@ -362,7 +363,7 @@
           (* 0.1d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-3)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
@@ -1316,3 +1317,32 @@
     (pprint (cl-mpm/mesh:mesh-resolution mesh))
     (cl-mpm/aggregate::find-local-coords-agg mesh cell pos)
     ))
+
+(defun calving-quasi-time-test ()
+  (loop for dt in (list 0.5d0)
+        do
+           (let* ((mps 2))
+             (setup :refine 0.5
+                    :friction 0d0
+                    :bench-length 000d0
+                    :ice-height 400d0
+                    :mps mps
+                    :cryo-static t
+                    :aspect 2d0
+                    )
+             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+             (plot-domain)
+             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+             (setf (cl-mpm::sim-dt-scale *sim*) 1d0)
+             (cl-mpm/dynamic-relaxation::run-quasi-time
+              *sim*
+              :output-dir "./output/"
+              :dt dt
+              :dt-scale 1d0
+              :enable-plastic nil
+              :enable-damage t
+              :steps 1000
+              :plotter (lambda (sim) (plot-domain))
+              :post-conv-step
+              (lambda (sim)
+                (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0))))))

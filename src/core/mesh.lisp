@@ -158,6 +158,9 @@
    (jacobian
     :accessor node-jacobian
     :initform 0d0)
+   (bcs
+    :accessor node-bcs
+    :initform nil)
    (boundary-node
     :accessor node-boundary-node
     :type boolean
