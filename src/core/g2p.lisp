@@ -99,6 +99,7 @@
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
       (progn
+        ;; PIC update scheme
         (cl-mpm/utils::vector-copy-into mapped-vel vel)
         ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
         ;; (cl-mpm/fastmaths:fast-scale! disp-inc dt)

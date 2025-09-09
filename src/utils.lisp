@@ -233,11 +233,13 @@
                            magicl::matrix/double-float
                            ) magicl::matrix/double-float) voigt-copy-into))
 (defun voigt-copy-into (source target)
+  "Copy a vector from source into target"
   (aops:copy-into (magicl::matrix/double-float-storage target)
                   (magicl::matrix/double-float-storage source)
                   ) target)
 
 (defun matrix-copy-into (source target)
+  "Copy a vector from source into target"
   (aops:copy-into (magicl::matrix/double-float-storage target)
                   (magicl::matrix/double-float-storage source)
                   ) target)

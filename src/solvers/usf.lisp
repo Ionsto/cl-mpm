@@ -31,19 +31,17 @@
       (reset-grid mesh)
       (when (> (length mps) 0)
         (p2g mesh mps)
+
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
+
         (filter-cells sim)
+
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
-        ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
-        ;; (cl-mpm/ghost::update-node-forces-ghost sim)
-        ;; (apply-bcs mesh bcs dt)
-        ;; (update-nodes sim)
-        ;; (update-cells sim)
 
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
@@ -51,12 +49,10 @@
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
                 do (apply-bcs mesh bcs-f dt)))
-        ;; (cl-mpm/ghost::apply-ghost sim ghost-factor)
+
         (update-node-forces sim)
-
-        ;; (cl-mpm/ghost::apply-half-step-ghost sim)
-
         (reset-node-displacement sim)
+
         (update-nodes sim)
 
         (apply-bcs mesh bcs dt)

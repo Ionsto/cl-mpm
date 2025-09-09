@@ -119,6 +119,23 @@
     )
   (values))
 
+
+(declaim (ftype (function
+                 ((vector cl-mpm/mesh::node *)
+                  function)
+                 (values))
+                iterate-over-nodes-array))
+(defun iterate-over-nodes-array (nodes func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func)
+           (type (vector cl-mpm/mesh::node *) nodes))
+  (dotimes (i (length nodes))
+    (funcall func (aref nodes i)))
+  ;; (lparallel:pdotimes (i (length nodes))
+  ;;   (funcall func (aref nodes i)))
+  (values))
+
 (declaim (inline iterate-over-nodes-serial)
          (ftype (function (cl-mpm/mesh::mesh function) (values)) iterate-over-nodes-serial)
          )

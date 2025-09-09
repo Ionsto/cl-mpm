@@ -87,6 +87,7 @@
 (defun filter-cell (mesh cell dt)
   (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                    (active cl-mpm/mesh::cell-active)
+                   (partial cl-mpm/mesh::cell-partial)
                    (neighbours cl-mpm/mesh::cell-neighbours)
                    (index cl-mpm/mesh::cell-index)
                    (nodes cl-mpm/mesh::cell-nodes)
@@ -96,14 +97,20 @@
                    (trial-pos cl-mpm/mesh::cell-trial-centroid)
                    )
       cell
+    ;;Old depricated
     (setf mp-count t)
+    ;;Are any nodes active
     (setf active nil)
+    ;;False only if all nodes active
+    (setf partial t)
     (loop for n in nodes
           do
              (let ((oc (cl-mpm/mesh:node-active n)))
                (setf mp-count (and mp-count oc))
+               (setf partial (and partial oc))
                (setf active (or active oc))))
-    (setf mp-count (if mp-count 1 0))))
+    (setf mp-count (if mp-count 1 0)
+          partial (not partial))))
 
 (defgeneric filter-cells (sim))
 (defmethod filter-cells (sim)
@@ -231,39 +238,19 @@
                      (acc node-acceleration))
         node
       (declare (double-float mass dt damping mass-scale))
-      (if t
-          (progn
-            (cl-mpm/fastmaths:fast-zero acc)
-            ;;Set acc to f/m
-            (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-            (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-            ;;Include velocity prop damping
-            (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
-            (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-            ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
-            (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-            (integrate-vel-euler vel acc mass mass-scale dt 0d0)
-
-            (cl-mpm/utils::vector-copy-into residual residual-prev)
-            (cl-mpm/utils::vector-copy-into force-int residual))
-          (progn
-            ;;Use exponetial integration of damping
-            (cl-mpm/fastmaths:fast-zero acc)
-            ;;Set acc to f/m
-            (cl-mpm/fastmaths::fast-.+-vector force-int force force)
-            (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
-            ;;Include velocity prop damping
-            (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-
-            (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-
-            (integrate-vel-euler vel acc mass mass-scale dt damping)
-            ;;Acceleration adjustment
-            (cl-mpm/fastmaths:fast-fmacc acc vel (* -1d0 damping (/ 1d0 mass-scale)))
-
-            (cl-mpm/utils::vector-copy-into residual residual-prev)
-            (cl-mpm/utils::vector-copy-into force-int residual))
-          )))
+      (progn
+        (cl-mpm/fastmaths:fast-zero acc)
+        ;;Set acc to f/m
+        (cl-mpm/fastmaths::fast-.+-vector force-int force force)
+        (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+        ;;Include velocity prop damping
+        (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+        (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
+        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+        (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
+        (integrate-vel-euler vel acc mass mass-scale dt 0d0)
+        (cl-mpm/utils::vector-copy-into residual residual-prev)
+        (cl-mpm/utils::vector-copy-into force-int residual))))
   (values))
 
 
@@ -1057,7 +1044,7 @@ This modifies the dt of the simulation in the process
   ;;   (split-mps sim))
   ;; (check-mps sim)
   (reset-node-displacement sim)
-  )
+  (reset-grid-velocity (cl-mpm:sim-mesh sim)))
 
 (defgeneric new-loadstep (sim)
   )

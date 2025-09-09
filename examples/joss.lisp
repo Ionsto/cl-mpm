@@ -130,13 +130,7 @@
   (ql:quickload :cl-mpm/examples/joss)
   )
 
-(defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
-  (declare (double-float local-length damage))
-  ;; (+ (* local-length (- 1d0 damage)) (* local-length-damaged damage))
-  (* local-length (max (sqrt (- 1d0 damage)) 1d-10))
-  ;; (* local-length (max (- 1d0 damage) 1d-10))
-  ;; local-length
-  )
+
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
@@ -150,7 +144,8 @@
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
   ;; (cl-mpm::update-stress-kirchoff-mapped-jacobian mesh mp dt fbar)
   ;; (cl-mpm::update-domain-det mesh mp)
   ;; (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
@@ -376,14 +371,24 @@
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-block
+  (let* ((sim (cl-mpm/setup:make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type
                ;; 'cl-mpm::mpm-sim-usf
                ;; 'cl-mpm/damage::mpm-sim-usl-damage
-               'cl-mpm/damage::mpm-sim-damage
-               ))
+               ;; 'cl-mpm/damage::mpm-sim-damage
+               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+               :args-list (list
+                           ;; :split-factor 0.5d0
+                           :enable-fbar t
+                           :enable-aggregate t
+                           :vel-algo :QUASI-STATIC
+                           :max-split-depth 2
+                           :enable-length-localisation nil
+                           :enable-split nil))
+
+              )
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -391,27 +396,14 @@
          )
     (declare (double-float h density))
     (progn
-      (let* (
-             ;; (init-stress (* 26d3 0.63d0))
-             (E 1d9)
+      (let* ((E 1d9)
              (angle 50d0)
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
-             ;; (init-stress 40d3)
-             ;(gf (/ (expt (/ init-stress 6.88d0) 2) 1d9))
-             ;; (gf 45d0)
-             ;; (gf 5d0)
-             ;; (gf 5d0)
              (gf (* 4.8d0 1d0))
-             ;; (gf 10d0)
              (length-scale (* h 2d0))
-             ;; (length-scale 1d0)
-             ;; (length-scale (/ (* 1d9 gf) (expt init-stress 2)))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress E))
-             ;; (ductility 10d0)
-             (oversize (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility))
-             ;; (oversize 100d0)
-             )
+             (oversize (cl-mpm/damage::compute-oversize-factor 0.99d0 ductility)))
         (format t "Estimated oversize ~F~%" oversize)
         (format t "Estimated D-r ~F~%" (cl-mpm/damage::damage-response-exponential (* oversize init-stress)
                                                                                    E
@@ -437,7 +429,7 @@
            :E E
            :nu 0.24d0
            :enable-damage t
-           :enable-plasticity t
+           :enable-plasticity nil
            :friction-angle angle
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
@@ -453,8 +445,6 @@
 
            :local-length length-scale
            :local-length-damaged 10d-10
-           :material-damping (* 0d-1 (cl-mpm/setup::estimate-stiffness-critical-damping sim E density))
-
            ;; :psi 0d0
            ;; :phi (* 42d0 (/ pi 180))
            ;; :c 131d3
@@ -487,7 +477,7 @@
       ;; (let ((mass-filter (* density (expt h 2) 1d-2)))
       ;;   (format t "Mass filter: ~F~%" mass-filter)
       ;;   (setf (cl-mpm::sim-mass-filter sim) mass-filter))
-      (cl-mpm/setup::set-mass-filter sim density :proportion 1d-3)
+      (cl-mpm/setup::set-mass-filter sim density :proportion 0d-3)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
@@ -2408,3 +2398,19 @@
        (cl-mpm/output:save-vtk-nodes (merge-pathnames (format nil "sim_nodes_~5,'0d.vtk" i) output-dir) *sim*)
        (plot *sim*))))
   )
+
+(defun test-quasi-time ()
+  (setup :mps 2 :refine 1)
+  (let ((dt 1d0)
+        (total-time 1000d0))
+    (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
+    (cl-mpm/dynamic-relaxation::run-quasi-time
+     *sim*
+     :output-dir "./output/"
+     :dt-scale 0.5d0
+     ;; :substeps 10
+     :dt dt
+     :steps (round total-time dt)
+     ;; :time total-time
+     )))

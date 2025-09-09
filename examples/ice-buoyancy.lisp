@@ -299,23 +299,8 @@
 
         :gravity -9.8d0
         ))
-
       (when cryo-static
-        (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset ice-height))
-        ;; (let ((k 1d0)
-        ;;       )
-        ;;   (cl-mpm/setup::initialise-stress-self-weight-vardatum
-        ;;    *sim*
-        ;;    (lambda (pos)
-        ;;      (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-        ;;                         ice-length) ice-length)))
-        ;;        (+ offset
-        ;;           (* alpha end-height)
-        ;;           (* (- 1d0 alpha) start-height))))
-        ;;    ;; :k-x k
-        ;;    ;; :k-z k
-        ;;    ))
-        )
+        (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset ice-height)))
       (unless (= start-height end-height)
         (cl-mpm/setup::remove-sdf *sim*
                                   (lambda (p)
@@ -1026,7 +1011,7 @@
   (loop for dt in (list 4d0)
         do
            (let* ((mps 2))
-             (setup :refine 1
+             (setup :refine 0.5
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
@@ -1036,7 +1021,7 @@
                     )
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-             (setf (cl-mpm::sim-dt-scale *sim*) 0.25d0)
+             (setf (cl-mpm::sim-dt-scale *sim*) 1d0)
              ;; (let ((step 0)
              ;;       (output-dir (merge-pathnames "./output/")))
              ;;   (cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -1053,7 +1038,7 @@
               *sim*
               :output-dir "./output/"
               :dt dt
-              :dt-scale 0.25d0
+              :dt-scale 1d0
               :steps 1000
               :plotter (lambda (sim) (plot-domain))
               :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
@@ -1183,8 +1168,7 @@
       (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) *sim*)
       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) *sim*)
       (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) *sim*)
-      (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* )
-      )
+      (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) *sim* ))
     (let* ((total-iter 0))
       (loop for step from 1 to time-steps
             while *run-sim*
@@ -1319,10 +1303,10 @@
     ))
 
 (defun calving-quasi-time-test ()
-  (loop for dt in (list 0.5d0)
+  (loop for dt in (list 50d0)
         do
            (let* ((mps 2))
-             (setup :refine 0.5
+             (setup :refine 1
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
@@ -1338,11 +1322,11 @@
               *sim*
               :output-dir "./output/"
               :dt dt
-              :dt-scale 1d0
+              :dt-scale 0.9d0
               :enable-plastic nil
               :enable-damage t
               :steps 1000
               :plotter (lambda (sim) (plot-domain))
               :post-conv-step
               (lambda (sim)
-                (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0))))))
+                (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))))))

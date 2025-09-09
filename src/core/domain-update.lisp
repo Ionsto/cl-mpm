@@ -64,46 +64,49 @@
         ))))
 
 
-(declaim (ftype (function (magicl:matrix/double-float
-                           double-float
-                           magicl:matrix/double-float
-                           double-float) (values))
-                update-domain-stretch-rate-damage))
-(defun update-domain-stretch-rate-damage (stretch-rate damage domain damage-domain-rate)
-  "Update the domain length based on the increment of the stretch rate"
-  (declare (double-float damage damage-domain-rate))
-  (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
-                                              0d0 1d0 0d0
-                                              0d0 0d0 1d0)))
-        (degredation (- 1d0 (* damage-domain-rate damage)))
-        (domain-array (cl-mpm/utils:fast-storage domain))
-        )
+;; (declaim (ftype (function
+;;                  (magicl::matrix/double-float
+;;                   double-float
+;;                   magicl::matrix/double-float
+;;                   double-float)
+;;                  (values))
+;;                 update-domain-stretch-rate-damage))
+;; (defun update-domain-stretch-rate-damage (stretch-rate damage domain damage-domain-rate)
+;;   "Update the domain length based on the increment of the stretch rate"
+;;   ;; (declare (double-float damage damage-domain-rate))
+;;   ;; (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
+;;   ;;                                             0d0 1d0 0d0
+;;   ;;                                             0d0 0d0 1d0)))
+;;   ;;       (degredation (- 1d0 (* damage-domain-rate damage)))
+;;   ;;       (domain-array (cl-mpm/utils:fast-storage domain))
+;;   ;;       )
 
-    (cl-mpm/fastmaths:fast-.+ df (magicl:scale stretch-rate degredation) df)
-    ;; (cl-mpm/fastmaths::fast-.+ df (magicl:scale stretch-rate degredation) df)
-    (let ((F (cl-mpm/utils::matrix-zeros)))
-      (magicl:mult df df :target F :transb :t)
-      (multiple-value-bind (l v) (cl-mpm/utils::eig F)
-        (destructuring-bind (l1 l2 l3) l
-          (declare (double-float l1 l2 l3))
-          (let* ((stretch
-                   (magicl:@
-                    v
-                    (cl-mpm/utils::matrix-from-list
-                     (list (the double-float (sqrt l1)) 0d0 0d0
-                           0d0 (the double-float (sqrt l2)) 0d0
-                           0d0 0d0 (the double-float (sqrt l3))))
-                    (magicl:transpose v)))
-                 )
-            (declare (type magicl:matrix/double-float stretch))
-            (setf (aref domain-array 0) (* (the double-float (varef domain 0))
-                                       (the double-float (mtref stretch 0 0))))
-            (setf (aref domain-array 1) (* (the double-float (varef domain 1))
-                                       (the double-float (mtref stretch 1 1))))
-            (setf (aref domain-array 2) (* (the double-float (varef domain 2))
-                                       (the double-float (mtref stretch 2 2))))
-            )))))
-  )
+;;   ;;   (cl-mpm/fastmaths:fast-.+ df (magicl:scale stretch-rate degredation) df)
+;;   ;;   ;; (cl-mpm/fastmaths::fast-.+ df (magicl:scale stretch-rate degredation) df)
+;;   ;;   (let ((F (cl-mpm/utils::matrix-zeros)))
+;;   ;;     (magicl:mult df df :target F :transb :t)
+;;   ;;     (multiple-value-bind (l v) (cl-mpm/utils::eig F)
+;;   ;;       (destructuring-bind (l1 l2 l3) l
+;;   ;;         (declare (double-float l1 l2 l3))
+;;   ;;         (let* ((stretch
+;;   ;;                  (magicl:@
+;;   ;;                   v
+;;   ;;                   (cl-mpm/utils::matrix-from-list
+;;   ;;                    (list (the double-float (sqrt l1)) 0d0 0d0
+;;   ;;                          0d0 (the double-float (sqrt l2)) 0d0
+;;   ;;                          0d0 0d0 (the double-float (sqrt l3))))
+;;   ;;                   (magicl:transpose v)))
+;;   ;;                )
+;;   ;;           (declare (type magicl:matrix/double-float stretch))
+;;   ;;           (setf (aref domain-array 0) (* (the double-float (varef domain 0))
+;;   ;;                                      (the double-float (mtref stretch 0 0))))
+;;   ;;           (setf (aref domain-array 1) (* (the double-float (varef domain 1))
+;;   ;;                                      (the double-float (mtref stretch 1 1))))
+;;   ;;           (setf (aref domain-array 2) (* (the double-float (varef domain 2))
+;;   ;;                                      (the double-float (mtref stretch 2 2))))
+;;   ;;           )))))
+;;   ;; (values)
+;;   )
 (defun update-domain-F (def domain domain-0)
   "Update the domain length based on the total stretch rate"
   (let ((F (cl-mpm/utils::matrix-zeros)))

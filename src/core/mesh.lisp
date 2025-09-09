@@ -87,6 +87,9 @@
    (fdc
     :accessor node-agg-fdc
     :initform nil)
+   (agg-interior-cell
+    :accessor node-agg-interior-cell
+    :initform nil)
    (oobf
     :accessor node-oobf
     :type double-float
@@ -188,6 +191,17 @@
     :accessor node-damage
     :initform 0d0
     :type double-float)
+
+   ;;These are needed for dynamic relaxation
+   (true-velocity
+    :accessor node-true-velocity
+    ;; :initarg :velocity
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
+   (true-mass
+    :accessor node-true-mass
+    :type double-float
+    :initform 0d0)
    (lock
     :accessor node-lock
     :initform (sb-thread:make-mutex)))
@@ -254,6 +268,16 @@
     :accessor cell-active
     :type boolean
     :initform t)
+   (partial
+    :accessor cell-partial
+    :type boolean
+    :initform t)
+   (agg
+    :accessor cell-agg
+    :initform nil)
+   (interior
+    :accessor cell-interior
+    :initform nil)
    (aggregate-element
     :accessor cell-aggregate-element
     :initform nil)

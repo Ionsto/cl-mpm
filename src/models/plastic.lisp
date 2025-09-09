@@ -6,6 +6,7 @@
 ;;   )
 ;; (in-package :cl-mpm/models/plastic)
 (in-package :cl-mpm/particle)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defclass particle-plastic (particle)
   ((enable-plasticity
@@ -127,10 +128,14 @@
                    (strain mp-strain)
                    (strain-n mp-strain-n)
                    (yield-func mp-yield-func)
+                   (p-mod mp-p-modulus)
+                   (E mp-e)
+                   (nu mp-nu)
                    (enable-plasticity mp-enable-plasticity))
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+    (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
 
@@ -141,8 +146,15 @@
               )
         (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
         (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc)))
-      )
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc))
+        (let ((eps-vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain mp)))))
+              (vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
+              (K (/ e (* 3 (- 1d0 (* 2 nu)))))
+              (G (/ e (* 2 (+ 1d0 nu)))))
+          (when (and (> ps-vm-inc 0d0)
+                     (> eps-vm 0d0))
+            (setf p-mod (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm))))))))
+        ))
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))
@@ -169,8 +181,7 @@
                    (strain mp-strain)
                    (yield-func mp-yield-func)
                    (soft mp-softening)
-                   (enabled mp-enable-plasticity)
-                   )
+                   (enabled mp-enable-plasticity))
       mp
     (declare (double-float soft ps-vm ps-vm-1 ps-vm-inc E nu phi psi c))
     ;;Train elastic strain - plus trail kirchoff stress

@@ -29,9 +29,12 @@ top_dir = "../"
 output_regex = re.compile("output-*")
 output_list = list(filter(output_regex.match,os.listdir(top_dir)))
 output_list.sort()
-for i,out in enumerate(output_list):
-    print("{}: {}".format(i,out))
-output_dir = "{}./{}/".format(top_dir,output_list[int(input())])
+if len(output_list) > 1:
+    for i,out in enumerate(output_list):
+        print("{}: {}".format(i,out))
+    output_dir = "{}./{}/".format(top_dir,output_list[int(input())])
+else:
+    output_dir = "{}./{}/".format(top_dir,output_list[0])
 
 
 df = pd.read_csv(output_dir+"conv.csv")
@@ -48,7 +51,7 @@ damage = damage / np.max(damage)
 fig = plt.figure()
 ax = fig.gca()
 #ax.plot(iters,oobf,label="OOBF")
-#ax.plot(iters,energy,label="Energy")
+ax.plot(iters,energy,label="Energy")
 ax.plot(iters,oobf,label="Residual")
 
 thresh_scale = 1e-2
@@ -60,7 +63,7 @@ ax.set_ylabel("Convergence criteria")
 ax.set_yscale("log")
 # ax.set_yscale("log")
 ax_damage = ax.twinx()
-ax_damage.plot(iters,damage,label="Damage",c="red")
+ax_damage.scatter(iters,damage,label="Damage",c="red")
 ax_damage.plot(iters,plastic,label="Plastic",c="black")
 ax_damage.set_ylim(bottom=0)
 ax_damage.set_ylabel("Plastic strain evolution")

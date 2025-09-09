@@ -227,23 +227,23 @@
                    (delocal-counter-max sim-damage-delocal-counter-max)
                    (non-local-damage cl-mpm::sim-nonlocal-damage))
       sim
-
     (when enable-damage
       (when non-local-damage
-        (when (= delocal-counter 0)
-          ;;Ensure they have a home
-          ;; (create-delocalisation-list mesh mps)
-          (update-delocalisation-list mesh mps)
-          (setf delocal-counter delocal-counter-max))
+        ;;When delocal counter max is -1, we want to update never -> 0 is always
+        (unless (= delocal-counter-max -1)
+          (when (= delocal-counter 0)
+            ;;Ensure they have a home
+            ;; (create-delocalisation-list mesh mps)
+            (update-delocalisation-list mesh mps)
+            (setf delocal-counter delocal-counter-max)))
         ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
-        (setf delocal-counter (min (- delocal-counter 1)
-                                   delocal-counter-max)))
+        (setf delocal-counter (min (- delocal-counter 1) delocal-counter-max)))
+
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
          (when (typep mp 'cl-mpm/particle:particle-damage)
-           (damage-model-calculate-y mp dt)
-           )))
+           (damage-model-calculate-y mp dt))))
 
       (if non-local-damage
           (progn
@@ -251,11 +251,14 @@
               (update-localisation-lengths sim))
             (delocalise-damage sim))
           (localise-damage mesh mps dt))
+
+      ;; (format t "Update damage ~%")
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
          (when (typep mp 'cl-mpm/particle:particle-damage)
            (update-damage mp dt)))))
+
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)

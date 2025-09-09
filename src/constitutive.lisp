@@ -362,7 +362,9 @@
                            magicl:matrix/double-float
                            double-float
                            double-float
-                           )) maxwell-exp))
+                           )
+                          magicl:matrix/double-float
+                          ) maxwell-exp))
 (defun maxwell-exp (strain-increment stress elasticity nu de viscosity dt)
   ;; (declare (optimize (safety 3) (speed 0)))
   "A stress increment form of a viscoelastic maxwell material"
@@ -624,8 +626,7 @@
           (setf df ndf
                 ddf nddf))
         ;;Plastic deformation is occuring
-        (let* (
-               (b (magicl:from-list (list 0d0 0d0 0d0 0d0 0d0 0d0 f) '(7 1) :type 'double-float))
+        (let* ((b (magicl:from-list (list 0d0 0d0 0d0 0d0 0d0 0d0 f) '(7 1) :type 'double-float))
                (dgam 0d0))
           (loop for iters from 0 to max-iter
                 when (or (> (b-norm b) tol)
@@ -656,11 +657,9 @@
                          (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
                            (setf df ndf
                                  ddf nddf))
-                         (let ((b-eps (cl-mpm/fastmaths::fast-.+ eps-e
-                                                 (magicl:scale trial-elastic-strain -1d0)
-                                                 (magicl:scale! df dgam)
-                                                 )
-                                      )
+                         (let ((b-eps (cl-mpm/fastmaths::fast-.+
+                                       (cl-mpm/fastmaths::fast-.+ eps-e (magicl:scale trial-elastic-strain -1d0))
+                                       (magicl:scale! df dgam)))
                                (b-f (vm-yield-func j2 rho)))
                            (loop for i from 0 below 6
                                  do (setf (magicl:tref b i 0) (magicl:tref b-eps i 0)))

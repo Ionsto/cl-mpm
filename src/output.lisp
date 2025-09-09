@@ -387,7 +387,10 @@
 
 
           (save-parameter-nodes "active" (if (cl-mpm/mesh::node-active node) 1 0))
-          (save-parameter-nodes "aggregate" (if (cl-mpm/mesh::node-agg node) 1 0))
+
+          (save-parameter-nodes "agg" (if (cl-mpm/mesh::node-agg node) 1 0))
+          (save-parameter-nodes "agg-int" (if (cl-mpm/mesh::node-interior node) 1 0))
+
           (save-parameter-nodes "mass" (cl-mpm/mesh:node-mass node))
           (save-parameter-nodes "mass-inv" (if (> (cl-mpm/mesh:node-mass node) 0d0)
                                                (/ 1d0 (cl-mpm/mesh:node-mass node))
@@ -435,29 +438,6 @@
                                  (cl-mpm/mesh::node-mass node)
                                  (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node))))
 
-          (save-parameter-nodes "oobf-sum"
-                                (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
-                                                 (f-int cl-mpm/mesh::node-internal-force))
-                                    node
-                                  (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                      (*
-                                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                       (cl-mpm/mesh::node-mass node)
-                                       (cl-mpm/fastmaths::mag-squared
-                                        (magicl:.+ f-ext f-int))
-                                       )
-                                      0d0)))
-          (save-parameter-nodes "oobf-ext"
-                                (with-accessors ((f-ext cl-mpm/mesh::node-external-force)
-                                                 (f-int cl-mpm/mesh::node-internal-force))
-                                    node
-                                  (if (> (cl-mpm/fastmaths::mag-squared f-ext) 0)
-                                      (*
-                                       ;; (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node))
-                                       (cl-mpm/mesh::node-mass node)
-                                       (cl-mpm/fastmaths::mag-squared
-                                        f-ext))
-                                      0d0)))
           (save-parameter-nodes "oobf" (cl-mpm/mesh::node-oobf node))
           (save-parameter-nodes "volume" (cl-mpm/mesh::node-volume node))
           ;; (save-parameter-nodes "lift" (- (magicl:tref (cl-mpm/mesh:node-force node) 1 0)
@@ -691,9 +671,10 @@
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
               (save-parameter-cells "pressure" (cl-mpm/mesh::cell-pressure cell))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
-              (save-parameter-cells "agg-int" (cl-mpm/mesh::cell-agg-int cell))
+              (save-parameter-cells "agg-int" (if (cl-mpm/mesh::cell-interior cell) 1d0 0d0))
+              (save-parameter-cells "agg" (if (cl-mpm/mesh::cell-agg cell) 1d0 0d0))
               (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))))))))
-
+ 
 (defun save-vtk-bcs (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
     (with-accessors ((bcs cl-mpm:sim-bcs))
