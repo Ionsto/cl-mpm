@@ -165,7 +165,8 @@
       :serial t
       :components
       ((:file "dynamic-relaxation")
-       (:file "solvers")
+       (:file "solvers/quasi-static")
+       (:file "solvers/dynamic")
        (:file "algorithms"))))))
   )
 (defsystem "cl-mpm/ext"

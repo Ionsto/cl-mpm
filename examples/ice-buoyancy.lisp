@@ -199,7 +199,7 @@
                 (friction 0d0)
                 (ice-height 800d0)
                 (bench-length 0d0)
-                (aspect 4)
+                (aspect 1)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
@@ -207,8 +207,7 @@
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
          (offset (* mesh-resolution 0))
-         (end-height ice-height)(setup)
-
+         (end-height ice-height)
          (start-height ice-height)
          (ice-height end-height)
          (ice-length (* end-height aspect))
@@ -286,9 +285,9 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 10d0
+        :delay-time 1d4
         :delay-exponent 2
-        :enable-plasticity nil
+        :enable-plasticity t
         :enable-damage t
         ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
         ;; :E 1d9
@@ -1303,17 +1302,16 @@
     ))
 
 (defun calving-quasi-time-test ()
-  (loop for dt in (list 50d0)
+  (loop for dt in (list 0.2d4)
         do
            (let* ((mps 2))
-             (setup :refine 1
+             (setup :refine 0.5
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
                     :mps mps
                     :cryo-static t
-                    :aspect 2d0
-                    )
+                    :aspect 1d0)
              (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
@@ -1322,7 +1320,7 @@
               *sim*
               :output-dir "./output/"
               :dt dt
-              :dt-scale 0.9d0
+              :dt-scale 1d0
               :enable-plastic nil
               :enable-damage t
               :steps 1000

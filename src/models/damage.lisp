@@ -192,9 +192,9 @@
                (cl-mpm/constitutive::voight-eye p)
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
                stress))
-        ;; (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-        ;;       (G (* (- 1d0 damage) (/ e (* 2 (+ 1d0 nu))))))
-        ;;   (setf p-mod (+ K (* G (/ 4 3)))))
+        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+              (G (* (- 1d0 damage) (/ e (* 2 (+ 1d0 nu))))))
+          (setf p-mod (+ K (* G (/ 4 3)))))
         ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage) dt)

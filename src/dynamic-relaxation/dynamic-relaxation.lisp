@@ -843,3 +843,7 @@
      (cl-mpm/fastmaths::fast-zero (cl-mpm/particle:mp-velocity mp)))))
 
 
+(defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr))
+  ;;DR algorithm requires that finalisation is called once
+  (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  (cl-mpm::new-loadstep sim))

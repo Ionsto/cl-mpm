@@ -585,7 +585,6 @@
                      (damage cl-mpm/particle:mp-damage)
                      (damage-n cl-mpm/particle::mp-damage-n)
                      (E cl-mpm/particle::mp-e)
-                     (Gf cl-mpm/particle::mp-Gf)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
                      (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
@@ -615,29 +614,27 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (let ((a tau-exp)
-              (k0 init-stress))
+        (let ((k0 init-stress))
           (when (or (>= ybar-prev k0)
                     (>= ybar k0))
             (setf k
-                  (cl-mpm/damage::huen-integration
+                  (max
                    k-n
-                   ybar-prev
-                   ybar
-                   k0
-                   tau
-                   tau-exp
-                   dt
-                   ))))
+                   (cl-mpm/damage::huen-integration
+                    k-n
+                    ybar-prev
+                    ybar
+                    k0
+                    tau
+                    tau-exp
+                    dt
+                    )))))
         (let ((new-damage
-                (max
-                 damage
-                 (damage-response-exponential k E init-stress ductility))))
+                (damage-response-exponential k E init-stress ductility)))
           (declare (double-float new-damage))
           (setf damage new-damage)
-          ;; (setf damage-inc (- new-damage damage))
+          (setf damage-inc (- new-damage damage-n))
           )
-        ;; (setf ybar-prev ybar)
         (if peerlings
           (setf
            damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
@@ -656,7 +653,6 @@
         ;;Transform to log damage
         ;; (incf damage damage-inc)
         (setf damage (max 0d0 (min 1d0 damage)))
-        (setf damage-inc (- damage damage-n))
         )
       (values))))
 
