@@ -142,8 +142,7 @@
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
-              yield-func f
-              )
+              yield-func f)
         (setf ps-vm-inc (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
         (setf strain eps-e)
         (setf ps-vm (+ ps-vm-1 ps-vm-inc))
@@ -153,7 +152,13 @@
               (G (/ e (* 2 (+ 1d0 nu)))))
           (when (and (> ps-vm-inc 0d0)
                      (> eps-vm 0d0))
-            (setf p-mod (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm))))))))
+            (setf p-mod
+                  (+ K
+                     (if (<= f 0d0)
+                         (* 4/3 G)
+                         0d0)
+                   ;; (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm)))))
+                   ))))
         ))
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)

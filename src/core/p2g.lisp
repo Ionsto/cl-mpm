@@ -56,9 +56,9 @@
 
 
 (declaim (inline p2g-force-mp)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) p2g-force-mp)
          )
-(defun p2g-force-mp (mesh mp)
+(defun p2g-force-mp (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -80,14 +80,14 @@
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
            (sb-thread:with-mutex (node-lock)
-             (det-ext-force mp node svp node-ext-force)
+             (det-ext-force mp node svp gravity node-ext-force)
              (det-int-force-unrolled mp grads node-int-force))))))
   (values))
 
 (declaim (inline p2g-force-mp-fs)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp-fs)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) p2g-force-mp-fs)
          )
-(defun p2g-force-mp-fs (mesh mp)
+(defun p2g-force-mp-fs (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -111,45 +111,14 @@
          (when node-active
            (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp node-ext-force)
+               (det-ext-force mp node svp gravity node-ext-force)
                (det-int-force-unrolled mp grads node-int-force))))))))
   (values))
 
 (declaim (notinline p2g-force-mp-2d)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle) (values)) p2g-force-mp-2d)
+         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle double-float) (values)) p2g-force-mp-2d)
          )
-;; (defun p2g-force-mp-2d (mesh mp)
-;;   "Map particle forces to the grid for one mp"
-;;   (declare (cl-mpm/mesh::mesh mesh)
-;;            (cl-mpm/particle:particle mp))
-;;   (let (;; (df-inv (cl-mpm/fastmaths::fast-inv-3x3 (cl-mpm/particle::mp-deformation-gradient-increment mp)))
-;;         (df-inv (magicl:inv (cl-mpm/particle::mp-deformation-gradient-increment mp)))
-;;         (dsvp (cl-mpm/utils::dsvp-3d-zeros))
-;;         (dsvp-push (cl-mpm/utils::dsvp-3d-zeros))
-;;         )
-;;     (iterate-over-neighbours
-;;      mesh mp
-;;      (lambda (mesh mp node svp grads fsvp fgrads)
-;;        (declare
-;;         (cl-mpm/particle:particle mp)
-;;         (cl-mpm/mesh::node node)
-;;         (double-float svp))
-;;        (with-accessors ((node-active  cl-mpm/mesh:node-active)
-;;                         (node-int-force cl-mpm/mesh::node-internal-force)
-;;                         (node-ext-force cl-mpm/mesh::node-external-force)
-;;                         (node-lock  cl-mpm/mesh:node-lock)) node
-;;          (declare (boolean node-active)
-;;                   (sb-thread:mutex node-lock)
-;;                   (magicl:matrix/double-float node-int-force node-ext-force))
-;;          (when node-active
-;;            (cl-mpm/shape-function::assemble-dsvp-3d-prealloc grads dsvp)
-;;            (magicl:mult dsvp df-inv :target dsvp-push)
-;;            (sb-thread:with-mutex (node-lock)
-;;              (det-ext-force-2d mp node svp node-ext-force)
-;;              (det-int-force mp dsvp-push node-int-force)))))))
-;;   (values))
-
-(defun p2g-force-mp-fs-2d (mesh mp)
+(defun p2g-force-mp-fs-2d (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -171,11 +140,11 @@
          (when node-active
            (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force-2d mp node svp node-ext-force)
+               (det-ext-force-2d mp node svp gravity node-ext-force)
                (det-int-force-unrolled-2d mp grads node-int-force))))))))
   (values))
 
-(defun p2g-force-mp-2d (mesh mp)
+(defun p2g-force-mp-2d (mesh mp gravity)
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
@@ -195,7 +164,7 @@
                 (magicl:matrix/double-float node-int-force node-ext-force))
        (when node-active
          (sb-thread:with-mutex (node-lock)
-           (det-ext-force-2d mp node svp node-ext-force)
+           (det-ext-force-2d mp node svp gravity node-ext-force)
            (det-int-force-unrolled-2d mp grads node-int-force))))))
   (values))
 
@@ -242,30 +211,38 @@
 
 
 (declaim (inline p2g-force))
-(defun p2g-force (mesh mps)
+(defun p2g-force (sim)
   "Map particle forces to the grid"
-  (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp-2d mesh mp)))
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp mesh mp)))))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps)
+                   (gravity cl-mpm::sim-gravity))
+      sim
+    (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+    (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+        (iterate-over-mps
+         mps
+         (lambda (mp)
+           (p2g-force-mp-2d mesh mp gravity)))
+        (iterate-over-mps
+         mps
+         (lambda (mp)
+           (p2g-force-mp mesh mp gravity))))))
 
 
 (declaim (inline p2g-force-fs))
-(defun p2g-force-fs (mesh mps)
+(defun p2g-force-fs (sim)
   "Map particle forces to the grid"
-  (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
-  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp-fs-2d mesh mp)))
-      (iterate-over-mps
-       mps
-       (lambda (mp)
-         (p2g-force-mp-fs mesh mp)))))
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps)
+                   (gravity cl-mpm::sim-gravity))
+      sim
+    (declare (type (array cl-mpm/particle:particle) mps) (cl-mpm/mesh::mesh mesh))
+    (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+        (iterate-over-mps
+         mps
+         (lambda (mp)
+           (p2g-force-mp-fs-2d mesh mp gravity)))
+        (iterate-over-mps
+         mps
+         (lambda (mp)
+           (p2g-force-mp-fs mesh mp gravity))))))

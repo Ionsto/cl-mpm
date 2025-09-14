@@ -9,8 +9,8 @@
    #:det-int-force-unrolled-2d
    ))
 (in-package :cl-mpm/forces)
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (declaim
@@ -248,12 +248,12 @@
 
 (declaim
  (inline det-ext-force)
- (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-ext-force))
-(defun det-ext-force (mp node svp &optional f-out)
+(defun det-ext-force (mp node svp gravity &optional f-out)
   "Calculate external force contribution from mp at node"
   (with-accessors ((mass cl-mpm/particle:mp-mass)
-                   (gravity cl-mpm/particle:mp-gravity)
+                   ;; (gravity cl-mpm/particle:mp-gravity)
                    (volume cl-mpm/particle:mp-volume)
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
@@ -290,12 +290,13 @@
 
 (declaim
  (inline det-ext-force-2d)
- (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-ext-force-2d))
-(defun det-ext-force-2d (mp node svp &optional f-out)
+(defun det-ext-force-2d (mp node svp gravity &optional f-out)
+  (declare (double-float svp gravity))
   "Calculate external force contribution from mp at node"
   (with-accessors ((mass cl-mpm/particle:mp-mass)
-                   (gravity cl-mpm/particle:mp-gravity)
+                   ;; (gravity cl-mpm/particle:mp-gravity)
                    (volume cl-mpm/particle:mp-volume)
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)

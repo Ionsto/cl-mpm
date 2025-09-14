@@ -36,7 +36,7 @@
           (filter-grid mesh (sim-mass-filter sim)))
         ;;Turn momentum into velocity
         (update-node-kinematics sim)
-        (p2g-force mesh mps)
+        (p2g-force sim)
         (loop for bcs-f in bcs-force-list
               do (apply-bcs mesh bcs-f dt))
         ;; (apply-bcs mesh bcs-force dt)

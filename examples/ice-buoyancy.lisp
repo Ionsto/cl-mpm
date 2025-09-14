@@ -1305,7 +1305,7 @@
   (loop for dt in (list 0.2d4)
         do
            (let* ((mps 2))
-             (setup :refine 0.5
+             (setup :refine 2
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0

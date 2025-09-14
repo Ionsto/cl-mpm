@@ -38,7 +38,7 @@
                            (type sb-thread:mutex node-lock))
                   (when node-active
                     (sb-thread:with-mutex (node-lock)
-                      (incf node-mass (/ (* 8
+                      (incf node-mass (/ (* 2
                                             mp-pmod
                                             (/ 1d0 (expt (cl-mpm/fastmaths:det def) 2))
                                             svp mp-volume
@@ -75,7 +75,7 @@
          sim
        (progn
          (cl-mpm::update-stress mesh mps dt fbar)
-         (cl-mpm::p2g-force mesh mps)
+         (cl-mpm::p2g-force sim)
          (cl-mpm::apply-bcs mesh bcs-force dt)
          (loop for bcs-f in bcs-force-list
                do (cl-mpm::apply-bcs mesh bcs-f dt))
@@ -135,25 +135,6 @@
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
-  (with-slots ((mesh cl-mpm::mesh)
-               (mps cl-mpm::mps)
-               (bcs cl-mpm::bcs)
-               (bcs-force cl-mpm::bcs-force)
-               (dt cl-mpm::dt)
-               (dt-loadstep dt-loadstep)
-               (mass-filter cl-mpm::mass-filter)
-               (split cl-mpm::allow-mp-split)
-               (enable-damage cl-mpm::enable-damage)
-               (nonlocal-damage cl-mpm::nonlocal-damage)
-               (remove-damage cl-mpm::allow-mp-damage-removal)
-               (fbar cl-mpm::enable-fbar)
-               (bcs-force-list cl-mpm::bcs-force-list)
-               (ghost-factor cl-mpm::ghost-factor)
-               (initial-setup initial-setup)
-               (enable-aggregate cl-mpm/aggregate::enable-aggregate)
-               (damping cl-mpm::damping-factor)
-               (vel-algo cl-mpm::velocity-algorithm))
-                sim
     (declare (type double-float mass-filter))
     (with-slots ((mesh cl-mpm::mesh)
                  (mps cl-mpm::mps)
@@ -172,6 +153,7 @@
                  (initial-setup initial-setup)
                  (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                  (damping cl-mpm::damping-factor)
+                 (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
                  (vel-algo cl-mpm::velocity-algorithm))
         sim
       (unless initial-setup
@@ -182,16 +164,18 @@
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-      (cl-mpm::p2g-force-fs mesh mps)
+      (cl-mpm::p2g-force-fs sim)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
+      (update-node-fictious-mass sim)
+      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
       ;; (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
-      )))
+      ))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
   "Update stress last algorithm"
@@ -234,7 +218,7 @@
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
-    (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
+    ;; (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (with-accessors ((mesh cl-mpm:sim-mesh)

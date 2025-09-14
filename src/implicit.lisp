@@ -39,6 +39,7 @@
                (fbar enable-fbar)
                (time time)
                (vel-algo velocity-algorithm)
+               (gravity gravity)
                )
                 sim
     (declare (double-float mass-filter dt time))
@@ -54,7 +55,7 @@
         (apply-bcs mesh bcs dt)
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
-        (p2g-force mesh mps)
+        (p2g-force sim)
         (loop for bcs-f in bcs-force-list
               do (apply-bcs mesh bcs-f dt))
         (update-node-forces sim)

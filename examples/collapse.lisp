@@ -43,7 +43,7 @@
          (ms-x (first ms))
          (ms-y (second ms))
          (datum (cl-mpm/penalty::bc-penalty-datum *bc-squish*))
-         )
+        )
     ;; (vgplot:format-plot t "set object 1 rect from ~f,~f to ~f,~f fc rgb 'black' fs transparent solid 0.5 noborder behind" 0 ms-y ms-x (- datum))
     )
   (cl-mpm/plotter:simple-plot
@@ -71,20 +71,23 @@
                ;; 'cl-mpm::mpm-sim-sd
                ;; :sim-type sim-type
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                :args-list (list
                            :split-factor 0.5d0
-                           :enable-fbar t
-                           :enable-aggregate nil
-                           ;; :vel-algo :QUASI-STATIC
-                           :vel-algo :PIC
+                           :enable-fbar nil
+                           :enable-aggregate t
+                           :vel-algo :QUASI-STATIC
+                           ;; :vel-algo :PIC
                            :max-split-depth 2
                            ;; :enable-length-localisation nil
-                           :enable-split nil)))
+                           :enable-split nil
+                           :gravity -10d0
+                           )))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -104,11 +107,14 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
-          'cl-mpm/particle::particle-vm
+          'cl-mpm/particle::particle-elastic
           :E 1d6
           :nu 0.3d0
-          :rho 20d3
-          :enable-plasticity t
+          ;; 'cl-mpm/particle::particle-vm
+          ;; :E 1d6
+          ;; :nu 0.3d0
+          ;; :rho 20d3
+          ;; :enable-plasticity t
           ;; 'cl-mpm/particle::particle-elastic-damage-delayed
           ;; :E 1d9
           ;; :nu 0.3d0
@@ -139,8 +145,8 @@
           ;; :c (* init-c oversize)
           ;; :softening 0d0
 
-          :gravity -10d0
-          :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+          ;; :gravity -10d0
+          ;; :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
       ;; (cl-mpm/setup::initialise-stress-self-weight
       ;;  sim
@@ -890,21 +896,21 @@
 
 
 (defun test-load-control ()
-  (setup :mps 2 :refine 2)
+  (setup :mps 2 :refine 1)
   (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 0d-9)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir (format nil "./output/")
    :plotter #'plot
    :load-steps 80
-   :damping 1d0
-   :substeps 50
-   :criteria 1d-3
-   :adaptive-damping t
-   :kinetic-damping nil
-   :save-vtk-dr t
+   :damping 0d0
+   :substeps 10
+   :criteria 1d-9
+   :adaptive-damping nil
+   :kinetic-damping t
+   :save-vtk-dr nil
    :save-vtk-loadstep t
-   :dt-scale 1d0))
+   :dt-scale 0.5d0))
 
 (defun test-static ()
   (setup :mps 2 :refine 0.5)

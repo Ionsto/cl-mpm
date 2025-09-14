@@ -31,6 +31,7 @@
    #:sim-mass-filter
    #:sim-mass-scale
    #:sim-enable-fbar
+   #:sim-gravity
    #:sim-enable-damage
    #:sim-allow-mp-split
    #:post-stress-step
@@ -53,6 +54,10 @@
   ((dt
      :accessor sim-dt
      :initarg :dt)
+   (gravity
+    :accessor sim-gravity
+    :initarg :gravity
+    :initform -9.8d0)
    (time
     :accessor sim-time
     :initform 0d0

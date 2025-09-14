@@ -45,7 +45,7 @@
 
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
-        (p2g-force mesh mps)
+        (p2g-force sim)
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
                 do (apply-bcs mesh bcs-f dt)))
@@ -109,7 +109,7 @@
 
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
-        (p2g-force mesh mps)
+        (p2g-force sim)
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
                 do (apply-bcs mesh bcs-f dt)))

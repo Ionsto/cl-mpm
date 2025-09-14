@@ -384,7 +384,7 @@
                            enable-plasticity
                            step
                            output-dir
-                           )
+                           &key (save-vtk-dr nil))
   (let* ((damage-prev (get-damage sim))
          (damage-eval t)
          (damage damage-prev)
@@ -405,13 +405,14 @@
        (incf *total-iter* substeps)
        (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)))
 
+    (break)
     (loop for i from 0 to max-iter
           while (>= dconv damage-criteria)
           do (progn
-               (break)
-               (setf (cl-mpm::sim-enable-damage sim) damage-eval)
-               (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-               (setf damage (get-damage sim))
+               (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
+                 (setf (cl-mpm::sim-enable-damage sim) damage-eval)
+                 (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                 (setf damage (get-damage sim)))
                (if (= damage damage-prev)
                    (setf dconv 0d0)
                    (when (> damage damage-prev)
@@ -432,7 +433,8 @@
                   (incf *total-iter* substeps)
                   (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy))
                 )
-               (when t
+               (break)
+               (when save-vtk-dr
                  (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
                  (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
                  (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) sim))
@@ -445,15 +447,15 @@
                            (loading-function nil)
                            (load-steps 10)
                            (substeps 50)
-                           (damping 1d-1)
-                           (kinetic-damping t)
+                           (damping 1d0)
+                           (kinetic-damping nil)
                            (adaptive-damping t)
                            (criteria 1d-3)
                            (post-conv-step (lambda (sim)))
                            (plotter (lambda (sim)))
                            (save-vtk-dr t)
                            (save-vtk-loadstep t)
-                           (dt-scale 0.5d0))
+                           (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (save-conv-preamble output-dir)
@@ -461,16 +463,12 @@
   (defparameter *total-iter* 0)
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
-    (let* ((load (cl-mpm/particle::mp-gravity (aref (cl-mpm:sim-mps sim) 0)))
-           ;; (total-iter 0)
-           )
+    (let* ((load (cl-mpm:sim-gravity sim)))
       (unless loading-function
         (setf loading-function (lambda (percent)
                                  (format t "Loading factor ~E~%" percent)
-                                 (cl-mpm:iterate-over-mps
-                                  mps
-                                  (lambda (mp)
-                                    (setf (cl-mpm/particle:mp-gravity mp) (* load percent)))))))
+                                 (setf (cl-mpm:sim-gravity sim)
+                                       (* load percent)))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (let ((t0 (get-internal-real-time))
             (tunits internal-time-units-per-second)
@@ -488,47 +486,51 @@
                      (when damping
                        (setf (cl-mpm::sim-damping-factor sim)
                              (* damping (cl-mpm/setup:estimate-critical-damping sim))))
-                     (converge-staggered
-                      sim
-                      criteria
-                      1d-3
-                      kinetic-damping
-                      adaptive-damping
-                      dt-scale
-                      substeps
-                      damping
-                      t
-                      nil
-                      step
-                      output-dir
-                      )
-                     ;; (time
-                     ;;  (cl-mpm/dynamic-relaxation:converge-quasi-static
-                     ;;   sim
-                     ;;   :oobf-crit criteria
-                     ;;   :energy-crit criteria
-                     ;;   :kinetic-damping kinetic-damping
-                     ;;   :damping-factor (if adaptive-damping damping nil)
-                     ;;   :dt-scale dt-scale
-                     ;;   :substeps substeps
-                     ;;   :conv-steps 1000
-                     ;;   :post-iter-step
-                     ;;   (lambda (i energy oobf)
-                     ;;     (setf conv-steps (* substeps i))
-                     ;;     (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
-                     ;;                           (/ (cl-mpm::sim-damping-factor sim)
-                     ;;                              (cl-mpm/setup:estimate-critical-damping sim))))
-                     ;;     (format t "Substep ~D~%" i)
-                     ;;     (let ((i (+ 0 i)))
-                     ;;       (when save-vtk-dr
-                     ;;         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
-                     ;;         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
-                     ;;         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) sim)))
-                     ;;     (incf total-iter substeps)
-                     ;;     (save-conv-step sim output-dir total-iter step (/ (- (get-internal-real-time) t0) tunits) oobf energy)
-                     ;;     (setf t0 (get-internal-real-time))
-                     ;;     (funcall plotter sim)
-                     ;;     )))
+                     ;; (converge-staggered
+                     ;;  sim
+                     ;;  criteria
+                     ;;  1d-3
+                     ;;  kinetic-damping
+                     ;;  adaptive-damping
+                     ;;  dt-scale
+                     ;;  substeps
+                     ;;  damping
+                     ;;  t
+                     ;;  nil
+                     ;;  step
+                     ;;  output-dir
+                     ;;  :save-vtk-dr save-vtk-dr
+                     ;;  )
+                     (time
+                      (cl-mpm/dynamic-relaxation:converge-quasi-static
+                       sim
+                       :oobf-crit criteria
+                       :energy-crit criteria
+                       :kinetic-damping kinetic-damping
+                       :damping-factor (if adaptive-damping damping nil)
+                       :dt-scale dt-scale
+                       :substeps substeps
+                       :conv-steps 1000
+                       :post-iter-step
+                       (lambda (i energy oobf)
+                         (setf conv-steps (* substeps i))
+                         (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
+                                               (/ (cl-mpm::sim-damping-factor sim)
+                                                  (cl-mpm/setup:estimate-critical-damping sim))))
+                         (format t "Substep ~D~%" i)
+                         (let ((i (+ 0 i)))
+                           (when save-vtk-dr
+                             (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
+                             (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
+                             (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) sim)))
+
+                         (incf *total-iter* substeps)
+                         (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)
+                         ;; (incf total-iter substeps)
+                         ;; (save-conv-step sim output-dir total-iter step (/ (- (get-internal-real-time) t0) tunits) oobf energy)
+                         ;; (setf t0 (get-internal-real-time))
+                         (funcall plotter sim)
+                         )))
                      (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
                      ))
                  (funcall post-conv-step sim)

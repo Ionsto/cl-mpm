@@ -299,7 +299,7 @@
 (defsystem "cl-mpm/examples/column"
   :depends-on ("cl-mpm/example")
   :serial t
-  :components ((:file "examples/column")))
+  :components ((:file "examples/ample/column")))
 
 (defsystem "cl-mpm/examples/column-virtual-stress"
   :depends-on ("cl-mpm/example")
@@ -416,16 +416,9 @@
   :components ((:file "examples/flow")))
 
 (defsystem "cl-mpm/examples/beam"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/eigenerosion"
-               "vgplot"
-               "swank.live"
-               "cl-mpm/magicl")
+  :depends-on ("cl-mpm/example")
   :serial t
-  :components ((:file "examples/beam")))
+  :components ((:file "examples/ample/beam")))
 
 (defsystem "cl-mpm/examples/shear"
   :depends-on ("cl-mpm"

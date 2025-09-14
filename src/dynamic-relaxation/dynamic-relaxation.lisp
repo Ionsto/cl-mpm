@@ -12,7 +12,11 @@
   ((dt-loadstep
     :initform 1d0
     :initarg :dt-loadstep
-    :accessor sim-dt-loadstep))
+    :accessor sim-dt-loadstep)
+   (damping-scale
+    :initform 1d0
+    :initarg :damping-scale
+    :accessor sim-damping-scale))
   (:default-initargs
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
@@ -204,8 +208,8 @@
                                 oobf-denom)
                              0d0
                              ))))))))
-        (values 0d0 oobf 1d0)
-        ;; (values energy oobf power)
+        ;; (values 0d0 oobf 1d0)
+        (values energy oobf power)
         ))))
 
 (define-condition non-convergence-error (error)
@@ -493,6 +497,11 @@
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
+    (when (typep sim 'mpm-sim-dr)
+      (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim)
+            (if damping-factor
+                damping-factor
+                0d0)))
     (restart-case
         (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping damping-factor)
       (continue ())
@@ -541,9 +550,10 @@
            (converged nil))
 
       (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
-      (when damping-factor
-        (setf (cl-mpm:sim-damping-factor sim)
-              (* damping-factor (cl-mpm/setup::estimate-critical-damping sim))))
+      (if damping-factor
+          (setf (cl-mpm:sim-damping-factor sim)
+              (* damping-factor (cl-mpm/setup::estimate-critical-damping sim)))
+          (setf (cl-mpm:sim-damping-factor sim) 0d0))
 
       (format t "Substeps ~D~%" substeps)
       (let ((full-load (list))
@@ -831,8 +841,9 @@
                    (incf denom (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))))
       (if (> num 0d0)
           (if (= denom 0d0)
-              (cl-mpm/setup::estimate-critical-damping sim)
-              (* 2d0 (sqrt (/ num denom))))
+              ;; (cl-mpm/setup::estimate-critical-damping sim)
+              0d0
+              (* 2 (sqrt (/ num denom))))
           0d0))))
 
 
