@@ -761,6 +761,8 @@
                    (mp-stiffness bc-mp-stiffness)
                    (sim bc-penalty-sim))
       bc
+
+    (reset-load bc)
     (setf (bc-penalty-contact-points bc) nil)
     (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)

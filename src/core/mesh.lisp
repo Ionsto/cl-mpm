@@ -132,6 +132,10 @@
     :accessor node-buoyancy-force
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:vector-zeros))
+   (reaction-force
+    :accessor node-reaction-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (velocity
     :accessor node-velocity
     :initarg :velocity
@@ -259,7 +263,7 @@
    (deformation-gradient
        :accessor cell-deformation-gradient
        :type MAGICL:MATRIX/DOUBLE-FLOAT
-       :initform (cl-mpm/utils:matrix-zeros))
+       :initform (cl-mpm/utils:matrix-eye 1d0))
    (boundary
     :accessor cell-boundary
     :type boolean
@@ -288,10 +292,10 @@
 (defmethod initialize-instance :after ((p cell) &key)
   (with-accessors ((pos cell-centroid)
                    (pos-trial cell-trial-centroid)
-                   )
+                   (def cell-deformation-gradient))
       p
     (setf pos-trial (cl-mpm/utils:vector-copy pos))
-    ))
+    (setf def (cl-mpm/utils:matrix-copy def))))
 
 (defclass node-fracture (node)
   ((strain-energy-density
@@ -782,6 +786,7 @@
                (force force)
                (int-force internal-force)
                (ext-force external-force)
+               (rct-force reaction-force)
                (residual residual)
                (residual-n residual-prev)
                (ghost-force ghost-force)
@@ -807,6 +812,7 @@
     (cl-mpm/fastmaths::fast-zero force)
     (cl-mpm/fastmaths::fast-zero int-force)
     (cl-mpm/fastmaths::fast-zero ext-force)
+    (cl-mpm/fastmaths::fast-zero rct-force)
     (cl-mpm/fastmaths::fast-zero residual)
     (cl-mpm/fastmaths::fast-zero residual-n)
     (cl-mpm/fastmaths::fast-zero damping-force)

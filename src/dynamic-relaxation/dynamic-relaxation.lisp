@@ -16,7 +16,17 @@
    (damping-scale
     :initform 1d0
     :initarg :damping-scale
-    :accessor sim-damping-scale))
+    :accessor sim-damping-scale)
+   (kinetic-damping
+    :initform nil
+    :accessor sim-kinetic-damping)
+   (ke
+    :initform 0d0
+    :accessor sim-ke)
+   (ke-prev
+    :initform 0d0
+    :accessor sim-ke-prev)
+   )
   (:default-initargs
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
@@ -175,10 +185,7 @@
                                       (magicl:@ (magicl:transpose E) f-ext)
                                       d)))
                    (incf power (cl-mpm/fastmaths:dot
-                                disp f-ext
-                                ;; (magicl:@ (magicl:transpose E) disp)
-                                ;; (magicl:@ (magicl:transpose E) f-ext)
-                                ))
+                                disp f-ext))
                    (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
                    )))
       (let ((oobf 0d0)
@@ -489,7 +496,7 @@
                                     (post-iter-step nil)
                                     (convergance-criteria nil)
                                     (pic-update t)
-                                    (kinetic-damping t)
+                                    (kinetic-damping nil)
                                     (damping-factor 1d-1)
                                     )
   "Converge a simulation to a quasi-static solution via dynamic relaxation
@@ -580,10 +587,8 @@
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
-                      ;; (format t "dt adjustment ~E~%" (/ (cl-mpm:sim-dt sim) dt-0))
-                      (when damping-factor
-                        (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
+                      ;; (when damping-factor
+                      ;;   (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
                         (incf *work* power)
@@ -593,7 +598,7 @@
                                (> energy-last energy-first)
                                (> energy-last energy))
                               (progn
-                                ;; (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
+                                (format t "Peak found resetting KE - ~E ~E ~E~%" energy-first energy-last energy)
                                 (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
                                 (cl-mpm:iterate-over-mps
                                  mps
@@ -845,6 +850,34 @@
               0d0
               (* 2 (sqrt (/ num denom))))
           0d0))))
+
+(defun compute-condition (sim)
+  (/ 1d0 (expt (/ (dr-estimate-damping sim) 2) 2)))
+
+(defun calculate-ke (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt))
+      sim
+    (let ((ke 0d0))
+      (setf
+       ke
+       (cl-mpm::reduce-over-nodes
+        mesh
+        (lambda (node)
+          (if (and (cl-mpm/mesh:node-active node)
+                   (not (cl-mpm/mesh::node-agg node)))
+              (cl-mpm/fastmaths::mag-squared 
+               (cl-mpm/mesh:node-velocity node))
+              0d0))
+        #'+))
+
+      (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+              do
+                 (let* ((ma (cl-mpm/aggregate::sim-global-ma sim))
+                        (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+                   (incf ke (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))))
+      ke)))
 
 
 (defun reset-mp-velocity (sim)

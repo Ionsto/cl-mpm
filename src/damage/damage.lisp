@@ -843,7 +843,7 @@ Calls the function with the mesh mp and node"
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)
                       ;; ;Map forces onto nodes
-                      (cl-mpm::p2g-force mesh mps)
+                      (cl-mpm::p2g-force sim)
                       (loop for bcs-f in bcs-force-list
                             do (cl-mpm::apply-bcs mesh bcs-f dt))
                       (cl-mpm::update-node-forces sim)
@@ -884,7 +884,7 @@ Calls the function with the mesh mp and node"
       sim
     (declare (type double-float mass-filter))
     (progn
-      (cl-mpm::check-single-mps sim)
+      ;; (cl-mpm::check-single-mps sim)
       (cl-mpm::reset-grid mesh)
       (cl-mpm::p2g mesh mps)
       ;;Do optional mass filter
@@ -893,7 +893,7 @@ Calls the function with the mesh mp and node"
       (cl-mpm::update-node-kinematics sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       ;; Map forces onto nodes
-      (cl-mpm::p2g-force mesh mps)
+      (cl-mpm::p2g-force sim)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
       (cl-mpm::update-node-forces sim)

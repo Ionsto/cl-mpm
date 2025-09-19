@@ -507,7 +507,7 @@
                "lisp-stat"
                "swank.live")
   :serial t
-  :components ((:file "examples/collapse")))
+  :components ((:file "examples/ample/collapse")))
 
 (defsystem "cl-mpm/examples/rotate"
   :depends-on ("cl-mpm/all"
@@ -530,7 +530,7 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/penalty-friction")))
+  :components ((:file "examples/penalty/penalty-friction")))
 
 
 
@@ -550,7 +550,7 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/chalk")))
+  :components ((:file "examples/chalk/chalk")))
 
 (defsystem "cl-mpm/examples/joss"
   :depends-on ("cl-mpm"
@@ -567,7 +567,7 @@
                "cl-mpm/dynamic-relaxation"
                "cl-mpm/examples/chalk")
   :serial t
-  :components ((:file "examples/joss")))
+  :components ((:file "examples/chalk/joss")))
 
 
 (defsystem "cl-mpm/examples/tpb"
@@ -586,7 +586,7 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/tpb")))
+  :components ((:file "examples/damage/tpb")))
 
 (defsystem "cl-mpm/examples/lbar"
   :depends-on ("cl-mpm"
@@ -606,7 +606,7 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/lbar")))
+  :components ((:file "examples/damage/lbar")))
 (defsystem "cl-mpm/all"
   :depends-on ("cl-mpm"
                "cl-mpm/forces"
@@ -771,3 +771,9 @@
                "cl-mpm/ssa")
   :components ((:file "examples/ssa/box")))
 
+
+
+(defsystem "cl-mpm/examples/billet"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/penalty/billet")))

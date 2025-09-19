@@ -4,11 +4,18 @@
    :cl-mpm/utils)
   )
 (in-package :cl-mpm/examples/beam)
+(declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
+    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+                 (cl-mpm:sim-mps *sim*)
+                 (cl-mpm:sim-dt *sim*)
+                 0d0
+                 :QUASI-STATIC)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
+     :trial t
      :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp)))))
 
 (defun setup (&key (refine 1) (mps 3))
@@ -23,9 +30,11 @@
          (offset-y (- 11 (* 2 d)))
          (center-y (+ offset-y (/ d 2)))
          (block-size (list L d)))
-    (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
-                                               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                                               :args-list (list :enable-aggregate nil)))
+    (setf *sim* (cl-mpm/setup::make-simple-sim
+                 mesh-resolution
+                 element-count
+                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+                 :args-list (list :enable-aggregate t)))
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
@@ -63,18 +72,20 @@
 
     (setf (cl-mpm:sim-dt *sim*)
           (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
-    (setf *run-sim* t)))
+    (setf *run-sim* t))
+  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  )
 
 (defun run ()
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir (format nil "./output/")
    :plotter (lambda (sim) (plot-domain))
-   :load-steps 25
+   :load-steps 5
    :kinetic-damping nil
    :damping 1d0
    :substeps 100
-   :criteria 1d-3
+   :criteria 1d-9
    :save-vtk-dr t
    :save-vtk-loadstep t
    :dt-scale 1d0))

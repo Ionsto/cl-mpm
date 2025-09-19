@@ -218,14 +218,21 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
-                     (let ((res (and (< energy 1d-1)
-                                     (< oobf 1d-1))))
-                       (setf (cl-mpm:sim-mass-scale sim)
-                             (if res
-                                 1d2
-                                 1d0))
-                       (format t "Accelerate real time ~A~%" res))
-                     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+                     ;; (let ((res (and (< energy 1d-1)
+                     ;;                 (< oobf 1d-1))))
+                     ;;   (setf (cl-mpm:sim-mass-scale sim)
+                     ;;         (if res
+                     ;;             1d2
+                     ;;             1d0))
+                     ;;   (format t "Accelerate real time ~A~%" res))
+                     ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+                     ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+
+                     (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
+                       (format t "CFL dt estimate: ~f~%" dt-e)
+                       (format t "CFL step count estimate: ~D~%" substeps-e)
+                       (setf (cl-mpm:sim-dt sim) dt-e)
+                       (setf substeps substeps-e))
                      (format t "Residuals ~E ~E ~%" energy oobf)
                      (save-timestep sim output-dir global-step :DYNAMIC)
                      (funcall plotter sim)
@@ -309,7 +316,7 @@
             while (cl-mpm::sim-run-sim sim)
             do
                (let ((quasi-conv nil))
-                 (loop for i from 0 to 50
+                 (loop for i from 0 to 2
                        while (not quasi-conv)
                        do (multiple-value-bind (conv inc-steps)
                               (step-quasi-time sim step
@@ -384,7 +391,9 @@
                            enable-plasticity
                            step
                            output-dir
-                           &key (save-vtk-dr nil))
+                           &key (save-vtk-dr nil)
+                             (plotter (lambda (sim)))
+                             )
   (let* ((damage-prev (get-damage sim))
          (damage-eval t)
          (damage damage-prev)
@@ -433,7 +442,7 @@
                   (incf *total-iter* substeps)
                   (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy))
                 )
-               (break)
+               (funcall plotter sim)
                (when save-vtk-dr
                  (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
                  (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
@@ -452,6 +461,7 @@
                            (adaptive-damping t)
                            (criteria 1d-3)
                            (post-conv-step (lambda (sim)))
+                           (pre-step (lambda ()))
                            (plotter (lambda (sim)))
                            (save-vtk-dr t)
                            (save-vtk-loadstep t)
@@ -459,6 +469,7 @@
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (save-conv-preamble output-dir)
+  (funcall pre-step)
   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
   (defparameter *total-iter* 0)
   (with-accessors ((mps cl-mpm:sim-mps))
@@ -522,6 +533,8 @@
                            (when save-vtk-dr
                              (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
                              (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) sim)
+                             (cl-mpm/penalty:save-vtk-penalties (merge-pathnames output-dir (format nil "sim_p_~5,'0d_~5,'0d.vtk" step i)) sim)
+
                              (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) sim)))
 
                          (incf *total-iter* substeps)

@@ -1512,22 +1512,23 @@
                                      ))
           ))
       (defparameter *to-damage-mps* (list))
-      (when nil
+      (when t
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.5d0)
+              (start-point (+ 0.5d0 (magicl:tref sloped-inflex-point 0 0)))
               (width                    ;(* 2d0 mesh-size)
                 ;; 0.5d0
-                (* 1d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0)))
+                (* 0.5d0 (cl-mpm/particle::mp-local-length (aref (cl-mpm:sim-mps *sim*) 0)))
                 ))
           (cl-mpm/setup::apply-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
                                                       (cl-mpm/utils:vector-from-list (list (magicl:tref p 0 0)
                                                                               (magicl:tref p 1 0)
                                                                               0d0))
-                                                      (list (- (magicl:tref sloped-inflex-point 0 0)
+                                                      (list (- start-point
                                                                (* cut-back-distance shelf-height-true))
                                                             (float shelf-height 0d0)
                                                             0d0)
-                                                      (list (magicl:tref sloped-inflex-point 0 0)
+                                                      (list start-point
                                                             (float soil-boundary 0d0)
                                                             0d0)
                                                       width))
@@ -1541,17 +1542,15 @@
                                        (when (< v 0d0)
                                          (setf d (- 1d0 1d-9))
                                          )
-                                       ;; (setf (cl-mpm/particle:mp-damage mp)
-                                       ;;       d)
+                                       (setf (cl-mpm/particle:mp-damage mp)
+                                             d)
                                        (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
-                                         (push (list mp k) *to-damage-mps*)
-                                         ;; (setf (cl-mpm/particle::mp-history-stress mp)
-                                         ;;       k)
+                                         ;; (push (list mp k) *to-damage-mps*)
+                                         (setf (cl-mpm/particle::mp-history-stress mp)
+                                               k)
                                          ))
-                                     ;; (cl-mpm/damage::update-damage mp 1d-3)
-                                     ))
-          ))
-      )
+                                     (cl-mpm/damage::update-damage mp 1d-3)
+                                     )))))
 
     ;; (let ((notch-height 0.0d0))
     ;;   (cl-mpm/setup:remove-sdf
@@ -2400,7 +2399,7 @@
   )
 
 (defun test-quasi-time ()
-  (setup :mps 2 :refine 1)
+  (setup :mps 2 :refine 2)
   (let ((dt 1d0)
         (total-time 1000d0))
     (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
@@ -2408,9 +2407,37 @@
     (cl-mpm/dynamic-relaxation::run-quasi-time
      *sim*
      :output-dir "./output/"
-     :dt-scale 0.5d0
+     :dt-scale 1d0
      ;; :substeps 10
+     :substeps 10
      :dt dt
      :steps (round total-time dt)
      ;; :time total-time
      )))
+
+
+(defun test-real-time ()
+  (setup :mps 3 :refine 1)
+  (let ((dt 1d0)
+        (total-time 1000d0)
+        (output-dir "./output/")
+        )
+    (cl-mpm/output::save-simulation-parameters (merge-pathnames "./output/" "settings.json")
+                                               *sim*
+                                               (list :dt 1d0
+                                                     :criteria-energy 1d-3
+                                                     :criteria-oobf 1d-3
+                                                     :criteria-hist 1d0
+                                                     ))
+    (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
+    (change-class *sim* 'cl-mpm/damage::mpm-sim-agg-damage)
+    (cl-mpm/dynamic-relaxation::save-timestep-preamble output-dir)
+    (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
+    (cl-mpm/dynamic-relaxation::step-real-time *sim* 0
+                    :output-dir "./output/"
+                    :plotter (lambda (sim) (plot sim))
+                    :dt-scale 0.9d0
+                    :target-time (* 0.5d0 dt)
+                    :enable-damage t
+                    :enable-plastic t)))

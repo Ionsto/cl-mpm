@@ -434,19 +434,39 @@
 
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
 
-      (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-            do
-               (let ((E (sim-global-e sim))
-                     (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-                 (apply-internal-bcs sim vel-proj d)
-                 (cl-mpm/aggregate::project-global-vec
-                  sim
-                  (magicl:@ E vel-proj)
-                  #'cl-mpm/mesh::node-velocity
-                  d)
-                 )))
+      ;; (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+      ;;       do
+      ;;          (let ((E (sim-global-e sim))
+      ;;                (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+      ;;            (apply-internal-bcs sim vel-proj d)
+      ;;            (cl-mpm/aggregate::project-global-vec
+      ;;             sim
+      ;;             (magicl:@ E vel-proj)
+      ;;             #'cl-mpm/mesh::node-velocity
+      ;;             d)))
+      (unless (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+        (project-velocity sim))
+      )
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
+
+(defun project-velocity (sim)
+  (with-accessors ((sim-mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt)
+                   )
+      sim
+    (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+          do
+             (let ((E (sim-global-e sim))
+                   (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+               (apply-internal-bcs sim vel-proj d)
+               (cl-mpm/aggregate::project-global-vec
+                sim
+                (magicl:@ E vel-proj)
+                #'cl-mpm/mesh::node-velocity
+                d)))
+    (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
 
 (defmethod cl-mpm::update-nodes ((sim cl-mpm/aggregate::mpm-sim-aggregated))
   (with-accessors ((mesh sim-mesh)

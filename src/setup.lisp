@@ -294,19 +294,15 @@
 
 (defun rectangle-sdf (position size)
   (lambda (pos)
-    (let* ((pos (magicl:from-list (list
-                                   (magicl:tref pos 0 0)
-                                   (magicl:tref pos 1 0)) '(2 1) :type 'double-float))
+    (let* ((pos (magicl:from-list (list (varef pos 0) (varef pos 1)) '(2 1) :type 'double-float))
            (position (magicl:from-list position '(2 1) :type 'double-float))
-           (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position))
-                                (magicl:from-list size '(2 1) :type 'double-float))))
-
-      (+ (sqrt (magicl::sum
-                (magicl:map! (lambda (x) (* x x))
-                             (magicl:map! (lambda (x) (max 0d0 x)) dist-vec))))
-         (min (max (magicl:tref dist-vec 0 0)
-                   (magicl:tref dist-vec 1 0))
-              -1d0)))))
+           (size-vec (magicl:from-list size '(2 1) :type 'double-float))
+           (dist-vec (magicl:.- (magicl:map! #'abs (magicl:.- pos position)) size-vec)))
+      (+
+       (sqrt (magicl::sum (magicl:map (lambda (x) (let ((x (max 0d0 x))) (* x x))) dist-vec)))
+       (min 0d0
+            (max (varef dist-vec 0)
+                 (varef dist-vec 1)))))))
 
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))

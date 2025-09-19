@@ -16,23 +16,11 @@
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  ;(cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
-  )
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar))
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-midpoint mesh mp dt)
-  ;; (cl-mpm::update-domain-stretch mesh mp dt)
-  ;; (cl-mpm::update-domain-stretch mesh mp dt)
-  ;; ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
-  ;;Each step we reset key metrics to initial pre-psudo step values
-  )
+  (cl-mpm::update-domain-polar-2d mesh mp dt))
 
 (defun plot-load-disp ()
   (vgplot:semilogy *data-steps* *data-energy*))
@@ -72,8 +60,8 @@
                ;; :sim-type sim-type
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
@@ -81,7 +69,7 @@
                            :split-factor 0.5d0
                            :enable-fbar nil
                            :enable-aggregate t
-                           :vel-algo :QUASI-STATIC
+                           ;; :vel-algo :QUASI-STATIC
                            ;; :vel-algo :PIC
                            :max-split-depth 2
                            ;; :enable-length-localisation nil
@@ -107,13 +95,13 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
-          'cl-mpm/particle::particle-elastic
-          :E 1d6
-          :nu 0.3d0
-          ;; 'cl-mpm/particle::particle-vm
+          ;; 'cl-mpm/particle::particle-elastic
           ;; :E 1d6
           ;; :nu 0.3d0
-          ;; :rho 20d3
+          'cl-mpm/particle::particle-vm
+          :E 1d6
+          :nu 0.3d0
+          :rho 20d3
           ;; :enable-plasticity t
           ;; 'cl-mpm/particle::particle-elastic-damage-delayed
           ;; :E 1d9
@@ -144,13 +132,9 @@
           ;; :phi (* angle (/ pi 180))
           ;; :c (* init-c oversize)
           ;; :softening 0d0
-
           ;; :gravity -10d0
           ;; :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
           )))
-      ;; (cl-mpm/setup::initialise-stress-self-weight
-      ;;  sim
-      ;;  (+ offset (second block-size)))
       ;; (format t "Charictoristic time ~E~%" (/ ))
       ;; (setf (cl-mpm:sim-allow-mp-split sim) t)
       ;; (setf (cl-mpm::sim-max-split-depth sim) 6)
@@ -903,11 +887,10 @@
    :output-dir (format nil "./output/")
    :plotter #'plot
    :load-steps 80
-   :damping 0d0
-   :substeps 10
+   :damping 1d0
+   :substeps 100
    :criteria 1d-9
-   :adaptive-damping nil
-   :kinetic-damping t
+   :adaptive-damping t
    :save-vtk-dr nil
    :save-vtk-loadstep t
    :dt-scale 0.5d0))
