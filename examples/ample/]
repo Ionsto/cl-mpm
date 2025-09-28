@@ -12,8 +12,8 @@
 (declaim (optimize (debug 3) (safety 3) (speed 2)))
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation-incremental mesh mp dt fbar)
   )
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
@@ -103,8 +103,8 @@
              (cl-mpm/setup::make-simple-sim
               (/ 1d0 e-scale)
               (mapcar (lambda (x) (* x e-scale)) size)
-              :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-              ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
+              ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+              :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
               :args-list (list
                           :enable-fbar nil
                           :enable-aggregate t
@@ -751,15 +751,15 @@
 (defun test-dr ()
   (setup :mps 2 :refine 1)
   (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
-  ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
+  (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir "./output/"
    :load-steps 40
    :plotter #'plot-sigma-yy
-   :damping 1d0
+   :damping nil
    :kinetic-damping nil
-   :adaptive-damping 1d0
+   :adaptive-damping nil
    :save-vtk-dr t
    :save-vtk-loadstep t
    :substeps 10

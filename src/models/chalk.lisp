@@ -660,6 +660,7 @@
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
+                     (damage-n cl-mpm/particle::mp-damage-n)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
@@ -710,15 +711,16 @@
               ))
             (let ((new-damage
                     (max
-                     damage
+                     damage-n
                      (damage-response-exponential k E init-stress ductility))))
               (declare (double-float new-damage))
-              (setf damage-inc (- new-damage damage))))
+              (setf damage new-damage)
+              (setf damage-inc (- new-damage damage-n))))
           (if peerlings
               (setf
-               damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
-               damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
-               damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
+               damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+               damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+               damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
               (setf
                damage-tension (* kt-r damage)
                damage-compression (* kc-r damage)
@@ -730,7 +732,7 @@
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
         ;;Transform to log damage
-        (incf damage damage-inc)
+        ;; (incf damage damage-inc)
         ;;Transform to linear damage
         (setf damage (max 0d0 (min 1d0 damage)))
         ;; (when (> damage critical-damage)

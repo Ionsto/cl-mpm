@@ -7,11 +7,11 @@
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
-    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-                 (cl-mpm:sim-mps *sim*)
-                 (cl-mpm:sim-dt *sim*)
-                 0d0
-                 :QUASI-STATIC)
+    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+    ;;              (cl-mpm:sim-mps *sim*)
+    ;;              (cl-mpm:sim-dt *sim*)
+    ;;              0d0
+    ;;              :QUASI-STATIC)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -35,7 +35,11 @@
                  h
                  element-count
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                 :args-list (list :enable-aggregate t)))
+                 :args-list (list :enable-aggregate t
+                                  :enable-fbar t
+                                  :enable-split t
+                                  :vel-algo :QUASI-STATIC
+                                  )))
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
@@ -65,8 +69,8 @@
                                             height
                                             0d0))
        (/ domain-width 2)
-       (* E 1d0)
-       0d0
+       (* E 1d1)
+       0.5d0
        0d0))
     (defparameter *current-inc* 0d0)
     (cl-mpm:add-bcs-force-list
@@ -79,7 +83,7 @@
   )
 
 (defun run ()
-  (let* ((lstps 50)
+  (let* ((lstps 20)
          (total-disp -5d0)
          (delta (/ total-disp lstps)))
     (cl-mpm/dynamic-relaxation::run-load-control
@@ -93,12 +97,13 @@
      :load-steps lstps
      :kinetic-damping nil
      :damping 1d0
-     :substeps 10
-     :criteria 1d-9
+     :substeps 50
+     :criteria 1d-3
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :dt-scale 1d0)))
+     :dt-scale 0.9d0
+     )))
 
 (defun test ()
-  (setup :mps 2)
+  (setup :mps 2 :refine 1)
   (run))

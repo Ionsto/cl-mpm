@@ -194,7 +194,7 @@
                                            offset
                                            0d0))
            (* domain-half 1d0)
-           (* E 1d1)
+           (* E 1d0)
            friction
            1d0)))
       (when (> offset 0d0)
@@ -1039,8 +1039,7 @@
   (cl-mpm/output:save-vtk (merge-pathnames "test.vtk" output-dir) *sim*)
   (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes_0.vtk" output-dir) *sim*)
   (cl-mpm/output:save-vtk-nodes (merge-pathnames "test_nodes_1.vtk" output-dir) *sim*)
-  (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*)
-  )
+  (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) *sim*))
 
 
 

@@ -8,7 +8,7 @@
 (in-package :cl-mpm/dynamic-relaxation)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
-(defclass mpm-sim-dr (cl-mpm::mpm-sim)
+(defclass mpm-sim-dr (cl-mpm/aggregate::mpm-sim-aggregated)
   ((dt-loadstep
     :initform 1d0
     :initarg :dt-loadstep
@@ -80,8 +80,8 @@
                  node
                (declare (double-float mass))
                (let (;(mass 1d0)
-                     ;; (scale-factor (expt mass 1))
-                     (scale-factor 1d0)
+                     (scale-factor (expt mass 1))
+                     ;; (scale-factor 1d0)
                      ;; (scale-factor (/ volume volume-t))
                      )
                  (list
@@ -95,7 +95,6 @@
              (list 0d0 0d0 0d0 0d0 0d0)))
        (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
     (declare (double-float mass energy oobf-num oobf-denom power))
-    ;; (break)
     (let ((oobf 0d0))
       (if (> oobf-denom 0d0)
           (setf oobf (/ oobf-num oobf-denom))
@@ -111,7 +110,7 @@
                             (n-mass cl-mpm/mesh::node-mass)
                             (node-oobf cl-mpm/mesh::node-oobf))
                node
-             (when (and active
+             (if (and active
                         (or
                          (not agg) (cl-mpm/mesh::node-interior node)))
                (when t
@@ -120,15 +119,15 @@
                             (/ (* n-mass (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
                                oobf-denom)
                            0d0
-                           ))))))))
+                           )))
+               (setf node-oobf 0d0))))))
       (values (/ energy mass) oobf (/ power mass)))))
 
 (defun combi-stats-aggregated (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
-    (destructuring-bind (mass
-                         energy
+    (destructuring-bind (energy
                          oobf-num
                          oobf-denom
                          power)
@@ -149,19 +148,15 @@
                                 )
                    node
                  (declare (double-float mass))
-                 (let ((scale-factor 1d0))
+                 (let ()
                    (list
-                    scale-factor
-                    (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
-                    (* scale-factor (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
-                    (* scale-factor (cl-mpm/fastmaths::mag-squared f-ext))
-                    (* scale-factor
-                       (cl-mpm/fastmaths:dot
-                        disp f-ext)))))
-               (list 0d0 0d0 0d0 0d0 0d0)))
+                    (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
+                    (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))
+                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (cl-mpm/fastmaths:dot disp f-ext))))
+               (list 0d0 0d0 0d0 0d0)))
          (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
-      (declare (double-float mass energy oobf-num oobf-denom power))
-      (setf mass 1d0)
+      (declare (double-float  energy oobf-num oobf-denom power))
       (when sim-agg
         (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
               do (let* ((f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
@@ -206,7 +201,7 @@
                               (n-mass cl-mpm/mesh::node-mass)
                               (node-oobf cl-mpm/mesh::node-oobf))
                  node
-               (when (and active
+               (if (and active
                           (not agg))
                  (when t
                    (setf node-oobf
@@ -214,8 +209,8 @@
                              (/ (* n-mass (cl-mpm/fastmaths::mag (cl-mpm/fastmaths::fast-.+-vector f-ext f-int)))
                                 oobf-denom)
                              0d0
-                             ))))))))
-        ;; (values 0d0 oobf 1d0)
+                             )))
+                 (setf node-oobf 0d0))))))
         (values energy oobf power)
         ))))
 
@@ -495,7 +490,7 @@
                                     (conv-steps 50)
                                     (post-iter-step nil)
                                     (convergance-criteria nil)
-                                    (pic-update t)
+                                    (pic-update nil)
                                     (kinetic-damping nil)
                                     (damping-factor 1d-1)
                                     )
@@ -745,11 +740,17 @@
                    (stats-power cl-mpm::sim-stats-power)
                    (stats-work cl-mpm::sim-stats-work))
       sim
-    (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
-      (setf stats-energy e
-            stats-oobf o
-            stats-power p)
-      (incf stats-work p))))
+    (if (cl-mpm/aggregate::sim-enable-aggregate sim)
+      (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+        (setf stats-energy e
+              stats-oobf o
+              stats-power p)
+        (incf stats-work p))
+      (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
+        (setf stats-energy e
+              stats-oobf o
+              stats-power p)
+        (incf stats-work p)))))
 
 
 ;; (defun dr-estimate-damping (sim)

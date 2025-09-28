@@ -6,7 +6,6 @@
     #:make-particle-elastic
     #:make-particle-elastic-damage
     #:mp-mass
-    #:mp-nd
     #:mp-volume
     #:mp-position
     #:mp-velocity
@@ -82,9 +81,11 @@
     :initform (cl-mpm/utils:vector-zeros))
    (true-domain
     :accessor mp-true-domain
-    :type magicl:matrix/double-float
+    :type (or magicl:matrix/double-float null)
     :initarg :true-domain
-    :initform (cl-mpm/utils::matrix-eye 1d0))
+    :initform nil
+    ;; (cl-mpm/utils::matrix-eye 1d0)
+    )
    (mass
      :accessor mp-mass
      :type double-float
@@ -100,10 +101,6 @@
     :type double-float
     :initarg :volume
     :initform 1d0)
-   (nD
-     :accessor mp-nd
-     :type integer
-     :initarg :nD)
    (index
      :accessor mp-index
      :type integer
@@ -211,12 +208,6 @@
      :initform 0d0;-9.8d0
      :initarg :gravity
      )
-   (viscous-damping
-    :type double-float
-    :accessor mp-viscous-damping
-    :initform 0d0
-    :initarg :damping
-    )
    (pressure
     :type double-float
     :accessor mp-pressure
@@ -230,12 +221,10 @@
     :type double-float
     :accessor mp-pressure-head
     :initform 0d0)
-
    (boundary
     :type double-float
     :accessor mp-boundary
-    :initform 0d0
-    )
+    :initform 0d0)
    (gravity-axis
     :type magicl:matrix/double-float
     :accessor mp-gravity-axis
@@ -277,11 +266,6 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
-   (fixed-velocity
-    :accessor mp-fixed-velocity
-    :type list
-    :initarg :fixed-velocity
-    :initform nil)
    (j-fbar
     :accessor mp-j-fbar
     :initform 1d0)
@@ -304,6 +288,10 @@
     :initform 0d0)
    (penalty-frictional-force
     :accessor mp-penalty-frictional-force
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::vector-zeros))
+   (penalty-frictional-force-prev
+    :accessor mp-penalty-frictional-force-prev
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils::vector-zeros))
    (penalty-normal-force
@@ -329,6 +317,14 @@
     :type double-float
     :initform 0d0
     )
+   (penalty-stiffness
+    :accessor mp-penalty-stiffness
+    :type double-float
+    :initform 0d0)
+   (penalty-contact-point
+    :accessor mp-penalty-contact-point
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils::vector-zeros))
    )
   (:documentation "A single material point"))
 
@@ -394,15 +390,36 @@
                    (position-trial mp-position-trial)
                    (gravity-axis mp-gravity-axis))
       p
-    (cl-mpm/utils:matrix-copy-into position position-trial)
+    ;;(cl-mpm/utils:matrix-copy-into position position-trial)
+    (setf position-trial (cl-mpm/utils:vector-copy position))
     (setf gravity-axis (cl-mpm/utils::deep-copy gravity-axis))
-    (setf
-     (magicl:tref domain-true 0 0) (varef domain 0)
-     (magicl:tref domain-true 1 1) (varef domain 1)
-     (magicl:tref domain-true 2 2) (varef domain 2)))
+    (unless domain-true
+      (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
+      (setf
+       (magicl:tref domain-true 0 0) (varef domain 0)
+       (magicl:tref domain-true 1 1) (varef domain 1)
+       (magicl:tref domain-true 2 2) (varef domain 2)))
+    )
   )
 
-(defmethod reinitialize-instance :after ((p particle) &key)
+(defmethod reinitialize-instance :after ((p particle) &rest initargs &key)
+  (with-accessors ((domain mp-domain-size)
+                   (domain-true mp-true-domain)
+                   (position mp-position)
+                   (position-trial mp-position-trial)
+                   (gravity-axis mp-gravity-axis))
+      p
+    ;;(cl-mpm/utils:matrix-copy-into position position-trial)
+    (setf position-trial (cl-mpm/utils:vector-copy position))
+    ;; (setf gravity-axis (cl-mpm/utils::deep-copy gravity-axis))
+    (unless domain-true
+      (setf domain-true (cl-mpm/utils::matrix-eye 1d0))
+      (setf
+       (magicl:tref domain-true 0 0) (varef domain 0)
+       (magicl:tref domain-true 1 1) (varef domain 1)
+       (magicl:tref domain-true 2 2) (varef domain 2)))
+    )
+  ;; (call-next-method)
   ;; (with-accessors ((domain mp-domain-size)
   ;;                  (domain-true mp-true-domain))
   ;;     p
@@ -413,7 +430,9 @@
   )
 
 (defmethod initialize-instance :after ((p particle-elastic) &key)
-  (update-elastic-matrix p))
+  (update-elastic-matrix p)
+  ;; (call-next-method)
+  )
 (defmethod (setf mp-elastic-approximation) :after (value (p particle-elastic))
   (update-elastic-matrix p))
 
@@ -501,7 +520,6 @@
         (setf position (magicl:from-list (mapcar (lambda (x) (coerce x 'double-float)) position) (list nD 1))))
     (let ((stress-size 3))
       (let ((mp (apply #'make-instance constructor
-                      :nD nD
                       :volume (coerce volume 'double-float)
                       :mass (coerce mass 'double-float)
                       :position position
@@ -947,12 +965,15 @@
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
+                   (fric-force cl-mpm/particle::mp-penalty-frictional-force)
+                   (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev)
                    )
       mp
     (cl-mpm/utils:matrix-copy-into def-0 def)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain-n strain)
     (cl-mpm/utils:vector-copy-into position position-trial)
+    (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
     (setf volume volume-n)
     ))
 (defmethod reset-loadstep-mp ((mp particle-damage))
@@ -982,11 +1003,13 @@
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
-                   )
+                   (fric-force cl-mpm/particle::mp-penalty-frictional-force)
+                   (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev))
       mp
     (cl-mpm/utils:matrix-copy-into def def-0)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
+    (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
     (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))

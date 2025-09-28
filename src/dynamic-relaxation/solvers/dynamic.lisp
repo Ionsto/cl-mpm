@@ -145,7 +145,7 @@
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-      (cl-mpm::p2g-force-fs mesh mps)
+      (cl-mpm::p2g-force-fs sim)
       (cl-mpm::apply-bcs mesh bcs-force dt)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))

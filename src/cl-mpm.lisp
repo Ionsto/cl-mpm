@@ -247,7 +247,3 @@
   (:documentation "Explicit simulation with multiple meshes"))
 
 
-(defclass test-class ()
-  ((my-slot
-    :initarg :slot
-    :accessor test-slot)))

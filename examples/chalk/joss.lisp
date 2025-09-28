@@ -8,9 +8,9 @@
   (+ 1d0 (* 10 (cl-mpm/particle::mp-damage mp)))
   ;(setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
   )
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (sb-ext:restrict-compiler-policy 'speed  3 3)
 (sb-ext:restrict-compiler-policy 'debug  0 0)
@@ -135,10 +135,10 @@
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;; (cl-mpm::update-domain-det mesh mp dt)
-  (cl-mpm::update-domain-stretch mesh mp dt)
+  ;; (cl-mpm::update-domain-stretch mesh mp dt)
   ;; (cl-mpm::update-domain-corner mesh mp dt)
   ;; (cl-mpm::co-domain-corner-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
@@ -384,9 +384,9 @@
                            :enable-fbar t
                            :enable-aggregate t
                            :vel-algo :QUASI-STATIC
-                           :max-split-depth 2
-                           :enable-length-localisation nil
-                           :enable-split nil))
+                           :max-split-depth 4
+                           :enable-length-localisation t
+                           :enable-split t))
 
               )
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -429,7 +429,7 @@
            :E E
            :nu 0.24d0
            :enable-damage t
-           :enable-plasticity nil
+           :enable-plasticity t
            :friction-angle angle
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
@@ -437,11 +437,11 @@
            :peerlings-damage t
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
-           :delay-time 1d1
+           :delay-time 1d2
            :delay-exponent 2d0
            :ductility ductility
            :critical-damage 1d0;(- 1.0d0 1d-3)
-           :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
+           ;; :damage-domain-rate 0.9d0;This slider changes how GIMP update turns to uGIMP under damage
 
            :local-length length-scale
            :local-length-damaged 10d-10
@@ -1258,7 +1258,7 @@
          (shelf-height 15)
          ;(soil-boundary (floor (* 15 1)))
          (soil-boundary 2)
-         (shelf-aspect 1)
+         (shelf-aspect 2)
          (runout-aspect 1)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
@@ -1512,7 +1512,8 @@
                                      ))
           ))
       (defparameter *to-damage-mps* (list))
-      (when t
+      ;;Pre-cut failure plane
+      (when nil
         (let ((cut-height (* 0.5d0 shelf-height-true))
               (cut-back-distance 0.5d0)
               (start-point (+ 0.5d0 (magicl:tref sloped-inflex-point 0 0)))
@@ -1595,20 +1596,18 @@
 
 
 (defun setup-3d ()
-  (let* ((mesh-size 1.0)
-         (mps-per-cell 3)
+  (let* ((mesh-size 0.5)
+         (mps-per-cell 2)
          (shelf-height 15.0)
          (soil-boundary 2)
-         (shelf-aspect 0.5)
+         (shelf-aspect 1)
          (runout-aspect 0.5)
          (shelf-length (* shelf-height shelf-aspect))
          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
          (shelf-height-true shelf-height)
          (shelf-height (+ shelf-height soil-boundary))
-         (depth-aspect 1.00d0)
-         (depth 5d0
-           ;; (* depth-aspect shelf-height)
-           )
+         (depth-aspect 2.00d0)
+         (depth 15d0)
          (offset (list 0 (* 0 mesh-size)
                        0
                        ))
@@ -1691,7 +1690,8 @@
                                            sloped-inflex-point)
                                           )
                                       1d0)
-                                  ))
+                                  )
+                                :refine 1)
       (let ((cut-height (* 0.0d0 shelf-height-true)))
         (cl-mpm/setup::damage-sdf
          *sim*
@@ -1741,7 +1741,9 @@
                                           sloped-inflex-point)
                                          )
                                        1d0)
-                                   ))
+                                   )
+                                 :refine 1
+                                 )
   )
 
       )
@@ -1784,199 +1786,199 @@
     (defparameter *energy* 0)
     (defparameter *sim-step* 0))
 
-(defun setup-under (&key (mesh-size 0.5d0) (mps-per-cell 2) (height 15d0))
-  (let* (
-         ;; (mesh-size 0.5)
-         ;; (mps-per-cell 2)
-         (shelf-height ;15.0
-           height
-                       )
-         (soil-boundary 2)
-         (shelf-aspect 1.0)
-         (runout-aspect 2.0)
-         (shelf-length (* shelf-height shelf-aspect))
-         (domain-length (+ shelf-length (* runout-aspect shelf-height)))
-         (shelf-height-true shelf-height)
-         (shelf-height (+ shelf-height soil-boundary))
-         (depth 400)
-         (offset (list 0 (* 0 mesh-size)
-                       ;; 0
-                       ))
-         )
-    (defparameter *sim*
-      (setup-test-column (list domain-length
-                               (+ shelf-height (* 5 mesh-size))
-                               ;; depth
-                               )
-                         (list domain-length shelf-height
-                               ;; depth
-                               )
-                         offset
-                         (/ 1d0 mesh-size) mps-per-cell))
+;; (defun setup-under (&key (mesh-size 0.5d0) (mps-per-cell 2) (height 15d0))
+;;   (let* (
+;;          ;; (mesh-size 0.5)
+;;          ;; (mps-per-cell 2)
+;;          (shelf-height ;15.0
+;;            height
+;;                        )
+;;          (soil-boundary 2)
+;;          (shelf-aspect 1.0)
+;;          (runout-aspect 2.0)
+;;          (shelf-length (* shelf-height shelf-aspect))
+;;          (domain-length (+ shelf-length (* runout-aspect shelf-height)))
+;;          (shelf-height-true shelf-height)
+;;          (shelf-height (+ shelf-height soil-boundary))
+;;          (depth 400)
+;;          (offset (list 0 (* 0 mesh-size)
+;;                        ;; 0
+;;                        ))
+;;          )
+;;     (defparameter *sim*
+;;       (setup-test-column (list domain-length
+;;                                (+ shelf-height (* 5 mesh-size))
+;;                                ;; depth
+;;                                )
+;;                          (list domain-length shelf-height
+;;                                ;; depth
+;;                                )
+;;                          offset
+;;                          (/ 1d0 mesh-size) mps-per-cell))
 
-    ;;Refine around tip
-    (dotimes (i 0)
-      (dolist (dir (list :x
-                         :y
-                         ))
-        (cl-mpm::split-mps-criteria
-         *sim*
-         (lambda (mp h)
-           (when
-               (and
-                (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                   (- shelf-length
-                      ;; 3d0
-                      (* 0.5d0 shelf-height)
-                      ))
-                (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
-                   shelf-length)
-                (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                   soil-boundary
-                   )
-                ;; (< (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
-                ;;    (- shelf-height 13d0)
-                ;;    )
-                )
-             dir
-             )))))
-    (loop for mp across (cl-mpm::sim-mps *sim*)
-          do (setf (cl-mpm/particle::mp-split-depth mp) 0))
+;;     ;;Refine around tip
+;;     (dotimes (i 0)
+;;       (dolist (dir (list :x
+;;                          :y
+;;                          ))
+;;         (cl-mpm::split-mps-criteria
+;;          *sim*
+;;          (lambda (mp h)
+;;            (when
+;;                (and
+;;                 (> (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+;;                    (- shelf-length
+;;                       ;; 3d0
+;;                       (* 0.5d0 shelf-height)
+;;                       ))
+;;                 (< (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)
+;;                    shelf-length)
+;;                 (> (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
+;;                    soil-boundary
+;;                    )
+;;                 ;; (< (magicl:tref (cl-mpm/particle:mp-position mp) 1 0)
+;;                 ;;    (- shelf-height 13d0)
+;;                 ;;    )
+;;                 )
+;;              dir
+;;              )))))
+;;     (loop for mp across (cl-mpm::sim-mps *sim*)
+;;           do (setf (cl-mpm/particle::mp-split-depth mp) 0))
 
-    (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
-           (measured-angle 78d0)
-           (undercut-angle ;(- 82.5d0 90d0)
-             0d0
-             ;; (- measured-angle 90d0)
-                           )
-           ;; (undercut-angle 0d0)
-           (normal (magicl:from-list (list
-                                      (cos (- (* pi (/ undercut-angle 180d0))))
-                                      (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
-           (sloped-inflex-point
-             (magicl:from-list (list (- shelf-length (* (tan (- (* pi (/ undercut-angle 180d0)))) sloped-height))
-                                     soil-boundary)
-                               '(2 1) :type 'double-float)))
-      (cl-mpm/setup::remove-sdf *sim*
-                               (lambda (p)
-                                 (if (and
-                                      (> (magicl:tref p 1 0) soil-boundary))
-                                     (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
-                                         (cl-mpm/setup::plane-point-sdf
-                                          (magicl:from-list (list (magicl:tref p 0 0)
-                                                                  (magicl:tref p 1 0)) '(2 1))
-                                          normal
-                                          (magicl:from-list (list shelf-length soil-boundary)
-                                                            '(2 1) :type 'double-float))
+;;     (let* ((sloped-height (- (- shelf-height soil-boundary) 7d0))
+;;            (measured-angle 78d0)
+;;            (undercut-angle ;(- 82.5d0 90d0)
+;;              0d0
+;;              ;; (- measured-angle 90d0)
+;;                            )
+;;            ;; (undercut-angle 0d0)
+;;            (normal (magicl:from-list (list
+;;                                       (cos (- (* pi (/ undercut-angle 180d0))))
+;;                                       (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+;;            (sloped-inflex-point
+;;              (magicl:from-list (list (- shelf-length (* (tan (- (* pi (/ undercut-angle 180d0)))) sloped-height))
+;;                                      soil-boundary)
+;;                                '(2 1) :type 'double-float)))
+;;       (cl-mpm/setup::remove-sdf *sim*
+;;                                (lambda (p)
+;;                                  (if (and
+;;                                       (> (magicl:tref p 1 0) soil-boundary))
+;;                                      (if (< (magicl:tref p 1 0) (+ soil-boundary sloped-height))
+;;                                          (cl-mpm/setup::plane-point-sdf
+;;                                           (magicl:from-list (list (magicl:tref p 0 0)
+;;                                                                   (magicl:tref p 1 0)) '(2 1))
+;;                                           normal
+;;                                           (magicl:from-list (list shelf-length soil-boundary)
+;;                                                             '(2 1) :type 'double-float))
 
-                                         (cl-mpm/setup::plane-point-sdf
-                                          (magicl:from-list (list (magicl:tref p 0 0)
-                                                                  (magicl:tref p 1 0)) '(2 1))
-                                          (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
-                                          sloped-inflex-point)
-                                         )
-                                     1d0)
-                                 ))
-      (let ((cut-height (* 0.0d0 shelf-height-true)))
-        (cl-mpm/setup::damage-sdf
-         *sim*
-         (lambda (p)
-           (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
-               (funcall
-                (cl-mpm/setup::rectangle-sdf
-                 (list (- (magicl:tref sloped-inflex-point 0 0)
-                          (* 0.15d0 shelf-height-true))
-                       shelf-height)
-                 (list (* 1.0d0 mesh-size) cut-height)
-                 ) p)
-               0.99d0)
-           ))))
-    ;; (let ((sand-layer 3d0))
-    ;;   (cl-mpm/setup::apply-sdf
-    ;;    *sim*
-    ;;    (lambda (p)
-    ;;      (if (and
-    ;;           (> (magicl:tref p 1 0) (- soil-boundary sand-layer))
-    ;;           (> (magicl:tref p 0 0) shelf-length))
-    ;;          0d0
-    ;;          1d0))
-    ;;    (lambda (mp)
-    ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
-    ;;   )
-    (let* ((notched-depth 0.0d0)
-       (undercut-angle 45d0)
-       (notched-width (* 0.5 notched-depth))
-       (d-mid 0d0
-              ;(/ depth 2)
-              )
-       (normal (magicl:from-list (list
-                                  (cos (- (* pi (/ undercut-angle 180d0))))
-                                  (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
+;;                                          (cl-mpm/setup::plane-point-sdf
+;;                                           (magicl:from-list (list (magicl:tref p 0 0)
+;;                                                                   (magicl:tref p 1 0)) '(2 1))
+;;                                           (magicl:from-list (list 1d0 0d0) '(2 1)  :type 'double-float)
+;;                                           sloped-inflex-point)
+;;                                          )
+;;                                      1d0)
+;;                                  ))
+;;       (let ((cut-height (* 0.0d0 shelf-height-true)))
+;;         (cl-mpm/setup::damage-sdf
+;;          *sim*
+;;          (lambda (p)
+;;            (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+;;                (funcall
+;;                 (cl-mpm/setup::rectangle-sdf
+;;                  (list (- (magicl:tref sloped-inflex-point 0 0)
+;;                           (* 0.15d0 shelf-height-true))
+;;                        shelf-height)
+;;                  (list (* 1.0d0 mesh-size) cut-height)
+;;                  ) p)
+;;                0.99d0)
+;;            ))))
+;;     ;; (let ((sand-layer 3d0))
+;;     ;;   (cl-mpm/setup::apply-sdf
+;;     ;;    *sim*
+;;     ;;    (lambda (p)
+;;     ;;      (if (and
+;;     ;;           (> (magicl:tref p 1 0) (- soil-boundary sand-layer))
+;;     ;;           (> (magicl:tref p 0 0) shelf-length))
+;;     ;;          0d0
+;;     ;;          1d0))
+;;     ;;    (lambda (mp)
+;;     ;;      (setf (cl-mpm/particle::mp-damage mp) 0.9d0)))
+;;     ;;   )
+;;     (let* ((notched-depth 0.0d0)
+;;        (undercut-angle 45d0)
+;;        (notched-width (* 0.5 notched-depth))
+;;        (d-mid 0d0
+;;               ;(/ depth 2)
+;;               )
+;;        (normal (magicl:from-list (list
+;;                                   (cos (- (* pi (/ undercut-angle 180d0))))
+;;                                   (sin (- (* pi (/ undercut-angle 180d0))))) '(2 1)))
 
-       )
-      (cl-mpm/setup:remove-sdf *sim*
-                               (lambda (p)
-                                 (if (and
-                                      (> (magicl:tref p 1 0) soil-boundary)
-                                      (> (magicl:tref p 2 0) (- d-mid notched-width))
-                                      (< (magicl:tref p 2 0) (+ d-mid notched-width))
-                                      )
-                                     (let
-                                         (
-                                          (sloped-inflex-point
-                                            (magicl:from-list (list
-                                                               (- shelf-length (* notched-depth
-                                                                                  (- 1d0 (/ (abs (- (magicl:tref p 2 0) d-mid)) notched-width))
-                                                                                  ))
-                                                               soil-boundary)
-                                                              '(2 1) :type 'double-float))
-                                          )
-                                       (cl-mpm/setup::plane-point-sdf
-                                        (magicl:from-list (list (magicl:tref p 0 0)
-                                                                (magicl:tref p 1 0)) '(2 1))
-                                        normal
-                                        sloped-inflex-point)
-                                       )
-                                     1d0)
-                                 ))
-  )
+;;        )
+;;       (cl-mpm/setup:remove-sdf *sim*
+;;                                (lambda (p)
+;;                                  (if (and
+;;                                       (> (magicl:tref p 1 0) soil-boundary)
+;;                                       (> (magicl:tref p 2 0) (- d-mid notched-width))
+;;                                       (< (magicl:tref p 2 0) (+ d-mid notched-width))
+;;                                       )
+;;                                      (let
+;;                                          (
+;;                                           (sloped-inflex-point
+;;                                             (magicl:from-list (list
+;;                                                                (- shelf-length (* notched-depth
+;;                                                                                   (- 1d0 (/ (abs (- (magicl:tref p 2 0) d-mid)) notched-width))
+;;                                                                                   ))
+;;                                                                soil-boundary)
+;;                                                               '(2 1) :type 'double-float))
+;;                                           )
+;;                                        (cl-mpm/setup::plane-point-sdf
+;;                                         (magicl:from-list (list (magicl:tref p 0 0)
+;;                                                                 (magicl:tref p 1 0)) '(2 1))
+;;                                         normal
+;;                                         sloped-inflex-point)
+;;                                        )
+;;                                      1d0)
+;;                                  ))
+;;   )
 
-     (let ((notch-height 0.0d0))
-       (cl-mpm/setup:remove-sdf *sim*
-                                (lambda (p)
-                                  (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
-                                      (funcall
-                                       (cl-mpm/setup::rectangle-sdf
-                                        (list shelf-length (+ notch-height soil-boundary))
-                                        (list (* 2d0 notch-height) notch-height)
-                                        ) p)
-                                      1d0)
-                                  )))
-     (setf cl-mpm::*max-split-depth* 6)
+;;      (let ((notch-height 0.0d0))
+;;        (cl-mpm/setup:remove-sdf *sim*
+;;                                 (lambda (p)
+;;                                   (if t ;(< (abs (- (magicl:tref p 2 0) (* 0.5d0 depth))) 20d0)
+;;                                       (funcall
+;;                                        (cl-mpm/setup::rectangle-sdf
+;;                                         (list shelf-length (+ notch-height soil-boundary))
+;;                                         (list (* 2d0 notch-height) notch-height)
+;;                                         ) p)
+;;                                       1d0)
+;;                                   )))
+;;      (setf cl-mpm::*max-split-depth* 6)
 
-     ;; (let ((ratio 1.0d0))
-     ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
-     ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
-     ;;                                                                        (magicl:tref p 1 0)) '(2 1))
-     ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
-     ;;                                                (list shelf-length soil-boundary)
-     ;;                                                10d0
-     ;;                                                )) 1.0d0))
-     )
-    ;; (let ((upper-random-bound 0.5d0))
-    ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
-    ;;         do (setf (cl-mpm/particle::mp-damage mp)
-    ;;                  (reduce #'*
-    ;;                          (loop for i from 0 to 2
-    ;;                                collect (random upper-random-bound))))))
-    (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
-    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
-    (defparameter *run-sim* t)
-    (defparameter *t* 0)
-    (defparameter *oobf* 0)
-    (defparameter *energy* 0)
-    (defparameter *sim-step* 0))
+;;      ;; (let ((ratio 1.0d0))
+;;      ;;   (cl-mpm/setup::damage-sdf *sim* (lambda (p) (cl-mpm/setup::line-sdf
+;;      ;;                                                (magicl:from-list (list (magicl:tref p 0 0)
+;;      ;;                                                                        (magicl:tref p 1 0)) '(2 1))
+;;      ;;                                                (list (- shelf-length (* shelf-height ratio)) shelf-height)
+;;      ;;                                                (list shelf-length soil-boundary)
+;;      ;;                                                10d0
+;;      ;;                                                )) 1.0d0))
+;;      )
+;;     ;; (let ((upper-random-bound 0.5d0))
+;;     ;;   (loop for mp across (cl-mpm:sim-mps *sim*)
+;;     ;;         do (setf (cl-mpm/particle::mp-damage mp)
+;;     ;;                  (reduce #'*
+;;     ;;                          (loop for i from 0 to 2
+;;     ;;                                collect (random upper-random-bound))))))
+;;     (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
+;;     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+;;     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./output/")) do (uiop:delete-file-if-exists f))
+;;     (defparameter *run-sim* t)
+;;     (defparameter *t* 0)
+;;     (defparameter *oobf* 0)
+;;     (defparameter *energy* 0)
+;;     (defparameter *sim-step* 0))
 
 (defun test-energy (strain k)
   (let* ((E 1d0)
@@ -2399,8 +2401,11 @@
   )
 
 (defun test-quasi-time ()
-  (setup :mps 2 :refine 2)
-  (let ((dt 1d0)
+  (setup :mps 2 :refine 2 :notch-length 1d0)
+  ;; (setup-3d)
+  (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  (let ((dt 50d0)
         (total-time 1000d0))
     (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
@@ -2409,9 +2414,37 @@
      :output-dir "./output/"
      :dt-scale 1d0
      ;; :substeps 10
-     :substeps 10
+     :plotter (lambda (sim) (plot sim))
+     :conv-criteria 1d-3
+     :substeps 20
      :dt dt
      :steps (round total-time dt)
+     ;; :enable-plastic nil
+     ;; :time total-time
+     )))
+
+(defun test-multi ()
+  (setup :mps 2 :refine 1 :notch-length 2d0)
+  ;; (setup-3d)
+  (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  (let ((dt 5d0)
+        (total-time 1000d0))
+    (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
+    (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
+    (cl-mpm/dynamic-relaxation::run-multi-stage
+     *sim*
+     :output-dir "./output/"
+     :dt-scale 1d0
+     ;; :substeps 10
+     :plotter (lambda (sim) (plot sim))
+     :conv-criteria 1d-3
+     :substeps 20
+     :dt dt
+     :max-adaptive-steps 6
+     :steps (round total-time dt)
+     :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+     ;; :enable-plastic nil
      ;; :time total-time
      )))
 

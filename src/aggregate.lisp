@@ -329,6 +329,15 @@
       (setf (sim-global-e sim) E)
       (setf (sim-global-ma sim) (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-mass-matrix sim) E)))))
 
+(defun update-mass-matrix (sim)
+  "Assuming that we already have an extension matrix, attempt to update the mass matrix directly"
+  (when (sim-enable-aggregate sim)
+    (let ((E (cl-mpm/aggregate::sim-global-e sim)))
+      (setf (sim-global-ma sim) (magicl:@
+                                 (magicl:transpose E)
+                                 (cl-mpm/aggregate::assemble-global-mass-matrix sim)
+                                 E)))))
+
 
 (defun calculate-kinematics-agg (sim)
   (with-accessors ((mesh cl-mpm::sim-mesh))

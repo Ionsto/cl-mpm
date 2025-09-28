@@ -1,6 +1,5 @@
 (in-package :cl-mpm)
 ;;MP splitting code goes in here
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 
@@ -14,7 +13,8 @@
           ((typep (slot-value original slot) 'magicl::abstract-tensor)
            (setf (slot-value copy slot)
                  ;; (magicl:deep-copy-tensor (slot-value original slot))
-                 (magicl:scale (slot-value original slot) 1d0)
+                 ;; (magicl:scale (slot-value original slot) 1d0)
+                 (cl-mpm/utils::deep-copy (slot-value original slot))
                  ))
           (t (setf (slot-value copy slot)
                   (slot-value original slot))))))
@@ -107,6 +107,7 @@
       (let ((domain-scaler (magicl:eye 3)))
         (setf (tref domain-scaler ,dimension ,dimension) 0.5d0)
         (setf new-domain (magicl:@ true-domain domain-scaler)))
+
       (cl-mpm/fastmaths::fast-.* lens new-size new-size)
       (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
       (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
@@ -133,6 +134,7 @@
                       :split-depth new-split-depth
                       :true-domain (cl-mpm/utils:matrix-copy new-domain)
                       )))))
+
 (defmacro split-cases (direction)
   "Another helper macro for splitting mps"
   `(cond

@@ -504,7 +504,6 @@
                                    epsilon
                                    ;; h
                                    (expt volume (/ (- nd 1) nd)))))
-             (pprint normal-force)
              (sb-thread:with-mutex (*debug-mutex*)
                (incf *debug-force* (* normal-force 1d0))
                (incf *debug-force-count* 1))
@@ -613,6 +612,7 @@
                        (mp-mass cl-mpm/particle::mp-mass)
                        (mp-contact cl-mpm/particle::mp-penalty-contact)
                        (mp-friction cl-mpm/particle::mp-penalty-frictional-force)
+                       (mp-friction-n cl-mpm/particle::mp-penalty-frictional-force-prev)
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
@@ -628,6 +628,10 @@
             ;; (break)
             (let ((new-stiff (compute-mp-stiffness mp)))
               (setf mp-stiffness (min new-stiff (if mp-stiffness mp-stiffness new-stiff))))
+
+            (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction))))
+            (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
+
             (let* (
                    ;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
                    (mp-disp-inc disp-inc)
@@ -645,7 +649,6 @@
 
                    (normal-damping (* 2d0 damping (sqrt (* epsilon mp-mass)) contact-area))
                    (damping-force (* normal-damping rel-vel))
-
                    (force-friction mp-friction)
                    (stick-friction (* friction (abs normal-force))))
               ;; update trial frictional force
@@ -654,10 +657,14 @@
                 ;; (pprint tang-disp-norm-squared)
                 (when (> tang-disp-norm-squared 0d0)
                   ;; (pprint tang-disp)
+                  (cl-mpm/utils:vector-copy-into mp-friction-n force-friction)
                   (cl-mpm/fastmaths::fast-fmacc
                    force-friction
                    tang-disp
-                   (* -1d0 (/ epsilon 2d0))))
+                   (* -1d0 (/ epsilon 2d0)))
+
+                  (setf (cl-mpm/particle::mp-penalty-stiffness mp) (+ (* 2d0 epsilon contact-area) (* contact-area (cl-mpm/fastmaths::mag force-friction))))
+                  )
 
                 (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
                   (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
@@ -702,8 +709,7 @@
                                                      svp)
                        (cl-mpm/fastmaths::fast-fmacc node-damp-force
                                                      normal
-                                                     (* -1d0 svp damping-force))
-                       )))))
+                                                     (* -1d0 svp damping-force)))))))
               (values normal-force))))))))
 
 (defgeneric resolve-load-direction (bc direction))
@@ -889,9 +895,8 @@
          (let (;; (disp-inc (cl-mpm/particle::mp-displacement-increment mp))
                )
            (when t;(early-sweep-intersection bc mp)
-             (
-              cl-mpm::iterate-over-midpoints
-              ;cl-mpm::iterate-over-corners
+             (cl-mpm::iterate-over-midpoints
+              ;; cl-mpm::iterate-over-corners
               mesh
               mp
               (lambda (corner-trial)
@@ -1218,3 +1223,106 @@
      (<= (cl-mpm/fastmaths:dot b-c b-trial) (cl-mpm/fastmaths:dot b-c b-c))
      )))
 
+(defun iterate-over-penalty-point-normal ())
+
+(defun assemble-penalty-stiffness-matrix (sim)
+  "For dynamic relaxation, it is helpful to assemble the estimated maximum stiffness onto the mass matrix"
+  (with-accessors ((mps sim-mps)
+                   (mesh sim-mesh)
+                   (dt-scale cl-mpm::sim-dt-scale))
+      sim
+    ;; (cl-mpm::iterate-over-bcs-force
+    ;;  sim
+    ;;  (lambda (bc)
+    ;;    ()
+
+    ;;    ))
+    (cl-mpm::iterate-over-mps
+       mps
+       (lambda (mp)
+         (when (cl-mpm/particle::mp-penalty-contact mp)
+           (with-accessors ((mp-stiffness cl-mpm/particle::mp-penalty-stiffness))
+               mp
+             ;; (cl-mpm::iterate-over-midpoints
+             ;;  mesh mp
+             ;;  (lambda (point)
+             ;;    (cl-mpm::iterate-over-neighbours-point-linear
+             ;;     mesh
+             ;;     point
+             ;;     (lambda (mesh node svp grads)
+             ;;       (with-accessors ((node-active cl-mpm/mesh:node-active)
+             ;;                        (node-volume cl-mpm/mesh::node-volume)
+             ;;                        (node-mass cl-mpm/mesh::node-mass)
+             ;;                        (node-lock cl-mpm/mesh::node-lock))
+             ;;           node
+             ;;         (declare (double-float node-mass node-volume mp-stiffness))
+             ;;         (when node-active
+             ;;           (sb-thread:with-mutex (node-lock)
+             ;;             (setf
+             ;;              node-mass
+             ;;              (+
+             ;;               node-mass
+             ;;               (* svp mp-stiffness))
+             ;;              ;; (max
+             ;;              ;;  node-mass
+             ;;              ;;  (* 1d0
+             ;;              ;;     (/ (* ;; (expt (cl-mpm/mesh::mesh-resolution mesh) 2)
+             ;;              ;;         node-volume
+             ;;              ;;         mp-stiffness) dt-scale)))
+             ;;              ))))))))
+             ;; (cl-mpm::iterate-over-neighbours-point-linear
+             ;;  mesh
+             ;;  (cl-mpm/particle::mp-penalty-contact-point mp)
+             ;;  (lambda (mesh node svp grads)
+             ;;    (with-accessors ((node-active cl-mpm/mesh:node-active)
+             ;;                     (node-volume cl-mpm/mesh::node-volume)
+             ;;                     (node-mass cl-mpm/mesh::node-mass)
+             ;;                     (node-lock cl-mpm/mesh::node-lock))
+             ;;        node
+             ;;      (declare (double-float node-mass node-volume mp-stiffness))
+             ;;      (when node-active
+             ;;        (sb-thread:with-mutex (node-lock)
+             ;;          (setf
+             ;;           node-mass
+             ;;           ;; mp-stiffness
+             ;;           (max
+             ;;            node-mass
+             ;;            (/ (* 10 svp mp-stiffness) dt-scale)
+             ;;            ;; (/ mp-stiffness dt-scale)
+             ;;            )
+             ;;           ))))))
+             (iterate-over-neighbours
+              mesh mp
+              (lambda (mesh mp node svp grads fsvp fgrads)
+                (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                 (node-volume cl-mpm/mesh::node-volume)
+                                 (node-mass cl-mpm/mesh::node-mass)
+                                 (node-lock cl-mpm/mesh::node-lock))
+                    node
+                  (declare (double-float node-mass node-volume mp-stiffness))
+                  (when node-active
+                    (sb-thread:with-mutex (node-lock)
+                      (setf
+                       node-mass
+                       ;; (+
+                       ;;  node-mass
+                       ;;  (* svp mp-stiffness))
+                       (+
+                        node-mass
+                        (* 1d0 (/ (* node-volume mp-stiffness) dt-scale))
+                        ;; (* 1.5d0 (/ (* node-volume mp-stiffness) dt-scale))
+                        )
+                       ))))))
+             ))))
+    ))
+
+
+(defun reset-penalty (sim)
+  (cl-mpm:iterate-over-mps
+   (sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
+     ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
+     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
+     ))
+  )

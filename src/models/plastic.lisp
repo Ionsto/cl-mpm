@@ -128,6 +128,7 @@
                    (strain mp-strain)
                    (strain-n mp-strain-n)
                    (yield-func mp-yield-func)
+                   (def mp-deformation-gradient)
                    (p-mod mp-p-modulus)
                    (E mp-e)
                    (nu mp-nu)
@@ -135,7 +136,7 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
+    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) 2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
 
@@ -150,15 +151,16 @@
               (vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
               (K (/ e (* 3 (- 1d0 (* 2 nu)))))
               (G (/ e (* 2 (+ 1d0 nu)))))
-          (when (and (> ps-vm-inc 0d0)
-                     (> eps-vm 0d0))
-            (setf p-mod
-                  (+ K
-                     (if (<= f 0d0)
-                         (* 4/3 G)
-                         0d0)
-                   ;; (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm)))))
-                   ))))
+          ;; (when (and (> ps-vm-inc 0d0)
+          ;;            (> eps-vm 0d0))
+          ;;   (setf p-mod
+          ;;         (+ K
+          ;;            (if (<= f 0d0)
+          ;;                (* 4/3 G)
+          ;;                0d0)
+          ;;          ;; (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm)))))
+          ;;          )))
+          )
         ))
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)

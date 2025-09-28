@@ -199,6 +199,18 @@ Calls func with only the node"
           (funcall func bc)))))
   (values))
 
+(defun iterate-over-bcs-force (sim func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func))
+  (let ((bcs-f (sim-bcs-force-list sim)))
+    (loop for bcs in bcs-f
+          do (lparallel:pdotimes (i (array-total-size bcs))
+               (let ((bc (aref bcs i)))
+                 (when bc
+                   (funcall func bc))))))
+  (values))
+
 (defun iterate-over-bcs-force-serial (sim func)
   "Helper function for iterating over all nodes in a mesh
    Calls func with only the node"

@@ -117,6 +117,7 @@
                    (:file "criteria")
                    (:file "damage")
                    (:file "delay-damage")
+                   (:file "solver")
                    ))
                  (:file "models/damage"))
                )))
@@ -139,7 +140,7 @@
   :description "MPM output helper functions"
   :serial t
   :components ((:file "src/output")))
-                                        ;
+
 (defsystem "cl-mpm/shape-function"
   :depends-on ("cl-mpm/magicl"
                "symbolic-derivation")
@@ -167,8 +168,23 @@
       ((:file "dynamic-relaxation")
        (:file "solvers/quasi-static")
        (:file "solvers/dynamic")
-       (:file "algorithms"))))))
-  )
+       (:file "algorithms")))))))
+
+
+(defsystem "cl-mpm/dynamic-relaxation-mpi"
+  :depends-on ("cl-mpm/dynamic-relaxation"
+               "cl-mpm/mpi")
+  :description "MPM implicit with MPI"
+  :serial t
+  :components
+  ((:module "src"
+    :serial t
+    :components
+    ((:module "dynamic-relaxation"
+      :serial t
+      :components
+      ((:file "mpi/solvers")))))))
+
 (defsystem "cl-mpm/ext"
   :depends-on ("cl-mpm/magicl"
                "cffi"

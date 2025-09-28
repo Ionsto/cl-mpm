@@ -84,15 +84,21 @@
 
 (defmethod reset-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
-                   (k-n    cl-mpm/particle::mp-history-stress-n))
+                   (k-n    cl-mpm/particle::mp-history-stress-n)
+                   (damage    cl-mpm/particle::mp-damage)
+                   (damage-n    cl-mpm/particle::mp-damage-n))
       mp
-    (setf k k-n)
+    (setf k k-n damage damage-n)
+    (cl-mpm/damage::update-damage mp 0d0)
     (call-next-method)))
+
 (defmethod new-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
-                   (k-n    cl-mpm/particle::mp-history-stress-n))
+                   (k-n    cl-mpm/particle::mp-history-stress-n)
+                   (damage    cl-mpm/particle::mp-damage)
+                   (damage-n    cl-mpm/particle::mp-damage-n))
       mp
-    (setf k-n k)
+    (setf k-n k damage-n damage)
     (call-next-method)))
 
 (defclass particle-elastic-damage-delayed (particle-elastic-damage)
