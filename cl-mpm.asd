@@ -742,16 +742,6 @@
   :serial t
   :components ((:file "src/models/visco")))
 
-(defsystem "cl-mpm/implicit"
-  :depends-on ("cl-mpm"
-               "cl-mpm/utils"
-               "cl-mpm/constitutive"
-               "cl-mpm/output"
-               "cl-mpm/particle")
-  :description "Implicit quasi-static implementation"
-  :serial t
-  :components ((:file "src/implicit")))
-
 (defsystem "cl-mpm/examples/ice-visco"
   :depends-on ("cl-mpm/example"
                "cl-mpm/erosion"
