@@ -524,6 +524,7 @@
                            (adaptive-damping t)
                            (criteria 1d-3)
                            (post-conv-step (lambda (sim)))
+                           (post-iter-step (lambda (sub-iter oobf energy)))
                            (pre-step (lambda ()))
                            (plotter (lambda (sim)))
                            (save-vtk-dr t)
@@ -588,6 +589,7 @@
                        :conv-steps 1000
                        :post-iter-step
                        (lambda (i energy oobf)
+                         (funcall post-iter-step i energy oobf)
                          (setf conv-steps (* substeps i))
                          (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
                                                (/ (cl-mpm::sim-damping-factor sim)
