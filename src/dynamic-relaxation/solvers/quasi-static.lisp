@@ -200,7 +200,7 @@
       ;;   (setf ke-prev ke))
       (cl-mpm::update-dynamic-stats sim)
       ;; (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
-      ))
+      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
   "Update stress last algorithm"
