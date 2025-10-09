@@ -159,6 +159,7 @@
                "cl-mpm/damage"
                "cl-mpm/aggregate"
                "swank.live"
+               "vgplot"
                "cl-mpm/utils")
   :description "MPM dynamic relaxation helpers - allows for modelling quasi-static problems"
   :serial t
