@@ -96,6 +96,10 @@
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initarg :velocity
     :initform (cl-mpm/utils:vector-zeros))
+   (acceleration
+    :accessor mp-acceleration
+    :type MAGICL:MATRIX/DOUBLE-FLOAT
+    :initform (cl-mpm/utils:vector-zeros))
    (volume
     :accessor mp-volume
     :type double-float

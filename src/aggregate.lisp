@@ -409,9 +409,11 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (if (cl-mpm/mesh::node-agg node)
-             (cl-mpm::calculate-forces node damping 0d0 mass-scale)
-             (cl-mpm::calculate-forces node damping dt mass-scale)))))
+         (cl-mpm::calculate-forces node damping 0d0 mass-scale)
+         ;; (if (cl-mpm/mesh::node-agg node)
+         ;;     (cl-mpm::calculate-forces node damping 0d0 mass-scale)
+         ;;     (cl-mpm::calculate-forces node damping dt mass-scale))
+         )))
 
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
@@ -425,13 +427,19 @@
                           (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
                    (apply-internal-bcs sim fa d)
                    (let* ((acc (magicl:linear-solve ma fa)))
-                     (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)))))
+                     (cl-mpm/aggregate::apply-internal-bcs sim acc d)
+                     ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+                     ;; (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
+                     (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+                     ))))
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       (iterate-over-nodes
        mesh
        (lambda (node)
          (when (and (cl-mpm/mesh:node-active node)
-                    (cl-mpm/mesh::node-agg node))
+                    (or
+                     (cl-mpm/mesh::node-interior node)
+                     (not (cl-mpm/mesh::node-agg node))))
            (with-accessors ((mass node-mass)
                             (vel node-velocity)
                             (force node-force)
@@ -462,8 +470,7 @@
 (defun project-velocity (sim)
   (with-accessors ((sim-mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
-                   (dt cl-mpm:sim-dt)
-                   )
+                   (dt cl-mpm:sim-dt))
       sim
     (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
           do

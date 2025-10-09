@@ -126,6 +126,7 @@
   "Update cell data, useful for ghost penalty"
   (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                    (active cl-mpm/mesh::cell-active)
+                   (partial cl-mpm/mesh::cell-partial)
                    (neighbours cl-mpm/mesh::cell-neighbours)
                    (index cl-mpm/mesh::cell-index)
                    (nodes cl-mpm/mesh::cell-nodes)
@@ -135,7 +136,10 @@
                    (trial-pos cl-mpm/mesh::cell-trial-centroid)
                    )
       cell
-    (when active
+    (when (and
+           active
+           (not partial)
+           )
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
       (setf (varef df 0) 1d0

@@ -250,6 +250,16 @@ Calls func with only the node"
 
   (values))
 
+(defun reduce-over-cells (mesh map reduce)
+  "Apply a map-reduce over all the cells active or not"
+  (with-accessors ((nodes cl-mpm/mesh::mesh-cells))
+      mesh
+    (lparallel:pmap-reduce
+     map
+     reduce
+     (make-array (array-total-size nodes)
+                 :displaced-to nodes))))
+
 (defun reduce-over-nodes (mesh map reduce)
   (with-accessors ((nodes cl-mpm/mesh:mesh-nodes))
       mesh

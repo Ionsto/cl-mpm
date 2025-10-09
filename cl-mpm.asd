@@ -10,6 +10,12 @@
   :components ((:file "src/settings"))
   :description "Dummy package that can be used to define settings")
 
+(defsystem "cl-mpm/errors"
+  :components ((:file "src/errors"))
+  :description "Package that contains the different kinds of error that are signaled")
+
+
+
 (defsystem "cl-mpm/magicl"
   :depends-on ("magicl"
                "magicl/ext-expokit")
@@ -111,14 +117,12 @@
                 :components
                 ((:module "damage"
                   :serial t
-                  :components
-                  ((:file "package")
-                   (:file "softening")
-                   (:file "criteria")
-                   (:file "damage")
-                   (:file "delay-damage")
-                   (:file "solver")
-                   ))
+                  :components ((:file "package")
+                               (:file "softening")
+                               (:file "criteria")
+                               (:file "damage")
+                               (:file "delay-damage")
+                               (:file "solver")))
                  (:file "models/damage"))
                )))
 (defsystem "cl-mpm/eigenerosion"
@@ -165,7 +169,9 @@
     ((:module "dynamic-relaxation"
       :serial t
       :components
-      ((:file "dynamic-relaxation")
+      ((:file "package")
+       (:file "criteria")
+       (:file "dynamic-relaxation")
        (:file "solvers/quasi-static")
        (:file "solvers/dynamic")
        (:file "algorithms")))))))

@@ -16,8 +16,8 @@
 (in-package :cl-mpm/buoyancy)
 
 ;(defgeneric virtual-stress ())
-(defun pressure-at-depth (z datum-true rho)
-  (let* ((g -9.8d0)
+(defun pressure-at-depth (z datum-true rho g)
+  (let* (;; (g -9.8d0)
          (datum datum-true)
          (h (- datum z))
          (f (* rho g h))
@@ -27,8 +27,8 @@
         0d0)
     ))
 (declaim (notinline buoyancy-virtual-stress))
-(defun buoyancy-virtual-stress (z datum-true rho)
-  (let* ((g -9.8d0)
+(defun buoyancy-virtual-stress (z datum-true rho g)
+  (let* (;; (g -9.8d0)
          (datum datum-true)
          (h (- datum z))
          (f (* 1d0 rho g h))
@@ -37,8 +37,8 @@
         (voigt-from-list (list f f f 0d0 0d0 0d0))
         (voigt-zeros))))
 
-(defun buoyancy-virtual-div (z datum-true rho)
-  (let* ((g -9.8d0)
+(defun buoyancy-virtual-div (z datum-true rho g)
+  (let* (;; (g -9.8d0)
          (datum datum-true)
          (h (- datum z))
          (f (* -1d0 rho g))
@@ -162,12 +162,15 @@
 (defun check-neighbour-cell (cell)
   "Check if neighbour cell has nodes in"
   (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                   (active cl-mpm/mesh::cell-active)
+                   (partial cl-mpm/mesh::cell-partial)
                    (nodes cl-mpm/mesh::cell-nodes))
       cell
-    (if (> mp-count 0)
+    (if (and active (not partial))
+     ;(> mp-count 0)
         (progn
-          (loop for n in nodes
-                do (setf (cl-mpm/mesh::node-boundary-node n) t))
+          ;; (loop for n in nodes
+          ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
           t)
         nil)))
 
@@ -435,6 +438,17 @@
                   (funcall clip-function pos))
          (setf boundary t))))))
 
+(defun set-boundary (cell)
+  (with-accessors ((nodes cl-mpm/mesh::cell-nodes)
+                   (boundary cl-mpm/mesh::cell-boundary))
+      cell
+    (setf boundary t)
+    (loop for n in nodes
+          do
+             (when (cl-mpm/mesh:node-active n)
+               (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                 (setf (cl-mpm/mesh::node-boundary-node n) t))))))
+
 (defgeneric locate-mps-cells (sim clip-function))
 (defmethod locate-mps-cells (sim clip-function)
   "mark boundary nodes based on neighbour mp inclusion"
@@ -445,7 +459,7 @@
         ;;the aproach described by the paper
         ;; (populate-cell-mp-count mesh mps)
         ;; (populate-cell-mp-count-gimp mesh mps)
-        (populate-cell-mp-count-volume mesh mps clip-function)
+        ;; (populate-cell-mp-count-volume mesh mps clip-function)
         ;; (populate-cell-nodes mesh mps)
         ;; (prune-buoyancy-nodes mesh '(0 0) 300)
         (cl-mpm::iterate-over-cells
@@ -457,26 +471,37 @@
                             (nodes cl-mpm/mesh::cell-nodes)
                             (pruned cl-mpm/mesh::cell-pruned)
                             (active cl-mpm/mesh::cell-active)
+                            (partial cl-mpm/mesh::cell-partial)
                             (boundary cl-mpm/mesh::cell-boundary)
                             (pos cl-mpm/mesh::cell-centroid))
                cell
              (setf boundary nil)
-             (when (and (= mp-count 0)
-                        (funcall clip-function pos)
-                        (not pruned))
-               (setf boundary t)
+             ;; (when (and
+             ;;        (funcall clip-function pos)
+             ;;        active partial)
+             ;;   (set-boundary cell))
+             (when (and
+                    active
+                    partial
+                    (funcall clip-function pos)
+                    (not pruned))
+               (set-boundary cell)
+               ;; (setf boundary t)
                ;; (loop for n in (cl-mpm/mesh::cell-nodes cell)
                ;;       do (setf (cl-mpm/mesh::node-boundary-node n) t))
                (loop for neighbour in neighbours
                      do
                         (when (funcall clip-function (cl-mpm/mesh::cell-centroid neighbour))
                           (when (check-neighbour-cell neighbour)
-                            (setf (cl-mpm/mesh::cell-boundary neighbour) t)
-                            (loop for n in nodes
-                                  do
-                                     (when (cl-mpm/mesh:node-active n)
-                                       (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                                         (setf (cl-mpm/mesh::node-boundary-node n) t))))))))))))))
+                            ;; (setf (cl-mpm/mesh::cell-boundary neighbour) t)
+                            (set-boundary neighbour)
+                            ;; (setf boundary t)
+                            ;; (loop for n in nodes
+                            ;;       do
+                            ;;          (when (cl-mpm/mesh:node-active n)
+                            ;;            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                            ;;              (setf (cl-mpm/mesh::node-boundary-node n) t))))
+                            ))))))))))
 
 (defmethod locate-mps-cells ((sim cl-mpm/mpi:mpm-sim-mpi) clip-function)
   "mark boundary nodes based on neighbour mp inclusion"
@@ -820,9 +845,9 @@
             (apply-buoyancy
              sim
              (lambda (pos)
-               (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+               (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
              (lambda (pos)
-               (buoyancy-virtual-div (tref pos 1 0) datum rho))
+               (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
              (lambda (pos datum)
                (and
                 (cell-clipping pos datum)
@@ -832,9 +857,9 @@
           (apply-buoyancy
            sim
            (lambda (pos)
-             (buoyancy-virtual-stress (tref pos 1 0) datum rho))
+             (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
            (lambda (pos)
-             (buoyancy-virtual-div (tref pos 1 0) datum rho))
+             (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
            (lambda (pos datum)
              (and
               (funcall clip-func pos datum)))
@@ -889,7 +914,7 @@
                   ;; (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
                   (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                              (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
                     ;; (setf mp-pfunc
                     ;;       (lambda (p)
                     ;;         (pressure-at-depth (tref p 1 0) datum rho)))
@@ -989,7 +1014,7 @@
                                 (mp-pfunc cl-mpm/particle::mp-pressure-func)
                                 )
                    mp
-                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                 (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
                  ;; (setf pressure -1d0)
                  ;; (setf mp-pfunc
                  ;;       (lambda (p)
@@ -1018,11 +1043,12 @@
      (with-accessors ((pos cl-mpm/mesh::cell-centroid)
                       (trial-pos cl-mpm/mesh::cell-trial-centroid)
                       (cell-active cl-mpm/mesh::cell-active)
+                      (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
                       (cell-pressure cl-mpm/mesh::cell-pressure)
                       (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
-       (when t;cell-active
+       (when nil;cell-active
          (let* (
                 ;; (pos (cl-mpm/fastmaths:fast-.+ pos disp))
                 (cell-stress (funcall func-stress trial-pos))
@@ -1274,7 +1300,7 @@
       ;;Apply body force
       (apply-buoyancy-body
        mesh mps
-       (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho))))
+       (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))))
        ;; (lambda (mp)
        ;;   (cl-mpm/fastmaths:fast-scale-vector
        ;;    (cl-mpm/particle::mp-gravity-axis mp)
@@ -1312,7 +1338,7 @@
                 (when node
                   (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                              (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
+                    (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
                     (setf mp-datum datum
                           mp-head rho))))))))))))
 

@@ -487,7 +487,6 @@
                      (tau-exp cl-mpm/particle::mp-delay-exponent)
                      (ductility cl-mpm/particle::mp-ductility)
                      (nu cl-mpm/particle::mp-nu)
-                     (p cl-mpm/particle::mp-p-modulus)
                      ) mp
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
         (progn
@@ -662,6 +661,10 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
+                   (p-mod         cl-mpm/particle::mp-p-modulus)
+                   (E cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   (def cl-mpm/particle::mp-deformation-gradient)
                    (enable-damage cl-mpm/particle::mp-enable-damage))
       mp
     (declare (double-float damage damage-t damage-c damage-s))
@@ -679,7 +682,21 @@
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (- p pressure))
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
-               stress))))))
+               stress))
+        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+              (G (/ e (* 2 (+ 1d0 nu)))))
+          (setf K
+                (if (> p 0d0)
+                    (* (- 1d0 damage-t) K)
+                    (* (- 1d0 damage-c) K)))
+          (setf G (* G (- 1d0 damage-s)))
+          (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
+            ;; (setf G 0d0)
+            (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
+            (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
+            )
+          (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G)))))
+        ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-delayed) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
@@ -687,8 +704,10 @@
                    (stress cl-mpm/particle::mp-stress)
                    (damage cl-mpm/particle::mp-damage)
                    (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus)
                    )
       mp
+    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-damage
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
@@ -700,3 +719,4 @@
       ;;                           (cl-mpm/constitutive::voight-eye (* ;; (magicl:det def)
       ;;                                                               (/ p 3) damage)) stress)
     ))
+

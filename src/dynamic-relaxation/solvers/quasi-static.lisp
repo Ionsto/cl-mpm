@@ -39,17 +39,19 @@
                     (sb-thread:with-mutex (node-lock)
                       (incf node-mass (/ (* 2
                                             mp-pmod
-                                            (/ 1d0 (expt
-                                                    (min (cl-mpm/utils::mtref def 0 0)
-                                                         (cl-mpm/utils::mtref def 1 1))
-                                                    ;; (cl-mpm/fastmaths:det def)
-                                                    2))
+                                            ;; (/ 1d0 (expt
+                                            ;;         (min (cl-mpm/utils::mtref def 0 0)
+                                            ;;              (cl-mpm/utils::mtref def 1 1))
+                                            ;;         ;; (cl-mpm/fastmaths:det def)
+                                            ;;         2))
                                             svp mp-volume
                                             mass-scale)
                                          node-true-v))))))))))))
     )
   )
-(defun update-node-fictious-mass (sim)
+(defgeneric update-node-fictious-mass (sim))
+
+(defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr))
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (dt cl-mpm::sim-dt))
       sim
@@ -67,8 +69,7 @@
                (cl-mpm:sim-dt sim)
                (cl-mpm:sim-damping-factor sim)
                (cl-mpm::sim-velocity-algorithm sim))
-  (call-next-method)
-  )
+  (call-next-method))
 (defun midpoint-starter (sim)
      (with-slots ((mesh cl-mpm::mesh)
                   (mps cl-mpm::mps)

@@ -95,6 +95,7 @@
       (progn
         ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
         ;; (cl-mpm/fastmaths:fast-scale! disp-inc dt)
+        (cl-mpm/utils:vector-copy acc (cl-mpm/particle::mp-acceleration mp))
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
