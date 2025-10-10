@@ -479,8 +479,7 @@
               (not (cl-mpm/mesh::cell-partial c)))
          (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
          0d0))
-   #'max)
-  )
+   #'max))
 
 (defun criteria-deformation-gradient (sim &key (criteria 10d0))
   (%criteria-deformation-gradient sim criteria))
