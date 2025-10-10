@@ -96,14 +96,14 @@
            ;;     (/ energy mass))
            power)))))
 
-(defun damage-increment-criteria (sim &key (threshold 0.5d0))
+(defun damage-increment-criteria (sim &key (criteria 0.5d0))
   (let ((lock (sb-thread:make-mutex))
         (result nil))
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle::particle-damage)
-         (when (> (cl-mpm/particle::mp-damage-increment mp) threshold)
+         (when (> (cl-mpm/particle::mp-damage-increment mp) criteria)
            (setf result t)))))
     result))
 
