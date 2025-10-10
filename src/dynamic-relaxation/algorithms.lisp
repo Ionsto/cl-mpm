@@ -433,7 +433,6 @@
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps
-                                                     :save-vtk-dr 
                                                      :enable-damage enable-damage
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
