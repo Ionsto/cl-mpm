@@ -198,10 +198,10 @@
                         (funcall plotter sim)
                         (vgplot:title (format nil "substep ~D - oobf: ~E" i o))
                         (incf total-i)
-                        (when (= (mod i 50) 0)
-                          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                          )
+                        ;; (when (= (mod i 50) 0)
+                        ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                        ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                        ;;   )
                         (when (criteria-deformation-gradient sim)
                           (error (make-instance 'non-convergence-error
                                                 :text "Deformation gradient J exceeded"
@@ -349,6 +349,7 @@
                           (substeps 50)
                           (enable-damage t)
                           (enable-plastic t)
+                          (save-vtk-dr t)
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
   (let ()
     (uiop:ensure-all-directories-exist (list output-dir))
@@ -390,8 +391,9 @@
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
          (incf *total-iter* substeps)
          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
-         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
-         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)))
+         ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+         ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+         ))
       (cl-mpm::finalise-loadstep sim)
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
@@ -431,6 +433,7 @@
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps
+                                                     :save-vtk-dr 
                                                      :enable-damage enable-damage
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
