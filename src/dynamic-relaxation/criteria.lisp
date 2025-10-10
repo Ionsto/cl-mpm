@@ -471,16 +471,21 @@
 
 
 
+(defmethod compute-max-deformation (sim)
+  (cl-mpm::reduce-over-cells
+   (cl-mpm:sim-mesh sim)
+   (lambda (c)
+     (if (and (cl-mpm/mesh::cell-active c)
+              (not (cl-mpm/mesh::cell-partial c)))
+         (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
+         0d0))
+   #'max)
+  )
+
 (defun criteria-deformation-gradient (sim &key (criteria 10d0))
   (%criteria-deformation-gradient sim criteria))
 (defgeneric %criteria-deformation-gradient (sim criteria))
 (defmethod %criteria-deformation-gradient (sim criteria)
   (>
-   (cl-mpm::reduce-over-cells
-    (cl-mpm:sim-mesh sim)
-    (lambda (c)
-      (if (cl-mpm/mesh::cell-active c)
-          (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
-          0d0))
-    #'max)
+   (compute-max-deformation sim)
    criteria))
