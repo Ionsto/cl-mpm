@@ -251,7 +251,7 @@
           (values t stagger-iters)))
     (error (c)
       (princ c)
-      (princ (text c))
+      ;; (princ (text c))
       (cl-mpm::reset-loadstep sim)
       (values nil 0)))
   )
