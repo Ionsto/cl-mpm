@@ -203,7 +203,7 @@
                         ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                         ;;   )
                         (format t "Def crit ~E~%" (compute-max-deformation sim))
-                        (when (criteria-deformation-gradient sim :criteria 100d0)
+                        (when (criteria-deformation-gradient sim :criteria 10d0)
                           (format t "Deformation gradient criteria exceeded~%")
                           (error (make-instance 'non-convergence-error
                                                 :text "Deformation gradient J exceeded"
