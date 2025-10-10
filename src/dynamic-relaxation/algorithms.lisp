@@ -231,7 +231,7 @@
                      (setf damage-prev damage)
                      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                      (incf stagger-iters)
-                     (when (damage-increment-criteria sim)
+                     (when (damage-increment-criteria sim :criteria 0.8d0)
                        (format t "Damage criteria failed~%")
                        (error (make-instance 'non-convergence-error
                                              :text "Damage criteria exeeded"
@@ -440,7 +440,7 @@
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria)
-                                  (format t "Quasi-conv? ~A" quasi-conv)
+                                  (format t "Quasi-conv? ~A~%" quasi-conv)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (unless quasi-conv
@@ -455,30 +455,31 @@
                                           (loop-finish))
                                         (incf current-adaptivity)))))
                            finally (progn
-                                     (format t "Finished with ~D dt adaptions - stagger iters ~D~%" i stagger-iters)
+                                     (format t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
                                      (when (and (= i 1) (<= stagger-iters 3))
                                        (setf current-adaptivity
                                              (max min-adaptive-steps
                                                   (- current-adaptivity 1)))))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
+                     (format t "Start real-timestepping~%")
                      (let ((dt-loadstep (* 1d0 (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
-                       (format t "Start real-timestepping~%")
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
                        (change-class sim explicit-dynamic-solver)
-                       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
+                       (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
                        ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
                        (step-real-time sim step
                                        :output-dir output-dir
                                        :plotter plotter
                                        :dt-scale explicit-dt-scale
-                                       :criteria 1d-2
+                                       :criteria 1d-3
                                        :damping 1d-3
                                        :target-time (* 0.1d0 dt-loadstep)
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)
                        ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
+                       (format t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt-loadstep))
                      )
@@ -490,7 +491,9 @@
                    (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
                    (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
                    (swank.live:update-swank)))))
-    ))
+    )
+  (format t "Finished algorithm~%")
+  )
 
 
 
