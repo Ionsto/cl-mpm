@@ -388,7 +388,7 @@
        :dt-scale dt-scale
        :conv-steps 1000
        :substeps substeps
-       :damping-factor (sqrt 2)
+       :damping-factor 1d0;1(sqrt 2)
        :post-iter-step
        (lambda (i e o)
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
