@@ -64,6 +64,7 @@
   ;;DR algorithm requires that finalisation is called once
   (setf (sim-initial-setup sim) nil)
   ;; (cl-mpm::update-nodes sim)
+  ;; (pprint (cl-mpm::sim-velocity-algorithm sim))
   (cl-mpm::g2p (cl-mpm:sim-mesh sim)
                (cl-mpm:sim-mps sim)
                (cl-mpm:sim-dt sim)
@@ -185,6 +186,8 @@
             do (cl-mpm::apply-bcs mesh bcs-f dt))
       (update-node-fictious-mass sim)
       (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
@@ -247,6 +250,7 @@
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
     ;; (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
+    (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (with-accessors ((mesh cl-mpm:sim-mesh)

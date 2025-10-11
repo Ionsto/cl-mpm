@@ -429,6 +429,7 @@
 
           (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
           (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
+          (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
           ;; (save-vector-nodes "force-rct" #'cl-mpm/mesh::node-force-)
 
           ;; (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
@@ -497,8 +498,7 @@
       (format fs "POINTS ~d double~%" (length mps))
       (loop for mp across mps
             do
-               (let ((pos (cl-mpm/particle::mp-position-trial mp) ;; (cl-mpm/particle::mp-position mp)
-                          ))
+               (let ((pos (cl-mpm/particle::mp-position-trial mp)))
                  (format fs "~E ~E ~E ~%"
                          (coerce (cl-mpm/utils:varef pos 0) 'single-float)
                          (coerce (cl-mpm/utils:varef pos 1) 'single-float)

@@ -284,7 +284,9 @@
         (progn
           (multiple-value-bind (sig eps-e f)
               ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
-            (cl-mpm/constitutive::mc-plastic stress-u de strain
+            (;cl-mpm/constitutive::mc-plastic
+             cl-mpm/ext::constitutive-mohr-coulomb
+             stress-u de strain
                                              E
                                              nu
                                              phi

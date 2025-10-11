@@ -1,4 +1,5 @@
 (in-package :cl-mpm)
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 (defgeneric special-g2p (mesh mp node svp grads)
@@ -110,6 +111,7 @@
   (def-g2p-mp g2p-mp-quasi-static
       (progn
         ;; (declare (ignore mapped-vel acc))
+        (cl-mpm/fastmaths::fast-zero vel)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))

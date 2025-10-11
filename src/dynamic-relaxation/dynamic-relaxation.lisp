@@ -25,6 +25,7 @@
   "Converge a simulation to a quasi-static solution via dynamic relaxation, whatever simulation is updated until it converges"
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
+      (break)
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
     (when (typep sim 'mpm-sim-dr)
       (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim)

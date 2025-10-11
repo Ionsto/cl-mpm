@@ -388,7 +388,7 @@
        :dt-scale dt-scale
        :conv-steps 1000
        :substeps substeps
-       :damping-factor 1d0
+       :damping-factor (sqrt 2)
        :post-iter-step
        (lambda (i e o)
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
@@ -400,7 +400,7 @@
       (cl-mpm::finalise-loadstep sim)
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
-      (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
 
       (cl-mpm:iterate-over-mps
        (cl-mpm:sim-mps sim)
@@ -824,7 +824,7 @@
           (sim-type (class-of sim)))
       (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :quasi-static)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       ;; find initial quasi-static formation
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        sim
