@@ -37,6 +37,14 @@
   :serial t
   :components ((:file "src/fastmaths")))
 
+(defsystem "cl-mpm/linear-solver"
+  :depends-on ("cl-mpm/magicl"
+               "cl-mpm/utils"
+               "cl-mpm/fastmaths")
+  :description "Iterative matrix-free linear solvers"
+  :serial t
+  :components ((:file "src/core/linear-solver")))
+
 (defsystem "cl-mpm/mesh"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"

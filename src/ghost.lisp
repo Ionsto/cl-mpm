@@ -221,6 +221,15 @@
     (cl-mpm::iterate-over-cells
      mesh
      (lambda (cell)
+       (with-accessors ((active cl-mpm/mesh::cell-active)
+                        (partial cl-mpm/mesh::cell-partial)
+                        (ghost cl-mpm/mesh::cell-ghost-element))
+           cell
+         (when active
+           (setf ghost nil)))))
+    (cl-mpm::iterate-over-cells
+     mesh
+     (lambda (cell)
        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                         (neighbours cl-mpm/mesh::cell-neighbours)
                         (index cl-mpm/mesh::cell-index)
@@ -231,15 +240,14 @@
                         (ghost cl-mpm/mesh::cell-ghost-element)
                         (pos cl-mpm/mesh::cell-centroid))
            cell
-         (setf ghost nil)
          (when (and active (not partial))
-           ;; (setf ghost t)
            (loop for neighbour in neighbours
                  do
                     (when (and
                            (cl-mpm/mesh::cell-active neighbour)
                            (cl-mpm/mesh::cell-partial neighbour))
-                      (setf ghost t)))))))))
+                      (setf ghost t
+                            (cl-mpm/mesh::cell-ghost-element neighbour) t)))))))))
 
 (defun iterate-over-bicell-nodes (mesh cell-a cell-b gp-loc func)
   (declare (function func))
@@ -276,13 +284,23 @@
                   (ny (varef normal-trial 1))
                   (nz (varef normal-trial 2))
                   (dsvp-adjuster (magicl:transpose! (cl-mpm/utils::arb-matrix-from-list
+                                                     ;;3d case
+                                                     ;; (list
+                                                     ;;  nx  0d0 0d0
+                                                     ;;  0d0 ny  0d0
+                                                     ;;  0d0 0d0 nz
+                                                     ;;  ny  nx  0d0
+                                                     ;;  0d0 nz  ny
+                                                     ;;  nz  0d0 nx)
+                                                     ;;2d case
                                                      (list
                                                       nx  0d0 0d0
                                                       0d0 ny  0d0
-                                                      0d0 0d0 nz
-                                                      ny  nx  0d0
-                                                      0d0 nz  ny
-                                                      nz  0d0 nx)
+                                                      0d0 0d0 0d0
+                                                      0d0 0d0 0d0
+                                                      0d0 0d0 0d0
+                                                      0d0 nx  ny
+                                                      )
                                                      3
                                                      6))))
              (cl-mpm/ghost::iterate-over-bicell-nodes
@@ -304,8 +322,8 @@
                                                ;;  grads
                                                ;;  (cl-mpm/mesh::cell-deformation-gradient cell-p))
                                                ))
-                           ;; (* fact-p)
-                           1d0
+                           (* fact-p)
+                           ;; -1d0
                            )))
                     (iterate-over-bicell-nodes
                      mesh
@@ -325,8 +343,8 @@
                                      ;;  grads-b
                                      ;;  (cl-mpm/mesh::cell-deformation-gradient cell-n))
                                      ))
-                                   ;; (* fact-n)
-                                   1d0
+                                   (* fact-n)
+                                   ;; 1d0
                                    ))
                                 (dsvp (cl-mpm/fastmaths:fast-.- dsvp-p dsvp-n)))
                            (let ((ghost-mat
@@ -342,9 +360,9 @@
                                      face-length
                                      gp-weight))
                                    ))
-                             (format t "GS~%")
-                             (format t "~A~%" dsvp-adjuster)
-                             (format t "~A~%" ghost-mat)
+                             ;; (format t "GS~%")
+                             ;; (format t "~A~%" dsvp-adjuster)
+                             ;; (format t "~A~%" ghost-mat)
                              (cl-mpm/fastmaths:fast-.+
                               (magicl:@
                                ghost-mat
@@ -480,6 +498,7 @@
 ;;   (pprint dsvp)
 ;;   (pprint (magicl:@ (magicl:transpose dsvp) (magicl:transpose n-adj))))
 
+(declaim (notinline apply-ghost))
 (defun apply-ghost (sim ghost-factor)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
@@ -487,12 +506,12 @@
     (with-accessors ((cells cl-mpm/mesh::mesh-cells))
         mesh
       (locate-ghost-elements sim)
-      (cl-mpm::iterate-over-cells-serial
+      (cl-mpm::iterate-over-cells
        mesh
         (lambda (cell)
           (let* ((index (cl-mpm/mesh::cell-index cell))
                  (cell (cl-mpm/mesh::get-cell mesh index)))
-            (when (= (cl-mpm/mesh::cell-mp-count cell) 1)
+            (when (cl-mpm/mesh::cell-ghost-element cell)
                 (loop for direction from 0 to 2
                       do
                          (let ((ind-dir (list 0 0 0)))
@@ -502,7 +521,21 @@
                                (apply-ghost-cells-new mesh cell
                                                       (cl-mpm/mesh::get-cell mesh index-b)
                                                       ghost-factor
-                                                      ))))))))))))
+                                                      )))))))))
+      (cl-mpm::iterate-over-cells
+       mesh
+       (lambda (cell)
+         (when (and (cl-mpm/mesh::cell-active cell)
+                    (cl-mpm/mesh::cell-ghost-element cell))
+           (loop for n in (cl-mpm/mesh::cell-nodes cell)
+                 do (when (cl-mpm/mesh::node-active n)
+                      (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                        ;; (setf (cl-mpm/mesh::node-mass n)
+                        ;;       (max (cl-mpm/mesh::node-mass n)
+                        ;;            ghost-factor))
+                        (incf (cl-mpm/mesh::node-mass n)
+                              ghost-factor)
+                        )))))))))
 
 (defun test-markup (sim)
   (let* ((index (list 10 10 0))

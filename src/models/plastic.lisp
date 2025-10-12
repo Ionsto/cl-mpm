@@ -151,6 +151,9 @@
               (vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
               (K (/ e (* 3 (- 1d0 (* 2 nu)))))
               (G (/ e (* 2 (+ 1d0 nu)))))
+          (when (>= (cl-mpm/particle::mp-yield-func mp) 0d0)
+            (setf G 0d0))
+          (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))
           ;; (when (and (> ps-vm-inc 0d0)
           ;;            (> eps-vm 0d0))
           ;;   (setf p-mod

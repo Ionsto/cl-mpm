@@ -244,6 +244,12 @@
                   (magicl::matrix/double-float-storage source)
                   ) target)
 
+(defun copy-into (source target)
+  "Copy a matrix from source into target"
+  (aops:copy-into (magicl::matrix/double-float-storage target)
+                  (magicl::matrix/double-float-storage source)
+                  ) target)
+
 (defun voigt-contra->covar (vec)
   (let* ((v (voigt-copy vec))
         (vs (magicl::matrix/double-float-storage v)))

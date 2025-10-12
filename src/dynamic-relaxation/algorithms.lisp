@@ -353,6 +353,8 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (save-vtk-dr t)
+                          (setup-quasi-static (lambda (sim)))
+                          (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
   (let ()
     (uiop:ensure-all-directories-exist (list output-dir))
@@ -412,6 +414,7 @@
 
       (funcall post-conv-step sim)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
+      (funcall setup-quasi-static sim)
       (let* ((current-adaptivity 0)
              (elastic-dt (cl-mpm/setup::estimate-elastic-dt sim))
              (elastic-dt-margin 1000))
@@ -466,6 +469,7 @@
                      (let ((dt-loadstep (* 1d0 (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
                        (change-class sim explicit-dynamic-solver)
+                       (funcall setup-dynamic sim)
                        (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
                        ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
                        (step-real-time sim step
@@ -478,6 +482,7 @@
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)
+                       (funcall setup-quasi-static sim)
                        ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
                        (format t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)

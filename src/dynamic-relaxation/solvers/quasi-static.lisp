@@ -8,7 +8,9 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (setf (cl-mpm/mesh:node-mass node) 0d0))))
-    (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
+    (let ((h (cl-mpm/mesh::mesh-resolution mesh))
+          (nd (cl-mpm/mesh::mesh-nd mesh))
+          (mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
@@ -46,7 +48,9 @@
                                             ;;         2))
                                             svp mp-volume
                                             mass-scale)
-                                         node-true-v))))))))))))
+                                         ;; node-true-v
+                                         (expt h nd)
+                                         ))))))))))))
     )
   )
 (defgeneric update-node-fictious-mass (sim))
@@ -185,9 +189,10 @@
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
       (update-node-fictious-mass sim)
-      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
       (when ghost-factor
-        (cl-mpm/ghost::apply-ghost sim ghost-factor))
+        (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        (cl-mpm::apply-bcs mesh bcs dt))
+      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
