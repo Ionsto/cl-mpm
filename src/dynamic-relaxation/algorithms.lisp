@@ -375,13 +375,11 @@
     (defparameter *total-iter* 0)
     (let ((quasi-static-solver (class-of sim))
           (vel-algo :BLEND)
-          ;; (vel-algo (cl-mpm::sim-velocity-algorithm sim))
           )
-      ;; (change-class sim explicit-dynamic-solver)
-      ;; (change-class sim quasi-static-solver)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
+      (funcall setup-quasi-static sim)
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        sim
        :energy-crit conv-criteria
@@ -396,7 +394,7 @@
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
          (incf *total-iter* substeps)
          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
-         ;; (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
          ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
          ))
       (cl-mpm::finalise-loadstep sim)

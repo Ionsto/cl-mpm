@@ -230,8 +230,10 @@
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
+               (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
+    (declare (double-float damping-scale damping))
     (unless initial-setup
       (pre-step sim)
       (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
@@ -250,6 +252,11 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt))
 
     (update-node-fictious-mass sim)
+    (when ghost-factor
+      (cl-mpm/ghost::apply-ghost sim ghost-factor)
+      (cl-mpm::apply-bcs mesh bcs dt))
+    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
