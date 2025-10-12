@@ -230,6 +230,7 @@
                      (format t "step ~D - d-conv ~E~%" stagger-i dconv)
                      (setf damage-prev damage)
                      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                     (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                      (incf stagger-iters)
                      (when (damage-increment-criteria sim :criteria 0.8d0)
                        (format t "Damage criteria failed~%")

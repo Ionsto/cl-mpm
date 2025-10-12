@@ -477,7 +477,9 @@
    (lambda (c)
      (if (and (cl-mpm/mesh::cell-active c)
               (not (cl-mpm/mesh::cell-partial c)))
-         (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
+         (max 
+          (/ 1d0 (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
+          (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
          0d0))
    #'max))
 

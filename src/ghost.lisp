@@ -503,8 +503,10 @@
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
       sim
-    (with-accessors ((cells cl-mpm/mesh::mesh-cells))
+    (with-accessors ((cells cl-mpm/mesh::mesh-cells)
+                     (h cl-mpm/mesh::mesh-resolution))
         mesh
+      (declare (double-float h ghost-factor))
       (locate-ghost-elements sim)
       (cl-mpm::iterate-over-cells
        mesh
@@ -522,20 +524,21 @@
                                                       (cl-mpm/mesh::get-cell mesh index-b)
                                                       ghost-factor
                                                       )))))))))
-      (cl-mpm::iterate-over-cells
-       mesh
-       (lambda (cell)
-         (when (and (cl-mpm/mesh::cell-active cell)
-                    (cl-mpm/mesh::cell-ghost-element cell))
-           (loop for n in (cl-mpm/mesh::cell-nodes cell)
-                 do (when (cl-mpm/mesh::node-active n)
-                      (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
-                        ;; (setf (cl-mpm/mesh::node-mass n)
-                        ;;       (max (cl-mpm/mesh::node-mass n)
-                        ;;            ghost-factor))
-                        (incf (cl-mpm/mesh::node-mass n)
-                              ghost-factor)
-                        )))))))))
+      (let ((gf (* 4d0 ghost-factor (expt h 2))))
+        (cl-mpm::iterate-over-cells
+         mesh
+         (lambda (cell)
+           (when (and (cl-mpm/mesh::cell-active cell)
+                      (cl-mpm/mesh::cell-ghost-element cell))
+             (loop for n in (cl-mpm/mesh::cell-nodes cell)
+                   do (when (cl-mpm/mesh::node-active n)
+                        (sb-thread:with-mutex ((cl-mpm/mesh:node-lock n))
+                          ;; (setf (cl-mpm/mesh::node-mass n)
+                          ;;       (max (cl-mpm/mesh::node-mass n)
+                          ;;            ghost-factor))
+                          (incf (cl-mpm/mesh::node-mass n)
+                                gf)
+                          ))))))))))
 
 (defun test-markup (sim)
   (let* ((index (list 10 10 0))
