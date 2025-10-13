@@ -441,7 +441,7 @@
            :kt-res-ratio 1d0
            :kc-res-ratio 0d0
            ;; :g-res-ratio 0.51d0
-           :g-res-ratio 0.90d0
+           :g-res-ratio 0.51d0
            :peerlings-damage t
            :fracture-energy 3000d0
            :initiation-stress init-stress;18d3
@@ -2432,10 +2432,10 @@
      )))
 
 (defun test-multi ()
-  (setup :mps 2 :refine 1 :notch-length 3d0)
+  (setup :mps 3 :refine 2 :notch-length 1d0)
   ;; (setup-3d)
   ;; (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
-  (cl-mpm/setup::set-mass-filter *sim* 1d9 :proportion 1d-9)
+  (cl-mpm/setup::set-mass-filter *sim* 1d9 :proportion 1d-15)
   ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
   (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
   (let ((dt 20d0)
@@ -2459,8 +2459,10 @@
      :setup-quasi-static
      (lambda (sim)
        (setf
-        (cl-mpm/aggregate::sim-enable-aggregate sim) nil
-        (cl-mpm::sim-ghost-factor sim) (* 1d9 1d-3)))
+        (cl-mpm/aggregate::sim-enable-aggregate sim) t
+        (cl-mpm::sim-ghost-factor sim) nil
+        ;; (* 1d9 1d-3)
+        ))
      :setup-dynamic (lambda (sim) (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                                         (cl-mpm::sim-ghost-factor sim) nil))
      ;; :enable-plastic nil
@@ -2539,37 +2541,37 @@
 ;;   (incf *i*))
 
 
-(let ((a (cl-mpm/utils::matrix-from-list
-          (list
-           2d0 1d0 0d0
-           1d0 1d0 0d0
-           0d0 0d0 1d0)))
-      (b (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0))))
-  ;; (pprint (cl-mpm/linear-solver::solve-richardson nil a))
-  ;; (multiple-value-bind (l v) (magicl:eig a)
-  ;;   (pprint (reduce #'max l)))
-  ;; (pprint
-  ;;  (time
-  ;;   (dotimes (i 1000)
-  ;;     (cl-mpm/linear-solver::solve-richardson
-  ;;      (lambda (x) (magicl:@ a x))
-  ;;      b
-  ;;      :tol 1d-9
-  ;;      ))))
-  (pprint
-   (time
-    (dotimes (i 1000)
-      (cl-mpm/linear-solver::solve-conjugant-gradients
-       (lambda (x) (magicl:@ a x))
-       b
-       :tol 1d-9
-       ))))
+;; (let ((a (cl-mpm/utils::matrix-from-list
+;;           (list
+;;            2d0 1d0 0d0
+;;            1d0 1d0 0d0
+;;            0d0 0d0 1d0)))
+;;       (b (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0))))
+;;   ;; (pprint (cl-mpm/linear-solver::solve-richardson nil a))
+;;   ;; (multiple-value-bind (l v) (magicl:eig a)
+;;   ;;   (pprint (reduce #'max l)))
+;;   ;; (pprint
+;;   ;;  (time
+;;   ;;   (dotimes (i 1000)
+;;   ;;     (cl-mpm/linear-solver::solve-richardson
+;;   ;;      (lambda (x) (magicl:@ a x))
+;;   ;;      b
+;;   ;;      :tol 1d-9
+;;   ;;      ))))
+;;   (pprint
+;;    (time
+;;     (dotimes (i 1000)
+;;       (cl-mpm/linear-solver::solve-conjugant-gradients
+;;        (lambda (x) (magicl:@ a x))
+;;        b
+;;        :tol 1d-9
+;;        ))))
 
-  (pprint (magicl:linear-solve a b))
-  ;; (pprint (cl-mpm/linear-solver::estimate-max-eigenvalue
-  ;;          (lambda (x) (magicl:@ a x))
-  ;;          3))
-  )
+;;   (pprint (magicl:linear-solve a b))
+;;   ;; (pprint (cl-mpm/linear-solver::estimate-max-eigenvalue
+;;   ;;          (lambda (x) (magicl:@ a x))
+;;   ;;          3))
+;;   )
 
 ;; (let* ((a (cl-mpm/aggregate::sim-global-ma *sim*))
 ;;        (E (cl-mpm/aggregate::sim-global-e *sim*))
