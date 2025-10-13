@@ -9,7 +9,7 @@
   ;(setf weathering (* weathering (+ 1d0 (* 10 (cl-mpm/particle::mp-strain-plastic-vm mp)))))
   )
 ;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (sb-ext:restrict-compiler-policy 'speed  3 3)
@@ -295,11 +295,11 @@
 (defun plot (sim)
   ;; (plot-collapse-curves)
   ;; (vgplot:plot *time-data* *damage-data*)
-  (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-               (cl-mpm:sim-mps *sim*)
-               (cl-mpm:sim-dt *sim*)
-               0d0
-               :QUASI-STATIC)
+  ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+  ;;              (cl-mpm:sim-mps *sim*)
+  ;;              (cl-mpm:sim-dt *sim*)
+  ;;              0d0
+  ;;              :QUASI-STATIC)
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
@@ -403,10 +403,11 @@
     (declare (double-float h density))
     (progn
       (let* ((E 1d9)
-             (angle 50d0)
+             ;(angle 50d0)
+             (angle 42d0)
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
-             (gf (* 4.8d0 1d0))
+             (gf (* 48d0 1d0))
              (length-scale (* h 1d0))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress E))
              (oversize (cl-mpm/damage::compute-oversize-factor 0.999d0 ductility)))
@@ -2431,12 +2432,13 @@
      )))
 
 (defun test-multi ()
-  (setup :mps 2 :refine 4 :notch-length 1d0)
+  (setup :mps 2 :refine 1 :notch-length 3d0)
   ;; (setup-3d)
-  ;; (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
-  (cl-mpm/setup::set-mass-filter *sim* 1d0 :proportion 1d-9)
-  ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-  (let ((dt 50d0)
+  ;; (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
+  (cl-mpm/setup::set-mass-filter *sim* 1d9 :proportion 1d-9)
+  ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+  (let ((dt 20d0)
         (total-time 1000d0))
     (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
@@ -2446,18 +2448,25 @@
      :dt-scale 1d0
      ;; :substeps 10
      :plotter (lambda (sim) (plot sim))
-     :conv-criteria 1d-3
+     :conv-criteria 1d-5
      :substeps 20
      :dt dt
-     :max-adaptive-steps 12
+     ;; :damping (sqrt 2)
+     :max-adaptive-steps 8
      :steps (round total-time dt)
-     ;; :explicit-dt-scale 100d0
-     ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
      :explicit-dt-scale 0.5d0
      :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+     :setup-quasi-static
+     (lambda (sim)
+       (setf
+        (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+        (cl-mpm::sim-ghost-factor sim) (* 1d9 1d-3)))
+     :setup-dynamic (lambda (sim) (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
+                                        (cl-mpm::sim-ghost-factor sim) nil))
      ;; :enable-plastic nil
      ;; :time total-time
      )))
+
 
 
 ;; (defun test-real-time ()
@@ -2528,3 +2537,59 @@
 ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "sim_step_~5,'0d.vtk" i)) sim)
 ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_step_nodes_~5,'0d.vtk" i)) sim)
 ;;   (incf *i*))
+
+
+(let ((a (cl-mpm/utils::matrix-from-list
+          (list
+           2d0 1d0 0d0
+           1d0 1d0 0d0
+           0d0 0d0 1d0)))
+      (b (cl-mpm/utils::vector-from-list (list 1d0 2d0 3d0))))
+  ;; (pprint (cl-mpm/linear-solver::solve-richardson nil a))
+  ;; (multiple-value-bind (l v) (magicl:eig a)
+  ;;   (pprint (reduce #'max l)))
+  ;; (pprint
+  ;;  (time
+  ;;   (dotimes (i 1000)
+  ;;     (cl-mpm/linear-solver::solve-richardson
+  ;;      (lambda (x) (magicl:@ a x))
+  ;;      b
+  ;;      :tol 1d-9
+  ;;      ))))
+  (pprint
+   (time
+    (dotimes (i 1000)
+      (cl-mpm/linear-solver::solve-conjugant-gradients
+       (lambda (x) (magicl:@ a x))
+       b
+       :tol 1d-9
+       ))))
+
+  (pprint (magicl:linear-solve a b))
+  ;; (pprint (cl-mpm/linear-solver::estimate-max-eigenvalue
+  ;;          (lambda (x) (magicl:@ a x))
+  ;;          3))
+  )
+
+;; (let* ((a (cl-mpm/aggregate::sim-global-ma *sim*))
+;;        (E (cl-mpm/aggregate::sim-global-e *sim*))
+;;        (b
+;;          (magicl:scale!
+;;           (magicl:@
+;;            (magicl:transpose E)
+;;            (cl-mpm/aggregate::assemble-global-vec *sim* #'cl-mpm/mesh::node-force 0))
+;;           10000000)
+;;          ))
+;;   ;; (multiple-value-bind (l v) (magicl:eig a)
+;;   ;;   (pprint (reduce #'max l)))
+;;   (pprint
+;;    (cl-mpm/linear-solver::solve-richardson
+;;     (lambda (x) (magicl:@ a x))
+;;     b
+;;     ))
+;;   ;; (pprint (cl-mpm/linear-solver::estimate-max-eigenvalue
+;;   ;;          (lambda (x) (magicl:@ a x))
+;;   ;;          3))
+;;   )
+
+;; (cl-mpm/output:save-vtk-nodes "./output/test_nodes.vtk" *sim*)
