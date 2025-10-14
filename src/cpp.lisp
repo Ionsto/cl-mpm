@@ -205,6 +205,7 @@
 
     (cffi::load-foreign-library-error (c)
       (progn
+        (format t "~&~A~%" c)
         (format t "~&No accelerated kirchoff update~%")
         ;;Use a lisp fallback
         (defun kirchoff-expt-step (strain df)
