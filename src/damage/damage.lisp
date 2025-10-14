@@ -66,9 +66,9 @@
     (expt (- 1d0 damage) 2d0)
     0d0))
 
-(declaim
- ;(inline calculate-damage-increment)
- (ftype (function (cl-mpm/particle:particle double-float) t) calculate-damage-increment))
+;; (declaim
+;;  ;(inline calculate-damage-increment)
+;;  (ftype (function (cl-mpm/particle:particle double-float) t) calculate-damage-increment))
 (defun calculate-damage-increment (mp dt)
   (let ((damage-increment 0d0))
     (with-accessors (;(stress cl-mpm/particle::mp-stress)
