@@ -654,9 +654,9 @@
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)
                          (setf conv-steps (* substeps i))
-                         ;; (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
-                                               (/ (cl-mpm::sim-damping-factor sim)
-                                                  (cl-mpm/setup:estimate-critical-damping sim))))
+                         ;; (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf)
+                         ;; (/ (cl-mpm::sim-damping-factor sim)
+                         ;;    (cl-mpm/setup:estimate-critical-damping sim))))
                          (format t "Substep ~D~%" i)
                          (let ((i (+ 0 i)))
                            (when save-vtk-dr
@@ -682,9 +682,9 @@
                    (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
                  (cl-mpm::finalise-loadstep sim)
                  (funcall plotter sim)
-                 (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
-                                    :terminal "png size 1920,1080"
-                                    )
+                 ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
+                 ;;                    :terminal "png size 1920,1080"
+                 ;;                    )
                  (when save-vtk-loadstep
                    (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
                    (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
