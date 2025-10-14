@@ -196,7 +196,7 @@
                       :post-iter-step
                       (lambda (i e o)
                         (funcall plotter sim)
-                        (vgplot:title (format nil "substep ~D - oobf: ~E" i o))
+                        ;(vgplot:title (format nil "substep ~D - oobf: ~E" i o))
                         (incf total-i)
                         ;; (when (= (mod i 50) 0)
                         ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
@@ -654,7 +654,7 @@
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)
                          (setf conv-steps (* substeps i))
-                         (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
+                         ;; (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
                                                (/ (cl-mpm::sim-damping-factor sim)
                                                   (cl-mpm/setup:estimate-critical-damping sim))))
                          (format t "Substep ~D~%" i)
@@ -674,7 +674,7 @@
                          ;; (setf t0 (get-internal-real-time))
                          (funcall plotter sim)
                          )))
-                     (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
+                     ;; (vgplot:title (format nil "Step ~D - ~D" step conv-steps))
                      ))
                  (funcall post-conv-step sim)
                  (when save-vtk-loadstep
