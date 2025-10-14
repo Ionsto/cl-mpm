@@ -1,3 +1,6 @@
 #g++ $(pkg-config --cflags eigen3) test.cpp -O3 -march=native
-g++ -fPIC -shared $(pkg-config --cflags eigen3) test.cpp -O3 -march=native -o kirchoff.so
-#./a.out
+#$CC -fPIC -shared $(pkg-config --cflags eigen3) test.cpp -O3 -march=native -o kirchoff.so
+#$CXX -fPIC -I ~/eigen/ test.cpp -O3 -march=native -o kirchoff.so
+
+#$CXX -fPIC -I ~/eigen/ test.cpp -O3 -march=native -shared -o kirchoff.so
+$CXX -fPIC $(pkg-config --cflags eigen3) test.cpp -O3 -march=native -shared -o kirchoff.so
