@@ -82,14 +82,15 @@
     :initform 0d0))
   (:documentation "A mp with damage influanced elastic model"))
 
-(defmethod reset-loadstep-mp ((mp particle-elastic-damage))
+(defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n    cl-mpm/particle::mp-damage-n))
       mp
-    (setf k k-n damage damage-n)
-    (cl-mpm/damage::update-damage mp 0d0)
+    (setf k k-n
+          damage damage-n)
+    ;; (cl-mpm/damage::compute-damage mp)
     (call-next-method)))
 
 (defmethod new-loadstep-mp ((mp particle-elastic-damage))

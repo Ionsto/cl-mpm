@@ -96,7 +96,10 @@
       (progn
         ;; (cl-mpm/utils::vector-copy-into mapped-vel disp-inc)
         ;; (cl-mpm/fastmaths:fast-scale! disp-inc dt)
-        (cl-mpm/utils:vector-copy acc (cl-mpm/particle::mp-acceleration mp))
+        ;; (pprint acc)
+        ;; (pprint mapped-vel)
+        ;; (break)
+        ;; (cl-mpm/utils:vector-copy acc (cl-mpm/particle::mp-acceleration mp))
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         (cl-mpm/fastmaths:fast-fmacc vel acc dt)))
   (def-g2p-mp g2p-mp-pic
@@ -108,6 +111,9 @@
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         nil
         ))
+  (def-g2p-mp g2p-mp-trial
+      (progn
+        (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-quasi-static
       (progn
         ;; (declare (ignore mapped-vel acc))
@@ -115,6 +121,7 @@
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)))
   (def-g2p-mp g2p-mp-blend
       (let ((pic-value 1d-3))
+        ;; (break)
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
         (cl-mpm/fastmaths:fast-.+
          (cl-mpm/fastmaths:fast-scale-vector
@@ -144,6 +151,11 @@
 (defun g2p (mesh mps dt damping &optional (update-type :FLIP))
   (declare (double-float dt damping))
   (ecase update-type
+    (:TRIAL
+     (iterate-over-mps
+      mps
+      (lambda (mp)
+        (g2p-mp-trial mesh mp dt damping))))
     (:QUASI-STATIC
      (iterate-over-mps
       mps

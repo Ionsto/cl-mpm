@@ -16,7 +16,7 @@
                    (cl-mpm/mesh::node-interior node)))
              (with-accessors ((active cl-mpm/mesh::node-active)
                               (f-ext cl-mpm/mesh::node-external-force)
-                              (f-int cl-mpm/mesh::node-internal-force)
+                              (f-int cl-mpm/mesh::node-residual)
                               (node-oobf cl-mpm/mesh::node-oobf)
                               (mass cl-mpm/mesh::node-mass)
                               (volume cl-mpm/mesh::node-volume)
@@ -53,7 +53,7 @@
            (with-accessors ((active cl-mpm/mesh::node-active)
                             (agg cl-mpm/mesh::node-agg)
                             (f-ext cl-mpm/mesh::node-external-force)
-                            (f-int cl-mpm/mesh::node-internal-force)
+                            (f-int cl-mpm/mesh::node-residual)
                             (n-mass cl-mpm/mesh::node-mass)
                             (node-oobf cl-mpm/mesh::node-oobf))
                node
@@ -85,7 +85,7 @@
                     (not (cl-mpm/mesh::node-agg node)))
                (with-accessors ((active cl-mpm/mesh::node-active)
                                 (f-ext cl-mpm/mesh::node-external-force)
-                                (f-int cl-mpm/mesh::node-internal-force)
+                                (f-int cl-mpm/mesh::node-residual)
                                 (node-oobf cl-mpm/mesh::node-oobf)
                                 (mass cl-mpm/mesh::node-mass)
                                 (volume cl-mpm/mesh::node-volume)
@@ -106,7 +106,7 @@
       (declare (double-float  energy oobf-num oobf-denom power))
       (when sim-agg
         (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-              do (let* ((f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+              do (let* ((f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
                         (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                         (E (cl-mpm/aggregate::sim-global-e sim))
                         (ma (cl-mpm/aggregate::sim-global-ma sim))
@@ -144,7 +144,7 @@
              (with-accessors ((active cl-mpm/mesh::node-active)
                               (agg cl-mpm/mesh::node-agg)
                               (f-ext cl-mpm/mesh::node-external-force)
-                              (f-int cl-mpm/mesh::node-internal-force)
+                              (f-int cl-mpm/mesh::node-residual)
                               (n-mass cl-mpm/mesh::node-mass)
                               (node-oobf cl-mpm/mesh::node-oobf))
                  node
@@ -477,9 +477,13 @@
    (lambda (c)
      (if (and (cl-mpm/mesh::cell-active c)
               (not (cl-mpm/mesh::cell-partial c)))
-         (max 
-          (/ 1d0 (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
-          (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
+         (multiple-value-bind (l v) (cl-mpm::eig (cl-mpm/mesh::cell-deformation-gradient c))
+           (/ (the double-float (reduce #'max l))
+              (the double-float (reduce #'min l))))
+         ;; (max
+         ;;  (/ 1d0 (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
+         ;;  (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
+         ;;  )
          0d0))
    #'max))
 

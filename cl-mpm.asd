@@ -23,6 +23,7 @@
 
 (defsystem "cl-mpm/utils"
   :depends-on ("cl-mpm/magicl"
+               "asdf-system-connections"
                "cl-mpm/settings"
                "array-operations")
   :description "MPM utility functions definitions"
@@ -798,3 +799,15 @@
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/penalty/billet")))
+
+
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
+  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
+  :components ((:file "src/dynamic-relaxation/mpi.lisp")))
+
+
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/damage-mpi"
+  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
+  :components ((:file "src/dynamic-relaxation/mpi.lisp")))

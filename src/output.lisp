@@ -64,6 +64,7 @@
 (defun sample-point-velocity (sim point)
     (sample-point sim point
         (matrix-average cl-mpm/mesh:node-velocity '(2 1))))
+
 (defun format-scalar (stream name id mps accessor)
   (format stream "SCALARS ~a FLOAT ~d~%" name 1)
   (format stream "LOOKUP_TABLE default~%")
@@ -82,6 +83,41 @@
   `(progn
      (format-scalar ,fs ,name ,id ,mps (lambda (,mp) ,accessor))
      (incf ,id))))
+
+
+(defun format-vector (stream name id mps accessor)
+  (format stream "VECTORS ~a FLOAT~%" name)
+  (format stream "LOOKUP_TABLE default~%")
+    (cl-mpm::iterate-over-mps-serial
+     mps
+     (lambda (mp)
+       (let ((v (funcall accessor mp)))
+         (format stream "~E ~E ~E~%"
+                 (coerce (varef v 0) 'single-float)
+                 (coerce (varef v 1) 'single-float)
+                 (coerce (varef v 2) 'single-float)))))
+  (format stream "~%"))
+
+(defmacro save-parameter-vector (name accessor)
+  (let ((mps (intern (symbol-name 'mps)))
+        (fs (intern (symbol-name 'fs)))
+        (mp (intern (symbol-name 'mp)))
+        (id (intern (symbol-name 'id)))
+        )
+    `(progn
+       (format-vector ,fs ,name ,id ,mps (lambda (,mp) ,accessor))
+       (incf ,id))))
+
+;; (defmacro save-parameter (name accessor)
+;;   (let ((mps (intern (symbol-name 'mps)))
+;;         (fs (intern (symbol-name 'fs)))
+;;         (mp (intern (symbol-name 'mp)))
+;;         (id (intern (symbol-name 'id)))
+;;         )
+;;   `(progn
+;;      (format-scalar ,fs ,name ,id ,mps (lambda (,mp) ,accessor))
+;;      (incf ,id))))
+
 
 (defun save-simulation-parameters (filename sim &rest args)
   (with-accessors ((mesh cl-mpm:sim-mesh))
@@ -383,8 +419,7 @@
       (let* ((node-count (array-total-size nodes))
              (nodes (remove-if-not #'cl-mpm/mesh:node-active
                                    (make-array node-count :displaced-to nodes)))
-             (node-count (array-total-size nodes))
-             )
+             (node-count (array-total-size nodes)))
         (format fs "POINTS ~d double~%" (array-total-size nodes))
         (loop for i from 0 below (array-total-size nodes)
               do
@@ -430,6 +465,7 @@
           (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
           (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
           (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
+          (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
           ;; (save-vector-nodes "force-rct" #'cl-mpm/mesh::node-force-)
 
           ;; (save-parameter-nodes "force_x" (magicl:tref (cl-mpm/mesh:node-force node) 0 0))
@@ -516,9 +552,11 @@
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
         (save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
         (save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
+
+        ;; (save-parameter-vector "vel" cl-mpm/particle::mp-velocity)
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
-        (save-parameter "vel_z" (magicl:tref (cl-mpm/particle:mp-velocity mp) 2 0))
+        ;; (save-parameter "vel_z" (magicl:tref (cl-mpm/particle:mp-velocity mp) 2 0))
 
         ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))
         ;; (save-parameter "acc_y" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 1 0))
@@ -698,6 +736,7 @@
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               (save-parameter-cells "agg-int" (if (cl-mpm/mesh::cell-interior cell) 1d0 0d0))
               (save-parameter-cells "agg" (if (cl-mpm/mesh::cell-agg cell) 1d0 0d0))
+              (save-parameter-cells "j" (magicl:det (cl-mpm/mesh::cell-deformation-gradient cell)))
               (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))))))))
  
 (defun save-vtk-bcs (filename sim)

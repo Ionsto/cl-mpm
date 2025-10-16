@@ -28,17 +28,17 @@
             (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
             (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt))
-            (cl-mpm/fastmaths::fast-.+ inertia-force force-int force-int)
             ;; (cl-mpm/fastmaths::fast-.+ inertia-force force force)
             )
           ;;Set acc to f/m
+          (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
           (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
           (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 mass))
           ;;Would intergrtate but don't
           (cl-mpm/utils::vector-copy-into residual residual-prev)
-          (cl-mpm/utils::vector-copy-into force-int residual)))
-      ))
+          (cl-mpm/utils::vector-copy-into force-int residual)
+          (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)))))
   (values))
 
 

@@ -31,7 +31,23 @@
 
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-damage))
   (call-next-method)
-  (calculate-damage sim 1d0))
+  ;; (calculate-damage sim 1d0)
+  )
+
+(defmethod cl-mpm/particle::reset-loadstep-mp ((mp cl-mpm/particle::particle-damage))
+  (with-accessors ((ybar      cl-mpm/particle::mp-damage-ybar)
+                   (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
+                   (y         cl-mpm/particle::mp-damage-y-local)
+                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   (damage    cl-mpm/particle::mp-damage)
+                   (damage-n  cl-mpm/particle::mp-damage-n))
+      mp
+    (setf ybar ybar-prev)
+    (setf y y-prev)
+    (setf damage damage-n)
+    (cl-mpm/damage::compute-damage mp)
+    (call-next-method)
+    ))
 
 (defgeneric cl-mpm/particle::post-damage-step (mp dt))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
@@ -185,7 +201,6 @@
   (values)
   ))
 (defmethod cl-mpm/particle:post-stress-step (mesh (mp cl-mpm/particle:particle-damage) dt)
-  ;(update-damage mp dt)
   )
 (defun find-nodal-local-length (mesh mp)
   (let ((nodal-damage 0d0))
@@ -1272,6 +1287,13 @@ Calls the function with the mesh mp and node"
         (cl-mpm/output::save-parameter "fric-y" (magicl:tref (cl-mpm/particle::mp-penalty-frictional-force mp) 1 0))
         )
       )))
+
+
+(defgeneric compute-damage (mp))
+(defmethod compute-damage ((mp cl-mpm/particle::particle))
+  )
+(defmethod compute-damage ((mp cl-mpm/particle::particle-damage))
+  )
 
 (defgeneric update-damage (mp dt))
 (defmethod update-damage ((mp cl-mpm/particle::particle) dt))

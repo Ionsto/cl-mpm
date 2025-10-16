@@ -2461,12 +2461,9 @@
        (setf
         (cl-mpm/aggregate::sim-enable-aggregate sim) t
         (cl-mpm::sim-ghost-factor sim) nil
-        ;; (* 1d9 1d-3)
         ))
      :setup-dynamic (lambda (sim) (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                                         (cl-mpm::sim-ghost-factor sim) nil))
-     ;; :enable-plastic nil
-     ;; :time total-time
      )))
 
 

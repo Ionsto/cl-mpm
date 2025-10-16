@@ -89,7 +89,7 @@
       (cl-mpm::p2g-force sim)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
-      (cl-mpm::update-node-forces sim)
+      (cl-mpm::pdate-node-forces sim)
       ;; Reapply velocity BCs
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::reset-node-displacement sim)

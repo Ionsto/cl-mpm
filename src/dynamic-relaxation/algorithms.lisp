@@ -9,8 +9,7 @@
      (when (typep mp 'cl-mpm/particle::particle-damage)
        (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
      (when (typep mp 'cl-mpm/particle::particle-plastic)
-       (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
-  )
+       (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic)))))
 
 (defun save-timestep-preamble (output-dir)
   (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
@@ -198,10 +197,10 @@
                         (funcall plotter sim)
                         ;(vgplot:title (format nil "substep ~D - oobf: ~E" i o))
                         (incf total-i)
-                        ;; (when (= (mod i 50) 0)
-                        ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                        ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                        ;;   )
+                        (when (= (mod i 50) 0)
+                          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                          )
                         (format t "Def crit ~E~%" (compute-max-deformation sim))
                         (when (criteria-deformation-gradient sim :criteria 10d0)
                           (format t "Deformation gradient criteria exceeded~%")
@@ -292,7 +291,7 @@
                 while (and (cl-mpm::sim-run-sim sim)
                            (or (>= energy e-crit)
                                (>= oobf oobf-crit)
-                               (< step 4)
+                               ;; (< step 4)
                                (not intertial-passed)
                                ))
                 do
@@ -315,6 +314,8 @@
                      (if (= work 0d0)
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
+
+                     ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) (and (< energy 1d-2) (< oobf 1d-2)))
 
                      (when enable-mass-scaling
                        (let ((res (and (< energy 1d-2)
@@ -345,6 +346,7 @@
                           (plotter (lambda (sim)))
                           (dt-scale 1d0)
                           (explicit-dt-scale 0.9d0)
+                          (explicit-damping-factor 1d-3)
                           (dt 1d0)
                           (steps 1d0)
                           (max-adaptive-steps 5)
@@ -468,24 +470,22 @@
                      (let ((dt-loadstep (* 1d0 (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
                        (change-class sim explicit-dynamic-solver)
-                       (funcall setup-dynamic sim)
                        (setf (cl-mpm::sim-velocity-algorithm sim) :FLIP)
-                       ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
+                       (funcall setup-dynamic sim)
                        (step-real-time sim step
                                        :output-dir output-dir
                                        :plotter plotter
                                        :dt-scale explicit-dt-scale
-                                       :criteria 1d-3
-                                       :damping 1d-3
+                                       :criteria (* conv-criteria 1d-1)
+                                       :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)
-                       (funcall setup-quasi-static sim)
-                       ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t)
                        (format t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt-loadstep))
+                       (funcall setup-quasi-static sim)
                      )
 
                    (funcall plotter sim)
@@ -917,6 +917,12 @@
     ))
 
 
+
+(defun reset-nominal-displacement (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-displacement mp)))))
 
 (defun elastic-static-solution (sim &key (crit 1d-3)
                                       (substeps 10))

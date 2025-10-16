@@ -409,11 +409,7 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (cl-mpm::calculate-forces node damping 0d0 mass-scale)
-         ;; (if (cl-mpm/mesh::node-agg node)
-         ;;     (cl-mpm::calculate-forces node damping 0d0 mass-scale)
-         ;;     (cl-mpm::calculate-forces node damping dt mass-scale))
-         )))
+         (cl-mpm::calculate-forces node damping 0d0 mass-scale))))
 
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
@@ -428,10 +424,7 @@
                    (apply-internal-bcs sim fa d)
                    (let* ((acc (magicl:linear-solve ma fa)))
                      (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-                     ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-                     ;; (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
-                     (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
-                     ))))
+                     (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)))))
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       (iterate-over-nodes
        mesh
@@ -448,22 +441,9 @@
                node
              (when internal
                (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
-
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-
-      ;; (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-      ;;       do
-      ;;          (let ((E (sim-global-e sim))
-      ;;                (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-      ;;            (apply-internal-bcs sim vel-proj d)
-      ;;            (cl-mpm/aggregate::project-global-vec
-      ;;             sim
-      ;;             (magicl:@ E vel-proj)
-      ;;             #'cl-mpm/mesh::node-velocity
-      ;;             d)))
       (unless (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-        (project-velocity sim))
-      )
+        (project-velocity sim)))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 
