@@ -133,10 +133,10 @@
                    (E cl-mpm/particle::mp-e))
       mp
     (progn
-      (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
+      (let ((ps-y (sqrt (* E ps-vm))))
         (setf y
               (+
-               ;; ps-y
+               ps-y
                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
                 ;;cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                 (cl-mpm/fastmaths:fast-.+
@@ -186,7 +186,7 @@
                  (cl-mpm:sim-mps *sim*)
                  (cl-mpm:sim-dt *sim*)
                  0d0
-                 :QUASI-STATIC)
+                 :TRIAL)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -206,6 +206,7 @@
                 (ice-height 800d0)
                 (bench-length 0d0)
                 (aspect 1)
+                (floatation-ratio 0.9)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
@@ -218,7 +219,7 @@
          (ice-height end-height)
          (ice-length (* end-height aspect))
          (floating-point (* ice-height (/ density water-density)))
-         (water-level (* floating-point 0.80d0))
+         (water-level (* floating-point floatation-ratio))
          (datum (* (round (+ water-level offset) mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -266,18 +267,9 @@
         block-size
         (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
         density
-        ;; 'cl-mpm/particle::particle-elastic-damage-delayed
-        ;; :E 1d9
-        ;; :nu 0.24d0
-        ;; :initiation-stress 1d5
-        ;; :local-length (* 2 mesh-resolution)
-        ;; :ductility 10d0
-        ;; :delay-time 1d0
-        ;; :delay-exponent 2d0
         'cl-mpm/particle::particle-ice-erodable
         :E 1d9
         :nu 0.24d0
-        ;; :nu 0d0
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
@@ -292,9 +284,10 @@
         :ductility ductility
         :local-length length-scale
         :delay-time 1d4
-        :delay-exponent 1
+        :delay-exponent 2
         :enable-plasticity t
         :enable-damage t
+
         ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
         ;; :E 1d9
         ;; :nu 0.325d0
@@ -482,20 +475,8 @@
          (load -9.8d0)
          (elastic-load 0d0)
          (load-0 (* elastic-load load))
-         (load-inc (* (- 1d0 elastic-load) (/ load step-count)))
-         )
+         (load-inc (* (- 1d0 elastic-load) (/ load step-count))))
     (format t "Substeps ~D~%" substeps)
-    ;; (cl-mpm::iterate-over-mps
-    ;;  (cl-mpm:sim-mps *sim*)
-    ;;  (lambda (mp)
-    ;;    (setf (cl-mpm/particle::mp-gravity mp) load-0)))
-    ;; (cl-mpm/dynamic-relaxation:converge-quasi-static
-    ;;  *sim*
-    ;;  :energy-crit 1d-2
-    ;;  :oobf-crit 1d-2
-    ;;  :substeps 50
-    ;;  :conv-steps 1000
-    ;;  :dt-scale dt-scale)
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
      (lambda (mp)
@@ -1015,7 +996,7 @@
 
 
 (defun calving-test ()
-  (loop for dt in (list 4d0)
+  (loop for dt in (list 1d4)
         do
            (let* ((mps 2))
              (setup :refine 0.5
@@ -1024,34 +1005,33 @@
                     :ice-height 400d0
                     :mps mps
                     :cryo-static t
-                    :aspect 1d0
+                    :aspect 2d0
                     )
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
              (setf (cl-mpm::sim-dt-scale *sim*) 1d0)
-             ;; (let ((step 0)
-             ;;       (output-dir (merge-pathnames "./output/")))
-             ;;   (cl-mpm/dynamic-relaxation:converge-quasi-static
-             ;;    *sim*
-             ;;    :substeps 50
-             ;;    :post-iter-step
-             ;;    (lambda (i energy oobf)
-             ;;      (plot-domain *sim*)
-             ;;      (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-             ;;      (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" step i)) *sim*)
-             ;;      (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d_~5,'0d.vtk" step i)) *sim*))
-             ;;    ))
              (cl-mpm/dynamic-relaxation::run-multi-stage
               *sim*
               :output-dir "./output/"
               :dt dt
               :dt-scale 1d0
+              :substeps 10
               :steps 1000
               :plotter (lambda (sim) (plot-domain))
+              :max-adaptive-steps 10
+              :explicit-dt-scale 0.5d0
               :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-              :post-conv-step
+              :setup-quasi-static
               (lambda (sim)
-                (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0)))
+                (setf
+                 (cl-mpm/aggregate::sim-enable-aggregate sim) t
+                 (cl-mpm::sim-ghost-factor sim) nil
+                 (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
+              :setup-dynamic
+              (lambda (sim)
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
+                      (cl-mpm::sim-ghost-factor sim) nil
+                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0)))
              )))
 
 
@@ -1341,13 +1321,14 @@
   (loop for dt in (list 1d4)
         do
            (let* ((mps 2))
-             (setup :refine 0.5
+             (setup :refine 1
                     :friction 0d0
                     :bench-length 000d0
                     :ice-height 400d0
+                    :floatation-ratio 0.7
                     :mps mps
                     :cryo-static t
-                    :aspect 3d0)
+                    :aspect 1d0)
              (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
@@ -1357,14 +1338,33 @@
               :output-dir "./output/"
               :dt dt
               :dt-scale 1d0
-              :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
               :enable-plastic t
               :enable-damage t
               :steps 1000
               :conv-criteria 1d-3
+              :plotter (lambda (sim) (plot-domain))
               :max-adaptive-steps 10
               :explicit-dt-scale 0.5d0
-              :plotter (lambda (sim) (plot-domain))))))
+              :elastic-dt-margin 1d3
+              :explicit-damping-factor 1d-3
+              :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+              ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+              :setup-quasi-static
+              (lambda (sim)
+                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                (setf
+                 (cl-mpm/aggregate::sim-enable-aggregate sim) t
+                 (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
+                 (cl-mpm::sim-ghost-factor sim) nil;; (* 1d9 1d-4)
+                 (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
+              :setup-dynamic
+              (lambda (sim)
+                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-5)
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+                      (cl-mpm::sim-velocity-algorithm sim) :FLIP
+                      (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
+                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
+              ))))
 
 
 ;; (defparameter *i* 0)
@@ -1384,3 +1384,5 @@
 ;;      (pprint (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
 ;;      ;; (format t "~A~%" )
 ;;      )))
+
+;; (cl-mpm/output::save-vtk-cells "./output/cells.vtk" *sim*)
