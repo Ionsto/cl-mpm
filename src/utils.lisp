@@ -726,3 +726,13 @@
 (defun r2d (radians)
   (* radians (/ 180 pi)))
 
+
+
+(defun slice-matrix-2d (mat)
+  (let* ((nd 2)
+         (m (arb-matrix nd nd)))
+    (loop for x from 0 below nd
+          do
+             (loop for y from 0 below nd
+                   do (setf (mtref m x y) (mtref mat x y))))
+    m))

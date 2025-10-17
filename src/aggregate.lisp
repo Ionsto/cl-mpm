@@ -256,6 +256,34 @@
         (lambda (n)
           (setf (varef (funcall ,accessor n) ,dim) 0d0))))))
 
+(defmacro zero-global-scalar (sim accessor)
+  `(progn
+     (let* ((active-nodes (sim-agg-nodes-fd ,sim)))
+       (cl-mpm::iterate-over-nodes-array
+        active-nodes
+        (lambda (n)
+          (setf (,accessor n) 0d0))))))
+
+(defmacro increment-global-vec (sim vector accessor dim)
+  `(progn
+     (let* ((active-nodes (sim-agg-nodes-fd ,sim))
+            (proj-val ,vector))
+       (cl-mpm::iterate-over-nodes-array
+        active-nodes
+        (lambda (n)
+          (incf (varef (funcall ,accessor n) ,dim)
+                (varef proj-val (cl-mpm/mesh::node-agg-fd n))))))))
+
+(defmacro increment-global-scalar (sim vector accessor)
+  `(progn
+     (let* ((active-nodes (sim-agg-nodes-fd ,sim))
+            (proj-val ,vector))
+       (cl-mpm::iterate-over-nodes-array
+        active-nodes
+        (lambda (n)
+          (incf (,accessor n)
+                (varef proj-val (cl-mpm/mesh::node-agg-fd n))))))))
+
 (defmacro project-global-vec (sim vector accessor dim)
   `(progn
      (let* ((active-nodes (sim-agg-nodes-fd ,sim))

@@ -138,7 +138,7 @@
       cell
     (when (and
            active
-           (not partial)
+           ;; (not partial)
            )
       (cl-mpm/fastmaths:fast-zero disp)
       (cl-mpm/fastmaths:fast-zero df)
@@ -558,6 +558,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       (cl-mpm/fastmaths:fast-zero friction-force)
       (cl-mpm/fastmaths:fast-zero friction-force-prev)
       (setf normal-force 0d0))
+    (setf (cl-mpm/particle::mp-penalty-stiffness mp) 0d0)
     (setf contact nil)))
 
 (defgeneric update-particle (mesh mp dt)

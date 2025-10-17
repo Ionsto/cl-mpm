@@ -157,7 +157,39 @@
                                 oobf-denom)
                              0d0
                              )))
-                 (setf node-oobf 0d0))))))
+                 (setf node-oobf 0d0)))))
+
+          (when sim-agg
+            ;; (print "Hello")
+            (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+                  do (cl-mpm/aggregate::zero-global-scalar sim cl-mpm/mesh::node-oobf))
+            (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+                  do (let* ((E (cl-mpm/aggregate::sim-global-e sim))
+                            (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+                            (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d)))
+
+                       (let* ((fagg (cl-mpm/aggregate::apply-internal-bcs
+                                     sim
+                                     (magicl:@ (magicl:transpose E)
+                                               (cl-mpm/fastmaths::fast-.+
+                                                f-int
+                                                f-ext))
+                                     d))
+                              (fnorm (cl-mpm/fastmaths:fast-.* fagg fagg)))
+                         ;; (pprint fnorm)
+                         (cl-mpm/aggregate::increment-global-scalar sim (magicl:@ E fnorm) cl-mpm/mesh::node-oobf)))))
+          (cl-mpm::iterate-over-nodes
+           (cl-mpm:sim-mesh sim)
+           (lambda (node)
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (agg cl-mpm/mesh::node-agg)
+                              (node-oobf cl-mpm/mesh::node-oobf))
+                 node
+               (when (and active
+                        agg)
+                   ;; (setf node-oobf (/ (sqrt (max node-oobf 0d0)) oobf-denom))
+                   ))))
+          )
         (values energy oobf power)
         ))))
 
@@ -469,23 +501,58 @@
               stats-power p)
         (incf stats-work p)))))
 
+(defun df-to-jacobian (sim df)
+  (let* ((h (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
+         (ddf (cl-mpm/fastmaths::fast-scale! (cl-mpm/fastmaths:fast-.- df (cl-mpm/utils:matrix-eye 1d0)) (/ 1d0 h))))
+    (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0) ddf)))
 
 
-(defmethod compute-max-deformation (sim)
+(defun compute-max-deformation-2d (sim)
   (cl-mpm::reduce-over-cells
    (cl-mpm:sim-mesh sim)
    (lambda (c)
      (if (and (cl-mpm/mesh::cell-active c)
               (not (cl-mpm/mesh::cell-partial c)))
-         (multiple-value-bind (l v) (cl-mpm::eig (cl-mpm/mesh::cell-deformation-gradient c))
+         (multiple-value-bind (l v) (cl-mpm::eig (cl-mpm/utils::slice-matrix-2d (df-to-jacobian sim (cl-mpm/mesh::cell-deformation-gradient c))))
            (/ (the double-float (reduce #'max l))
               (the double-float (reduce #'min l))))
-         ;; (max
-         ;;  (/ 1d0 (magicl:det (cl-mpm/mesh::cell-deformation-gradient c)))
-         ;;  (magicl:det (cl-mpm/mesh::cell-deformation-gradient c))
-         ;;  )
          0d0))
-   #'max))
+   #'max)
+  )
+(defun compute-max-deformation-3d (sim)
+  (cl-mpm::reduce-over-cells
+   (cl-mpm:sim-mesh sim)
+   (lambda (c)
+     (if (and (cl-mpm/mesh::cell-active c)
+              (not (cl-mpm/mesh::cell-partial c)))
+         (multiple-value-bind (l v) (cl-mpm::eig (df-to-jacobian sim (cl-mpm/mesh::cell-deformation-gradient c)))
+           (/ (the double-float (reduce #'max l))
+              (the double-float (reduce #'min l))))
+         0d0))
+   #'max)
+  )
+
+(defmethod compute-max-deformation (sim)
+  (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
+      (compute-max-deformation-2d sim)
+      (compute-max-deformation-3d sim)))
+
+(defmethod print-max-deformation (sim)
+  (let ((cmax 0d0)
+        (fmax nil))
+    (cl-mpm::iterate-over-cells-serial
+     (cl-mpm:sim-mesh sim)
+     (lambda (c)
+       (if (and (cl-mpm/mesh::cell-active c)
+                (not (cl-mpm/mesh::cell-partial c)))
+           (let ((ct (multiple-value-bind (l v) (cl-mpm::eig (df-to-jacobian sim (cl-mpm/mesh::cell-deformation-gradient c)))
+                      (/ (the double-float (reduce #'max l))
+                         (the double-float (reduce #'min l))))))
+             (when (> ct cmax)
+               (setf cmax ct
+                     fmax (df-to-jacobian sim (cl-mpm/mesh::cell-deformation-gradient c))))))))
+    (format t "cmax ~E ~% f: ~A ~%" cmax fmax)
+    ))
 
 (defun criteria-deformation-gradient (sim &key (criteria 10d0))
   (%criteria-deformation-gradient sim criteria))

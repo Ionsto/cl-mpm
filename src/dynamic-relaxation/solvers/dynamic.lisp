@@ -34,11 +34,14 @@
           (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
           (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
+          (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
           (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 mass))
           ;;Would intergrtate but don't
           (cl-mpm/utils::vector-copy-into residual residual-prev)
           (cl-mpm/utils::vector-copy-into force-int residual)
-          (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)))))
+          (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)
+          (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
+          ))))
   (values))
 
 
@@ -99,10 +102,15 @@
   (with-accessors ((mesh cl-mpm::sim-mesh)
                    (dt cl-mpm::sim-dt)
                    (dt-true cl-mpm/dynamic-relaxation::sim-dt-loadstep)
-                   (enable-dynamics sim-enable-dynamics))
+                   (enable-dynamics sim-enable-dynamics)
+                   (bcs-force-list cl-mpm::sim-bcs-force-list)
+                   )
       sim
     (map-stiffness sim)
     (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
+    (loop for bcs-f in bcs-force-list
+          do (loop for bc across bcs-f
+                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
     (when enable-dynamics
       (cl-mpm:iterate-over-nodes
        mesh
@@ -167,6 +175,9 @@
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt))
       (update-node-fictious-mass sim)
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        (cl-mpm::apply-bcs mesh bcs dt))
       (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
@@ -207,20 +218,31 @@
   "Update stress last algorithm"
   (let ((crit 1d-3)
         (damage-enabled (cl-mpm::sim-enable-damage sim))
-        (dt (cl-mpm::sim-dt sim)))
+        (dt (cl-mpm::sim-dt sim))
+        (dt-scale (cl-mpm::sim-dt-scale sim))
+        )
     (setf (sim-dt-loadstep sim) (* 1d0 dt))
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-    (generalised-staggered-solve
+    (setf (cl-mpm::sim-dt-scale sim) 0.5d0)
+    (;generalised-staggered-solve
+     converge-quasi-static
      sim
      :enable-damage damage-enabled
      ;; :damping 1d0
-     :dt-scale 1d0
-     :post-iter-step (lambda (i e o) (format t "Dynamic substep ~D~%" i)
-                       (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "sim_step_~5,'0d.vtk" i)) sim)
-                       (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_step_nodes_~5,'0d.vtk" i)) sim)
-                       (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+     :energy-crit 1d-3
+     :oobf-crit 1d-3
+     :damping 1d0
+     :substeps 50
+     :conv-steps 10000
+     :dt-scale 0.5d0
+     :post-iter-step (lambda (i e o)
+                       (format t "Dynamic substep ~D~%" i)
+                       (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                       (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                       ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
                        (incf *total-iter*)))
     (incf *total-step*)
+    (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
     (setf (cl-mpm::sim-dt sim) dt)
     (cl-mpm::finalise-loadstep sim))

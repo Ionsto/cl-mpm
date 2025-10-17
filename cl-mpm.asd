@@ -800,14 +800,20 @@
   :serial t
   :components ((:file "examples/penalty/billet")))
 
+(defsystem "cl-mpm/examples/cpt"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/cpt/cpt")))
+
+
 
 #+asdf-system-connections
 (defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
-  :components ((:file "src/dynamic-relaxation/mpi.lisp")))
+  :components ((:file "src/dynamic-relaxation/mpi")))
 
 
 #+asdf-system-connections
 (defsystem-connection "cl-mpm/damage-mpi"
   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
-  :components ((:file "src/dynamic-relaxation/mpi.lisp")))
+  :components ((:file "src/dynamic-relaxation/mpi")))

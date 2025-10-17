@@ -71,10 +71,40 @@
 ;; (defun pressure-virtual-div ()
 ;;   (magicl:zeros '(2 1)))
 
+(defun compute-mp-displacement (mesh mp)
+  ;; (cl-mpm/fastmaths:fast-.+ corner (cl-mpm/particle::mp-displacement-increment mp))
+  (with-accessors ((disp-inc cl-mpm/particle::mp-displacement-increment))
+      mp
+    (fast-zero disp-inc)
+    (cl-mpm:iterate-over-neighbours
+     mesh
+     mp
+     (lambda (mesh mp node svp grads fsvp fgrads)
+       (declare
+        (ignore mp mesh fsvp fgrads)
+        (cl-mpm/mesh::node node)
+        (cl-mpm/particle:particle mp)
+        (double-float svp))
+       (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
+                        (node-acc cl-mpm/mesh:node-acceleration)
+                        (node-disp cl-mpm/mesh::node-displacment)
+                        (node-scalar cl-mpm/mesh::node-boundary-scalar)
+                        (node-active cl-mpm/mesh:node-active)
+                        ) node
+         (declare (double-float node-scalar)
+                  (boolean node-active))
+         (when node-active
+           (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)))))
+    (fast-.+ (cl-mpm/particle::mp-position mp)
+            disp-inc
+            (cl-mpm/particle::mp-position-trial mp))))
+
 (declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
 (defun calculate-val-mp (mp func)
-  (with-accessors ((pos cl-mpm/particle::mp-position-trial))
-      mp
+  (let ((pos (fast-.+
+              (cl-mpm/particle::mp-position mp)
+              (cl-mpm/particle::mp-displacement-increment mp)
+              )))
     (funcall func pos)))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
@@ -97,19 +127,19 @@
 ;;     ;; (buoyancy-virtual-stress (tref pos 1 0) datum)
 ;;     ))
 
-(defun calculate-virtual-divergance-mp (mp datum)
-  (with-accessors ((pos cl-mpm/particle:mp-position))
-      mp
-    (pressure-virtual-div)
-    ;; (buoyancy-virtual-div (tref pos 1 0) datum)
-    ))
+;; (defun calculate-virtual-divergance-mp (mp datum)
+;;   (with-accessors ((pos cl-mpm/particle:mp-position))
+;;       mp
+;;     (pressure-virtual-div)
+;;     ;; (buoyancy-virtual-div (tref pos 1 0) datum)
+;;     ))
 
-(defun calculate-virtual-divergance-cell (cell datum)
-  (with-accessors ((pos cl-mpm/mesh::cell-centroid))
-      cell
-    (pressure-virtual-div)
-    ;; (buoyancy-virtual-div (tref pos 1 0) datum)
-    ))
+;; (defun calculate-virtual-divergance-cell (cell datum)
+;;   (with-accessors ((pos cl-mpm/mesh::cell-centroid))
+;;       cell
+;;     (pressure-virtual-div)
+;;     ;; (buoyancy-virtual-div (tref pos 1 0) datum)
+;;     ))
 
 (defun mps-in-cell (mesh mps)
   (loop for mp across mps
@@ -1101,13 +1131,17 @@
   (cl-mpm:iterate-over-mps
    mps
     (lambda (mp)
+      (compute-mp-displacement mesh mp)
       (with-accessors ((volume cl-mpm/particle:mp-volume)
-                       (pos cl-mpm/particle::mp-position-trial)
+                       ;(pos cl-mpm/particle::mp-position-trial)
+                       (pos cl-mpm/particle::mp-position)
+                       (disp cl-mpm/particle::mp-displacement-increment)
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
         (when t;(funcall clip-func pos)
-          (let* ((mp-stress (funcall func-stress mp))
+          (let* (
+                 (mp-stress (funcall func-stress mp))
                  ;; (mp-stress (cl-mpm/utils::pull-back-voigt-stress mp-stress df))
                  (mp-div (funcall func-div mp))
                  (f-stress (cl-mpm/utils:vector-zeros))
@@ -1443,3 +1477,60 @@
                        ;;Add boundary scalar (can be used for other ops)
                        (incf node-boundary-scalar
                              (* volume svp (calculate-val-mp mp #'melt-rate)))))))))))))))
+
+
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
+  (pprint "hellO")
+  (with-accessors ((datum bc-buoyancy-datum)
+                   (clip-func bc-buoyancy-clip-func)
+                   (rho bc-buoyancy-rho))
+      bc
+    (declare (function clip-func))
+    (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    (compute-stiffness-cells-3d
+     (cl-mpm:sim-mesh sim)
+     (lambda (pos) (* datum rho (cl-mpm:sim-gravity sim)))
+     clip-func))
+  ;; (apply-force-mps-3d mesh mps
+  ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
+  ;;                     (lambda (mp) (calculate-val-mp mp func-div))
+  ;;                     (lambda (pos) (funcall clip-function pos datum))
+  ;;                     )
+
+  )
+
+(defun compute-stiffness-cells-3d (mesh stiffness-func clip-func)
+  "Update force on nodes, with virtual stress field from cells"
+  (declare (function stiffness-func))
+  (cl-mpm::iterate-over-cells
+   mesh
+   (lambda (cell)
+     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+                      (trial-pos cl-mpm/mesh::cell-trial-centroid)
+                      (cell-active cl-mpm/mesh::cell-active)
+                      (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
+                      (cell-pressure cl-mpm/mesh::cell-pressure)
+                      (df cl-mpm/mesh::cell-deformation-gradient)
+                      (disp cl-mpm/mesh::cell-displacement))
+         cell
+       (when nil;cell-active
+         (let* ()
+           (cl-mpm/mesh::cell-iterate-over-neighbours
+            mesh cell
+            (lambda (mesh cell p volume node svp grads)
+              (with-accessors ((node-pos cl-mpm/mesh::node-position)
+                               (node-mass cl-mpm/mesh::node-mass)
+                               (node-lock  cl-mpm/mesh:node-lock)
+                               (node-active cl-mpm/mesh:node-active)
+                               (node-boundary cl-mpm/mesh::node-boundary-node)
+                               (node-volume cl-mpm/mesh::node-volume)
+                               )
+                  node
+                (declare (double-float volume svp))
+                (when (and node-active
+                           node-boundary)
+                  (sb-thread:with-mutex (node-lock)
+                    (incf
+                     node-mass
+                     (* (funcall stiffness-func node-pos) volume svp))
+                    )))))))))))

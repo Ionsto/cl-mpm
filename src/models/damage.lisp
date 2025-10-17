@@ -85,11 +85,15 @@
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-elastic-damage))
   (with-accessors ((k    cl-mpm/particle::mp-history-stress)
                    (k-n    cl-mpm/particle::mp-history-stress-n)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (ybar cl-mpm/particle::mp-damage-ybar)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n    cl-mpm/particle::mp-damage-n))
       mp
     (setf k k-n
-          damage damage-n)
+          damage damage-n
+          y 0d0
+          ybar 0d0)
     ;; (cl-mpm/damage::compute-damage mp)
     (call-next-method)))
 

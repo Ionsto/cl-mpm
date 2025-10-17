@@ -152,6 +152,7 @@
                    (setf (varef (cl-mpm/mesh::node-external-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-internal-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-residual node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-residual-prev node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-ghost-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-damping-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
@@ -523,3 +524,9 @@
     (with-accessors ((index bc-index))
         obj
       (format stream "index: ~a" index))))
+
+
+(defgeneric cl-mpm/bc::assemble-bc-stiffness (sim bc)
+  ;; (:documentation "For BCs that have a general stiffness, assemble a strict upper bound on stiffness into the mass-matrix")
+  )
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim bc))

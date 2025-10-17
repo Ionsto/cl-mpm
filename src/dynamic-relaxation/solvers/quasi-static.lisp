@@ -57,10 +57,14 @@
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr))
   (with-accessors ((mesh cl-mpm::sim-mesh)
-                   (dt cl-mpm::sim-dt))
+                   (dt cl-mpm::sim-dt)
+                   (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
     (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
+    (loop for bcs-f in bcs-force-list
+          do (loop for bc across bcs-f
+                   do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
 
@@ -428,3 +432,72 @@
         ;; (cl-mpm::new-loadstep sim)
         )
       (incf time dt))))
+
+(defmethod estimate-static-oobf ((sim mpm-sim-implict-dynamic))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (destructuring-bind (energy
+                         oobf-num
+                         oobf-denom
+                         power)
+        (cl-mpm::reduce-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (if (and (cl-mpm/mesh:node-active node)
+                    (not (cl-mpm/mesh::node-agg node)))
+               (with-accessors ((active cl-mpm/mesh::node-active)
+                                (f-ext cl-mpm/mesh::node-external-force)
+                                (f-int cl-mpm/mesh::node-internal-force)
+                                (node-oobf cl-mpm/mesh::node-oobf)
+                                (mass cl-mpm/mesh::node-mass)
+                                (volume cl-mpm/mesh::node-volume)
+                                (volume-t cl-mpm/mesh::node-volume-true)
+                                (vel cl-mpm/mesh::node-velocity)
+                                (disp cl-mpm/mesh::node-displacment)
+                                )
+                   node
+                 (declare (double-float mass))
+                 (let ()
+                   (list
+                    (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel))
+                    (cl-mpm/fastmaths::mag-squared (cl-mpm/fastmaths::fast-.+-vector f-ext f-int))
+                    (cl-mpm/fastmaths::mag-squared f-ext)
+                    (cl-mpm/fastmaths:dot disp f-ext))))
+               (list 0d0 0d0 0d0 0d0)))
+         (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+      (declare (double-float  energy oobf-num oobf-denom power))
+      (when sim-agg
+        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+              do (let* ((f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                        (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                        (E (cl-mpm/aggregate::sim-global-e sim))
+                        (ma (cl-mpm/aggregate::sim-global-ma sim))
+                        (vi (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
+                        (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
+                   (incf oobf-num (cl-mpm/fastmaths::mag-squared
+                                   (cl-mpm/aggregate::apply-internal-bcs
+                                    sim
+                                    (magicl:@ (magicl:transpose E)
+                                              (cl-mpm/fastmaths::fast-.+
+                                               f-int
+                                               f-ext))
+                                    d
+                                    )))
+                   (incf oobf-denom (cl-mpm/fastmaths::mag-squared
+                                     (cl-mpm/aggregate::apply-internal-bcs
+                                      sim
+                                      (magicl:@ (magicl:transpose E) f-ext)
+                                      d)))
+                   (incf power (cl-mpm/fastmaths:dot
+                                disp f-ext))
+                   (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
+                   )))
+      (let ((oobf 0d0)
+            (oobf-num (sqrt oobf-num))
+            (oobf-denom (sqrt oobf-denom))
+            )
+        (if (> oobf-denom 0d0)
+            (setf oobf (/ oobf-num oobf-denom))
+            (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+        oobf))))
