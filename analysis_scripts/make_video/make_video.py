@@ -64,7 +64,7 @@ plt.rc('axes', labelsize=8)
 width = 3.487
 height = width / 1.618
 
-output_dir = "../output/"
+output_dir = "../../output/"
 
 water_height = 236
 xlim = [0,2600]
@@ -85,14 +85,15 @@ ice_height = 200
 plt.close("all")
 files = os.listdir(output_dir)
 
-finalcsv = re.compile("sim_\d+.vtk")
+#finalcsv = re.compile("sim_\d+_\d+_real.vtk")
+finalcsv = re.compile("sim(_\d+)?_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
 
 framenumber_regex = re.compile("\d+")
 # files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
-files_csvs.sort(key=lambda x: int(framenumber_regex.findall(x)[0]))
+files_csvs.sort(key=lambda x: int(framenumber_regex.findall(x)[-1]))
 
-# print("files: {}".format(files_csvs))
+print("files: {}".format(files_csvs))
 dt = 1e4/60
 time = []
 max_stress = []
