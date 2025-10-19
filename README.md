@@ -12,15 +12,16 @@ Theoretically should work on windows however MAGICL library is required which is
  
  
 # Features
+ - Finite strain hyperelastic + plastic (Hencky strain measure) continuum model
  - GIMP shape functions
  - Extensible design using CLOS
  - Non-local continuum damage model for quasi-static and dynamic damage
  - Nonconforming boundary conditions (virtual stress method)
- - Releasing arbrbitary penalty boundary conditions
+ - Non-conforming contact boundary conditiosn (penalty formulation)
  - Particle addition and deletion
  - MPI capabilities
  - Multithreaded with lparallel
- - Common plastic models: Von-Mises, Mohr-Coloumb
+ - Common plastic models: Von-Mises, Mohr-Coloumb, Drucker-Prager
  
 Output
  - VTK mesh & mp output
