@@ -21,25 +21,25 @@
 (defun setup (&key (refine 1) (mps 3))
   (let* ((L 10d0)
          (d 1d0)
-         (domain-width 10d0)
+         (domain-width 5d0)
          (h (/ 1d0 refine))
          (height 10d0)
-         (width 5d0)
          (domain-height (+ height 4d0))
          (density 16d3)
          (E 22d9)
          (domain-size (list domain-width domain-height))
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
-         (block-size (list height height)))
+         (block-size (list domain-width height)))
 
     (setf *sim* (cl-mpm/setup::make-simple-sim
                  h
                  element-count
                  :sim-type 'cl-mpm/aggregate::mpm-sim-agg-usf
+                 ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                  ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                  :args-list (list :enable-aggregate t
-                                  :enable-fbar nil
-                                  :enable-split nil
+                                  :enable-fbar t
+                                  :enable-split t
                                   :vel-algo :FLIP
                                   )))
     (cl-mpm:add-mps
@@ -69,7 +69,7 @@
       ;; :index 0
       ;; :gravity-axis (cl-mpm/utils:vector-zeros)
       ))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-5)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* E 1d-4))
     (cl-mpm/setup::setup-bcs
      *sim*
@@ -223,7 +223,7 @@
   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
 (defun test ()
-  (setup :mps 4 :refine 1)
+  (setup :mps 2 :refine 4)
   ;; (run)
   (run-real-time)
   )
@@ -231,19 +231,21 @@
 
 (defun run-real-time (&key (output-dir "./output/")
               (ms 1d0)
-              (dt-scale 0.5d0)
+              (dt-scale 0.1d0)
               )
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-dir "mesh.vtk")
                           *sim*)
+  (cl-mpm/dynamic-relaxation::save-timestep-preamble output-dir)
+  (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
   (cl-mpm/dynamic-relaxation::elastic-static-solution
    *sim*
    :crit 1d-3
    )
   (cl-mpm/dynamic-relaxation::set-mp-plastic-damage *sim* :enable-plastic t)
-  (let* ((target-time 0.05d0)
+  (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-min (cl-mpm:sim-dt *sim*)))
@@ -251,9 +253,13 @@
           (* 0.1d0
              (cl-mpm/setup:estimate-critical-damping *sim*)))
     (setf (cl-mpm:sim-mass-scale *sim*) ms)
-    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
+    ;; (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup:estimate-elastic-dt *sim*))
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+
     (setf substeps (round target-time (cl-mpm:sim-dt *sim*)))
+    ;; (setf (cl-mpm:sim-dt *sim*) target-time)
+    ;; (setf substeps 1)
+
     (cl-mpm/dynamic-relaxation::save-timestep-preamble output-dir)
     (cl-mpm/output::save-simulation-parameters (merge-pathnames "settings.json" output-dir)
                                                *sim*
@@ -276,7 +282,7 @@
                        (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" steps)) *sim*)
                        (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" steps)) *sim* )
                        ;; (cl-mpm/output::save-vtk-mesh-nodes (merge-pathnames output-dir (format nil "sim_nodes_p_~5,'0d.vtk" *sim-step*)) (cl-mpm::sim-mesh-p *sim*))
-                       (setf dt-min (cl-mpm::calculate-min-dt *sim*))
+                       ;; (setf dt-min (cl-mpm::calculate-min-dt *sim*))
                        (time
                         (dotimes (i substeps)
                           (cl-mpm/penalty::bc-increment-center
@@ -289,10 +295,10 @@
                           (incf energy (cl-mpm::sim-stats-energy *sim*))
                           (incf work (cl-mpm::sim-stats-power *sim*))
                           ))
-                       (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                         (format t "CFL dt estimate: ~f~%" dt-e)
-                         (format t "CFL step count estimate: ~D~%" substeps-e)
-                         (setf substeps substeps-e))
+                       ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                       ;;   (format t "CFL dt estimate: ~f~%" dt-e)
+                       ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
+                       ;;   (setf substeps substeps-e))
                        (format t "Substeps ~D~%" substeps)
                        (format t "~E ~E~%" energy oobf)
 
