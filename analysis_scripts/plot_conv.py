@@ -50,8 +50,8 @@ damage = df["damage"].values
 damage = damage / np.max(damage)
 fig = plt.figure()
 ax = fig.gca()
-#ax.plot(iters,oobf,label="OOBF")
-ax.plot(iters,energy,label="Energy")
+# ax.plot(iters,oobf,label="OOBF")
+# ax.plot(iters,energy,label="Energy")
 ax.plot(iters,oobf,label="Residual")
 
 thresh_scale = 1e-2
@@ -75,6 +75,7 @@ for i in range(len(df)-1):
         x = iters[i+1]
         ax.axvline(x,color="black")
         ax.text(x+offset,-0.30,'Step {}'.format(step[i+1]),rotation=90)
+
 lines, labels = ax.get_legend_handles_labels()
 lines2, labels2 = ax_damage.get_legend_handles_labels()
 ax_damage.legend(lines + lines2, labels + labels2, loc=0)

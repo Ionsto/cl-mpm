@@ -23,8 +23,8 @@ folders = list(filter(regex.search,os.listdir(top_dir)))
 
 plt.figure(1)
 
-load_zeroing = True
-# load_zeroing = False
+# load_zeroing = True
+load_zeroing = False
 # load_combined = True
 load_combined = False
 load_clipping = False
@@ -38,6 +38,7 @@ def get_load(filename):
     # plt.plot(data["disp"],data["load"],label="Data")
     # plt.plot(-1*mpm["disp"],0.012*mpm["load"],label="MPM")
     mpm["disp"] = mpm["disp"]
+    mpm["load"] = mpm["load-mps"]
     if load_clipping:
         mpm = mpm[mpm["disp"] >= 0.01e-3]
     if len(mpm["load"]) > 0:
@@ -57,6 +58,7 @@ for i in folders:
         #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
         #l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
         plt.plot(-1e3*mpm["disp"].values,0.012*mpm["load"].values,label=i)
+        # plt.plot(-1e3*mpm["disp"].values,0.012*mpm["load"].values,label=i)
         print("GF ",i," :",calculate_gf(-1*mpm["disp"],13e-3*mpm["load"]))
         # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load-diff"].values,label=i,marker="x",c=l[0].get_color())
         #print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))
