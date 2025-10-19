@@ -4,10 +4,7 @@
 (in-package :cl-mpm/examples/aggregate-condition)
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
-  (cl-mpm::update-particle-kirchoff mesh mp dt)
-  ;; (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::scale-domain-size mesh mp)
-  )
+  (cl-mpm::update-particle-kirchoff mesh mp dt))
 
 (defun setup (&key (refine 1) (mps 2))
   (let* ((density 1d0)
@@ -134,8 +131,7 @@
              (when save-vtk
                (save-vtks "./output/" i)))
     (vgplot:figure)
-    (plot-condition)
-    ))
+    (plot-condition)))
 
 
 

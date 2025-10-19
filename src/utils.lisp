@@ -43,6 +43,8 @@
    #:fast-storage
    #:varef
    #:mtref
+   #:deg-to-rad
+   #:rad-to-deg
    ))
 (in-package :cl-mpm/utils)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
@@ -726,6 +728,10 @@
 (defun r2d (radians)
   (* radians (/ 180 pi)))
 
+(defun deg-to-rad (degrees)
+  (* degrees (/ pi 180)))
+(defun rad-to-deg (radians)
+  (* radians (/ 180 pi)))
 
 
 (defun slice-matrix-2d (mat)

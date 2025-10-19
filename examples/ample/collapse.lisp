@@ -62,15 +62,15 @@
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-               :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
-               ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
+               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                :args-list (list
                            :split-factor 0.5d0
                            :enable-fbar nil
                            :enable-aggregate t
                            ;; :vel-algo :QUASI-STATIC
-                           :vel-algo :FLIP
+                           :vel-algo :BLEND
                            :max-split-depth 2
                            ;; :enable-length-localisation nil
                            :enable-split nil

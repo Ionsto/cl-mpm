@@ -672,14 +672,14 @@
 
                              ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d.vtk" step i)) sim)
                              ))
-                         (let ((md (compute-max-deformation sim)))
-                           (format t "Def crit ~E~%" md)
-                           (when (> md 2d0)
-                             (format t "Deformation gradient criteria exceeded~%")
-                             (error (make-instance 'non-convergence-error
-                                                   :text "Deformation gradient J exceeded"
-                                                   :ke-norm 0d0
-                                                   :oobf-norm 0d0))))
+                         ;; (let ((md (compute-max-deformation sim)))
+                         ;;   (format t "Def crit ~E~%" md)
+                         ;;   (when (> md 10d0)
+                         ;;     (format t "Deformation gradient criteria exceeded~%")
+                         ;;     (error (make-instance 'non-convergence-error
+                         ;;                           :text "Deformation gradient J exceeded"
+                         ;;                           :ke-norm 0d0
+                         ;;                           :oobf-norm 0d0))))
 
                          (incf *total-iter* substeps)
                          (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)

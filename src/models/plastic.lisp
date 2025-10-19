@@ -139,7 +139,6 @@
     (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
-
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
@@ -195,6 +194,10 @@
       mp
     (declare (double-float soft ps-vm ps-vm-1 ps-vm-inc E nu phi psi c))
     ;;Train elastic strain - plus trail kirchoff stress
+
+    (setf (mp-p-modulus mp)
+          (* (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -2)
+                   (cl-mpm/particle::compute-p-modulus mp)))
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
       (let ((f-r t)
@@ -209,22 +212,22 @@
                  (progn
                    (setf ps-inc-i ps-vm-inc)
                    (multiple-value-bind (sig eps-e f inc)
-                       ;; (cl-mpm/ext::constitutive-mohr-coulomb stress
-                       ;;                                        de
-                       ;;                                        strain
-                       ;;                                        E
-                       ;;                                        nu
-                       ;;                                        phi
-                       ;;                                        psi
-                       ;;                                        c)
-                       (cl-mpm/constitutive::mc-plastic stress
-                                                       de
-                                                       strain
-                                                       E
-                                                       nu
-                                                       phi
-                                                       psi
-                                                       c)
+                       (cl-mpm/ext::constitutive-mohr-coulomb stress
+                                                              de
+                                                              strain
+                                                              E
+                                                              nu
+                                                              phi
+                                                              psi
+                                                              c)
+                       ;; (cl-mpm/constitutive::mc-plastic stress
+                       ;;                                 de
+                       ;;                                 strain
+                       ;;                                 E
+                       ;;                                 nu
+                       ;;                                 phi
+                       ;;                                 psi
+                       ;;                                 c)
                      (declare (double-float f inc))
                      (setf f-r (> f 1d-5))
                      (setf

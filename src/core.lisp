@@ -254,7 +254,7 @@
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (integrate-vel-euler vel acc mass mass-scale dt 0d0)
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force-int residual))))
+        (cl-mpm/utils::vector-copy-into force residual))))
   (values))
 
 
@@ -297,7 +297,9 @@
         (integrate-vel-midpoint vel acc mass mass-scale dt damping)
 
         (cl-mpm/utils::vector-copy-into residual residual-prev)
-        (cl-mpm/utils::vector-copy-into force-int residual))))
+        ;(cl-mpm/utils::vector-copy-into force-int residual)
+        (cl-mpm/utils::vector-copy-into force residual)
+        )))
   (values))
 
 (defun calculate-forces-psudo-viscous (node damping dt mass-scale)

@@ -605,7 +605,7 @@
                      (debug-mutex bc-penalty-load-lock)
                      (debug-load bc-penalty-load))
         bc
-      (with-accessors ((volume cl-mpm/particle:mp-volume)
+      (with-accessors ((volume cl-mpm/particle::mp-volume-n)
                        (pressure cl-mpm/particle::mp-pressure)
                        (mp-vel cl-mpm/particle::mp-velocity)
                        ;; (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
@@ -685,9 +685,11 @@
               ;; (cl-mpm/fastmaths::fast-fmacc force
               ;;                              normal
               ;;                              (- normal-force damping-force))
+
               (cl-mpm/fastmaths::fast-fmacc force
                                             normal
                                             normal-force)
+
               (cl-mpm::iterate-over-neighbours-point-linear
                mesh
                trial-point
@@ -788,8 +790,8 @@
                                  0d0
                                  nil
                                  nil)))
-             (;;cl-mpm::iterate-over-corners
-              cl-mpm::iterate-over-midpoints
+             (cl-mpm::iterate-over-corners
+              ;; cl-mpm::iterate-over-midpoints
               mesh
               mp
               (lambda (corner-trial)
@@ -898,8 +900,9 @@
          (let (;; (disp-inc (cl-mpm/particle::mp-displacement-increment mp))
                )
            (when t;(early-sweep-intersection bc mp)
-             (cl-mpm::iterate-over-midpoints
-              ;; cl-mpm::iterate-over-corners
+             (
+              ;cl-mpm::iterate-over-midpoints
+              cl-mpm::iterate-over-corners
               mesh
               mp
               (lambda (corner-trial)
@@ -1275,28 +1278,30 @@
                   (declare (double-float node-mass node-volume mp-stiffness))
                   (when node-active
                     (sb-thread:with-mutex (node-lock)
-                      (setf
-                       node-mass
-                       ;; (+
-                       ;;  node-mass
-                       ;;  (* svp mp-stiffness))
-                       (+
-                        node-mass
-                        (* 1d0 (/ (*
-                                   ;; node-volume
-                                   svp
-                                   ;; m
-                                   ;; nv
-                                     mp-stiffness) dt-scale))))))))))))))))
+                      ;; (setf
+                      ;;  node-mass
+                      ;;  ;; (+
+                      ;;  ;;  node-mass
+                      ;;  ;;  (* svp mp-stiffness))
+                      ;;  (max
+                      ;;   node-mass
+                      ;;   (* 1d0 (/ (*
+                      ;;              ;; node-volume
+                      ;;              svp
+                      ;;              ;; m
+                      ;;              nv
+                      ;;                mp-stiffness) dt-scale))))
+                      ))))))))))))
 
 
+(declaim (notinline reset-penalty))
 (defun reset-penalty (sim)
   (cl-mpm:iterate-over-mps
    (sim-mps sim)
    (lambda (mp)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
      ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-     ;; (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
+     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
      )))
 
 ;; (defun finalise-penalty (sim)

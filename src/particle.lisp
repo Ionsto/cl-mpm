@@ -567,6 +567,10 @@
   (with-slots ((de elastic-matrix)
                (stress stress))
       mp
+
+    (setf (mp-p-modulus mp)
+          (* (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -2)
+                   (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
 
