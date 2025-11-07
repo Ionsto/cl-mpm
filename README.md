@@ -1,7 +1,9 @@
 # CL-MPM
  Fast and extensible material point method (MPM) code implementation in common lisp, only SBCL conforming.
- Uses an explicit dynamic formulation with mass scaling, and adaptive timestepping.
+ With an explicit dynamic formulation with mass scaling, and adaptive timestepping.
+ Experimental inclusion of impicit quasi-static and dynamic modelling.
  Uses threading and MPI for large scale simulations.
+ State of the art small cut mitigation, including both ghost stabilisation and aggregation.
  Nonlocal intergral continuum damage working within the MPI framework for effective damage simulations.
  An extensible constitutive model system for easy development.
  
@@ -58,7 +60,7 @@ For live plotting gnuplot is used:
 ```sudo apt install gnuplot```
 
 # Tutorial - quick start
-Lets run a quasi-static elastic 2D problem where a square of material loaded under gravity squishes a little.
+Lets run a damped dynamic elastic 2D problem where a square of material loaded under gravity squishes a little.
 We start by loading the cl-mpm and setup package.
 This can either be done in an interactive REPL, or putting this in a file and loading it with sbcl --load.
 ```lisp
@@ -66,23 +68,24 @@ This can either be done in an interactive REPL, or putting this in a file and lo
 (ql:quickload :cl-mpm/setup)
 ;;Create a simulation of 10x10 nodes 1x1 meter wide
 (defparameter *sim*
-  (cl-mpm/setup::make-block
+  (cl-mpm/setup::make-simple-sim
    0.1d0 ;; Resolution h=h_x=h_y
    (list 10 10) ;; Elements 
    ))
 ;;Create a block of elastic material points 0.5x0.5 meters across with 10x10 material points total
-(setf (cl-mpm:sim-mps *sim*)
-      (cl-mpm/setup::make-block-mps
-       (list 0d0 0d0);; Offset
-       (list 0.5d0 0.5d0) ;; Size
-       (list 20 20);; Mp count
-       1000d0 ;Density 1kg/m^3
-       'cl-mpm/particle::particle-elastic
-       :E 1d5 ;; Young's modulus 1GPa
-       :nu 0.35d0 ;; Poission's ratio
-       :gravity -9.8d0 ;;Gravity acting in the y direction
-       ))
-
+(cl-mpm:add-mps
+ *sim*
+ (cl-mpm/setup::make-block-mps
+ (list 0d0 0d0);; Offset
+ (list 0.5d0 0.5d0) ;; Size
+ (list 20 20);; Mp count
+ 1000d0 ;Density 1kg/m^3
+ 'cl-mpm/particle::particle-elastic
+ :E 1d5 ;; Young's modulus 1GPa
+ :nu 0.35d0 ;; Poission's ratio
+ ))
+;; Setup the gravity
+(setf (cl-mpm:sim-gravity *sim*) -9.8d0)
 ;;Apply a damping n/m^2
 (setf (cl-mpm:sim-damping-factor *sim*) 10d0)
 ;;Estimate a dt value from the p wave modulus
@@ -174,6 +177,7 @@ The material points get distributed across the mpi domains spacially - here with
 ![image](https://github.com/Ionsto/cl-mpm/assets/117826225/35ef92d6-4eae-4e29-9ce8-22105ad86136)
 
 In a larger example many domains are used, however the occupancy of each sub domain is not well distributed.
+A simple greedy domain balancing algorithm can be used, however the domains remain cartesian.
 
 ![image](https://github.com/Ionsto/cl-mpm/assets/117826225/a9488de4-d5bc-411e-90aa-9dda1524d773)
 
