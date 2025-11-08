@@ -208,7 +208,10 @@
            (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 real-dt))
            ))
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
+       (setf (cl-mpm/mesh:node-mass n) (cl-mpm/mesh::node-true-mass n))
        )))
+  (cl-mpm/aggregate::update-mass-matrix sim)
+  (cl-mpm::update-dynamic-stats sim)
   (call-next-method))
 
 
@@ -235,7 +238,7 @@
      :damping 1d0
      :substeps 50
      :conv-steps 10000
-     :dt-scale 1d0
+     :dt-scale 0.5d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
                        (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
