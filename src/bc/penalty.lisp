@@ -1278,19 +1278,20 @@
                   (declare (double-float node-mass node-volume mp-stiffness))
                   (when node-active
                     (sb-thread:with-mutex (node-lock)
-                      ;; (setf
-                      ;;  node-mass
-                      ;;  ;; (+
-                      ;;  ;;  node-mass
-                      ;;  ;;  (* svp mp-stiffness))
-                      ;;  (max
-                      ;;   node-mass
-                      ;;   (* 1d0 (/ (*
-                      ;;              ;; node-volume
-                      ;;              svp
-                      ;;              ;; m
-                      ;;              nv
-                      ;;                mp-stiffness) dt-scale))))
+                      (setf
+                       node-mass
+                       (+
+                        node-mass
+                        (* svp mp-stiffness))
+                       ;; (max
+                       ;;  node-mass
+                       ;;  (* 1d0 (/ (*
+                       ;;             ;; node-volume
+                       ;;             svp
+                       ;;             ;; m
+                       ;;             nv
+                       ;;               mp-stiffness) dt-scale)))
+                       )
                       ))))))))))))
 
 

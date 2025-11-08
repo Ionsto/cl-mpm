@@ -79,6 +79,7 @@
            (load 0d0)
            (converged nil))
 
+      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
       (if damping-factor
           (setf (cl-mpm:sim-damping-factor sim)

@@ -227,7 +227,7 @@
         )
     (setf (sim-dt-loadstep sim) (* 1d0 dt))
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-    (setf (cl-mpm::sim-dt-scale sim) 0.5d0)
+    ;; (setf (cl-mpm::sim-dt-scale sim) 0.25d0)
     (;generalised-staggered-solve
      converge-quasi-static
      sim
@@ -236,7 +236,7 @@
      :energy-crit 1d-3
      :oobf-crit 1d-3
      :damping 1d0
-     :substeps 50
+     :substeps 100
      :conv-steps 10000
      :dt-scale 0.5d0
      :post-iter-step (lambda (i e o)

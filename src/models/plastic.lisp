@@ -136,7 +136,6 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-plasticity
       (multiple-value-bind (sig eps-e f) (cl-mpm/constitutive::vm-plastic stress de strain rho)
         (setf stress
@@ -150,20 +149,13 @@
               (vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
               (K (/ e (* 3 (- 1d0 (* 2 nu)))))
               (G (/ e (* 2 (+ 1d0 nu)))))
-          (when (>= (cl-mpm/particle::mp-yield-func mp) 0d0)
-            (setf G 0d0))
+          ;; (when (>= (cl-mpm/particle::mp-yield-func mp) 0d0)
+          ;;   (setf G 0d0))
           (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))
-          ;; (when (and (> ps-vm-inc 0d0)
-          ;;            (> eps-vm 0d0))
-          ;;   (setf p-mod
-          ;;         (+ K
-          ;;            (if (<= f 0d0)
-          ;;                (* 4/3 G)
-          ;;                0d0)
-          ;;          ;; (* K (sqrt (- 1d0 (/ vm (+ eps-vm vm)))))
-          ;;          )))
           )
         ))
+    (unless enable-plasticity
+      (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp))))
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))
@@ -190,13 +182,15 @@
                    (strain mp-strain)
                    (yield-func mp-yield-func)
                    (soft mp-softening)
+                   (p-mod mp-p-modulus)
+                   (def mp-deformation-gradient)
                    (enabled mp-enable-plasticity))
       mp
     (declare (double-float soft ps-vm ps-vm-1 ps-vm-inc E nu phi psi c))
     ;;Train elastic strain - plus trail kirchoff stress
 
-    (setf (mp-p-modulus mp)
-          (* (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -2)
+    (setf p-mod
+          (* (expt (cl-mpm/fastmaths::det def) -2)
                    (cl-mpm/particle::compute-p-modulus mp)))
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
@@ -237,6 +231,13 @@
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)
+                   (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+                         (G (/ e (* 2 (+ 1d0 nu)))))
+                     (declare (double-float K G p-mod))
+                     (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
+                       (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
+                       (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
+                       (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))))
                    ;; (unless (= soft 0d0)
                    ;;   (with-accessors ((c-0 mp-c-0)
                    ;;                    (phi-0 mp-phi-0)
@@ -278,6 +279,8 @@
                    (stress mp-stress)
                    (E mp-E)
                    (nu mp-nu)
+                   (p-mod mp-p-modulus)
+                   (def mp-deformation-gradient)
                    (phi mp-phi)
                    (psi mp-psi)
                    (c mp-c)
@@ -315,6 +318,13 @@
                        (expt (- s2 s3) 2d0)
                        (expt (- s3 s1) 2d0)
                        ) 2d0))))))
+    (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+          (G (/ e (* 2 (+ 1d0 nu)))))
+      (declare (double-float K G p-mod))
+      (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
+        (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
+        (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
+        (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))))
     (when (> soft 0d0)
       (with-accessors ((c-0 mp-c-0)
                        (phi-0 mp-phi-0)
