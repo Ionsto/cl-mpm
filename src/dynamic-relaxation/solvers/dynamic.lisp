@@ -241,9 +241,10 @@
      :dt-scale 0.5d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
-                       (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-                       (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-                       (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+                       (when (uiop:directory-exists-p "./output/")
+                         (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                         (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                         (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
                        (incf *total-iter*)))
     (incf *total-step*)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
