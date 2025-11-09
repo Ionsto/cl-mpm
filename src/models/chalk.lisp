@@ -217,6 +217,8 @@
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
                    (peerlings mp-peerlings-damage)
+                   (p-mod mp-p-modulus)
+                   (def mp-deformation-gradient)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
@@ -245,6 +247,7 @@
             (let ()
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))))
+    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 
@@ -665,7 +668,7 @@
                    )
       mp
     ;; (apply-tensile-vol-degredation mp dt)
-    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
+    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-damage
       (apply-vol-degredation mp dt)
       ;(apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3)))
