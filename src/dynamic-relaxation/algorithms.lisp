@@ -283,7 +283,7 @@
   (setf (cl-mpm:sim-enable-damage sim) enable-damage)
   (let* ((e-crit criteria)
          (oobf-crit criteria)
-         (oobf-crit 0d0)
+         ;; (oobf-crit 0d0)
          (energy e-crit)
          (oobf oobf-crit)
          (work 0d0)
