@@ -238,7 +238,7 @@
      :damping 1d0
      :substeps 100
      :conv-steps 10000
-     :dt-scale 0.5d0
+     :dt-scale 0.25d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
                        (when (uiop:directory-exists-p "./output/")

@@ -787,6 +787,17 @@
                      :visc-damping visc-damping
                      :datum datum))))
 
+(defgeneric markup-cells-nodes (sim bc))
+(defmethod markup-cells-nodes (sim (bc bc))
+  )
+(defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-buoyancy))
+  (with-accessors ((datum bc-buoyancy-datum)
+                   (clip-function bc-buoyancy-clip-func))
+      bc
+    (declare (function clip-function))
+    ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+    (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+    ))
 
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
 
@@ -799,7 +810,8 @@
         mesh
       ;; (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
-      (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+      ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+      ;; (markup-cells-nodes sim)
       ;; (locate-mps-cells sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
@@ -867,6 +879,8 @@
                    (sim bc-buoyancy-sim))
       bc
     (declare (function clip-func))
+
+    (markup-cells-nodes sim bc)
     (let ((datum-rounding nil))
       (if datum-rounding
           (progn
@@ -1078,7 +1092,7 @@
                       (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
-       (when nil;cell-active
+       (when t;cell-active
          (let* (
                 ;; (pos (cl-mpm/fastmaths:fast-.+ pos disp))
                 (cell-stress (funcall func-stress trial-pos))
@@ -1332,6 +1346,7 @@
                      (mps cl-mpm:sim-mps))
         sim
       ;;Apply body force
+      (markup-cells-nodes sim bc)
       (apply-buoyancy-body
        mesh mps
        (lambda (mp) (calculate-val-mp mp (lambda (pos) (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))))
@@ -1480,16 +1495,16 @@
 
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc bc-buoyancy))
-  (pprint "hellO")
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-func bc-buoyancy-clip-func)
                    (rho bc-buoyancy-rho))
       bc
     (declare (function clip-func))
-    (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    (markup-cells-nodes sim bc)
     (compute-stiffness-cells-3d
      (cl-mpm:sim-mesh sim)
-     (lambda (pos) (* datum rho (cl-mpm:sim-gravity sim)))
+     (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
      clip-func))
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
@@ -1513,7 +1528,7 @@
                       (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
-       (when nil;cell-active
+       (when cell-active
          (let* ()
            (cl-mpm/mesh::cell-iterate-over-neighbours
             mesh cell
@@ -1532,5 +1547,9 @@
                   (sb-thread:with-mutex (node-lock)
                     (incf
                      node-mass
-                     (* (funcall stiffness-func node-pos) volume svp))
+                     (max 0d0 (*
+                               1d0
+                               (funcall
+                                stiffness-func
+                                (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp)))
                     )))))))))))

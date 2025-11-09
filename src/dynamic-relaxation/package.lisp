@@ -43,6 +43,11 @@
     :accessor sim-enable-dynamics))
   (:documentation "DR implicit-dynamic mpm base class"))
 
+
+(defclass mpm-sim-quasi-static (mpm-sim-dr-ul)
+  ()
+  (:documentation "DR implicit quasi-static wrapper class"))
+
 (defclass mpm-sim-implict-dynamic (mpm-sim-dr-dynamic)
   ()
   (:documentation "DR implicit-dynamic wrapper class - acts just like an explicit solver"))
