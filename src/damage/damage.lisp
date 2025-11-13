@@ -29,6 +29,12 @@
   (:documentation "Explicit damage simulation"))
 
 
+(defgeneric set-mp-damage (mp d))
+(defmethod set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
+  (setf
+   (cl-mpm/particle::mp-damage mp) d
+   (cl-mpm/particle::mp-damage-n mp) d))
+
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-damage))
   (call-next-method)
   ;; (calculate-damage sim 1d0)
@@ -1065,6 +1071,7 @@ Calls the function with the mesh mp and node"
         (declare (special id))
         (format fs "POINT_DATA ~d~%" (length mps))
 
+        (cl-mpm/output::save-parameter "viscosity" (if (slot-exists-p mp 'cl-mpm/particle::viscosity) (cl-mpm/particle::mp-viscosity mp) 0d0))
         (cl-mpm/output::save-parameter "mass" (cl-mpm/particle:mp-mass mp))
         (cl-mpm/output::save-parameter "density" (/ (cl-mpm/particle:mp-mass mp) (cl-mpm/particle:mp-volume mp)))
         (cl-mpm/output::save-parameter "unique-id" (cl-mpm/particle::mp-unique-index mp))
