@@ -336,7 +336,12 @@
 (defsystem "cl-mpm/examples/column-virtual-stress"
   :depends-on ("cl-mpm/example")
   :serial t
-  :components ((:file "examples/column-virtual-stress")))
+  :components ((:file "examples/virtual_stress/column-virtual-stress")))
+
+(defsystem "cl-mpm/examples/float-virtual-stress"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/virtual_stress/float-virtual-stress")))
 
 
 (defsystem "cl-mpm/plotter"
@@ -810,10 +815,25 @@
 #+asdf-system-connections
 (defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
-  :components ((:file "src/dynamic-relaxation/mpi")))
+  :components ((:file "src/dynamic-relaxation/mpi/solvers")))
 
 
-#+asdf-system-connections
-(defsystem-connection "cl-mpm/damage-mpi"
-  :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
-  :components ((:file "src/dynamic-relaxation/mpi")))
+;; #+asdf-system-connections
+;; (defsystem-connection "cl-mpm/damage-mpi"
+;;   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
+;;   :components ((:file "src/dynamic-relaxation/mpi")))
+
+
+(defsystem "cl-mpm/implicit"
+  :depends-on ("cl-mpm"
+               "cl-mpm/ghost"
+               "cl-mpm/aggregate"
+               "cl-mpm/utils")
+  :description "Implicit mpm test file"
+  :serial t
+  :components
+  ((:module "src"
+    :serial t
+    :components
+    ((:file "implicit")))))
+
