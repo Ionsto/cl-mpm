@@ -367,6 +367,52 @@
                                  E)))))
 
 
+(defun assemble-internal-bcs (sim d)
+  (let* ((int-nodes (cl-mpm/aggregate::sim-agg-nodes-fdc sim))
+         (ndof (length int-nodes))
+         (v (cl-mpm/utils::arb-matrix ndof 1)))
+    (cl-mpm::iterate-over-nodes-array
+     int-nodes
+     (lambda (n)
+       (let ((index (cl-mpm/mesh::node-agg-fdc n)))
+         (let ((bcs (cl-mpm/mesh::node-bcs n)))
+           (if bcs
+             (setf (varef v index) (varef bcs d))
+             (setf (varef v index) 1d0))))))
+    v))
+
+(declaim (notinline linear-solve-with-bcs))
+(defun linear-solve-with-bcs (ma v bcs &optional (target-vi nil))
+  (let ((target-vi (if target-vi
+                       target-vi
+                       (cl-mpm/utils::arb-matrix (magicl:nrows v) 1)
+                       ;; (cl-mpm/utils::deep-copy v)
+                       ))
+        (bc-map (make-array (magicl:nrows bcs) :fill-pointer 0)))
+    (cl-mpm/fastmaths:fast-zero target-vi)
+    (loop for i from 0
+          for bc across (magicl::storage bcs)
+          do (when (> bc 0d0)
+               (vector-push-extend i bc-map)))
+    ;; (print (magicl:nrows bcs))
+    ;;TODO have a fallback if no bcs are applied (i.e. no resizing required)
+    (let ((reduced-size (length bc-map)))
+      ;;When we are solving a fully fixed system - i.e. out of plane dimensions
+      (when (> reduced-size 0)
+        (let* ((A-r (cl-mpm/utils::arb-matrix reduced-size reduced-size))
+               (v-r (cl-mpm/utils::arb-matrix reduced-size 1)))
+          (lparallel:pdotimes (i reduced-size)
+            (dotimes (j reduced-size)
+              (setf (mtref a-r i j) (mtref ma (aref bc-map i) (aref bc-map j))))
+            (setf (varef v-r i) (varef v (aref bc-map i))))
+          (let ((vs (magicl::linear-solve A-r v-r)))
+            (lparallel:pdotimes (i reduced-size)
+              (setf (varef target-vi (aref bc-map i)) (varef vs i))))
+          )))
+    target-vi
+    ))
+
+
 (defun calculate-kinematics-agg (sim)
   (with-accessors ((mesh cl-mpm::sim-mesh))
       sim
@@ -386,7 +432,10 @@
                  ;; (zero-global-ve)
                  (project-global-vec
                   sim
-                  (magicl:@ E (magicl:linear-solve ma vi))
+                  (magicl:@ E
+                            (linear-solve-with-bcs ma vi (assemble-internal-bcs sim d))
+                            ;; (magicl:linear-solve ma vi)
+                            )
                   #'cl-mpm/mesh::node-velocity
                   d)
                  )))))
@@ -450,8 +499,11 @@
                           (magicl:transpose E)
                           (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
                    (apply-internal-bcs sim fa d)
-                   (let* ((acc (magicl:linear-solve ma fa)))
-                     (cl-mpm/aggregate::apply-internal-bcs sim acc d)
+                   (let* ((acc
+                            (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))
+                            ;; (magicl:linear-solve ma fa)
+                            ))
+                     ;; (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                      (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)))))
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       (iterate-over-nodes
