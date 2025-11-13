@@ -666,7 +666,11 @@
                    tang-disp
                    (* -1d0 (/ epsilon 2d0)))
 
-                  (setf (cl-mpm/particle::mp-penalty-stiffness mp) (+ (* 2d0 epsilon contact-area) (* contact-area (cl-mpm/fastmaths::mag force-friction))))
+                  ;; (setf (cl-mpm/particle::mp-penalty-stiffness mp)
+                  ;;       (+ (* 2d0 epsilon contact-area)
+                  ;;          ;; (* ;; contact-area
+                  ;;          ;;    (cl-mpm/fastmaths::mag force-friction))
+                  ;;          ))
                   )
 
                 (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
@@ -1302,7 +1306,7 @@
    (lambda (mp)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
      ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
+     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.5d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
      )))
 
 ;; (defun finalise-penalty (sim)

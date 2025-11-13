@@ -1548,7 +1548,7 @@
                     (incf
                      node-mass
                      (max 0d0 (*
-                               1d0
+                               0d0
                                (funcall
                                 stiffness-func
                                 (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp)))
