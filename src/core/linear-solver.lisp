@@ -41,23 +41,25 @@
      (cl-mpm/fastmaths:dot vn vn))))
 
 (defun solve-richardson (A-operator b
-                         &key (tol 1d-9) (max-iters 1000)
+                         &key (tol 1d-9) (max-iters 10000)
                                         )
   "Solve problems of the form Ax = b, where the computation of A(x) is supplied as a lambda function, and b is some vector"
   (let ((b-norm (cl-mpm/fastmaths::mag b))
         (vector-size (magicl:nrows b))
         )
+    (format t "Start~%")
     (if (= b-norm 0d0)
         ;;Trivial case of 0 being the answer
         (cl-mpm/utils::arb-matrix vector-size 1)
         ;;Nontrivial case
-        (let* ((x (magicl:rand (list vector-size 1)))
+        (let* ((x ;; (magicl:rand (list vector-size 1))
+                 (magicl:zeros (list vector-size 1))
+                  )
                (xn (cl-mpm/utils::deep-copy x))
                (r (cl-mpm/utils::deep-copy x))
                (crit tol)
                (err crit)
-               (eigen-max (estimate-max-eigenvalue A-operator vector-size)))
-
+               (eigen-max (* 1d0 (estimate-max-eigenvalue A-operator vector-size))))
           (setf r (cl-mpm/fastmaths::fast-.-
                    (funcall a-operator x)
                    b))
@@ -75,18 +77,10 @@
                      (setf r (cl-mpm/fastmaths::fast-.-
                               (funcall a-operator x)
                               b))
-                     (setf err
-                           (cl-mpm/fastmaths:mag r)
-                           ;; (/
-                           ;;  (cl-mpm/fastmaths:mag
-                           ;;   (cl-mpm/fastmaths::fast-.-
-                           ;;    (funcall a-operator x)
-                           ;;    b))
-                           ;;  b-norm)
-                           )
-                     ;; (format t "error ~E~%" err)
-                     ))
-
+                     (setf err (cl-mpm/fastmaths:mag r))
+                     (format t "Iter ~D - ~E~%" i err)))
+          (when (> err crit)
+            (error "Richardson didn't converge"))
           x))))
 
 
@@ -125,14 +119,15 @@
                              (/
                               rs-old
                               (dot p ap))))
-                       (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                        (fast-.+ x (fast-scale p alpha) x)
-                       (fast-.- r (fast-scale p alpha) r)
+                       (fast-.- r (fast-scale ap alpha) r)
+                       (setf rs-new (cl-mpm/fastmaths::mag-squared r))
                        (unless (< rs-new crit)
                          (setf p
                                (fast-.+
                                 r
                                 (fast-scale p (/ rs-new rs-old)))))
+                       ;; (format t "error ~E~%" rs-new)
                        (setf rs-old rs-new))
                      ))
           x))))

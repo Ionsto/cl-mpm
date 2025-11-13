@@ -470,34 +470,39 @@
                                                  (scaler (lambda (pos) 1d0))
                                                  )
   (declare (function clipping-func))
-  (cl-mpm:iterate-over-mps
-   (cl-mpm:sim-mps sim)
-   (lambda (mp)
-     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                      (strain cl-mpm/particle:mp-strain)
-                      (pos cl-mpm/particle:mp-position)
-                      (E cl-mpm/particle::mp-E)
-                      (nu cl-mpm/particle::mp-nu)
-                      (gravity cl-mpm/particle::mp-gravity)
-                      (mass cl-mpm/particle::mp-mass)
-                      (volume cl-mpm/particle::mp-volume)
-                      (de cl-mpm/particle::mp-elastic-matrix))
-         mp
-       (when (funcall clipping-func pos)
-         (unless k-x
-           (setf k-x (/ nu (- 1d0 nu))))
-         (unless k-z
-           (setf k-z (/ nu (- 1d0 nu))))
-         (let* ((density (/ mass volume))
-                (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1)
-                                                                              (funcall datum-func pos))))))
-                (stresses (cl-mpm/utils:voigt-from-list (list (* k-x sig-y)
-                                                              sig-y
-                                                              (* k-z sig-y)
-                                                              0d0 0d0 0d0)))
-                (strains (magicl:linear-solve de stresses)))
-           (cl-mpm/fastmaths:fast-.+ stress stresses stress)
-           (cl-mpm/fastmaths:fast-.+ strain strains strain)))))))
+  (with-accessors ((gravity cl-mpm::sim-gravity))
+      sim
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (with-accessors ((stress cl-mpm/particle:mp-stress)
+                        (strain cl-mpm/particle:mp-strain)
+                        (strain-n cl-mpm/particle::mp-strain-n)
+                        (pos cl-mpm/particle:mp-position)
+                        (E cl-mpm/particle::mp-E)
+                        (nu cl-mpm/particle::mp-nu)
+                        (mass cl-mpm/particle::mp-mass)
+                        (volume cl-mpm/particle::mp-volume)
+                        (de cl-mpm/particle::mp-elastic-matrix))
+           mp
+         (when (funcall clipping-func pos)
+           ;; (break)
+           (unless k-x
+             (setf k-x (/ nu (- 1d0 nu))))
+           (unless k-z
+             (setf k-z (/ nu (- 1d0 nu))))
+           (let* ((density (/ mass volume))
+                  (sig-y (* (funcall scaler pos) density gravity (- (min 0d0 (- (cl-mpm/utils:varef pos 1)
+                                                                                (funcall datum-func pos))))))
+                  (stresses (cl-mpm/utils:voigt-from-list (list (* k-x sig-y)
+                                                                sig-y
+                                                                (* k-z sig-y)
+                                                                0d0 0d0 0d0)))
+                  (strains (magicl:linear-solve de stresses)))
+             (cl-mpm/fastmaths:fast-.+ stress stresses stress)
+             (cl-mpm/fastmaths:fast-.+ strain strains strain)
+             (voigt-copy-into strain strain-n)
+             )))))))
 
 
 (defun initialise-stress-self-weight (sim
