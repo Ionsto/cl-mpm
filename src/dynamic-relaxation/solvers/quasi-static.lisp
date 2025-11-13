@@ -1,5 +1,5 @@
 (in-package :cl-mpm/dynamic-relaxation)
-(defun map-stiffness (sim)
+(defmethod map-stiffness ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mps cl-mpm:sim-mps))
       sim
@@ -50,9 +50,8 @@
                                             mass-scale)
                                          ;; node-true-v
                                          (expt h nd)
-                                         ))))))))))))
-    )
-  )
+                                         ))))))))))))))
+
 (defgeneric update-node-fictious-mass (sim))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr))
@@ -154,8 +153,8 @@
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
-    ;; (declare (type double-float mass-filter))
-    (with-slots ((mesh cl-mpm::mesh)
+  ;; (declare (type double-float mass-filter))
+  (with-slots ((mesh cl-mpm::mesh)
                  (mps cl-mpm::mps)
                  (bcs cl-mpm::bcs)
                  (bcs-force cl-mpm::bcs-force)
@@ -211,7 +210,7 @@
       ;;     (setf ke 0d0))
       ;;   (setf ke-prev ke))
       (cl-mpm::update-dynamic-stats sim)
-      (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
+      ;; (cl-mpm::g2p mesh mps dt damping :QUASI-STATIC)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
@@ -294,7 +293,11 @@
               do (let ((f (magicl:@ (magicl:transpose E)
                                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
                    (cl-mpm/aggregate::apply-internal-bcs sim f d)
-                   (let* ((acc (magicl:linear-solve ma f)))
+                   (let* ((acc
+                            (cl-mpm/aggregate::linear-solve-with-bcs
+                             ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))
+                            ;; (magicl:linear-solve ma f)
+                               ))
                      (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                      ;; (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
                      (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)

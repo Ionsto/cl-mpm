@@ -73,6 +73,7 @@
       (values (/ energy mass) oobf (/ power mass)))))
 
 (defun combi-stats-aggregated (sim)
+  ;; (pprint "Hello")
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
       sim
@@ -117,15 +118,12 @@
                         (ma (cl-mpm/aggregate::sim-global-ma sim))
                         (vi (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
                         (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
+
+                   (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
                    (incf oobf-num (cl-mpm/fastmaths::mag-squared
                                    (cl-mpm/aggregate::apply-internal-bcs
                                     sim
-                                    (magicl:@ (magicl:transpose E)
-                                              res
-                                              ;; (cl-mpm/fastmaths::fast-.+
-                                              ;;  f-int
-                                              ;;  f-ext)
-                                              )
+                                    (magicl:@ (magicl:transpose E) res)
                                     d
                                     )))
                    (incf oobf-denom (cl-mpm/fastmaths::mag-squared
@@ -542,9 +540,11 @@
   )
 
 (defmethod compute-max-deformation (sim)
-  (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
-      (compute-max-deformation-2d sim)
-      (compute-max-deformation-3d sim)))
+  (/ (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
+         (compute-max-deformation-2d sim)
+         (compute-max-deformation-3d sim))
+     (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
+     ))
 
 (defmethod print-max-deformation (sim)
   (let ((cmax 0d0)

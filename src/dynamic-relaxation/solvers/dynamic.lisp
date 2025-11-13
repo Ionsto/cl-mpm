@@ -120,6 +120,7 @@
            (incf (cl-mpm/mesh:node-mass node)
                  (* (/ 2d0 (expt dt-true 2))
                     (cl-mpm/mesh::node-true-mass node)))))))
+
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
 
@@ -236,9 +237,9 @@
      :energy-crit 1d-3
      :oobf-crit 1d-3
      :damping 1d0
-     :substeps 100
+     :substeps 10
      :conv-steps 10000
-     :dt-scale 0.25d0
+     :dt-scale 0.9d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
                        (when (uiop:directory-exists-p "./output/")
