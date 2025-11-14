@@ -1399,9 +1399,8 @@
     (lambda (mp)
       (when t
         (with-accessors ((volume cl-mpm/particle:mp-volume)
-                         (pos cl-mpm/particle::mp-position)
-                         (damage cl-mpm/particle::mp-damage)
-                         )
+                         (pos cl-mpm/particle::mp-position-trial)
+                         (damage cl-mpm/particle::mp-damage))
             mp
           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
             ;;Iterate over neighbour nodes
@@ -1548,7 +1547,7 @@
                     (incf
                      node-mass
                      (max 0d0 (*
-                               0d0
+                               1d0
                                (funcall
                                 stiffness-func
                                 (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp)))

@@ -88,10 +88,13 @@
                    (y cl-mpm/particle::mp-damage-y-local)
                    (ybar cl-mpm/particle::mp-damage-ybar)
                    (damage    cl-mpm/particle::mp-damage)
+                   (damage-inc    cl-mpm/particle::mp-damage-increment)
                    (damage-n    cl-mpm/particle::mp-damage-n))
       mp
+    ;; (pprint "Reset load")
     (setf k k-n
           damage damage-n
+          damage-inc 0d0
           y 0d0
           ybar 0d0)
     ;; (cl-mpm/damage::compute-damage mp)

@@ -53,15 +53,7 @@
   (:documentation "A ice mp with viscoplastic damage and viscoelastic relaxation "))
 
 (defclass particle-ice-brittle (particle-elastic-damage  particle-mc)
-  ((history-stress
-    :accessor mp-history-stress
-    :initform 0d0)
-   (damage-ybar-prev
-    :accessor mp-damage-ybar-prev
-    :type DOUBLE-FLOAT
-    :initform 0d0
-    :initarg :damage-ybar-prev)
-   (trial-elastic-strain
+  ((trial-elastic-strain
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
     :initform (cl-mpm/utils:voigt-zeros))
@@ -73,10 +65,6 @@
     :accessor mp-peerlings-damage
     :initform t
     :initarg :peerlings-damage)
-   (ductility
-    :accessor mp-ductility
-    :initarg :ductility
-    :initform 1d0)
    (shear-residual-ratio
     :accessor mp-shear-residual-ratio
     :initarg :g-res-ratio
@@ -105,72 +93,19 @@
     :initarg :damage-shear
     :initform 0d0)
    )
-  (:documentation "An ice damage model"))
+  (:documentation "An ice damage model with a quasi-brittle damage model"))
 
 (defclass particle-ice-delayed (particle-ice-brittle)
-  ((history-stress
-    :accessor mp-history-stress
-    :initform 0d0)
-   (damage-ybar-prev
-    :accessor mp-damage-ybar-prev
-    :type DOUBLE-FLOAT
-    :initform 0d0
-    :initarg :damage-ybar-prev)
-   (trial-elastic-strain
-    :accessor mp-trial-strain
-    :type MAGICL:MATRIX/DOUBLE-FLOAT
-    :initform (cl-mpm/utils:voigt-zeros))
-   (friction-angle
-    :accessor mp-friction-angle
-    :initarg :friction-angle
-    :initform 30d0)
-   (peerlings-damage
-    :accessor mp-peerlings-damage
-    :initform t
-    :initarg :peerlings-damage)
-   (ductility
-    :accessor mp-ductility
-    :initarg :ductility
-    :initform 1d0)
+  (
    (delay-time
     :accessor mp-delay-time
     :initform 1d0
-    :initarg :delay-time
-    )
+    :initarg :delay-time)
    (delay-exponent
     :accessor mp-delay-exponent
     :initform 1d0
-    :initarg :delay-exponent
-    )
-   (shear-residual-ratio
-    :accessor mp-shear-residual-ratio
-    :initarg :g-res-ratio
-    :initform 1d-9
-    )
-   (k-tensile-residual-ratio
-    :accessor mp-k-tensile-residual-ratio
-    :initarg :kt-res-ratio
-    :initform 1d-9
-    )
-   (k-compressive-residual-ratio
-    :accessor mp-k-compressive-residual-ratio
-    :initarg :kc-res-ratio
-    :initform 1d-9
-    )
-   (damage-tension
-    :accessor mp-damage-tension
-    :initarg :damage-tension
-    :initform 0d0)
-   (damage-compression
-    :accessor mp-damage-compression
-    :initarg :damage-compression
-    :initform 0d0)
-   (damage-shear
-    :accessor mp-damage-shear
-    :initarg :damage-shear
-    :initform 0d0)
-   )
-  (:documentation "An ice damage model"))
+    :initarg :delay-exponent))
+  (:documentation "An ice damage model with time dependant damage evolution"))
 
 (defclass particle-glen-damage (particle-glen particle-damage)
   ()
@@ -725,6 +660,7 @@
         (setf k
               (max
                k-n
+               ybar-prev
                ybar))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
