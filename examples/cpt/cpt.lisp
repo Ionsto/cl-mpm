@@ -53,23 +53,23 @@
       ;; :E E
       ;; :nu 0.3d0
       ;; :rho 20d3
-      ;; 'cl-mpm/particle::particle-vm
-      ;; :E E
-      ;; :nu 0.3d0
-      ;; :rho 20d3
-      'cl-mpm/particle::particle-mc
+      'cl-mpm/particle::particle-vm
       :E E
       :nu 0.3d0
-      :phi (cl-mpm/utils:deg-to-rad 32.8d0)
-      :phi (cl-mpm/utils:deg-to-rad 2.8d0)
-      :c 0.3d3
+      :rho 0.2d3
+      ;; 'cl-mpm/particle::particle-mc
+      ;; :E E
+      ;; :nu 0.3d0
+      ;; :phi (cl-mpm/utils:deg-to-rad 32.8d0)
+      ;; :phi (cl-mpm/utils:deg-to-rad 2.8d0)
+      ;; :c 0.3d3
       ;; 'cl-mpm/particle::particle-elastic
       ;; :E E
       ;; :nu 0.2d0
       ;; :index 0
       ;; :gravity-axis (cl-mpm/utils:vector-zeros)
       ))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
     ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* E 1d-4))
     (cl-mpm/setup::setup-bcs
      *sim*
@@ -82,7 +82,7 @@
       (make-cpt
        *sim*
        E
-       :epsilon-scale 1d1
+       :epsilon-scale 1d0
        )
       ;; (cl-mpm/penalty::make-bc-penalty-distance-point
       ;;  *sim*
@@ -223,9 +223,15 @@
   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
 (defun test ()
-  (setup :mps 2 :refine 4)
+  (setup :mps 2 :refine 1)
   ;; (run)
   (run-real-time)
+  )
+
+(defun test-implicit ()
+  (setup :mps 3 :refine 1)
+  (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
+  (run-real-time :dt-scale 10d0)
   )
 
 
@@ -244,7 +250,7 @@
    *sim*
    :crit 1d-3
    )
-  (cl-mpm/dynamic-relaxation::set-mp-plastic-damage *sim* :enable-plastic t)
+  (cl-mpm/dynamic-relaxation::set-mp-plastic-damage *sim* :enable-plastic nil)
   (let* ((target-time 0.1d0)
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))

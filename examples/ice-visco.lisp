@@ -21,6 +21,12 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 
+(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
+  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
+  )
+
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
   (* local-length (max (sqrt (- 1d0 damage)) 1d-10)))
@@ -99,7 +105,9 @@
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
                                                ;; 'cl-mpm/damage::mpm-sim-damage
-                                               'cl-mpm::mpm-sim-usf))
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
+                                               :args-list (list
+                                                           :enable-aggregate t)))
     (let* ((E 1d9)
            (angle 60d0)
            (init-c 50d3)
@@ -526,17 +534,39 @@
 
 
 (defun test ()
-  (setup :refine 2 :mps 2)
+  (setup :refine 0.5 :mps 2)
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  (let ((dt 1d4))
+    (cl-mpm::iterate-over-mps
+     (cl-mpm:sim-mps *sim*)
+     (lambda (mp)
+       (setf (cl-mpm/particle::mp-enable-viscosity mp) nil)))
+    (cl-mpm/dynamic-relaxation::run-quasi-time
+     *sim*
+     :output-dir "./output/"
+     :dt dt
+     :dt-scale 1d0
+     ;; :enable-plastic t
+     ;; :enable-damage t
+     :steps 1000
+     :plotter (lambda (sim) (plot-domain))
+     :post-conv-step
+     (lambda (sim)
+       (cl-mpm::iterate-over-mps
+        (cl-mpm:sim-mps *sim*)
+        (lambda (mp)
+          (setf (cl-mpm/particle::mp-enable-viscosity mp) nil)))
+       ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
+       )))
   ;; (sb-profile:unprofile)
   ;; (sb-profile:profile "CL-MPM")
   ;; (sb-profile:profile "CL-MPM/PARTICLE")
   ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
   ;; (sb-profile:profile "CL-MPM/MESH")
   ;; (sb-profile:reset)
-  (time-form
-   10
-   (time (cl-mpm:update-sim *sim*)))
+  ;; (time-form
+  ;;  10
+  ;;  (time (cl-mpm:update-sim *sim*)))
   ;; (let ((iters 10))
   ;;   (time (dotimes (i iters) (time (cl-mpm:update-sim *sim*)))))
   ;; (sb-profile:report)

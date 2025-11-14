@@ -25,6 +25,11 @@
 (defun plot-load-disp ()
   (vgplot:semilogy *data-steps* *data-energy*))
 (defun plot (sim)
+  (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+               (cl-mpm:sim-mps *sim*)
+               (cl-mpm:sim-dt *sim*)
+               0d0
+               :TRIAL)
   ;; (plot-load-disp)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
          (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -37,7 +42,7 @@
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
-   ;; :trial t
+   :trial t
    ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
    :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
@@ -59,12 +64,12 @@
                ;; 'cl-mpm::mpm-sim-sd
                ;; :sim-type sim-type
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
-               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
-               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
-               :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
+               ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
+               ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                :args-list (list
                            :split-factor 0.5d0
                            :enable-fbar nil
@@ -1221,3 +1226,6 @@
        (vgplot:title (format nil "Time:~F"  (cl-mpm::sim-time *sim*)))
        (swank.live:update-swank)
        ))))
+
+
+

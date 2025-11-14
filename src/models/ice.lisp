@@ -183,8 +183,8 @@
              stress-u sig
              strain eps-e
              yield-func f)
-            (let ((inc (expt (* 1/3 (abs (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  trial-elastic-strain strain)))) 2))
+            (let (;; (inc (expt (* 1/3 (abs (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
+                  ;; trial-elastic-strain strain)))) 2))
                   )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))

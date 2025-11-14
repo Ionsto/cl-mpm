@@ -137,7 +137,8 @@
             'cl-mpm/particle::particle-elastic
             :E 10d3
             :nu 0.0d0
-            :gravity -10.0d0)))
+            )))
+        (setf (cl-mpm:sim-gravity sim) -10d0)
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
@@ -218,9 +219,10 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(;2 4 6 8
-                   ;10
-                   12)
+  (loop for i in
+        '(3 5 7 9 11)
+                                        ;'(2 4 6 8 10)
+
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -241,22 +243,18 @@
                (format t "Running sim size ~a ~a ~%" refine elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
-               (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                      (ms 1d0))
-                 (setf (cl-mpm::sim-mass-scale *sim*) ms)
-                 (cl-mpm/dynamic-relaxation::run-load-control
-                  *sim*
-                  :output-dir (merge-pathnames (format nil "./outputlaced-~A_~D/" i mps))
-                  :load-steps 10
-                  :substeps (* 50 refine)
-                  :plotter #'plot-sigma-yy
-                  :damping 1d0
-                  :adaptive-damping t
-                  :kinetic-damping nil
-                  :save-vtk-dr t
-                  :save-vtk-loadstep t
-                  :dt-scale 0.25d0
-                  :criteria 1d-9))
+               (cl-mpm/dynamic-relaxation::run-load-control
+                *sim*
+                :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
+                :load-steps 20
+                :substeps (* 10 refine)
+                :plotter #'plot-sigma-yy
+                :damping 1d0
+                :adaptive-damping t
+                :save-vtk-dr nil
+                :save-vtk-loadstep nil
+                :dt-scale 1d0
+                :criteria 1d-9)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
@@ -815,7 +813,7 @@
     ))
 
 (defun test-refine ()
-  (loop for r in (list 2 3 4 5 6 7 8 9 10)
+  (loop for r in (list 3 4 5 6 7 8 9 10)
         do (progn
              (let* ((refine r)
                     (elements (expt 2 refine))
@@ -830,20 +828,16 @@
                                     (list h L)
                                     (/ 1d0 h)
                                     mps))))
-             (cl-mpm::iterate-over-mps
-              (cl-mpm:sim-mps *sim*)
-              (lambda (mp)
-                (setf (cl-mpm/particle::mp-gravity mp) -1d0)))
              (cl-mpm/dynamic-relaxation::run-load-control
               *sim*
               :output-dir (format nil "./output-~D_~F/" r 2) 
               :plotter #'plot
-              :load-steps 1
-              :damping (* (sqrt (cl-mpm::sim-mass-scale *sim*)) 1d0)
+              :load-steps 20
+              :damping 1d0
               :substeps 50
-              :criteria 1d-5
+              :criteria 1d-9
               :adaptive-damping t
               :kinetic-damping nil
-              :save-vtk-dr t
-              :dt-scale (/ 0.4d0 (sqrt 1d0))
+              :save-vtk-dr nil
+              :dt-scale 1d0
               ))))

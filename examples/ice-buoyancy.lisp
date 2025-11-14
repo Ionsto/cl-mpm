@@ -236,7 +236,7 @@
            (gf 1000d0)
            (length-scale (* mesh-resolution 1d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (ductility 10d0)
+           ;; (ductility 10d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -1586,8 +1586,7 @@
         ))
 
 (defun stability-test ()
-  (let* ((heights (list 200d0 300d0 400d0 500d0 600d0)
-           ;; (list 600)
+  (let* ((heights (reverse (list 200d0 300d0 400d0 500d0 600d0))
                   )
          (floatations (list 0.95d0 0.9d0 0.85d0 0.8d0 0.75d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
@@ -1603,13 +1602,13 @@
                      do
                         (let* ((mps 2)
                                (output-dir (format nil "./output-~f-~f/" height flotation)))
-                          (setup :refine 0.5
+                          (setup :refine 1
                                  :friction 0.5d0
                                  :bench-length 0d0
                                  :ice-height height
                                  :mps mps
                                  :cryo-static nil
-                                 :aspect 0.5d0
+                                 :aspect 1d0
                                  :slope 0d0
                                  :floatation-ratio flotation)
                           (plot-domain)
@@ -1634,7 +1633,7 @@
                                       :substeps 10
                                       :steps 1000
                                       :enable-damage t
-                                      :enable-plastic nil
+                                      :enable-plastic t
                                       :max-adaptive-steps 6
                                       :post-conv-step (lambda (sim) (plot-domain)))))
                             (setf (aref *stability* hi fi) (if res 1 0))
