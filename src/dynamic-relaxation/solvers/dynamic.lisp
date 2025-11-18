@@ -232,14 +232,14 @@
     (;generalised-staggered-solve
      converge-quasi-static
      sim
-     :enable-damage damage-enabled
+     ;; :enable-damage damage-enabled
      ;; :damping 1d0
      :energy-crit 1d-3
      :oobf-crit 1d-3
      :damping 1d0
      :substeps 10
      :conv-steps 10000
-     :dt-scale 0.9d0
+     :dt-scale 0.25d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
                        (when (uiop:directory-exists-p "./output/")
@@ -253,3 +253,53 @@
     (setf (cl-mpm::sim-dt sim) dt)
     (cl-mpm::finalise-loadstep sim))
   )
+
+
+
+(defmethod pre-step ((sim mpm-sim-dr-dynamic))
+  (with-slots ((mesh cl-mpm::mesh)
+               (mps cl-mpm::mps)
+               (bcs cl-mpm::bcs)
+               (bcs-force cl-mpm::bcs-force)
+               (dt cl-mpm::dt)
+               (dt-loadstep dt-loadstep)
+               (mass-filter cl-mpm::mass-filter)
+               (split cl-mpm::allow-mp-split)
+               (enable-damage cl-mpm::enable-damage)
+               (nonlocal-damage cl-mpm::nonlocal-damage)
+               (remove-damage cl-mpm::allow-mp-damage-removal)
+               (fbar cl-mpm::enable-fbar)
+               (bcs-force-list cl-mpm::bcs-force-list)
+               (ghost-factor cl-mpm::ghost-factor)
+               (initial-setup initial-setup)
+               (enable-aggregate cl-mpm/aggregate::enable-aggregate)
+               (damping cl-mpm::damping-factor)
+               (vel-algo cl-mpm::velocity-algorithm))
+      sim
+    (cl-mpm::reset-grid mesh)
+    (cl-mpm::reset-node-displacement sim)
+    (cl-mpm::p2g mesh mps)
+    (when (> mass-filter 0d0)
+      (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    (cl-mpm::filter-cells sim)
+    (cl-mpm::update-node-kinematics sim)
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (n)
+       (setf
+        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
+       ;;More complicated things need to happen with aggregation
+       (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
+       ))
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    (update-node-fictious-mass sim)
+    (cl-mpm::filter-cells sim)
+
+    (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::update-cells sim)
+    (when enable-aggregate
+      (cl-mpm/aggregate::update-aggregate-elements sim))
+    (cl-mpm::apply-bcs mesh bcs dt)
+    (midpoint-starter sim)
+    (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    (setf initial-setup t)))

@@ -70,7 +70,9 @@
                            0d0
                            )))
                (setf node-oobf 0d0))))))
-      (values (/ energy mass) oobf (/ power mass)))))
+      (if (> mass 0d0)
+          (values (/ energy mass) oobf (/ power mass))
+          (values 0d0 0d0 0d0)))))
 
 (defun combi-stats-aggregated (sim)
   ;; (pprint "Hello")
