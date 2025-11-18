@@ -236,13 +236,18 @@
 
 
 (defclass mpm-sim-multigrid (mpm-sim)
-  ((mesh-list
+  ((refinement
+    :accessor sim-multigrid-refinement
+    :initarg :refinement
+    :initform 2)
+   (mesh-list
     :accessor sim-mesh-list
+    :initform (list)
     :initarg :mesh-list)
    (bcs-list
     :accessor sim-bcs-list
     :initarg :bcs-list
-    :initform (make-array 0))
+    :initform (list))
    )
   (:documentation "Explicit simulation with multiple meshes"))
 

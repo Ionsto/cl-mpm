@@ -20,8 +20,7 @@
                                     (convergance-criteria nil)
                                     (pic-update nil)
                                     (kinetic-damping nil)
-                                    (damping-factor 1d-1)
-                                    )
+                                    (damping-factor 1d-1))
   "Converge a simulation to a quasi-static solution via dynamic relaxation, whatever simulation is updated until it converges"
   (let ((current-vel (cl-mpm::sim-velocity-algorithm sim)))
     (when pic-update
@@ -64,8 +63,7 @@
                                    post-iter-step
                                    convergance-criteria
                                    kinetic-damping
-                                   damping-factor
-                                   )
+                                   damping-factor)
   (declare (double-float dt-scale))
   (setf *run-convergance* t)
   (with-accessors ((mps cl-mpm:sim-mps))
@@ -364,3 +362,57 @@
   ;;DR algorithm requires that finalisation is called once
   (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
   (cl-mpm::new-loadstep sim))
+
+
+
+
+(defmethod %converge-quasi-static ((sim mpm-sim-dr-multigrid)
+                                   energy-crit
+                                   oobf-crit
+                                   live-plot
+                                   dt-scale
+                                   substeps
+                                   conv-steps
+                                   post-iter-step
+                                   convergance-criteria
+                                   kinetic-damping
+                                   damping-factor)
+  (let ((refine (cl-mpm::sim-multigrid-refinement sim)))
+    (pre-step sim)
+    (dotimes (i refine)
+      (setf (cl-mpm:sim-mesh sim) (nth i (cl-mpm::sim-mesh-list sim))
+            (cl-mpm:sim-bcs sim)  (nth i (cl-mpm::sim-bcs-list sim)))
+      (call-next-method)
+      ;; (save-vtks-dr-step sim "./output/" 1000 i)
+      ;;Remap
+      (unless (= (+ 1 i) refine)
+        (setf (cl-mpm:sim-mesh sim) (nth (+ i 1) (cl-mpm::sim-mesh-list sim))
+              (cl-mpm:sim-bcs sim)  (nth (+ i 1) (cl-mpm::sim-bcs-list sim)))
+        (cl-mpm::iterate-over-mps
+         (cl-mpm:sim-mps sim)
+         (lambda (mp)
+           (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
+        (pre-step sim)
+        (let ((coarse-mesh (nth i (cl-mpm::sim-mesh-list sim))))
+          (cl-mpm::iterate-over-nodes-serial
+           (nth (1+ i) (cl-mpm::sim-mesh-list sim))
+           (lambda (n)
+             (when (cl-mpm/mesh::node-active n)
+               (with-accessors ((disp cl-mpm/mesh::node-displacment))
+                   n
+                 (cl-mpm::fast-zero disp)
+                 (cl-mpm::iterate-over-neighbours-point-linear
+                  coarse-mesh
+                  (cl-mpm/mesh::node-position n)
+                  (lambda (mc coarse-node weight grads)
+                    (cl-mpm/fastmaths::fast-fmacc
+                     disp
+                     (cl-mpm/mesh::node-displacment coarse-node)
+                     weight)
+                    ))
+                 ;; (pprint disp)
+                 ))))
+          ;; (cl-mpm::reset-node-displacement sim)
+          ))))
+  )
+

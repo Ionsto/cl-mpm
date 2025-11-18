@@ -1062,6 +1062,7 @@ This modifies the dt of the simulation in the process
   )
 
 (defun reset-node-displacement (sim)
+  (pprint "reset node discardp")
   (cl-mpm::iterate-over-cells
    (cl-mpm:sim-mesh sim)
    (lambda (cell)

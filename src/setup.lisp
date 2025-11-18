@@ -19,36 +19,44 @@
 
 (in-package :cl-mpm/setup)
 
-;; (defgeneric make-sim ())
+
+(defgeneric %post-make-simple-sim (sim resolution element-count args-list))
+
+(defmethod %post-make-simple-sim ((sim cl-mpm::mpm-sim) resolution element-count args-list)
+  (let* ()
+    (progn
+      (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
+      sim)))
+
+(defmethod %post-make-simple-sim ((sim cl-mpm::mpm-sim-multigrid) resolution element-count args-list)
+  (let* ((size (mapcar (lambda (x) (* x resolution)) element-count)))
+    (progn
+      (setf (cl-mpm::sim-mesh-list sim) (list)
+            (cl-mpm::sim-bcs-list sim) (list))
+      (dotimes (refine (cl-mpm::sim-multigrid-refinement sim))
+        (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 refine)) nil))
+               (bcs (cl-mpm/bc:make-outside-bc m)))
+          (push m (cl-mpm::sim-mesh-list sim))
+          (push bcs (cl-mpm::sim-bcs-list sim))))
+
+      (setf (cl-mpm::sim-mesh-list sim) (reverse (cl-mpm::sim-mesh-list sim))
+            (cl-mpm::sim-bcs-list sim) (reverse (cl-mpm::sim-bcs-list sim)))
+
+      (setf (cl-mpm:sim-mesh sim) (first (cl-mpm::sim-mesh-list sim)))
+      (setf (cl-mpm:sim-bcs sim) (first (cl-mpm::sim-bcs-list sim)))
+
+      sim)))
 
 
 
 (defun make-simple-sim (resolution element-count &key (sim-type 'cl-mpm::mpm-sim-usf) (args-list nil))
   "Takes a double float resolution list of element-count and keys of :sim-type with relevent :args-list"
-  (let ((nd (length element-count)))
-    (let* ((nD nd)
-           (size (mapcar (lambda (x) (* x resolution)) element-count))
-           (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil
-                                     :sim-type sim-type
-                                     :args-list args-list)))
-      (progn
-        ;; (setf (cl-mpm:sim-mps sim) #())
-        (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
-        sim))))
-
-;; (defgeneric %make-mpm-sim (sim-type size element-count))
-;; (defmethod %make-mpm-sim (sim-type size resolution)
-;;   (let* ((nD (length size))
-;;          (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil :sim-type sim-type)))
-;;     (progn
-;;       ;; (setf (cl-mpm:sim-mps sim) #())
-;;       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
-;;       sim))
-;;   (make-instance sim-type
-;;                  :dt (coerce dt 'double-float)
-;;                  :mesh (make-mesh size resolution shape-function)
-;;                  :mps (make-array 0 :adjustable t :fill-pointer 0))
-;;   )
+  (let* ((size (mapcar (lambda (x) (* x resolution)) element-count))
+         (sim (cl-mpm:make-mpm-sim size resolution 1d-3 nil
+                                   :sim-type sim-type
+                                   :args-list args-list)))
+    (%post-make-simple-sim sim resolution element-count args-list)
+    sim))
 
 
 (defun make-block (res element-count &key (shape-maker #'cl-mpm/shape-function::make-shape-function-linear)
@@ -658,7 +666,7 @@
   (loop for mesh in (cl-mpm::sim-mesh-list sim)
         for i from 0
         do
-           (setf (nth i (cl-mpm::sim-bcs sim))
+           (setf (nth i (cl-mpm::sim-bcs-list sim))
                  (cl-mpm/bc::make-outside-bc-varfix
                   mesh
                   left right top bottom front back))))

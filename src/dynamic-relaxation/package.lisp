@@ -63,3 +63,7 @@
 (defclass mpm-sim-dr-damage-ul (mpm-sim-dr-ul cl-mpm/damage:mpm-sim-damage)
   ()
   (:documentation "DR implicit damage"))
+
+(defclass mpm-sim-dr-multigrid (mpm-sim-dr-ul cl-mpm::mpm-sim-multigrid)
+  ()
+  (:documentation "Dynamic relaxation with multigrid"))

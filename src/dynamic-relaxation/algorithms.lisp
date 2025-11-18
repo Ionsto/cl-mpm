@@ -737,8 +737,8 @@
                        (setf (cl-mpm::sim-damping-factor sim)
                              (* damping (cl-mpm/setup:estimate-critical-damping sim))))
                      (time
-                      (cl-mpm/dynamic-relaxation:converge-quasi-static
-                       ;; generalised-staggered-solve
+                      (;;cl-mpm/dynamic-relaxation:converge-quasi-static
+                       generalised-staggered-solve
                        sim
                        :crit criteria
                        ;; :oobf-crit criteria
@@ -765,18 +765,19 @@
                          )))
                      ))
                  (funcall post-conv-step sim)
-                 (when save-vtk-loadstep
-                   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
-                   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
+                 ;; (when save-vtk-loadstep
+                 ;;   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
+                 ;;   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
                  (cl-mpm::finalise-loadstep sim)
                  (funcall plotter sim)
                  ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
                  ;;                    :terminal "png size 1920,1080"
                  ;;                    )
-                 (when save-vtk-loadstep
-                   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
-                   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
-                 (sleep 0.1d0)
+                 (save-vtks sim output-dir step)
+                 ;; (when save-vtk-loadstep
+                 ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
+                 ;;   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
+                 ;; (sleep 0.1d0)
                  (swank.live:update-swank)
               )))))
 

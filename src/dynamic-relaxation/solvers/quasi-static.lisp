@@ -141,6 +141,7 @@
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
+(defparameter *i* 0)
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -165,6 +166,7 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (unless initial-setup
+      (pprint "init setup")
       (pre-step sim)
       (with-accessors ((ke-prev sim-ke-prev)
                        (ke sim-ke))
@@ -201,6 +203,8 @@
     ;;   (setf ke-prev ke))
     (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_in_~5,'0d.vtk" *i*)) sim)
+    (incf *i*)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
