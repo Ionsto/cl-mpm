@@ -123,8 +123,9 @@
                (damping cl-mpm::damping-factor)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
-    (cl-mpm::reset-grid mesh)
-    (cl-mpm::reset-node-displacement sim)
+
+    (cl-mpm::reset-grid mesh :reset-displacement nil)
+    ;; (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -166,7 +167,6 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (unless initial-setup
-      (pprint "init setup")
       (pre-step sim)
       (with-accessors ((ke-prev sim-ke-prev)
                        (ke sim-ke))
@@ -203,9 +203,52 @@
     ;;   (setf ke-prev ke))
     (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
-    (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "sim_in_~5,'0d.vtk" *i*)) sim)
-    (incf *i*)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))
+
+(defmethod cl-mpm/damage::calculate-damage :around ((sim mpm-sim-dr-multigrid) dt)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps))
+      sim
+    (let ((m (cl-mpm:sim-mesh sim)))
+      (setf mesh (first (last (cl-mpm::sim-mesh-list sim))))
+      (call-next-method)
+      (setf mesh m))))
+
+(defmethod cl-mpm::sim-add-mp :around ((sim mpm-sim-dr-multigrid) mp)
+  (with-accessors ((mesh cl-mpm::sim-mesh))
+      sim
+      (let ((m (cl-mpm:sim-mesh sim)))
+        (setf mesh (first (last (cl-mpm::sim-mesh-list sim))))
+        (call-next-method)
+        (setf mesh m))))
+
+(defmethod pre-step :after ((sim mpm-sim-dr-damage-ul))
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)
+                   (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
+      sim
+    (setf delocal-counter -1)
+    (if (typep sim 'mpm-sim-dr-multigrid)
+        (progn
+          ;; (cl-mpm:iterate-over-mps
+          ;;  mps
+          ;;  (lambda (mp)
+          ;;    (when (typep mp 'cl-mpm/particle:particle-damage)
+          ;;      (unless (eq (cl-mpm/particle::mp-damage-position mp) nil)
+          ;;        (cl-mpm/damage::local-list-remove-particle mesh mp)))))
+          (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))
+        (cl-mpm/damage::update-delocalisation-list mesh mps))))
+
+;; (defmethod pre-step :after ((sim mpm-sim-dr-multigrid))
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps)
+;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
+;;       sim
+;;     (setf delocal-counter -1)
+;;     (format t "Updated delocalisation list~%")
+;;     (setf mesh (first (last (cl-mpm::sim-mesh-list sim))))
+;;     (cl-mpm/damage::update-delocalisation-list mesh mps)
+;;     (setf mesh (first (cl-mpm::sim-mesh-list sim)))))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-damage-ul))
   "Update stress last algorithm"
@@ -232,9 +275,7 @@
       sim
     (declare (double-float damping-scale damping))
     (unless initial-setup
-      (pre-step sim)
-      (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
-      (cl-mpm/damage::update-delocalisation-list mesh mps))
+      (pre-step sim))
     (cl-mpm/penalty::reset-penalty sim)
     (setf dt 1d0)
     (cl-mpm::update-nodes sim)

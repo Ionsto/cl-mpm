@@ -267,7 +267,7 @@
                             ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                             )
                           (format t "Def crit ~E~%" (compute-max-deformation sim))
-                          (when (criteria-deformation-gradient sim :criteria 1d0)
+                          (when (criteria-deformation-gradient sim :criteria 1d1)
                             (format t "Deformation gradient criteria exceeded~%")
                             (error (make-instance 'non-convergence-error
                                                   :text "Deformation gradient J exceeded"
@@ -886,6 +886,7 @@
                           (min-adaptive-steps -1)
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
+                          (elastic-solver 'mpm-sim-dr-ul)
                           (conv-criteria 1d-3))
   (let ((result t))
     (uiop:ensure-all-directories-exist (list output-dir))
@@ -918,7 +919,7 @@
     (let (;(substeps 50)
           (vel-algo (cl-mpm::sim-velocity-algorithm sim))
           (sim-type (class-of sim)))
-      (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+      (change-class sim elastic-solver)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       ;; find initial quasi-static formation
@@ -1136,7 +1137,7 @@
                                               (save-vtks-dr-step sim output-dir step i)))
                                           (let ((md (compute-max-deformation sim)))
                                             (format t "Def crit ~E~%" md)
-                                            (when (> md 1d0)
+                                            (when (> md 1d1)
                                               (format t "Deformation gradient criteria exceeded~%")
                                               (error (make-instance 'non-convergence-error
                                                                     :text "Deformation gradient J exceeded"

@@ -240,8 +240,9 @@
            (calculate-average-damage mesh mp ll)))))
 
 
+(defgeneric calculate-damage (sim dt))
 
-(defun calculate-damage (sim dt)
+(defmethod calculate-damage ((sim mpm-sim-damage) dt)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (enable-damage cl-mpm::sim-enable-damage)

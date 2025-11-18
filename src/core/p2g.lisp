@@ -39,7 +39,6 @@
                           (node-force cl-mpm/mesh:node-force)
                           (node-p-wave cl-mpm/mesh::node-pwave)
                           (node-damage cl-mpm/mesh::node-damage)
-                          (node-disp cl-mpm/mesh::node-displacment)
                           (node-lock  cl-mpm/mesh:node-lock))
              node
            (declare (type double-float node-mass node-volume mp-volume mp-pmod mp-damage node-svp-sum svp node-p-wave node-damage)

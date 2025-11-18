@@ -657,6 +657,10 @@
     :initarg :sim
     :initform nil
     )
+   (datum-true
+    :accessor bc-buoyancy-datum-true
+    :initarg :datum
+    :initform 0d0)
    (datum
     :accessor bc-buoyancy-datum
     :initarg :datum
@@ -874,6 +878,7 @@
 (defmethod cl-mpm/bc::apply-bc ((bc bc-buoyancy) node mesh dt)
   "Arbitrary closure BC"
   (with-accessors ((datum bc-buoyancy-datum)
+                   (datum-true bc-buoyancy-datum-true)
                    (rho bc-buoyancy-rho)
                    (clip-func bc-buoyancy-clip-func)
                    (sim bc-buoyancy-sim))
@@ -881,33 +886,33 @@
     (declare (function clip-func))
 
     (markup-cells-nodes sim bc)
-    (let ((datum-rounding nil))
-      (if datum-rounding
-          (progn
-            (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
-              (setf datum (* (round datum h) h)))
-            (apply-buoyancy
-             sim
-             (lambda (pos)
-               (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-             (lambda (pos)
-               (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-             (lambda (pos datum)
-               (and
-                (cell-clipping pos datum)
-                (funcall clip-func pos datum)))
-             datum)
-            )
-          (apply-buoyancy
-           sim
-           (lambda (pos)
-             (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-           (lambda (pos)
-             (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-           (lambda (pos datum)
-             (and
-              (funcall clip-func pos datum)))
-           datum)))
+    (let ((datum-rounding t))
+      (when datum-rounding
+        (progn
+          (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+            (setf datum (* (round datum-true h) h)))
+          ;; (apply-buoyancy
+          ;;  sim
+          ;;  (lambda (pos)
+          ;;    (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+          ;;  (lambda (pos)
+          ;;    (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+          ;;  ;; (lambda (pos datum)
+          ;;  ;;   (and
+          ;;  ;;    (cell-clipping pos datum)
+          ;;  ;;    (funcall clip-func pos datum)))
+          ;;  datum)
+          ))
+      (apply-buoyancy
+       sim
+       (lambda (pos)
+         (buoyancy-virtual-stress (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+       (lambda (pos)
+         (buoyancy-virtual-div (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+       (lambda (pos datum)
+         (and
+          (funcall clip-func pos datum)))
+       datum))
     (exchange-bc-data sim bc)
     ;;Reset pressure on MPs
     (with-accessors ((mesh cl-mpm:sim-mesh)
