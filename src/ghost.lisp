@@ -269,10 +269,10 @@
        (and
         (cl-mpm/mesh::cell-active cell-a)
         (cl-mpm/mesh::cell-active cell-b))
-       (not
-        (equal
-         (cl-mpm/mesh::cell-partial cell-a)
-         (cl-mpm/mesh::cell-partial cell-b)))
+       ;; (not
+       ;;  (equal
+       ;;   (cl-mpm/mesh::cell-partial cell-a)
+       ;;   (cl-mpm/mesh::cell-partial cell-b)))
        (or
         (cl-mpm/mesh::cell-ghost-element cell-a)
         (cl-mpm/mesh::cell-ghost-element cell-b)))

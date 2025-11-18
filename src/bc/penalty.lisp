@@ -1257,6 +1257,7 @@
   ;; (assemble-penalty-stiffness-matrix sim)
   )
 
+(declaim (notinline assemble-penalty-stiffness-matrix))
 (defun assemble-penalty-stiffness-matrix (sim)
   "For dynamic relaxation, it is helpful to assemble the estimated maximum stiffness onto the mass matrix"
   (with-accessors ((mps sim-mps)
@@ -1271,9 +1272,10 @@
            (with-accessors ((mp-stiffness cl-mpm/particle::mp-penalty-stiffness)
                             (mp-volume cl-mpm/particle::mp-volume))
                mp
-             (iterate-over-neighbours
-              mesh mp
-              (lambda (mesh mp node svp grads fsvp fgrads)
+             (iterate-over-neighbours-point-linear
+              mesh
+              (cl-mpm/particle::mp-penalty-contact-point mp)
+              (lambda (mesh node svp grads)
                 (with-accessors ((node-active cl-mpm/mesh:node-active)
                                  (node-volume cl-mpm/mesh::node-volume)
                                  (node-mass cl-mpm/mesh::node-mass)
@@ -1286,7 +1288,7 @@
                        node-mass
                        (+
                         node-mass
-                        (* svp mp-stiffness))
+                        (* 1d0 svp mp-stiffness))
                        ;; (max
                        ;;  node-mass
                        ;;  (* 1d0 (/ (*
@@ -1296,7 +1298,37 @@
                        ;;             nv
                        ;;               mp-stiffness) dt-scale)))
                        )
-                      ))))))))))))
+                      )))
+                )
+
+              )
+             ;; (iterate-over-neighbours
+             ;;  mesh mp
+             ;;  (lambda (mesh mp node svp grads fsvp fgrads)
+             ;;    (with-accessors ((node-active cl-mpm/mesh:node-active)
+             ;;                     (node-volume cl-mpm/mesh::node-volume)
+             ;;                     (node-mass cl-mpm/mesh::node-mass)
+             ;;                     (node-lock cl-mpm/mesh::node-lock))
+             ;;        node
+             ;;      (declare (double-float node-mass node-volume mp-stiffness))
+             ;;      (when node-active
+             ;;        (sb-thread:with-mutex (node-lock)
+             ;;          (setf
+             ;;           node-mass
+             ;;           (+
+             ;;            node-mass
+             ;;            (* svp mp-stiffness))
+             ;;           ;; (max
+             ;;           ;;  node-mass
+             ;;           ;;  (* 1d0 (/ (*
+             ;;           ;;             ;; node-volume
+             ;;           ;;             svp
+             ;;           ;;             ;; m
+             ;;           ;;             nv
+             ;;           ;;               mp-stiffness) dt-scale)))
+             ;;           )
+             ;;          )))))
+             )))))))
 
 
 (declaim (notinline reset-penalty))

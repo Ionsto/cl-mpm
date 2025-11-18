@@ -250,7 +250,7 @@
         ;;Include velocity prop damping
         (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
-        ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+        (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
         (integrate-vel-euler vel acc mass mass-scale dt 0d0)
         (cl-mpm/utils::vector-copy-into residual residual-prev)

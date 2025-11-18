@@ -266,6 +266,14 @@
   ))
 
 (make-mpi-ser
+ node-mass
+ ((index index cl-mpm/mesh::node-index)
+  (float mass cl-mpm/mesh::node-mass)
+  (float pmod cl-mpm/mesh::node-pwave)
+  (float svp cl-mpm/mesh::node-svp-sum)
+  (float vol cl-mpm/mesh::node-volume)))
+
+(make-mpi-ser
  node
  (
   (index index cl-mpm/mesh::node-index)
@@ -280,7 +288,9 @@
   (vector force-ext cl-mpm/mesh::node-external-force)
   (vector force-damping cl-mpm/mesh::node-damping-force)
   (vector force-buoyancy cl-mpm/mesh::node-buoyancy-force)
+  (vector displacement cl-mpm/mesh::node-displacment)
   ))
+;; (vector residual cl-mpm/mesh::node-external-force)
 
 (defun exchange-node-like (sim
                            serialise
@@ -516,6 +526,57 @@
                      (cl-mpm/fastmaths::fast-.+ velocity (mpi-object-node-velocity mpi-node) velocity)
                      ))
                  (error "MPI exchange touched invalid node?"))))))))
+
+(declaim (notinline mpi-sync-displacement))
+(defun mpi-sync-displacement (sim)
+  ;; (format t "Sync momentum ~%")
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+      (exchange-nodes
+       sim
+       (lambda (node-list)
+         (lparallel:pdotimes (i (length node-list))
+           (let* ((mpi-node (aref node-list i))
+                  (index (mpi-object-node-index mpi-node))
+                  (node (cl-mpm/mesh:get-node mesh index)))
+             (if node
+                 (progn
+                   (with-accessors ((disp cl-mpm/mesh::node-displacment))
+                       node
+                     (cl-mpm/fastmaths::fast-.+ disp (mpi-object-node-displacement mpi-node) disp)))
+                 (error "MPI exchange touched invalid node?"))))))))
+
+(declaim (notinline mpi-sync-mass))
+(defun mpi-sync-mass (sim)
+  ;; (format t "Sync momentum ~%")
+  (with-accessors ((mesh cl-mpm:sim-mesh))
+      sim
+    (exchange-node-like
+     sim
+     #'serialise-node-mass
+     #'deserialise-node-mass
+     (lambda (node-list)
+       (lparallel:pdotimes (i (length node-list))
+         (let* ((mpi-node (aref node-list i))
+                (index (mpi-object-node-mass-index mpi-node))
+                (node (cl-mpm/mesh:get-node mesh index)))
+           (if node
+               (progn
+                 (with-accessors ((active cl-mpm/mesh:node-active)
+                                  (mass cl-mpm/mesh:node-mass)
+                                  (velocity cl-mpm/mesh:node-velocity)
+                                  (pmod cl-mpm/mesh::node-pwave)
+                                  (vol cl-mpm/mesh::node-volume)
+                                  (svp cl-mpm/mesh::node-svp-sum))
+                     node
+                   (declare (double-float mass svp vol pmod))
+                   (setf active t)
+                   (incf mass (the double-float (mpi-object-node-mass-mass mpi-node)))
+                   (incf svp (the double-float  (mpi-object-node-mass-svp mpi-node)))
+                   (incf vol (the double-float  (mpi-object-node-mass-vol mpi-node)))
+                   (incf pmod (the double-float (mpi-object-node-mass-pmod mpi-node)))
+                   ))
+               (error "MPI exchange touched invalid node?"))))))))
 
 (defun mpi-sync-j-inc (sim)
   ;; (format t "Sync momentum ~%")
