@@ -129,6 +129,7 @@
                                           (enable-damage t)
                                           (enable-plastic t)
                                           (max-damage-inc 0.6d0)
+                                          (damping 1d0)
                                           )
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
@@ -153,7 +154,7 @@
                         :dt-scale dt-scale
                         :substeps substeps
                         :conv-steps 1000
-                        :damping-factor 1d0
+                        :damping-factor damping
                         :post-iter-step (lambda (i e o)
                                           (incf iv)
                                           (funcall post-iter-step i e o)))
@@ -333,9 +334,8 @@
             (cl-mpm::finalise-loadstep sim)
             (save-timestep sim output-dir global-step :QUASI-STATIC)
             (values t stagger-iters)))
-      (error (c)
+      (cl-mpm/errors:error-simulation (c)
         (princ c)
-        ;; (princ (text c))
         (cl-mpm::reset-loadstep sim)
         (values nil 0))))
   )
@@ -733,9 +733,10 @@
                      (funcall loading-function (+ initial-load (* (- 1d0 initial-load) percent))))
                    (let ((conv-steps 0)
                          (i 0))
-                     (when damping
-                       (setf (cl-mpm::sim-damping-factor sim)
-                             (* damping (cl-mpm/setup:estimate-critical-damping sim))))
+                     ;; (when damping
+                     ;;   (setf (cl-mpm::sim-damping-factor sim)
+                     ;;         (* damping (cl-mpm/setup:estimate-critical-damping sim))))
+                     (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim) damping)
                      (time
                       (;;cl-mpm/dynamic-relaxation:converge-quasi-static
                        generalised-staggered-solve
@@ -746,10 +747,11 @@
                        ;; :kinetic-damping nil
                        ;; :damping-factor 1d0
                        ;; :kinetic-damping kinetic-damping
-                       ;; :enable-damage enable-damage
-                       ;; :enable-plastic enable-plastic
+                       :enable-damage enable-damage
+                       :enable-plastic enable-plastic
                        :dt-scale dt-scale
                        :substeps substeps
+                       :damping damping
                        ;; :conv-steps 1000
                        :post-iter-step
                        (lambda (i energy oobf)
@@ -769,11 +771,11 @@
                  ;;   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
                  ;;   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
                  (cl-mpm::finalise-loadstep sim)
+                 (save-vtks sim output-dir step)
                  (funcall plotter sim)
                  ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
                  ;;                    :terminal "png size 1920,1080"
                  ;;                    )
-                 (save-vtks sim output-dir step)
                  ;; (when save-vtk-loadstep
                  ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
                  ;;   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
@@ -1123,7 +1125,10 @@
                                       ;; :damping-factor 1d0
                                       :dt-scale dt-scale
                                       :substeps substeps
-                                      :max-damage-inc 0.5d0
+                                      ;; :max-damage-inc 0.5d0
+                                      :enable-damage enable-damage
+                                      :enable-plastic enable-plastic
+                                      :max-damage-inc 0.3d0
                                       ;; :conv-steps 1000
                                       :post-iter-step
                                       (lambda (i-g energy oobf)
@@ -1137,7 +1142,7 @@
                                               (save-vtks-dr-step sim output-dir step i)))
                                           (let ((md (compute-max-deformation sim)))
                                             (format t "Def crit ~E~%" md)
-                                            (when (> md 1d1)
+                                            (when (> md 2d0)
                                               (format t "Deformation gradient criteria exceeded~%")
                                               (error (make-instance 'non-convergence-error
                                                                     :text "Deformation gradient J exceeded"
@@ -1148,7 +1153,7 @@
                                           (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)
                                           (funcall plotter sim)))))
                                     t)
-                                (error (c)
+                                (cl-mpm/errors:error-simulation (c)
                                   (princ c)
                                   (cl-mpm::reset-loadstep sim)
                                   (values nil 0)))))
@@ -1167,10 +1172,10 @@
                                           (loop-finish))))
                                finally (progn
                                          (format t "Finished with ~D adaptions- conv ~A~%" (- i 1) quasi-conv)
-                                         ;; (when (and (= i 1))
-                                         ;;   (setf current-adaptivity
-                                         ;;         (max min-adaptive-steps
-                                         ;;              (- current-adaptivity 1))))
+                                         (when (and (= i 1))
+                                           (setf current-adaptivity
+                                                 (max min-adaptive-steps
+                                                      (- current-adaptivity 1))))
                                          ))
                          (unless quasi-conv;(>= current-adaptivity max-adaptive-steps)
                            (format t "Solve failed completly~%" )

@@ -516,11 +516,16 @@
                       '(3 1) :type 'double-float)))
 
 (defun voigt-to-mandel (voigt)
-  (let* ( (exx (mtref voigt 0 0))
-          (eyy (mtref voigt 1 0))
-          (exy (* (/ (sqrt 2) 1) (mtref voigt 2 0))))
-    (magicl:from-list (list exx eyy exy)
-                      '(3 1) :type 'double-float)))
+  (let* ((scale (sqrt 2)))
+    (voigt-from-list
+     (list 
+      (varef voigt 0)
+      (varef voigt 1)
+      (varef voigt 2)
+
+      (* scale (varef voigt 3))
+      (* scale (varef voigt 4))
+      (* scale (varef voigt 5))))))
 (defun mandel-to-voigt (voigt)
   (let* ( (exx (mtref voigt 0 0))
           (eyy (mtref voigt 1 0))

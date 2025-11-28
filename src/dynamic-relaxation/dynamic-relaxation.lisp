@@ -2,7 +2,7 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 
-(define-condition non-convergence-error (error)
+(define-condition non-convergence-error (cl-mpm/errors:error-simulation)
   ((text :initarg :text :reader text)
    (ke-norm :initarg :ke-norm :reader ke-norm)
    (oobf-norm :initarg :oobf-norm :reader oobf-norm)))
@@ -360,84 +360,18 @@
 (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr))
   ;;DR algorithm requires that finalisation is called once
   (incf (cl-mpm::sim-time sim) (sim-dt-loadstep sim))
+  ;; (cl-mpm::reset-node-displacement sim)
   (cl-mpm::new-loadstep sim))
 
 
+(defun estimate-ul-enhancement (particle)
+  (with-accessors ((df cl-mpm/particle::mp-deformation-gradient-increment))
+      particle
+    (let* ((grads (cl-mpm::gradient-push-forwards (list 1d0 1d0 1d0) df))
+           (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x 2)) grads)))))
+      peak-grad)))
 
 
-(defmethod %converge-quasi-static ((sim mpm-sim-dr-multigrid)
-                                   energy-crit
-                                   oobf-crit
-                                   live-plot
-                                   dt-scale
-                                   substeps
-                                   conv-steps
-                                   post-iter-step
-                                   convergance-criteria
-                                   kinetic-damping
-                                   damping-factor)
-  (let ((refine (cl-mpm::sim-multigrid-refinement sim))
-        (mass-filter (/ (cl-mpm::sim-mass-filter sim) (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2))))
 
-    ;; (setf (cl-mpm::sim-mass-filter sim) (* mass-filter  (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2) ))
-    ;; (setf (cl-mpm:sim-mesh sim) (nth 0 (cl-mpm::sim-mesh-list sim))
-    ;;       (cl-mpm:sim-bcs sim)  (nth 0 (cl-mpm::sim-bcs-list sim)))
-    (cl-mpm::iterate-over-mps
-     (cl-mpm:sim-mps sim)
-     (lambda (mp)
-       (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-    (let ((total-iters 0))
-      (dotimes (i refine)
-        (format t "Mesh step ~D~%" i)
-        (setf (cl-mpm:sim-mesh sim) (nth i (cl-mpm::sim-mesh-list sim))
-              (cl-mpm:sim-bcs sim)  (nth i (cl-mpm::sim-bcs-list sim)))
-        (pre-step sim)
-        ;; (save-vtks-dr-step sim "./output/" 1000 (* 2 i))
-        (call-next-method
-         sim
-         energy-crit
-         oobf-crit
-         live-plot
-         dt-scale
-         substeps
-         conv-steps
-         (lambda (i o e)
-           (funcall post-iter-step total-iters o e)
-           (incf total-iters))
-         convergance-criteria
-         kinetic-damping
-         damping-factor)
-        ;; (save-vtks-dr-step sim "./output/" 1000 (+ 1 (* 2 i)))
-        ;;Remap
-        (unless (= (+ 1 i) refine)
-          (setf (cl-mpm:sim-mesh sim) (nth (+ i 1) (cl-mpm::sim-mesh-list sim))
-                (cl-mpm:sim-bcs sim)  (nth (+ i 1) (cl-mpm::sim-bcs-list sim)))
-          (cl-mpm::iterate-over-mps
-           (cl-mpm:sim-mps sim)
-           (lambda (mp)
-             (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-          ;; (setf (cl-mpm::sim-mass-filter sim) (* mass-filter  (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2) ))
-          ;; (pre-step sim)
-          (let ((mesh (cl-mpm:sim-mesh sim))
-                (mps (cl-mpm:sim-mps sim)))
-            (cl-mpm::reset-grid mesh :reset-displacement nil)
-            (cl-mpm::p2g mesh mps)
-            (when (> mass-filter 0d0)
-              (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim))))
-          (let ((coarse-mesh (nth i (cl-mpm::sim-mesh-list sim))))
-            (cl-mpm::iterate-over-nodes
-             (nth (1+ i) (cl-mpm::sim-mesh-list sim))
-             (lambda (n)
-               (when (cl-mpm/mesh::node-active n)
-                 (with-accessors ((disp cl-mpm/mesh::node-displacment))
-                     n
-                   (cl-mpm::fast-zero disp)
-                   (cl-mpm::iterate-over-neighbours-point-linear
-                    coarse-mesh
-                    (cl-mpm/mesh::node-position n)
-                    (lambda (mc coarse-node weight grads)
-                      (cl-mpm/fastmaths::fast-fmacc
-                       disp
-                       (cl-mpm/mesh::node-displacment coarse-node)
-                       weight)))))))))))))
+
 

@@ -260,6 +260,9 @@
     :accessor mp-p-modulus
     :initform 1d0
     )
+   (p-modulus-0
+    :accessor mp-p-modulus-0
+    :initform 1d0)
    (damage
     :accessor mp-damage
     :type DOUBLE-FLOAT
@@ -362,7 +365,30 @@
    )
   (:documentation "A linear-elastic material point"))
 
+
+
+;; (defun compute-s-modulus (particle)
+;;   (with-accessors ((de mp-elastic-matrix)
+;;                    (E  mp-E)
+;;                    (E  mp-E)
+;;                    (nu mp-nu))
+;;       particle
+;;     (/ E (+ 21 nu))))
+
 (defun compute-p-modulus (particle)
+  (with-accessors ((de mp-elastic-matrix)
+                   (E  mp-E)
+                   (nu mp-nu))
+      particle
+    ;; (multiple-value-bind (l v) (cl-mpm/utils:eig de)
+    ;;   (reduce #'max l))
+    ;; 3D case?
+    (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))
+    ;; 2D case?
+    ;(/ E (* (+ 1d0 nu) (- 1d0 nu)))
+    ))
+
+(defun update-p-modulus (particle)
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
                    (nu mp-nu)
@@ -557,6 +583,22 @@
 ;;             (setf (mp-nu p) nu)
 ;;         p)))
 
+
+(defun estimate-log-enhancement (particle)
+  (with-accessors ((def-inc mp-deformation-gradient-increment)
+                   (def mp-deformation-gradient)
+                   (eps mp-strain)
+                   )
+      particle
+    (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix eps))
+      (let ((lmax
+              ;; (reduce #'max l)
+              (reduce #'max (mapcar (lambda (x) (exp (- x))) l))
+              ;; (reduce #'max (mapcar (lambda (x) (/ 1d0 (abs x))) l))
+              ))
+        (* lmax lmax)))))
+
+
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
     (:documentation "Compute new stress state given elastic strain")
     (:method (mp strain dt)
@@ -568,9 +610,13 @@
                (stress stress))
       mp
 
+    ;; (format t "UL ~E~%" (estimate-ul-enhancement mp))
     (setf (mp-p-modulus mp)
-          (* (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -2)
-                   (cl-mpm/particle::compute-p-modulus mp)))
+          (*
+           (estimate-log-enhancement mp)
+           ;;Kirchoff to cauchy
+           ;; (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -1)
+           (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
 

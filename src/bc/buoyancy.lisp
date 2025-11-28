@@ -601,6 +601,7 @@
       sim
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
+      ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
       (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
@@ -643,6 +644,7 @@
                    (clip-func bc-pressure-clip-func)
                    (sim bc-pressure-sim))
       bc
+    ;; (markup-cells-nodes sim bc)
     (apply-non-conforming-nuemann
      sim
      (lambda (pos)
@@ -792,8 +794,10 @@
                      :datum datum))))
 
 (defgeneric markup-cells-nodes (sim bc))
-(defmethod markup-cells-nodes (sim (bc bc))
-  )
+
+(defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-pressure))
+  (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos))))
+
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-buoyancy))
   (with-accessors ((datum bc-buoyancy-datum)
                    (clip-function bc-buoyancy-clip-func))
@@ -1151,7 +1155,7 @@
    mps
     (lambda (mp)
       (compute-mp-displacement mesh mp)
-      (with-accessors ((volume cl-mpm/particle:mp-volume)
+      (with-accessors ((volume cl-mpm/particle::mp-volume)
                        ;(pos cl-mpm/particle::mp-position-trial)
                        (pos cl-mpm/particle::mp-position)
                        (disp cl-mpm/particle::mp-displacement-increment)
@@ -1557,3 +1561,18 @@
                                 stiffness-func
                                 (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp)))
                     )))))))))))
+
+(defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
+  (with-accessors ((datum bc-buoyancy-datum)
+                   (clip-func bc-pressure-clip-func)
+                   (rho bc-buoyancy-rho))
+      bc
+    (declare (function clip-func))
+    ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
+    ;; (markup-cells-nodes sim bc)
+    ;; (compute-stiffness-cells-3d
+    ;;  (cl-mpm:sim-mesh sim)
+    ;;  (lambda (pos)
+    ;;    (reduce #'max (mapcar #'abs (bc-pressure-pressures bc))))
+    ;;  clip-func)
+    ))

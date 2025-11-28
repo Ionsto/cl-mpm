@@ -240,6 +240,9 @@
     :accessor sim-multigrid-refinement
     :initarg :refinement
     :initform 2)
+   (current-mesh
+    :accessor sim-multigrid-current-mesh
+    :initform 0)
    (mesh-list
     :accessor sim-mesh-list
     :initform (list)
@@ -247,8 +250,7 @@
    (bcs-list
     :accessor sim-bcs-list
     :initarg :bcs-list
-    :initform (list))
-   )
+    :initform (list)))
   (:documentation "Explicit simulation with multiple meshes"))
 
 

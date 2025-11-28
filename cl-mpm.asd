@@ -24,6 +24,7 @@
 (defsystem "cl-mpm/utils"
   :depends-on ("cl-mpm/magicl"
                "asdf-system-connections"
+               "cl-mpm/errors"
                "cl-mpm/settings"
                "array-operations")
   :description "MPM utility functions definitions"
@@ -184,6 +185,7 @@
        (:file "dynamic-relaxation")
        (:file "solvers/quasi-static")
        (:file "solvers/dynamic")
+       (:file "solvers/multigrid")
        (:file "algorithms")))))))
 
 

@@ -49,21 +49,22 @@
                              )
                         (declare (double-float ul h))
                         ;; (format t "~A ~%" peak-grad)
-                        ;; (incf node-mass (* 1
-                        ;;                    (expt (cl-mpm/fastmaths::det-3x3 def) -1)
-                        ;;                    mp-pmod
-                        ;;                    svp
-                        ;;                    mp-volume-n
-                        ;;                    (expt h -2)
-                        ;;                    mass-scale))
                         (incf node-mass (* 2
                                            (expt (cl-mpm/fastmaths::det-3x3 def) -1)
                                            mp-pmod
                                            svp
-                                           mp-volume
-                                           ul
+                                           mp-volume-n
                                            (expt h -2)
-                                           mass-scale)))
+                                           mass-scale))
+                        ;; (incf node-mass (* 2
+                        ;;                    (expt (cl-mpm/fastmaths::det-3x3 def) -1)
+                        ;;                    mp-pmod
+                        ;;                    svp
+                        ;;                    mp-volume
+                        ;;                    ul
+                        ;;                    (expt h -2)
+                        ;;                    mass-scale))
+                        )
                       ;; (incf node-mass (/ (* 2
                       ;;                       mp-pmod
                       ;;                       svp

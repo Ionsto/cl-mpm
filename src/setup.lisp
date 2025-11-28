@@ -29,7 +29,8 @@
       sim)))
 
 (defmethod %post-make-simple-sim ((sim cl-mpm::mpm-sim-multigrid) resolution element-count args-list)
-  (let* ((size (mapcar (lambda (x) (* x resolution)) element-count)))
+  (let* ((resolution (* resolution (expt 2 (cl-mpm::sim-multigrid-refinement sim))))
+         (size (mapcar (lambda (x) (* x resolution)) element-count)))
     (progn
       (setf (cl-mpm::sim-mesh-list sim) (list)
             (cl-mpm::sim-bcs-list sim) (list))
@@ -38,12 +39,11 @@
                (bcs (cl-mpm/bc:make-outside-bc m)))
           (push m (cl-mpm::sim-mesh-list sim))
           (push bcs (cl-mpm::sim-bcs-list sim))))
-
       (setf (cl-mpm::sim-mesh-list sim) (reverse (cl-mpm::sim-mesh-list sim))
             (cl-mpm::sim-bcs-list sim) (reverse (cl-mpm::sim-bcs-list sim)))
 
-      (setf (cl-mpm:sim-mesh sim) (first (cl-mpm::sim-mesh-list sim)))
-      (setf (cl-mpm:sim-bcs sim) (first (cl-mpm::sim-bcs-list sim)))
+      (setf (cl-mpm:sim-mesh sim) (first (last (cl-mpm::sim-mesh-list sim))))
+      (setf (cl-mpm:sim-bcs sim)  (first (last (cl-mpm::sim-bcs-list sim))))
 
       sim)))
 
@@ -315,8 +315,7 @@
 (defun ellipse-sdf (position x-l y-l)
   (let ((aspect (/ x-l y-l)))
     (lambda (pos)
-      (let* ((position (cl-mpm/utils:vector-from-list (append
-                                                       position '(0d0))))
+      (let* ((position (cl-mpm/utils:vector-from-list position))
              (dist-vec (cl-mpm/fastmaths::fast-.*
                         (magicl:.- position pos)
                         (magicl:from-list (list 1d0 aspect 1d0) '(3 1)

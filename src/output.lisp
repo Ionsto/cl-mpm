@@ -571,6 +571,7 @@
                                                (cl-mpm/particle::mp-displacement-increment mp)
                                                (cl-mpm/particle::mp-displacement mp)) 2 0))
 
+        (cl-mpm/output::save-parameter "J" (cl-mpm/fastmaths:det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
         (cl-mpm/output::save-parameter "sig_xx" (magicl:tref (cl-mpm/particle:mp-stress mp) 0 0))
         (cl-mpm/output::save-parameter "sig_yy" (magicl:tref (cl-mpm/particle:mp-stress mp) 1 0))
         (cl-mpm/output::save-parameter "sig_xy" (magicl:tref (cl-mpm/particle:mp-stress mp) 5 0))

@@ -458,10 +458,47 @@
 
 
 (in-package :cl-mpm/damage)
+
+(defmethod set-mp-damage ((mp cl-mpm/particle::particle-chalk-brittle) d)
+  (let ((k (cl-mpm/damage::find-k-damage-mp mp d)))
+    (setf (cl-mpm/particle::mp-history-stress mp) k
+          (cl-mpm/particle::mp-history-stress-n mp) k)
+    (compute-damage mp)))
+
+(defmethod compute-damage ((mp cl-mpm/particle::particle-chalk-brittle))
+  (with-accessors ((k cl-mpm/particle::mp-history-stress)
+                   (k-n cl-mpm/particle::mp-history-stress-n)
+                   (E cl-mpm/particle::mp-e)
+                   (damage cl-mpm/particle:mp-damage)
+                   (init-stress cl-mpm/particle::mp-initiation-stress)
+                   (ductility cl-mpm/particle::mp-ductility)
+                   (damage-tension cl-mpm/particle::mp-damage-tension)
+                   (damage-shear cl-mpm/particle::mp-damage-shear)
+                   (damage-compression cl-mpm/particle::mp-damage-compression)
+                   (peerlings cl-mpm/particle::mp-peerlings-damage)
+                   (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+                   (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+                   (g-r cl-mpm/particle::mp-shear-residual-ratio))
+      mp
+    (declare (double-float kt-r kc-r g-r damage k k-n))
+    ;; Directly compute the damage from K
+    (let ()
+      (setf damage (damage-response-exponential k E init-stress ductility))
+      (if peerlings
+          (setf
+           damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+           damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+           damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
+          (setf
+           damage-tension (* kt-r damage)
+           damage-compression (* kc-r damage)
+           damage-shear (* g-r damage))))))
+
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-brittle) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
                      (undamaged-stress cl-mpm/particle::mp-undamaged-stress)
                      (damage cl-mpm/particle:mp-damage)
+                     (damage-n cl-mpm/particle::mp-damage-n)
                      (E cl-mpm/particle::mp-e)
                      (Gf cl-mpm/particle::mp-Gf)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
@@ -484,26 +521,18 @@
                      (damage-compression cl-mpm/particle::mp-damage-compression)
                      (peerlings cl-mpm/particle::mp-peerlings-damage)
                      ) mp
-      (declare (double-float damage damage-inc critical-damage
+      (declare (double-float damage
+                             damage-n
+                             damage-inc critical-damage
                              damage-tension damage-shear damage-compression
                              kt-r kc-r g-r
                              ))
         (progn
           ;;Damage increment holds the delocalised driving factor
           (when t;(< damage 1d0)
-            (setf k (max k-n ybar-prev ybar))
-            (let ((new-damage (max damage
-                                   (damage-response-exponential k E init-stress ductility))))
-              (setf damage-inc (- new-damage damage)))
-            (if peerlings
-                (setf
-                 damage-tension (max damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r))
-                 damage-shear (max damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r))
-                 damage-compression (max damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r)))
-                (setf
-                 damage-tension (* kt-r damage)
-                 damage-compression (* kc-r damage)
-                 damage-shear (* g-r damage)))
+            (setf k (max k-n ybar))
+            (compute-damage mp)
+            (setf damage-inc (- damage damage-n))
             ;; (when (>= damage 1d0)
             ;;   (setf damage-inc 0d0)
             ;;   (setf ybar 0d0))
@@ -511,7 +540,7 @@
             (incf (cl-mpm/particle::mp-time-averaged-ybar mp) ybar)
             (incf (cl-mpm/particle::mp-time-averaged-counter mp))
             ;;Transform to log damage
-            (incf damage damage-inc)
+            ;; (incf damage damage-inc)
             ;;Transform to linear damage
             (setf damage (max 0d0 (min 1d0 damage)))
             ;; (when (> damage critical-damage)
@@ -682,33 +711,32 @@
 
 (defun delay-damage-update (k-0 y-0 y-1))
 
-(defmethod compute-damage ((mp cl-mpm/particle::particle-chalk-delayed))
-  (with-accessors ((k cl-mpm/particle::mp-history-stress)
-                   (E cl-mpm/particle::mp-e)
-                   (damage cl-mpm/particle:mp-damage)
-                   (init-stress cl-mpm/particle::mp-initiation-stress)
-                   (ductility cl-mpm/particle::mp-ductility)
-                   (damage-tension cl-mpm/particle::mp-damage-tension)
-                   (damage-shear cl-mpm/particle::mp-damage-shear)
-                   (damage-compression cl-mpm/particle::mp-damage-compression)
-                   (peerlings cl-mpm/particle::mp-peerlings-damage)
-                   (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
-                   (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
-                   (g-r cl-mpm/particle::mp-shear-residual-ratio))
-      mp
-    (declare (double-float kt-r kc-r g-r damage))
-    (setf
-     damage
-     (damage-response-exponential k E init-stress ductility))
-    (if peerlings
-        (setf
-         damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
-         damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
-         damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
-        (setf
-         damage-tension (* kt-r damage)
-         damage-compression (* kc-r damage)
-         damage-shear (* g-r damage)))))
+;; (defmethod compute-damage ((mp cl-mpm/particle::particle-chalk-brittle))
+;;   (with-accessors ((k cl-mpm/particle::mp-history-stress)
+;;                    (E cl-mpm/particle::mp-e)
+;;                    (damage cl-mpm/particle:mp-damage)
+;;                    (init-stress cl-mpm/particle::mp-initiation-stress)
+;;                    (ductility cl-mpm/particle::mp-ductility)
+;;                    (damage-tension cl-mpm/particle::mp-damage-tension)
+;;                    (damage-shear cl-mpm/particle::mp-damage-shear)
+;;                    (damage-compression cl-mpm/particle::mp-damage-compression)
+;;                    (peerlings cl-mpm/particle::mp-peerlings-damage)
+;;                    (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
+;;                    (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
+;;                    (g-r cl-mpm/particle::mp-shear-residual-ratio))
+;;       mp
+;;     (declare (double-float kt-r kc-r g-r damage))
+;;     (setf
+;;      damage (damage-response-exponential k E init-stress ductility))
+;;     (if peerlings
+;;         (setf
+;;          damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+;;          damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+;;          damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
+;;         (setf
+;;          damage-tension (* kt-r damage)
+;;          damage-compression (* kc-r damage)
+;;          damage-shear (* g-r damage)))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)

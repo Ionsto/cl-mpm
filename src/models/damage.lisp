@@ -97,7 +97,7 @@
           damage-inc 0d0
           y 0d0
           ybar 0d0)
-    ;; (cl-mpm/damage::compute-damage mp)
+    (cl-mpm/damage::compute-damage mp)
     (call-next-method)))
 
 (defmethod new-loadstep-mp ((mp particle-elastic-damage))
