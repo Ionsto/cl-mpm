@@ -146,7 +146,7 @@
       (cl-mpm/fastmaths::fast-.+-matrix df stretch-tensor df)
       (setf dJ (cl-mpm/fastmaths:det-3x3 df))
       (when (< dJ 0d0)
-        (error "Negative jacobian of dF"))
+        (error 'cl-mpm/errors:error-dF-negative))
       ;;Explicit fbar
       (when fbar
         (if nil;;t exp: nil Coobs
@@ -192,7 +192,8 @@
                      (nd (cl-mpm/mesh::mesh-nd mesh)))
                 (cl-mpm/fastmaths::fast-.+-matrix df-fbar stretch-tensor-fbar df-fbar)
                 (when (< (cl-mpm/fastmaths:det-3x3 df-fbar) 0d0)
-                  (error "Negative jacobian of dF-bar"))
+                  (error 'cl-mpm/errors:error-dF-negative)
+                  )
                 (cl-mpm/fastmaths::fast-scale!
                  df
                  (expt
@@ -259,7 +260,7 @@
           (cl-mpm/ext:kirchoff-update strain df)
           (setf volume (* volume (the double-float dj)))
           (when (<= volume 0d0)
-            (error "Negative volume"))))))
+            (error 'cl-mpm/errors:error-volume-negative))))))
   (values))
 
 (defun update-strain-kirchoff-dynamic-relaxation (mesh mp dt fbar)
@@ -284,7 +285,7 @@
           (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
           (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
           (when (<= volume 0d0)
-            (error "Negative volume"))))))
+            (error 'cl-mpm/errors:error-volume-negative))))))
   (values))
 
 (defun update-stress-kirchoff (mesh mp dt fbar)
@@ -361,7 +362,7 @@
           (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
           (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
           (when (<= volume 0d0)
-            (error "Negative volume"))))))
+            (error 'cl-mpm/errors::error-volume-negative))))))
   (values))
 
 
@@ -423,7 +424,7 @@
         ;; (cl-mpm/constitutive::linear-elastic-mat strain (cl-mpm/particle::mp-elastic-matrix mp) stress-kirchoff)
         ;; Check volume constraint!
         (when (<= volume 0d0)
-          (error "Negative volume"))
+          (error 'cl-mpm/errors:error-volume-negative))
         ;; Turn kirchoff stress to cauchy
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
@@ -451,7 +452,7 @@
         (setf stress (cl-mpm/particle:constitutive-model mp strain dt))
         ;; Check volume constraint!
         (when (<= volume 0d0)
-          (error "Negative volume"))))))
+          (error 'cl-mpm/errors:error-volume-negative))))))
 
 
 (defun update-stress-kirchoff-p (mesh mp dt fbar)
