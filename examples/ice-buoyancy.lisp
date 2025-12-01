@@ -1696,7 +1696,6 @@
                                       :output-dir output-dir
                                       :dt 1d3
                                       :total-time 1d6
-                                      ;; :steps 1000
                                       :dt-scale 1d0
                                       :conv-criteria 1d-3
                                       :substeps 50

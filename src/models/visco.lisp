@@ -45,9 +45,10 @@
   (let* ((effective-stress (sqrt (* 1/2 (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress)))))
          (visc-factor (expt visc-factor (- visc-power)))
          )
+    (declare (double-float effective-stress visc-factor))
     (/ 1d0
-       (+ 1d-40
-          (* visc-factor 2 (expt effective-stress (- visc-power 1)))))))
+       (+ 1d-38
+          (* 2d0 visc-factor (expt effective-stress (- visc-power 1)))))))
 
 (defmethod constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
   (with-accessors ((de mp-elastic-matrix)
@@ -55,29 +56,35 @@
                    (nu mp-nu)
                    (stress mp-stress)
                    (def mp-deformation-gradient)
+                   (def-n mp-deformation-gradient-0)
                    (strain mp-strain)
                    (strain-n mp-strain-n)
                    (true-visc mp-viscosity)
                    (visc-factor mp-visc-factor)
                    (visc-power mp-visc-power)
                    (enable-viscosity mp-enable-viscosity)
+                   (p-mod mp-p-modulus)
                    )
       mp
     (cl-mpm/constitutive:linear-elastic-mat strain de stress)
     (let* ((visc-n (glen-visco
                     (cl-mpm/fastmaths:fast-scale!
                      (cl-mpm/constitutive:linear-elastic-mat strain-n de)
-                     (* 1d0 (cl-mpm/fastmaths:det def)))
+                     (/ 1d0 (cl-mpm/fastmaths:det def-n)))
                     visc-factor
                     visc-power))
            (visc-n1 (glen-visco
                      (cl-mpm/fastmaths:fast-scale!
                       stress
-                      (* 1d0 (cl-mpm/fastmaths:det def)))
+                      (/ 1d0 (cl-mpm/fastmaths:det def)))
                      visc-factor
                      visc-power))
-           (visc (expt (+ (expt visc-n -1) (expt visc-n1 -1)) -1)))
+           ;; (visc visc-n)
+           (visc (expt (+ (expt visc-n -1) (expt visc-n1 -1)) -1))
+           ;; (visc (/ (+ visc-n visc-n1) 2))
+           )
       (setf true-visc visc)
+      ;; (pprint visc)
       (if enable-viscosity
           ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt 1d0)
           ;; (cl-mpm/models/visco::dev-exp-v stress strain e nu de 1d0 dt)

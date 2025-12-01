@@ -96,6 +96,8 @@
 (defparameter *original-configuration* (list))
 (defparameter *original-size* (list))
 
+;(defparameter *rho* 8000d0)
+(defparameter *rho* 80d0)
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size &optional (e-scale 1) (mp-scale 1))
   (let ((nd (length block-size)))
@@ -113,7 +115,7 @@
            (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
            (h-x (/ h 1d0))
            (h-y (/ h 1d0))
-           (density 80)
+           (density *rho*)
            (elements (mapcar (lambda (s) (* e-scale (/ s 2))) size))
            )
       (progn
@@ -197,7 +199,7 @@
                       collect (float pos 1e0)))
 
          (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1e0)))
-         (rho 80d0)
+         (rho *rho*)
          (E 1d5)
          (g 10d0)
          (vp-0-list (loop for size in *original-size*
@@ -220,7 +222,8 @@
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
   (loop for i in
-        '(3 5 7 9 11)
+        '(4 5 6 7 8 9)
+        ;; '(4)
                                         ;'(2 4 6 8 10)
 
         while *run-sim*
@@ -229,32 +232,45 @@
                   (refine i)
                   (elements (expt 2 refine))
                   (mps 2)
-                  (final-time 15))
+                  (final-time 15)
+                  (step (list))
+                  (res (list))
+                  (total-step 0)
+                  )
              (let* ((e elements)
                     (L 50d0)
                     (h (/ L e)))
                (format t "H:~E~%" h)
                (defparameter
                    *sim*
-                 (setup-test-column (list h (+ L h))
+                 (setup-test-column (list h (+ L
+                                               (* 3 L)
+                                               h))
                                     (list h L)
                                     (/ 1d0 h)
                                     mps))
+               ;; (setf (cl-mpm::sim-gravity *sim*) (* -1 (cl-mpm::sim-gravity *sim*)))
                (format t "Running sim size ~a ~a ~%" refine elements)
                (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
                (format t "Sim steps: ~a ~%" (/ final-time (cl-mpm:sim-dt *sim*)))
                (cl-mpm/dynamic-relaxation::run-load-control
                 *sim*
                 :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
-                :load-steps 20
+                :load-steps 2
                 :substeps (* 10 refine)
-                :plotter #'plot-sigma-yy
-                :damping 1d0
-                :adaptive-damping t
-                :save-vtk-dr nil
+                :plotter (lambda (sim)
+                           (vgplot:semilogy (reverse step) (reverse res))
+                           ); #'plot-sigma-yy
+                :post-iter-step (lambda (i o e)
+                                  (push total-step step)
+                                  (incf total-step)
+                                  (push e res)
+                                  )
+                :damping 1d0;(sqrt 2)
+                :save-vtk-dr t
                 :save-vtk-loadstep nil
                 :dt-scale 1d0
-                :criteria 1d-9)
+                :criteria 1d-5)
                ;; (plot-sigma-yy)
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
@@ -329,7 +345,7 @@
                         collect pos))
 
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (rho 80d0)
+           (rho *rho*)
            (E 1d5)
            (g 10d0)
            (max-y 50)
@@ -357,7 +373,7 @@
            (vl-0 (loop for vp-0 in vp-0-list sum vp-0))
 
            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (rho 80d0)
+           (rho *rho*)
            (E 1d5)
            (g 10d0)
            (max-y 50)

@@ -839,3 +839,14 @@
     :components
     ((:file "implicit")))))
 
+
+;;Ice stuff
+
+(defsystem "cl-mpm/examples/ice/cliff-stability"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/models/chalk"
+               "cl-mpm/models/visco"
+               "cl-mpm/models/ice")
+  :description "MPM fast maths operations definitions"
+  :serial t
+  :components ((:file "examples/ice/ice-cliff-stability")))

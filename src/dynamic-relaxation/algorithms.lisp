@@ -256,7 +256,7 @@
                         :dt-scale dt-scale
                         :substeps substeps
                         :conv-steps 200
-                        :damping-factor 1d0
+                        :damping-factor damping
                         :post-iter-step
                         (lambda (i e o)
                           (funcall plotter sim)
@@ -888,6 +888,7 @@
                           (min-adaptive-steps -1)
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
+                          (damping 1d0)
                           (elastic-solver 'mpm-sim-dr-ul)
                           (conv-criteria 1d-3))
   (let ((result t))
@@ -933,7 +934,7 @@
        :dt-scale dt-scale
        :conv-steps 10000
        :substeps substeps
-       :damping-factor 1d0
+       :damping-factor damping
        :post-iter-step
        (lambda (i e o)
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
@@ -941,6 +942,7 @@
          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+         ;; (funcall plotter sim)
          ))
       (cl-mpm::finalise-loadstep sim)
       (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
@@ -985,6 +987,7 @@
                                                      :dt-scale dt-scale
                                                      :substeps substeps
                                                      :enable-damage enable-damage
+                                                     :damping damping
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :enable-plastic enable-plastic)
@@ -993,6 +996,7 @@
                                   (unless quasi-conv
                                     (if (= current-adaptivity max-adaptive-steps)
                                         (progn
+                                          (cl-mpm::reset-node-displacement sim)
                                           (format t "quasi-time terminated as too many dt refinemets are required~%")
                                           (loop-finish))
                                         (incf current-adaptivity)))))

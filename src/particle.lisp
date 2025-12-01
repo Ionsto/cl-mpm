@@ -599,6 +599,12 @@
         (* lmax lmax)))))
 
 
+(defun update-log-p-wave (mp)
+  (setf (mp-p-modulus mp)
+        (*
+         (estimate-log-enhancement mp)
+         (cl-mpm/particle::compute-p-modulus mp))))
+
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
     (:documentation "Compute new stress state given elastic strain")
     (:method (mp strain dt)

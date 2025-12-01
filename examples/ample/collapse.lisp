@@ -24,12 +24,13 @@
 
 (defun plot-load-disp ()
   (vgplot:semilogy *data-steps* *data-energy*))
+(declaim (notinline plot))
 (defun plot (sim)
-  (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-               (cl-mpm:sim-mps *sim*)
-               (cl-mpm:sim-dt *sim*)
-               0d0
-               :TRIAL)
+  ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+  ;;              (cl-mpm:sim-mps *sim*)
+  ;;              (cl-mpm:sim-dt *sim*)
+  ;;              0d0
+  ;;              :TRIAL)
   ;; (plot-load-disp)
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh *sim*)))
          (h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
@@ -39,12 +40,13 @@
         )
     ;; (vgplot:format-plot t "set object 1 rect from ~f,~f to ~f,~f fc rgb 'black' fs transparent solid 0.5 noborder behind" 0 ms-y ms-x (- datum))
     )
+  ;; (format t "~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
   (cl-mpm/plotter:simple-plot
    *sim*
    :plot :deformed
    :trial t
-   ;; :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
-   :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
+   :colour-func (lambda (mp) (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy))
+   ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-damage-ybar mp))
    ;; :colour-func (lambda (mp) (cl-mpm/particle::mp-strain-plastic-vm mp))
    )
@@ -56,31 +58,45 @@
   (setf *run-sim* nil))
 
 (declaim (notinline setup-test-column))
-(defun setup-test-column (size block-size sim-type &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup::make-simple-sim
+(defun setup-test-column (size block-size sim-type &optional (e-scale 1) (mp-scale 1) (multigrid-refinement 0))
+  (let* (;; (multigrid-refinement 3)
+         (multigrid-enabled (> multigrid-refinement 0))
+         (e-scale (if multigrid-enabled (/ e-scale (expt 2 (- multigrid-refinement 1)))
+                      e-scale))
+         (mp-scale (if multigrid-enabled (* mp-scale (expt 2 (- multigrid-refinement 1)))
+                       mp-scale))
+         (sim (cl-mpm/setup::make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                ;; :sim-type
                ;; 'cl-mpm::mpm-sim-sd
                ;; :sim-type sim-type
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-usf
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+               :sim-type (if multigrid-enabled
+                             'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                             'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
                ;; :sim-type 'cl-mpm/damage::mpm-sim-agg-damage
-               :args-list (list
-                           :split-factor 0.5d0
-                           :enable-fbar nil
-                           :enable-aggregate t
-                           ;; :vel-algo :QUASI-STATIC
-                           :vel-algo :BLEND
-                           :max-split-depth 2
-                           ;; :enable-length-localisation nil
-                           :enable-split nil
-                           :gravity -10d0
-                           )))
+               :args-list
+               (append
+                (list
+                 :split-factor 0.5d0
+                 :enable-fbar t
+                 :enable-aggregate t
+                 :vel-algo :QUASI-STATIC
+                 ;; :vel-algo :BLEND
+                 :max-split-depth 6
+                 ;; :enable-length-localisation nil
+                 :enable-split t
+                 :gravity -10d0
+                 )
+                (when multigrid-enabled
+                  (list :refinement multigrid-refinement))
+                )))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
@@ -100,13 +116,13 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
-          ;; 'cl-mpm/particle::particle-elastic
+          'cl-mpm/particle::particle-elastic
+          :E 1d6
+          :nu 0.30d0
+          ;; 'cl-mpm/particle::particle-vm
           ;; :E 1d6
           ;; :nu 0.3d0
-          'cl-mpm/particle::particle-vm
-          :E 1d6
-          :nu 0.3d0
-          :rho 20d3
+          ;; :rho 20d3
           ;; :enable-plasticity t
           ;; 'cl-mpm/particle::particle-elastic-damage-delayed
           ;; :E 1d9
@@ -138,17 +154,18 @@
           ;; :c (* init-c oversize)
           ;; :softening 0d0
           ;; :gravity -10d0
-          ;; :gravity-axis (cl-mpm/utils:vector-from-list '(0d0 1d0 0d0))
+          ;; :gravity-axis (cl-mpm/utils:vector-from-list '(-1d0 1d0 0d0))
           )))
       ;; (format t "Charictoristic time ~E~%" (/ ))
       ;; (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm::sim-split-factor sim) 0.4d0)
       ;; (setf (cl-mpm::sim-max-split-depth sim) 6)
-      (setf (cl-mpm::sim-enable-damage sim) t)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
       ;; (setf (cl-mpm::sim-enable-fbar sim) t)
       (defparameter *density* density)
       (cl-mpm/setup::set-mass-filter sim density :proportion 1d-9)
       (setf (cl-mpm::sim-nonlocal-damage sim) t)
-      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) t)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
 
       (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
@@ -174,22 +191,25 @@
       (cl-mpm/setup::setup-bcs
        sim
        :top '(nil nil nil)
-       :bottom '(nil 0 nil))
+       :bottom '(nil 0 nil)
+       ;; :left '(0 nil nil)
+       ;; :front '(nil nil 0)
+       )
 
 
-      (let ((water-density 1000d0)
-            (datum 3d0))
-        (defparameter *water-bc*
-          (cl-mpm/buoyancy::make-bc-buoyancy-clip
-           sim
-           datum
-           water-density
-           (lambda (pos datum)
-             (>= (cl-mpm/utils:varef pos 1) (* h 0)))
-           :visc-damping 0d0))
-        (cl-mpm:add-bcs-force-list
-         sim
-         *water-bc*))
+      ;; (let ((water-density 1000d0)
+      ;;       (datum 3d0))
+      ;;   (defparameter *water-bc*
+      ;;     (cl-mpm/buoyancy::make-bc-buoyancy-clip
+      ;;      sim
+      ;;      datum
+      ;;      water-density
+      ;;      (lambda (pos datum)
+      ;;        (>= (cl-mpm/utils:varef pos 1) (* h 0)))
+      ;;      :visc-damping 0d0))
+      ;;   (cl-mpm:add-bcs-force-list
+      ;;    sim
+      ;;    *water-bc*))
       (defparameter *bc-squish*
         (cl-mpm/penalty::make-bc-penalty-distance-point
          sim
@@ -200,6 +220,12 @@
          0d0
          0d0
          ))
+      (defparameter *bc-pressure*
+        (cl-mpm/buoyancy::make-bc-pressure
+         sim
+         0d0
+         0d0)
+        )
 
       (let ((domain-half (* 0.5d0 (first size)))
             (friction 0.5d0)
@@ -233,11 +259,11 @@
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
-              (sim-type 'cl-mpm:mpm-sim-usf)
-                )
+                (sim-type 'cl-mpm:mpm-sim-usf)
+                (multigrid-refine 0))
   (defparameter *sim* nil)
   (let ((mps-per-dim mps))
-    (defparameter *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim)))
+    (defparameter *sim* (setup-test-column '(32 16) '(8 8) sim-type refine mps-per-dim multigrid-refine)))
   ;; (cl-mpm/setup::initialise-stress-self-weight
   ;;  *sim*
   ;;  15d0
@@ -900,22 +926,108 @@
 
 
 (defun test-load-control ()
-  (setup :mps 2 :refine 1)
-  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 0d-9)
-  (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+  (setup :mps 2 :refine 1 :multigrid-refine 0)
+  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+  (setf (cl-mpm::sim-gravity *sim*) -500d0)
+  ;; (setf (cl-mpm::sim-gravity *sim*) -1000d0)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
    :output-dir (format nil "./output/")
    :plotter #'plot
-   :load-steps 20
-   :damping 1d0
-   :substeps 100
-   :criteria 1d-9
-   :adaptive-damping t
-   :save-vtk-dr nil
+   :load-steps 10
+   :damping (sqrt 2)
+   :substeps 10
+   :criteria 1d-4
+   :save-vtk-dr t
    :save-vtk-loadstep t
-   :dt-scale 1d0))
+   :dt-scale 0.5d0))
 
+
+(defun test-3d ()
+  (setup :mps 3 :refine 1)
+  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+
+  (setf (cl-mpm::sim-ghost-factor *sim*) (* 1d6 1d-4))
+  (setf (cl-mpm::sim-gravity *sim*) -1000d0)
+  (vgplot:close-all-plots)
+  (let ((step (list))
+        (res (list))
+        (total-step 0))
+    (cl-mpm/dynamic-relaxation::run-load-control
+     *sim*
+     :output-dir (format nil "./output/")
+     :load-steps 10
+     :damping (sqrt 2)
+     :substeps 10
+     :criteria 1d-9
+     :save-vtk-dr t
+     :save-vtk-loadstep nil
+
+     :plotter (lambda (sim)
+                           (vgplot:semilogy (reverse step) (reverse res))
+                           ); #'plot-sigma-yy
+                :post-iter-step (lambda (i o e)
+                                  (push total-step step)
+                                  (incf total-step)
+                                  (push e res)
+                                  )
+
+     :dt-scale 0.5d0)))
+
+(defun test-pressure ()
+  (setup :mps 2 :refine 2)
+  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
+  (cl-mpm:add-bcs-force-list
+   *sim*
+   *bc-pressure*)
+  (cl-mpm/setup::remove-sdf *sim*
+                            (lambda (pos)
+                              (-
+                               (funcall
+                                (cl-mpm/setup::circle-sdf
+                                 (list 0d0 0d0 0d0)
+                                 8d0
+                                 )
+                                pos
+                                )))
+                            
+                            :refine 1)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
+  (vgplot:close-all-plots)
+  (setf (cl-mpm::sim-gravity *sim*) 0d0)
+  (let ((pressure -1d7)
+        (step (list))
+        (res (list))
+        (total-step 0)
+        )
+    (cl-mpm/dynamic-relaxation::run-load-control
+     *sim*
+     :output-dir (format nil "./output/")
+     :loading-function (lambda (percent)
+                         (setf
+                          (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)
+                          (list
+                           (* pressure percent)
+                           (* pressure percent))))
+     ;; :plotter #'plot
+     :load-steps 10
+     :damping (sqrt 2)
+     :substeps 10
+     :criteria 1d-9
+     :save-vtk-dr t
+     :save-vtk-loadstep nil
+
+     :plotter (lambda (sim)
+                           (vgplot:semilogy (reverse step) (reverse res))
+                           ); #'plot-sigma-yy
+                :post-iter-step (lambda (i o e)
+                                  (push total-step step)
+                                  (incf total-step)
+                                  (push e res)
+                                  )
+
+     :dt-scale 0.5d0)))
 (defun test-static ()
   (setup :mps 2 :refine 0.5)
   (let ((output-dir "./output/")
@@ -1229,3 +1341,16 @@
 
 
 
+
+;; (let* ((h 1d0)
+;;        (g (list (/ 1d0 h) (/ 1d0 h) (/ 1d0 h)))
+;;        (df (cl-mpm/utils:matrix-from-list (list 0.1d0 1d0 0d0
+;;                                                 0d0 0.1d0 0d0
+;;                                                 0d0 0d0 1d0))))
+;;   (pprint g)
+;;   (pprint (cl-mpm::gradient-push-forwards g df))
+;;   ;; (multiple-value-bind (l v) (magicl:eig df)
+;;   ;;   (pprint l)
+;;   ;;   (pprint (reduce #'max (mapcar (lambda (x) (/ 1d0 (abs x))) l)))
+;;   ;;   )
+;;   )

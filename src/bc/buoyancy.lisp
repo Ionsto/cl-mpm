@@ -72,7 +72,6 @@
 ;;   (magicl:zeros '(2 1)))
 
 (defun compute-mp-displacement (mesh mp)
-  ;; (cl-mpm/fastmaths:fast-.+ corner (cl-mpm/particle::mp-displacement-increment mp))
   (with-accessors ((disp-inc cl-mpm/particle::mp-displacement-increment))
       mp
     (fast-zero disp-inc)
@@ -101,10 +100,15 @@
 
 (declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
 (defun calculate-val-mp (mp func)
-  (let ((pos (fast-.+
-              (cl-mpm/particle::mp-position mp)
-              (cl-mpm/particle::mp-displacement-increment mp)
-              )))
+  (let ((pos
+           (cl-mpm/particle::mp-position-trial mp)
+          ;; (fast-.+
+          ;;  ;; (cl-mpm/particle::mp-position mp)
+          ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
+          ;;  (cl-mpm/particle::mp-position-trial mp)
+          ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
+          ;;  )
+             ))
     (funcall func pos)))
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
@@ -1086,6 +1090,7 @@
          (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads (cl-mpm/mesh::node-displacment node) df))))
     dF))
 
+(declaim (notinline apply-force-cells-3d))
 (defun apply-force-cells-3d (mesh func-stress func-div clip-func)
   "Update force on nodes, with virtual stress field from cells"
   (declare (function func-stress func-div))
@@ -1148,6 +1153,7 @@
                             (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate)))))
                     )))))))))))
 
+(declaim (notinline apply-force-mps-3d))
 (defun apply-force-mps-3d (mesh mps func-stress func-div clip-func)
   "Update force on nodes, with virtual stress field from mps"
   (declare (function func-stress func-div clip-func))
@@ -1156,9 +1162,9 @@
     (lambda (mp)
       (compute-mp-displacement mesh mp)
       (with-accessors ((volume cl-mpm/particle::mp-volume)
-                       ;(pos cl-mpm/particle::mp-position-trial)
-                       (pos cl-mpm/particle::mp-position)
-                       (disp cl-mpm/particle::mp-displacement-increment)
+                       (pos cl-mpm/particle::mp-position-trial)
+                       ;; (pos cl-mpm/particle::mp-position)
+                       ;; (disp cl-mpm/particle::mp-displacement-increment)
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
@@ -1559,8 +1565,7 @@
                                1d0
                                (funcall
                                 stiffness-func
-                                (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp)))
-                    )))))))))))
+                                (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp))))))))))))))
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
   (with-accessors ((datum bc-buoyancy-datum)
@@ -1576,3 +1581,8 @@
     ;;    (reduce #'max (mapcar #'abs (bc-pressure-pressures bc))))
     ;;  clip-func)
     ))
+
+(defun round-datum (sim datum)
+  (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
+    (float (* (round datum h) h) 0d0))
+  )

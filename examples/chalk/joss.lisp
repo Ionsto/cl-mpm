@@ -381,7 +381,9 @@
 
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
-  (let* ((sim (cl-mpm/setup:make-simple-sim
+  (let* ((refines 0)
+         (mp-scale (* mp-scale (expt 2 (- refines 1))))
+         (sim (cl-mpm/setup:make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type
@@ -389,6 +391,7 @@
                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                ;; 'cl-mpm/damage::mpm-sim-damage
                'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                :args-list (list
                            ;; :split-factor 0.5d0
                            :enable-fbar t
@@ -396,12 +399,14 @@
                            :vel-algo :QUASI-STATIC
                            :max-split-depth 4
                            :enable-length-localisation t
+                           ;; :refinement refines
                            :enable-split t))
 
               )
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
          (h-y (/ h 1d0))
+         (h-fine (/ h (expt 2 (- refines 1))))
          (density 1.7d3)
          )
     (declare (double-float h density))
@@ -412,7 +417,7 @@
              (init-c 26d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile init-c (* angle (/ pi 180))))
              (gf (* 4.8d0 1d0))
-             (length-scale (* h 1d0))
+             (length-scale (* h-fine 1d0))
              (ductility (estimate-ductility-jirsek2004 gf length-scale init-stress E))
              (oversize (cl-mpm/damage::compute-oversize-factor 0.999d0 ductility)))
         (format t "Estimated oversize ~F~%" oversize)
@@ -2413,7 +2418,7 @@
   )
 
 (defun test-quasi-time ()
-  (setup :mps 2 :refine 2 :notch-length 1d0)
+  (setup :mps 2 :refine 8 :notch-length 1d0)
   ;; (setup-3d)
   (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
   (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
@@ -2425,12 +2430,14 @@
      *sim*
      :output-dir "./output/"
      :dt-scale 1d0
-     ;; :substeps 10
      :plotter (lambda (sim) (plot sim))
      :conv-criteria 1d-3
-     :substeps 20
+     :max-adaptive-steps 8
+     :substeps 10
      :dt dt
+     :total-time total-time
      :steps (round total-time dt)
+     ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
      ;; :enable-plastic nil
      ;; :time total-time
      )))
@@ -2536,3 +2543,20 @@
        (vgplot:title (format nil "Time:~F"  (cl-mpm::sim-time *sim*)))
        (swank.live:update-swank)
        ))))
+
+(let* ((E 1d0)
+       (nu 0.49d0)
+       (p-mod (/ E (* (+ 1d0 nu) (- 1d0 nu))))
+       (K (/ E (* 3 (- 1d0 (* 2 nu)))))
+       (G (/ E (* 2 (+ 1d0 nu))))
+       (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+       (eps (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0
+                                                 0d0 0d0 0d0))))
+  (pprint p-mod)
+  (pprint K)
+  (pprint G)
+  (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-to-mandel (magicl:@ de eps))))
+    (pprint l)
+    ;; (pprint (reduce #'max l))
+    )
+  )

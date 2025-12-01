@@ -247,7 +247,8 @@
             (let ()
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))))
-    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
+    (cl-mpm/particle::update-log-p-wave mp)
+    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 

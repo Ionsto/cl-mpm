@@ -23,7 +23,7 @@
          (d 1d0)
          (domain-width 5d0)
          (h (/ 1d0 refine))
-         (height 10d0)
+         (height 20d0)
          (domain-height (+ height 4d0))
          (density 16d3)
          (E 22d9)
@@ -53,16 +53,16 @@
       ;; :E E
       ;; :nu 0.3d0
       ;; :rho 20d3
-      'cl-mpm/particle::particle-vm
-      :E E
-      :nu 0.3d0
-      :rho 0.2d3
-      ;; 'cl-mpm/particle::particle-mc
+      ;; 'cl-mpm/particle::particle-vm
       ;; :E E
       ;; :nu 0.3d0
-      ;; :phi (cl-mpm/utils:deg-to-rad 32.8d0)
-      ;; :phi (cl-mpm/utils:deg-to-rad 2.8d0)
-      ;; :c 0.3d3
+      ;; :rho 0.2d3
+      'cl-mpm/particle::particle-mc
+      :E E
+      :nu 0.3d0
+      :phi (cl-mpm/utils:deg-to-rad 32.8d0)
+      :psi 0d0;(cl-mpm/utils:deg-to-rad 2.8d0)
+      :c 0.3d3
       ;; 'cl-mpm/particle::particle-elastic
       ;; :E E
       ;; :nu 0.2d0
@@ -70,19 +70,19 @@
       ;; :gravity-axis (cl-mpm/utils:vector-zeros)
       ))
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-9)
-    ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* E 1d-4))
+    ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* E 1d-3))
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 nil nil)
      :bottom '(0 0 nil)
-     :right '(0 0 nil)
+     :right '(0 nil nil)
      )
 
     (defparameter *penalty*
       (make-cpt
        *sim*
        E
-       :epsilon-scale 1d0
+       :epsilon-scale 1d1
        )
       ;; (cl-mpm/penalty::make-bc-penalty-distance-point
       ;;  *sim*
@@ -110,7 +110,7 @@
         (height 10d0)
         (cone-height 1d0)
         (offset -1d-5)
-        (offset-y 10d0)
+        (offset-y 20d0)
         (damping 0d0)
         (friction 0d0)
         )
@@ -188,6 +188,7 @@
      :plotter (lambda (sim) (plot-domain))
      :loading-function
      (lambda (i)
+       (setf (cl-mpm:sim-gravity *sim*) -9.8d0)
        (setf current-disp (* i total-disp))
        (cl-mpm/penalty::bc-increment-center
         *penalty*
@@ -199,7 +200,7 @@
      :criteria 1d-3
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :dt-scale 0.05d0
+     :dt-scale 0.5d0
      :post-conv-step
      (lambda (sim)
        (push current-disp *data-disp*)
@@ -210,35 +211,37 @@
   (vgplot:figure)
   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
-(defun run ()
-  (defparameter *data-disp* (list))
-  (defparameter *data-load* (list))
-  (let* ((lstps 50)
-         (total-disp -5d0)
-         (delta (/ total-disp lstps))
-         (current-disp 0d0)
-         )
-    )
-  (vgplot:figure)
-  (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
+;; (defun run ()
+;;   (defparameter *data-disp* (list))
+;;   (defparameter *data-load* (list))
+;;   (let* ((lstps 50)
+;;          (total-disp -5d0)
+;;          (delta (/ total-disp lstps))
+;;          (current-disp 0d0)
+;;          )
+;;     )
+;;   (vgplot:figure)
+;;   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
 (defun test ()
-  (setup :mps 2 :refine 1)
-  ;; (run)
-  (run-real-time)
+  (setup :mps 3 :refine 1)
+  (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
+  (run)
+  ;; (run-real-time)
   )
 
 (defun test-implicit ()
-  (setup :mps 3 :refine 1)
+  (setup :mps 2 :refine 4)
   (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
-  (run-real-time :dt-scale 10d0)
+  (run-real-time :dt-scale 100d0 :target-time 0.1d0)
   )
 
 
 (defun run-real-time (&key (output-dir "./output/")
-              (ms 1d0)
-              (dt-scale 0.1d0)
-              )
+                        (ms 1d0)
+                        (dt-scale 0.1d0)
+                        (target-time 0.1d0)
+                        )
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
@@ -250,8 +253,8 @@
    *sim*
    :crit 1d-3
    )
-  (cl-mpm/dynamic-relaxation::set-mp-plastic-damage *sim* :enable-plastic nil)
-  (let* ((target-time 0.1d0)
+  (cl-mpm/dynamic-relaxation::set-mp-plastic-damage *sim* :enable-plastic t)
+  (let* (
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
          (dt-min (cl-mpm:sim-dt *sim*)))
@@ -272,7 +275,7 @@
                                                (list :dt target-time))
     (format t "Substeps ~D~%" substeps)
     (setf (cl-mpm::sim-stats-work *sim*) 0d0)
-    (let* ((total-disp -5d0)
+    (let* ((total-disp -10d0)
            (total-time 10d0)
            (delta (/ total-disp total-time)))
       (time (loop for steps from 0 to (round total-time target-time)
