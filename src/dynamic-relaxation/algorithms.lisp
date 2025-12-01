@@ -227,6 +227,7 @@
                           (conv-criteria 1d-3)
                           (conv-criteria-damage 1d-3)
                           (output-dir "./output/")
+                          (save-vtk-dr t)
                           (enable-damage t)
                           (enable-plastic t)
                           (plotter (lambda (sim))))
@@ -262,11 +263,12 @@
                           (funcall plotter sim)
                                         ;(vgplot:title (format nil "substep ~D - oobf: ~E" i o))
                           (incf total-i)
-                          (when (= (mod i 1) 0)
-                            (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                            (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                            ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                            )
+                          (when save-vtk-dr
+                            (when (= (mod i 1) 0)
+                              (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                              (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                              ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                              ))
                           (format t "Def crit ~E~%" (compute-max-deformation sim))
                           (when (criteria-deformation-gradient sim :criteria 1d1)
                             (format t "Deformation gradient criteria exceeded~%")
@@ -312,8 +314,9 @@
                                     (cl-mpm:update-sim sim)
                                     (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim)))))
                        (setf damage-prev damage)
-                       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                       (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                       (when save-vtk-dr
+                         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim))
                        (incf stagger-iters)
                        ;; (when (> inertia intertia-crit)
                        ;;   (error (make-instance 'non-convergence-error
@@ -329,8 +332,9 @@
                                     :ke-norm  dconv
                                     :oobf-norm  (cl-mpm::sim-stats-oobf sim))))
 
-            (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-            (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+            (when save-vtk-dr
+                (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+              (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim))
             (cl-mpm::finalise-loadstep sim)
             (save-timestep sim output-dir global-step :QUASI-STATIC)
             (values t stagger-iters)))
@@ -942,7 +946,7 @@
          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
          (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
-         ;; (funcall plotter sim)
+         (funcall plotter sim)
          ))
       (cl-mpm::finalise-loadstep sim)
       (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
@@ -988,6 +992,7 @@
                                                      :substeps substeps
                                                      :enable-damage enable-damage
                                                      :damping damping
+                                                     :save-vtk-dr save-vtk-dr
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :enable-plastic enable-plastic)
