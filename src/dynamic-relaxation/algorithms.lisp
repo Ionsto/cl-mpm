@@ -1017,7 +1017,8 @@
                    (incf sim-time (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                    (funcall plotter sim)
 
-                   (save-vtks sim output-dir step)
+                   (when save-vtk-loadstep
+                     (save-vtks sim output-dir step))
                    ;; (when save-vtk-loadstep
                    ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
                    ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
