@@ -15,11 +15,11 @@
            (ms-x (first ms))
            (ms-y (second ms)))
       (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
-    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-                 (cl-mpm:sim-mps *sim*)
-                 (cl-mpm:sim-dt *sim*)
-                 0d0
-                 :TRIAL)
+    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+    ;;              (cl-mpm:sim-mps *sim*)
+    ;;              (cl-mpm:sim-dt *sim*)
+    ;;              0d0
+    ;;              :TRIAL)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -82,6 +82,7 @@
 (defun setup (&key (refine 1) (mps 2)
                 (pressure-condition t)
                 (cryo-static t)
+                (hydro-static nil)
                 (friction 0d0)
                 (ice-height 800d0)
                 (bench-length 0d0)
@@ -207,6 +208,13 @@
       ;;                              (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
       ;;                           :refine 1
       ;;                           )
+      (when hydro-static
+        (cl-mpm/setup::initialise-stress-self-weight-vardatum
+         *sim*
+         (lambda (pos) datum)
+         :k-x 1d0
+         :k-z 1d0
+         :scalar (lambda (pos) (/ water-density density))))
       (when cryo-static
         (cl-mpm/setup::initialise-stress-self-weight-vardatum
          *sim*
@@ -217,10 +225,9 @@
              (+ offset
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
-         :k-x 1d0
-         :k-z 1d0)
-        ;; (break)
-        ;; (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset start-height))
+         ;; :k-x 1d0
+         ;; :k-z 1d0
+         )
         )
       ;; (break)
       ;; (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset ice-height))
@@ -347,11 +354,9 @@
 (defun stability-qt-test ()
   (let* ((heights
            ;; (list 1000)
-           (reverse (list ;; 200d0 300d0 400d0 500d0
-                          600d0))
+           (reverse (list 800d0))
                   )
-         (floatations (list ;0.95d0
-                            0.9d0 0.85d0 0.8d0 0.75d0)))
+         (floatations (list 0.999d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./data-cliff-stability/"))))
@@ -368,12 +373,13 @@
                           (let* ((mps 2)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
-                            (setup :refine 0.25d0
+                            (setup :refine 1d0
                                    :friction 0.5d0
                                    :bench-length 0d0
                                    :ice-height height
                                    :mps mps
-                                   :cryo-static nil
+                                   :hydro-static nil
+                                   :cryo-static t
                                    :aspect 1d0
                                    :slope 0d0
                                    :floatation-ratio flotation)
@@ -393,11 +399,11 @@
                                         ;; :steps 1000
                                         :dt-scale 1d0
                                         :conv-criteria 1d-3
-                                        :substeps 50
+                                        :substeps 20
                                         :enable-damage t
-                                        :enable-plastic t
+                                        :enable-plastic nil
                                         :min-adaptive-steps -4
-                                        :max-adaptive-steps 6
+                                        :max-adaptive-steps 4
                                         :save-vtk-dr nil
                                         :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                         :plotter (lambda (sim) (plot-domain))
@@ -410,10 +416,7 @@
                               (print-stab)
                               (save-stabilty-data stability-dir *sim* res height flotation)
                               (unless res
-                                (loop-finish)))
-                            )))
-            ))
-    ))
+                                (loop-finish))))))))))
 
 (declaim (notinline print-stab))
 (defun print-stab ()
