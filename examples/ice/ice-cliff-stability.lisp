@@ -3,9 +3,9 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice/cliff-stability)
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 (declaim (notinline plot-domain))
 (defun plot-domain ()
@@ -88,6 +88,7 @@
                 (bench-length 0d0)
                 (aspect 1)
                 (floatation-ratio 0.9)
+                ;; (extra-cliff-height 0)
                 (slope 0.1d0)
                 )
   (let* ((density 918d0)
@@ -109,6 +110,7 @@
          (ice-height end-height)
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point floatation-ratio))
+         ;; (water-level (+ floating-point extra-cliff-height))
          (datum (+ water-level offset))
          ;; (datum (* (round datum mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
@@ -214,7 +216,7 @@
          (lambda (pos) datum)
          :k-x 1d0
          :k-z 1d0
-         :scalar (lambda (pos) (/ water-density density))))
+         :scaler (lambda (pos) (/ water-density density))))
       (when cryo-static
         (cl-mpm/setup::initialise-stress-self-weight-vardatum
          *sim*
@@ -378,8 +380,8 @@
                                    :bench-length 0d0
                                    :ice-height height
                                    :mps mps
-                                   :hydro-static nil
-                                   :cryo-static t
+                                   :hydro-static t
+                                   :cryo-static nil
                                    :aspect 1d0
                                    :slope 0d0
                                    :floatation-ratio flotation)
