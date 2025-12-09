@@ -99,7 +99,10 @@
                (cl-mpm:sim-dt sim)
                (cl-mpm:sim-damping-factor sim)
                (cl-mpm::sim-velocity-algorithm sim))
-  (call-next-method))
+  (call-next-method)
+  (when (cl-mpm::sim-allow-mp-damage-removal sim)
+    (cl-mpm::remove-material-damaged sim))
+  )
 (defun midpoint-starter (sim)
      (with-slots ((mesh cl-mpm::mesh)
                   (mps cl-mpm::mps)
@@ -164,7 +167,6 @@
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
-(defparameter *i* 0)
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
@@ -291,7 +293,7 @@
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
-    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))

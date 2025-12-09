@@ -34,22 +34,23 @@ for i,out in enumerate(output_list):
 data_h = []
 data_e = []
 for f in output_list:
-    L = 50
-    rho =800
-    g=10
+    L = 1
     output_dir = "{}./{}".format(top_dir,f)
     x,y = f.split("-")[-1].split(".")[0].split("_")
     refine = int(x)
     mps = int(y)
     df = pd.read_csv(output_dir)
-    y = df["Y"].values
-    syy = df["SYY"].values
-    syy_ref = df["SYY-REF"].values
-    vp = df["VP"].values
-    syy-syy_ref
+    # y = df["Y"].values
+    # syy = df["SYY"].values
+    # syy_ref = df["SYY-REF"].values
+    # vp = df["VP"].values
+    # syy-syy_ref
     h = L / 2**refine
+    e = df["ERROR"].values[0]
+    #e = np.linalg.norm(syy-syy_ref)*vp[0]/(np.sum(vp)))
+
     data_h.append(h)
-    data_e.append(np.linalg.norm(syy-syy_ref)*vp[0]/(rho*g*L*np.sum(vp)))
+    data_e.append(e)
 
 data_h = np.array(data_h)
 data_e = np.array(data_e)
@@ -69,11 +70,12 @@ def plot_tri(offset,size):
     plt.text((xoffset*xsize)*1.1,yoffset/(ysize**0.6),size[1],size="x-small")
     # plt.plot(x,y)
 
-plot_tri([0,0],[1,1])
-plot_tri([-0.5,-2],[1,2])
+# plot_tri([0,-2],[1,1])
+# plot_tri([-0.5,1],[1,2])
 
 plt.xlabel("1/h")
 plt.ylabel("normalised error")
 plt.xscale("log")
 plt.yscale("log")
+plt.tight_layout()
 plt.show()

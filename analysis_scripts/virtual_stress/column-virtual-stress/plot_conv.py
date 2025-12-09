@@ -41,20 +41,42 @@ for f in output_list:
     refine = int(x)
     mps = int(y)
     df = pd.read_csv(output_dir)
-    y = df["Y"].values
-    syy = df["SYY"].values
-    syy_ref = df["SYY-REF"].values
-    vp = df["VP"].values
-    syy-syy_ref
+    # y = df["Y"].values
+    # syy = df["SYY"].values
+    # syy_ref = df["SYY-REF"].values
+    # vp = df["VP"].values
+    # syy-syy_ref
     h = L / 2**refine
+    e = df["ERROR"].values[0]
+    #e = np.linalg.norm(syy-syy_ref)*vp[0]/(np.sum(vp)))
+
     data_h.append(h)
-    data_e.append(np.linalg.norm(syy-syy_ref)*vp[0]/(np.sum(vp)))
+    data_e.append(e)
 
 data_h = np.array(data_h)
 data_e = np.array(data_e)
 plt.scatter(1/data_h,data_e,label="MPM")
+
+def plot_tri(offset,size):
+    xoffset = 10**offset[0]
+    yoffset = 10**offset[1]
+    xsize = 1+size[0]
+    ysize = 1+size[1]
+    x = [xoffset*xsize,xoffset*xsize ,xoffset]
+    y = [yoffset      ,yoffset/ysize ,yoffset]
+    pos = np.vstack((x,y)).transpose()
+    print(pos)
+    t1 = plt.Polygon(pos,color="black",fill=False,lw=1)
+    plt.gca().add_patch(t1)
+    plt.text((xoffset*xsize)*1.1,yoffset/(ysize**0.6),size[1],size="x-small")
+    # plt.plot(x,y)
+
+# plot_tri([0,-2],[1,1])
+# plot_tri([-0.5,1],[1,2])
+
 plt.xlabel("1/h")
 plt.ylabel("normalised error")
 plt.xscale("log")
 plt.yscale("log")
+plt.tight_layout()
 plt.show()

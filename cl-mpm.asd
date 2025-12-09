@@ -340,6 +340,11 @@
   :serial t
   :components ((:file "examples/virtual_stress/column-virtual-stress")))
 
+(defsystem "cl-mpm/examples/buoyancy-virtual-stress"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/virtual_stress/buoyancy-virtual-stress")))
+
 (defsystem "cl-mpm/examples/float-virtual-stress"
   :depends-on ("cl-mpm/example")
   :serial t
@@ -743,8 +748,8 @@
 (defsystem "cl-mpm/models/ice"
   :depends-on ("cl-mpm/particle"
                "cl-mpm/models/chalk"
-               "cl-mpm/damage"
-               )
+               "cl-mpm/models/visco"
+               "cl-mpm/damage")
   :description "MPM ice particle definitions"
   :serial t
   :components ((:file "src/models/ice")))

@@ -55,7 +55,7 @@
       (let ((ps-y (sqrt (* E ps-vm))))
         (setf y
               (+
-               ;; ps-y
+               ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -66,12 +66,12 @@
                ;;  nu
                ;;  de
                ;;  (* 0d0 -1d0 (* 1d0 (magicl:det def)) (/ (- pressure) 1)))
-               (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
-                ;; cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+               (;;cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+                cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                 (cl-mpm/fastmaths:fast-.+
-                 stress
-                 (cl-mpm/utils:voigt-eye (* 0d0
-                                            (* 1d0 (magicl:det def))
+                 (cl-mpm/fastmaths::fast-scale-voigt stress (/ 1d0 (magicl:det def)))
+                 (cl-mpm/utils:voigt-eye (* 1d0
+                                            ;; (* 1d0 (magicl:det def))
                                             (/ (- pressure) 3))))
                 (* angle (/ pi 180d0)))
                )))
@@ -100,7 +100,7 @@
          ;; (mps (* mps (expt 2 (- refines 1))))
          ;; (h-fine (/ mesh-resolution (expt 2 (- refines 1))))
          (h-fine mesh-resolution)
-         (offset (* mesh-resolution 0))
+         (offset (* mesh-resolution 2))
          ;; (end-height ice-height)
          ;; (start-height ice-height)
 
@@ -142,7 +142,7 @@
            (length-scale (* h-fine 1d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            ;; (ductility 10d0)
-           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
+           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-2) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -168,8 +168,8 @@
         :nu 0.24d0
 
         :kt-res-ratio 1d0
-        :kc-res-ratio 0d0
-        :g-res-ratio 0.5d0
+        :kc-res-ratio 0.2d0
+        :g-res-ratio 1d0;0.5d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -180,7 +180,7 @@
         :ductility ductility
         :local-length length-scale
         :delay-time 1d4
-        :delay-exponent 2
+        :delay-exponent 3
         :enable-plasticity t
         :enable-damage t
 
@@ -227,8 +227,8 @@
              (+ offset
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
-         ;; :k-x 1d0
-         ;; :k-z 1d0
+         :k-x 1d0
+         :k-z 1d0
          )
         )
       ;; (break)
@@ -240,18 +240,25 @@
                                      p
                                      (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
                                      (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
-                                  :refine 2
+                                  :refine 3
                                   ))
 
 
-      (let ((cutout (+ (- ice-height water-level) 00d0))
-            (cutback bench-length)
-            )
+      (let* ((domain-height (second domain-size))
+             (midpoint (/ (+ domain-height (+ water-level offset)) 2))
+             (dist (- domain-height midpoint))
+             (cutout (/ dist 1))
+             ;; (cutout (+ (- end-height water-level) 00d0))
+             (cutback bench-length)
+             )
         ;; (pprint cutout)
         (when (> cutback 0d0)
           (cl-mpm/setup:remove-sdf
            *sim*
-           (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height))
+           (cl-mpm/setup::rectangle-sdf (list (first block-size)
+                                              ;; (+ offset ice-height)
+                                              midpoint
+                                              )
                                         (list cutback cutout))
            )
           ;; (cl-mpm/setup::remove-sdf *sim*
@@ -284,6 +291,9 @@
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
       (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
     (setf (cl-mpm::sim-allow-mp-split *sim*) t)
+    (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
+    (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
+    (setf (cl-mpm::sim-mp-damage-removal-criteria *sim*) 0.99d0)
     (setf (cl-mpm::sim-max-split-depth *sim*) 3)
     (setf (cl-mpm::sim-ghost-factor *sim*)
           ;; nil
@@ -354,11 +364,8 @@
        :floatation floatation)))))
 
 (defun stability-qt-test ()
-  (let* ((heights
-           ;; (list 1000)
-           (reverse (list 800d0))
-                  )
-         (floatations (list 0.999d0)))
+  (let* ((heights (reverse (list 600d0)))
+         (floatations (list 0.9d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./data-cliff-stability/"))))
@@ -375,41 +382,45 @@
                           (let* ((mps 2)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
-                            (setup :refine 1d0
+                            (setup :refine 0.25d0
                                    :friction 0.5d0
-                                   :bench-length 0d0
                                    :ice-height height
                                    :mps mps
-                                   :hydro-static t
-                                   :cryo-static nil
-                                   :aspect 1d0
+                                   :hydro-static nil
+                                   :cryo-static t
+                                   :aspect 4d0
                                    :slope 0d0
+                                   :bench-length 600d0
                                    :floatation-ratio flotation)
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-                            (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+                            (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
                             (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                                   ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3)
                                   (cl-mpm::sim-ghost-factor *sim*) nil
                                   )
-                            (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
+                            (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                             (let ((res (cl-mpm/dynamic-relaxation::run-quasi-time
                                         *sim*
                                         :output-dir output-dir
-                                        :dt 1d3
+                                        :dt 1d2
                                         :total-time 1d6
                                         ;; :steps 1000
                                         :dt-scale 1d0
                                         :conv-criteria 1d-3
                                         :substeps 20
                                         :enable-damage t
-                                        :enable-plastic nil
+                                        :enable-plastic t
                                         :min-adaptive-steps -4
-                                        :max-adaptive-steps 4
+                                        :max-adaptive-steps 10
                                         :save-vtk-dr nil
+                                        :save-vtk-loadstep t
                                         :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                         :plotter (lambda (sim) (plot-domain))
-                                        :post-conv-step (lambda (sim) (plot-domain)))))
+                                        :post-conv-step (lambda (sim) (plot-domain)
+                                                          (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t))
+
+                                        )))
                               (setf (aref *stability* hi fi) (if res 1 0))
                               (unless res
                                 (loop for j from fi below (length floatations)

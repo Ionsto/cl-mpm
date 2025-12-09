@@ -127,19 +127,19 @@
                       ) block-size
                         (list
                          ;; mp-scale
+                         ;1
+                         ;; mp-scale
                          1
-                         mp-scale
+                         1;mp-scale
                          1
                          ))
             density
             'cl-mpm/particle::particle-elastic
-            :E 10d3
-            :nu 0.0d0
-            :gravity -0.0d0
-            ;; :gravity-axis (cl-mpm/utils:vector-zeros)
-            )))
+            :E 1d4
+            :nu 0.0d0)))
         (format t "MP count ~D~%" (length (cl-mpm:sim-mps sim)))
         (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+        (setf (cl-mpm::sim-gravity sim) 0d0)
         (setf (cl-mpm:sim-damping-factor sim)
               (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim)))
         ;; (cl-mpm/setup::set-mass-filter sim density :proportion 0d-9)
@@ -175,17 +175,22 @@
   ;; (defparameter *sim* (setup-test-column '(1 60) '(1 50) (/ 1 5) 2))
   (let* ((e (expt 2 (+ 4 refine)))
          (L 50d0)
-         (h (/ L e)))
+         (h (/ L e))
+         (width
+           L
+           ;; (* 2 h)
+                )
+         )
     (format t "H:~E~%" h)
     (defparameter
         *sim*
       (setup-test-column (list
-                          h
+                          width
                           (+ L (* 2 h))
                           ;; h
                           )
                          (list
-                          h
+                          width
                           L
                           ;; h
                           )
@@ -195,33 +200,51 @@
   (defparameter *velocity* '())
   (defparameter *time* '())
   (defparameter *t* 0)
-  (defparameter *sim-step* 0)
-  )
+  (defparameter *sim-step* 0))
 
+(defun compute-error (&optional sim)
+  (let* ((mp-list (loop for mp across (cl-mpm:sim-mps *sim*) collect mp))
+         (y-ref (loop for pos in *original-configuration* collect (float pos 1e0)))
+         (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1d0)))
+         (vp-0-list (loop for size in *original-size* collect (float (* (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1)) 1e0)))
+         (pressure -1e4)
+         (syy-ref (mapcar (lambda (x) pressure) y-ref))
+         (err (/
+               (* (magicl:norm
+                   (magicl:.-
+                    (magicl:from-list syy-ref (list (length syy-ref) 1))
+                    (magicl:from-list syy (list (length syy) 1))))
+                  (first vp-0-list))
+                 (abs (* (reduce #'+ vp-0-list) pressure)))))
+    err))
 
 (defun save-csv (output-file)
-  (let* ((mp-list
-           (loop for mp across (cl-mpm:sim-mps *sim*)
-                 collect mp))
-         (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
-         (y-ref (loop for pos in *original-configuration*
-                      collect (float pos 1e0)))
-         (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1e0)))
-         (rho 80d0)
-         (E 1d5)
-         (g 10d0)
-         (vp-0-list (loop for size in *original-size*
-                          collect (float (* (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1)) 1e0)))
-         (pressure -1e4)
-         (max-y 50)
-         (syy-ref (mapcar (lambda (x) pressure) y-ref))
-         (df (lisp-stat:make-df '(:y :syy :syy-ref :vp)
-                                (list
-                                 (coerce y-ref '(vector single-float))
-                                 (coerce syy 'vector)
-                                 (coerce syy-ref 'vector)
-                                 (coerce vp-0-list 'vector)))))
-    (lisp-stat:write-csv df output-file :add-first-row t)))
+  (let* ((df (lisp-stat:make-df '(:error)
+                                (list (make-array 1 :initial-element (compute-error))))))
+    (lisp-stat:write-csv df output-file :add-first-row t))
+  ;; (let* ((mp-list
+  ;;          (loop for mp across (cl-mpm:sim-mps *sim*)
+  ;;                collect mp))
+  ;;        (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+  ;;        (y-ref (loop for pos in *original-configuration*
+  ;;                     collect (float pos 1e0)))
+  ;;        (syy (loop for mp in mp-list collect (float (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0) 1d0)))
+  ;;        (rho 80d0)
+  ;;        (E 1d5)
+  ;;        (g 10d0)
+  ;;        (vp-0-list (loop for size in *original-size*
+  ;;                         collect (float (* (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1)) 1e0)))
+  ;;        (pressure -1e4)
+  ;;        (max-y 50)
+  ;;        (syy-ref (mapcar (lambda (x) pressure) y-ref))
+  ;;        (df (lisp-stat:make-df '(:y :syy :syy-ref :vp)
+  ;;                               (list
+  ;;                                (coerce y-ref '(vector single-float))
+  ;;                                (coerce syy '(vector double-float))
+  ;;                                (coerce syy-ref 'vector)
+  ;;                                (coerce vp-0-list 'vector)))))
+  ;;   (lisp-stat:write-csv df output-file :add-first-row t))
+  )
 
 (/ 0.664d0 (* 160 512))
 (defparameter *run-sim* nil)
@@ -230,7 +253,7 @@
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(2 4 6 8 10 12)
+  (loop for i in '(2 3 4 5 6 7 8 9 10 12)
         while *run-sim*
         do
            (let* (;(elements (expt 2 i))
@@ -239,6 +262,7 @@
                   (mps 2))
              (let* ((e elements)
                     (L 50d0)
+                    (width L)
                     (h (/ L e)))
                (format t "H:~E~%" h)
                (defparameter
@@ -256,14 +280,12 @@
                   *sim*
                   :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
                   :load-steps 10
-                  :substeps (* 50 refine)
+                  :substeps (* 20 refine)
                   :plotter #'plot-sigma-yy
-                  :damping 1d0;(* 1d0 ms)
-                  :adaptive-damping t
-                  :kinetic-damping nil
+                  :damping 1d0;(sqrt 2)
                   :save-vtk-dr nil
                   :save-vtk-loadstep t
-                  :dt-scale 0.5d0
+                  :dt-scale 1d0
                   :criteria 1d-9
                   :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
                   ))
@@ -271,7 +293,7 @@
                (push (compute-error *sim*) *data-error*)
                (push h *data-refine*))
              (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
-             (save-csv (merge-pathnames (format nil "./analysis_scripts/column-virtual-stress/data/data-~A_~D.csv" i mps)))
+             (save-csv (merge-pathnames (format nil "./analysis_scripts/virtual_stress/column-virtual-stress/data/data-~A_~D.csv" i mps)))
              )))
 
 ;; (defun run-)
@@ -344,30 +366,30 @@
       (vgplot:legend)
       )))
 
-(defun compute-error (&optional sim)
-  (with-accessors ((mps cl-mpm:sim-mps))
-      *sim*
-    (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
-           (mp-list
-             (loop for mp across mps
-                     collect mp))
-           (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
-           (y-ref (loop for pos in *original-configuration*
-                        collect pos))
+;; (defun compute-error (&optional sim)
+;;   (with-accessors ((mps cl-mpm:sim-mps))
+;;       *sim*
+;;     (let* ((x-slice-pos (loop for mp across mps maximize (magicl:tref (cl-mpm/particle:mp-position mp) 0 0)))
+;;            (mp-list
+;;              (loop for mp across mps
+;;                      collect mp))
+;;            (y (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-position mp) 1 0)))
+;;            (y-ref (loop for pos in *original-configuration*
+;;                         collect pos))
 
-           (vp-0-list (loop for size in *original-size*
-                            collect (*  (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1))))
-           (vl-0 (loop for vp-0 in vp-0-list sum vp-0))
+;;            (vp-0-list (loop for size in *original-size*
+;;                             collect (*  (cl-mpm/utils:varef size 0) (cl-mpm/utils:varef size 1))))
+;;            (vl-0 (loop for vp-0 in vp-0-list sum vp-0))
 
-           (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
-           (pressure -1d4)
-           (max-y 50)
-           (syy-ref (mapcar (lambda (x) pressure) y-ref))
-           )
-      (loop for ref in syy-ref
-            for val in syy
-            for vp-0 in vp-0-list
-            sum (/ (* (abs (- ref val)) vp-0) (* max-y vl-0))))))
+;;            (syy (loop for mp in mp-list collect (magicl:tref (cl-mpm/particle::mp-stress mp) 1 0)))
+;;            (pressure -1d4)
+;;            (max-y 50)
+;;            (syy-ref (mapcar (lambda (x) pressure) y-ref))
+;;            )
+;;       (loop for ref in syy-ref
+;;             for val in syy
+;;             for vp-0 in vp-0-list
+;;             sum (/ (* (abs (- ref val)) vp-0) (* max-y vl-0))))))
 
 (defun save-sigma-yy (&optional sim)
   (with-accessors ((mps cl-mpm:sim-mps))

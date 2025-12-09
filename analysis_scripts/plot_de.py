@@ -1,7 +1,19 @@
 import matplotlib.pyplot as plt
 import json
+import re
+import os
 import pandas as pd
-output_dir = "../output/"
+
+top_dir = "../"
+output_regex = re.compile("output-*")
+output_list = list(filter(output_regex.match,os.listdir(top_dir)))
+output_list.sort()
+if len(output_list) > 1:
+    for i,out in enumerate(output_list):
+        print("{}: {}".format(i,out))
+    output_dir = "{}./{}/".format(top_dir,output_list[int(input())])
+else:
+    output_dir = "{}./{}/".format(top_dir,output_list[0])
 df = pd.read_csv(output_dir+"timesteps.csv")
 print(df)
 energy_max = 1e-2

@@ -107,7 +107,7 @@
       (let ((ps-y (sqrt (* E ps-vm))))
         (setf y
               (+
-               ;; ps-y
+               ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -118,12 +118,19 @@
                ;;  nu
                ;;  de
                ;;  (* 0d0 -1d0 (* 1d0 (magicl:det def)) (/ (- pressure) 1)))
-               (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
-                ;; cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+               ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
+               ;;  ;; cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+               ;;  (cl-mpm/fastmaths:fast-.+
+               ;;   stress
+               ;;   (cl-mpm/utils:voigt-eye (* 0d0
+               ;;                              (* 1d0 (magicl:det def))
+               ;;                              (/ (- pressure) 3))))
+               ;;  (* angle (/ pi 180d0)))
+               (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                 (cl-mpm/fastmaths:fast-.+
-                 stress
-                 (cl-mpm/utils:voigt-eye (* 0d0
-                                            (* 1d0 (magicl:det def))
+                 (cl-mpm/fastmaths::fast-scale-voigt stress (/ 1d0 (magicl:det def)))
+                 (cl-mpm/utils:voigt-eye (* 1d0
+                                            ;; (* 1d0 (magicl:det def))
                                             (/ (- pressure) 3))))
                 (* angle (/ pi 180d0)))
                )))
@@ -200,10 +207,11 @@
          ;; (density 900d0)
          ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
-         (refines 4)
-         (mps (* mps (expt 2 (- refines 1))))
-         (h-fine (/ mesh-resolution (expt 2 (- refines 1))))
-         (offset (* mesh-resolution 0))
+         ;; (refines 0)
+         ;; (mps (* mps (expt 2 (- refines 1))))
+         ;; (h-fine (/ mesh-resolution (expt 2 (- refines 1))))
+         (h-fine mesh-resolution)
+         (offset (* mesh-resolution 2))
          ;; (end-height ice-height)
          ;; (start-height ice-height)
 
@@ -227,16 +235,16 @@
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                                                :args-list
                                                (list
                                                 :enable-fbar t
                                                 :enable-aggregate t
-                                                :refinement refines
+                                                ;; :refinement refines
                                                 )))
-    (let* ((angle 40d0)
+    (let* ((angle 30d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 1000d0)
@@ -270,7 +278,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 0.5d0
+        :g-res-ratio 1d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -280,7 +288,7 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d4
+        :delay-time 1d5
         :delay-exponent 2
         :enable-plasticity t
         :enable-damage t
@@ -1028,18 +1036,18 @@
   (loop for dt in (list 1d4)
         do
            (let* ((mps 2))
-             (setup :refine 0.5
+             (setup :refine 0.25
                     :friction 0.5d0
-                    :bench-length 0d0
+                    :bench-length 500d0
                     :ice-height 500d0
                     :mps mps
                     :cryo-static t
-                    :aspect 2d0
+                    :aspect 6d0
                     :slope 0d0
                     :floatation-ratio 0.9d0)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
              (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                    ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3)
                    (cl-mpm::sim-ghost-factor *sim*) nil
@@ -1051,15 +1059,16 @@
               :dt dt
               :dt-scale 1d0
               :conv-criteria 1d-3
-              :conv-load-steps 1
+              :conv-load-steps 2
               :min-adaptive-steps -4
+              :max-adaptive-steps 10
               :substeps 10
               :steps 1000
-              :enable-plastic nil
+              :enable-plastic t
+              :enable-damage t
               ;; :post-conv-step (lambda (sim)
               ;;                   (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0.9d0))
               :plotter (lambda (sim) (plot-domain))
-              :max-adaptive-steps 10
               ;; :explicit-dt-scale 100d0
               :explicit-dt-scale 0.5d0
               :explicit-damping-factor 1d-4
@@ -1077,9 +1086,8 @@
                  (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
               :setup-dynamic
               (lambda (sim)
-                (error "Terminated with collapse")
-                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-9)
-                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+                ;; (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                       (cl-mpm::sim-velocity-algorithm sim) :FLIP
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
                       (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0

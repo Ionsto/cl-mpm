@@ -615,13 +615,9 @@
   (with-slots ((de elastic-matrix)
                (stress stress))
       mp
-
-    ;; (format t "UL ~E~%" (estimate-ul-enhancement mp))
     (setf (mp-p-modulus mp)
           (*
            (estimate-log-enhancement mp)
-           ;;Kirchoff to cauchy
-           ;; (expt (cl-mpm/fastmaths::det (mp-deformation-gradient mp)) -1)
            (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
@@ -1075,14 +1071,14 @@
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    )
       mp
-    (cl-mpm/utils:matrix-copy-into def def-0)
-    (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
-    (cl-mpm/utils:voigt-copy-into strain strain-n)
+    ;; (cl-mpm/utils:matrix-copy-into def def-0)
+    ;; (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    ;; (cl-mpm/utils:voigt-copy-into strain strain-n)
     ;; (cl-mpm/fastmaths:fast-zero disp)
     (setf ybar-prev ybar)
     (setf y-prev y)
     (setf damage-n damage)
-    (setf volume-n volume)
+    ;; (setf volume-n volume)
     (call-next-method)))
 
 

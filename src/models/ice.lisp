@@ -749,31 +749,34 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+      (let ((exponent 2)
+            (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
               (if (> p 0d0)
-                  (* (- 1d0 (expt damage-t 1)) p)
-                  (* (- 1d0 (expt damage-c 1)) p)))
+                  (* (- 1d0 (expt damage-t exponent)) p)
+                  (* (- 1d0 (expt damage-c exponent)) p)))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (- p pressure))
-               (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s 1)))
+               (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
                stress))
         (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
               (G (/ e (* 2 (+ 1d0 nu)))))
           (setf K
                 (if (> p 0d0)
-                    (* (- 1d0 (expt damage-t 1)) K)
-                    (* (- 1d0 (expt damage-c 1)) K)))
-          (setf G (* G (- 1d0 (expt damage-s 1))))
+                    (* (- 1d0 (expt damage-t exponent)) K)
+                    (* (- 1d0 (expt damage-c exponent)) K)))
+          (setf G (* G (- 1d0 (expt damage-s exponent))))
+
           (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
             ;; (setf G 0d0)
             (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
             (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
             )
-          (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G)))))
+          ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))
+          )
         ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

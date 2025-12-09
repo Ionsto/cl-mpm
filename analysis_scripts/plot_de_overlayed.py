@@ -20,7 +20,7 @@ for outdir in output_list:
     time = df["time"].values
     step = df["steps"].values
     damage = df["damage"].values
-    plt.plot(time,damage ,label=outdir)
+    plt.plot(time,damage ,label=outdir,marker="x")
 
 plt.xlabel("Time")
 plt.ylabel("Mass-damage")

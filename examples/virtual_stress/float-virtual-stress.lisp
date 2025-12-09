@@ -112,5 +112,5 @@
      )))
 
 (defun test ()
-  (setup :mps 3 :refine 2)
+  (setup :mps 1 :refine 2)
   (run))

@@ -166,24 +166,37 @@
                (de elastic-matrix)
                (stress stress)
                (stress-undamaged undamaged-stress)
-               (strain-rate strain-rate)
-               (D stretch-tensor)
-               (velocity-rate velocity-rate)
-               (vorticity vorticity)
                (def deformation-gradient)
-               (damage damage)
-               (pressure pressure)
-               ;; (datum pressure-datum)
-               ;; (rho pressure-head)
-               (pos position)
-               (calc-pressure pressure-func)
-               )
+               (damage damage))
       mp
-    (declare (double-float pressure damage)
-             (function calc-pressure))
+    (declare (double-float damage))
+    (setf (cl-mpm/particle::mp-p-modulus mp)
+          (*
+           (cl-mpm/particle::estimate-log-enhancement mp)
+           (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
     stress))
+
+(defun apply-isotropic-degredation (mp)
+  (with-accessors ((damage        cl-mpm/particle::mp-damage)
+                   (stress        cl-mpm/particle::mp-stress)
+                   (enable-damage cl-mpm/particle::mp-enable-damage)
+                   (p-mod cl-mpm/particle::mp-p-modulus)
+                   (e cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu))
+      mp
+    (declare (double-float damage))
+    (when (and
+           enable-damage
+           (> damage 0.0d0))
+      (cl-mpm/fastmaths:fast-scale! stress (- 1d0 damage))
+      (setf (cl-mpm/particle::mp-p-modulus mp)
+            (*
+             (- 1d0 damage)
+             (cl-mpm/particle::estimate-log-enhancement mp)
+             (cl-mpm/particle::compute-p-modulus mp)))
+      )))
 
 (defun apply-vol-degredation (mp)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
@@ -199,20 +212,24 @@
            enable-damage
            (> damage 0.0d0))
       ;; (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
-      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 1d0))
+      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage))
                stress))
-        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-              (G (* (- 1d0 damage) (/ e (* 2 (+ 1d0 nu))))))
-          (setf p-mod (+ K (* G (/ 4 3)))))
+        ;; (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+        ;;       (G (* (- 1d0 damage) (/ e (* 2 (+ 1d0 nu))))))
+        ;;   (setf p-mod (+ K (* G (/ 4 3)))))
+        
+
         ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-elastic-damage) dt)
-  (apply-vol-degredation mp))
+  (apply-isotropic-degredation mp)
+  ;; (apply-vol-degredation mp)
+  )
 
 (defmethod constitutive-model ((mp particle-creep-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -504,9 +521,26 @@
           (setf damage-inc 0d0)))
       (values))))
 
+(defmethod cl-mpm/damage::compute-damage ((mp cl-mpm/particle::particle-elastic-damage))
+  (with-accessors ((damage cl-mpm/particle:mp-damage)
+                   (damage-n cl-mpm/particle::mp-damage-n)
+                   (E cl-mpm/particle::mp-e)
+                   (ybar cl-mpm/particle::mp-damage-ybar)
+                   (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
+                   (init-stress cl-mpm/particle::mp-initiation-stress)
+                   (k cl-mpm/particle::mp-history-stress)
+                   (ductility cl-mpm/particle::mp-ductility))
+      mp
+    (declare (double-float damage k ybar))
+    (setf damage
+          (cl-mpm/damage::damage-response-exponential-peerlings-residual
+           k
+           E init-stress ductility (- 1d0 1d-9)))))
+
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-elastic-damage) dt)
   (when (cl-mpm/particle::mp-enable-damage mp)
     (with-accessors ((damage cl-mpm/particle:mp-damage)
+                     (damage-n cl-mpm/particle::mp-damage-n)
                      (E cl-mpm/particle::mp-e)
                      (damage-inc cl-mpm/particle::mp-damage-increment)
                      (ybar cl-mpm/particle::mp-damage-ybar)
@@ -514,28 +548,23 @@
                      (init-stress cl-mpm/particle::mp-initiation-stress)
                      (length cl-mpm/particle::mp-local-length)
                      (k cl-mpm/particle::mp-history-stress)
+                     (k-n cl-mpm/particle::mp-history-stress-n)
                      (critical-damage cl-mpm/particle::mp-critical-damage)
                      (ductility cl-mpm/particle::mp-ductility))
         mp
       (declare (double-float damage damage-inc k ybar dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (setf k (max ybar-prev ybar))
-        (let ((new-damage
-                (cl-mpm/damage::damage-response-exponential-peerlings-residual
-                 k
-                 E init-stress ductility (- 1d0 1d-6))))
-          (declare (double-float new-damage))
-          (setf damage-inc (- new-damage damage)))
-        (when (>= damage 1d0)
-          (setf damage-inc 0d0))
-        (incf damage damage-inc)
-
-        (setf damage (max 0d0 (min 1d0 damage)))
-
-        (when (> damage critical-damage)
-          (setf damage 1d0)
-          (setf damage-inc 0d0))
+        (setf k
+              (max
+               k-n
+               ybar-prev
+               ybar))
+        (cl-mpm/damage::compute-damage mp)
+        (setf damage-inc (- damage damage-n))
+        ;; (when (> damage critical-damage)
+        ;;   (setf damage 1d0)
+        ;;   (setf damage-inc 0d0))
         )
       (values))))
 
