@@ -1137,7 +1137,7 @@
                 (df (get-cell-df mesh pos))
                 )
            (setf cell-pressure (varef cell-stress 0))
-           (cl-mpm/mesh::cell-iterate-over-neighbours
+           (cl-mpm::cell-iterate-over-neighbours
             mesh cell
             (lambda (mesh cell p volume node svp grads)
               (with-accessors ((node-force cl-mpm/mesh::node-force)
@@ -1292,7 +1292,7 @@
          (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
            ;;Iterate over a cells nodes
            (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-             (cl-mpm/mesh::cell-iterate-over-neighbours
+             (cl-mpm::cell-iterate-over-neighbours
               mesh cell
               (lambda (mesh cell pos volume node svp grads)
                 (with-accessors ((node-force cl-mpm/mesh::node-force)
@@ -1577,7 +1577,7 @@
          cell
        (when cell-active
          (let* ()
-           (cl-mpm/mesh::cell-iterate-over-neighbours
+           (cl-mpm::cell-iterate-over-neighbours
             mesh cell
             (lambda (mesh cell p volume node svp grads)
               (with-accessors ((node-pos cl-mpm/mesh::node-position)

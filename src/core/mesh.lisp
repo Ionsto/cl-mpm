@@ -956,61 +956,42 @@
                                 grads)))))))))
 
 
-(defun cell-iterate-over-neighbours (mesh cell func)
-  (with-accessors ((centroid cell-centroid)
-                   (volume cell-volume))
-      cell
-      (cl-mpm::iterate-over-neighbours-point-linear
-       mesh
-       (cl-mpm/mesh::cell-centroid cell)
-       (lambda (mesh node weight grads)
-         (funcall func
-                  mesh
-                  cell
-                  centroid
-                  volume
-                  node
-                  weight
-                  grads))))
-  ;; (if (= (mesh-nd mesh) 2)
-  ;;     (cell-iterate-over-neighbours-2d mesh cell func)
-  ;;     (cell-iterate-over-neighbours-3d mesh cell func)
-  ;;     )
-  )
-(defun cell-iterate-over-neighbours-2d (mesh cell func)
-  (declare (function func))
-  ;; (cl-mpm::iterate-over-neighbours-point-linear)
-  ;; (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
-  ;;   (with-accessors ((nodes cell-nodes)
-  ;;                    (centroid cell-centroid)
-  ;;                    (volume cell-volume))
-  ;;       cell
-  ;;     (loop for node in nodes
-  ;;           do
-  ;;              (with-accessors ((n-pos node-position))
-  ;;                  node
-  ;;                (let* ((dist-vec (cl-mpm/fastmaths:fast-.- centroid n-pos))
-  ;;                       (dist (list (cl-mpm/utils:varef dist-vec 0) (cl-mpm/utils:varef dist-vec 1)))
-  ;;                       (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
-  ;;                       (weight (reduce #'* weights))
-  ;;                       (lin-grads
-  ;;                         (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
-  ;;                                          dist))
-  ;;                       (grads (cl-mpm/shape-function::grads-2d weights lin-grads))
-  ;;                       )
-  ;;                  (when (< 0d0 weight)
-  ;;                    (funcall func
-  ;;                             mesh
-  ;;                             cell
-  ;;                             centroid
-  ;;                             volume
-  ;;                             node
-  ;;                             weight
-  ;;                             (list (nth 0 grads)
-  ;;                                   (nth 1 grads)
-  ;;                                   0d0
-  ;;                                   ))))))))
-  )
+
+
+;; (defun cell-iterate-over-neighbours-2d (mesh cell func)
+;;   (declare (function func))
+;;   ;; (cl-mpm::iterate-over-neighbours-point-linear)
+;;   ;; (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
+;;   ;;   (with-accessors ((nodes cell-nodes)
+;;   ;;                    (centroid cell-centroid)
+;;   ;;                    (volume cell-volume))
+;;   ;;       cell
+;;   ;;     (loop for node in nodes
+;;   ;;           do
+;;   ;;              (with-accessors ((n-pos node-position))
+;;   ;;                  node
+;;   ;;                (let* ((dist-vec (cl-mpm/fastmaths:fast-.- centroid n-pos))
+;;   ;;                       (dist (list (cl-mpm/utils:varef dist-vec 0) (cl-mpm/utils:varef dist-vec 1)))
+;;   ;;                       (weights (mapcar (lambda (x) (cl-mpm/shape-function::shape-linear x h)) dist))
+;;   ;;                       (weight (reduce #'* weights))
+;;   ;;                       (lin-grads
+;;   ;;                         (mapcar (lambda (d) (cl-mpm/shape-function::shape-linear-dsvp d h))
+;;   ;;                                          dist))
+;;   ;;                       (grads (cl-mpm/shape-function::grads-2d weights lin-grads))
+;;   ;;                       )
+;;   ;;                  (when (< 0d0 weight)
+;;   ;;                    (funcall func
+;;   ;;                             mesh
+;;   ;;                             cell
+;;   ;;                             centroid
+;;   ;;                             volume
+;;   ;;                             node
+;;   ;;                             weight
+;;   ;;                             (list (nth 0 grads)
+;;   ;;                                   (nth 1 grads)
+;;   ;;                                   0d0
+;;   ;;                                   ))))))))
+;;   )
 (defun cell-iterate-over-neighbours-3d (mesh cell func)
   (declare (function func))
   (let ((h (cl-mpm/mesh:mesh-resolution mesh)))
