@@ -4,16 +4,6 @@
    :cl-mpm/utils)
   )
 (in-package :cl-mpm/examples/float-virtual-stress)
-
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  )
-(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
-  (cl-mpm::update-particle-kirchoff mesh mp dt)
-  (cl-mpm::update-domain-polar-2d mesh mp dt)
-  ;; (cl-mpm::update-domain-deformation mesh mp dt)
-  )
-
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
@@ -31,7 +21,7 @@
        *sim*
        :plot :deformed
        :trial t
-       :colour-func (lambda (mp) (cl-mpm/utils:varef (cl-mpm/particle::mp-stress mp) 1))))))
+       :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp))))))
 
 (defun setup (&key (refine 1) (mps 3))
   (let* ((L 10d0)
@@ -52,7 +42,7 @@
                  element-count
                  ;:sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                 :args-list (list :enable-aggregate t
+                 :args-list (list :enable-aggregate nil
                                   :enable-fbar nil
                                   )))
     (cl-mpm:add-mps
@@ -64,17 +54,18 @@
       density
       'cl-mpm/particle::particle-elastic
       :E E
-      :nu 0.2d0))
-
-    (setf (cl-mpm::sim-gravity *sim*) -1d1)
+      :nu 0.2d0
+      ))
+    ;; (setf (cl-mpm::sim-ghost-factor *sim*) (* E 1d-4))
+    (setf (cl-mpm::sim-gravity *sim*) -1d0)
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 nil nil))
 
-    (let ((datum (+ offset (* 1 height)))
-          (water-density (* density 1.5d0))
-          (pressure-condition t))
+    (let ((datum (+ offset (* 0.5 height)))
+          (water-density (* density 1d0))
+          (pressure-condition nil))
       (defparameter *datum* datum)
       (defparameter *water-bc*
         (if pressure-condition
@@ -89,15 +80,17 @@
              datum
              water-density
              (lambda (pos) t)))))
+
     (cl-mpm:add-bcs-force-list
      *sim*
      *water-bc*)
+
     (defparameter *current-inc* 0d0)
-    ;; (setf
-    ;;  (cl-mpm:sim-dt *sim*)
-    ;;  (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
+    (setf (cl-mpm:sim-dt *sim*)
+          (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     (setf *run-sim* t))
-  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*))))
+  (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
+  )
 
 (defun run ()
   (let* ((lstps 1))
@@ -107,7 +100,7 @@
      :plotter (lambda (sim) (plot-domain))
      :load-steps lstps
      :damping (sqrt 2)
-     :substeps 100
+     :substeps 50
      :criteria 1d-9
      :save-vtk-dr t
      :save-vtk-loadstep t
@@ -115,5 +108,5 @@
      )))
 
 (defun test ()
-  (setup :mps 2 :refine 1)
+  (setup :mps 4 :refine 1)
   (run))

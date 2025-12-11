@@ -41,6 +41,7 @@
 (defmethod save-vtks-dr-step (sim output-dir step iter)
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d.vtk" step iter)) sim)
   (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d.vtk" step iter)) sim)
+  (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d.vtk" step iter)) sim)
   (cl-mpm/penalty:save-vtk-penalties (merge-pathnames output-dir (format nil "sim_step_p_~5,'0d_~5,'0d.vtk" step iter)) sim))
 
 (defun save-conv-preamble (output-dir)
@@ -545,7 +546,9 @@
                                                      :enable-damage enable-damage
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
-                                                     :conv-criteria-damage conv-criteria)
+                                                     :conv-criteria-damage conv-criteria
+                                                     :max-damage-inc 0.9d0
+                                                     )
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (format t "Quasi-conv? ~A~%" quasi-conv)

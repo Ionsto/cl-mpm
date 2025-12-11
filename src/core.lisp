@@ -159,11 +159,10 @@
                (cl-mpm/fastmaths:fast-fmacc
                 disp
                 ndisp weight)))))
-        (when (> w 0d0)
-          (cl-mpm::fast-scale! disp (/ 1d0 w)))
+        ;; (when (> w 0d0)
+        ;;   (cl-mpm::fast-scale! disp (/ 1d0 w)))
         )
-      (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos)))
-  )
+      (cl-mpm/fastmaths:fast-.+ centroid disp trial-pos))))
 
 (defgeneric update-cells (sim))
 (defmethod update-cells (sim)
@@ -1085,8 +1084,8 @@ This modifies the dt of the simulation in the process
   )
 
 (defun gradient-push-forwards (grads df)
-  ;;Incorrect!
-  (let* ((grads-vec (magicl:linear-solve df (cl-mpm/utils:vector-from-list grads)))
+  (let* ((grads-vec
+           (magicl:@ (magicl:transpose! (cl-mpm/utils:vector-from-list grads)) (magicl:inv df)))
          (grads (list (varef grads-vec 0)
                       (varef grads-vec 1)
                       (varef grads-vec 2))))

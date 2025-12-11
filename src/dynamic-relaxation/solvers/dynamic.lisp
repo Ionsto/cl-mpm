@@ -185,7 +185,7 @@
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       (cl-mpm::update-dynamic-stats sim)
-      ;; (cl-mpm::g2p mesh mps dt damping vel-algo)
+      (cl-mpm::g2p mesh mps dt damping :TRIAL)
       )))
 
 (defmethod cl-mpm::finalise-loadstep ((sim mpm-sim-dr-dynamic))
@@ -236,16 +236,15 @@
      ;; :damping 1d0
      :energy-crit 1d-3
      :oobf-crit 1d-3
-     :damping 1d0
      :substeps 10
      :conv-steps 10000
-     :dt-scale 0.25d0
+     :dt-scale 1d0
      :post-iter-step (lambda (i e o)
                        (format t "Dynamic substep ~D~%" i)
-                       (when (uiop:directory-exists-p "./output/")
-                         (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-                         (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-                         (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
+                       ;; (when (uiop:directory-exists-p "./output/")
+                       ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                       ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                       ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
                        (incf *total-iter*)))
     (incf *total-step*)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)

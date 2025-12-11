@@ -128,9 +128,8 @@
                         (list
                          ;; mp-scale
                          ;1
-                         ;; mp-scale
-                         1
-                         1;mp-scale
+                         mp-scale
+                         mp-scale
                          1
                          ))
             density
@@ -246,7 +245,6 @@
   ;;   (lisp-stat:write-csv df output-file :add-first-row t))
   )
 
-(/ 0.664d0 (* 160 512))
 (defparameter *run-sim* nil)
 (defun run-conv ()
   ;; (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./analysis_scripts/column/data/")) do (uiop:delete-file-if-exists f))
@@ -282,8 +280,8 @@
                   :load-steps 10
                   :substeps (* 20 refine)
                   :plotter #'plot-sigma-yy
-                  :damping 1d0;(sqrt 2)
-                  :save-vtk-dr nil
+                  :damping (sqrt 2)
+                  :save-vtk-dr t
                   :save-vtk-loadstep t
                   :dt-scale 1d0
                   :criteria 1d-9

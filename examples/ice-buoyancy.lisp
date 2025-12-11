@@ -107,7 +107,7 @@
       (let ((ps-y (sqrt (* E ps-vm))))
         (setf y
               (+
-               ps-y
+               ;; ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -278,7 +278,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 1d0
+        :g-res-ratio 0.9d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -1038,16 +1038,16 @@
            (let* ((mps 2))
              (setup :refine 0.25
                     :friction 0.5d0
-                    :bench-length 500d0
+                    :bench-length 000d0
                     :ice-height 500d0
                     :mps mps
                     :cryo-static t
-                    :aspect 6d0
+                    :aspect 1d0
                     :slope 0d0
-                    :floatation-ratio 0.9d0)
+                    :floatation-ratio 0.8d0)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
              (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
                    ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3)
                    (cl-mpm::sim-ghost-factor *sim*) nil
@@ -1070,11 +1070,11 @@
               ;;                   (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0.9d0))
               :plotter (lambda (sim) (plot-domain))
               ;; :explicit-dt-scale 100d0
-              :explicit-dt-scale 0.5d0
+              :explicit-dt-scale 1d1
               :explicit-damping-factor 1d-4
               :explicit-dynamic-solver
-              ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
-              'cl-mpm/damage::mpm-sim-agg-damage
+              'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+              ;; 'cl-mpm/damage::mpm-sim-agg-damage
               :setup-quasi-static
               (lambda (sim)
                 (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
