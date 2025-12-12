@@ -450,6 +450,7 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (save-vtk-dr t)
+                          (save-vtk-loadstep t)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
@@ -548,6 +549,7 @@
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc 0.9d0
+                                                     :save-vtk-dr save-vtk-dr
                                                      )
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
