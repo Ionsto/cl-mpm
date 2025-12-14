@@ -73,7 +73,8 @@
                            )))
                (setf node-oobf 0d0))))))
       (if (> mass 0d0)
-          (values (/ energy mass) oobf (/ power mass))
+          ;(values (/ energy mass) oobf (/ power mass))
+          (values energy oobf power)
           (values 0d0 0d0 0d0)))))
 
 (defun combi-stats-aggregated (sim)
@@ -110,17 +111,30 @@
                     (cl-mpm/fastmaths:dot disp f-ext))))
                (list 0d0 0d0 0d0 0d0)))
          (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
-      (declare (double-float  energy oobf-num oobf-denom power))
+      (declare (double-float energy oobf-num oobf-denom power))
       (when sim-agg
         (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
               do (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
                         (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                         (E (cl-mpm/aggregate::sim-global-e sim))
                         (ma (cl-mpm/aggregate::sim-global-ma sim))
-                        (vi (magicl:@ (magicl:transpose E) (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d)))
+                        (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
+                        (vi (magicl:@
+                             (magicl:transpose E)
+                             (cl-mpm/fastmaths:fast-.*
+                              mv
+                              (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))))
                         (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
 
-                   (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
+                   ;; (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
+                   (setf
+                    vi
+                    (cl-mpm/aggregate::linear-solve-with-bcs ma vi (cl-mpm/aggregate::assemble-internal-bcs sim d)))
+                   ;; (setf res (cl-mpm/aggregate::apply-internal-bcs sim res d))
+                   ;; (setf f-ext (cl-mpm/aggregate::apply-internal-bcs sim f-ext d))
+                   ;; (setf disp (cl-mpm/aggregate::apply-internal-bcs sim disp d))
+                   ;; (setf vi (magicl:@ (magicl:transpose E) vi))
+
                    (incf oobf-num (cl-mpm/fastmaths::mag-squared
                                    (cl-mpm/aggregate::apply-internal-bcs
                                     sim
@@ -571,3 +585,43 @@
   (>
    (compute-max-deformation sim)
    criteria))
+
+(defun res-norm-aggregated (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((res-norm 0d0))
+      (incf res-norm
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (with-accessors ((active cl-mpm/mesh::node-active)
+                                (agg cl-mpm/mesh::node-agg)
+                                (res cl-mpm/mesh::node-residual)
+                                (res-prev cl-mpm/mesh::node-residual-prev)
+                                (vel cl-mpm/mesh::node-velocity)
+                                )
+                   node
+                 (if (and
+                      ;; (not agg)
+                      active)
+                     ;; (loop for r across (cl-mpm/utils:fast-storage res)
+                     ;;       for v across (cl-mpm/utils:fast-storage vel)
+                     ;;       sum (* (abs r) (abs v)))
+                     ;; (abs (cl-mpm/fastmaths:dot res vel))
+                     (/
+                      (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.- res res-prev))
+                      (+ 1d-10 (cl-mpm/fastmaths:mag res)))
+                     0d0)))
+             #'+))
+      ;; (when sim-agg
+      ;;   (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+      ;;         do (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+      ;;                   (vel (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))
+      ;;                   )
+      ;;              (setf res (cl-mpm/aggregate::apply-internal-bcs sim res d))
+      ;;              (setf vel (cl-mpm/aggregate::apply-internal-bcs sim res d))
+      ;;              (incf res-norm (abs (cl-mpm/fastmaths:mag res)))
+      ;;              ;; (incf res-norm (abs (cl-mpm/fastmaths:dot res vel)))
+      ;;              )))
+    res-norm)))

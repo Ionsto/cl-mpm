@@ -206,8 +206,7 @@
            (cl-mpm/utils:vector-copy-into disp vel)
            (cl-mpm/fastmaths:fast-scale! vel (/ 1d0 real-dt))
            (cl-mpm/fastmaths::fast-.- vel vel-n acc)
-           (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 real-dt))
-           ))
+           (cl-mpm/fastmaths::fast-scale! acc (/ 1d0 real-dt))))
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
        (setf (cl-mpm/mesh:node-mass n) (cl-mpm/mesh::node-true-mass n))
        )))
@@ -221,7 +220,7 @@
 (defparameter *total-step* 0)
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
   "Update stress last algorithm"
-  (let ((crit 1d-3)
+  (let ((crit 1d-9)
         (damage-enabled (cl-mpm::sim-enable-damage sim))
         (dt (cl-mpm::sim-dt sim))
         (dt-scale (cl-mpm::sim-dt-scale sim))
@@ -229,23 +228,47 @@
     (setf (sim-dt-loadstep sim) (* 1d0 dt))
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
     ;; (setf (cl-mpm::sim-dt-scale sim) 0.25d0)
-    (;generalised-staggered-solve
-     converge-quasi-static
-     sim
-     ;; :enable-damage damage-enabled
-     ;; :damping 1d0
-     :energy-crit 1d-3
-     :oobf-crit 1d-3
-     :substeps 10
-     :conv-steps 10000
-     :dt-scale 1d0
-     :post-iter-step (lambda (i e o)
-                       (format t "Dynamic substep ~D~%" i)
-                       ;; (when (uiop:directory-exists-p "./output/")
-                       ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
-                       ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
-                       ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
-                       (incf *total-iter*)))
+    (let ((prev-res nil)
+          (res 0d0)
+          (conv-crit 1d-6)
+          (substeps 20)
+          )
+      (;generalised-staggered-solve
+       converge-quasi-static
+       sim
+       ;; :enable-damage damage-enabled
+       ;; :damping 1d0
+       :energy-crit crit
+       :oobf-crit crit
+       :substeps substeps
+       :damping-factor 1d0
+       :conv-steps 10000
+       :dt-scale 1d0
+       ;; :convergance-criteria
+       ;; (lambda (sim f o)
+       ;;   ;; (unless prev-res
+       ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+       ;;   (setf res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim))
+       ;;   ;; (let* ((conv (if (> prev-res 0d0)
+       ;;   ;;                  (< (/ res prev-res) conv-crit)
+       ;;   ;;                  nil)))
+       ;;   ;;   (format t "Succesion res criteria ~E~%"
+       ;;   ;;           (if (> prev-res 0d0)
+       ;;   ;;               (/ res prev-res)
+       ;;   ;;               0d0))
+       ;;     (setf (cl-mpm::sim-stats-oobf sim) res)
+       ;;     (format t "Succesion res criteria ~E~%" res)
+       ;;     (< res conv-crit)
+       ;;   ;;   conv)
+       ;;   )
+       :post-iter-step (lambda (i e o)
+                         (format t "Dynamic substep ~D~%" i)
+                         ;; (when (uiop:directory-exists-p "./output/")
+                         ;;   (cl-mpm/output:save-vtk (merge-pathnames "./output/" (format nil "rsim_step_~5,'0d.vtk" i)) sim)
+                         ;;   (cl-mpm/output:save-vtk-nodes (merge-pathnames "./output/" (format nil "rsim_step_nodes_~5,'0d.vtk" i)) sim)
+                         ;;   (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e))
+                         ;; (save-conv-step sim "./output/" *total-iter* *total-step* 0d0 o e)
+                         (incf *total-iter* substeps))))
     (incf *total-step*)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
@@ -302,3 +325,15 @@
     (midpoint-starter sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
+
+;; (defmethod cl-mpm::update-dynamic-stats ((sim mpm-sim-implict-dynamic))
+;;   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+;;                    (stats-oobf cl-mpm::sim-stats-oobf)
+;;                    (stats-power cl-mpm::sim-stats-power)
+;;                    (stats-work cl-mpm::sim-stats-work))
+;;       sim
+;;     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
+;;       (setf stats-energy e
+;;             stats-oobf o
+;;             stats-power p)
+;;       (incf stats-work p))))

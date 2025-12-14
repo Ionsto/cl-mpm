@@ -2,6 +2,11 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
 
+(defmacro optional-time (option &rest body)
+  `(if ,option
+       (time ,@body)
+       (progn ,@body)))
+
 (define-condition non-convergence-error (cl-mpm/errors:error-simulation)
   ((text :initarg :text :reader text)
    (ke-norm :initarg :ke-norm :reader ke-norm)
@@ -29,7 +34,9 @@
       (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim)
             (if damping-factor
                 damping-factor
-                0d0)))
+                0d0))
+      (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
+            oobf-crit))
     (restart-case
         (%converge-quasi-static sim energy-crit oobf-crit live-plot dt-scale substeps conv-steps post-iter-step convergance-criteria kinetic-damping damping-factor)
       (continue ())
@@ -104,7 +111,8 @@
                  (progn
                    (setf fnorm 0d0
                          load 0d0)
-                   (time
+                   (optional-time
+                    nil
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
@@ -335,10 +343,13 @@
                         (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
                    (incf num (cl-mpm/fastmaths:dot
                               vi
-                              (magicl:@ (magicl:transpose E)
-                                        (cl-mpm/fastmaths::fast-.-
-                                         res-prev
-                                         res))))
+                              (cl-mpm/aggregate::apply-internal-bcs
+                               sim
+                               (magicl:@ (magicl:transpose E)
+                                         (cl-mpm/fastmaths::fast-.-
+                                          res-prev
+                                          res))
+                               d)))
                    (incf denom (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))))
       (if (> num 0d0)
           (if (= denom 0d0)

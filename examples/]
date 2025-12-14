@@ -32,13 +32,13 @@
                (/ 1d0 e-scale)
                ;; (mapcar (lambda (x) (* x e-scale)) size)
                (list 1 (/ 12d0 h))
-               ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
+               :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
                ;; :sim-type 'cl-mpm:mpm-sim-usf
-               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+               ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                :args-list
                (append
                 (list
-                 :enable-aggregate t
+                 ;; :enable-aggregate t
                  :vel-algo :FLIP
                  ))))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -66,8 +66,6 @@
 
       (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
 
-
-      (setf (cl-mpm::sim-damping-factor sim) 0d0)
       (cl-mpm/setup::setup-bcs
        sim
        :top '(nil nil nil)
@@ -184,13 +182,11 @@
             (compute-strain-energy sim)
             (compute-gpe-diff sim))))
 
-(defun run (&key (output-dir "./output/")
-
-              (dt-scale 1d0)
-              )
+(defun run (&key (output-dir "./output/"))
   (let* ((total-time 10d0)
          (target-time 0.1d0)
          ;(dt-scale 0.9d0)
+         (dt-scale 0.1d0)
          (substeps 0))
     (defparameter *run-sim* t)
     (defparameter *data-time* (list))
@@ -201,7 +197,7 @@
     (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm/setup::estimate-elastic-dt *sim*)))
     (setf substeps (round target-time (cl-mpm:sim-dt *sim*)))
 
-    ;; (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
+    (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
     (uiop:ensure-all-directories-exist (list output-dir))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     (cl-mpm/output::save-simulation-parameters (merge-pathnames "settings.json" output-dir)
@@ -261,9 +257,10 @@
     )
   )
 
-(defun test ()
-  (setup :mps 2)
-  (run))
+;; (defun test ()
+;;   (setup :mps 3)
+;;   (run)
+;;   )
 
 
 (defun test-range ()
@@ -282,26 +279,6 @@
              (progn
                (let ((output-dir (format nil "output-~A/" n)))
                  (setup :mps 2)
-                 (setf (cl-mpm::sim-damping-factor *sim*) (* 0.01d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
                  (change-class *sim* c)
                  (run :output-dir output-dir)))))
-  )
-
-(defun test-dt-scale ()
-  (let* ((dt-scales (list
-                     0.1d0
-                     0.01d0
-                     ;; 0.5d0
-                     ;; 1d0
-                     ;; 2d0
-                     ;; 10d0
-                     )))
-    (loop for d in dt-scales
-          do
-             (progn
-               (let ((output-dir (format nil "output-~A/" d)))
-                 (setup :mps 2)
-                 ;; (setf (cl-mpm::sim-damping-factor *sim*) (* 0.01d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
-                 ;; (change-class *sim* c)
-                 (run :dt-scale d :output-dir output-dir)))))
   )

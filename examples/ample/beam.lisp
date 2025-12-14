@@ -1,8 +1,7 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl
    :cl-mpm/example
-   :cl-mpm/utils)
-  )
+   :cl-mpm/utils))
 (in-package :cl-mpm/examples/beam)
 (declaim (notinline plot-domain))
 (defun plot-domain ()

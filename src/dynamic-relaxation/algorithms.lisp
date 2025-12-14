@@ -49,10 +49,11 @@
     (format stream "iter,step,real-time,plastic,damage,oobf,energy~%")))
 
 (defun save-conv-step (sim output-dir total-iter step real-time oobf energy)
-  (when (uiop:file-exists-p (merge-pathnames output-dir "conv.csv"))
-    (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
-      (format stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
-              (if (sb-ext:float-infinity-p oobf) 0d0 oobf) energy))))
+  (unless (uiop:file-exists-p (merge-pathnames output-dir "conv.csv"))
+    (save-conv-preamble output-dir))
+  (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
+    (format stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
+            (if (sb-ext:float-infinity-p oobf) 0d0 oobf) energy)))
 
 (defun save-conv (sim output-dir iter)
   (let ((oobf (cl-mpm::sim-stats-oobf sim))

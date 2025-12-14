@@ -89,7 +89,7 @@
   :description "Various constitutive models"
   :serial t
   :components ((:file "src/constitutive")))
-;
+
 (defsystem "cl-mpm/particle"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
@@ -322,11 +322,9 @@
   :serial t
   :components ((:file "examples/core")))
 
-
-
-(defsystem "cl-mpm/example/bounce"
-  :class :package-inferred-system
-  :depends-on ("cl-mpm")
+(defsystem "cl-mpm/examples/bounce"
+  :depends-on ("cl-mpm/all"
+               "cl-mpm/example")
   :serial t
   :components ((:file "examples/bounce")))
 
@@ -368,7 +366,7 @@
                "swank.live"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/fracture")))
+  :components ((:file "examples/damage/fracture")))
 
 (defsystem "cl-mpm/examples/plate-with-hole"
   :depends-on ("cl-mpm"
@@ -380,7 +378,7 @@
                "swank.live"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/plate-with-hole")))
+  :components ((:file "examples/damage/plate-with-hole")))
 
 (defsystem "cl-mpm/examples/slump"
   :depends-on ("cl-mpm"
@@ -401,39 +399,7 @@
                "lisp-stat"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/slump")))
-(defsystem "cl-mpm/examples/notch"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/penalty"
-               "cl-mpm/damage"
-               "lfarm-client"
-               "vgplot"
-               "lisp-stat"
-               "swank.live"
-               "cl-mpm/magicl")
-  :serial t
-  :components ((:file "examples/notch")))
-
-(defsystem "cl-mpm/examples/single-crack"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/penalty"
-               "cl-mpm/damage"
-               "lfarm-client"
-               "vgplot"
-               "lisp-stat"
-               "swank.live"
-               "cl-mpm/magicl")
-  :serial t
-  :components ((:file "examples/single-crack")))
-
+  :components ((:file "examples/ice/slump")))
 (defsystem "cl-mpm/examples/float"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
@@ -446,7 +412,7 @@
                "swank.live"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/float")))
+  :components ((:file "examples/ice/float")))
 (defsystem "cl-mpm/examples/flow"
   :depends-on ("cl-mpm"
                "cl-mpm/setup"
@@ -457,7 +423,7 @@
                "swank.live"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/flow")))
+  :components ((:file "examples/ice/flow")))
 
 (defsystem "cl-mpm/examples/beam"
   :depends-on ("cl-mpm/example")
@@ -475,40 +441,6 @@
   :serial t
   :components ((:file "examples/shear")))
 
-(defsystem "cl-mpm/examples/pullout"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/damage"
-               "cl-mpm/penalty"
-               "cl-mpm/plotter"
-               "cl-mpm/eigenerosion"
-               "vgplot"
-               "lisp-stat"
-               "swank.live"
-               "cl-mpm/magicl")
-  :serial t
-  :components ((:file "examples/pullout")))
-
-(defsystem "cl-mpm/examples/split-test"
-  :depends-on ("cl-mpm"
-               "cl-mpm/setup"
-               "cl-mpm/particle"
-               "cl-mpm/output"
-               "cl-mpm/buoyancy"
-               "cl-mpm/damage"
-               "cl-mpm/penalty"
-               "cl-mpm/plotter"
-               "cl-mpm/eigenerosion"
-               "vgplot"
-               "lisp-stat"
-               "swank.live"
-               "cl-mpm/magicl")
-  :serial t
-  :components ((:file "examples/split-test")))
-
 
 (defsystem "cl-mpm/examples/creep"
   :depends-on ("cl-mpm"
@@ -524,7 +456,7 @@
                "swank.live"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/creep")))
+  :components ((:file "examples/damage/creep")))
 
 (defsystem "cl-mpm/examples/sliding"
   :depends-on ("cl-mpm"
@@ -540,7 +472,7 @@
                "lisp-stat"
                "cl-mpm/magicl")
   :serial t
-  :components ((:file "examples/sliding")))
+  :components ((:file "examples/penalty/sliding")))
 
 (defsystem "cl-mpm/examples/collapse"
   :depends-on ("cl-mpm"
@@ -674,11 +606,11 @@
                "cl-mpm/models/chalk"
                )
   :serial t
-  :components ((:file "examples/uniaxial")))
+  :components ((:file "examples/damage/uniaxial")))
 (defsystem "cl-mpm/examples/brazilian"
   :depends-on ("cl-mpm/examples/tpb")
   :serial t
-  :components ((:file "examples/brazilian")))
+  :components ((:file "examples/damage/brazilian")))
 
 (defsystem "cl-mpm/examples/shear-box"
   :depends-on ("cl-mpm/all"
@@ -688,7 +620,7 @@
                "vgplot"
                "swank.live")
   :serial t
-  :components ((:file "examples/shear-box")))
+  :components ((:file "examples/chalk/shear-box")))
 
 (defsystem "cl-mpm/examples/erode"
   :depends-on ("cl-mpm/example")
@@ -702,7 +634,7 @@
                "cl-mpm/models/visco"
                "cl-mpm/models/ice"
                )
-  :components ((:file "examples/ice-buoyancy")))
+  :components ((:file "examples/ice/ice-buoyancy")))
 
 ;; (defsystem "cl-mpm/models/all"
 ;;   :depends-on ("cl-mpm/particle"
@@ -776,7 +708,7 @@
                "cl-mpm/models/chalk"
                "cl-mpm/models/visco"
                )
-  :components ((:file "examples/ice-visco")))
+  :components ((:file "examples/ice/ice-visco")))
 
 
 (defsystem "cl-mpm/examples/aggregate-condition"

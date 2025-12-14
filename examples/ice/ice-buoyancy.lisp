@@ -1042,7 +1042,7 @@
                     :ice-height 500d0
                     :mps mps
                     :cryo-static t
-                    :aspect 1d0
+                    :aspect 6d0
                     :slope 0d0
                     :floatation-ratio 0.8d0)
              (plot-domain)
@@ -1071,7 +1071,7 @@
               :plotter (lambda (sim) (plot-domain))
               ;; :explicit-dt-scale 100d0
               :explicit-dt-scale 1d1
-              :explicit-damping-factor 1d-4
+              :explicit-damping-factor 0d-4
               :explicit-dynamic-solver
               'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
               ;; 'cl-mpm/damage::mpm-sim-agg-damage

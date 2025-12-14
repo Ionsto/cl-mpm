@@ -96,6 +96,7 @@
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
         (filter-cells sim)
+        (apply-bcs mesh bcs dt)
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
         ;;Trial update displacements

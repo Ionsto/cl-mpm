@@ -17,6 +17,10 @@
     :initform 1d0
     :initarg :damping-scale
     :accessor sim-damping-scale)
+   (convergence-critera
+    :initform 1d-3
+    :initarg :conv-crit
+    :accessor sim-convergence-critera)
    (kinetic-damping
     :initform nil
     :accessor sim-kinetic-damping)
