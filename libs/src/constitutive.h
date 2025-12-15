@@ -198,7 +198,7 @@ namespace constitutive{
     }
 
 
-    using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool>;
+  using MohrCoulombReturn = std::tuple<Eigen::Matrix<double,6,1>,float,float,bool,float>;
 
   inline
     MohrCoulombReturn MohrCoulomb(Eigen::Matrix<double,6,1> elastic_strain, double E, double nu, double phi, double psi, double c) {
@@ -229,9 +229,7 @@ namespace constitutive{
         const double sigc = 2*c*std::sqrt(k);
         const double m = (1+std::sin(psi))/(1-std::sin(psi));
 
-        Eigen::Matrix<double,3,1> siga = Eigen::Matrix<double,3,1>::Constant(sigc / (k - 1));
-
-        Eigen::Matrix<double,3,1> epsE = Ce * sig;
+        Eigen::Matrix<double,3,1> siga = Eigen::Matrix<double,3,1>::Constant(sigc / (k - 1)); Eigen::Matrix<double,3,1> epsE = Ce * sig;
         Eigen::Matrix<double,3,1> epsEtr = epsE;
         Eigen::Matrix<double,3,1> r1 = (Eigen::Matrix<double,3,1>() << 1.0, 1.0, k).finished();
         Eigen::Matrix<double,3,1> r2 = (Eigen::Matrix<double,3,1>() << 1.0, k, k).finished();
@@ -247,14 +245,6 @@ namespace constitutive{
         const double f12 = (rp.cross(r1).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
         const double f13 = (rp.cross(r2).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
         auto Q = AssembleQMatrix(eigen_vectors);
-        // std::cout<<"Q:\n"<<Q<<"\n";
-        // std::cout<<"r1:\n"<<r1<<"\n";
-        // std::cout<<"r2:\n"<<r2<<"\n";
-        // std::cout<<"rg1:\n"<<rg1<<"\n";
-        // std::cout<<"rg2:\n"<<rg2<<"\n";
-        // std::cout<<"df:\n"<<df<<"\n";
-        // std::cout<<"dg:\n"<<dg<<"\n";
-        // std::cout<<"rp:\n"<<rp<<"\n";
         if((t1 > tol) && (t2 > tol)){
           sig = siga;
         }
@@ -268,6 +258,7 @@ namespace constitutive{
           sig = sig - (rp * f);
         }
 
+        Eigen::Matrix<double,3,3> T = Eigen::Matrix<double,3,3>::Zero();
         epsE = Ce*sig;
         // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
         Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
@@ -281,9 +272,11 @@ namespace constitutive{
                                                                               epsE[1],
                                                                               epsE[2],
                                                                               0.0,0.0,0.0).finished()));
-        return MohrCoulombReturn(outstrain,f,psinc,true);
+        double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+        return MohrCoulombReturn(outstrain,f,psinc,true,pmod);
         }
-      return MohrCoulombReturn(elastic_strain,f,0.0,false);
+        double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+      return MohrCoulombReturn(elastic_strain,f,0.0,false,pmod);
     }
 
 

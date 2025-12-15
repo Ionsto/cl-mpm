@@ -184,14 +184,17 @@
                    (soft mp-softening)
                    (p-mod mp-p-modulus)
                    (def mp-deformation-gradient)
-                   (enabled mp-enable-plasticity))
+                   (enabled mp-enable-plasticity)
+                   (p-wave-0 cl-mpm/particle::mp-p-modulus-0)
+                   )
       mp
     (declare (double-float soft ps-vm ps-vm-1 ps-vm-inc E nu phi psi c))
     ;;Train elastic strain - plus trail kirchoff stress
 
-    (setf p-mod
-          (* (expt (cl-mpm/fastmaths::det def) -2)
-                   (cl-mpm/particle::compute-p-modulus mp)))
+    ;; (setf p-mod
+    ;;       (* (expt (cl-mpm/fastmaths::det def) -2)
+    ;;                (cl-mpm/particle::compute-p-modulus mp)))
+    (setf p-wave-0 (cl-mpm/particle::compute-p-modulus mp))
     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
     (when enabled
       (let ((f-r t)
@@ -205,7 +208,7 @@
               do
                  (progn
                    (setf ps-inc-i ps-vm-inc)
-                   (multiple-value-bind (sig eps-e f inc)
+                   (multiple-value-bind (sig eps-e f inc pmod)
                        (cl-mpm/ext::constitutive-mohr-coulomb stress
                                                               de
                                                               strain
@@ -227,7 +230,9 @@
                      (setf
                       stress sig
                       strain eps-e
-                      yield-func f)
+                      yield-func f
+                      p-wave-0 pmod)
+                     (pprint pmod)
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)
@@ -252,6 +257,7 @@
                    ;;      phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
                    ;;   )
                    ))))
+    (cl-mpm/particle::update-log-p-wave mp)
     stress))
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-plastic))

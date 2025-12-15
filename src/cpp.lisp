@@ -116,6 +116,7 @@
         (strain-ptr :pointer)
         (f-ptr :pointer)
         (ps-ptr :pointer)
+        (p-mod-ptr :pointer)
         (E :double)
         (nu :double)
         (phi :double)
@@ -167,26 +168,32 @@
       (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu phi psi c))
-        (if t;(> (cl-mpm/constitutive::fast-mc stress phi c) 0d0)
-            (let ((str
-                    strain
-                    ;; (cl-mpm/utils::voigt-copy strain)
-                    )
-                  )
-              (static-vectors:with-static-vector (f-arr 1 :element-type 'double-float)
-                (static-vectors:with-static-vector (ps-arr 1 :element-type 'double-float)
-                  (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str))
-                                                          (f-arr-p f-arr)
-                                                          (ps-arr-p ps-arr))
-                    (if (CppMohrCoulomb sp f-arr-p ps-arr-p E nu phi psi c)
+        (let ((str
+                strain
+                ;; (cl-mpm/utils::voigt-copy strain)
+                )
+              )
+          (static-vectors:with-static-vector (f-arr 1 :element-type 'double-float)
+            (static-vectors:with-static-vector (ps-arr 1 :element-type 'double-float)
+              (static-vectors:with-static-vector (p-mod-arr 1 :element-type 'double-float)
+                (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage str))
+                                                        (f-arr-p f-arr)
+                                                        (ps-arr-p ps-arr)
+                                                        (p-mod-arr-p p-mod-arr)
+                                                        )
+                  (if (CppMohrCoulomb sp f-arr-p ps-arr-p p-mod-arr-p E nu phi psi c)
+                      (progn
                         (values (cl-mpm/fastmaths::fast-@-tensor-voigt de str stress)
                                 str
                                 (aref f-arr 0)
-                                (aref ps-arr 0))
-                        (values stress strain (aref f-arr 0) 0d0))
-                    )))
-              )
-            (values stress strain 0d0 0d0)))
+                                (aref ps-arr 0)
+                                (aref p-mod-arr 0)))
+                      (values stress
+                              strain
+                              (aref f-arr 0)
+                              (aref ps-arr 0)
+                              (aref p-mod-arr 0))))))))
+        )
       (defun constitutive-viscoelastic (stress de strain E nu dt viscosity)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu viscosity dt))

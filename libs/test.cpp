@@ -56,7 +56,7 @@ extern "C" {
     strain = strainE;
     return true;
   }
-  bool CppMohrCoulomb(double * strain_ptr,double & f,double & psinc,double E, double nu, double phi, double psi, double c)
+  bool CppMohrCoulomb(double * strain_ptr,double & f,double & psinc,double & pmod,double E, double nu, double phi, double psi, double c)
   {
     Eigen::Map<Eigen::Matrix<double,6,1>> strain(strain_ptr);
     MohrCoulombReturn result = MohrCoulomb(strain,E,nu,phi,psi,c);
@@ -65,6 +65,7 @@ extern "C" {
     f = std::get<1>(result);
     psinc = std::get<2>(result);
     strain = strainE;
+    pmod = std::get<4>(result);
     return std::get<3>(result);
   }
   bool CppViscoelastic(double * strain_ptr,double E, double nu,double viscosity, double dt)

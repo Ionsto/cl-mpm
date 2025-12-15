@@ -385,16 +385,19 @@
     ;; 3D case?
     (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))
     ;; 2D case?
-    ;(/ E (* (+ 1d0 nu) (- 1d0 nu)))
+                                        ;(/ E (* (+ 1d0 nu) (- 1d0 nu)))
     ))
 
 (defun update-p-modulus (particle)
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
                    (nu mp-nu)
-                   (p mp-p-modulus))
+                   (p mp-p-modulus)
+                   (p-0 mp-p-modulus-0)
+                   )
       particle
-    (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))))
+    (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
+    (setf p-0 p)))
 
 (defun update-elastic-matrix (particle)
   (with-accessors ((de mp-elastic-matrix)
@@ -603,7 +606,9 @@
   (setf (mp-p-modulus mp)
         (*
          (estimate-log-enhancement mp)
-         (cl-mpm/particle::compute-p-modulus mp))))
+         (mp-p-modulus-0 mp)
+         ;; (cl-mpm/particle::compute-p-modulus mp)
+         )))
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
     (:documentation "Compute new stress state given elastic strain")

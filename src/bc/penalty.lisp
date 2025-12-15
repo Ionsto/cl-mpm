@@ -605,7 +605,7 @@
                      (debug-mutex bc-penalty-load-lock)
                      (debug-load bc-penalty-load))
         bc
-      (with-accessors ((volume cl-mpm/particle::mp-volume-n)
+      (with-accessors ((volume cl-mpm/particle::mp-volume)
                        (pressure cl-mpm/particle::mp-pressure)
                        (mp-vel cl-mpm/particle::mp-velocity)
                        ;; (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
@@ -1290,7 +1290,7 @@
                        node-mass
                        (+
                         node-mass
-                        (* 1d0 svp mp-stiffness))
+                        (* 2d0 svp mp-stiffness))
                        ;; (max
                        ;;  node-mass
                        ;;  (* 1d0 (/ (*
@@ -1340,7 +1340,7 @@
    (lambda (mp)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
      ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.5d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
+     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.9d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
      )))
 
 ;; (defun finalise-penalty (sim)

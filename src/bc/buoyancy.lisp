@@ -1549,10 +1549,11 @@
     (declare (function clip-func))
     ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
     (markup-cells-nodes sim bc)
-    (compute-stiffness-cells-3d
-     (cl-mpm:sim-mesh sim)
-     (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
-     clip-func))
+    ;; (compute-stiffness-cells-3d
+    ;;  (cl-mpm:sim-mesh sim)
+    ;;  (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
+    ;;  clip-func)
+    )
   ;; (apply-force-mps-3d mesh mps
   ;;                     (lambda (mp) (calculate-val-mp mp func-stress))
   ;;                     (lambda (mp) (calculate-val-mp mp func-div))
@@ -1614,6 +1615,62 @@
     ;;    (reduce #'max (mapcar #'abs (bc-pressure-pressures bc))))
     ;;  clip-func)
     ))
+
+;; (defun compute-stiffness-mps-3d (mesh mps stiffness-func clip-func)
+;;   "Update force on nodes, with virtual stress field from mps"
+;;   (declare (function func-stress func-div clip-func))
+;;   (cl-mpm:iterate-over-mps
+;;    mps
+;;     (lambda (mp)
+;;       ;; (compute-mp-displacement mesh mp)
+;;       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
+;;                        (pos cl-mpm/particle::mp-position-trial)
+;;                        ;; (pos cl-mpm/particle::mp-position)
+;;                        ;; (disp cl-mpm/particle::mp-displacement-increment)
+;;                        (df cl-mpm/particle::mp-deformation-gradient-increment)
+;;                        (damage cl-mpm/particle::mp-damage))
+;;           mp
+;;         (when t;(funcall clip-func pos)
+;;           (let* ((mp-stress (funcall func-stress mp))
+;;                  ;; (mp-stress (cl-mpm/utils::pull-back-voigt-stress mp-stress df))
+;;                  (mp-div (funcall func-div mp))
+;;                  (f-stress (cl-mpm/utils:vector-zeros))
+;;                  (f-div (cl-mpm/utils:vector-zeros)))
+;;             ;;Iterate over neighbour nodes
+;;             (cl-mpm::iterate-over-neighbours
+;;              mesh mp
+;;              (lambda (mesh mp node svp grads fsvp fgrads)
+;;                (when (cl-mpm/mesh:node-active node)
+;;                  (with-accessors ((node-force cl-mpm/mesh::node-force)
+;;                                   (node-force-ext cl-mpm/mesh::node-external-force)
+;;                                   (node-force-int cl-mpm/mesh::node-internal-force)
+;;                                   (node-pos cl-mpm/mesh::node-position)
+;;                                   (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+;;                                   (node-lock  cl-mpm/mesh:node-lock)
+;;                                   (node-boundary cl-mpm/mesh::node-boundary-node)
+;;                                   (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
+;;                                   (node-active  cl-mpm/mesh:node-active))
+;;                      node
+;;                    (declare (double-float volume svp))
+;;                    (when (and node-boundary
+;;                               ;; (funcall clip-func node-pos)
+;;                               )
+;;                      (cl-mpm/fastmaths:fast-zero f-stress)
+
+;;                      (let ((grads (cl-mpm::gradient-push-forwards grads df))
+;;                            (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
+;;                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
+;;                        (cl-mpm/fastmaths:fast-scale-vector
+;;                         mp-div
+;;                         (* volume svp)
+;;                         f-div)
+;;                        (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
+;;                          (sb-thread:with-mutex (node-lock)
+;;                            (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
+;;                            (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
+;;                            (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
+;;                            (incf node-boundary-scalar
+;;                                  (* volume svp (calculate-val-mp mp #'melt-rate)))))))))))))))))
 
 (defun round-datum (sim datum)
   (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))

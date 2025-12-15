@@ -137,7 +137,7 @@
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
          (oobf-crit   crit)
-         (energy-crit crit)
+         (energy-crit 1d0)
          (damage-crit crit)
          (dconv damage-crit)
          (total-i 0)
@@ -243,7 +243,10 @@
           (let* ((damage-prev (get-damage sim))
                  (damage damage-prev)
                  (oobf-crit   conv-criteria)
-                 (energy-crit conv-criteria)
+                 (energy-crit
+                   1d0
+                   ;conv-criteria
+                              )
                  (damage-crit conv-criteria-damage)
                  (dconv damage-crit)
                  (inertia 0d0)
@@ -439,6 +442,7 @@
                           (post-conv-step (lambda (sim)))
                           (plotter (lambda (sim)))
                           (dt-scale 1d0)
+                          (damping-factor 1d0)
                           (explicit-dt-scale 0.9d0)
                           (explicit-damping-factor 1d-3)
                           (elastic-dt-margin 1000)
@@ -487,13 +491,13 @@
                  ;; (setf (cl-mpm:sim-gravity sim) (* grav (/ (float lstp) load-steps)))
                  (cl-mpm/dynamic-relaxation:converge-quasi-static
                   sim
-                  :energy-crit conv-criteria
+                  :energy-crit 1d0;conv-criteria
                   :oobf-crit conv-criteria
                   :kinetic-damping nil
                   :dt-scale dt-scale
                   :conv-steps 1000
                   :substeps substeps
-                  :damping-factor 1d0;1(sqrt 2)
+                  :damping-factor damping-factor
                   :post-iter-step
                   (lambda (j e o)
                     (incf i)

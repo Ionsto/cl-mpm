@@ -352,7 +352,7 @@
     (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
     ))
 
-(defun save-stabilty-data (output-dir sim stable height floatation)
+(defun save-stabilty-data (output-dir sim stable height floatation notch)
   (let ((filename (merge-pathnames (format nil "data_~A_~A.json" height floatation) output-dir)))
     (str:to-file
      filename
@@ -361,7 +361,9 @@
        :stable stable
        :height height
        :time (cl-mpm::sim-time sim)
-       :floatation floatation)))))
+       :floatation floatation
+       :notch notch
+       )))))
 
 (defun stability-qt-test ()
   (let* ((heights (reverse (list 600d0)))
@@ -427,7 +429,7 @@
                                       do (setf (aref *stability* hi j) 0)))
                               (format t "Stability:~%")
                               (print-stab)
-                              (save-stabilty-data stability-dir *sim* res height flotation)
+                              (save-stabilty-data stability-dir *sim* res height flotation 0d0)
                               (unless res
                                 (loop-finish))))))))))
 

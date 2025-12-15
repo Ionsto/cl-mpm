@@ -752,7 +752,7 @@
          (initial-f 0d0))
     (let (;(f-dp (dp-yield-mc-circumscribe stress phi c))
           (f-dp (fast-mc stress phi c))
-          )
+          (pmod (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))))
       ;;Early check for if we should yield - DP eval is much faster?
       (if (> f-dp tol)
           (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix trial-elastic-strain))
@@ -926,18 +926,20 @@
                        initial-f
                        ;; 0d0
                        psinc
+                       pmod
                        ))
                     ;;No MC yield - just return
                     (values stress
                             trial-elastic-strain
                             initial-f
                             0d0
-                            )))))
+                            pmod)))))
           ;;No DP yield - just return
           (values stress
                   trial-elastic-strain
                   f-dp
-                  0d0)))))
+                  0d0
+                  pmod)))))
 (defun mc-plastic-terzaghi (stress de trial-elastic-strain E nu phi psi c pore-pressure)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
   (declare (double-float E nu phi psi c)
