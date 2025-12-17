@@ -210,8 +210,7 @@
     (format t "Substeps ~D~%" substeps)
     (vgplot:close-all-plots)
     (let ((total-iter 0)
-          (dt-accumulator 0d0)
-          )
+          (dt-accumulator 0d0))
       (time (loop for steps from 0 to (round total-time target-time)
                   while *run-sim*
                   do

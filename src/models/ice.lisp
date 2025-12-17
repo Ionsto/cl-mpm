@@ -144,6 +144,7 @@
                    (def mp-deformation-gradient)
                    (pressure mp-pressure)
                    (p-wave cl-mpm/particle::mp-p-modulus)
+                   (p cl-mpm/particle::mp-pressure)
                    )
       mp
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
@@ -752,7 +753,7 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let ((exponent 2)
+      (let ((exponent 1)
             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
@@ -793,7 +794,8 @@
                    (p-mod cl-mpm/particle::mp-p-modulus)
                    )
       mp
-    (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
+    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
+    (cl-mpm/particle::update-log-p-wave mp)
     (when enable-damage
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))

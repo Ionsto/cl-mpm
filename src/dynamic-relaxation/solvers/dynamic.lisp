@@ -220,7 +220,7 @@
 (defparameter *total-step* 0)
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
   "Update stress last algorithm"
-  (let ((crit 1d-9)
+  (let ((crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
         (damage-enabled (cl-mpm::sim-enable-damage sim))
         (dt (cl-mpm::sim-dt sim))
         (dt-scale (cl-mpm::sim-dt-scale sim))
@@ -231,14 +231,14 @@
     (let ((prev-res nil)
           (res 0d0)
           (conv-crit 1d-6)
-          (substeps 20)
+          (substeps 10)
           )
       (;generalised-staggered-solve
        converge-quasi-static
        sim
        ;; :enable-damage damage-enabled
        ;; :damping 1d0
-       :energy-crit crit
+       :energy-crit 1d0;crit
        :oobf-crit crit
        :substeps substeps
        :damping-factor 1d0

@@ -997,7 +997,8 @@
                     ;;         (pressure-at-depth (tref p 1 0) datum rho)))
                     (setf mp-datum datum
                           mp-head rho)
-                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
+                    ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
+                    ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                     ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
                     ;; (setf mp-boundary 1d3)
                     ))))))))

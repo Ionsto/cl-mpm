@@ -353,7 +353,8 @@
   (let* ((active-nodes (sim-agg-nodes-fd sim))
          (ndofs (length active-nodes))
          (mesh (cl-mpm:sim-mesh sim))
-         (m (cl-mpm/utils::arb-matrix ndofs ndofs)))
+         (m (cl-mpm/utils::arb-matrix ndofs ndofs))
+         )
     (cl-mpm::iterate-over-nodes
      mesh
      (lambda (node)
@@ -496,8 +497,8 @@
          (cl-mpm::calculate-kinematics node))))
     ;; When we aggregate, do the global aggregation task
     (when enable-aggregate
-      (calculate-kinematics-agg sim))
-    ))
+      (calculate-kinematics-agg sim)
+      (cl-mpm::fast-scale! (cl-mpm/aggregate::sim-global-ma sim) (cl-mpm::sim-mass-scale sim)))))
 
 (defmethod cl-mpm::filter-cells ((sim mpm-sim-aggregated))
   (with-accessors ((mesh cl-mpm::sim-mesh)

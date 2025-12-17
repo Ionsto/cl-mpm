@@ -361,7 +361,6 @@
                          (dt-scale 0.5)
                          (output-dir "./output/")
                          (max-steps 1000)
-                         (mass-scale 1d0)
                          (damping 1d-4)
                          (enable-mass-scaling nil)
                          (enable-damage t)
@@ -1224,3 +1223,130 @@
                  ;; (sleep 0.1d0)
                  (swank.live:update-swank)))
       finished)))
+
+(defun run-time (sim
+                 &key (output-dir "./output/")
+                   (post-conv-step (lambda (sim)))
+                   (plotter (lambda (sim)))
+                   (dt-scale 0.5d0)
+                   (dt 1d0)
+                   (total-time 1d0)
+                   (substeps 50)
+                   (enable-damage t)
+                   (enable-plastic t)
+                   (mass-scale 1d0)
+                   ;; (max-adaptive-steps 5)
+                   ;; (min-adaptive-steps -1)
+                   (save-vtk-dr t)
+                   (save-vtk-loadstep t)
+                   (damping 1d0)
+                   (elastic-solver 'mpm-sim-dr-ul)
+                   (conv-criteria 1d-3))
+  (let ((result t))
+    (uiop:ensure-all-directories-exist (list output-dir))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
+    (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json")
+                                               sim
+                                               (list :dt dt
+                                                     :criteria-energy conv-criteria
+                                                     :criteria-oobf conv-criteria
+                                                     :criteria-hist 1d0
+                                                     ))
+    (save-timestep-preamble output-dir)
+    (save-conv-preamble output-dir)
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle::particle-damage)
+         (setf (cl-mpm/particle::mp-enable-damage mp) nil))
+       (when (typep mp 'cl-mpm/particle::particle-plastic)
+         (setf (cl-mpm/particle::mp-enable-plasticity mp) nil))))
+
+    (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+    (setf (cl-mpm:sim-mass-scale sim) 1d0)
+
+    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+    (setf (cl-mpm:sim-damping-factor sim) 0d0)
+
+    (setf (cl-mpm:sim-enable-damage sim) nil)
+    (defparameter *total-iter* 0)
+    (let (;(substeps 50)
+          (vel-algo (cl-mpm::sim-velocity-algorithm sim))
+          (sim-type (class-of sim)))
+      (change-class sim elastic-solver)
+      (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
+      (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+      ;; find initial quasi-static formation
+      (cl-mpm/dynamic-relaxation:converge-quasi-static
+       sim
+       :energy-crit conv-criteria
+       :oobf-crit conv-criteria
+       :dt-scale 1d0;dt-scale
+       :conv-steps 10000
+       :substeps substeps
+       :damping-factor 1d0;damping
+       :post-iter-step
+       (lambda (i e o)
+         (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
+         (incf *total-iter* substeps)
+         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_conv_~5,'0d.vtk" i)) sim)
+         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
+         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim)
+         (funcall plotter sim)))
+      (cl-mpm::finalise-loadstep sim)
+      (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
+      (setf (cl-mpm::sim-time sim) 0d0)
+      (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+      (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
+
+      (change-class sim sim-type)
+      (setf (cl-mpm:sim-mass-scale sim) mass-scale)
+      (setf (cl-mpm:sim-damping-factor sim) (*
+                                             (sqrt mass-scale)
+                                             damping (cl-mpm/setup:estimate-critical-damping sim)))
+      (setf (cl-mpm:sim-enable-damage sim) enable-damage)
+      (cl-mpm:iterate-over-mps
+       (cl-mpm:sim-mps sim)
+       (lambda (mp)
+         (when (typep mp 'cl-mpm/particle::particle-damage)
+           (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
+         (when (typep mp 'cl-mpm/particle::particle-plastic)
+           (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
+      (funcall post-conv-step sim)
+
+      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+      (setf (cl-mpm:sim-dt sim)
+            (*
+             ;; (sqrt mass-scale)
+             (cl-mpm/setup:estimate-elastic-dt sim :dt-scale dt-scale)))
+
+      ;; (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
+      (let* ((sim-time 0d0))
+        (let ((total-iter 0)
+              (dt-accumulator 0d0))
+          (time (loop for steps from 0 to (round total-time dt)
+                      while (and (cl-mpm::sim-run-sim sim)
+                                 (< sim-time total-time))
+                      do
+                         (let ()
+                           (format t "Step ~d ~%" steps)
+                           (cl-mpm/dynamic-relaxation::save-vtks sim output-dir steps)
+                           (save-timestep sim output-dir total-iter :DYNAMIC)
+                           (incf dt-accumulator dt)
+                           (format t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
+                           (time
+                            (loop while (> dt-accumulator 0d0)
+                                  do
+                                     (progn
+                                       (cl-mpm::update-sim sim)
+                                       (incf total-iter)
+                                       (decf dt-accumulator (cl-mpm::sim-dt sim))
+                                       (setf (cl-mpm:sim-dt sim)
+                                             (* dt-scale (cl-mpm::calculate-min-dt sim))))
+                                  ))
+                           (funcall plotter sim)
+                           (when save-vtk-loadstep
+                             (save-vtks sim output-dir steps))
+                           (swank.live:update-swank)
+                           ))))))
+    result))

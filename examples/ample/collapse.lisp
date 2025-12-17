@@ -116,13 +116,19 @@
           block-size
           (mapcar (lambda (e) (* e e-scale mp-scale)) block-size)
           density
-          'cl-mpm/particle::particle-elastic
-          :E 1d6
-          :nu 0.30d0
+          ;; 'cl-mpm/particle::particle-elastic
+          ;; :E 1d6
+          ;; :nu 0.30d0
           ;; 'cl-mpm/particle::particle-vm
           ;; :E 1d6
           ;; :nu 0.3d0
           ;; :rho 20d3
+          'cl-mpm/particle::particle-mc
+          :E 1d6
+          :nu 0.3d0
+          :phi (* 30d0 (/ 3.14d0 180d0))
+          :psi (* 00d0 (/ 3.14d0 180d0))
+          :c 10d3
           ;; :enable-plasticity t
           ;; 'cl-mpm/particle::particle-elastic-damage-delayed
           ;; :E 1d9
@@ -929,7 +935,7 @@
   (setup :mps 2 :refine 1 :multigrid-refine 0)
   (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
   ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
-  (setf (cl-mpm::sim-gravity *sim*) -500d0)
+  (setf (cl-mpm::sim-gravity *sim*) -10d0)
   ;; (setf (cl-mpm::sim-gravity *sim*) -1000d0)
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
@@ -1354,3 +1360,24 @@
 ;;   ;;   (pprint (reduce #'max (mapcar (lambda (x) (/ 1d0 (abs x))) l)))
 ;;   ;;   )
 ;;   )
+
+(let* ((E 1d0)
+       (nu 0.1d0)
+       (phi 0.1d0)
+       (psi 0.05d0)
+       (c 1d0)
+       (strain (cl-mpm/utils::voigt-from-list (list 1d0 1d0 1d0 0d0 0d0 0d0)))
+       (de (cl-mpm/constitutive:linear-elastic-matrix E nu))
+       (stress (magicl:@ de strain))
+       )
+  ;; (pprint strain)
+  ;; (pprint stress)
+  (multiple-value-bind (sig eps f psinc pmod)
+      ;; (cl-mpm/constitutive::mc-plastic stress de strain E nu phi psi c)
+    (cl-mpm/ext::constitutive-mohr-coulomb stress de strain E nu phi psi c)
+    ;; (pprint sig)
+    (pprint eps)
+    ;; (pprint de)
+    (pprint psinc)
+    (pprint pmod)
+    ))
