@@ -914,7 +914,7 @@
     (declare (function clip-func))
 
     (markup-cells-nodes sim bc)
-    (let ((datum-rounding t))
+    (let ((datum-rounding nil))
       (when datum-rounding
         (progn
           (let ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh sim))))
@@ -1190,7 +1190,7 @@
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
-        (when t;(funcall clip-func pos)
+        (when (funcall clip-func pos)
           (let* ((mp-stress (funcall func-stress mp))
                  ;; (mp-stress (cl-mpm/utils::pull-back-voigt-stress mp-stress df))
                  (mp-div (funcall func-div mp))
@@ -1213,8 +1213,7 @@
                      node
                    (declare (double-float volume svp))
                    (when (and node-boundary
-                              ;; (funcall clip-func node-pos)
-                              )
+                              (funcall clip-func node-pos))
                      (cl-mpm/fastmaths:fast-zero f-stress)
 
                      (let ((grads (cl-mpm::gradient-push-forwards grads df))

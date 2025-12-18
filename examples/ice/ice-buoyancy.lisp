@@ -3,12 +3,12 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 
 
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
@@ -195,6 +195,7 @@
                 (pressure-condition t)
                 (cryo-static t)
                 (hydro-static nil)
+                (melange t)
                 (friction 0d0)
                 (ice-height 800d0)
                 (bench-length 0d0)
@@ -223,7 +224,7 @@
          (water-level (* floating-point floatation-ratio))
          (datum (+ water-level offset))
          ;; (datum (* (round datum mesh-resolution) mesh-resolution))
-         (domain-size (list (+ ice-length (* 2 ice-height)) (* start-height 2)))
+         (domain-size (list (+ ice-length (* 1 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
          (block-size (list ice-length (max start-height end-height)))
          (E 1d9)
@@ -312,6 +313,62 @@
 
         ;; :gravity -9.8d0
         ))
+      (when melange
+        (let* ((melange-depth 50d0)
+               (melange-pressure -1000d3))
+          (cl-mpm::add-bcs-force-list
+           *sim*
+           (cl-mpm/buoyancy::make-bc-pressure
+            *sim*
+            melange-pressure
+            0d0
+            :clip-func
+            (lambda (pos)
+              (and
+               (<= (cl-mpm/utils:varef pos 1) datum)
+               (>= (cl-mpm/utils:varef pos 1) (- datum melange-depth)))))))
+        ;; (let* ((melange-depth 50d0)
+        ;;        (melange-length (- (first domain-size) (first block-size)))
+        ;;        (block-size (list melange-length melange-depth))
+        ;;        (offset (- datum (* melange-depth (/ density water-density))))
+        ;;        )
+        ;;   (cl-mpm:add-mps
+        ;;    *sim*
+        ;;    (cl-mpm/setup:make-block-mps
+        ;;     (list ice-length offset)
+        ;;     block-size
+        ;;     (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
+        ;;     density
+        ;;     'cl-mpm/particle::particle-ice-delayed
+        ;;     :E 1d9
+        ;;     :nu 0.24d0
+
+        ;;     :kt-res-ratio 1d0
+        ;;     :kc-res-ratio 0d0
+        ;;     :g-res-ratio 0.95d0
+
+        ;;     :index 2
+        ;;     :initiation-stress init-stress;18d3
+        ;;     :friction-angle angle
+        ;;     :psi (* 0d0 (/ pi 180))
+        ;;     :phi (* angle (/ pi 180))
+        ;;     :c (* init-c oversize)
+        ;;     :softening 0d0
+        ;;     :ductility ductility
+        ;;     :local-length length-scale
+        ;;     :delay-time 1d5
+        ;;     :delay-exponent 2
+        ;;     :enable-plasticity t
+        ;;     :enable-damage t
+        ;;     ))
+        ;;   (cl-mpm::iterate-over-mps
+        ;;    (cl-mpm::sim-mps *sim*)
+        ;;    (lambda (mp)
+        ;;      (when (= (cl-mpm/particle::mp-index mp) 2)
+        ;;        (cl-mpm/damage::set-mp-damage mp 0.99d0))))
+        ;;   )
+        )
+
       ;; (cl-mpm/setup::remove-sdf *sim*
       ;;                           (lambda (p)
       ;;                             (cl-mpm/setup::plane-point-point-sdf
@@ -1052,10 +1109,11 @@
                     :ice-height H
                     :mps mps
                     :hydro-static nil
-                    :cryo-static nil
-                    :aspect 1d0
+                    :cryo-static t
+                    :melange t
+                    :aspect 4d0
                     :slope 0d0
-                    :floatation-ratio 0.9d0)
+                    :floatation-ratio 0.8d0)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
              (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
@@ -1761,3 +1819,5 @@
                               (loop-finish)))
                           ))))
     ))
+
+
