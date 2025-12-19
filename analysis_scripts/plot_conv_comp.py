@@ -59,8 +59,8 @@ for out in output_list:
         # res = group["oobf"].values
         # res = np.log10(res)
 
-thresh_scale = 1e-9
-plt.axhline(thresh_scale,c="green",ls="--")
+#thresh_scale = 1e-9
+#plt.axhline(thresh_scale,c="green",ls="--")
 # ax.set_ylim(bottom=0,top=thresh_scale_damage*2)
 plt.xlabel("Iterations")
 plt.ylabel("Convergence criteria")

@@ -311,7 +311,7 @@
      mesh
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
-         (cl-mpm::calculate-forces node 0d0 0d0 mass-scale))))
+         (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
 
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity

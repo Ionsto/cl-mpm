@@ -246,6 +246,7 @@
                (:file "src/core")
                (:file "src/solvers/usf")
                (:file "src/solvers/usl")
+               (:file "src/solvers/musl")
                ))
 (defsystem "cl-mpm/mpi"
   :depends-on ("cl-mpm"

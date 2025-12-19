@@ -152,8 +152,7 @@
                    )))
       (let ((oobf 0d0)
             (oobf-num (sqrt oobf-num))
-            (oobf-denom (sqrt oobf-denom))
-            )
+            (oobf-denom (sqrt oobf-denom)))
         (if (> oobf-denom 0d0)
             (setf oobf (/ oobf-num oobf-denom))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
@@ -597,21 +596,27 @@
              (lambda (node)
                (with-accessors ((active cl-mpm/mesh::node-active)
                                 (agg cl-mpm/mesh::node-agg)
+                                (internal cl-mpm/mesh::node-interior)
                                 (res cl-mpm/mesh::node-residual)
+                                (mass cl-mpm/mesh::node-mass)
                                 (res-prev cl-mpm/mesh::node-residual-prev)
                                 (vel cl-mpm/mesh::node-velocity)
                                 )
                    node
                  (if (and
-                      ;; (not agg)
+                      (or 
+                       internal
+                       (not agg))
                       active)
                      ;; (loop for r across (cl-mpm/utils:fast-storage res)
                      ;;       for v across (cl-mpm/utils:fast-storage vel)
                      ;;       sum (* (abs r) (abs v)))
                      ;; (abs (cl-mpm/fastmaths:dot res vel))
-                     (/
-                      (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.- res res-prev))
-                      (+ 1d-10 (cl-mpm/fastmaths:mag res)))
+                     ;; (/
+                     ;;  (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.- res res-prev))
+                     ;;  (+ 1d-10 (cl-mpm/fastmaths:mag res)))
+                     (* mass
+                        (cl-mpm/fastmaths:mag vel))
                      0d0)))
              #'+))
       ;; (when sim-agg
@@ -625,3 +630,4 @@
       ;;              ;; (incf res-norm (abs (cl-mpm/fastmaths:dot res vel)))
       ;;              )))
     res-norm)))
+

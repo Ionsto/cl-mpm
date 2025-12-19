@@ -104,10 +104,10 @@
                    )
       mp
     (progn
-      (let ((ps-y (sqrt (* E ps-vm))))
+      (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
         (setf y
               (+
-               ps-y
+               ;; ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -134,8 +134,6 @@
                                             (/ (- pressure) 3))))
                 (* angle (/ pi 180d0)))
                )))
-      ;; (setf y (cl-mpm/damage::tensile-energy-norm strain E de))
-      ;; (setf (cl-mpm/particle::mp-damage-y-local mp) )
       )))
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-elastic-damage) dt)
   (with-accessors ((strain cl-mpm/particle::mp-strain)
@@ -264,8 +262,6 @@
       (format t "Estimated ductility ~E~%" ductility)
       (format t "Init stress ~E~%" init-stress)
       (format t "Init c ~E~%" init-c)
-      (defparameter *removal-strain* (* 100d0 (/ init-stress 1)))
-      (format t "Removal strain ~E~%" *removal-strain*)
       (cl-mpm:add-mps
        *sim*
        (cl-mpm/setup:make-block-mps
@@ -290,8 +286,8 @@
         :softening 0d0
         :ductility ductility
         :local-length length-scale
-        :delay-time 1d5
-        :delay-exponent 2
+        :delay-time 1d4
+        :delay-exponent 1
         :enable-plasticity t
         :enable-damage t
 
@@ -1098,20 +1094,20 @@
 
 
 (defun calving-test ()
-  (loop for dt in (list 1d3)
+  (loop for dt in (list 1d4)
         do
-           (let* ((mps 2)
-                  (H 600d0)
+           (let* ((mps 3)
+                  (H 400d0)
                   )
-             (setup :refine 0.5
+             (setup :refine 1
                     :friction 0d0
                     :bench-length (* 0d0 H)
                     :ice-height H
                     :mps mps
                     :hydro-static nil
                     :cryo-static t
-                    :melange t
-                    :aspect 4d0
+                    :melange nil
+                    :aspect 1d0
                     :slope 0d0
                     :floatation-ratio 0.8d0)
              (plot-domain)
@@ -1152,10 +1148,10 @@
               :dt dt
               :dt-scale 1d0
               :damping-factor 1d0;(sqrt 2)
-              :conv-criteria 1d-3
+              :conv-criteria 1d-2
               :conv-load-steps 2
               :min-adaptive-steps -4
-              :max-adaptive-steps 6
+              :max-adaptive-steps 10
               :substeps 10
               :steps 1000
               :enable-plastic t
@@ -1165,7 +1161,7 @@
               :plotter (lambda (sim) (plot-domain))
               ;; :explicit-dt-scale 100d0
               :explicit-dt-scale 0.5d0
-              :explicit-damping-factor 0d-4
+              :explicit-damping-factor 0d-5
               :explicit-dynamic-solver
               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
               'cl-mpm/damage::mpm-sim-agg-damage
@@ -1181,8 +1177,8 @@
               :setup-dynamic
               (lambda (sim)
                 ;; (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
-                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
-                      (cl-mpm::sim-velocity-algorithm sim) :FLIP
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+                      (cl-mpm::sim-velocity-algorithm sim) :BLEND
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
                       (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0
                       ))

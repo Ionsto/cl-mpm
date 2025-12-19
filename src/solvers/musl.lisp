@@ -1,11 +1,11 @@
 (in-package :cl-mpm)
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-(defclass mpm-sim-usl (mpm-sim)
+(defclass mpm-sim-musl (mpm-sim)
   ()
-  (:documentation "Explicit simulation with update stress last update"))
+  (:documentation "Explicit simulation with modified update stress last update"))
 
-(defmethod update-sim ((sim mpm-sim-usl))
+(defmethod update-sim ((sim mpm-sim-musl))
   "Update stress last algorithm"
   (declare (cl-mpm::mpm-sim sim))
   (with-slots ((mesh mesh)
@@ -52,19 +52,18 @@
         (reset-node-displacement sim)
         (update-nodes sim)
         (update-dynamic-stats sim)
-        (apply-bcs mesh bcs dt)
         ;;Grid to particle mapping
-        (update-stress mesh mps dt fbar)
         (g2p mesh mps dt damping vel-algo)
         ;;2nd round of momentum mapping
-        ;; (reset-grid-velocity mesh)
-        ;; (p2g mesh mps)
-        ;; (when (> mass-filter 0d0)
-        ;;   (filter-grid-velocity mesh (sim-mass-filter sim)))
-        ;; (update-node-kinematics sim)
-        ;; (reset-node-displacement sim)
-        ;; (update-nodes sim)
-        ;; (apply-bcs mesh bcs dt)
+        (reset-grid-velocity mesh)
+        (p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (filter-grid-velocity mesh (sim-mass-filter sim)))
+        (update-node-kinematics sim)
+        (reset-node-displacement sim)
+        (update-nodes sim)
+        (apply-bcs mesh bcs dt)
+        (update-stress mesh mps dt fbar)
         (new-loadstep sim)
 
         ;; (when remove-damage
@@ -75,4 +74,3 @@
         )
       (incf time dt)
       )))
-

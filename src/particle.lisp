@@ -393,8 +393,7 @@
                    (E  mp-E)
                    (nu mp-nu)
                    (p mp-p-modulus)
-                   (p-0 mp-p-modulus-0)
-                   )
+                   (p-0 mp-p-modulus-0))
       particle
     (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
     (setf p-0 p)))
@@ -621,10 +620,11 @@
   (with-slots ((de elastic-matrix)
                (stress stress))
       mp
-    (setf (mp-p-modulus mp)
-          (*
-           (estimate-log-enhancement mp)
-           (cl-mpm/particle::compute-p-modulus mp)))
+    ;; (setf (mp-p-modulus mp)
+    ;;       (*
+    ;;        (estimate-log-enhancement mp)
+    ;;        (cl-mpm/particle::compute-p-modulus mp)))
+    (update-log-p-wave mp)
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
 

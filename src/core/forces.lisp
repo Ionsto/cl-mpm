@@ -141,11 +141,11 @@
  (ftype (function (cl-mpm/particle::particle magicl:matrix/double-float
                                              &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force))
-(defun det-int-force (mp dsvp &optional f-out)
+(defun det-int-force (mp dsvp volume &optional f-out)
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (volume cl-mpm/particle:mp-volume)
+                     ;; (volume cl-mpm/particle:mp-volume)
                      (vel cl-mpm/particle:mp-velocity)
                      ) mp
       (declare (type double-float volume))
@@ -182,15 +182,16 @@
 
 (declaim
  (inline det-int-force-unrolled)
- (ftype (function (cl-mpm/particle::particle list &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle list double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled))
-(defun det-int-force-unrolled (mp grads &optional f-out)
+(defun det-int-force-unrolled (mp grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (volume-ac cl-mpm/particle:mp-volume))
+                     ;; (volume-ac cl-mpm/particle:mp-volume)
+                     )
         mp
-      (let ((volume volume-ac))
+      (let ()
         (declare (type double-float volume))
         (destructuring-bind (dx dy dz) grads
           (declare (double-float dx dy dz))
@@ -217,15 +218,16 @@
     f-out))
 (declaim
  (inline det-int-force-unrolled-2d)
- (ftype (function (cl-mpm/particle::particle list &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle list double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-int-force-unrolled-2d))
-(defun det-int-force-unrolled-2d (mp grads &optional f-out)
+(defun det-int-force-unrolled-2d (mp grads volume &optional f-out)
   "Calculate internal force contribution from mp at node"
   (let* ((f-out (if f-out f-out (cl-mpm/utils:vector-zeros))))
     (with-accessors ((stress cl-mpm/particle:mp-stress)
-                     (volume-ac cl-mpm/particle:mp-volume)
+                     ;; (volume-ac cl-mpm/particle:mp-volume)
                      ) mp
-      (let ((volume volume-ac))
+      (let (;; (volume volume-ac)
+            )
         (declare (type double-float volume))
         (destructuring-bind (dx dy dz) grads
           (declare (double-float dx dy dz))
@@ -248,13 +250,13 @@
 
 (declaim
  (inline det-ext-force)
- (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-ext-force))
-(defun det-ext-force (mp node svp gravity &optional f-out)
+(defun det-ext-force (mp node svp gravity volume &optional f-out)
   "Calculate external force contribution from mp at node"
   (with-accessors ((mass cl-mpm/particle:mp-mass)
                    ;; (gravity cl-mpm/particle:mp-gravity)
-                   (volume cl-mpm/particle:mp-volume)
+                   ;; (volume cl-mpm/particle:mp-volume)
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
                    ) mp
@@ -290,14 +292,14 @@
 
 (declaim
  (inline det-ext-force-2d)
- (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
+ (ftype (function (cl-mpm/particle::particle cl-mpm/mesh::node double-float double-float double-float &optional magicl:matrix/double-float) magicl:matrix/double-float)
         det-ext-force-2d))
-(defun det-ext-force-2d (mp node svp gravity &optional f-out)
+(defun det-ext-force-2d (mp node svp gravity volume &optional f-out)
   (declare (double-float svp gravity))
   "Calculate external force contribution from mp at node"
   (with-accessors ((mass cl-mpm/particle:mp-mass)
                    ;; (gravity cl-mpm/particle:mp-gravity)
-                   (volume cl-mpm/particle:mp-volume)
+                   ;; (volume cl-mpm/particle:mp-volume)
                    (body-force cl-mpm/particle:mp-body-force)
                    (gravity-axis cl-mpm/particle::mp-gravity-axis)
                    ) mp

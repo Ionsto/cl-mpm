@@ -552,7 +552,7 @@
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
-                                                     :max-damage-inc 0.9d0
+                                                     :max-damage-inc 0.5d0
                                                      :save-vtk-dr save-vtk-dr
                                                      )
                                   (setf quasi-conv conv

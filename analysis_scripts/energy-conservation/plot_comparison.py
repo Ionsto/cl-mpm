@@ -8,8 +8,8 @@ top_dir = "../../"
 output_regex = re.compile("output-*")
 output_list = list(filter(output_regex.match,os.listdir(top_dir)))
 output_list.sort()
-for i,out in enumerate(output_list):
-    print("{}: {}".format(i,out))
+# for i,out in enumerate(output_list):
+#     print("{}: {}".format(i,out))
 
 
 fig = plt.figure()
@@ -23,8 +23,8 @@ for outdir in output_list:
     se = df["se"].values
     gpe = df["gpe"].values
 
-    # plt.plot(time,ke + se + gpe,label=outdir)
-    plt.plot(time,ke,label=outdir)
+    plt.plot(time,ke + se + gpe,label=outdir)
+    # plt.plot(time,ke,label=outdir)
 
 plt.xlabel("Time")
 plt.ylabel("Energy")

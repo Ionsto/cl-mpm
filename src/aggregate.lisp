@@ -529,10 +529,12 @@
      mesh
      (lambda (node)
        (when (and (cl-mpm/mesh:node-active node))
-         (if (cl-mpm/mesh::node-agg node)
-             (cl-mpm::calculate-forces node damping 0d0 mass-scale)
-             (cl-mpm::calculate-forces node damping dt mass-scale)
-             ))))
+         (cl-mpm::calculate-forces node damping 0d0 mass-scale)
+         ;; (if (cl-mpm/mesh::node-agg node)
+         ;;     (cl-mpm::calculate-forces node damping 0d0 mass-scale)
+         ;;     (cl-mpm::calculate-forces node damping dt mass-scale)
+         ;;     )
+         )))
 
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
@@ -556,9 +558,9 @@
        mesh
        (lambda (node)
          (when (and (cl-mpm/mesh:node-active node)
-                    ;; (or
-                    ;;  (cl-mpm/mesh::node-interior node)
-                    ;;  (not (cl-mpm/mesh::node-agg node)))
+                    (or
+                     (cl-mpm/mesh::node-interior node)
+                     (not (cl-mpm/mesh::node-agg node)))
                     )
            (with-accessors ((mass node-mass)
                             (vel node-velocity)
@@ -568,12 +570,31 @@
                node
              (when t;internal
                (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       ;; (unless (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-      ;;   (project-velocity sim))
+      ;; (project-velocity sim))
+      (project-velocity sim)
+      ;; (project-displacement sim)
       )
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
+
+
+(defun project-displacement (sim)
+  (with-accessors ((sim-mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt))
+      sim
+    (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+          do
+             (let ((E (sim-global-e sim))
+                   (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-displacment d)))
+               (apply-internal-bcs sim vel-proj d)
+               (cl-mpm/aggregate::project-global-vec
+                sim
+                (magicl:@ E vel-proj)
+                #'cl-mpm/mesh::node-displacment
+                d)))
+    (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
 
 (defun project-velocity (sim)
   (with-accessors ((sim-mps cl-mpm:sim-mps)
@@ -601,21 +622,24 @@
      mesh
      (lambda (node)
        (when (and (cl-mpm/mesh:node-active node)
-                  (or (not (cl-mpm/mesh::node-agg node))
-                      (cl-mpm/mesh::node-interior node)))
+                  ;; (or (not (cl-mpm/mesh::node-agg node))
+                  ;;     (cl-mpm/mesh::node-interior node))
+                  )
          (cl-mpm::update-node node dt))))
     (when agg
-      (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-            do
-               (let ((E (sim-global-e sim))
-                     (disp-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-displacment d)))
-                 (apply-internal-bcs sim disp-proj d)
-                 (cl-mpm/aggregate::project-global-vec
-                  sim
-                  (magicl:@ E disp-proj)
-                  #'cl-mpm/mesh::node-displacment
-                  d)))
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
+      (project-displacement sim))
+    ;; (when agg
+    ;;   (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+    ;;         do
+    ;;            (let ((E (sim-global-e sim))
+    ;;                  (disp-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-displacment d)))
+    ;;              (apply-internal-bcs sim disp-proj d)
+    ;;              (cl-mpm/aggregate::project-global-vec
+    ;;               sim
+    ;;               (magicl:@ E disp-proj)
+    ;;               #'cl-mpm/mesh::node-displacment
+    ;;               d)))
+    ;;   (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
     ))
 
 (defun apply-internal-bcs (sim vec d)

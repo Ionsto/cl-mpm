@@ -39,6 +39,8 @@
           ;;Would intergrtate but don't
           (cl-mpm/utils::vector-copy-into residual residual-prev)
           (cl-mpm/utils::vector-copy-into force residual)
+
+          ;; (cl-mpm/fastmaths::fast-.+-vector force-ext inertia-force force-ext)
           ;; (cl-mpm/utils::vector-copy-into force-int residual)
           ;; (cl-mpm/fastmaths::fast-.+ inertia-force residual residual)
           ;; (cl-mpm/fastmaths::fast-.+-vector force-ghost residual residual)
@@ -243,7 +245,16 @@
        :substeps substeps
        :damping-factor 1d0
        :conv-steps 10000
-       :dt-scale 1d0
+       :dt-scale 1d0;dt-scale
+
+       :convergance-criteria
+       (lambda (sim f o)
+         (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+           ;; (pprint c)
+           (< c crit)))
+
+       ;;   ;; (unless prev-res
+       ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
        ;; :convergance-criteria
        ;; (lambda (sim f o)
        ;;   ;; (unless prev-res

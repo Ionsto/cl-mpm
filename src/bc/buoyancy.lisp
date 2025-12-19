@@ -824,8 +824,8 @@
                    (clip-function bc-buoyancy-clip-func))
       bc
     (declare (function clip-function))
-    ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
-    (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+    (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+    ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
     ))
 
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))

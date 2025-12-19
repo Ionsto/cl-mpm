@@ -209,26 +209,33 @@
 (defun update-strain-linear (mesh mp dt fbar)
   "Linear small strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-n cl-mpm/particle::mp-volume-n)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
-                   (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (strain-n cl-mpm/particle:mp-strain-n)
                    (def    cl-mpm/particle:mp-deformation-gradient)
+                   (def-0    cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (strain-rate cl-mpm/particle:mp-strain-rate)
-                   ) mp
+                   (strain-rate cl-mpm/particle:mp-strain-rate))
+      mp
     (declare (double-float volume volume-0))
     (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
-      (let ((dstrain
-              (cl-mpm/fastmaths:fast-scale!
-               (cl-mpm/utils::stretch-to-sym stretch-tensor) (* 0.5d0 dt))))
+      (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
+      (let ()
         (progn
-          (cl-mpm/utils::voigt-copy-into dstrain strain-rate)
-          (cl-mpm/utils:matrix-copy-into df df-inc)
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def))
-          (setf strain (cl-mpm/fastmaths::fast-.+-voigt strain dstrain))
-          (setf volume (* volume-0 (cl-mpm/fastmaths:det-3x3 def))))))))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
+          (cl-mpm/utils:voigt-copy-into strain-n strain)
+          (cl-mpm/fastmaths:fast-.+ strain
+                                    (cl-mpm/fastmaths:fast-scale!
+                                     (cl-mpm/utils::stretch-to-sym stretch-tensor) 1d0)
+                                    strain)
+          (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
+          (when (<= volume 0d0)
+            (error 'cl-mpm/errors:error-volume-negative))
+          )))))
 
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
@@ -241,6 +248,7 @@
 (defun update-strain-kirchoff (mesh mp dt fbar)
   "Finite strain kirchhoff strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-n cl-mpm/particle::mp-volume-n)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
@@ -258,7 +266,8 @@
             (cl-mpm/utils:matrix-copy-into temp def))
           (cl-mpm/utils:voigt-copy-into strain strain-n)
           (cl-mpm/ext:kirchoff-update strain df)
-          (setf volume (* volume (the double-float dj)))
+          (setf volume (* volume-n (the double-float dj)))
+          ;; (setf volume (* volume-0 (magicl:det def)))
           (when (<= volume 0d0)
             (error 'cl-mpm/errors:error-volume-negative))))))
   (values))
@@ -266,6 +275,7 @@
 (defun update-strain-kirchoff-dynamic-relaxation (mesh mp dt fbar)
   "Finite strain kirchhoff strain update algorithm"
   (with-accessors ((volume cl-mpm/particle:mp-volume)
+                   (volume-n cl-mpm/particle::mp-volume-n)
                    (volume-0 cl-mpm/particle::mp-volume-0)
                    (strain cl-mpm/particle:mp-strain)
                    (strain-n cl-mpm/particle:mp-strain-n)
@@ -280,9 +290,10 @@
         (progn
           ;; (cl-mpm/utils:matrix-copy-into df df-inc)
           (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
+          ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
-          (setf volume (* volume-0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
+          (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
           (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
           (when (<= volume 0d0)
             (error 'cl-mpm/errors:error-volume-negative))))))
@@ -308,6 +319,7 @@
         (update-strain-kirchoff mesh mp dt fbar)
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)
         (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
+        ;; (setf stress-kirchoff (cl-mpm/utils::voigt-copy stress))
         (cl-mpm/fastmaths::fast-scale! stress (/ 1.0d0 (the double-float (cl-mpm/fastmaths:det-3x3 def))))
         ))))
 
@@ -445,7 +457,7 @@
     (progn
       ;;   ;;For no FBAR we need to update our strains
       (progn
-        (calculate-strain-rate mesh mp dt)
+        (calculate-strain-rate-disp mesh mp dt)
         ;; Update our strains
         (update-strain-linear mesh mp dt fbar)
         ;; Update our kirchoff stress with constitutive model

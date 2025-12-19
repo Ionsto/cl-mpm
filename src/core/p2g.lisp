@@ -78,9 +78,10 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
-           (sb-thread:with-mutex (node-lock)
-             (det-ext-force mp node svp gravity node-ext-force)
-             (det-int-force-unrolled mp grads node-int-force))))))
+           (let ((volume (cl-mpm/particle::mp-volume mp)))
+             (sb-thread:with-mutex (node-lock)
+               (det-ext-force mp node svp gravity volume node-ext-force)
+               (det-int-force-unrolled mp grads volume node-int-force)))))))
   (values))
 
 (declaim (inline p2g-force-mp-fs)
@@ -108,10 +109,11 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
-           (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
+           (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv))
+                 (volume (cl-mpm/particle::mp-volume mp)))
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force mp node svp gravity node-ext-force)
-               (det-int-force-unrolled mp grads node-int-force))))))))
+               (det-ext-force mp node svp gravity volume node-ext-force)
+               (det-int-force-unrolled mp grads   volume node-int-force))))))))
   (values))
 
 (declaim (notinline p2g-force-mp-2d)
@@ -137,10 +139,12 @@
                   (sb-thread:mutex node-lock)
                   (magicl:matrix/double-float node-int-force node-ext-force))
          (when node-active
-           (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv)))
+           (let ((grads (cl-mpm::gradient-push-forwards-cached grads df-inv))
+                 (volume (cl-mpm/particle::mp-volume mp))
+                 )
              (sb-thread:with-mutex (node-lock)
-               (det-ext-force-2d mp node svp gravity node-ext-force)
-               (det-int-force-unrolled-2d mp grads node-int-force))))))))
+               (det-ext-force-2d mp node svp gravity volume node-ext-force)
+               (det-int-force-unrolled-2d mp grads volume node-int-force))))))))
   (values))
 
 (defun p2g-force-mp-2d (mesh mp gravity)
@@ -162,9 +166,10 @@
                 (sb-thread:mutex node-lock)
                 (magicl:matrix/double-float node-int-force node-ext-force))
        (when node-active
-         (sb-thread:with-mutex (node-lock)
-           (det-ext-force-2d mp node svp gravity node-ext-force)
-           (det-int-force-unrolled-2d mp grads node-int-force))))))
+         (let ((volume (cl-mpm/particle::mp-volume mp)))
+           (sb-thread:with-mutex (node-lock)
+             (det-ext-force-2d mp node svp gravity volume node-ext-force)
+             (det-int-force-unrolled-2d mp grads volume node-int-force)))))))
   (values))
 
 (defgeneric special-p2g (mp node svp dsvp)

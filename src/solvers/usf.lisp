@@ -35,7 +35,13 @@
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
 
+        (apply-bcs mesh bcs dt)
         (filter-cells sim)
+
+        ;; (setf (cl-mpm:sim-dt sim)
+        ;;       (*
+        ;;        (cl-mpm::sim-dt-scale sim)
+        ;;        (cl-mpm::calculate-min-dt sim)))
 
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
