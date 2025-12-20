@@ -253,6 +253,7 @@
                  (intertia-crit 1d-3)
                  (stagger-iters 0)
                  )
+            (reset-mp-velocity sim)
             (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
             (loop for stagger-i from 0 to 100
                   while (or (>= dconv damage-crit))
@@ -480,6 +481,8 @@
           (load-steps conv-load-steps)
           (i 0)
           (grav (cl-mpm:sim-gravity sim)))
+
+      (reset-mp-velocity sim)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
@@ -1038,6 +1041,11 @@
     result))
 
 
+(defun reset-mp-velocity (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-velocity mp)))))
 
 (defun reset-nominal-displacement (sim)
   (cl-mpm:iterate-over-mps

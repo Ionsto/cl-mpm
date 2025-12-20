@@ -858,6 +858,12 @@
       ;;                    func-stress
       ;;                    func-div
       ;;                    (lambda (pos) (funcall clip-function pos datum)))
+      (apply-scalar-mps-3d mesh mps
+                           #'melt-rate
+                           (lambda (pos) (funcall clip-function pos datum)))
+      (apply-scalar-cells-3d mesh #'melt-rate
+                             (lambda (pos) (funcall clip-function pos datum))
+                             )
       )))
 
 
@@ -997,7 +1003,7 @@
                     ;;         (pressure-at-depth (tref p 1 0) datum rho)))
                     (setf mp-datum datum
                           mp-head rho)
-                    ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
+                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                     ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                     ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
                     ;; (setf mp-boundary 1d3)
@@ -1228,8 +1234,9 @@
                            (cl-mpm/fastmaths:fast-.+ node-force-ext f-stress node-force-ext)
                            (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
                            (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
-                           (incf node-boundary-scalar
-                                 (* volume svp (calculate-val-mp mp #'melt-rate)))))))))))))))))
+                           ;; (incf node-boundary-scalar
+                           ;;       (* volume svp (calculate-val-mp mp #'melt-rate)))
+                           ))))))))))))))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-scalar) node mesh dt)
   "Arbitrary closure BC"
@@ -1322,10 +1329,9 @@
    mps
    (lambda (mp)
      (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
-       (with-accessors ((volume cl-mpm/particle:mp-volume)
-                        (pos cl-mpm/particle::mp-position)
-                        (damage cl-mpm/particle::mp-damage)
-                        )
+       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
+                        (pos cl-mpm/particle::mp-position-trial)
+                        (damage cl-mpm/particle::mp-damage))
            mp
          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
            ;;Iterate over neighbour nodes
@@ -1342,8 +1348,7 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           (funcall clip-func node-pos)
-                           )
+                           (funcall clip-func node-pos))
                   (sb-thread:with-mutex (node-lock)
                     (incf node-boundary-scalar (* (if damage-volume (- 1d0 damage) 1d0)
                                                   volume svp (funcall func-scalar mp))))))))))))))
