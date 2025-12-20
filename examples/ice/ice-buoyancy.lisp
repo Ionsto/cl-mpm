@@ -1100,7 +1100,7 @@
                   (H 400d0)
                   )
              (setup :refine 0.25
-                    :friction 0d0
+                    :friction 0.2d0
                     :bench-length (* 0d0 H)
                     :ice-height H
                     :mps mps

@@ -849,10 +849,10 @@
 
 
       (apply-force-mps-3d mesh mps
-                       (lambda (mp) (calculate-val-mp mp func-stress))
-                       (lambda (mp) (calculate-val-mp mp func-div))
-                       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-                       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
+                       ;; (lambda (mp) (calculate-val-mp mp func-stress))
+                       ;; (lambda (mp) (calculate-val-mp mp func-div))
+                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
+                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
                        (lambda (pos) (funcall clip-function pos datum))
                        )
       (apply-force-cells-3d mesh
