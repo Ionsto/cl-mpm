@@ -800,7 +800,7 @@
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
       ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
-      (apply-vol-pressure-degredation mp dt (* -0d0
+      (apply-vol-pressure-degredation mp dt (* -1d0
                                                (* 1d0 (magicl:det def))
                                                (/ p 3) damage))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))

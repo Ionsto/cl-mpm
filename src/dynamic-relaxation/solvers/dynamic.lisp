@@ -115,13 +115,15 @@
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
     (when enable-dynamics
-      (cl-mpm:iterate-over-nodes
-       mesh
-       (lambda (node)
-         (when (cl-mpm/mesh:node-active node)
-           (incf (cl-mpm/mesh:node-mass node)
-                 (* (/ 2d0 (expt dt-true 2))
-                    (cl-mpm/mesh::node-true-mass node)))))))
+      (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
+        (cl-mpm:iterate-over-nodes
+         mesh
+         (lambda (node)
+           (when (cl-mpm/mesh:node-active node)
+             (incf (cl-mpm/mesh:node-mass node)
+                   (* (/ 2d0 (expt dt-true 2))
+                      ;; mass-scale
+                      (cl-mpm/mesh::node-true-mass node))))))))
 
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
@@ -172,6 +174,7 @@
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
+      (cl-mpm::apply-bcs mesh bcs-force dt)
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
       (cl-mpm/damage::calculate-damage sim dt-loadstep)
       (cl-mpm::p2g-force-fs sim)
@@ -232,7 +235,8 @@
     ;; (setf (cl-mpm::sim-dt-scale sim) 0.25d0)
     (let ((prev-res nil)
           (res 0d0)
-          (conv-crit 1d-6)
+          ;; (conv-crit crit)
+          (conv-crit 1d-3)
           (substeps 10)
           )
       (;generalised-staggered-solve
@@ -247,11 +251,11 @@
        :conv-steps 10000
        :dt-scale 1d0;dt-scale
 
-       :convergance-criteria
-       (lambda (sim f o)
-         (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
-           ;; (pprint c)
-           (< c crit)))
+       ;; :convergance-criteria
+       ;; (lambda (sim f o)
+       ;;   (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+       ;;     (pprint c)
+       ;;     (< c conv-crit)))
 
        ;;   ;; (unless prev-res
        ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))

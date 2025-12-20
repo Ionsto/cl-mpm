@@ -3,12 +3,12 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-buoyancy)
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
-;; (sb-ext:restrict-compiler-policy 'speed  0 0)
-;; (sb-ext:restrict-compiler-policy 'debug  3 3)
-;; (sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
 
 (defclass cl-mpm/particle::particle-ice-erodable (cl-mpm/particle::particle-ice-delayed
@@ -171,11 +171,11 @@
            (ms-x (first ms))
            (ms-y (second ms)))
       (vgplot:format-plot t "set object 1 rect from 0,0 to ~f,~f fc rgb 'blue' fs transparent solid 0.5 noborder behind" ms-x *water-height*))
-    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-                 (cl-mpm:sim-mps *sim*)
-                 (cl-mpm:sim-dt *sim*)
-                 0d0
-                 :TRIAL)
+    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+    ;;              (cl-mpm:sim-mps *sim*)
+    ;;              (cl-mpm:sim-dt *sim*)
+    ;;              0d0
+    ;;              :TRIAL)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -1099,7 +1099,7 @@
            (let* ((mps 3)
                   (H 400d0)
                   )
-             (setup :refine 1
+             (setup :refine 0.25
                     :friction 0d0
                     :bench-length (* 0d0 H)
                     :ice-height H
@@ -1107,7 +1107,7 @@
                     :hydro-static nil
                     :cryo-static t
                     :melange nil
-                    :aspect 1d0
+                    :aspect 4d0
                     :slope 0d0
                     :floatation-ratio 0.8d0)
              (plot-domain)
@@ -1161,7 +1161,7 @@
               :plotter (lambda (sim) (plot-domain))
               ;; :explicit-dt-scale 100d0
               :explicit-dt-scale 0.25d0
-              :explicit-damping-factor 0d-5
+              :explicit-damping-factor 1d-4
               :explicit-dynamic-solver
               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
               'cl-mpm/damage::mpm-sim-agg-damage
@@ -1180,7 +1180,7 @@
                 (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
                       (cl-mpm::sim-velocity-algorithm sim) :BLEND
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
-                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0.5d0
+                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0
                       ))
               )
              )))

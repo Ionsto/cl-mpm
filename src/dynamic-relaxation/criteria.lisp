@@ -13,7 +13,8 @@
          (if (and (cl-mpm/mesh:node-active node)
                   ;; (or
                   ;;  (not (cl-mpm/mesh::node-agg node))
-                  ;;  (cl-mpm/mesh::node-interior node))
+                  ;;  ;; (cl-mpm/mesh::node-interior node)
+                  ;;  )
                   )
              (with-accessors ((active cl-mpm/mesh::node-active)
                               (f-ext cl-mpm/mesh::node-external-force)
@@ -520,7 +521,9 @@
         (setf stats-energy e
               stats-oobf o
               stats-power p)
-        (incf stats-work p)))))
+        (incf stats-work p)))
+    ;; (setf stats-oobf (res-norm-aggregated sim))
+    ))
 
 (defun df-to-jacobian (sim df)
   (let* ((h (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))))
@@ -604,7 +607,7 @@
                                 )
                    node
                  (if (and
-                      (or 
+                      (or
                        internal
                        (not agg))
                       active)
@@ -615,7 +618,7 @@
                      ;; (/
                      ;;  (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.- res res-prev))
                      ;;  (+ 1d-10 (cl-mpm/fastmaths:mag res)))
-                     (* mass
+                     (* ;mass
                         (cl-mpm/fastmaths:mag vel))
                      0d0)))
              #'+))
