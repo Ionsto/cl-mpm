@@ -1160,7 +1160,7 @@
               ;;                   (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0.9d0))
               :plotter (lambda (sim) (plot-domain))
               ;; :explicit-dt-scale 100d0
-              :explicit-dt-scale 0.5d0
+              :explicit-dt-scale 0.25d0
               :explicit-damping-factor 0d-5
               :explicit-dynamic-solver
               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
@@ -1180,7 +1180,7 @@
                 (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
                       (cl-mpm::sim-velocity-algorithm sim) :BLEND
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
-                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0
+                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0.5d0
                       ))
               )
              )))
