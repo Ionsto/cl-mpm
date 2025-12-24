@@ -226,6 +226,16 @@
                                            phi
                                            psi
                                            c))
+        (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
+          (cl-mpm/constitutive::mc-plastic stress
+                                           de
+                                           strain
+                                           E
+                                           nu
+                                           phi
+                                           psi
+                                           c))
+        (defun constitutive-viscoelastic (stress de strain E nu dt viscosity))
         (defun matrix-sqrt (mat)
           (multiple-value-bind (l v) (cl-mpm/utils::eig mat)
             (magicl:@

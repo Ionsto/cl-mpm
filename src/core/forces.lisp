@@ -38,6 +38,18 @@
                      do (decf (aref c i) (the double-float (* (aref b j) (tref a i j) scale))))
             )))
   (values))
+(defun test-@-dsvp-vec ()
+    (let ((volume 0.1d0)
+          (dsvp (cl-mpm/shape-function::assemble-dsvp-3d (list 6d0 2d0 1.5d0)))
+          (stress (cl-mpm/utils:voigt-from-list (list 9d0 3d0 5d0 3d0 5d0 8d0))))
+      (let ((res (cl-mpm/utils:vector-zeros)))
+        (magicl:.- res (magicl:scale! (magicl:@ (magicl:transpose dsvp) stress) volume) res)
+        (pprint res))
+      (let ((res (cl-mpm/utils:vector-zeros)))
+        (@-dsvp-vec-lisp dsvp stress volume res)
+        (pprint res))
+      )
+    )
 
 #+:sb-simd
 (progn

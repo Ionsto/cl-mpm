@@ -460,9 +460,7 @@
          (+
           (* (aref a (+ i 0))  (aref b 0))
           (* (aref a (+ i 9))  (aref b 1))
-          (* (aref a (+ i 18)) (aref b 2)))))
-      
-      )
+          (* (aref a (+ i 18)) (aref b 2))))))
     result-vector))
 
 (declaim
@@ -475,20 +473,20 @@
   #-:sb-simd (@-stretch-vec-lisp matrix vector result-vector)
   result-vector)
 
-;; (defun test-@-stretch-vec ()
-;;   (let ((stretch (cl-mpm/shape-function::assemble-dstretch-3d (list 1d0 2d0 3d0)))
-;;         (vel (cl-mpm/utils::vector-from-list (list 0.1d0 9d0 2d0)))
-;;         (res-t (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;         (res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;         )
-;;     (magicl:mult stretch vel :target res-t)
-;;     (pprint res-t)
-;;     (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
-;;     (cl-mpm/fastmaths::@-stretch-vec stretch vel res)
-;;     (pprint res)
-;;     (format t "~%Pass?: ~A~%"
-;;      (every #'identity (loop for a across (magicl::storage (magicl:.- res res-t))
-;;                              collect (< (abs a) 1d-15))))))
+(defun test-@-stretch-vec ()
+  (let ((stretch (cl-mpm/shape-function::assemble-dstretch-3d (list 1d0 2d0 3d0)))
+        (vel (cl-mpm/utils::vector-from-list (list 0.1d0 9d0 2d0)))
+        (res-t (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+        (res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+        )
+    (magicl:mult stretch vel :target res-t)
+    (pprint res-t)
+    (setf res (cl-mpm/utils::stretch-dsvp-voigt-zeros))
+    (cl-mpm/fastmaths::@-stretch-vec stretch vel res)
+    (pprint res)
+    (format t "~%Pass?: ~A~%"
+     (every #'identity (loop for a across (magicl::storage (magicl:.- res res-t))
+                             collect (< (abs a) 1d-15))))))
 
 (declaim
  (inline @-dsvp-vec)
@@ -539,7 +537,13 @@
                  res
                  (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
+
+    #+:sb-simd
     (simd-any+ (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    #-:sb-simd
+    (lisp-any+ (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
                (magicl::matrix/double-float-storage res))
     res))
@@ -552,7 +556,12 @@
                  res
                  (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
+    #+:sb-simd
     (simd-any- (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    #-:sb-simd
+    (lisp-any- (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
                (magicl::matrix/double-float-storage res))
     res))
@@ -575,9 +584,16 @@
                                      (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage res)))
                     res)
                   ))))
-  (def-fast-.--type fast-.--vector cl-mpm/utils:vector-zeros 3 simd-any-)
-  (def-fast-.--type fast-.--voigt cl-mpm/utils:voigt-zeros 6 simd-any-)
-  (def-fast-.--type fast-.--matrix cl-mpm/utils:matrix-zeros 9 simd-any-)
+  #+:sb-simd
+  (progn
+    (def-fast-.--type fast-.--vector cl-mpm/utils:vector-zeros 3 simd-any-)
+    (def-fast-.--type fast-.--voigt cl-mpm/utils:voigt-zeros 6 simd-any-)
+    (def-fast-.--type fast-.--matrix cl-mpm/utils:matrix-zeros 9 simd-any-))
+  #-:sb-simd
+  (progn
+    (def-fast-.--type fast-.--vector cl-mpm/utils:vector-zeros 3 lisp-any-)
+    (def-fast-.--type fast-.--voigt cl-mpm/utils:voigt-zeros   6 lisp-any-)
+    (def-fast-.--type fast-.--matrix cl-mpm/utils:matrix-zeros 9 lisp-any-))
   )
 
 (defun fast-.* (a b &optional res)
@@ -585,7 +601,12 @@
                  res
                  (cl-mpm/utils::empty-copy a))))
     (declare (magicl:matrix/double-float a b res))
+    #+:sb-simd
     (simd-any* (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    #-:sb-simd
+    (lisp-any* (magicl::matrix/double-float-storage a)
                (magicl::matrix/double-float-storage b)
                (magicl::matrix/double-float-storage res))
     res))
@@ -609,10 +630,19 @@
                                      (the (simple-array double-float (,length)) (magicl::matrix/double-float-storage res)))
                     res)
                   ))))
-  (def-fast-.+-type fast-.+-vector cl-mpm/utils::vector-zeros 3 simd-any+)
-  (def-fast-.+-type fast-.+-voigt cl-mpm/utils::voigt-zeros 6 simd-any+)
-  (def-fast-.+-type fast-.+-matrix cl-mpm/utils::matrix-zeros 9 simd-any+-4)
-  (def-fast-.+-type fast-.+-stretch cl-mpm/utils::stretch-dsvp-3d-zeros 27 simd-any+-4)
+
+  #+:sb-simd
+  (progn
+    (def-fast-.+-type fast-.+-vector cl-mpm/utils::vector-zeros 3 simd-any+)
+    (def-fast-.+-type fast-.+-voigt cl-mpm/utils::voigt-zeros 6 simd-any+)
+    (def-fast-.+-type fast-.+-matrix cl-mpm/utils::matrix-zeros 9 simd-any+-4)
+    (def-fast-.+-type fast-.+-stretch cl-mpm/utils::stretch-dsvp-3d-zeros 27 simd-any+-4))
+  #-:sb-simd
+  (progn
+    (def-fast-.+-type fast-.+-vector cl-mpm/utils::vector-zeros           3 lisp-any+)
+    (def-fast-.+-type fast-.+-voigt cl-mpm/utils::voigt-zeros             6 lisp-any+)
+    (def-fast-.+-type fast-.+-matrix cl-mpm/utils::matrix-zeros           9 lisp-any+)
+    (def-fast-.+-type fast-.+-stretch cl-mpm/utils::stretch-dsvp-3d-zeros 27 lisp-any+))
   )
 
 (defun test-.+-vector ()
@@ -751,20 +781,6 @@
   )
 
 
-;; (declaim
-;;  (inline fast-.+)
-;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float) (magicl:matrix/double-float)) fast-.+))
-;; (defun fast-.+ (a b)
-;;   (let ((res ))
-;;     )
-;;   )
-;; (declaim
-;;  (inline fast-.+)
-;;  (ftype (function (magicl:matrix/double-float magicl:matrix/double-float magicl:matrix/double-float) (magicl:matrix/double-float)) fast-.+))
-;; (defun fast-.+ (a b res)
-;;   )
-
-
 (declaim (inline voigt-tensor-reduce-lisp)
          (ftype (function (magicl:matrix/double-float) (values double-float)) voigt-tensor-reduce-lisp))
 (let ((second-invar (magicl:from-array (make-array 6 :initial-contents '(1d0 1d0 1d0 0.5d0 0.5d0 0.5d0)) '(6 1) :type 'double-float :layout :column-major)))
@@ -787,8 +803,9 @@
      )))
 
 (defun voigt-tensor-reduce (a)
-  #+:sb-simd (voigt-tensor-reduce-simd a)
-  #-:sb-simd (voigt-tensor-reduce-lisp a)
+  (voigt-tensor-reduce-simd a)
+  ;; #+:sb-simd (voigt-tensor-reduce-simd a)
+  ;; #-:sb-simd (voigt-tensor-reduce-lisp a)
   )
 
 (declaim
@@ -1066,7 +1083,7 @@
         )
     (declare ((simple-array double-float (9)) a)
              ((simple-array double-float (3)) c)
-             ((simple-array double-float (6)) b)
+             ((simple-array double-float (3)) b)
              )
     (flet ((tref (m x y)
              (aref m (+ (* 3 y) x))))
@@ -1127,6 +1144,14 @@
     #-:sb-simd (@-matrix-vector-lisp mat vec scale res)
     #+:sb-simd (@-matrix-vector-simd mat vec scale res)
     res))
+(defun test-fast-@-matrix-vector ()
+  (let ((B (cl-mpm/utils:vector-from-list (list 1d0 2d0 3d0)))
+        (A (cl-mpm/utils::matrix-from-list (list 1d0 2d0 3d0
+                                                 4d0 5d0 6d0
+                                                 7d0 8d0 9d0)))
+        )
+    (pprint (magicl:@ A B))
+    (pprint (fast-@-matrix-vector A B))))
 
 (defun @-tensor-voigt-lisp (matrix-a matrix-b result-matrix)
   "Multiply a 3x3 matrix with a 3x3 matrix to calculate a 3x3 vector in place"
