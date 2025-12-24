@@ -759,9 +759,15 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                   (lin-grads (mapcar (lambda (d l)
                                                                        (cl-mpm/shape-function::shape-gimp-dsvp d l h))
                                                                      dist domain))
+                                                  (weights-fbar (mapcar (lambda (x l)
+                                                                     (cl-mpm/shape-function::shape-gimp-fbar x l h))
+                                                                   dist domain))
                                                   (grads (cl-mpm/shape-function::grads-3d weights lin-grads))
                                                   )
-                                             (funcall func mesh mp node weight grads 0d0 (list 0d0 0d0 0d0))))))))))))))
+                                             (funcall func mesh mp node weight grads
+                                                      (reduce #'* weights-fbar)
+                                                      (cl-mpm/shape-function::grads-3d weights-fbar lin-grads)
+                                                      )))))))))))))
 
 
 (defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)

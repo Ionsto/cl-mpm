@@ -24,6 +24,7 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (defun kirchoff-expt-step-lisp (strain df)
+  ;;Broken?
   ;; (loop for s across (cl-mpm/utils::fast-storage strain)
   ;;       do (when (or
   ;;                 (sb-ext:float-nan-p s)

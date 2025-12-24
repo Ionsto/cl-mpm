@@ -367,6 +367,9 @@
       #-:sb-simd
       (progn
         (dotimes (i 2)
-          (incf (aref f-s i) (* (+ (* mass gravity (aref g-s i)) (* volume (aref b-s i))) svp))))
+          (incf (aref f-s i)
+                (*
+                 (+ (* mass gravity (aref g-s i))
+                    (* volume (aref b-s i))) svp))))
 
       f-out)))
