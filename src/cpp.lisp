@@ -24,6 +24,7 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (defun kirchoff-expt-step-lisp (strain df)
+  ;;Broken?
   ;; (loop for s across (cl-mpm/utils::fast-storage strain)
   ;;       do (when (or
   ;;                 (sb-ext:float-nan-p s)
@@ -226,6 +227,16 @@
                                            phi
                                            psi
                                            c))
+        (defun constitutive-mohr-coulomb (stress de strain E nu phi psi c)
+          (cl-mpm/constitutive::mc-plastic stress
+                                           de
+                                           strain
+                                           E
+                                           nu
+                                           phi
+                                           psi
+                                           c))
+        (defun constitutive-viscoelastic (stress de strain E nu dt viscosity))
         (defun matrix-sqrt (mat)
           (multiple-value-bind (l v) (cl-mpm/utils::eig mat)
             (magicl:@

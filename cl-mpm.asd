@@ -34,7 +34,8 @@
 (defsystem "cl-mpm/fastmaths"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               :sb-simd)
+               ;:sb-simd
+               )
   :description "MPM fast maths operations definitions"
   :serial t
   :components ((:file "src/fastmaths")))
