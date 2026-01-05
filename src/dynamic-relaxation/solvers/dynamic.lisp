@@ -35,6 +35,7 @@
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
           (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
           (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
+          (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
           (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 mass))
           ;;Would intergrtate but don't
           (cl-mpm/utils::vector-copy-into residual residual-prev)
