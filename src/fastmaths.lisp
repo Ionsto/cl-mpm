@@ -28,11 +28,11 @@
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 (in-package :cl-mpm/fastmaths)
 
-;; (eval-when
-;;     (:compile-toplevel)
-;;   (pushnew :sb-simd *features*)
-;;   #+:sb-simd (require 'sb-simd)
-;;   )
+(eval-when
+    (:compile-toplevel)
+  (pushnew :sb-simd *features*)
+  #+:sb-simd (require 'sb-simd)
+  )
 
 #+:sb-simd
 (progn
