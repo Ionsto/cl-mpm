@@ -107,7 +107,7 @@
       (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
         (setf y
               (+
-               ;; ps-y
+               ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -193,7 +193,7 @@
                 (pressure-condition t)
                 (cryo-static t)
                 (hydro-static nil)
-                (melange t)
+                (melange nil)
                 (friction 0d0)
                 (ice-height 800d0)
                 (bench-length 0d0)
@@ -221,8 +221,8 @@
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point floatation-ratio))
          (datum (+ water-level offset))
-         ;; (datum (* (round datum mesh-resolution) mesh-resolution))
-         (domain-size (list (+ ice-length (* 1 ice-height)) (* start-height 2)))
+         (datum (* (round datum mesh-resolution) mesh-resolution))
+         (domain-size (list (+ ice-length (* 3 ice-height)) (* start-height 2)))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
          (block-size (list ice-length (max start-height end-height)))
          (E 1d9)
@@ -242,15 +242,17 @@
                                                (list
                                                 :enable-fbar t
                                                 :enable-aggregate t
+                                                :split-factor 0.51d0
                                                 ;; :refinement refines
                                                 )))
     (let* ((angle 40d0)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 1000d0)
-           (length-scale (* h-fine 1d0))
+           (length-scale (* h-fine 2d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
-           (ductility 5d0)
+           (ductility (/ (/ 5d0 0.125d0) refine))
+           ;(ductility 5d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -276,7 +278,7 @@
 
         :kt-res-ratio 1d0
         :kc-res-ratio 0d0
-        :g-res-ratio 0.95d0
+        :g-res-ratio 0.99d0
 
         :initiation-stress init-stress;18d3
         :friction-angle angle
@@ -391,7 +393,8 @@
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
          :k-x 1d0
-         :k-z 1d0)
+         :k-z 1d0
+         )
         ;; (break)
         ;; (cl-mpm/setup::initialise-stress-self-weight *sim* (+ offset start-height))
         )
@@ -1097,8 +1100,7 @@
   (loop for dt in (list 1d4)
         do
            (let* ((mps 3)
-                  (H 400d0)
-                  )
+                  (H 400d0))
              (setup :refine 0.25
                     :friction 0.2d0
                     :bench-length (* 0d0 H)

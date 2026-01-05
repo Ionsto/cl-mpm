@@ -115,8 +115,8 @@
 
 (defun calculate-val-mp-datum-propotional (mp func datum)
   (let ((pos
-          (cl-mpm/particle::mp-position mp)
-          ;; (cl-mpm/particle::mp-position-trial mp)
+          ;;(cl-mpm/particle::mp-position mp)
+          (cl-mpm/particle::mp-position-trial mp)
           ;; (fast-.+
           ;;  ;; (cl-mpm/particle::mp-position mp)
           ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
@@ -131,7 +131,7 @@
 
 (declaim (ftype (function (cl-mpm/mesh::cell function) (values)) calculate-val-cell))
 (defun calculate-val-cell (cell func)
-  (with-accessors ((pos cl-mpm/mesh::cell-centroid))
+  (with-accessors ((pos cl-mpm/mesh::cell-trial-centroid))
       cell
     (funcall func pos)))
 
@@ -825,8 +825,8 @@
                    (clip-function bc-buoyancy-clip-func))
       bc
     (declare (function clip-function))
-    ;; (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
-    (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
+    (populate-cells-volume sim (lambda (pos) (funcall clip-function pos datum)))
+    ;;(locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
     ))
 
 (defgeneric apply-buoyancy (sim func-stress func-div clip-function datum))
@@ -849,8 +849,8 @@
 
 
       (apply-force-mps-3d mesh mps
-                       ;; (lambda (mp) (calculate-val-mp mp func-stress))
-                       ;; (lambda (mp) (calculate-val-mp mp func-div))
+                       ;(lambda (mp) (calculate-val-mp mp func-stress))
+                       ;(lambda (mp) (calculate-val-mp mp func-div))
                        (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
                        (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
                        (lambda (pos) (funcall clip-function pos datum))
@@ -1020,6 +1020,7 @@
                               (active cl-mpm/mesh:node-active)
                               (mass cl-mpm/mesh:node-mass)
                               (velocity cl-mpm/mesh:node-velocity)
+                              (disp cl-mpm/mesh::node-displacment)
                               (volume cl-mpm/mesh::node-volume)
                               (boundary cl-mpm/mesh::node-boundary-node)
                               (lock cl-mpm/mesh::node-lock)
@@ -1029,7 +1030,10 @@
                  (cl-mpm/fastmaths:fast-.-
                   force
                   (cl-mpm/fastmaths:fast-scale-vector
-                   velocity
+                   ;velocity
+                   (cl-mpm/fastmaths::fast-scale-vector 
+                     disp
+                     (/ 1d0 dt))
                    (*
                     1/2
                     damping
@@ -1127,9 +1131,9 @@
    mesh
    (lambda (cell)
      ;;Iterate over a cells nodes
-     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+     (with-accessors (;(pos cl-mpm/mesh::cell-centroid)
                       ;; (trial-pos cl-mpm/mesh::cell-trial-centroid)
-                      ;; (trial-pos cl-mpm/mesh::cell-trial-centroid)
+                      (pos cl-mpm/mesh::cell-trial-centroid)
                       (cell-active cl-mpm/mesh::cell-active)
                       (cell-partial cl-mpm/mesh::cell-partial)
                       (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
@@ -1171,10 +1175,10 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           ;; (funcall clip-func node-pos)
+                           (funcall clip-func node-pos)
                            )
                   (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
-                        ;; (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
+                        (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
                         )
                     ;;Lock node
                     (cl-mpm/fastmaths:fast-zero f-stress)
@@ -1185,9 +1189,9 @@
                      f-div)
                     (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
                       (sb-thread:with-mutex (node-lock)
-                        (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
-                        (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
-                        (cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
+                        ;(cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
+                        ;(cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
+                        ;(cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
                         (incf node-boundary-scalar
                               (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
                         )
@@ -1208,9 +1212,8 @@
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
-        (when (funcall clip-func pos)
-          (let* ((mp-stress (funcall func-stress mp))
-                 ;; (mp-stress (cl-mpm/utils::pull-back-voigt-stress mp-stress df))
+        (when t;(funcall clip-func pos)
+          (let* ( (mp-stress (funcall func-stress mp))
                  (mp-div (funcall func-div mp))
                  (f-stress (cl-mpm/utils:vector-zeros))
                  (f-div (cl-mpm/utils:vector-zeros)))
@@ -1234,8 +1237,8 @@
                               (funcall clip-func node-pos))
                      (cl-mpm/fastmaths:fast-zero f-stress)
 
-                     (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
-                           ;; (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
+                     (let ((grads (cl-mpm::gradient-push-forwards grads df))
+                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
                            )
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                        (cl-mpm/fastmaths:fast-scale-vector
