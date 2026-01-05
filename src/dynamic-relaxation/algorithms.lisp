@@ -88,13 +88,25 @@
 (defun true-intertial-criteria (sim loadstep-dt)
   (let ((energy 0d0)
         (mass 0d0)
+        (max-inertia 0d0)
         (lock (sb-thread:make-mutex)))
     (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
-       (when (cl-mpm/mesh:node-active n)
+       (when (and 
+               (cl-mpm/mesh:node-active n) 
+               (not (cl-mpm/mesh::node-agg n)))
          (sb-thread:with-mutex (lock)
            (incf mass (cl-mpm/mesh:node-mass n))
+           (setf max-inertia (max max-inertia
+                                  (/ 
+                                    (*
+                                      (cl-mpm/mesh::node-true-mass n)
+                                      (cl-mpm/fastmaths::mag
+                                        (cl-mpm/fastmaths:fast-scale-vector
+                                          (cl-mpm/mesh::node-displacment n) (expt (/ 1d0 loadstep-dt) 2)))) 
+                                    (cl-mpm/fastmaths::mag
+                                      (cl-mpm/mesh::node-external-force n)))))
            (incf energy
                  (*
                   ;; (cl-mpm/mesh::node-true-mass n)
@@ -102,6 +114,7 @@
                   (cl-mpm/fastmaths::mag-squared
                    (cl-mpm/fastmaths:fast-scale-vector
                     (cl-mpm/mesh::node-displacment n) (expt (/ 1d0 loadstep-dt) 1)))))))))
+    (format t "Max inertia measure ~E~%" max-inertia)
     (let ((power (cl-mpm::sim-stats-power sim)))
       (if (= power 0d0)
           0d0
@@ -110,7 +123,8 @@
            ;; (if (= mass 0d0)
            ;;     0d0
            ;;     (/ energy mass))
-           power)))))
+           power)))
+    max-inertia))
 
 (defun damage-increment-criteria (sim &key (criteria 0.5d0))
   (let ((lock (sb-thread:make-mutex))
@@ -290,7 +304,15 @@
                           (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
                             (format t "True intertia ~E~%" true-intertia)
                             (save-conv-step sim output-dir *total-iter* global-step 0d0 o true-intertia)
-                            (setf inertia true-intertia))
+                            (setf inertia true-intertia)
+                            (when (> true-intertia 1d-5)
+                              (format t "Inertia criteria exceeded~%")
+                              (error (make-instance 'non-convergence-error
+                                                  :text "True inertia exceeded"
+                                                  :ke-norm 0d0
+                                                  :oobf-norm 0d0)))
+                            
+                            )
                           ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 o 0d0)
                           (incf *total-iter* substeps)))
 
@@ -382,6 +404,7 @@
          (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
          (substeps (round target-time (cl-mpm:sim-dt sim))))
     (format t "Substeps ~D~%" substeps)
+    (format t "E crit ~E - OOBF crit ~E~%" e-crit oobf-crit)
     (time (loop for step from 0 to max-steps
                 while (and (cl-mpm::sim-run-sim sim)
                            (or (>= energy e-crit)
@@ -556,7 +579,7 @@
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
-                                                     :max-damage-inc 0.5d0
+                                                     :max-damage-inc 0.3d0
                                                      :save-vtk-dr save-vtk-dr
                                                      )
                                   (setf quasi-conv conv
@@ -591,7 +614,7 @@
                                        :output-dir output-dir
                                        :plotter plotter
                                        :dt-scale explicit-dt-scale
-                                       :criteria (* conv-criteria 1d-1)
+                                       :criteria (* conv-criteria 1d0)
                                        :damping explicit-damping-factor
                                        :target-time (* 0.1d0 dt-loadstep)
                                        :enable-damage enable-damage

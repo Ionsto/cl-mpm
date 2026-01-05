@@ -353,7 +353,7 @@
     ))
 
 (defun save-stabilty-data (output-dir sim stable height floatation notch)
-  (let ((filename (merge-pathnames (format nil "data_~A_~A.json" height floatation) output-dir)))
+  (let ((filename (merge-pathnames (format nil "data_~A_~A_~A.json" height floatation notch) output-dir)))
     (str:to-file
      filename
      (jonathan:to-json

@@ -178,9 +178,9 @@
       (cl-mpm::update-stress mesh mps dt-loadstep fbar)
       (cl-mpm/damage::calculate-damage sim dt-loadstep)
       (cl-mpm::p2g-force-fs sim)
-      (cl-mpm::apply-bcs mesh bcs-force dt)
+      (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
       (loop for bcs-f in bcs-force-list
-            do (cl-mpm::apply-bcs mesh bcs-f dt))
+            do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
       (update-node-fictious-mass sim)
       (when ghost-factor
         (cl-mpm/ghost::apply-ghost sim ghost-factor)
@@ -251,11 +251,11 @@
        :conv-steps 10000
        :dt-scale 1d0;dt-scale
 
-       ;; :convergance-criteria
-       ;; (lambda (sim f o)
-       ;;   (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+       :convergance-criteria
+       (lambda (sim f o)
+       (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
        ;;     (pprint c)
-       ;;     (< c conv-crit)))
+           (< c conv-crit)))
 
        ;;   ;; (unless prev-res
        ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))

@@ -143,7 +143,7 @@
                    (L                cl-mpm/particle::mp-stretch-tensor)
                    (def mp-deformation-gradient)
                    (pressure mp-pressure)
-                   (p-wave cl-mpm/particle::mp-p-modulus)
+                   (p-wave cl-mpm/particle::mp-p-modulus-0)
                    (p cl-mpm/particle::mp-pressure)
                    )
       mp
@@ -152,6 +152,7 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
+    (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
         (let* (;; (epstr (voigt-copy strain))
                (K (/ e (* 3 (- 1d0 (* 2 nu)))))
@@ -187,8 +188,8 @@
              yield-func f
              ;; p-wave pmod
              )
-            (let (;; (inc (expt (* 1/3 (abs (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  ;; trial-elastic-strain strain)))) 2))
+            (let ((inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
+                  trial-elastic-strain strain)))) 1))
                   )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
@@ -743,7 +744,7 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
-                   (p-mod         cl-mpm/particle::mp-p-modulus)
+                   (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (def cl-mpm/particle::mp-deformation-gradient)
@@ -753,12 +754,13 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let ((exponent 1)
+      (let* ((exponent 1)
             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (pind (- p pressure))
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
-              (if (> (- p pressure) 0d0)
+              (if (> pind 0d0)
                   (* (- 1d0 (expt damage-t exponent)) p)
                   (* (- 1d0 (expt damage-c exponent)) p)))
         ;; (pprint pressure)
@@ -771,7 +773,7 @@
         (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
               (G (/ e (* 2 (+ 1d0 nu)))))
           (setf K
-                (if (> p 0d0)
+                (if (> pind 0d0)
                     (* (- 1d0 (expt damage-t exponent)) K)
                     (* (- 1d0 (expt damage-c exponent)) K)))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
@@ -781,7 +783,7 @@
             (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
             (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
             )
-          ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G))))
+          (setf p-mod (+ K (* 4/3 G)))
           )
         ))))
 
@@ -795,7 +797,6 @@
                    )
       mp
     ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
-    (cl-mpm/particle::update-log-p-wave mp)
     (when enable-damage
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
@@ -808,5 +809,8 @@
       ;; (cl-mpm/fastmaths:fast-.+ stress
       ;;                           (cl-mpm/constitutive::voight-eye (* ;; (magicl:det def)
       ;;                                                               (/ p 3) damage)) stress)
-    ))
+    (cl-mpm/particle::update-log-p-wave mp)
+    )
+  
+  )
 
