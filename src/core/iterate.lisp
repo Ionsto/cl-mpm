@@ -323,7 +323,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
       mp
     ;;Simple if statement - we take the hit
     (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-        (iterate-over-neighbours-shape-gimp-simd
+        (iterate-over-neighbours-shape-gimp-2d
          mesh mp
          (lambda (mesh mp node svp grads fsvp fgrads)
            (destructuring-bind (gx gy gz) grads
@@ -631,97 +631,99 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 ;;                             )))))))
 
 
-(declaim ;(inline iterate-over-neighbours-shape-gimp-simd)
-         (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
-                iterate-over-neighbours-shape-gimp-simd))
-(defun iterate-over-neighbours-shape-gimp-simd (mesh mp func)
-  "Iterate over a gimp domains neighbours in 2D using SIMD constructs"
-  (declare (type cl-mpm/mesh::mesh mesh)
-           (cl-mpm/particle:particle mp)
-           (function func)
-           (optimize (speed 3) (safety 0) (debug 0)))
-  (progn
-    ;; (let ((pos-vec (sb-mop:standard-instance-access mp 0))
-    ;;       (d0 (sb-mop:standard-instance-access mp 1))
-    ;;       ))
-    (with-accessors ((pos-vec cl-mpm/particle:mp-position)
-                     (d0 cl-mpm/particle::mp-domain-size))
-        mp
-      (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
-        (let* ((pa (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage pos-vec) 0))
-               (d0a (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage d0) 0))
-               (ia (sb-simd-avx:f64.2-round (sb-simd-avx:f64.2*
-                                             pa (/ 1d0 h))))
-               (ca (sb-simd-avx:f64.2- pa (sb-simd-avx:f64.2* ia h)))
-               ;;Lower bound of domain
-               (dfa (sb-simd-avx:f64.2-floor
-                     (sb-simd-avx:f64.2/
-                      (sb-simd-avx:f64.2-
-                       ca
-                       (sb-simd-avx:f64.2*
-                        d0a 0.5d0))
-                      h)))
-               ;;Upper bound of domain
-               (dca (sb-simd-avx:f64.2-ceiling
-                     (sb-simd-avx:f64.2/
-                      (sb-simd-avx:f64.2+
-                       ca
-                       (sb-simd-avx:f64.2*
-                        d0a 0.5d0)
-                       )
-                      h))))
-          (multiple-value-bind (ix iy) (sb-simd-avx:f64.2-values ia)
-            (multiple-value-bind (dox doy) (sb-simd-avx:f64.2-values d0a)
-              (multiple-value-bind (cx cy) (sb-simd-avx:f64.2-values ca)
-                (multiple-value-bind (dxf dyf) (sb-simd-avx:f64.2-values dfa)
-                  (multiple-value-bind (dxc dyc) (sb-simd-avx:f64.2-values dca)
-                    (declare (type double-float h cx cy dox doy)
+#+:sb-simd
+(progn
+  (declaim
+   (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
+          iterate-over-neighbours-shape-gimp-simd))
+  (defun iterate-over-neighbours-shape-gimp-simd (mesh mp func)
+    "Iterate over a gimp domains neighbours in 2D using SIMD constructs"
+    (declare (type cl-mpm/mesh::mesh mesh)
+             (cl-mpm/particle:particle mp)
+             (function func)
+             (optimize (speed 3) (safety 0) (debug 0)))
+    (progn
+      ;; (let ((pos-vec (sb-mop:standard-instance-access mp 0))
+      ;;       (d0 (sb-mop:standard-instance-access mp 1))
+      ;;       ))
+      (with-accessors ((pos-vec cl-mpm/particle:mp-position)
+                       (d0 cl-mpm/particle::mp-domain-size))
+          mp
+        (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
+          (let* ((pa (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage pos-vec) 0))
+                 (d0a (sb-simd-avx:f64.2-aref (magicl::matrix/double-float-storage d0) 0))
+                 (ia (sb-simd-avx:f64.2-round (sb-simd-avx:f64.2*
+                                               pa (/ 1d0 h))))
+                 (ca (sb-simd-avx:f64.2- pa (sb-simd-avx:f64.2* ia h)))
+                 ;;Lower bound of domain
+                 (dfa (sb-simd-avx:f64.2-floor
+                       (sb-simd-avx:f64.2/
+                        (sb-simd-avx:f64.2-
+                         ca
+                         (sb-simd-avx:f64.2*
+                          d0a 0.5d0))
+                        h)))
+                 ;;Upper bound of domain
+                 (dca (sb-simd-avx:f64.2-ceiling
+                       (sb-simd-avx:f64.2/
+                        (sb-simd-avx:f64.2+
+                         ca
+                         (sb-simd-avx:f64.2*
+                          d0a 0.5d0)
+                         )
+                        h))))
+            (multiple-value-bind (ix iy) (sb-simd-avx:f64.2-values ia)
+              (multiple-value-bind (dox doy) (sb-simd-avx:f64.2-values d0a)
+                (multiple-value-bind (cx cy) (sb-simd-avx:f64.2-values ca)
+                  (multiple-value-bind (dxf dyf) (sb-simd-avx:f64.2-values dfa)
+                    (multiple-value-bind (dxc dyc) (sb-simd-avx:f64.2-values dca)
+                      (declare (type double-float h cx cy dox doy)
                                         ;(type integer dxf dxc dyf dyc ix iy)
-                             )
-                    (loop for dx fixnum from (the fixnum (truncate dxf)) to (the fixnum (truncate dxc))
-                     ;; loop for dx fixnum from -2 to 2
-                           do (loop for dy fixnum from (the fixnum (truncate dyf)) to (the fixnum (truncate dyc))
-                               ;; loop for dy fixnum from -2 to 2
-                                   do
-                                      (let* ((id (list (+ (the fixnum (truncate ix)) dx)
-                                                       (+ (the fixnum (truncate iy)) dy)
-                                                       0
-                                                       )))
-                                        (declare (dynamic-extent id))
-                                        (when (cl-mpm/mesh:in-bounds mesh id)
-                                          (let* ((dist (sb-simd-avx:f64.2-
-                                                        ca
-                                                        (sb-simd-avx:f64.2*
-                                                         (sb-simd-avx:make-f64.2 dx dy)
-                                                         h))))
-                                            (multiple-value-bind (distx disty) (sb-simd-avx:f64.2-values dist)
-                                              (declare (type double-float distx disty))
-                                              (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp distx (* 0.5d0 dox) h)))
-                                                     (weightsy (the double-float (cl-mpm/shape-function::shape-gimp disty (* 0.5d0 doy) h)))
-                                                     (weight (* weightsx weightsy))
-                                                     (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
-                                                     (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                                     (weight-fbar (* weights-fbar-x weights-fbar-y))
-                                                     ;; #+cl-mpm-fbar
-                                                     )
-                                                (when (or (< 0d0 weight) (< 0d0 weight-fbar))
-                                                  (let* ((node (cl-mpm/mesh:get-node mesh id))
-                                                         (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h)
-                                                                   (the double-float weightsy)))
-                                                         (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
-                                                                   (the double-float weightsx)))
+                               )
+                      (loop for dx fixnum from (the fixnum (truncate dxf)) to (the fixnum (truncate dxc))
+                            ;; loop for dx fixnum from -2 to 2
+                            do (loop for dy fixnum from (the fixnum (truncate dyf)) to (the fixnum (truncate dyc))
+                                     ;; loop for dy fixnum from -2 to 2
+                                     do
+                                        (let* ((id (list (+ (the fixnum (truncate ix)) dx)
+                                                         (+ (the fixnum (truncate iy)) dy)
+                                                         0
+                                                         )))
+                                          (declare (dynamic-extent id))
+                                          (when (cl-mpm/mesh:in-bounds mesh id)
+                                            (let* ((dist (sb-simd-avx:f64.2-
+                                                          ca
+                                                          (sb-simd-avx:f64.2*
+                                                           (sb-simd-avx:make-f64.2 dx dy)
+                                                           h))))
+                                              (multiple-value-bind (distx disty) (sb-simd-avx:f64.2-values dist)
+                                                (declare (type double-float distx disty))
+                                                (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp distx (* 0.5d0 dox) h)))
+                                                       (weightsy (the double-float (cl-mpm/shape-function::shape-gimp disty (* 0.5d0 doy) h)))
+                                                       (weight (* weightsx weightsy))
+                                                       (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                                       (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                                       (weight-fbar (* weights-fbar-x weights-fbar-y))
+                                                       ;; #+cl-mpm-fbar
+                                                       )
+                                                  (when (or (< 0d0 weight) (< 0d0 weight-fbar))
+                                                    (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                                           (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h)
+                                                                     (the double-float weightsy)))
+                                                           (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
+                                                                     (the double-float weightsx)))
 
-                                                         (gradz 0d0)
-                                                         (grads-fbar
-                                                           (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
-                                                                 (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                                                 0d0)))
-                                                    (declare (double-float gradx grady))
-                                                    (funcall func mesh mp node
-                                                             weight (list gradx grady gradz)
-                                                             weight-fbar grads-fbar))))))))))))))))))))
+                                                           (gradz 0d0)
+                                                           (grads-fbar
+                                                             (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
+                                                                   (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
+                                                                   0d0)))
+                                                      (declare (double-float gradx grady))
+                                                      (funcall func mesh mp node
+                                                               weight (list gradx grady gradz)
+                                                               weight-fbar grads-fbar)))))))))))))))))))))
 ;;This is more consise but half as fast
-(defun iterate-over-neighbours-shape-gimp (mesh mp func)
+(defun iterate-over-neighbours-shape-gimp-lisp (mesh mp func)
   "Iterate over a gimp domains neighbours in 3D using simple lisp constructs"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
@@ -757,9 +759,16 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                   (lin-grads (mapcar (lambda (d l)
                                                                        (cl-mpm/shape-function::shape-gimp-dsvp d l h))
                                                                      dist domain))
+                                                  (weights-fbar (mapcar (lambda (x l)
+                                                                     (cl-mpm/shape-function::shape-gimp-fbar x l h))
+                                                                   dist domain))
                                                   (grads (cl-mpm/shape-function::grads-3d weights lin-grads))
                                                   )
-                                             (funcall func mesh mp node weight grads 0d0 (list 0d0 0d0 0d0))))))))))))))
+                                             (funcall func mesh mp node weight grads
+                                                      (reduce #'* weights-fbar)
+                                                      (cl-mpm/shape-function::grads-3d weights-fbar lin-grads)
+                                                      )))))))))))))
+
 
 (defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)
   "Iterate over a gimp domains neighbours in 2D unrolled, this version is more performant but worse than SIMD"
@@ -832,10 +841,21 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                  weight-fbar
                                                  grads-fbar))))))))))))))
 
+
+(defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)
+  #+:sb-simd (iterate-over-neighbours-shape-gimp-simd mesh mp func)
+  #-:sb-simd (iterate-over-neighbours-shape-gimp-lisp mesh mp func)
+  )
+
+(defun iterate-over-neighbours-shape-gimp-3d (mesh mp func)
+  #+:sb-simd (iterate-over-neighbours-shape-gimp-simd-3d mesh mp func)
+  #-:sb-simd (iterate-over-neighbours-shape-gimp-3d mesh mp func)
+  )
+
 (declaim ;(inline iterate-over-neighbours-shape-gimp)
          (ftype (function (cl-mpm/mesh::mesh cl-mpm/particle:particle function) (values))
                 iterate-over-neighbours-shape-gimp-3d))
-(defun iterate-over-neighbours-shape-gimp-3d (mesh mp func)
+(defun iterate-over-neighbours-shape-gimp-3d-lisp (mesh mp func)
   "Iterate over gimp neighbours in 3D, unrolled for speed"
   (declare (type cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp)
@@ -926,6 +946,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                  weight (list gradx grady gradz)
                                                  weight-fbar grads-fbar)))))))))))))))
 
+#+:sb-simd
 (defun iterate-over-neighbours-shape-gimp-simd-3d (mesh mp func)
   "Iterate over gimp neighbours in 3D, unrolled for speed"
   (declare (type cl-mpm/mesh::mesh mesh)
@@ -947,10 +968,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                  (ia (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
                        (loop for i from 0 to 2 do (setf (aref arr i) (fround (aref arr i) h))) arr))
                  (ca (let ((arr (make-array 3 :initial-element 0d0 :element-type 'double-float)))
-                       ;; (loop for i from 0 to 2
-                       ;;       for pv across pa
-                       ;;       for iv across ia
-                       ;;       do (setf (aref arr i) (- pv (* h iv))))
                        (setf
                         (sb-simd-avx:f64.2-aref
                          arr 0)
