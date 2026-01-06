@@ -357,7 +357,8 @@
                         (node-oobf cl-mpm/mesh::node-oobf)
                         )
            node
-         (when (and active (not agg))
+         (when (and active
+                    (not agg))
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
                (let ((inc (*
@@ -485,11 +486,70 @@
 (defmethod estimate-oobf (sim)
   (estimate-oobf-debug sim))
 
+(defun estimate-static-oobf-mass-scaled (sim)
+  (let ((oobf 0d0)
+        (nmax 0d0)
+        (dmax 0d0)
+        (oobf-norm 0d0)
+        (lock (sb-thread:make-mutex)))
+    (cl-mpm::iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (agg cl-mpm/mesh::node-agg)
+                        ;; ( cl-mpm/mesh::node-agg)
+                        (f-ext cl-mpm/mesh::node-external-force)
+                        (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
+                        (f-ghost cl-mpm/mesh::node-ghost-force)
+                        (node-oobf cl-mpm/mesh::node-oobf)
+                        )
+           node
+         (when (and active
+                    ;; t
+                    ;; (or 
+                    ;;  (not agg)
+                    ;;  )
+                    )
+           (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
+             (sb-thread:with-mutex (lock)
+               (let ((inc (*
+                           (expt (cl-mpm/mesh:node-mass node) 1)
+                           ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                           (cl-mpm/fastmaths::mag
+                            (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                                    (list
+                                     ;; residual
+                                     f-ext
+                                     f-int
+                                     ;; ;; f-damp
+                                     ;; f-ghost
+                                     )
+                                    )))))
+                 (incf node-oobf inc)
+                 (setf nmax (+
+                             nmax
+                             inc)
+                       dmax (+
+                             dmax
+                             (*
+                              (expt (cl-mpm/mesh:node-mass node) 1)
+                              ;; (expt (/ (cl-mpm/mesh::node-volume node) (cl-mpm/mesh::node-volume-true node)) 2)
+                              (cl-mpm/fastmaths::mag
+                               f-ext)))))))))))
+    (if (> dmax 0d0)
+      (setf oobf (/ nmax dmax))
+      ;;Very odd case, we have external force but no internal forces
+      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
+    oobf))
+
 
 (defgeneric estimate-static-oobf (sim))
 
 (defmethod estimate-static-oobf ((sim cl-mpm::mpm-sim))
-  (estimate-oobf sim))
+  (estimate-static-oobf-mass-scaled sim)
+  ;; (estimate-oobf sim)
+  )
 
 
 (defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm:mpm-sim))

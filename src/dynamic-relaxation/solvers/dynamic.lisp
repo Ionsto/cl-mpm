@@ -326,7 +326,7 @@
      (lambda (n)
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
-       ;;More complicated things need to happen with aggregation
+       ;;More complicated things need to happen with aggregation?
        (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
        ))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
