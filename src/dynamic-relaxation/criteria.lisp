@@ -497,6 +497,7 @@
      (lambda (node)
        (with-accessors ((active cl-mpm/mesh::node-active)
                         (agg cl-mpm/mesh::node-agg)
+                        (interior cl-mpm/mesh::node-interior)
                         ;; ( cl-mpm/mesh::node-agg)
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
@@ -507,10 +508,9 @@
            node
          (when (and active
                     ;; t
-                    ;; (or 
-                    ;;  (not agg)
-                    ;;  )
-                    )
+                    (or
+                     (not agg)
+                     interior))
            (when t;(> (cl-mpm/fastmaths::mag-squared f-ext) 0d0)
              (sb-thread:with-mutex (lock)
                (let ((inc (*
@@ -542,12 +542,80 @@
       ;;Very odd case, we have external force but no internal forces
       (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     oobf))
+(defun estimate-static-oobf-aggregated (sim)
+  (let ((oobf 0d0)
+        (nmax 0d0)
+        (dmax 0d0)
+        (oobf-norm 0d0)
+        (lock (sb-thread:make-mutex)))
+    (cl-mpm::iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (node)
+       (with-accessors ((active cl-mpm/mesh::node-active)
+                        (agg cl-mpm/mesh::node-agg)
+                        (interior cl-mpm/mesh::node-interior)
+                        ;; ( cl-mpm/mesh::node-agg)
+                        (f-ext cl-mpm/mesh::node-external-force)
+                        (f-int cl-mpm/mesh::node-internal-force)
+                        (f-damp cl-mpm/mesh::node-damping-force)
+                        (f-ghost cl-mpm/mesh::node-ghost-force)
+                        (node-oobf cl-mpm/mesh::node-oobf)
+                        )
+           node
+         (when (and active
+                    ;; t
+                    (or
+                     (not agg)
+                     ;; interior
+                     ))
+           (sb-thread:with-mutex (lock)
+             (let ((inc
+                     (cl-mpm/fastmaths::mag-squared
+                      (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                              (list
+                               f-ext
+                               f-int)))))
+               (incf node-oobf inc)
+               (setf nmax (+
+                           nmax
+                           inc)
+                     dmax (+
+                           dmax
+                           (cl-mpm/fastmaths::mag-squared f-ext)))))))))
+    (with-accessors ((mesh cl-mpm:sim-mesh))
+        sim
+      (when (cl-mpm/aggregate::sim-enable-aggregate sim)
+        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+              do (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                        (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                        (E (cl-mpm/aggregate::sim-global-e sim)))
+                   (incf nmax (cl-mpm/fastmaths::mag-squared
+                               (cl-mpm/aggregate::apply-internal-bcs
+                                sim
+                                (magicl:@ (magicl:transpose E) (cl-mpm/fastmaths:fast-.+ f-ext f-int))
+                                d
+                                )))
+                   (incf dmax (cl-mpm/fastmaths::mag-squared
+                               (cl-mpm/aggregate::apply-internal-bcs
+                                sim
+                                (magicl:@ (magicl:transpose E) f-ext)
+                                d)))))))
+    (if (> dmax 0d0)
+        (setf oobf (sqrt (/ nmax dmax)))
+      ;;Very odd case, we have external force but no internal forces
+      (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
+    oobf))
 
 
 (defgeneric estimate-static-oobf (sim))
 
 (defmethod estimate-static-oobf ((sim cl-mpm::mpm-sim))
   (estimate-static-oobf-mass-scaled sim)
+  ;; (estimate-oobf sim)
+  )
+
+(defmethod estimate-static-oobf ((sim cl-mpm/aggregate::mpm-sim-aggregated))
+  (estimate-static-oobf-aggregated sim)
   ;; (estimate-oobf sim)
   )
 
@@ -694,3 +762,15 @@
       ;;              )))
     res-norm)))
 
+
+(defun damage-increment-criteria (sim &key (criteria 0.5d0))
+  (let ((lock (sb-thread:make-mutex))
+        (result nil))
+    (cl-mpm:iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle::particle-damage)
+         (when (> (/ (cl-mpm/particle::mp-damage-increment mp)
+                     (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))) criteria)
+           (setf result t)))))
+    result))

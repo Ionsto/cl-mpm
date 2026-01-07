@@ -130,16 +130,7 @@
       max-inertia)
     0d0))
 
-(defun damage-increment-criteria (sim &key (criteria 0.5d0))
-  (let ((lock (sb-thread:make-mutex))
-        (result nil))
-    (cl-mpm:iterate-over-mps
-     (cl-mpm:sim-mps sim)
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle::particle-damage)
-         (when (> (cl-mpm/particle::mp-damage-increment mp) criteria)
-           (setf result t)))))
-    result))
+
 
 (defun generalised-staggered-solve (sim &key
                                           (output-dir "./output/")
@@ -424,6 +415,7 @@
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim sim)
+                        (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
                         (incf oobf (estimate-static-oobf sim))
                         (incf energy (cl-mpm::sim-stats-energy sim))
                         (incf work (cl-mpm::sim-stats-power sim))))

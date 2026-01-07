@@ -107,7 +107,7 @@
       (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
         (setf y
               (+
-               ps-y
+               ;; ps-y
                ;; (cl-mpm/damage::tensile-energy-norm
                ;;  strain
                ;;  E
@@ -117,7 +117,7 @@
                ;;  E
                ;;  nu
                ;;  de
-               ;;  (* 0d0 -1d0 (* 1d0 (magicl:det def)) (/ (- pressure) 1)))
+               ;;  (* 1d0 (* 1d0 (magicl:det def)) (/ (- pressure) 3)))
                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile
                ;;  ;; cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                ;;  (cl-mpm/fastmaths:fast-.+
@@ -1099,10 +1099,10 @@
 (defun calving-test ()
   (loop for dt in (list 1d4)
         do
-           (let* ((mps 3)
+           (let* ((mps 2)
                   (H 400d0))
              (setup :refine 0.25
-                    :friction 0.2d0
+                    :friction 0.8d0
                     :bench-length (* 0d0 H)
                     :ice-height H
                     :mps mps
@@ -1110,8 +1110,8 @@
                     :cryo-static t
                     :melange nil
                     :aspect 4d0
-                    :slope 0d0
-                    :floatation-ratio 0.8d0)
+                    :slope 0.05d0
+                    :floatation-ratio 0.9d0)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
              (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
@@ -1150,26 +1150,24 @@
               :dt dt
               :dt-scale 1d0
               :damping-factor 1d0;(sqrt 2)
-              :conv-criteria 1d-2
-              :conv-load-steps 2
+              :conv-criteria 1d-3
+              :conv-load-steps 1
               :min-adaptive-steps -4
               :max-adaptive-steps 10
               :substeps 10
               :steps 1000
               :enable-plastic t
               :enable-damage t
-              ;; :post-conv-step (lambda (sim)
-              ;;                   (setf (cl-mpm/penalty::bc-penalty-friction *floor-bc*) 0.9d0))
               :plotter (lambda (sim) (plot-domain))
-              ;; :explicit-dt-scale 100d0
               :explicit-dt-scale 0.25d0
               :explicit-damping-factor 1d-4
-              :explicit-dynamic-solver
-              ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
-              'cl-mpm/damage::mpm-sim-agg-damage
+              :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+              ;; :explicit-damping-factor 0d-2
+              ;; :explicit-dt-scale 10d0
+              ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
               :setup-quasi-static
               (lambda (sim)
-                ;; (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
                 (setf
                  (cl-mpm/aggregate::sim-enable-aggregate sim) t
                  (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
@@ -1178,11 +1176,11 @@
                  (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
               :setup-dynamic
               (lambda (sim)
-                ;; (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
-                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                       (cl-mpm::sim-velocity-algorithm sim) :BLEND
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
-                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 1d0
+                      (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 2d0
                       ))
               )
              )))
@@ -1514,8 +1512,8 @@
                  (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
               :setup-dynamic
               (lambda (sim)
-                (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-5)
-                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+                ;; (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-5)
+                (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
                       (cl-mpm::sim-velocity-algorithm sim) :FLIP
                       (cl-mpm::sim-ghost-factor sim) nil;(* 1d9 1d-4)
                       (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
