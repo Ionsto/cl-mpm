@@ -279,7 +279,7 @@
         (let ((ps-y (* E ps-vm)))
           (setf y
                 (+
-                 ps-y
+                 ;; ps-y
                  (max 0d0
                       (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                        (cl-mpm/constitutive:linear-elastic-mat strain de)
@@ -382,7 +382,7 @@
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((refines 0)
-         (mp-scale (* mp-scale (expt 2 (- refines 1))))
+         ;; (mp-scale (* mp-scale (expt 2 (- refines 1))))
          (sim (cl-mpm/setup:make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
@@ -393,7 +393,7 @@
                'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                :args-list (list
-                           ;; :split-factor 0.5d0
+                           :split-factor 0.51d0
                            :enable-fbar t
                            :enable-aggregate t
                            :vel-algo :QUASI-STATIC
@@ -2443,14 +2443,14 @@
      )))
 
 (defun test-multi ()
-  (setup :mps 2 :refine 2 :notch-length 1d0)
+  (setup :mps 3 :refine 4 :notch-length 1d0)
   ;; (setup-3d)
   ;; (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
-  (cl-mpm/setup::set-mass-filter *sim* 1d9 :proportion 1d-15)
-  ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
-  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-  (let ((dt 20d0)
-        (total-time 1000d0))
+  (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+  (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+  (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+  (let ((dt 50d0)
+        (total-time 10000d0))
     (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
     (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
     (cl-mpm/dynamic-relaxation::run-multi-stage
@@ -2459,25 +2459,32 @@
      :dt-scale 1d0
      :plotter (lambda (sim) (plot sim))
      :conv-criteria 1d-3
-     :substeps 20
+     :substeps 10
      :dt dt
      :damping 1d0
-     :max-adaptive-steps 8
+     :max-adaptive-steps 10
+     :min-adaptive-steps -5
      :steps (round total-time dt)
      ;; :explicit-dt-scale 0.5d0
      ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-     :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
-     :explicit-dt-scale 1d1
-     :elastic-dt-margin 1d3
+     ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+     ;; :explicit-dt-scale 1d1
+     ;; :elastic-dt-margin 1d3
+     ;; :explicit-dt-scale 1d2
+     :explicit-dt-scale 0.5d0
+     :explicit-damping-factor 1d-4
+     :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
      :setup-quasi-static
      (lambda (sim)
        (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+       (setf (cl-mpm::sim-velocity-algorithm *sim*) :QUASI-STATIC)
        (setf
         (cl-mpm/aggregate::sim-enable-aggregate sim) t
         (cl-mpm::sim-ghost-factor sim) nil))
      :setup-dynamic
      (lambda (sim)
-       (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
+       (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
+       (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
        (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
              (cl-mpm::sim-ghost-factor sim) nil)))))
 

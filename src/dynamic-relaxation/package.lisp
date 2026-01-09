@@ -24,6 +24,9 @@
    (kinetic-damping
     :initform nil
     :accessor sim-kinetic-damping)
+   (solve-count
+    :initform 0
+    :accessor sim-solve-count)
    (ke
     :initform 0d0
     :accessor sim-ke)

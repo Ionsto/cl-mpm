@@ -149,6 +149,7 @@
                (vel-algo cl-mpm::velocity-algorithm))
       sim
 
+    (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
     (cl-mpm::reset-grid mesh :reset-displacement t)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps)
@@ -274,7 +275,9 @@
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
                (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
-               (vel-algo cl-mpm::velocity-algorithm))
+               (vel-algo cl-mpm::velocity-algorithm)
+               (solve-count cl-mpm/dynamic-relaxation::solve-count)
+               )
       sim
     (declare (double-float damping-scale damping))
     (unless initial-setup
@@ -292,17 +295,20 @@
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt))
 
-    (update-node-fictious-mass sim)
+    (incf solve-count)
+    (when (= (mod solve-count 8) 0)
+      (update-node-fictious-mass sim))
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
-    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+    (when (= (mod solve-count 8) 0)
+      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
 
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
-    (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))

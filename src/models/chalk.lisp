@@ -792,26 +792,10 @@
               tau
               tau-exp
               dt
-              ))
-            (let ((new-damage
-                    (max
-                     damage-n
-                     (damage-response-exponential k E init-stress ductility))))
-              (declare (double-float new-damage))
-              (setf damage new-damage)
-              (setf damage-inc (- new-damage damage-n))))
-          (if peerlings
-              (setf
-               damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
-               damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
-               damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
-              (setf
-               damage-tension (* kt-r damage)
-               damage-compression (* kc-r damage)
-               damage-shear (* g-r damage))))
+              ))))
+        (compute-damage mp)
+        (setf damage-inc (- damage damage-n))
 
-        ;; (when (>= damage 1d0)
-        ;;   (setf damage-inc 0d0))
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))

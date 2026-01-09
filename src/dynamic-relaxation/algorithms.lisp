@@ -300,7 +300,7 @@
                             (format t "True intertia ~E~%" true-intertia)
                             (save-conv-step sim output-dir *total-iter* global-step 0d0 o true-intertia)
                             (setf inertia true-intertia)
-                            (when (> true-intertia 1d-5)
+                            (when (> true-intertia 1d-4)
                               (format t "Inertia criteria exceeded~%")
                               (error (make-instance 'non-convergence-error
                                                   :text "True inertia exceeded"
