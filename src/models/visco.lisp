@@ -42,13 +42,16 @@
     stress))
 
 (defun glen-visco (stress visc-factor visc-power)
-  (let* ((effective-stress (sqrt (* 1/2 (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress)))))
-         (visc-factor (expt visc-factor (- visc-power)))
-         )
+  (let* ((effective-stress (* 1/2 (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress))))
+         (visc-factor (expt visc-factor (- visc-power))))
     (declare (double-float effective-stress visc-factor))
     (/ 1d0
        (+ 1d-38
-          (* 2d0 visc-factor (expt effective-stress (- visc-power 1)))))))
+          (* 2d0 visc-factor (expt effective-stress (/ (- visc-power 1) 2)))))
+    ;; (/
+    ;;    (expt effective-stress (/ (- 1 visc-power) 2))
+    ;;    (* 2d0 visc-factor ))
+    ))
 
 (defun visco-predictor (mp dt)
   (with-accessors ((de mp-elastic-matrix)
@@ -82,6 +85,57 @@
       (if enable-viscosity
           (cl-mpm/models/visco::dev-exp-v stress strain e nu de visc dt)
           (cl-mpm/constitutive:linear-elastic-mat strain de stress)))))
+(defun visco-iterator (mp dt)
+  (with-accessors ((de mp-elastic-matrix)
+                   (e mp-e)
+                   (nu mp-nu)
+                   (stress mp-stress)
+                   (def mp-deformation-gradient)
+                   (def-n mp-deformation-gradient-0)
+                   (strain mp-strain)
+                   (strain-n mp-strain-n)
+                   (true-visc mp-viscosity)
+                   (visc-factor mp-visc-factor)
+                   (visc-power mp-visc-power)
+                   (enable-viscosity mp-enable-viscosity)
+                   (p-mod mp-p-modulus)
+                   (p-wave-0 mp-p-modulus-0)
+                   )
+      mp
+    (let* ((iJ-n1 (/ 1d0 (cl-mpm/fastmaths:det def)))
+           (stress-tr (cl-mpm/constitutive:linear-elastic-mat strain de))
+           (stress-n1 (cl-mpm/utils:voigt-copy stress-tr))
+           (visc-prev
+             (glen-visco
+              (cl-mpm/fastmaths:fast-scale
+               stress-tr
+               iJ-n1)
+              visc-factor
+              visc-power))
+           (visc visc-prev)
+           (tol 1d-3)
+           (err tol)
+           )
+      (loop for i from 0 to 1000
+            while (>= err tol)
+            do
+               (progn
+                 (setf stress-n1 (cl-mpm/models/visco::dev-exp-v stress-tr strain-n strain e nu de visc dt))
+                 (let ((new-visc
+                         (glen-visco
+                          (cl-mpm/fastmaths:fast-scale
+                           stress-n1
+                           iJ-n1)
+                          visc-factor
+                          visc-power)))
+                   (setf err (/ (abs (- new-visc visc)) visc))
+                   ;; (format t "Visc iter ~D ~E ~E - err ~E~%" i new-visc visc err)
+                   (setf
+                    visc-prev visc)
+                   (setf
+                    visc new-visc))))
+      visc)))
+
 
 (defmethod constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
   (with-accessors ((de mp-elastic-matrix)
@@ -97,6 +151,7 @@
                    (visc-power mp-visc-power)
                    (enable-viscosity mp-enable-viscosity)
                    (p-mod mp-p-modulus)
+                   (p-wave-0 mp-p-modulus-0)
                    )
       mp
     (cl-mpm/constitutive:linear-elastic-mat strain de stress)
@@ -112,15 +167,32 @@
                       (/ 1d0 (cl-mpm/fastmaths:det def)))
                      visc-factor
                      visc-power))
-           (visc (expt (+ (expt visc-n -1) (expt visc-n1 -1)) -1))
+           ;; (visc (expt (+ (expt visc-n -1) (expt visc-n1 -1)) -1))
+           (visc visc-n1)
+           ;; (visc (+ visc-n visc-n1))
+           ;; (visc (visco-iterator mp dt))
            )
+      ;; (break)
+      (when enable-viscosity
+        (setf visc (visco-iterator mp dt)))
       (setf true-visc visc)
-      (if enable-viscosity
+      (if (and enable-viscosity
+               (not (= dt 0d0)))
           ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt 1d0)
           ;; (cl-mpm/models/visco::dev-exp-v stress strain e nu de 1d0 dt)
-          (cl-mpm/models/visco::dev-exp-v stress strain e nu de visc dt)
+          (cl-mpm/models/visco::dev-exp-v stress strain-n strain e nu de visc dt)
           ;; (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt visc)
-          (cl-mpm/constitutive:linear-elastic-mat strain de stress)))
+          (cl-mpm/constitutive:linear-elastic-mat strain de stress))
+      ;; (if (and enable-viscosity
+      ;;          (not (= dt 0d0)))
+      ;;     (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+      ;;           (G (/ e (* 2 (+ 1d0 nu))))
+      ;;           (exp-rho (exp (- (/ dt visc)))))
+      ;;       (declare (double-float K G p-mod))
+      ;;       (setf p-wave-0 (* (+ K (* 4/3 G exp-rho)))))
+      ;;     (cl-mpm/particle::update-p-modulus mp))
+      )
+    (cl-mpm/particle::update-log-p-wave mp)
     stress))
 
 ;; (let ((test (cl-mpm/utils:voigt-from-list (list 0d0 2d0 3d0 2d0 0d0 3d0))))
@@ -234,7 +306,37 @@
 
 (defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((pressure (/ (voight-trace-2d strain) 2d0))
+  (let* (
+         ;; (pressure (/ (voight-trace-2d stress) 2d0))
+         ;; (pmat (voigt-eye-2d pressure))
+         (pressure (/ (trace-voigt stress) 3d0))
+         (pmat (voigt-eye pressure))
+         (exp-rho (exp (- (/ dt viscosity)))))
+    (cl-mpm::voigt-copy-into
+     (cl-mpm/fastmaths:fast-.+
+      pmat
+      (cl-mpm/fastmaths:fast-scale!
+       (cl-mpm/fastmaths:fast-.- stress pmat)
+       exp-rho))
+     stress)
+    (cl-mpm::voigt-copy-into
+     (magicl:linear-solve de stress)
+     strain)
+    ;; (cl-mpm::voigt-copy-into
+    ;;  (cl-mpm/fastmaths:fast-.+
+    ;;   pmat
+    ;;   (cl-mpm/fastmaths:fast-scale!
+    ;;    (cl-mpm/fastmaths:fast-.- strain pmat)
+    ;;    exp-rho))
+    ;;  strain)
+    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+    stress
+    ))
+
+(defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
+  "A stress increment form of a viscoelastic maxwell material"
+  (let* (
+         (pressure (/ (voight-trace-2d strain) 2d0))
          (pmat (voigt-eye-2d pressure))
          ;; (rho (/ (* 2d0 (- 1d0 nu) viscosity) e))
          ;; (exp-rho (exp (- (/ dt rho))))
@@ -253,12 +355,13 @@
          (nu 0.25d0)
          (dt 1d0)
          (viscosity 1d0)
+         (strain-n (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 0d0 0d0 0d0)))
          (strain-0 (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 5d0 0d0 0d0)))
          (de (cl-mpm/constitutive:linear-elastic-matrix E nu)))
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
            (stress (magicl:@ de strain)))
-      ;(pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity))
-      (pprint (dev-exp-v stress strain e nu de viscosity dt))
+                                        ;(pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity))
+      (pprint (dev-exp-v stress strain-n strain e nu de viscosity dt))
       (pprint stress))
 
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
@@ -446,7 +549,7 @@
                                      (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
                                      (magicl:transpose v)))))
           (cl-mpm/utils:voigt-copy-into out-strain strain)
-          (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+          (cl-mpm/constitutive::linear-elastic-mat strain d stress)
           out-strain))))
 
 

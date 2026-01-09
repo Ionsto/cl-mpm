@@ -1031,7 +1031,7 @@
                   force
                   (cl-mpm/fastmaths:fast-scale-vector
                    ;velocity
-                   (cl-mpm/fastmaths::fast-scale-vector 
+                   (cl-mpm/fastmaths::fast-scale-vector
                      disp
                      (/ 1d0 dt))
                    (*

@@ -189,8 +189,7 @@
              ;; p-wave pmod
              )
             (let ((inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  trial-elastic-strain strain)))) 1))
-                  )
+                  trial-elastic-strain strain)))) 1)))
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
             ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
@@ -708,26 +707,30 @@
                      (damage-shear cl-mpm/particle::mp-damage-shear)
                      (damage-compression cl-mpm/particle::mp-damage-compression)
                      (peerlings cl-mpm/particle::mp-peerlings-damage)
+                     (ps-vm cl-mpm/particle::mp-strain-plastic-vm)
                      )
         mp
       (declare (double-float damage damage-inc damage-n critical-damage k ybar tau dt ybar-prev init-stress k-n ybar))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
-        (let ((k0 init-stress))
+        (let ((k0 init-stress)
+              (ps-y (sqrt (* E (expt ps-vm 2)))))
           (when (or (>= ybar-prev k0)
                     (>= ybar k0))
             (setf k
                   (max
                    k-n
-                   (cl-mpm/damage::huen-integration
-                    k-n
-                    ybar-prev
-                    ybar
-                    k0
-                    tau
-                    tau-exp
-                    dt
-                    )))))
+                   (+
+                    ps-y
+                    (cl-mpm/damage::huen-integration
+                     k-n
+                     ybar-prev
+                     ybar
+                     k0
+                     tau
+                     tau-exp
+                     dt
+                     ))))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
@@ -801,7 +804,7 @@
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
       ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
-      (apply-vol-pressure-degredation mp dt (* -1d0
+      (apply-vol-pressure-degredation mp dt (* -0d0
                                                (* 1d0 (magicl:det def))
                                                (/ p 3) damage))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))

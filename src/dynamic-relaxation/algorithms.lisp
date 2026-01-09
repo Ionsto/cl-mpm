@@ -474,6 +474,7 @@
                           (enable-plastic t)
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
+                          (max-damage-inc 0.6d0)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
@@ -573,7 +574,7 @@
                                                      :enable-plastic enable-plastic
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
-                                                     :max-damage-inc 0.3d0
+                                                     :max-damage-inc max-damage-inc
                                                      :save-vtk-dr save-vtk-dr
                                                      )
                                   (setf quasi-conv conv

@@ -771,6 +771,8 @@
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle::particle-damage)
          (when (> (/ (cl-mpm/particle::mp-damage-increment mp)
-                     (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))) criteria)
+                     1d0
+                     ;; (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))
+                     ) criteria)
            (setf result t)))))
     result))

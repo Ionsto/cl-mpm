@@ -589,7 +589,7 @@
                           (loop for sii in l maximize sii)))
 
         (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
-        ;; (cl-mpm/output::save-parameter "viscosity" (optional-slot-access 'cl-mpm/particle::viscosity mp))
+        (cl-mpm/output::save-parameter "viscosity" (optional-slot-access 'cl-mpm/particle::viscosity mp))
 
         ;; (cl-mpm/output::save-parameter "i-1" (cl-mpm/utils::trace-voigt (cl-mpm/particle::mp-stress mp)))
 
