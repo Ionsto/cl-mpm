@@ -846,6 +846,10 @@
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
+      (cl-mpm::iterate-over-mps
+       mps
+       (lambda (mp)
+         (compute-mp-displacement mesh mp)))
 
 
       (apply-force-mps-3d mesh mps
@@ -1031,7 +1035,7 @@
                   force
                   (cl-mpm/fastmaths:fast-scale-vector
                    ;velocity
-                   (cl-mpm/fastmaths::fast-scale-vector
+                   (cl-mpm/fastmaths::fast-scale-vector 
                      disp
                      (/ 1d0 dt))
                    (*
