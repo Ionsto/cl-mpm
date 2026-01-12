@@ -85,50 +85,7 @@
    #'+
    (cl-mpm:sim-mps sim)))
 
-(defun true-intertial-criteria (sim loadstep-dt)
-  (if (> loadstep-dt 0d0)
-    (let ((energy 0d0)
-          (mass 0d0)
-          (max-inertia 0d0)
-          (lock (sb-thread:make-mutex)))
-      (cl-mpm:iterate-over-nodes
-       (cl-mpm:sim-mesh sim)
-       (lambda (n)
-         (when (and
-                (cl-mpm/mesh:node-active n)
-                (not (cl-mpm/mesh::node-agg n)))
-           (sb-thread:with-mutex (lock)
-             (incf mass (cl-mpm/mesh:node-mass n))
-             (setf max-inertia (max max-inertia
-                                    (/
-                                     (*
-                                      (cl-mpm/mesh::node-true-mass n)
-                                      (cl-mpm/fastmaths::mag
-                                       (cl-mpm/fastmaths:fast-scale-vector
-                                        (cl-mpm/mesh::node-displacment n)
-                                        (expt (/ 1d0 loadstep-dt) 2))))
-                                     (+ 1d-15
-                                        (cl-mpm/fastmaths::mag
-                                         (cl-mpm/mesh::node-external-force n))))))
-             (incf energy
-                   (*
-                    ;; (cl-mpm/mesh::node-true-mass n)
-                    (cl-mpm/mesh::node-true-mass n)
-                    (cl-mpm/fastmaths::mag-squared
-                     (cl-mpm/fastmaths:fast-scale-vector
-                      (cl-mpm/mesh::node-displacment n) (expt (/ 1d0 loadstep-dt) 1)))))))))
-      (format t "Max inertia measure ~E~%" max-inertia)
-      ;; (let ((power (cl-mpm::sim-stats-power sim)))
-      ;;   (if (= power 0d0)
-      ;;       0d0
-      ;;       (/
-      ;;        energy
-      ;;        ;; (if (= mass 0d0)
-      ;;        ;;     0d0
-      ;;        ;;     (/ energy mass))
-      ;;        power)))
-      max-inertia)
-    0d0))
+
 
 
 

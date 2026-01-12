@@ -606,6 +606,78 @@
       (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     oobf))
 
+(defun true-intertial-criteria (sim loadstep-dt)
+  (if (> loadstep-dt 0d0)
+      (destructuring-bind (inertia-norm ext-norm)
+          (cl-mpm::reduce-over-nodes
+           (cl-mpm:sim-mesh sim)
+           (lambda (node)
+             (if (and (cl-mpm/mesh:node-active node)
+                      ;; (or
+                      ;;  (not (cl-mpm/mesh::node-agg node))
+                      ;;  ;; (cl-mpm/mesh::node-interior node)
+                      ;;  )
+                      )
+                 (with-accessors ((active cl-mpm/mesh::node-active)
+                                  (f-ext cl-mpm/mesh::node-external-force)
+                                  ;; (f-int cl-mpm/mesh::node-residual)
+                                  (res cl-mpm/mesh::node-residual)
+                                  (node-oobf cl-mpm/mesh::node-oobf)
+                                  (mass cl-mpm/mesh::node-mass)
+                                  (volume cl-mpm/mesh::node-volume)
+                                  (volume-t cl-mpm/mesh::node-volume-true)
+                                  (vel cl-mpm/mesh::node-velocity)
+                                  (disp cl-mpm/mesh::node-displacment)
+                                  (true-mass cl-mpm/mesh::node-true-mass)
+                                  )
+                     node
+                   (declare (double-float mass))
+                   (list
+                    (*
+                     true-mass
+                     (cl-mpm/fastmaths::mag
+                      (cl-mpm/fastmaths:fast-scale-vector
+                       disp
+                       (expt (/ 1d0 loadstep-dt) 2))))
+                    (cl-mpm/fastmaths::mag-squared f-ext)))
+                 (list 0d0 0d0)))
+           (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+        (if (> ext-norm 0d0)
+            (sqrt (/ inertia-norm ext-norm))
+            (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0)))
+    ;; (let (
+    ;;       (inertia-norm 0d0)
+    ;;       (ext-norm 0d0)
+    ;;       (max-inertia 0d0)
+    ;;       (lock (sb-thread:make-mutex)))
+    ;;   (cl-mpm:iterate-over-nodes
+    ;;    (cl-mpm:sim-mesh sim)
+    ;;    (lambda (n)
+    ;;      (when (and
+    ;;             (cl-mpm/mesh:node-active n)
+    ;;             (not (cl-mpm/mesh::node-agg n)))
+    ;;        (sb-thread:with-mutex (lock)
+    ;;          (incf mass (cl-mpm/mesh:node-mass n))
+    ;;          (setf max-inertia (max max-inertia
+    ;;                                 (/
+    ;;                                  (*
+    ;;                                   (cl-mpm/mesh::node-true-mass n)
+    ;;                                   (cl-mpm/fastmaths::mag
+    ;;                                    (cl-mpm/fastmaths:fast-scale-vector
+    ;;                                     (cl-mpm/mesh::node-displacment n)
+    ;;                                     (expt (/ 1d0 loadstep-dt) 2))))
+    ;;                                  (+ 1d-15
+    ;;                                     (cl-mpm/fastmaths::mag
+    ;;                                      (cl-mpm/mesh::node-external-force n))))))
+    ;;          (incf energy
+    ;;                (*
+    ;;                 (cl-mpm/mesh::node-true-mass n)
+    ;;                 (cl-mpm/fastmaths::mag-squared
+    ;;                  (cl-mpm/fastmaths:fast-scale-vector
+    ;;                   (cl-mpm/mesh::node-displacment n) (expt (/ 1d0 loadstep-dt) 1)))))))))
+    ;;   (format t "Max inertia measure ~E~%" max-inertia)
+    ;;   max-inertia)
+    ))
 
 (defgeneric estimate-static-oobf (sim))
 

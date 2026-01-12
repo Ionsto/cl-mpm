@@ -760,6 +760,7 @@
       (let* ((exponent 1)
             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
             (pind (- p pressure))
+            ;; (pind p)
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf p
@@ -804,8 +805,8 @@
       ;; (apply-vol-degredation mp dt)
       ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
       ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
-      (apply-vol-pressure-degredation mp dt (* -0d0
-                                               (* 1d0 (magicl:det def))
+      (apply-vol-pressure-degredation mp dt (* -1d0
+                                               ;; (/ 1d0 (magicl:det def))
                                                (/ p 3) damage))
       ;; (setf stress (cl-mpm/constitutive::voight-eye p))
       )

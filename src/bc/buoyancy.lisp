@@ -95,13 +95,13 @@
          (when node-active
            (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)))))
     (fast-.+ (cl-mpm/particle::mp-position mp)
-            disp-inc
-            (cl-mpm/particle::mp-position-trial mp))))
+             disp-inc
+             (cl-mpm/particle::mp-position-trial mp))))
 
 (declaim (ftype (function (cl-mpm/particle:particle function) (values)) calculate-val-mp))
 (defun calculate-val-mp (mp func)
   (let ((pos
-          (cl-mpm/particle::mp-position mp)
+          (cl-mpm/particle::mp-position-trial mp)
           ;(cl-mpm/particle::mp-position-trial mp)
           ;; (cl-mpm/particle::mp-position-trial mp)
           ;; (fast-.+
@@ -851,12 +851,11 @@
        (lambda (mp)
          (compute-mp-displacement mesh mp)))
 
-
       (apply-force-mps-3d mesh mps
-                       ;(lambda (mp) (calculate-val-mp mp func-stress))
-                       ;(lambda (mp) (calculate-val-mp mp func-div))
-                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
+                       (lambda (mp) (calculate-val-mp mp func-stress))
+                       (lambda (mp) (calculate-val-mp mp func-div))
+                       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
+                       ;; (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
                        (lambda (pos) (funcall clip-function pos datum))
                        )
       (apply-force-cells-3d mesh
@@ -969,10 +968,10 @@
                           (mp-boundary cl-mpm/particle::mp-boundary)
                           )
              mp
-           (when ;(and (cell-clipping (cl-mpm/mesh::node-position node) datum)
+           (when t
+                                        ;(and (cell-clipping (cl-mpm/mesh::node-position node) datum)
                                         ;     (funcall clip-func (cl-mpm/mesh::node-position node) datum))
-
-               (setf pressure 0d0)
+             (setf pressure 0d0)
              ;; (setf mp-pfunc
              ;;       (lambda (p)
              ;;         0d0))
@@ -1001,8 +1000,11 @@
               (when t;(cl-mpm/mesh::node-boundary-node node)
                 (when node
                   ;; (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
-                  (when (and (cell-clipping (cl-mpm/mesh::node-position node) datum)
-                             (funcall clip-func (cl-mpm/mesh::node-position node) datum))
+                  (when (and
+                         t
+                                        ;(cell-clipping (cl-mpm/mesh::node-position node) datum)
+                                        ;(funcall clip-func (cl-mpm/mesh::node-position node) datum)
+                             )
                     (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
                     ;; (setf mp-pfunc
                     ;;       (lambda (p)
@@ -1242,8 +1244,7 @@
                      (cl-mpm/fastmaths:fast-zero f-stress)
 
                      (let ((grads (cl-mpm::gradient-push-forwards grads df))
-                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
-                           )
+                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                        (cl-mpm/fastmaths:fast-scale-vector
                         mp-div
@@ -1602,6 +1603,7 @@
                       (disp cl-mpm/mesh::cell-displacement))
          cell
        (when cell-active
+         ;; (pprint "hello")
          (let* ()
            (cl-mpm::cell-iterate-over-neighbours
             mesh cell
@@ -1611,8 +1613,7 @@
                                (node-lock  cl-mpm/mesh:node-lock)
                                (node-active cl-mpm/mesh:node-active)
                                (node-boundary cl-mpm/mesh::node-boundary-node)
-                               (node-volume cl-mpm/mesh::node-volume)
-                               )
+                               (node-volume cl-mpm/mesh::node-volume))
                   node
                 (declare (double-float volume svp))
                 (when (and node-active

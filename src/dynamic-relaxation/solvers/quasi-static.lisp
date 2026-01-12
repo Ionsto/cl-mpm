@@ -296,12 +296,12 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt))
 
     (incf solve-count)
-    (when (= (mod solve-count 8) 0)
+    (when (= (mod solve-count 1) 0)
       (update-node-fictious-mass sim))
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
-    (when (= (mod solve-count 8) 0)
+    (when (= (mod solve-count 1) 0)
       (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
 
     ;; ;;Update our nodes after force mapping
