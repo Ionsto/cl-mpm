@@ -12,6 +12,15 @@
    (ke-norm :initarg :ke-norm :reader ke-norm)
    (oobf-norm :initarg :oobf-norm :reader oobf-norm)))
 
+(define-condition error-damage-criteria (non-convergence-error)
+  ((max-damage-inc :initarg :max-damage-inc :reader max-damage-inc)))
+
+(define-condition error-inertia-criteria (non-convergence-error)
+  ((inertia-norm :initarg :inertia-norm :reader inertia-norm)))
+
+(define-condition error-erosion-criteria (non-convergence-error)
+  ((max-erosion-inc :initarg :max-erosion-inc :reader max-erosion-inc)))
+
 (defparameter *run-convergance* t)
 (declaim (notinline converge-quasi-static))
 (defun converge-quasi-static (sim &key
@@ -112,7 +121,8 @@
                    (setf fnorm 0d0
                          load 0d0)
                    (optional-time
-                    nil
+                    ;; nil
+                    t
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)

@@ -1129,10 +1129,10 @@ Calls the function with the mesh mp and node"
                                                    (cl-mpm/particle::mp-time-averaged-ybar mp) 0d0)
                                              v)
                                            0))
-        (cl-mpm/output::save-parameter "erosion"
-                                       (if (slot-exists-p mp 'cl-mpm/particle::eroded-volume)
-                                           (cl-mpm/particle::mp-eroded-volume mp)
-                                           0))
+        ;; (cl-mpm/output::save-parameter "erosion"
+        ;;                                (if (slot-exists-p mp 'cl-mpm/particle::eroded-volume)
+        ;;                                    (cl-mpm/particle::mp-eroded-volume mp)
+        ;;                                    0))
         (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
 
@@ -1288,6 +1288,10 @@ Calls the function with the mesh mp and node"
         ;;         )
         ;;      0d0)
         ;;  )
+        (cl-mpm/output::save-parameter "erosion"
+                                       (/ 
+                                        (cl-mpm/output::optional-slot-access 'cl-mpm/particle::eroded-volume mp)
+                                        (cl-mpm/particle::mp-mass mp)))
         (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact-step mp) 1 0))
         (cl-mpm/output::save-parameter "fric-contact-stick" (if (cl-mpm/particle::mp-penalty-friction-stick mp) 1 0))
         (cl-mpm/output::save-parameter "fric-normal" (cl-mpm/particle::mp-penalty-normal-force mp))

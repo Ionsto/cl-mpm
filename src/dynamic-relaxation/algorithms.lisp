@@ -259,10 +259,9 @@
                             (setf inertia true-intertia)
                             (when (> true-intertia 1d-4)
                               (format t "Inertia criteria exceeded~%")
-                              (error (make-instance 'non-convergence-error
+                              (error (make-instance 'error-inertia-criteria
                                                   :text "True inertia exceeded"
-                                                  :ke-norm 0d0
-                                                  :oobf-norm 0d0))))
+                                                  :inertia-norm true-intertia))))
                           ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 o 0d0)
                           (incf *total-iter* substeps)))
 
@@ -289,10 +288,9 @@
                                   (format t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
                                   (when (damage-increment-criteria sim :criteria max-damage-inc)
                                     (format t "Damage criteria failed~%")
-                                    (error (make-instance 'non-convergence-error
+                                    (error (make-instance 'error-damage-criteria
                                                           :text "Damage criteria exeeded"
-                                                          :ke-norm 0d0
-                                                          :oobf-norm 0d0)))
+                                                          :max-damage-inc 0d0)))
                                   (when damage-iter
                                     (cl-mpm:update-sim sim)
                                     (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim)))))

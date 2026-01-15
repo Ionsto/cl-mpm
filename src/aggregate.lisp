@@ -46,15 +46,51 @@
     :accessor sim-internal-v)
    ))
 
+(defun iterate-over-cell-patch-2d (sim node ring-size func)
+  (declare (function func))
+  (with-accessors ((mesh cl-mpm::sim-mesh))
+      sim
+    (with-accessors ((index cl-mpm/mesh::node-index))
+        node
+      (loop for dx from (- (+ ring-size 1)) to ring-size
+            do
+               (loop for dy from (- (+ ring-size 1)) to ring-size
+                     do
+                        (let ((cell-index (mapcar #'+ index (list dx dy 0))))
+                          (when (cl-mpm/mesh::in-bounds-cell mesh cell-index)
+                            (funcall func (cl-mpm/mesh::get-cell mesh cell-index)))))))))
 
+(defun iterate-over-cell-patch-3d (sim node ring-size func)
+  (declare (function func))
+  (with-accessors ((mesh cl-mpm::sim-mesh))
+      sim
+    (with-accessors ((index cl-mpm/mesh::node-index))
+        node
+      (loop for dx from (- ring-size 1) to ring-size
+            do
+               (loop for dy from (- ring-size 1) to ring-size
+                     do
+                        (loop for dz from (- ring-size 1) to ring-size
+                              do
+                                 (let ((cell-index (mapcar #'+ index (list dx dy dz))))
+                                   (when (cl-mpm/mesh::in-bounds-cell mesh cell-index)
+                                     (funcall func (cl-mpm/mesh::get-cell mesh cell-index))))))))))
+
+(defun iterate-over-cell-patch (sim node ring-size func)
+  (declare (function func))
+  (if (= (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) 2)
+      (iterate-over-cell-patch-2d sim node ring-size func)
+      (iterate-over-cell-patch-3d sim node ring-size func)))
 
 (defun get-closest-cell (sim node)
   (let ((closest-elem nil)
         (dist 0d0)
         ;; (mutex (sb-thread:make-mutex))
         (pos (cl-mpm/mesh::node-position node)))
-    (cl-mpm::iterate-over-cells-serial
-     (cl-mpm:sim-mesh sim)
+    (iterate-over-cell-patch
+     sim
+     node
+     1
      (lambda (cell)
        (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                         (index cl-mpm/mesh::cell-index)
@@ -72,13 +108,38 @@
              (when (or
                     (not closest-elem)
                     (> dist dist-tr))
-               ;; (sb-thread:with-mutex (mutex))
                (when (or
                       (not closest-elem)
                       (> dist dist-tr))
                  (setf dist dist-tr
-                       closest-elem cell)))))
-         )))
+                       closest-elem cell))))))))
+    (unless closest-elem
+      (cl-mpm::iterate-over-cells-serial
+       (cl-mpm:sim-mesh sim)
+       (lambda (cell)
+         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                          (index cl-mpm/mesh::cell-index)
+                          (centroid cl-mpm/mesh::cell-centroid)
+                          (active cl-mpm/mesh::cell-active)
+                          (agg cl-mpm/mesh::cell-agg))
+             cell
+           (when (and
+                  (cl-mpm/mesh::cell-active cell)
+                  (not (cl-mpm/mesh::cell-partial cell))
+                  (not (cl-mpm/mesh::cell-agg cell)))
+             (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                             pos
+                             centroid)))
+               (when (or
+                      (not closest-elem)
+                      (> dist dist-tr))
+                 ;; (sb-thread:with-mutex (mutex))
+                 (when (or
+                        (not closest-elem)
+                        (> dist dist-tr))
+                   (setf dist dist-tr
+                         closest-elem cell)))))
+           ))))
     closest-elem))
 
 

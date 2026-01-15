@@ -632,8 +632,8 @@
 
                 (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                       (max
-                       ;; (cl-mpm/particle::mp-penalty-stiffness mp)
                        (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction)))))
+
                 (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
 
                 (let* (
@@ -672,6 +672,15 @@
                       ;;          ;; (* ;; contact-area
                       ;;          ;;    (cl-mpm/fastmaths::mag force-friction))
                       ;;          ))
+
+                      ;; (setf
+                      ;;  (cl-mpm/particle::mp-penalty-stiffness mp)
+                      ;;  (max
+                      ;;   (cl-mpm/particle::mp-penalty-stiffness mp)
+                      ;;   (*
+                      ;;    (cl-mpm/fastmaths:mag force-friction)
+                      ;;    ;epsilon
+                      ;;    )))
                       )
 
                     (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
@@ -1290,7 +1299,10 @@
                        node-mass
                        (+
                         node-mass
-                        (* 2d0 svp mp-stiffness))
+                        (* 2d0
+                           svp
+                           mp-stiffness)
+                        )
                        ;; (max
                        ;;  node-mass
                        ;;  (* 1d0 (/ (*

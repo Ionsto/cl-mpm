@@ -1017,77 +1017,78 @@
                     ;; (setf mp-boundary 1d3)
                     ))))))))
 
-      (let ((damping (bc-viscous-damping bc)))
-        (cl-mpm:iterate-over-nodes
-         mesh
-         (lambda (node)
-           (when (cl-mpm/mesh:node-active node)
-             (with-accessors ((force cl-mpm/mesh::node-damping-force)
-                              (active cl-mpm/mesh:node-active)
-                              (mass cl-mpm/mesh:node-mass)
-                              (velocity cl-mpm/mesh:node-velocity)
-                              (disp cl-mpm/mesh::node-displacment)
-                              (volume cl-mpm/mesh::node-volume)
-                              (boundary cl-mpm/mesh::node-boundary-node)
-                              (lock cl-mpm/mesh::node-lock)
-                              (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-                 node
-               (sb-thread:with-mutex (lock)
-                 (cl-mpm/fastmaths:fast-.-
-                  force
-                  (cl-mpm/fastmaths:fast-scale-vector
-                   ;velocity
-                   (cl-mpm/fastmaths::fast-scale-vector 
-                     disp
-                     (/ 1d0 dt))
-                   (*
-                    1/2
-                    damping
-                    rho
-                    (sqrt (max 0d0 (- boundary-scalar)))))
-                  force))))))
-        ;; (cl-mpm:iterate-over-mps
-        ;;  mps
-        ;;  (lambda (mp)
-        ;;    (with-accessors ((pos cl-mpm/particle:mp-position)
-        ;;                     (pressure cl-mpm/particle::mp-pressure)
-        ;;                     (mp-boundary cl-mpm/particle::mp-boundary)
-        ;;                     (mp-volume cl-mpm/particle::mp-volume)
-        ;;                     (mp-velocity cl-mpm/particle::mp-velocity)
-        ;;                     )
-        ;;        mp
-        ;;      (when (> mp-boundary 0d0)
-        ;;        (cl-mpm::iterate-over-neighbours
-        ;;         mesh mp
-        ;;         (lambda (mesh mp node svp grads fsvp fgrad)
-        ;;           (when (cl-mpm/mesh:node-active node)
-        ;;             (with-accessors ((force cl-mpm/mesh::node-damping-force)
-        ;;                              (active cl-mpm/mesh:node-active)
-        ;;                              (mass cl-mpm/mesh:node-mass)
-        ;;                              (velocity cl-mpm/mesh:node-velocity)
-        ;;                              (volume cl-mpm/mesh::node-volume)
-        ;;                              (boundary cl-mpm/mesh::node-boundary-node)
-        ;;                              (lock cl-mpm/mesh::node-lock)
-        ;;                              (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-        ;;                 node
-        ;;               (sb-thread:with-mutex (lock)
-        ;;                 (cl-mpm/fastmaths:fast-.-
-        ;;                  force
-        ;;                  (cl-mpm/fastmaths:fast-scale-vector
-        ;;                   ;; mp-velocity
-        ;;                   velocity
-        ;;                   (*
-        ;;                    ;; (cl-mpm/fastmaths:mag vel)
-        ;;                    1/2
-        ;;                    damping
-        ;;                    svp
-        ;;                    ;; (sqrt mp-volume)
-        ;;                    mp-volume
-        ;;                    rho
-        ;;                    (sqrt (max 0d0 (- boundary-scalar)))))
-        ;;                  force)))
-        ;;           )))))))
-        ))))
+      (when (> dt 0d0)
+        (let ((damping (bc-viscous-damping bc)))
+          (cl-mpm:iterate-over-nodes
+           mesh
+           (lambda (node)
+             (when (cl-mpm/mesh:node-active node)
+               (with-accessors ((force cl-mpm/mesh::node-damping-force)
+                                (active cl-mpm/mesh:node-active)
+                                (mass cl-mpm/mesh:node-mass)
+                                (velocity cl-mpm/mesh:node-velocity)
+                                (disp cl-mpm/mesh::node-displacment)
+                                (volume cl-mpm/mesh::node-volume)
+                                (boundary cl-mpm/mesh::node-boundary-node)
+                                (lock cl-mpm/mesh::node-lock)
+                                (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                   node
+                 (sb-thread:with-mutex (lock)
+                   (cl-mpm/fastmaths:fast-.-
+                    force
+                    (cl-mpm/fastmaths:fast-scale-vector
+                                        ;velocity
+                     (cl-mpm/fastmaths::fast-scale-vector 
+                      disp
+                      (/ 1d0 dt))
+                     (*
+                      1/2
+                      damping
+                      rho
+                      (sqrt (max 0d0 (- boundary-scalar)))))
+                    force))))))
+          ;; (cl-mpm:iterate-over-mps
+          ;;  mps
+          ;;  (lambda (mp)
+          ;;    (with-accessors ((pos cl-mpm/particle:mp-position)
+          ;;                     (pressure cl-mpm/particle::mp-pressure)
+          ;;                     (mp-boundary cl-mpm/particle::mp-boundary)
+          ;;                     (mp-volume cl-mpm/particle::mp-volume)
+          ;;                     (mp-velocity cl-mpm/particle::mp-velocity)
+          ;;                     )
+          ;;        mp
+          ;;      (when (> mp-boundary 0d0)
+          ;;        (cl-mpm::iterate-over-neighbours
+          ;;         mesh mp
+          ;;         (lambda (mesh mp node svp grads fsvp fgrad)
+          ;;           (when (cl-mpm/mesh:node-active node)
+          ;;             (with-accessors ((force cl-mpm/mesh::node-damping-force)
+          ;;                              (active cl-mpm/mesh:node-active)
+          ;;                              (mass cl-mpm/mesh:node-mass)
+          ;;                              (velocity cl-mpm/mesh:node-velocity)
+          ;;                              (volume cl-mpm/mesh::node-volume)
+          ;;                              (boundary cl-mpm/mesh::node-boundary-node)
+          ;;                              (lock cl-mpm/mesh::node-lock)
+          ;;                              (boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+          ;;                 node
+          ;;               (sb-thread:with-mutex (lock)
+          ;;                 (cl-mpm/fastmaths:fast-.-
+          ;;                  force
+          ;;                  (cl-mpm/fastmaths:fast-scale-vector
+          ;;                   ;; mp-velocity
+          ;;                   velocity
+          ;;                   (*
+          ;;                    ;; (cl-mpm/fastmaths:mag vel)
+          ;;                    1/2
+          ;;                    damping
+          ;;                    svp
+          ;;                    ;; (sqrt mp-volume)
+          ;;                    mp-volume
+          ;;                    rho
+          ;;                    (sqrt (max 0d0 (- boundary-scalar)))))
+          ;;                  force)))
+          ;;           )))))))
+          )))))
 
 (defun apply-viscous-damping ())
 
@@ -1294,16 +1295,22 @@
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
-
-      (apply-scalar-mps-3d mesh mps
-                          (lambda (mp)
-                            (calculate-val-mp mp func-scalar))
-                          clip-function
-                          :damage-volume damage-volume
-                          )
-      (apply-scalar-cells-3d mesh
-                            func-scalar
-                            clip-function)
+      (cl-mpm::iterate-over-nodes
+       mesh
+       (lambda (n)
+         (when (cl-mpm/mesh:node-active n)
+           (setf (cl-mpm/mesh::node-boundary-scalar n) 0d0))))
+      (apply-scalar-mps-3d
+       mesh
+       mps
+       (lambda (mp)
+         (calculate-val-mp mp func-scalar))
+       clip-function
+       :damage-volume damage-volume)
+      (apply-scalar-cells-3d
+       mesh
+       func-scalar
+       clip-function)
       )))
 
 
@@ -1316,32 +1323,30 @@
    (lambda (cell)
      (when t;(loop for n in (cl-mpm/mesh::cell-nodes cell) thereis (cl-mpm/mesh::node-boundary-node n))
        (let ((nodal-volume 0d0))
-         ;;Possibly clip ill posed cells
-         (when t;(> (/ nodal-volume (cl-mpm/mesh::cell-volume cell)) 1d-5)
+         (when t;(funcall clip-func (cl-mpm/mesh::cell-centroid cell))
            ;;Iterate over a cells nodes
-           (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))
-             (cl-mpm::cell-iterate-over-neighbours
-              mesh cell
-              (lambda (mesh cell pos volume node svp grads)
-                (with-accessors ((node-force cl-mpm/mesh::node-force)
-                                 (node-pos cl-mpm/mesh::node-position)
-                                 (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
-                                 (node-lock  cl-mpm/mesh:node-lock)
-                                 (node-active cl-mpm/mesh:node-active)
-                                 (node-boundary cl-mpm/mesh::node-boundary-node)
-                                 (node-volume cl-mpm/mesh::node-volume-true)
-                                 (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
-                    node
-                  (declare (double-float volume svp))
-                  (when (and node-active
-                             node-boundary
-                             (funcall clip-func node-pos)
-                             )
-                    ;;Lock node
-                    (sb-thread:with-mutex (node-lock)
-                      (incf node-boundary-scalar
-                            (* -1d0 volume svp (the double-float (calculate-val-cell cell func-scalar))))
-                      ))))))))))))
+           (cl-mpm::cell-iterate-over-neighbours
+            mesh cell
+            (lambda (mesh cell pos volume node svp grads)
+              (with-accessors ((node-force cl-mpm/mesh::node-force)
+                               (node-pos cl-mpm/mesh::node-position)
+                               (node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                               (node-lock  cl-mpm/mesh:node-lock)
+                               (node-active cl-mpm/mesh:node-active)
+                               (node-boundary cl-mpm/mesh::node-boundary-node)
+                               (node-volume cl-mpm/mesh::node-volume-true)
+                               (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar))
+                  node
+                (declare (double-float volume svp))
+                (when (and node-active
+                           node-boundary
+                           (funcall clip-func node-pos)
+                           )
+                  ;;Lock node
+                  (sb-thread:with-mutex (node-lock)
+                    (incf node-boundary-scalar
+                          (* -1d0 volume svp (the double-float (calculate-val-cell cell func-scalar))))
+                    )))))))))))
 
 (defun apply-scalar-mps-3d (mesh mps func-scalar clip-func &key (damage-volume nil))
   "Update force on nodes, with virtual stress field from mps"
@@ -1349,9 +1354,9 @@
   (cl-mpm::iterate-over-mps
    mps
    (lambda (mp)
-     (when t;(< (cl-mpm/particle::mp-damage mp) 1d0)
+     (when t;(funcall clip)
        (with-accessors ((volume cl-mpm/particle::mp-volume-n)
-                        (pos cl-mpm/particle::mp-position-trial)
+                        (pos cl-mpm/particle::mp-position)
                         (damage cl-mpm/particle::mp-damage))
            mp
          (let ((dsvp (cl-mpm/utils::dsvp-3d-zeros)))

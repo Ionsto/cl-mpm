@@ -135,9 +135,9 @@
         ;; (new-loadstep sim)
         (update-particles sim)
         (when (cl-mpm::sim-allow-mp-split sim)
-          (split-mps sim))
-        )
+          (split-mps sim)))
       (incf time dt))))
 
 (defmethod finalise-loadstep ((sim mpm-sim-usf-inc))
-  (new-loadstep sim))
+  (new-loadstep sim)
+  (call-next-method))

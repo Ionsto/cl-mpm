@@ -634,8 +634,8 @@
                    (declare (double-float mass))
                    (list
                     (*
-                     true-mass
-                     (cl-mpm/fastmaths::mag
+                     (* true-mass true-mass)
+                     (cl-mpm/fastmaths::mag-squared
                       (cl-mpm/fastmaths:fast-scale-vector
                        disp
                        (expt (/ 1d0 loadstep-dt) 2))))
@@ -834,8 +834,45 @@
       ;;              )))
     res-norm)))
 
+(defun damage-increment-criteria-mesh (sim &key (criteria 0.5d0))
+  (let ((result nil))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh::node-active n)
+         (setf (cl-mpm/mesh::node-damage n) 0d0))))
+    (cl-mpm::iterate-over-mps
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (when (typep mp 'cl-mpm/particle::particle-damage)
+         (cl-mpm:iterate-over-neighbours
+          (cl-mpm:sim-mesh sim)
+          mp
+          (lambda (mesh mp node svp grads fsvp fgrads)
+            (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+              (incf (cl-mpm/mesh::node-damage node)
+                    (* svp
+                       (cl-mpm/particle::mp-volume mp)
+                       (cl-mpm/particle::mp-damage-increment mp)))))))))
 
-(defun damage-increment-criteria (sim &key (criteria 0.5d0))
+    ;; (cl-mpm:iterate-over-mps
+    ;;  (cl-mpm:sim-mps sim)
+    ;;  (lambda (mp)
+    ;;    (when (typep mp 'cl-mpm/particle::particle-damage)
+    ;;      (when (> (/ (cl-mpm/particle::mp-damage-increment mp)
+    ;;                  1d0
+    ;;                  ;; (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))
+    ;;                  ) criteria)
+    ;;        (setf result t)))))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh::node-active n)
+         (when (> (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n)) criteria)
+           (setf result t)))))
+    result))
+
+(defun damage-increment-criteria-mp (sim &key (criteria 0.5d0))
   (let ((lock (sb-thread:make-mutex))
         (result nil))
     (cl-mpm:iterate-over-mps
@@ -848,3 +885,8 @@
                      ) criteria)
            (setf result t)))))
     result))
+
+(defun damage-increment-criteria (sim &key (criteria 0.5d0))
+  ;; (damage-increment-criteria-mp sim :criteria criteria)
+  (damage-increment-criteria-mesh sim :criteria criteria)
+  )

@@ -241,14 +241,9 @@
              stress-u sig
              strain eps-e
              yield-func f)
-            ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
-            ;;                           (cl-mpm/fastmaths:fast-.- trial-elastic-strain strain)
-            ;;                           plastic-strain)
             (let ()
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))))
-    (cl-mpm/particle::update-log-p-wave mp)
-    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
 

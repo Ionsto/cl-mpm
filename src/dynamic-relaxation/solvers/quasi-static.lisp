@@ -26,6 +26,7 @@
                  (mp-pmod mp-pmod)
                  (ul (estimate-ul-enhancement mp)))
              (declare (type double-float mp-pmod mp-volume))
+             (cl-mpm/particle::update-log-p-wave mp)
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrads)
@@ -110,6 +111,7 @@
                   (bcs-force cl-mpm::bcs-force)
                   (dt cl-mpm::dt)
                   (fbar cl-mpm::enable-fbar)
+                  (dt-loadstep dt-loadstep)
                   (agg cl-mpm/aggregate::enable-aggregate)
                   (bcs-force-list cl-mpm::bcs-force-list))
          sim
@@ -118,7 +120,7 @@
          (cl-mpm::p2g-force sim)
          (cl-mpm::apply-bcs mesh bcs-force dt)
          (loop for bcs-f in bcs-force-list
-               do (cl-mpm::apply-bcs mesh bcs-f dt))
+               do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (when agg
            (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt)))
          (cl-mpm::apply-bcs mesh bcs dt))
@@ -216,7 +218,7 @@
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs-f in bcs-force-list
-          do (cl-mpm::apply-bcs mesh bcs-f dt))
+          do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
     (update-node-fictious-mass sim)
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
@@ -293,16 +295,17 @@
     (cl-mpm::apply-bcs mesh bcs-force dt)
 
     (loop for bcs-f in bcs-force-list
-          do (cl-mpm::apply-bcs mesh bcs-f dt))
+          do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (incf solve-count)
-    (when (= (mod solve-count 1) 0)
-      (update-node-fictious-mass sim))
-    (when ghost-factor
-      (cl-mpm/ghost::apply-ghost sim ghost-factor)
-      (cl-mpm::apply-bcs mesh bcs dt))
-    (when (= (mod solve-count 1) 0)
-      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim))))
+    (let ((mass-update-iter 8))
+      (when (= (mod solve-count mass-update-iter) 0)
+        (update-node-fictious-mass sim))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        (cl-mpm::apply-bcs mesh bcs dt))
+      (when (= (mod solve-count mass-update-iter) 0)
+        (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))))
 
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
@@ -464,7 +467,7 @@
         (cl-mpm::p2g-force sim)
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
-                do (cl-mpm::apply-bcs mesh bcs-f dt)))
+                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep)))
 
         (cl-mpm::update-node-forces sim)
         (cl-mpm::reset-node-displacement sim)
