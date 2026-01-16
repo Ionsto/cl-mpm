@@ -133,6 +133,7 @@
                                (:file "criteria")
                                (:file "damage")
                                (:file "delay-damage")
+                               (:file "degredation")
                                (:file "solver")))
                  (:file "models/damage"))
                )))

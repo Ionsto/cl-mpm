@@ -465,6 +465,7 @@
           (save-vector-nodes "force" (cl-mpm/mesh:node-force node))
           (save-vector-nodes "force-buoyancy" (cl-mpm/mesh::node-buoyancy-force node))
           (save-vector-nodes "force-ghost" (cl-mpm/mesh::node-ghost-force node))
+          (save-vector-nodes "force-damping" (cl-mpm/mesh::node-damping-force node))
           (save-vector-nodes "acc" (cl-mpm/mesh:node-acceleration node))
           ;; (save-vector-nodes "force-rct" #'cl-mpm/mesh::node-force-)
 

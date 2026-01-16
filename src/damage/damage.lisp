@@ -1289,7 +1289,7 @@ Calls the function with the mesh mp and node"
         ;;      0d0)
         ;;  )
         (cl-mpm/output::save-parameter "erosion"
-                                       (/ 
+                                       (/
                                         (cl-mpm/output::optional-slot-access 'cl-mpm/particle::eroded-volume mp)
                                         (cl-mpm/particle::mp-mass mp)))
         (cl-mpm/output::save-parameter "fric-contact" (if (cl-mpm/particle::mp-penalty-contact-step mp) 1 0))

@@ -834,8 +834,8 @@
       ;;              )))
     res-norm)))
 
-(defun damage-increment-criteria-mesh (sim &key (criteria 0.5d0))
-  (let ((result nil))
+(defun damage-increment-criteria-mesh (sim)
+  (let ((damage-max 0d0))
     (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
@@ -854,39 +854,28 @@
                     (* svp
                        (cl-mpm/particle::mp-volume mp)
                        (cl-mpm/particle::mp-damage-increment mp)))))))))
-
-    ;; (cl-mpm:iterate-over-mps
-    ;;  (cl-mpm:sim-mps sim)
-    ;;  (lambda (mp)
-    ;;    (when (typep mp 'cl-mpm/particle::particle-damage)
-    ;;      (when (> (/ (cl-mpm/particle::mp-damage-increment mp)
-    ;;                  1d0
-    ;;                  ;; (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))
-    ;;                  ) criteria)
-    ;;        (setf result t)))))
     (cl-mpm:iterate-over-nodes
      (cl-mpm:sim-mesh sim)
      (lambda (n)
        (when (cl-mpm/mesh::node-active n)
-         (when (> (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n)) criteria)
-           (setf result t)))))
-    result))
+         (setf (cl-mpm/mesh::node-damage n) (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n))))))
+    (cl-mpm:iterate-over-nodes
+     (cl-mpm:sim-mesh sim)
+     (lambda (n)
+       (when (cl-mpm/mesh::node-active n)
+         (setf damage-max (max damage-max (cl-mpm/mesh::node-damage n))))))
+    damage-max))
 
-(defun damage-increment-criteria-mp (sim &key (criteria 0.5d0))
-  (let ((lock (sb-thread:make-mutex))
-        (result nil))
+(defun damage-increment-criteria-mp (sim)
+  (let ((damage-max 0d0))
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle::particle-damage)
-         (when (> (/ (cl-mpm/particle::mp-damage-increment mp)
-                     1d0
-                     ;; (- 1d0 (min 0.99d0 (cl-mpm/particle::mp-damage mp)))
-                     ) criteria)
-           (setf result t)))))
-    result))
+         (setf damage-max (max (cl-mpm/particle::mp-damage-increment mp) damage-max)))))
+    damage-max))
 
-(defun damage-increment-criteria (sim &key (criteria 0.5d0))
-  ;; (damage-increment-criteria-mp sim :criteria criteria)
-  (damage-increment-criteria-mesh sim :criteria criteria)
+(defun damage-increment-criteria (sim)
+  (damage-increment-criteria-mp sim)
+  ;; (damage-increment-criteria-mesh sim :criteria criteria)
   )

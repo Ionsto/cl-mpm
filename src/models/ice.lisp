@@ -721,7 +721,7 @@
                   (max
                    k-n
                    (+
-                    ps-y
+                    ;; ps-y
                     (cl-mpm/damage::huen-integration
                      k-n
                      ybar-prev
@@ -774,8 +774,9 @@
                (cl-mpm/constitutive::voight-eye (- p pressure))
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
                stress))
-        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-              (G (/ e (* 2 (+ 1d0 nu)))))
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* 4/3 G))))
           (setf K
                 (if (> pind 0d0)
                     (* (- 1d0 (expt damage-t exponent)) K)
@@ -787,9 +788,8 @@
             (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
             (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
             )
-          (setf p-mod (+ K (* 4/3 G)))
-          )
-        ))))
+          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G))))
+          )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
@@ -800,20 +800,16 @@
                    (p-mod cl-mpm/particle::mp-p-modulus)
                    )
       mp
-    ;; (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (cl-mpm/particle::compute-p-modulus mp)))
     (when enable-damage
-      ;; (apply-vol-degredation mp dt)
-      ;; (apply-vol-pressure-degredation mp dt (* 1d0 (magicl:det def) (/ p 3) damage))
-      ;; (apply-vol-pressure-degredation mp dt (* -1d0 (/ 1d0 (magicl:det def)) (/ p 1) damage))
-      (apply-vol-pressure-degredation mp dt (* -1d0
-                                               ;; (/ 1d0 (magicl:det def))
-                                               (/ p 3) damage))
-      ;; (setf stress (cl-mpm/constitutive::voight-eye p))
+      ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
+      ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
+      (cl-mpm/damage::apply-vol-degredation mp)
+      ;; (apply-vol-pressure-degredation mp dt (* -1d0
+      ;;                                          ;; (/ 1d0 (magicl:det def))
+      ;;                                          (/ p 3)
+      ;;                                          (expt damage 1)))
       )
-      ;; (cl-mpm/fastmaths:fast-.+ stress
-      ;;                           (cl-mpm/constitutive::voight-eye (* ;; (magicl:det def)
-      ;;                                                               (/ p 3) damage)) stress)
-    (cl-mpm/particle::update-log-p-wave mp)
+    ;; (cl-mpm/particle::update-log-p-wave mp)
     )
   
   )

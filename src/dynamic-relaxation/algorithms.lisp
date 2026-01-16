@@ -2,6 +2,25 @@
 (declaim #.cl-mpm/settings:*optimise-setting*)
 (defparameter *total-iter* 0)
 
+
+(defgeneric convergence-check (sim)
+  (:documentation "A check to see if our converged configuration has failed some extra criteria"))
+
+(defmethod convergence-check ((sim cl-mpm::mpm-sim))
+  )
+
+(defmethod convergence-check :after ((sim cl-mpm::mpm-sim))
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (when (typep mp 'cl-mpm/particle::particle-erosion)
+       (let ((inc (/ (- (cl-mpm/particle::mp-eroded-volume mp)
+                        (cl-mpm/particle::mp-eroded-volume-n mp))
+                     (cl-mpm/particle::mp-mass mp))))
+         (when (> inc 0.5d0)
+           (format t "Erosion criteria exceeded~%")
+           (error (make-instance 'error-erosion-criteria :max-erosion-inc inc))))))))
+
 (defun set-mp-plastic-damage (sim &key (enable-damage t) (enable-plastic t))
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
@@ -153,12 +172,16 @@
                                           (setf damage-iter nil))
                                         (format t "Damage ~E - prev damage ~E ~%" damage damage-prev)
                                         (format t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
-                                        (when (damage-increment-criteria sim :criteria max-damage-inc)
-                                          (format t "Damage criteria failed~%")
-                                          (error (make-instance 'non-convergence-error
-                                                                :text "Damage criteria exeeded"
-                                                                :ke-norm 0d0
-                                                                :oobf-norm 0d0)))
+                                        (let ((damage-inc (damage-increment-criteria sim)))
+                                          (when (> damage-inc max-damage-inc)
+                                            (format t "Damage criteria failed~%")
+                                            (error (make-instance 'non-convergence-error
+                                                                  :text "Damage criteria exeeded"
+                                                                  :ke-norm 0d0
+                                                                  :oobf-norm 0d0))))
+
+                                        (convergence-check sim)
+
                                         (setf damage-prev damage)
                                         (when damage-iter
                                           (dotimes (i 1)
@@ -262,6 +285,7 @@
                               (error (make-instance 'error-inertia-criteria
                                                   :text "True inertia exceeded"
                                                   :inertia-norm true-intertia))))
+                          (convergence-check sim)
                           ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 o 0d0)
                           (incf *total-iter* substeps)))
 
@@ -286,11 +310,12 @@
                                     (setf damage-iter nil))
                                   (format t "Damage ~E - prev damage ~E ~%" damage damage-prev)
                                   (format t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
-                                  (when (damage-increment-criteria sim :criteria max-damage-inc)
-                                    (format t "Damage criteria failed~%")
-                                    (error (make-instance 'error-damage-criteria
-                                                          :text "Damage criteria exeeded"
-                                                          :max-damage-inc 0d0)))
+                                  (let ((damage-inc (damage-increment-criteria sim)))
+                                    (when (> damage-inc max-damage-inc)
+                                      (format t "Damage criteria failed ~E~%" damage-inc)
+                                      (error (make-instance 'error-damage-criteria
+                                                            :text "Damage criteria exeeded"
+                                                            :max-damage-inc 0d0))))
                                   (when damage-iter
                                     (cl-mpm:update-sim sim)
                                     (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim)))))

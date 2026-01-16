@@ -3,6 +3,7 @@
    :cl-mpm/utils
    )
   (:export
+   #:setup-bcs
    #:make-column
    #:make-block-mps
    #:make-simple-sim

@@ -747,3 +747,11 @@
              (loop for y from 0 below nd
                    do (setf (mtref m x y) (mtref mat x y))))
     m))
+(defun pad-matrix-2d (mat)
+  (let* ((nd 3)
+         (m (arb-matrix nd nd)))
+    (loop for x from 0 below 2
+          do
+             (loop for y from 0 below 2
+                   do (setf (mtref m x y) (mtref mat x y))))
+    m))
