@@ -34,7 +34,7 @@
 (defsystem "cl-mpm/fastmaths"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/utils"
-               ;:sb-simd
+               :sb-simd
                )
   :description "MPM fast maths operations definitions"
   :serial t
@@ -94,6 +94,7 @@
 (defsystem "cl-mpm/particle"
   :depends-on ("cl-mpm/magicl"
                "cl-mpm/constitutive"
+               "cl-mpm/ext"
                ;; "cl-mpm/damage"
                "cl-mpm/mesh")
   :description "MPM particle definitions"
@@ -701,9 +702,9 @@
 
 
 (defsystem "cl-mpm/models/visco"
-  :depends-on ("cl-mpm/particle"
-               "cl-mpm/ext"
-               )
+  :depends-on ("cl-mpm"
+               "cl-mpm/particle"
+               "cl-mpm/ext")
   :description "MPM limestone definitions"
   :serial t
   :components ((:file "src/models/visco")))
