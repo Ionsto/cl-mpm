@@ -6,20 +6,8 @@
 (defgeneric convergence-check (sim)
   (:documentation "A check to see if our converged configuration has failed some extra criteria"))
 
-(defmethod convergence-check ((sim cl-mpm::mpm-sim))
-  )
+(defmethod convergence-check ((sim cl-mpm::mpm-sim)))
 
-(defmethod convergence-check :after ((sim cl-mpm::mpm-sim))
-  (cl-mpm:iterate-over-mps
-   (cl-mpm:sim-mps sim)
-   (lambda (mp)
-     (when (typep mp 'cl-mpm/particle::particle-erosion)
-       (let ((inc (/ (- (cl-mpm/particle::mp-eroded-volume mp)
-                        (cl-mpm/particle::mp-eroded-volume-n mp))
-                     (cl-mpm/particle::mp-mass mp))))
-         (when (> inc 0.5d0)
-           (format t "Erosion criteria exceeded~%")
-           (error (make-instance 'error-erosion-criteria :max-erosion-inc inc))))))))
 
 (defun set-mp-plastic-damage (sim &key (enable-damage t) (enable-plastic t))
   (cl-mpm:iterate-over-mps

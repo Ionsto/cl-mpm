@@ -205,6 +205,8 @@
       :components
       ((:file "mpi/solvers")))))))
 
+
+
 (defsystem "cl-mpm/ext"
   :depends-on ("cl-mpm/magicl"
                "cffi"
@@ -291,6 +293,7 @@
 (defsystem "cl-mpm/erosion"
   :depends-on ("cl-mpm"
                "cl-mpm/bc"
+               "cl-mpm/buoyancy"
                "cl-mpm/damage")
   :description "Erosion specific BCs"
   :components ((:file "src/bc/erosion")))
@@ -758,6 +761,16 @@
 (defsystem-connection "cl-mpm/dynamic-relaxation-mpi"
   :requires ("cl-mpm/dynamic-relaxation" "cl-mpm/mpi")
   :components ((:file "src/dynamic-relaxation/mpi/solvers")))
+
+
+#+asdf-system-connections
+(defsystem-connection "cl-mpm/dynamic-relaxation-erosion"
+  :requires ("cl-mpm/dynamic-relaxation"
+               "cl-mpm/erosion")
+  :description "MPM DR erosions specific criteria"
+  :serial t
+  :components ((:file "src/dynamic-relaxation/misc/erosion")))
+
 
 
 ;; #+asdf-system-connections

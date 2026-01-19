@@ -18,8 +18,6 @@
 (define-condition error-inertia-criteria (non-convergence-error)
   ((inertia-norm :initarg :inertia-norm :reader inertia-norm)))
 
-(define-condition error-erosion-criteria (non-convergence-error)
-  ((max-erosion-inc :initarg :max-erosion-inc :reader max-erosion-inc)))
 
 (defparameter *run-convergance* t)
 (declaim (notinline converge-quasi-static))
