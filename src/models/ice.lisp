@@ -800,8 +800,11 @@
           ;;   (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
           ;;   (setf G (* G (sin (cl-mpm/particle::mp-phi mp)))))
           ;; (setf p-mod (max p-mod (+ K (* 4/3 G))))
-          (setf p-mod (max (* p-mod p-deg)
-                           (+ K (* 4/3 G))))
+          (setf p-mod
+                (max
+                 (* 1d-9 P-0)
+                 (max (* p-mod p-deg)
+                      (+ K (* 4/3 G)))))
           ;; (setf p-mod
           ;;       (if (> pind 0d0)
           ;;           (* p-mod (max (- 1d0 damage-t) 1d-9))

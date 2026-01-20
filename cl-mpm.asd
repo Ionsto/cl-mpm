@@ -643,36 +643,6 @@
                )
   :components ((:file "examples/ice/ice-buoyancy")))
 
-;; (defsystem "cl-mpm/models/all"
-;;   :depends-on ("cl-mpm/particle"
-;;                "cl-mpm/models/damage"
-;;                "cl-mpm/models/ice"
-;;                "cl-mpm/models/chalk")
-;;   :description "MPM plastic particle definitions"
-;;   :serial t)
-
-;; (defsystem "cl-mpm/models/plastic"
-;;   :depends-on ("cl-mpm/particle")
-;;   :description "MPM plastic particle definitions"
-;;   :serial t
-;;   :components ((:file "src/models/plastic")))
-
-;; (defsystem "cl-mpm/models/damage"
-;;   :depends-on ("cl-mpm/particle"
-;;                "cl-mpm/damage")
-;;   :description "MPM plastic particle definitions"
-;;   :serial t
-;;   :components ((:file "src/models/damage")))
-
-;; (defsystem "cl-mpm/models/ice"
-;;   :depends-on ("cl-mpm/particle"
-;;                "cl-mpm/models/plastic"
-;;                "cl-mpm/models/damage"
-;;                )
-;;   :description "MPM ice particle definitions"
-;;   :serial t
-;;   :components ((:file "src/models/ice")))
-
 (defsystem "cl-mpm/models/chalk"
   :depends-on ("cl-mpm/particle"
                ;; "cl-mpm/models/plastic"

@@ -211,7 +211,7 @@ namespace constitutive{
       Eigen::Matrix<double,3,3> De3 =
         (E/((1+nu) * (1-(2*nu))))*
         (((1-(2*nu))*Eigen::Matrix<double,3,3>::Identity()) +
-        Eigen::Matrix<double,3,3>::Constant(nu));
+         Eigen::Matrix<double,3,3>::Constant(nu));
       /* Eigen::Matrix<double,3,3> Ce = De3.inverse(); */
 
       Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(elastic_strain));
@@ -225,6 +225,7 @@ namespace constitutive{
       const double tol = 1e-12;
       double f = MC_princ_yield_func(sig,phi,c);
       if (f>tol){
+        // Eigen::Matrix<double,3,1> sigTr = sig;
         const double k = (1+std::sin(phi))/(1-std::sin(phi));
         const double sigc = 2*c*std::sqrt(k);
         const double m = (1+std::sin(psi))/(1-std::sin(psi));
@@ -244,22 +245,40 @@ namespace constitutive{
         const double t2 = (rg2.transpose() * Ce * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
         const double f12 = (rp.cross(r1).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
         const double f13 = (rp.cross(r2).transpose() * (sig - siga))[0] / (rg2.transpose() * Ce * r2)[0];
+        Eigen::Matrix<double,6,6> dep = Eigen::Matrix<double,6,6>::Zero();
         auto Q = AssembleQMatrix(eigen_vectors);
         if((t1 > tol) && (t2 > tol)){
           sig = siga;
         }
         else if ((f12 < tol) && (f13 < tol)){
           sig = siga + (r1 * t1);
+          dep.block<3,3>(0,0) = r1*rg1.transpose() / (r1.transpose() * Ce * rg1)[0];
+          dep.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*(E/(2*(1+nu)));
         }
         else if ((f12 > tol) && (f13 > tol)){
           sig = siga + (r2 * t2);
+          dep.block<3,3>(0,0) = r2*rg2.transpose() / (r2.transpose() * Ce * rg2)[0];
+          dep.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*(E/(2*(1+nu)));
         }
         else{
           sig = sig - (rp * f);
+          dep.block<3,3>(0,0) = De3 - ((De3 * (dg*df.transpose())* De3) / (df.transpose() * De3 * dg)(0,0));
+          dep.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*(E/(2*(1+nu)));
         }
-
         Eigen::Matrix<double,3,3> T = Eigen::Matrix<double,3,3>::Zero();
         epsE = Ce*sig;
+        Eigen::Matrix<double,3,1> sigTr = (De3 * eigen_values);
+        if(std::abs(sigTr[0]-sigTr[1])>1e-3){
+          T(0,0) = (sig[0]-sig[1])/(sigTr[0]-sigTr[1]);
+        }
+        if(std::abs(sigTr[1]-sigTr[2])>1e-3){
+          T(1,1) = (sig[1]-sig[2])/(sigTr[1]-sigTr[2]);
+        }
+        if(std::abs(sigTr[0]-sigTr[2])>1e-3){
+          T(2,2) = (sig[0]-sig[2])/(sigTr[0]-sigTr[2]);
+        }
+        dep.block<3,3>(3,3) = T * dep.block<3,3>(3,3);
+        dep = Q.transpose() * dep * Q;
         // Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr).reverse();
         Eigen::Matrix<double,3,1> pinc = (epsE - epsEtr);
         const double psinc = std::sqrt(0.5 *
@@ -272,10 +291,19 @@ namespace constitutive{
                                                                               epsE[1],
                                                                               epsE[2],
                                                                               0.0,0.0,0.0).finished()));
-        double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+        double pmod_0 = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+        double pmod = pmod_0*1e-9;
+        // for(int i = 0;i < 3;++i){
+        //   Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        //   n(i) = 1.0;
+        //   pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
+        // }
+        Eigen::Matrix<double,6,1> n = Eigen::Matrix<double,6,1>::Zero();
+        n(0) = 1.0;
+        pmod = std::max(pmod,(n.transpose() * dep * n)(0,0));
         return MohrCoulombReturn(outstrain,f,psinc,true,pmod);
-        }
-        double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
+      }
+      double pmod = (((1-nu)*E)/((1 + nu) * (1 - (2 * nu))));
       return MohrCoulombReturn(elastic_strain,f,0.0,false,pmod);
     }
 
