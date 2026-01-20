@@ -285,6 +285,9 @@
    (aggregate-element
     :accessor cell-aggregate-element
     :initform nil)
+   (def-list
+    :accessor cell-def-list
+    :initform (list 0d0 0d0 0d0))
    (pruned
     :accessor cell-pruned
     :type boolean

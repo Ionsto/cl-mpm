@@ -255,7 +255,7 @@
                             (when (= (mod i 1) 0)
                               (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                               (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                              ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                              (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                               ))
                           (format t "Def crit ~E~%" (compute-max-deformation sim))
                           (when (criteria-deformation-gradient sim :criteria 1d1)
@@ -310,7 +310,9 @@
                        (setf damage-prev damage)
                        (when save-vtk-dr
                          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim))
+                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                         (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                         )
                        (incf stagger-iters)
                        ;; (when (> inertia intertia-crit)
                        ;;   (error (make-instance 'non-convergence-error
@@ -534,7 +536,7 @@
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
                                                      :total-steps *total-iter*
-                                                     :plotter plotter
+                                                     ;; :plotter plotter
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps

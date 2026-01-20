@@ -27,6 +27,7 @@
                    (mass cl-mpm/particle::mp-mass)
                    (pos cl-mpm/particle:mp-position)
                    (volume cl-mpm/particle:mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
                    (true-domain cl-mpm/particle::mp-true-domain)
                    )
       mp
@@ -181,7 +182,9 @@
 (defun split-mps-eigenvalue (sim)
   (declare (optimize (speed 0) (debug 3) (safety 3)))
   (let* ((h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-         (crit (* h 0.5d0)))
+         (split-factor (cl-mpm::sim-split-factor sim))
+         (crit (* h split-factor))
+         )
     (cl-mpm::split-mps-vector
      sim
      (lambda (mp)
@@ -203,18 +206,19 @@
                       (max-l (reduce #'max abs-l))
                       (min-l (reduce #'min (remove 0d0 abs-l)))
                       (ratio 2d0))
-                 (when (> max-l (* min-l ratio))
+                 ;; (pprint l)
+                 (when (> max-l crit)
                    (let ((pos (position max-l abs-l)))
-                     ;; (pprint abs-l)
-                     ;; (pprint v)
-                     (when pos
-                       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))))))
-         ;; (when split-dir
-         ;;     (pprint split-dir))
+                     (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos)))));)
+                 ;; (when (> max-l (* min-l ratio))
+                 ;;   (let ((pos (position max-l abs-l)))
+                 ;;     (when pos
+                 ;;       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))
+                 ))))
          split-dir)))))
 
-(defun split-mps (sim)
-  "Split mps that match the split-criteria"
+
+(defun split-mps-cartesian (sim)
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth)
@@ -229,7 +233,14 @@
       (loop for mp across mps-to-split
             for direction in split-direction
             do (loop for new-mp in (split-mp mp h direction)
-                     do (sim-add-mp sim new-mp))))))
+                     do (sim-add-mp sim new-mp)))))
+  )
+
+(defun split-mps (sim)
+  "Split mps that match the split-criteria"
+  ;; (split-mps-eigenvalue sim)
+  (split-mps-cartesian sim)
+  )
 
 (defun split-mps-criteria (sim criteria)
   "Split mps that fail an arbritary criteria"

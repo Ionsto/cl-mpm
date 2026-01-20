@@ -194,8 +194,10 @@
              stress-u sig
              strain eps-e
              yield-func f
-             ;; p-wave pmod
+             p-wave pmod
              )
+            ;; (when (> f 0d0)
+            ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
             (let (;; (inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
                   ;; trial-elastic-strain strain)))) 1))
                   )
@@ -212,6 +214,7 @@
             )))
     (cl-mpm/utils:voigt-copy-into stress-u stress)
     stress))
+
 
 
 
@@ -783,17 +786,26 @@
                stress))
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
                (G (/ e (* 2 (+ 1d0 nu))))
-               (P-0 (+ K (* 4/3 G))))
+               (P-0 (+ K (* 4/3 G)))
+               (p-deg 0d0)
+               )
           (setf
-           K
+           p-deg
            (if (> pind 0d0)
-               (* (- 1d0 (expt damage-t exponent)) K)
-               (* (- 1d0 (expt damage-c exponent)) K)))
+               (- 1d0 (expt damage-t exponent))
+               (- 1d0 (expt damage-c exponent))))
+          (setf K (* K p-deg))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
-            (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
-            (setf G (* G (sin (cl-mpm/particle::mp-phi mp)))))
-          (setf p-mod (max (* P-0 1d-9) (+ K (* 4/3 G))))
+          ;; (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
+          ;;   (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
+          ;;   (setf G (* G (sin (cl-mpm/particle::mp-phi mp)))))
+          ;; (setf p-mod (max p-mod (+ K (* 4/3 G))))
+          (setf p-mod (max (* p-mod p-deg)
+                           (+ K (* 4/3 G))))
+          ;; (setf p-mod
+          ;;       (if (> pind 0d0)
+          ;;           (* p-mod (max (- 1d0 damage-t) 1d-9))
+          ;;           (* p-mod (max (- 1d0 damage-c) 1d-9))))
           )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

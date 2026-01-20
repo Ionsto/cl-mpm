@@ -16,14 +16,18 @@
 (in-package :cl-mpm/buoyancy)
 
 
+(defparameter *trial-position* t)
+
+
 (defun get-mp-position (mp)
-  ;; (cl-mpm/particle::mp-position mp)
-  (cl-mpm/particle::mp-position-trial mp))
+  (if *trial-position*
+      (cl-mpm/particle::mp-position-trial mp)
+      (cl-mpm/particle::mp-position mp)))
 
 (defun get-cell-position (cell)
-  ;; (cl-mpm/mesh::cell-centroid cell)
-  (cl-mpm/mesh::cell-trial-centroid cell)
-  )
+  (if *trial-position*
+      (cl-mpm/mesh::cell-trial-centroid cell)
+      (cl-mpm/mesh::cell-centroid cell)))
 
 ;(defgeneric virtual-stress ())
 (defun pressure-at-depth (z datum-true rho g)
@@ -1163,9 +1167,7 @@
                         ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
                         ;; (cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
                         (incf node-boundary-scalar
-                              (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate))))
-                        )
-                      ))))))))))))
+                              (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate)))))))))))))))))
 
 (declaim (notinline apply-force-mps-3d))
 (defun apply-force-mps-3d (mesh mps func-stress func-div clip-func &optional (scalar (lambda (mp) 0d0)))
@@ -1177,13 +1179,11 @@
       ;; (compute-mp-displacement mesh mp)
       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
                        (pos cl-mpm/particle::mp-position-trial)
-                       ;; (pos cl-mpm/particle::mp-position)
-                       ;; (disp cl-mpm/particle::mp-displacement-increment)
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
                        (damage cl-mpm/particle::mp-damage))
           mp
         (when t;(funcall clip-func pos)
-          (let* ( (mp-stress (funcall func-stress mp))
+          (let* ((mp-stress (funcall func-stress mp))
                  (mp-div (funcall func-div mp))
                  (f-stress (cl-mpm/utils:vector-zeros))
                  (f-div (cl-mpm/utils:vector-zeros)))
@@ -1207,9 +1207,11 @@
                               (funcall clip-func node-pos))
                      (cl-mpm/fastmaths:fast-zero f-stress)
 
-                     (let ((grads (cl-mpm::gradient-push-forwards grads df))
-                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
-                           )
+                     (let ((grads
+                             (if *trial-position*
+                                 (cl-mpm::gradient-push-forwards grads df)
+                                 grads))
+                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                        (cl-mpm/fastmaths:fast-scale-vector
                         mp-div
@@ -1223,8 +1225,7 @@
                            (incf node-boundary-scalar
                                  (* volume svp (funcall scalar mp))
                                  ;; (* volume svp (calculate-val-mp mp #'melt-rate))
-                                 )
-                           ))))))))))))))
+                                 )))))))))))))))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-scalar) node mesh dt)
   "Arbitrary closure BC"
