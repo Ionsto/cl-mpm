@@ -456,8 +456,7 @@
                                                (list :dt dt
                                                      :criteria-energy conv-criteria
                                                      :criteria-oobf conv-criteria
-                                                     :criteria-hist 1d0
-                                                     ))
+                                                     :criteria-hist 1d0))
     (save-timestep-preamble output-dir)
     (save-conv-preamble output-dir)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
@@ -479,7 +478,6 @@
       (loop for lstp from 1 to load-steps
             do
                (progn
-                 ;; (setf (cl-mpm:sim-gravity sim) (* grav (/ (float lstp) load-steps)))
                  (cl-mpm/dynamic-relaxation:converge-quasi-static
                   sim
                   :energy-crit 1d0;conv-criteria
@@ -503,6 +501,7 @@
                  ))
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
+      (reset-mp-velocity sim)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
 
       (cl-mpm:iterate-over-mps
@@ -910,20 +909,10 @@
                                                      ))
     (save-timestep-preamble output-dir)
     (save-conv-preamble output-dir)
-    (cl-mpm:iterate-over-mps
-     (cl-mpm:sim-mps sim)
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle::particle-damage)
-         (setf (cl-mpm/particle::mp-enable-damage mp) nil))
-       (when (typep mp 'cl-mpm/particle::particle-plastic)
-         (setf (cl-mpm/particle::mp-enable-plasticity mp) nil))))
-
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
-
     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
     (setf (cl-mpm:sim-damping-factor sim) 0d0)
-
     (setf (cl-mpm:sim-enable-damage sim) nil)
     (defparameter *total-iter* 0)
     (let (;(substeps 50)
@@ -932,6 +921,7 @@
       (change-class sim elastic-solver)
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
+      (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
       ;; find initial quasi-static formation
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        sim
@@ -956,18 +946,9 @@
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
       (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
-
+      (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
       (change-class sim sim-type)
-      ;; (setf (cl-mpm:sim-enable-damage sim) t)
-      (cl-mpm:iterate-over-mps
-       (cl-mpm:sim-mps sim)
-       (lambda (mp)
-         (when (typep mp 'cl-mpm/particle::particle-damage)
-           (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
-         (when (typep mp 'cl-mpm/particle::particle-plastic)
-           (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
       (funcall post-conv-step sim)
-
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (let* ((current-adaptivity 0)
              (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
