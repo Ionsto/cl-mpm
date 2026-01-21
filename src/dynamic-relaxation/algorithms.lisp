@@ -977,8 +977,10 @@
                      (loop for i from 0 to max-adaptive-steps
                            while (not quasi-conv)
                            do (progn
-                                (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) (/ dt (expt 2 current-adaptivity)))
-                                (format t "trial step ~d, dt refine ~d~%" i current-adaptivity)
+                                (let* ((adapted-dt (/ dt (expt 2 current-adaptivity))))
+                                  (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
+                                        (+ (min (- total-time sim-time) adapted-dt) 1d-15))
+                                  (format t "trial step ~d, dt refine ~d~%" i current-adaptivity))
                                 (setf *trial-iter* i)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
