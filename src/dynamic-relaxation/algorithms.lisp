@@ -3,6 +3,12 @@
 (defparameter *total-iter* 0)
 
 
+(defgeneric convergence-criteria (sim))
+
+(defmethod convergence-criteria ((sim cl-mpm::mpm-sim))
+  t)
+
+
 (defgeneric convergence-check (sim)
   (:documentation "A check to see if our converged configuration has failed some extra criteria"))
 
@@ -130,11 +136,16 @@
                         :energy-crit energy-crit
                         :dt-scale dt-scale
                         :substeps substeps
+                        :convergance-criteria (lambda (sim f o)
+                                                (and
+                                                 (<= o oobf-crit)
+                                                 (convergence-criteria sim)))
                         :conv-steps 1000
                         :damping-factor damping
-                        :post-iter-step (lambda (i e o)
-                                          (incf iv)
-                                          (funcall post-iter-step i e o)))
+                        :post-iter-step
+                        (lambda (i e o)
+                          (incf iv)
+                          (funcall post-iter-step i e o)))
                        (if (and
                             enable-damage
                             (typep sim 'cl-mpm/damage::mpm-sim-damage))
@@ -167,7 +178,7 @@
                                                                   :text "Damage criteria exeeded"
                                                                   :ke-norm 0d0
                                                                   :oobf-norm 0d0))))
-
+                                        (format t "Def crit ~E~%" (compute-max-deformation sim))
                                         (convergence-check sim)
 
                                         (setf damage-prev damage)
@@ -750,11 +761,6 @@
                        generalised-staggered-solve
                        sim
                        :crit criteria
-                       ;; :oobf-crit criteria
-                       ;; :energy-crit criteria
-                       ;; :kinetic-damping nil
-                       ;; :damping-factor 1d0
-                       ;; :kinetic-damping kinetic-damping
                        :enable-damage enable-damage
                        :enable-plastic enable-plastic
                        :dt-scale dt-scale
@@ -935,6 +941,7 @@
        :damping-factor damping
        :post-iter-step
        (lambda (i e o)
+         (format t "Start post iter~%")
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
          (incf *total-iter* substeps)
          (when save-vtk-conv
@@ -942,15 +949,19 @@
            (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
            (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim))
          (funcall plotter sim)
+         (format t "End post iter~%")
          ))
       (cl-mpm::finalise-loadstep sim)
       (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
+      (format t "Reset grid, finalise loadstep~%")
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
       (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
       (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
       (change-class sim sim-type)
+      (format t "Call post-conv~%")
       (funcall post-conv-step sim)
+      (format t "Start iter~%")
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (let* ((current-adaptivity 0)
              (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
@@ -1078,6 +1089,7 @@
                            (save-vtk-loadstep t)
                            (max-adaptive-steps 5)
                            (min-adaptive-steps 0)
+                           (max-damage-inc 0.3d0)
                            (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
@@ -1113,8 +1125,8 @@
                      (flet ((trial-solve ()
                               (handler-case
                                   (progn
-                                    (format t "Load applied ~E~%" (+ current-load load-step-size))
-                                    (funcall loading-function (+ current-load load-step-size))
+                                    (format t "Load applied ~E~%" (min 1d0 (+ current-load load-step-size)))
+                                    (funcall loading-function (min 1d0 (+ current-load load-step-size)))
                                     (time
                                      (;cl-mpm/dynamic-relaxation:converge-quasi-static
                                       generalised-staggered-solve
@@ -1129,7 +1141,7 @@
                                       :substeps substeps
                                       :enable-damage enable-damage
                                       :enable-plastic enable-plastic
-                                      :max-damage-inc 0.8d0
+                                      :max-damage-inc max-damage-inc
                                       ;; :conv-steps 1000
                                       :post-iter-step
                                       (lambda (i-g energy oobf)
@@ -1141,14 +1153,6 @@
                                           (let ((i (+ 0 i)))
                                             (when save-vtk-dr
                                               (save-vtks-dr-step sim output-dir step i)))
-                                          ;; (let ((md (compute-max-deformation sim)))
-                                          ;;   (format t "Def crit ~E~%" md)
-                                          ;;   (when (> md 2d0)
-                                          ;;     (format t "Deformation gradient criteria exceeded~%")
-                                          ;;     (error (make-instance 'non-convergence-error
-                                          ;;                           :text "Deformation gradient J exceeded"
-                                          ;;                           :ke-norm 0d0
-                                          ;;                           :oobf-norm 0d0))))
 
                                           (incf *total-iter* substeps)
                                           (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)
