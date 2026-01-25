@@ -114,6 +114,7 @@
                  (setf dist dist-tr
                        closest-elem cell))))))))
     (unless closest-elem
+      (pprint "No closest elem")
       (cl-mpm::iterate-over-cells-serial
        (cl-mpm:sim-mesh sim)
        (lambda (cell)

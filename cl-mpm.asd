@@ -356,6 +356,12 @@
   :components ((:file "examples/virtual_stress/float-virtual-stress")))
 
 
+(defsystem "cl-mpm/examples/virtual-stress/thick-cylinder"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/virtual_stress/thick-cylinder")))
+
+
 (defsystem "cl-mpm/plotter"
   :depends-on ("cl-mpm"
                "cl-mpm/particle"

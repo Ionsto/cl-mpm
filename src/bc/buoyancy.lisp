@@ -16,7 +16,7 @@
 (in-package :cl-mpm/buoyancy)
 
 
-(defparameter *trial-position* t)
+(defparameter *trial-position* nil)
 
 
 (defun get-mp-position (mp)
@@ -636,7 +636,7 @@
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
         mesh
       ;; (locate-mps-cells sim (lambda (pos) (funcall clip-function pos datum)))
-      (locate-mps-cells sim clip-function)
+      ;; (locate-mps-cells sim clip-function)
       ;; (populate-cells-volume sim clip-function)
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
@@ -679,6 +679,7 @@
                    (sim bc-pressure-sim))
       bc
     ;; (markup-cells-nodes sim bc)
+    (markup-cells-nodes sim bc)
     (apply-non-conforming-nuemann
      sim
      (lambda (pos)
@@ -830,7 +831,9 @@
 (defgeneric markup-cells-nodes (sim bc))
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-pressure))
-  (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos))))
+  (populate-cells-volume sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
+  ;; (locate-mps-cells sim (lambda (pos) (funcall (bc-pressure-clip-func bc) pos)))
+  )
 
 (defmethod markup-cells-nodes (sim (bc cl-mpm/buoyancy::bc-buoyancy))
   (with-accessors ((datum bc-buoyancy-datum)
@@ -1205,13 +1208,16 @@
                    (declare (double-float volume svp))
                    (when (and node-boundary
                               (funcall clip-func node-pos))
-                     (cl-mpm/fastmaths:fast-zero f-stress)
-
                      (let ((grads
                              (if *trial-position*
                                  (cl-mpm::gradient-push-forwards grads df)
                                  grads))
-                           (volume (* volume (cl-mpm/fastmaths::det-3x3 df))))
+                           (volume
+                             (if *trial-position*
+                                 (* volume (cl-mpm/fastmaths::det-3x3 df))
+                                 volume
+                                 )))
+                       (cl-mpm/fastmaths:fast-zero f-stress)
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                        (cl-mpm/fastmaths:fast-scale-vector
                         mp-div

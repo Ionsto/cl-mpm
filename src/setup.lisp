@@ -30,13 +30,14 @@
       sim)))
 
 (defmethod %post-make-simple-sim ((sim cl-mpm::mpm-sim-multigrid) resolution element-count args-list)
-  (let* ((resolution (* resolution (expt 2 (cl-mpm::sim-multigrid-refinement sim))))
-         (size (mapcar (lambda (x) (* x resolution)) element-count)))
+  (let* ((size (mapcar (lambda (x) (* x resolution)) element-count))
+         ;; (resolution (* resolution (expt 2 (cl-mpm::sim-multigrid-refinement sim))))
+         )
     (progn
       (setf (cl-mpm::sim-mesh-list sim) (list)
             (cl-mpm::sim-bcs-list sim) (list))
       (dotimes (refine (cl-mpm::sim-multigrid-refinement sim))
-        (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 refine)) nil))
+        (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 (+ refine 0))) nil))
                (bcs (cl-mpm/bc:make-outside-bc m)))
           (push m (cl-mpm::sim-mesh-list sim))
           (push bcs (cl-mpm::sim-bcs-list sim))))
@@ -45,6 +46,8 @@
 
       (setf (cl-mpm:sim-mesh sim) (first (last (cl-mpm::sim-mesh-list sim))))
       (setf (cl-mpm:sim-bcs sim)  (first (last (cl-mpm::sim-bcs-list sim))))
+      ;; (setf (cl-mpm:sim-mesh sim) (first (cl-mpm::sim-mesh-list sim)))
+      ;; (setf (cl-mpm:sim-bcs sim)  (first (cl-mpm::sim-bcs-list sim)))
 
       sim)))
 
@@ -314,24 +317,18 @@
                  (varef dist-vec 1)))))))
 
 (defun ellipse-sdf (position x-l y-l)
-  (let ((aspect (/ x-l y-l)))
+  (let ((aspect (/ x-l y-l))
+        (pos-vec (cl-mpm/utils:vector-from-list position))
+        )
     (lambda (pos)
-      (let* ((position (cl-mpm/utils:vector-from-list position))
-             (dist-vec (cl-mpm/fastmaths::fast-.*
-                        (magicl:.- position pos)
-                        (magicl:from-list (list 1d0 aspect 1d0) '(3 1)
-                                                                             :type 'double-float)))
+      (let* ((dist-vec (cl-mpm/fastmaths::fast-.*
+                        (magicl:.- pos-vec pos)
+                        (cl-mpm/utils:vector-from-list (list 1d0 aspect 1d0))))
              (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
                                                     dist-vec) 0 0))))
         (- distance x-l)))))
+
 (defun circle-sdf (position radius)
-  (lambda (pos)
-    (let* ((position (cl-mpm/utils:vector-from-list (append
-                                                     position '(0d0))))
-           (dist-vec (magicl:.- position pos))
-           (distance (sqrt (magicl:tref (magicl:@ (magicl:transpose dist-vec)
-                                                  dist-vec) 0 0))))
-      (- distance radius)))
   (ellipse-sdf position radius radius))
 
 (defun line-sdf (position a b width)
@@ -352,14 +349,12 @@
 
 
 (defun 2d-orthog (vec)
-  (cl-mpm/utils:vector-from-list (list (cl-mpm/utils:varef vec 1) (- (cl-mpm/utils:varef vec 0) ) 0d0)))
+  (cl-mpm/utils:vector-from-list (list (cl-mpm/utils:varef vec 1) (- (cl-mpm/utils:varef vec 0)) 0d0)))
+
 (defun plane-point-point-sdf (position point-a point-b)
   (let* ((normal (2d-orthog (cl-mpm/fastmaths:norm (cl-mpm/fastmaths:fast-.- point-a point-b))))
          (distance (cl-mpm/fastmaths::dot point-a (cl-mpm/fastmaths::norm normal))))
     (- distance (cl-mpm/fastmaths::dot position (cl-mpm/fastmaths::norm normal)))))
-
-
-
 
 (defun make-block-mps-sloped-list (offset size mps density constructor &rest args &key (slope 0) &allow-other-keys)
   "Construct a block of mxn (mps) material points real size (size) with a density (density)"

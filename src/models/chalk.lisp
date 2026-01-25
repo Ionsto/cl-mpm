@@ -217,7 +217,7 @@
                    (kt-r mp-k-tensile-residual-ratio)
                    (g-r mp-shear-residual-ratio)
                    (peerlings mp-peerlings-damage)
-                   (p-mod mp-p-modulus)
+                   (p-mod mp-p-modulus-0)
                    (def mp-deformation-gradient)
                    )
       mp
@@ -226,9 +226,10 @@
     ;;Train elastic strain - plus trail kirchoff stress
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
+    (setf p-mod (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
         (progn
-          (multiple-value-bind (sig eps-e f inc)
+          (multiple-value-bind (sig eps-e f inc pmod)
               (cl-mpm/ext::constitutive-mohr-coulomb stress-u
                                                      de
                                                      strain
@@ -240,7 +241,8 @@
             (setf
              stress-u sig
              strain eps-e
-             yield-func f)
+             yield-func f
+             p-mod pmod)
             (let ()
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc)))))
@@ -262,6 +264,8 @@
                    (calc-pressure mp-pressure-func)
                    (rho mp-rho)
                    (ps-vm mp-strain-plastic-vm)
+                   (ps-vm-1 mp-strain-plastic-vm-1)
+                   (ps-vm-inc mp-strain-plastic-vm-inc)
                    (plastic-strain mp-strain-plastic)
                    (yield-func mp-yield-func)
                    (enable-plasticity mp-enable-plasticity)
@@ -281,7 +285,7 @@
 
     (if enable-plasticity
         (progn
-          (multiple-value-bind (sig eps-e f)
+          (multiple-value-bind (sig eps-e inc f)
               ;; (cl-mpm/constitutive::vm-plastic stress-u de strain coheasion)
             (;cl-mpm/constitutive::mc-plastic
              cl-mpm/ext::constitutive-mohr-coulomb
@@ -295,20 +299,23 @@
                   plastic-strain (magicl:.- strain eps-e)
                   yield-func f
                   )
+            (setf ps-vm (+ ps-vm-1 inc))
+            (setf ps-vm-inc inc)
             ;; (cl-mpm/utils:voigt-copy-into stress sig)
             ;; (magicl:.- strain eps-e plastic-strain)
             ;; (cl-mpm/utils:voigt-copy-into strain eps-e)
             (setf strain eps-e)
             )
-          (incf ps-vm
-                (multiple-value-bind (l v)
-                    (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
-                  (destructuring-bind (s1 s2 s3) l
-                    (sqrt
-                     (/ (+ (expt (- s1 s2) 2d0)
-                           (expt (- s2 s3) 2d0)
-                           (expt (- s3 s1) 2d0)
-                           ) 2d0))))))
+          ;; (incf ps-vm
+          ;;       (multiple-value-bind (l v)
+          ;;           (cl-mpm/utils:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/particle::mp-strain-plastic mp)))
+          ;;         (destructuring-bind (s1 s2 s3) l
+          ;;           (sqrt
+          ;;            (/ (+ (expt (- s1 s2) 2d0)
+          ;;                  (expt (- s2 s3) 2d0)
+          ;;                  (expt (- s3 s1) 2d0)
+          ;;                  ) 2d0)))))
+          )
         (setf stress (magicl:scale stress-u 1d0))
         )
     ;; (setf stress (magicl:scale stress-u 1d0))
@@ -478,17 +485,16 @@
       mp
     (declare (double-float kt-r kc-r g-r damage k k-n))
     ;; Directly compute the damage from K
-    (let ()
-      (setf damage (damage-response-exponential k E init-stress ductility))
-      (if peerlings
-          (setf
-           damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
-           damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
-           damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
-          (setf
-           damage-tension (* kt-r damage)
-           damage-compression (* kc-r damage)
-           damage-shear (* g-r damage))))))
+    (setf damage (damage-response-exponential k E init-stress ductility))
+    (if peerlings
+        (setf
+         damage-tension (damage-response-exponential-peerlings-residual k E init-stress ductility kt-r)
+         damage-shear (damage-response-exponential-peerlings-residual k E init-stress ductility g-r)
+         damage-compression (damage-response-exponential-peerlings-residual k E init-stress ductility kc-r))
+        (setf
+         damage-tension (* kt-r damage)
+         damage-compression (* kc-r damage)
+         damage-shear (* g-r damage)))))
 
 (defmethod update-damage ((mp cl-mpm/particle::particle-chalk-brittle) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
@@ -590,7 +596,7 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
-                   (p-mod         cl-mpm/particle::mp-p-modulus)
+                   (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
                    (def cl-mpm/particle::mp-deformation-gradient)
@@ -601,33 +607,33 @@
            enable-damage
            (> damage 0.0d0))
       (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+            (p-deg 0d0)
             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s))
-        (setf p
-              (if (> p 0d0)
-                  (* (- 1d0 damage-t) p)
-                  (* (- 1d0 damage-c) p)))
+        (setf
+         p-deg
+         (if (> p 0d0)
+             (- 1d0 damage-t)
+             (- 1d0 damage-c)))
+        (setf p (* p p-deg))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye p)
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 damage-s))
                stress))
-        (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-              (G (/ e (* 2 (+ 1d0 nu)))))
-          (declare (double-float K G p-mod))
-          (setf K
-                (if (> p 0d0)
-                    (* (- 1d0 damage-t) K)
-                    (* (- 1d0 damage-c) K)))
+
+        (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+               (G (/ e (* 2 (+ 1d0 nu))))
+               (P-0 (+ K (* 4/3 G))))
+          (setf K (* K p-deg))
           (setf G (* G (- 1d0 damage-s)))
-          ;; (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
-          ;;   (setf G 0d0))
-          (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
-            ;; (setf G 0d0)
-            (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
-            (setf G (* G (sin (cl-mpm/particle::mp-phi mp))))
-            )
-          (setf p-mod (* (expt (cl-mpm/fastmaths::det def) -2) (+ K (* 4/3 G)))))))))
+          (setf p-mod
+                (max
+                 (* 1d-9 P-0)
+                 (max (* p-mod p-deg)
+                      (+ K (* 4/3 G)))))
+          )
+        ))))
 
 (defun apply-tensile-vol-degredation (mp dt)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)

@@ -222,20 +222,17 @@
       mp
     (declare (double-float volume volume-0))
     (multiple-value-bind (df dj) (calculate-df mesh mp fbar)
-      (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
-      (let ()
-        (progn
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
-          (cl-mpm/utils:voigt-copy-into strain-n strain)
-          (cl-mpm/fastmaths:fast-.+ strain
-                                    (cl-mpm/fastmaths:fast-scale!
-                                     (cl-mpm/utils::stretch-to-sym stretch-tensor) 1d0)
-                                    strain)
-          (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
-          (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
-          (when (<= volume 0d0)
-            (error 'cl-mpm/errors:error-volume-negative))
-          )))))
+      (progn
+        (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0 def))
+        (cl-mpm/utils:voigt-copy-into strain-n strain)
+        (cl-mpm/fastmaths:fast-.+
+         strain
+         (cl-mpm/utils::stretch-to-sym stretch-tensor)
+         strain)
+        (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+        (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
+        (when (<= volume 0d0)
+          (error 'cl-mpm/errors:error-volume-negative))))))
 
 (declaim (inline update-strain-kirchoff))
 (declaim (ftype (function (cl-mpm/mesh::mesh
@@ -342,8 +339,6 @@
     (progn
       (progn
         (calculate-strain-rate-disp mesh mp dt)
-        ;; Turn cauchy stress to kirchoff
-        ;; (cl-mpm/utils::voigt-copy-into stress-kirchoff stress)
         ;; ;; Update our strains
         (update-strain-kirchoff-dynamic-relaxation mesh mp dt fbar)
         (cl-mpm/utils::voigt-copy-into (cl-mpm/particle:constitutive-model mp strain dt) stress-kirchoff)

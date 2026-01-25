@@ -577,16 +577,7 @@
       (and (>= x 0) (< x (the fixnum (nth 0 mc)))
            (>= y 0) (< y (the fixnum (nth 1 mc)))
            (>= z 0) (< z (the fixnum (nth 2 mc)))
-           )))
-  ;; (and (in-bounds-1d mesh (first pos) 0)
-  ;;      (in-bounds-1d mesh (second pos) 1)
-  ;;      )
-  ;; (if (mesh-boundary-shapes mesh)
-  ;;     (query-boundary-shapes mesh pos)
-  ;;     t)
-  ;; (every (lambda (x) x) (loop for d from 0 to (- (mesh-nd mesh) 1)
-  ;;                             collect (in-bounds-1d mesh (nth d pos) d)))
-  )
+           ))))
 (declaim (ftype (function (mesh (simple-array fixnum))) in-bounds-array))
 (defun in-bounds-array (mesh pos)
   (declare (type (simple-array fixnum) pos))
@@ -595,6 +586,20 @@
                         (aref pos 1)
                         (aref pos 2)))
   )
+
+(defun in-bounds-mp (mesh pos)
+  (declare (optimize (speed 3))
+           (list pos))
+  "Check a position (list) is inside a mesh"
+  (destructuring-bind (x y z) pos
+    (declare (fixnum x y z))
+    (let ((mc (mesh-count mesh))
+          (h (mesh-resolution mesh)))
+      (declare (fixnum x y)
+               (list mc))
+      (and (>= x 0) (<= x (* h (the fixnum (nth 0 mc))))
+           (>= y 0) (<= y (* h (the fixnum (nth 1 mc))))
+           (>= z 0) (<= z (* h (the fixnum (nth 2 mc))))))))
 
 (declaim
  (inline position-to-index-array)

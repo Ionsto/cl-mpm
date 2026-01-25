@@ -770,15 +770,17 @@
            enable-damage
            (> damage 0.0d0))
       (let* ((exponent 1)
-            (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (pind (- p pressure))
-            ;; (pind p)
-            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
-        (declare (double-float damage-t damage-c damage-s))
-        (setf p
-              (if (> pind 0d0)
-                  (* (- 1d0 (expt damage-t exponent)) p)
-                  (* (- 1d0 (expt damage-c exponent)) p)))
+             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+             (pind (- p pressure))
+             (p-deg 0d0)
+             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+        (declare (double-float damage-t damage-c damage-s p-deg))
+        (setf
+         p-deg
+         (if (> pind 0d0)
+             (- 1d0 (expt damage-t exponent))
+             (- 1d0 (expt damage-c exponent))))
+        (setf p (* p p-deg))
         (setf stress
               (cl-mpm/fastmaths:fast-.+
                (cl-mpm/constitutive::voight-eye (- p pressure))
@@ -786,14 +788,7 @@
                stress))
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
                (G (/ e (* 2 (+ 1d0 nu))))
-               (P-0 (+ K (* 4/3 G)))
-               (p-deg 0d0)
-               )
-          (setf
-           p-deg
-           (if (> pind 0d0)
-               (- 1d0 (expt damage-t exponent))
-               (- 1d0 (expt damage-c exponent))))
+               (P-0 (+ K (* 4/3 G))))
           (setf K (* K p-deg))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
           ;; (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)

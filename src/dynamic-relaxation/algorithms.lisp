@@ -15,14 +15,28 @@
 (defmethod convergence-check ((sim cl-mpm::mpm-sim)))
 
 
+
+
+(deftype plastic-damage-type () (and
+                                 'cl-mpm/particle::particle-damage
+                                 'cl-mpm/particle::particle-plastic))
 (defun set-mp-plastic-damage (sim &key (enable-damage t) (enable-plastic t))
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
-     (when (typep mp 'cl-mpm/particle::particle-damage)
-       (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
-     (when (typep mp 'cl-mpm/particle::particle-plastic)
-       (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic)))))
+     (typecase mp
+       (plastic-damage-type
+        (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage
+              (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))
+       (cl-mpm/particle::particle-damage
+        (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
+       (cl-mpm/particle::particle-plastic
+        (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic)))
+     ;; (when (typep mp 'cl-mpm/particle::particle-damage)
+     ;;   (setf (cl-mpm/particle::mp-enable-damage mp) enable-damage))
+     ;; (when (typep mp 'cl-mpm/particle::particle-plastic)
+     ;;   (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))
+     )))
 
 (defun save-timestep-preamble (output-dir)
   (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
@@ -957,7 +971,9 @@
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
       (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
+      (format t "Set plastic-damage~%")
       (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
+      (format t "Change class~%")
       (change-class sim sim-type)
       (format t "Call post-conv~%")
       (funcall post-conv-step sim)

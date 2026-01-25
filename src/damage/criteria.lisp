@@ -473,8 +473,7 @@
 (defun mohr-coloumb-coheasion-to-tensile (coheasion angle)
   (let (
         (k (/ (+ 1d0 (sin angle))
-              (- 1d0 (sin angle))
-              )))
+              (- 1d0 (sin angle)))))
     (the double-float
          (/
           (* 2 coheasion (cos angle))
@@ -482,8 +481,7 @@
 
 (defun mohr-coloumb-tensile-to-coheasion (tensile angle)
   (let ((k (/ (+ 1d0 (sin angle))
-              (- 1d0 (sin angle))
-              )))
+              (- 1d0 (sin angle)))))
     (the double-float
          (/ (* tensile (+ 1d0 (sin angle)))
           (* 2 (cos angle))))))

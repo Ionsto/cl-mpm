@@ -363,8 +363,11 @@
     :type t
     )
    )
-  (:documentation "A linear-elastic material point"))
+  (:documentation "A Hencky hyperelastic material point"))
 
+(defclass particle-linear-elastic (particle-elastic)
+  ()
+  (:documentation "A true linear-elastic material point"))
 
 
 ;; (defun compute-s-modulus (particle)

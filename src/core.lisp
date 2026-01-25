@@ -613,6 +613,9 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
 (defmethod update-stress-mp (mesh (mp cl-mpm/particle::particle) dt fbar)
   (update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar))
 
+(defmethod update-stress-mp (mesh (mp cl-mpm/particle::particle-linear-elastic) dt fbar)
+  (update-stress-linear mesh mp dt fbar))
+
 (defgeneric post-stress-step (mesh mp dt)
   (:documentation "Mp dependent step called after full stress update"))
 (defmethod post-stress-step (mesh (mp cl-mpm/particle::particle) dt)
