@@ -23,10 +23,11 @@
                           )
              mp
            (let ((mp-volume mp-volume)
-                 (mp-pmod mp-pmod)
+                 ;; (mp-pmod mp-pmod)
+                 (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                  (ul (estimate-ul-enhancement mp)))
              (declare (type double-float mp-pmod mp-volume))
-             (cl-mpm/particle::update-log-p-wave mp)
+             ;; (cl-mpm/particle::update-log-p-wave mp)
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrads)

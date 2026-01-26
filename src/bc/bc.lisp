@@ -154,6 +154,7 @@
                    (setf (varef (cl-mpm/mesh::node-residual node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-residual-prev node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-ghost-force node) d) 0d0)
+                   (setf (varef (cl-mpm/mesh::node-buoyancy-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-damping-force node) d) 0d0)
                    (setf (varef (cl-mpm/mesh::node-force node) d) 0d0)))))))
 

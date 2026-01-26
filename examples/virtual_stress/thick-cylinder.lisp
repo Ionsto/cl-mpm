@@ -12,9 +12,10 @@
 
 
 
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  (cl-mpm::update-stress-linear mesh mp dt fbar))
+;; (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
+;;   (cl-mpm::update-stress-linear mesh mp dt fbar))
 
+(declaim (notinline plot))
 (defun plot (sim &optional (plot :deformed))
   (let* ((ms (cl-mpm/mesh:mesh-mesh-size (cl-mpm:sim-mesh sim)))
          (ms-x (first ms))
@@ -29,7 +30,8 @@
   (cl-mpm/plotter::simple-plot
    sim
    :plot :deformed
-   :colour-func (lambda (mp) (compute-radial-stress mp))
+   ;:colour-func (lambda (mp) (compute-radial-stress mp))
+   :colour-func (lambda (mp) (abs (cl-mpm/utils:get-stress (cl-mpm/particle::mp-stress mp) :xy)))
    ;; :contact-bcs *penalty-bc*
    ))
 
@@ -92,10 +94,10 @@
                          1
                          ))
             density
-            'cl-mpm/particle::particle-elastic
+            'cl-mpm/particle::particle-linear-elastic
             :E 1d9
             :nu 0.2d0)))
-        (let ((refine 1))
+        (let ((refine 0))
           (cl-mpm/setup:remove-sdf
            sim
            (lambda (p)
@@ -121,8 +123,7 @@
         (cl-mpm/setup::setup-bcs
          sim
          :bottom '(nil 0 nil)
-         :left '(0 nil nil)
-         )
+         :left '(0 nil nil))
         (defparameter *bc-pressure*
           (cl-mpm/buoyancy::make-bc-pressure
            sim
@@ -240,49 +241,47 @@
     (lisp-stat:write-csv df output-file :add-first-row t))
   )
 
+
+(defun loading-function (f)
+  (let ((load (* f 100d3)))
+    (setf (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*) (list load load 0d0)))
+  )
+
 (defparameter *run-sim* nil)
 (defun run-conv ()
   (setf *run-sim* t)
   (defparameter *data-refine* (list))
   (defparameter *data-error* (list))
-  (loop for i in '(4 5 6 7)
+  (loop for i in '(1 2 3 4 5)
         while *run-sim*
         do
            (let* ((refine i)
-                  (elements (expt 2 refine))
                   (mps 2))
-             (let* ((e elements)
-                    (h (/ 1 e)))
-               (format t "H:~E~%" h)
-               (defparameter
-                   *sim*
-                 (setup-test-column
-                  :e-scale (/ 1d0 h)
+             (let* ()
+               (setup
+                  :refine i
                   :mp-scale mps
-                  :sym t
-                  ))
-               (format t "Running sim size ~a ~a ~%" refine elements)
-               (format t "Sim dt: ~a ~%" (cl-mpm:sim-dt *sim*))
-               (let* ((h (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                      (ms 1d0))
-                 (setf (cl-mpm::sim-mass-scale *sim*) ms)
-                 (cl-mpm/dynamic-relaxation::run-load-control
-                  *sim*
-                  :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
-                  :load-steps 1
-                  :substeps (* 20 refine)
-                  :plotter #'plot
-                  :damping 1d0;(sqrt 2)
-                  :save-vtk-dr t
-                  :save-vtk-loadstep t
-                  :dt-scale 1d0
-                  :criteria 1d-9
-                  :loading-function (lambda (f) (setf (nth 1 (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*)) (* f -1d4)))
-                  ))
+                  :sym t)
+               (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+               (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-9)
+               (format t "Running sim size ~a ~a ~%" refine mps)
+               (cl-mpm/dynamic-relaxation::run-load-control
+                *sim*
+                :output-dir (merge-pathnames (format nil "./output-~A_~D/" i mps))
+                :load-steps 10
+                :substeps (* 20 refine)
+                :plotter #'plot
+                :damping (sqrt 2)
+                :save-vtk-dr t
+                :save-vtk-loadstep t
+                :dt-scale 1d0
+                :criteria 1d-9
+                :loading-function #'loading-function)
                ;; (plot-sigma-yy)
-               (push (compute-error *sim*) *data-error*)
-               (push h *data-refine*))
-             (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
+               ;; (push (compute-error *sim*) *data-error*)
+               ;; (push h *data-refine*)
+               )
+             ;; (vgplot:loglog (mapcar (lambda (x) (/ 1d0 x)) *data-refine*) *data-error*)
              (save-csv (merge-pathnames (format nil "./analysis_scripts/virtual_stress/thick-cylinder/data/data-~A_~D.csv" i mps)))
              )))
 
@@ -357,8 +356,9 @@
 
 
 (defun test-dr ()
-  (setup :mps 2 :refine 1 :sym t)
-  ;; (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil)
+  (setup :mps 4 :refine 2 :sym t)
+  (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
+  (cl-mpm/setup::set-mass-filter *sim* 1d3 :proportion 1d-9)
   ;; (cl-mpm:update-sim *sim*)
   ;; (plot *sim*)
   (cl-mpm/dynamic-relaxation::run-load-control
@@ -370,12 +370,8 @@
    :kinetic-damping nil
    :save-vtk-dr t
    :save-vtk-loadstep t
-   :substeps 1
+   :substeps 10
    :dt-scale 1d0
-   :criteria 1d-5
-   :loading-function (lambda (f)
-                       (let ((load (* f 100d3)))
-                         (setf (cl-mpm/buoyancy::bc-pressure-pressures *bc-pressure*) (list load load 0d0)))))
+   :criteria 1d-9
+   :loading-function #'loading-function)
   )
-
-

@@ -87,60 +87,65 @@
         (dist 0d0)
         ;; (mutex (sb-thread:make-mutex))
         (pos (cl-mpm/mesh::node-position node)))
-    (iterate-over-cell-patch
-     sim
-     node
-     1
-     (lambda (cell)
-       (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                        (index cl-mpm/mesh::cell-index)
-                        (centroid cl-mpm/mesh::cell-centroid)
-                        (active cl-mpm/mesh::cell-active)
-                        (agg cl-mpm/mesh::cell-agg))
-           cell
-         (when (and
-                (cl-mpm/mesh::cell-active cell)
-                (not (cl-mpm/mesh::cell-partial cell))
-                (not (cl-mpm/mesh::cell-agg cell)))
-           (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-                           pos
-                           centroid)))
-             (when (or
-                    (not closest-elem)
-                    (> dist dist-tr))
-               (when (or
-                      (not closest-elem)
-                      (> dist dist-tr))
-                 (setf dist dist-tr
-                       closest-elem cell))))))))
-    (unless closest-elem
-      (pprint "No closest elem")
-      (cl-mpm::iterate-over-cells-serial
-       (cl-mpm:sim-mesh sim)
-       (lambda (cell)
-         (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                          (index cl-mpm/mesh::cell-index)
-                          (centroid cl-mpm/mesh::cell-centroid)
-                          (active cl-mpm/mesh::cell-active)
-                          (agg cl-mpm/mesh::cell-agg))
-             cell
-           (when (and
-                  (cl-mpm/mesh::cell-active cell)
-                  (not (cl-mpm/mesh::cell-partial cell))
-                  (not (cl-mpm/mesh::cell-agg cell)))
-             (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-                             pos
-                             centroid)))
-               (when (or
-                      (not closest-elem)
-                      (> dist dist-tr))
-                 ;; (sb-thread:with-mutex (mutex))
+    (flet ((check-cell (cell)
+             (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                              (index cl-mpm/mesh::cell-index)
+                              (centroid cl-mpm/mesh::cell-centroid)
+                              (active cl-mpm/mesh::cell-active)
+                              (agg cl-mpm/mesh::cell-agg))
+                 cell
+               (when (and
+                      (cl-mpm/mesh::cell-active cell)
+                      (not (cl-mpm/mesh::cell-partial cell))
+                      (not (cl-mpm/mesh::cell-agg cell)))
+                 (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                                 pos
+                                 centroid)))
+                   (when (or
+                          (not closest-elem)
+                          (> dist dist-tr))
+                     (when (or
+                            (not closest-elem)
+                            (> dist dist-tr))
+                       (setf dist dist-tr
+                             closest-elem cell))))))))
+      (iterate-over-cell-patch
+       sim
+       node
+       1
+       #'check-cell)
+      (unless closest-elem
+        (iterate-over-cell-patch
+         sim
+         node
+         2
+         #'check-cell)
+        (cl-mpm::iterate-over-cells-serial
+         (cl-mpm:sim-mesh sim)
+         (lambda (cell)
+           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                            (index cl-mpm/mesh::cell-index)
+                            (centroid cl-mpm/mesh::cell-centroid)
+                            (active cl-mpm/mesh::cell-active)
+                            (agg cl-mpm/mesh::cell-agg))
+               cell
+             (when (and
+                    (cl-mpm/mesh::cell-active cell)
+                    (not (cl-mpm/mesh::cell-partial cell))
+                    (not (cl-mpm/mesh::cell-agg cell)))
+               (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                               pos
+                               centroid)))
                  (when (or
                         (not closest-elem)
                         (> dist dist-tr))
-                   (setf dist dist-tr
-                         closest-elem cell)))))
-           ))))
+                   ;; (sb-thread:with-mutex (mutex))
+                   (when (or
+                          (not closest-elem)
+                          (> dist dist-tr))
+                     (setf dist dist-tr
+                           closest-elem cell)))))
+             )))))
     closest-elem))
 
 

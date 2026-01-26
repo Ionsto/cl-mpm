@@ -114,12 +114,12 @@
      (cl-mpm::sim-mesh sim)
      (lambda (n)
        (when (and (cl-mpm/mesh:node-active n)
-                  (not (cl-mpm/mpi::node-in-computational-domain sim n))
-                  )
+                  (not (cl-mpm/mpi::node-in-computational-domain sim n)))
          (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-displacment n))
          (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-velocity n)))))
 
     (cl-mpm/mpi::mpi-sync-displacement sim)
+
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)

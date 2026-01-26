@@ -589,6 +589,15 @@
 ;;             (setf (mp-nu p) nu)
 ;;         p)))
 
+(defgeneric estimate-stiffness (mp)
+    (:documentation "Estimate stiffness P-wave at current state"))
+(defmethod estimate-stiffness ((mp particle-elastic))
+  (*
+   (estimate-log-enhancement mp)
+   (mp-p-modulus-0 mp)))
+
+(defmethod estimate-stiffness ((mp particle-linear-elastic))
+  (mp-p-modulus-0 mp))
 
 (defun estimate-log-enhancement (particle)
   (with-accessors ((def-inc mp-deformation-gradient-increment)
@@ -598,10 +607,7 @@
       particle
     (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix eps))
       (let ((lmax
-              ;; (reduce #'max l)
-              (reduce #'max (mapcar (lambda (x) (exp (- x))) l))
-              ;; (reduce #'max (mapcar (lambda (x) (/ 1d0 (abs x))) l))
-              ))
+              (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
         (* lmax lmax)))))
 
 

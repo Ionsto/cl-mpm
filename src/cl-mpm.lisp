@@ -1,9 +1,9 @@
 (defpackage :cl-mpm
   (:use :cl
    :cl-mpm/particle
-   :cl-mpm/mesh
+        :cl-mpm/mesh
    :cl-mpm/utils
-   :cl-mpm/fastmaths)
+        :cl-mpm/fastmaths)
   (:import-from
    :magicl tref .+ .-
    )
@@ -19,6 +19,7 @@
    #:mpm-sim
    #:mpm-sim-usf
    #:mpm-sim-usl
+   #:mpm-sim-musl
    #:make-mpm-sim
    #:update-sim
    #:make-shape-function-linear
