@@ -54,7 +54,7 @@
                        '(6 6) :type 'double-float)
      (/ E (- 1d0 (* nu nu))))))
 
-(defun linear-elastic-mat (strain elastic-matrix &optional result)
+(defun linear-elastic-mat (strain elastic-matrix &optional (result nil))
   "Isotropic linear-elastic constitutive model"
   ;(cl-mpm/utils:@-tensor-voigt elastic-matrix strain)
   ;; (let ((result (if result
@@ -404,7 +404,7 @@
     (cl-mpm/fastmaths::fast-.+
      (cl-mpm/fastmaths::fast-.+ pressure-matrix stress-inc-pressure)
      (cl-mpm/fastmaths::fast-.+ (cl-mpm/fastmaths:fast-scale! dev-stress exp-rho)
-                               (cl-mpm/fastmaths:fast-scale! stress-inc-dev lam)))))
+                                (cl-mpm/fastmaths:fast-scale! stress-inc-dev lam)))))
 
 (declaim (ftype (function (magicl:matrix/double-float
                            magicl:matrix/double-float

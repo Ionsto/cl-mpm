@@ -283,21 +283,27 @@
                               (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                               ))
                           (format t "Def crit ~E~%" (compute-max-deformation sim))
-                          (when (criteria-deformation-gradient sim :criteria 1d1)
-                            (format t "Deformation gradient criteria exceeded~%")
-                            (error (make-instance 'non-convergence-error
-                                                  :text "Deformation gradient J exceeded"
-                                                  :ke-norm 0d0
-                                                  :oobf-norm 0d0)))
-                          (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
-                            (format t "True intertia ~E~%" true-intertia)
-                            (save-conv-step sim output-dir *total-iter* global-step 0d0 o true-intertia)
-                            (setf inertia true-intertia)
-                            (when (> true-intertia 1d-4)
-                              (format t "Inertia criteria exceeded~%")
-                              (error (make-instance 'error-inertia-criteria
-                                                  :text "True inertia exceeded"
-                                                  :inertia-norm true-intertia))))
+                          (let ((max-def (compute-max-deformation sim)))
+                            (when (> max-def 2d0)
+                              (format t "Deformation gradient criteria exceeded~%")
+                              (error (make-instance 'non-convergence-error
+                                                    :text "Deformation gradient J exceeded"
+                                                    :ke-norm 0d0
+                                                    :oobf-norm 0d0)))
+                            (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
+                              (format t "True intertia ~E~%" true-intertia)
+                              (save-conv-step sim output-dir *total-iter* global-step
+                                              0d0
+                                              o
+                                              ;; true-intertia
+                                              max-def
+                                              )
+                              (setf inertia true-intertia)
+                              (when (> true-intertia 1d-4)
+                                (format t "Inertia criteria exceeded~%")
+                                (error (make-instance 'error-inertia-criteria
+                                                      :text "True inertia exceeded"
+                                                      :inertia-norm true-intertia)))))
                           (convergence-check sim)
                           ;; (save-conv-step sim output-dir *total-iter* global-step 0d0 o 0d0)
                           (incf *total-iter* substeps)))

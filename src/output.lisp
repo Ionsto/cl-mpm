@@ -556,6 +556,8 @@
         (save-parameter "index" (cl-mpm/particle::mp-index mp))
         (save-parameter "mpi-domain" (cl-mpm/particle::mp-mpi-index mp))
         (save-parameter "split-depth" (cl-mpm/particle::mp-split-depth mp))
+        (cl-mpm/output::save-parameter "j2"
+                                       (sqrt (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-stress mp)))))
 
         ;; (save-parameter-vector "vel" cl-mpm/particle::mp-velocity)
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))

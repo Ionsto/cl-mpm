@@ -16,7 +16,7 @@
 (in-package :cl-mpm/buoyancy)
 
 
-(defparameter *trial-position* nil)
+(defparameter *trial-position* t)
 
 
 (defun get-mp-position (mp)

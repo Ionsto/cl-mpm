@@ -16,35 +16,42 @@
                            1d0 1d0 1d0
                            1d0 1d0 1d0))
                     (/ 1d0 3d0))))
+             (K (/ e (* 3 (- 1d0 (* 2 nu)))))
              (G (/ E (* 2 (+ 1d0 nu))))
              (identity (cl-mpm/utils:matrix-eye 1d0))
              (d-neq
-               (fast-scale
-                dev
-                G)
-               ;; (cl-mpm/fastmaths::fast-scale!
-               ;;  (cl-mpm/utils:matrix-from-list (list
-               ;;                                  (- 1d0 nu) nu nu
-               ;;                                  nu (- 1d0 nu) nu
-               ;;                                  nu nu (- 1d0 nu)))
-               ;;  (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+               (cl-mpm/fastmaths::fast-scale!
+                (cl-mpm/utils:matrix-from-list (list
+                                                (- 1d0 nu) nu nu
+                                                nu (- 1d0 nu) nu
+                                                nu nu (- 1d0 nu)))
+                (/ E (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+               ;; (cl-mpm/fastmaths:fast-.+
+               ;;  (fast-scale identity (/ K 3))
+               ;;  (fast-scale
+               ;;   dev
+               ;;   (* 2 G)))
+               ;; (fast-scale
+               ;;  dev
+               ;;  (* 2 G))
                )
-             ;; (d-neq (cl-mpm/fastmaths::fast-scale
-             ;;         dev
-             ;;         (* 2 G)))
              (epsTr (cl-mpm/utils:vector-from-list l))
              (en (cl-mpm/utils::deep-copy epsTr))
              (f-tol 1d-5)
              (beta (magicl:@ d-neq en))
              (C (magicl:inv d-neq))
              (a
+               (magicl:@
+                C
                 (magicl:inv
                  (cl-mpm/fastmaths:fast-.+
-                  (magicl:inv d-neq)
+                  C
                   (magicl:scale
                    dev
-                   (/ dt viscosity)))))
+                   (/ dt viscosity))))))
              (f f-tol))
+        (pprint d-neq)
+        (pprint de)
         (loop for i from 0 to 100
               while (>= f f-tol)
               do
@@ -55,16 +62,17 @@
                               (magicl:.+ en
                                          (magicl:scale
                                           (magicl:@ dev beta)
-                                          (/ dt (* viscosity))))
-                              )))
+                                          (/ dt (* 1d0 viscosity)))))))
                      (setf f (magicl:norm r))
                      (when (>= f f-tol)
                        (setf
                         en
                         (magicl:.+
                          en
-                         (magicl:linear-solve d-neq
-                                              (magicl:@ a r))))))))
+                         (magicl:@ a r)
+                         ;; (magicl:linear-solve d-neq
+                         ;;                      (magicl:@ a r))
+                         ))))))
         (when (> f f-tol)
           (pprint beta)
           (pprint en)
@@ -76,10 +84,12 @@
                            (magicl:@ v
                                      (cl-mpm/utils::matrix-diag (list (varef en 0) (varef en 1) (varef en 2)))
                                      (magicl:transpose v)))))
-
           (cl-mpm/utils:voigt-copy-into out-strain strain)
           (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-          out-strain))))
+          out-strain
+          ;; (pprint de)
+          ;; (magicl:@ de out-strain)
+          ))))
 
 
 (defun voight-trace-2d (s)
@@ -97,41 +107,35 @@
 
 (defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-         (G (/ e (* 2 (+ 1d0 nu))))
-         (pressure (/ (trace-voigt stress) 3d0))
-         (pmat (voigt-eye pressure))
-         (exp-rho (exp (- (/ dt viscosity)))))
-    (cl-mpm::voigt-copy-into
-     (cl-mpm/fastmaths:fast-.+
-      pmat
-      (cl-mpm/fastmaths:fast-scale
-       (cl-mpm/fastmaths:fast-.- stress pmat)
-       exp-rho))
-     stress)
-    (cl-mpm::voigt-copy-into
-     (magicl:linear-solve de stress)
-     strain)
-    ;; (cl-mpm::voigt-copy-into
-    ;;  (cl-mpm/fastmaths:fast-.+
-    ;;   pmat
-    ;;   (cl-mpm/fastmaths:fast-scale!
-    ;;    (cl-mpm/fastmaths:fast-.- strain pmat)
-    ;;    exp-rho))
-    ;;  strain)
-    ;; (cl-mpm/constitutive::linear-elastic-mat strain de stress)
-    stress
-    ))
+  (cl-mpm::voigt-copy-into
+   (dev-exp-v-nostrain stress strain-n strain e nu de viscosity dt)
+   stress)
+  (cl-mpm::voigt-copy-into
+   (magicl:linear-solve de stress)
+   strain)
+  stress)
 (defun dev-exp-v-nostrain (stress strain-n strain e nu de viscosity dt)
   "A stress increment form of a viscoelastic maxwell material"
-  (let* ((pressure (/ (trace-voigt stress) 3d0))
+  (let* ((stress-n (cl-mpm/constitutive:linear-elastic-mat strain-n de))
+         (stress-inc (cl-mpm/constitutive:linear-elastic-mat (cl-mpm/fastmaths:fast-.- strain strain-n) de))
+         (pressure (/ (trace-voigt stress-n) 3d0))
+         (pressure-inc (/ (trace-voigt stress-inc) 3d0))
          (pmat (voigt-eye pressure))
-         (exp-rho (exp (- (/ dt viscosity)))))
+         (dev (cl-mpm/fastmaths:fast-.- stress-n pmat))
+         (dev-inc (cl-mpm/fastmaths:fast-.- stress-inc (voigt-eye pressure-inc)))
+         (rho (/ viscosity e))
+         (dy (/ dt rho))
+         (exp-rho (exp (- dy)))
+         (lam (/ (- 1 exp-rho) dy)))
     (cl-mpm/fastmaths:fast-.+
-     pmat
-     (cl-mpm/fastmaths:fast-scale
-      (cl-mpm/fastmaths:fast-.- stress pmat)
-      exp-rho))))
+     (voigt-eye (+ pressure pressure-inc))
+     (cl-mpm/fastmaths:fast-.+
+      (cl-mpm/fastmaths:fast-scale dev exp-rho)
+      (cl-mpm/fastmaths:fast-scale dev-inc lam))
+     ;; (cl-mpm/fastmaths:fast-scale
+     ;;  (cl-mpm/fastmaths:fast-.- stress pmat)
+     ;;  exp-rho)
+     )))
 
 ;; (defun dev-exp-v (stress strain-n strain e nu de viscosity dt)
 ;;   "A stress increment form of a viscoelastic maxwell material"
@@ -151,24 +155,28 @@
 ;;           strain)
 ;;     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
-(defun test ()
+(defun test (dt)
   (let* ((E 1d0)
-         (nu 0.25d0)
-         (dt 1d0)
+         (nu 0d0)
+         ;; (dt 4d0)
          (viscosity 1d0)
          (strain-n (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 0d0 0d0 0d0)))
-         (strain-0 (cl-mpm/utils:voigt-from-list (list 1d0 1d0 1d0 5d0 0d0 0d0)))
+         (strain-0 (cl-mpm/utils:voigt-from-list (list 0d0 0d0 0d0 1d0 0d0 0d0)))
          (de (cl-mpm/constitutive:linear-elastic-matrix E nu)))
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
            (stress (magicl:@ de strain)))
                                         ;(pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity))
-      (pprint (dev-exp-v stress strain-n strain e nu de viscosity dt))
-      (pprint stress))
+      ;; (pprint (dev-exp-v stress strain-n strain e nu de viscosity dt))
+      ;; (pprint stress)
+      (pprint (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity))
+      )
 
     (let* ((strain (cl-mpm/utils::deep-copy strain-0))
            (stress (magicl:@ de strain)))
-      (pprint (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu dt viscosity))
-      (pprint stress))
+      ;; (pprint stress)
+      ;; (pprint (cl-mpm/ext::constitutive-viscoelastic stress de strain e nu dt viscosity))
+      (pprint (finite-strain-linear-viscous stress strain de e nu dt viscosity))
+      )
     )
 
   )
@@ -377,6 +385,7 @@
   (with-accessors ((de mp-elastic-matrix)
                    (e mp-e)
                    (nu mp-nu)
+                   (p-wave-0 mp-p-modulus-0)
                    (stress mp-stress)
                    (strain mp-strain)
                    (strain-n mp-strain-n)
@@ -385,10 +394,35 @@
       mp
     ;;Train elastic strain - plus trail kirchoff stress
     (if enable-viscosity
-        (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
-        ;; (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
+        ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
+        (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
         (cl-mpm/constitutive:linear-elastic-mat strain de stress))
+    (when (and enable-viscosity
+               (not (= dt 0d0)))
+      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+             (G (/ e (* 2 (+ 1d0 nu))))
+             (rho (/ viscosity G))
+             (dy (/ dt rho))
+             (exp-rho (exp (- dy)))
+             (lam (/ (- 1 exp-rho) dy))
+             ;; (lam 1d0)
+             )
+        (declare (double-float K G p-wave-0))
+        (setf p-wave-0 (* (+ K (* 4/3 G lam)))))
+      ;; (cl-mpm/particle::update-p-modulus mp)
+      )
     stress))
+
+;; (let* ((effective-stress 1d4)
+;;        (visc-factor 111d6)
+;;        (visc-power 3d0)
+;;        (visc-factor (expt visc-factor (- visc-power))))
+;;   (declare (double-float effective-stress visc-factor))
+;;   (pprint
+;;    (/ 1d0
+;;       (+ 1d-38
+;;          (* 2d0 visc-factor (expt effective-stress (/ (- visc-power 1) 2))))))
+;;   )
 
 (defun d-glen-visco (stress visc-factor visc-power)
   (let* ((effective-stress (* 1/2 (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress))))
@@ -403,7 +437,8 @@
     ))
 
 (defun glen-visco (stress visc-factor visc-power)
-  (let* ((effective-stress (* 1/2 (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress))))
+  (let* ((effective-stress (* ;1/2
+                              (cl-mpm/fastmaths::voigt-j2 (cl-mpm/utils:deviatoric-voigt stress))))
          (visc-factor (expt visc-factor (- visc-power))))
     (declare (double-float effective-stress visc-factor))
     (/ 1d0
@@ -627,7 +662,9 @@
 ;;       visc)))
 
 
-(defmethod constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
+;; (defparameter *mp* (aref (cl-mpm:sim-mps *sim*) 100))
+
+(defmethod cl-mpm/particle::constitutive-model ((mp particle-finite-viscoelastic-ice) strain dt)
   (with-accessors ((de mp-elastic-matrix)
                    (e mp-e)
                    (nu mp-nu)
@@ -646,27 +683,32 @@
       mp
     (cl-mpm/constitutive:linear-elastic-mat strain de stress)
     (let* ((visc-n (glen-visco
-                    (cl-mpm/fastmaths:fast-scale!
+                    (cl-mpm/fastmaths:fast-scale
                      (cl-mpm/constitutive:linear-elastic-mat strain-n de)
                      (/ 1d0 (cl-mpm/fastmaths:det def-n)))
                     visc-factor
                     visc-power))
            (visc-n1 (glen-visco
-                     (cl-mpm/fastmaths:fast-scale!
+                     (cl-mpm/fastmaths:fast-scale
                       stress
                       (/ 1d0 (cl-mpm/fastmaths:det def)))
                      visc-factor
                      visc-power))
            ;; (visc (expt (+ (expt visc-n -1) (expt visc-n1 -1)) -1))
-           (visc visc-n)
-           ;; (visc (+ visc-n visc-n1))
+           ;; (visc visc-n)
+           (visc (* 0.5d0 (+ visc-n visc-n1)))
            ;; (visc (visco-iterator mp dt))
+           ;; (visc 1d12)
            )
+      ;; (pprint visc-n)
+      ;; (pprint visc-n1)
+      ;; (break)
       ;; (break)
       (when enable-viscosity
         (setf visc (visco-iterator-midpoint mp dt))
         ;; (setf visc (visco-iterator mp dt))
         )
+      ;; (pprint visc)
       (setf true-visc visc)
       (if (and enable-viscosity
                (not (= dt 0d0)))
@@ -675,11 +717,17 @@
           (cl-mpm/constitutive:linear-elastic-mat strain de stress))
       (when (and enable-viscosity
                (not (= dt 0d0)))
-          (let ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-                (G (/ e (* 2 (+ 1d0 nu))))
-                (exp-rho (exp (- (/ dt visc)))))
+          (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+                 (G (/ e (* 2 (+ 1d0 nu))))
+                 (rho (/ visc e))
+                 (dy (/ dt rho))
+                 (exp-rho (exp (- dy)))
+                 ;; (lam (/ (- 1 exp-rho) dy))
+                 (lam 1d0)
+                )
             (declare (double-float K G p-mod))
-            (setf p-wave-0 (* (+ K (* 4/3 G exp-rho)))))
+            (setf p-wave-0 (* (+ K (* 4/3 G lam))))
+            )
           ;; (cl-mpm/particle::update-p-modulus mp)
           )
       )

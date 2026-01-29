@@ -154,7 +154,13 @@
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
+
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
+    ;;Viscoelastic corrector
+    (when (> dt 0d0)
+      ;; (pprint "hello")
+      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt 1d12))
+
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
@@ -198,8 +204,8 @@
              )
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
-            (let (;; (inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  ;; trial-elastic-strain strain)))) 1))
+            (let ((inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
+                  trial-elastic-strain strain)))) 1))
                   )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))

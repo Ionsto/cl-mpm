@@ -195,13 +195,14 @@
                               (aref ps-arr 0)
                               (aref p-mod-arr 0))))))))
         )
-      (defun constitutive-viscoelastic (stress de strain E nu dt viscosity)
+      (defun constitutive-viscoelastic (stress strain de E nu dt viscosity)
         "Mohr-coulomb, in-place update strain, return a new stress, yield function and ps inc"
         (declare (double-float E nu viscosity dt))
         (magicl.cffi-types:with-array-pointers ((sp (cl-mpm/utils:fast-storage strain)))
           (if (CppViscoelastic sp E nu viscosity dt)
               (progn
-                (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
+                (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+                ;; (cl-mpm/fastmaths::fast-@-tensor-voigt de strain stress)
                 strain)
               strain)))
       (defun matrix-sqrt (mat)
