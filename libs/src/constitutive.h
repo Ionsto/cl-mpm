@@ -321,15 +321,8 @@ namespace constitutive{
       double G = (E/(2*(1+nu)));
       double K = (E/(3*(1-(2*nu))));
 
-      Eigen::Matrix<double,3,3> d_neq = 2*G*dev;
-
-      // std::cout<<"De3\n";
-      // std::cout<<De3;
-      // Eigen::Matrix<double,3,3> C = (Eigen::Matrix<double,3,3>()<<
-      //                                 1,-nu,-nu,
-      //                                 -nu,1,-nu,
-      //                                 -nu,-nu,1).finished()/E;
-      Eigen::Matrix<double,3,3> C = De3.inverse();
+      Eigen::Matrix<double,3,3> d_neq = De3;//2*G*dev;
+      Eigen::Matrix<double,3,3> C = d_neq.inverse();
       Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(voigt_to_matrix(elastic_strain));
       if (eigensolver.info() != Eigen::Success)
         {
@@ -350,19 +343,18 @@ namespace constitutive{
       double f = ftol;
       const int maxsteps = 1000;
       for (int i = 0;(i < maxsteps) && (f >= ftol); ++i){
-        beta = De3 * en;
+        beta = d_neq * en;
         // std::cout<<beta<<"\n";
-        Eigen::Matrix<double,3,1> r = (en + ((dev * beta) * (dt / (2.0 * viscosity)))) - EpsTr;
+        Eigen::Matrix<double,3,1> r = EpsTr - (en + ((dev * beta) * (dt / (1.0 * viscosity))));
         f = r.norm();
         if(f >= ftol){
-          en -= (a * r);
+          en += (a * r);
         }
       }
       if(f > ftol){
         std::cout<<"Viscoelastic didn't converge "<<f<<"\n";
         abort();
       }
-
       elastic_strain = matrix_to_voigt(eigen_vectors * en.asDiagonal() * eigen_vectors.transpose());
       return elastic_strain;
     }

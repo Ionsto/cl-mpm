@@ -10,11 +10,15 @@ int main(int args, char **argv){
   Eigen::Matrix<double,6,1> strain;// {0.0,0.0,0.0,1.0,0.0,0.0};
   strain = (Eigen::Matrix<double,6,1>()<<
             1.0,
-            2.0,
-            3.0,
-            4.0,
-            5.0,
-            6.0).finished();
+            -2.0,
+            -3.0,
+            0.0,
+            0.0,
+            0.0
+            // 4.0,
+            // 5.0,
+            // 6.0
+            ).finished();
   double E = 10;
   double nu = 0.0;
   double phi = 1;
@@ -23,7 +27,7 @@ int main(int args, char **argv){
   std::cout << "Mohr-Coulomb" << "\n";
   auto t1 = Clock::now();
   int iters = 100000;
-  auto res = MohrCoulomb(strain,E,nu,phi,psi,c);
+  auto res = constitutive::MohrCoulomb(strain,E,nu,phi,psi,c);
   Eigen::Matrix<double,6,1> strainE = std::get<0>(res);
   double f = std::get<1>(res);
   double inc = std::get<2>(res);
