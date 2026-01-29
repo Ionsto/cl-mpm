@@ -44,16 +44,15 @@
   (with-accessors ((ybar      cl-mpm/particle::mp-damage-ybar)
                    (ybar-prev cl-mpm/particle::mp-damage-ybar-prev)
                    (y         cl-mpm/particle::mp-damage-y-local)
-                   (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
+                   ;; (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (damage    cl-mpm/particle::mp-damage)
                    (damage-n  cl-mpm/particle::mp-damage-n))
       mp
     (setf ybar ybar-prev)
-    (setf y y-prev)
+    ;; (setf y y-prev)
     (setf damage damage-n)
     (cl-mpm/damage::compute-damage mp)
-    (call-next-method)
-    ))
+    (call-next-method)))
 
 (defgeneric cl-mpm/particle::post-damage-step (mp dt))
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle) dt))
@@ -257,6 +256,7 @@
           (when (= delocal-counter 0)
             ;;Ensure they have a home
             ;; (create-delocalisation-list mesh mps)
+            (pprint "Updated list")
             (update-delocalisation-list mesh mps)
             (setf delocal-counter delocal-counter-max)))
         ;;Worst case we want dont want our delocal counter to exceed the max incase we get adjusted
@@ -888,8 +888,7 @@ Calls the function with the mesh mp and node"
       (declare (double-float pressure damage))
         (progn
           (when (< damage 1d0)
-            (let ((cauchy-undamaged (magicl:scale stress (/ 1d0 (* 1d0;(- 1d0 damage)
-                                                                   (magicl:det def))))))
+            (let ((cauchy-undamaged (cl-mpm/fastmaths:fast-scale-voigt stress (/ 1d0 (cl-mpm/fastmaths:det-3x3 def)))))
               (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d cauchy-undamaged)
                 (let* (;;Only allow tensile damage
                        (pressure-effective (* 1d0 damage pressure))

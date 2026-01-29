@@ -547,6 +547,8 @@
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (funcall setup-quasi-static sim)
       (let* ((current-adaptivity 0)
+             (prev-steps-easy (list t t))
+             (prev-step-iter 0)
              (elastic-dt (cl-mpm/setup::estimate-elastic-dt sim))
              )
         (format t "Elastic dt ~E, override quasi-static at ~E~%" elastic-dt (* elastic-dt elastic-dt-margin))
@@ -593,10 +595,16 @@
                                         (incf current-adaptivity)))))
                            finally (progn
                                      (format t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
-                                     (when (and (= i 1) (<= stagger-iters 3))
-                                       (setf current-adaptivity
-                                             (max min-adaptive-steps
-                                                  (- current-adaptivity 1)))))))
+                                     (incf prev-step-iter)
+                                     (if (and (= i 1) (<= stagger-iters 3))
+                                         (progn
+                                           (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
+                                           (when (every #'identity prev-steps-easy)
+                                             (setf current-adaptivity
+                                                   (max min-adaptive-steps
+                                                        (- current-adaptivity 1)))))
+                                         (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil)
+                                         ))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
                      (format t "Start real-timestepping~%")
