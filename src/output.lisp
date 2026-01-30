@@ -129,6 +129,7 @@
        (list
         :resolution (cl-mpm/mesh::mesh-resolution mesh)
         :domain-size (cl-mpm/mesh::mesh-mesh-size mesh))
+       (cl-mpm::sim-settings sim)
        (apply #'append args))))))
 (defun save-vtk-mesh (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim

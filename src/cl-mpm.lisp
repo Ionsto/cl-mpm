@@ -201,6 +201,11 @@
      :accessor sim-mass-filter
      :initarg :mass-filter
      :initform 1d-15)
+   (settings
+    :type list
+    :accessor sim-settings
+    :initarg :settings
+    :initform (list))
    (output-functions
     :type list
     :accessor sim-output-functions
