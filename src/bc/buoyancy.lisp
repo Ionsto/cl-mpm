@@ -130,18 +130,18 @@
 
 (defun calculate-scalar-val-mp-datum-proportional (mp func datum)
   (let ((pos (get-mp-position mp)))
-    (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-           (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
-      (*
-       (+
-        (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
-        (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain))
-        )
-       0.5d0))
     ;; (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-    ;;        (dist (max 0d0 (- datum (- (varef pos 1) lp))))
-    ;;        (factor (min 1d0 (abs (/ dist (* 2 lp))))))
-    ;;   (cl-mpm/fastmaths::fast-scale! (funcall func pos) factor))
+    ;;        (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
+    ;;   (*
+    ;;    (+
+    ;;     (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
+    ;;     (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain))
+    ;;     )
+    ;;    0.5d0))
+    (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
+           (dist (max 0d0 (- datum (- (varef pos 1) lp))))
+           (factor (min 1d0 (abs (/ dist (* 2 lp))))))
+      (* (funcall func pos) factor))
     )
   )
 
@@ -157,17 +157,17 @@
           ;;  ;; (cl-mpm/particle::mp-displacement-increment mp)
           ;;  )
           ))
-    (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-           (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
-      (cl-mpm/fastmaths::fast-scale!
-       (cl-mpm/fastmaths::fast-.+
-        (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
-        (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain)))
-       0.5d0))
     ;; (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
-    ;;        (dist (max 0d0 (- datum (- (varef pos 1) lp))))
-    ;;        (factor (min 1d0 (abs (/ dist (* 2 lp))))))
-    ;;   (cl-mpm/fastmaths::fast-scale! (funcall func pos) factor))
+    ;;        (half-domain (cl-mpm/utils:vector-from-list (list 0d0 lp 0d0))))
+    ;;   (cl-mpm/fastmaths::fast-scale!
+    ;;    (cl-mpm/fastmaths::fast-.+
+    ;;     (funcall func (cl-mpm/fastmaths:fast-.+ pos half-domain))
+    ;;     (funcall func (cl-mpm/fastmaths:fast-.- pos half-domain)))
+    ;;    0.5d0))
+    (let* ((lp (/ (varef (cl-mpm/particle::mp-domain-size mp) 1) 2))
+           (dist (max 0d0 (- datum (- (varef pos 1) lp))))
+           (factor (min 1d0 (abs (/ dist (* 2 lp))))))
+      (cl-mpm/fastmaths::fast-scale! (funcall func pos) factor))
     )
   )
 
