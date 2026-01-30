@@ -466,7 +466,8 @@
                           (explicit-damping-factor 1d-3)
                           (elastic-dt-margin 1000)
                           (dt 1d0)
-                          (steps 1d0)
+                          (steps nil)
+                          (total-time 1d0)
                           (max-adaptive-steps 5)
                           (min-adaptive-steps -1)
                           (conv-criteria 1d-3)
@@ -480,6 +481,8 @@
                           (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
   (let ()
+    (when steps
+      (setf total-time (* dt steps)))
     (uiop:ensure-all-directories-exist (list output-dir))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
     (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json")
@@ -550,10 +553,12 @@
              (prev-steps-easy (list t t))
              (prev-step-iter 0)
              (elastic-dt (cl-mpm/setup::estimate-elastic-dt sim))
+             (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
              )
         (format t "Elastic dt ~E, override quasi-static at ~E~%" elastic-dt (* elastic-dt elastic-dt-margin))
-        (loop for step from 1 to steps
-              while (cl-mpm::sim-run-sim sim)
+        (loop for step from 1 to (+ 1 max-steps)
+              while (and (cl-mpm::sim-run-sim sim)
+                         (< (cl-mpm::sim-time sim) total-time))
               do
                  (let ((quasi-conv nil))
                    (format t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt 2 current-adaptivity)))
@@ -562,8 +567,10 @@
                      (loop for i from 0 to max-adaptive-steps
                            while (not quasi-conv)
                            do (progn
-                                (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) (/ dt (expt 2 current-adaptivity)))
-                                (format t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                (let* ((adapted-dt (/ dt (expt 2 current-adaptivity))))
+                                  (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
+                                        (+ (min (- total-time (cl-mpm::sim-time sim)) adapted-dt) 1d-15))
+                                  (format t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                 (setf *trial-iter* i)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
