@@ -174,6 +174,9 @@
      ))
   )
 
+(defparameter *rs* 0.3d0)
+(defparameter *enable-plastic-damage* t)
+
 (defun setup (&key (refine 1) (mps 2)
                 (pressure-condition t)
                 (cryo-static t)
@@ -253,7 +256,7 @@
       (format t "Estimated ductility ~E~%" ductility)
       (format t "Init stress ~E~%" init-stress)
       (format t "Init c ~E~%" init-c)
-      (let ((rs 0.3d0))
+      (let ((rs *rs*))
         (cl-mpm:add-mps
          *sim*
          (cl-mpm/setup:make-block-mps
@@ -282,7 +285,7 @@
           :delay-exponent 2
           :enable-plasticity t
           :enable-damage t
-          :plastic-damage-evolution t
+          :plastic-damage-evolution *enable-plastic-damage*
 
 
           ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
@@ -302,7 +305,7 @@
 
           ;; :gravity -9.8d0
           ))
-        ;; (est-angle rs)
+        (est-angle angle rs)
         )
       (when melange
         (let* ((melange-depth 50d0)
@@ -653,6 +656,13 @@
 
 
 
-
-
-
+(defun est-angle (angle rs)
+  (let* ((rc 0d0)
+         (ratio (/ (- 1d0 rs) (- 1d0 rc)))
+         (angle-plastic (* angle (/ pi 180)))
+         (angle-plastic-damaged (atan (* ratio (tan angle-plastic))))
+         )
+    (format t "Plastic virgin angle: ~F~%"
+            (* (/ 180 pi) angle-plastic))
+    (format t "Plastic residual angle: ~F~%"
+            (* (/ 180 pi) angle-plastic-damaged))))
