@@ -96,7 +96,10 @@
     :accessor mp-damage-shear
     :initarg :damage-shear
     :initform 0d0)
-   )
+   (enable-viscosity
+    :accessor mp-enable-viscosity
+    :initarg :enable-viscosity
+    :initform t))
   (:documentation "An ice damage model with a quasi-brittle damage model"))
 
 (defclass particle-ice-delayed (particle-ice-brittle)
