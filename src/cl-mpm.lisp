@@ -35,6 +35,7 @@
    #:sim-gravity
    #:sim-enable-damage
    #:sim-allow-mp-split
+   #:sim-settings
    #:post-stress-step
    #:iterate-over-nodes
    #:iterate-over-nodes-serial
