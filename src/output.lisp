@@ -7,6 +7,7 @@
    #:save-vtk-nodes
    #:save-vtk-cells
    #:save-csv
+   #:save-simulation-parameters
    ))
 
 (in-package :cl-mpm/output)

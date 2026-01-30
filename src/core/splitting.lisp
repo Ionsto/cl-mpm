@@ -1,6 +1,7 @@
 (in-package :cl-mpm)
 ;;MP splitting code goes in here
-(declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim #.cl-mpm/settings::*optimise-debug*)
 
 
 (defun copy-particle (original &rest initargs &key &allow-other-keys)
@@ -174,7 +175,7 @@
     (split-cases direction)))
 
 (defun abs-vec (v)
-  (let ((v-d (cl-mpm/utils::empty-copy v)))
+  (let ((v-d (cl-mpm/utils::vector-zeros)))
     (loop for i from 0 below (length (fast-storage v-d))
           do (setf (varef v-d i) (abs (varef v i))))
     v-d))
@@ -185,36 +186,52 @@
          (split-factor (cl-mpm::sim-split-factor sim))
          (crit (* h split-factor))
          )
-    (cl-mpm::split-mps-vector
+    (split-mps-vector
      sim
      (lambda (mp)
        (let ((split-dir nil))
-         (let ((td (cl-mpm/utils::deep-copy (cl-mpm/particle::mp-true-domain mp))))
+         (let ((td (cl-mpm/particle::mp-true-domain mp)))
            ;; (setf (magicl:tref td 2 2) 0d0)
-           (multiple-value-bind (l v)
-               (cl-mpm/utils:eig td)
-             (loop ;for i from 0 to 2
-                   for lv in l
-                   for i from 0
-                   while (not split-dir)
-                   do
-                      (progn
-                        (when (> (abs lv) crit)
-                          (setf split-dir (abs-vec (magicl:column v i))))))
-             (unless split-dir
-               (let* ((abs-l (mapcar #'abs l))
-                      (max-l (reduce #'max abs-l))
-                      (min-l (reduce #'min (remove 0d0 abs-l)))
-                      (ratio 2d0))
-                 ;; (pprint l)
-                 (when (> max-l crit)
-                   (let ((pos (position max-l abs-l)))
-                     (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos)))));)
-                 ;; (when (> max-l (* min-l ratio))
-                 ;;   (let ((pos (position max-l abs-l)))
-                 ;;     (when pos
-                 ;;       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))
-                 ))))
+           (multiple-value-bind (l v) (cl-mpm/utils:eig td)
+             ;; (loop for lv in l
+             ;;       for i from 0
+             ;;       while (not split-dir)
+             ;;       do
+             ;;          (progn
+             ;;            ;; (when (> (abs lv) crit)
+             ;;            ;;   (setf split-dir
+             ;;            ;;         ;; (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
+             ;;            ;;         (abs-vec (magicl:column v i))
+             ;;            ;;         ))
+             ;;            ))
+             (let* ((abs-l (mapcar #'abs l))
+                    (max-l (reduce #'max abs-l))
+                    (min-l (reduce #'min (remove 0d0 abs-l)))
+                    (ratio 2d0))
+               (when (> max-l crit)
+
+                 ;; (setf split-dir (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
+                 (let* ((pos (position max-l abs-l))
+                        (vec (magicl::vector->column-matrix (magicl:column v pos)))
+                        )
+                   (setf split-dir (cl-mpm/fastmaths:norm
+                                    (cl-mpm/utils:vector-from-list (list (varef vec 0) (varef vec 1) (varef vec 2))))))))
+             ;; (unless split-dir
+             ;;   (let* ((abs-l (mapcar #'abs l))
+             ;;          (max-l (reduce #'max abs-l))
+             ;;          (min-l (reduce #'min (remove 0d0 abs-l)))
+             ;;          (ratio 2d0))
+             ;;     ;; (pprint l)
+             ;;     (when (> max-l crit)
+             ;;       (format t "~A ~E ~E~%" mp max-l crit)
+             ;;       (let ((pos (position max-l abs-l)))
+             ;;         (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos)))));)
+             ;;     ;; (when (> max-l (* min-l ratio))
+             ;;     ;;   (let ((pos (position max-l abs-l)))
+             ;;     ;;     (when pos
+             ;;     ;;       (setf split-dir (cl-mpm/fastmaths:norm (magicl:column v pos))))))
+             ;;     ))
+             ))
          split-dir)))))
 
 
@@ -238,8 +255,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  ;; (split-mps-eigenvalue sim)
-  (split-mps-cartesian sim)
+  (split-mps-eigenvalue sim)
+  ;; (split-mps-cartesian sim)
   )
 
 (defun split-mps-criteria (sim criteria)
@@ -259,12 +276,13 @@
 (defun split-mps-vector (sim criteria)
   "Split mps that fail an arbritary criteria"
   (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
+                   (mesh cl-mpm:sim-mesh)
+                   (max-split-depth cl-mpm::sim-max-split-depth))
       sim
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (split-directions (lparallel:pmap 'vector criteria mps))
-           (mps-to-split (delete-if-not #'identity (lparallel:pmap 'vector (lambda (mp crit) (when crit mp)) mps split-directions)))
-           ;; (mps-to-split (remove-if-not (lambda (mp) (funcall criteria mp h)) mps))
+           (split-directions (lparallel:pmap '(vector t *) criteria mps))
+           (mps-to-split (delete-if-not #'identity (lparallel:pmap '(vector t *) (lambda (mp crit) (when crit mp)) mps split-directions)))
+           (mps-to-split (delete-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-split))
            ;; (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split))
            )
       (remove-mps-func sim (lambda (mp) (position mp mps-to-split)))
