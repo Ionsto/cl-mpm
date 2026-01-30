@@ -80,7 +80,7 @@
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
-                   )
+                   (pd-inc cl-mpm/particle::mp-plastic-damage-evolution))
       mp
     (progn
       (let ((ps-y (sqrt (* E (expt ps-vm 2)))))
@@ -107,6 +107,7 @@
                 ;;                              (* 1d0 (magicl:det def))
                 ;;                              (/ (- pressure) 3))))
                 ;;  (* angle (/ pi 180d0)))
+                (if pd-inc ps-y 0d0)
                 (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
                  (cl-mpm/fastmaths:fast-.+
                   (cl-mpm/fastmaths::fast-scale-voigt stress
@@ -565,7 +566,7 @@
         do
            (let* ((mps 3)
                   (H 600d0))
-             (setup :refine 0.25
+             (setup :refine 0.125
                     :friction 0.8d0
                     :bench-length (* 0d0 H)
                     :ice-height H

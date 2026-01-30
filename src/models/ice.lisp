@@ -742,7 +742,7 @@
                   (max
                    k-n
                    (+
-                    (if pd-inc ps-y 0d0)
+                    ;; (if pd-inc ps-y 0d0)
                     (cl-mpm/damage::huen-integration
                      k-n
                      ybar-prev
