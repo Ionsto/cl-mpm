@@ -215,9 +215,7 @@
        (with-accessors ((node-damage cl-mpm/mesh::node-damage)
                         (node-svp cl-mpm/mesh::node-svp-sum))
            node
-         (when (> node-svp 0d0)
-           (incf nodal-damage (/ (* node-damage svp)
-                                 node-svp))))
+         (incf nodal-damage (* node-damage svp)))
        ))
     (with-accessors ((local-length cl-mpm/particle::mp-local-length)
                      (local-length-damaged cl-mpm/particle::mp-local-length-damaged)
@@ -271,6 +269,7 @@
       (if non-local-damage
           (progn
             (when (sim-enable-length-localisation sim)
+              (g2p-damage sim)
               (update-localisation-lengths sim))
             (delocalise-damage sim))
           (localise-damage mesh mps dt))
@@ -421,9 +420,7 @@
 (defun diff-damaged (mesh mp-a mp-b)
   (flet ((node-dam (node)
            (if (cl-mpm/mesh::node-active node)
-               (/ (the double-float (cl-mpm/mesh::node-damage node))
-                  (the double-float (cl-mpm/mesh::node-svp-sum node))
-                  )
+               (the double-float (cl-mpm/mesh::node-damage node))
                0d0)))
     (with-accessors
           ((h cl-mpm/mesh::mesh-resolution))
@@ -750,6 +747,35 @@ Calls the function with the mesh mp and node"
            ll
            lld
            damage))))
+
+(defgeneric g2p-damage (sim)
+  (:documentation
+   "Map damage to grid"))
+(defmethod g2p-damage ((sim cl-mpm/damage::mpm-sim-damage))
+  (cl-mpm:iterate-over-nodes
+   (cl-mpm:sim-mesh sim)
+   (lambda (n)
+     (when (cl-mpm/mesh::node-active n)
+       (setf (cl-mpm/mesh::node-damage n) 0d0))))
+  (cl-mpm::iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (when (typep mp 'cl-mpm/particle::particle-damage)
+       (cl-mpm:iterate-over-neighbours
+        (cl-mpm:sim-mesh sim)
+        mp
+        (lambda (mesh mp node svp grads fsvp fgrads)
+          (sb-thread:with-mutex ((cl-mpm/mesh:node-lock node))
+            (incf (cl-mpm/mesh::node-damage node)
+                  (* svp
+                     (cl-mpm/particle::mp-volume mp)
+                     (cl-mpm/particle::mp-damage mp)))))))))
+  (cl-mpm:iterate-over-nodes
+   (cl-mpm:sim-mesh sim)
+   (lambda (n)
+     (when (cl-mpm/mesh::node-active n)
+       (setf (cl-mpm/mesh::node-damage n) (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n))))))
+  )
 
 (defgeneric update-localisation-lengths (sim))
 (defmethod update-localisation-lengths ((sim cl-mpm/damage::mpm-sim-damage))
