@@ -46,11 +46,12 @@
                    (y         cl-mpm/particle::mp-damage-y-local)
                    ;; (y-prev    cl-mpm/particle::mp-damage-y-local-prev)
                    (damage    cl-mpm/particle::mp-damage)
-                   (damage-n  cl-mpm/particle::mp-damage-n))
+                   (damage-n  cl-mpm/particle::mp-damage-n)
+                   (stress cl-mpm/particle::mp-undamaged-stress))
       mp
     (setf ybar ybar-prev)
-    ;; (setf y y-prev)
     (setf damage damage-n)
+    (cl-mpm/fastmaths::fast-zero stress)
     (cl-mpm/damage::compute-damage mp)
     (call-next-method)))
 

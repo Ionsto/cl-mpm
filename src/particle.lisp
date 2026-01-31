@@ -1037,8 +1037,7 @@
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
-                   (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev)
-                   )
+                   (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev))
       mp
     (cl-mpm/utils:matrix-copy-into def-0 def)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
