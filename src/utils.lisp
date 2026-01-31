@@ -755,3 +755,6 @@
              (loop for y from 0 below 2
                    do (setf (mtref m x y) (mtref mat x y))))
     m))
+
+(defun matrix-column (mat i)
+  (magicl:vector->column-matrix (magicl:column mat i)))

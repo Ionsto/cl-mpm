@@ -759,9 +759,9 @@
             (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
                    (l (mapcar #'car l-sort))
                    (v (magicl:block-matrix (list
-                                            (magicl:column v (cdr (nth 0 l-sort)))
-                                            (magicl:column v (cdr (nth 1 l-sort)))
-                                            (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 0 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 1 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
                        (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
@@ -814,53 +814,53 @@
                              (magicl:transpose!
                               (magicl:block-matrix
                                (list
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                           (magicl:column v 0))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                           (cl-mpm/utils::matrix-column v 0))
 
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                           (magicl:column v 1))
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                           (magicl:column v 2))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                           (cl-mpm/utils::matrix-column v 1))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                           (cl-mpm/utils::matrix-column v 2))
 
                                 (magicl:scale!
-                                 (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                            (magicl:column v 1)) 2d0)
+                                 (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                            (cl-mpm/utils::matrix-column v 1)) 2d0)
                                 (magicl:scale!
-                                 (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                            (magicl:column v 2)) 2d0)
+                                 (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                            (cl-mpm/utils::matrix-column v 2)) 2d0)
                                 (magicl:scale!
-                                 (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                            (magicl:column v 0)) 2d0)
+                                 (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                            (cl-mpm/utils::matrix-column v 0)) 2d0)
 
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                           (rotate-vector (magicl:column v 0)))
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                           (rotate-vector (magicl:column v 1)))
-                                (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                           (rotate-vector (magicl:column v 2)))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                           (rotate-vector (cl-mpm/utils::matrix-column v 0)))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                           (rotate-vector (cl-mpm/utils::matrix-column v 1)))
+                                (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                           (rotate-vector (cl-mpm/utils::matrix-column v 2)))
 
                                 (magicl:scale! (cl-mpm/fastmaths::fast-.+
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 0)
-                                                 (rotate-vector (magicl:column v 1)))
+                                                 (cl-mpm/utils::matrix-column v 0)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 1)))
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 1)
-                                                 (rotate-vector (magicl:column v 0)))) 1d0)
+                                                 (cl-mpm/utils::matrix-column v 1)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 0)))) 1d0)
 
                                 (magicl:scale! (cl-mpm/fastmaths::fast-.+
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 1)
-                                                 (rotate-vector (magicl:column v 2)))
+                                                 (cl-mpm/utils::matrix-column v 1)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 2)))
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 2)
-                                                 (rotate-vector (magicl:column v 1)))) 1d0)
+                                                 (cl-mpm/utils::matrix-column v 2)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 1)))) 1d0)
                                 (magicl:scale! (cl-mpm/fastmaths::fast-.+
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 2)
-                                                 (rotate-vector (magicl:column v 0)))
+                                                 (cl-mpm/utils::matrix-column v 2)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 0)))
                                                 (cl-mpm/fastmaths::fast-.*
-                                                 (magicl:column v 0)
-                                                 (rotate-vector (magicl:column v 2)))) 1d0)
+                                                 (cl-mpm/utils::matrix-column v 0)
+                                                 (rotate-vector (cl-mpm/utils::matrix-column v 2)))) 1d0)
                                 ) '(2 6))))
                            (psinc 0d0)
                            )
@@ -955,9 +955,9 @@
             (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
                    (l (mapcar #'car l-sort))
                    (v (magicl:block-matrix (list
-                                            (magicl:column v (cdr (nth 0 l-sort)))
-                                            (magicl:column v (cdr (nth 1 l-sort)))
-                                            (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 0 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 1 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((De3
                        (cl-mpm/fastmaths::fast-scale!
                         (cl-mpm/utils:matrix-from-list (list
@@ -1008,47 +1008,47 @@
                            (Q
                              (magicl:transpose!
                               (magicl:block-matrix (list
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                                              (magicl:column v 0))
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                                              (cl-mpm/utils::matrix-column v 0))
 
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                                              (magicl:column v 1))
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                                              (magicl:column v 2))
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                                              (cl-mpm/utils::matrix-column v 1))
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                                              (cl-mpm/utils::matrix-column v 2))
 
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                                               (magicl:column v 1)) 2d0)
+                                                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                                               (cl-mpm/utils::matrix-column v 1)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                                               (magicl:column v 2)) 2d0)
+                                                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                                               (cl-mpm/utils::matrix-column v 2)) 2d0)
                                                     (magicl:scale!
-                                                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                                               (magicl:column v 0)) 2d0)
+                                                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                                               (cl-mpm/utils::matrix-column v 0)) 2d0)
 
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                                              (rotate-vector (magicl:column v 0)))
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                                              (rotate-vector (magicl:column v 1)))
-                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                                              (rotate-vector (magicl:column v 2)))
-
-                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                                                              (rotate-vector (magicl:column v 1)))
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                                                              (rotate-vector (magicl:column v 0)))) 1d0)
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 0)))
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 1)))
+                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 2)))
 
                                                     (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                                                                              (rotate-vector (magicl:column v 2)))
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                                                              (rotate-vector (magicl:column v 1)))) 1d0)
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 1)))
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 0)))) 1d0)
+
                                                     (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                                                                              (rotate-vector (magicl:column v 0)))
-                                                                    (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                                                                              (rotate-vector (magicl:column v 2)))) 1d0)
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 2)))
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 1)))) 1d0)
+                                                    (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 0)))
+                                                                    (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                                                                              (rotate-vector (cl-mpm/utils::matrix-column v 2)))) 1d0)
                                                     ) '(2 6)))))
                       (declare (double-float t1 t2 f12 f13))
                       (cond
@@ -1124,38 +1124,38 @@
   (magicl:transpose!
    (magicl:block-matrix
     (list
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (magicl:column v 0))
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0) (cl-mpm/utils::matrix-column v 0))
 
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (magicl:column v 1))
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (magicl:column v 2))
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1) (cl-mpm/utils::matrix-column v 1))
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2) (cl-mpm/utils::matrix-column v 2))
 
      (magicl:scale!
-      (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (magicl:column v 1)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0) (cl-mpm/utils::matrix-column v 1)) 2d0)
      (magicl:scale!
-      (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (magicl:column v 2)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1) (cl-mpm/utils::matrix-column v 2)) 2d0)
      (magicl:scale!
-      (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (magicl:column v 0)) 2d0)
+      (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2) (cl-mpm/utils::matrix-column v 0)) 2d0)
 
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 0) (rotate-vector (magicl:column v 0)))
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 1) (rotate-vector (magicl:column v 1)))
-     (cl-mpm/fastmaths::fast-.* (magicl:column v 2) (rotate-vector (magicl:column v 2)))
-
-     (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                               (rotate-vector (magicl:column v 1)))
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                               (rotate-vector (magicl:column v 0)))) 1d0)
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0) (rotate-vector (cl-mpm/utils::matrix-column v 0)))
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1) (rotate-vector (cl-mpm/utils::matrix-column v 1)))
+     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2) (rotate-vector (cl-mpm/utils::matrix-column v 2)))
 
      (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 1)
-                                               (rotate-vector (magicl:column v 2)))
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                               (rotate-vector (magicl:column v 1)))) 1d0)
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 1)))
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 0)))) 1d0)
+
      (magicl:scale! (cl-mpm/fastmaths::fast-.+
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 2)
-                                               (rotate-vector (magicl:column v 0)))
-                     (cl-mpm/fastmaths::fast-.* (magicl:column v 0)
-                                               (rotate-vector (magicl:column v 2)))) 1d0)
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 1)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 2)))
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 1)))) 1d0)
+     (magicl:scale! (cl-mpm/fastmaths::fast-.+
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 2)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 0)))
+                     (cl-mpm/fastmaths::fast-.* (cl-mpm/utils::matrix-column v 0)
+                                               (rotate-vector (cl-mpm/utils::matrix-column v 2)))) 1d0)
      ) '(2 6))))
 
 (declaim (notinline plastic-dp))
@@ -1174,9 +1174,9 @@
             (let* ((l-sort (sort (mapcar #'cons l (list 0 1 2)) #'> :key #'car))
                    (l (mapcar #'car l-sort))
                    (v (magicl:block-matrix (list
-                                            (magicl:column v (cdr (nth 0 l-sort)))
-                                            (magicl:column v (cdr (nth 1 l-sort)))
-                                            (magicl:column v (cdr (nth 2 l-sort)))) '(1 3))))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 0 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 1 l-sort)))
+                                            (cl-mpm/utils::matrix-column v (cdr (nth 2 l-sort)))) '(1 3))))
               (let* ((alfa (- (tan phi)))
                      (bta (- (tan psi)))
                      (xsic (* (sqrt 3) (/ 1d0 (tan phi)) c))
