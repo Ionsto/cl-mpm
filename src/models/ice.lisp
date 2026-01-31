@@ -52,6 +52,37 @@
     :initform 0d0))
   (:documentation "A ice mp with viscoplastic damage and viscoelastic relaxation "))
 
+(defclass particle-ice-linear (particle-finite-viscoelastic)
+  ()
+  (:default-initargs
+   :viscosity 1d12))
+
+(defmethod constitutive-model ((mp particle-ice-linear) strain dt)
+  (with-accessors ((de mp-elastic-matrix)
+                   (e mp-e)
+                   (nu mp-nu)
+                   (p-wave-0 mp-p-modulus-0)
+                   (stress mp-stress)
+                   (strain mp-strain)
+                   (strain-n mp-strain-n)
+                   (viscosity mp-viscosity)
+                   (enable-viscosity mp-enable-viscosity))
+      mp
+    (if (and enable-viscosity (> dt 0d0))
+        (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
+        (cl-mpm/constitutive:linear-elastic-mat strain de stress))
+    (when (and enable-viscosity
+               (> dt 0d0))
+      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
+             (G (/ e (* 2 (+ 1d0 nu))))
+             (rho (/ viscosity G))
+             (dy (/ dt rho))
+             (exp-rho (exp (- dy)))
+             (lam (/ (- 1 exp-rho) dy)))
+        (declare (double-float K G p-wave-0))
+        (setf p-wave-0 (* (+ K (* 4/3 G lam))))))
+    stress))
+
 (defclass particle-ice-brittle (particle-elastic-damage  particle-mc)
   ((trial-elastic-strain
     :accessor mp-trial-strain
@@ -163,7 +194,7 @@
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
       ;; (pprint "hello")
-      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt 1d12))
+      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt 1d13))
 
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (setf p-wave (cl-mpm/particle::compute-p-modulus mp))

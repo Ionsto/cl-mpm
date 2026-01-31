@@ -774,8 +774,7 @@ Calls the function with the mesh mp and node"
    (cl-mpm:sim-mesh sim)
    (lambda (n)
      (when (cl-mpm/mesh::node-active n)
-       (setf (cl-mpm/mesh::node-damage n) (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n))))))
-  )
+       (setf (cl-mpm/mesh::node-damage n) (/ (cl-mpm/mesh::node-damage n) (cl-mpm/mesh::node-volume n)))))))
 
 (defgeneric update-localisation-lengths (sim))
 (defmethod update-localisation-lengths ((sim cl-mpm/damage::mpm-sim-damage))

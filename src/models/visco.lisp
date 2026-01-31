@@ -181,44 +181,6 @@
 
   )
 
-;; (defun matrix-to-column-major (matrix)
-;;   (if nil;(= (magicl:layout matrix) :column-major)
-;;       matrix
-;;       (let* ((s (cl-mpm/utils:fast-storage matrix))
-;;              (mt (cl-mpm/utils::empty-copy matrix))
-;;              (rows (magicl::matrix/double-float-nrows matrix))
-;;              (cols (magicl::matrix/double-float-ncols matrix))
-;;              (st (cl-mpm/utils:fast-storage mt)))
-;;         (declare (fixnum rows cols))
-;;         (loop for i fixnum from 0 below rows
-;;               do (loop for j fixnum from 0 below cols
-;;                        do
-;;                           (progn
-;;                             (setf (aref st (+ i (* j rows)))
-;;                                   (aref s (+ j (* i rows)))))))
-;;         mt)))
-
-;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (defun testt ()
-;;   (let* ((de (cl-mpm/constitutive:linear-elastic-matrix 1d0 0d0))
-;;          (C (magicl:inv de)))
-;;     (magicl:.+
-;;      C
-;;      (magicl:scale
-;;       (magicl:.-
-;;        (magicl:eye 6)
-;;        (magicl:scale
-;;         (magicl:from-list
-;;          (list 1d0 1d0 1d0 0d0 0d0 0d0
-;;                1d0 1d0 1d0 0d0 0d0 0d0
-;;                1d0 1d0 1d0 0d0 0d0 0d0
-;;                0d0 0d0 0d0 0d0 0d0 0d0
-;;                0d0 0d0 0d0 0d0 0d0 0d0
-;;                0d0 0d0 0d0 0d0 0d0 0d0
-;;                )
-;;          '(6 6)) (/ 1d0 3d0)))
-;;       1d0))))
-
 (defun finite-glen-flow (stress strain de e nu dt viscosity)
   (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voigt-to-matrix strain))
       (let* ((dev (cl-mpm/fastmaths:fast-.-
@@ -367,8 +329,7 @@
   ((viscosity
     :accessor mp-viscosity
     :initarg :viscosity
-    :initform 1d0
-    )
+    :initform 1d0)
    (enable-viscosity
     :accessor mp-enable-viscosity
     :initarg :enable-viscosity

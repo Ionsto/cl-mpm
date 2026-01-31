@@ -312,7 +312,7 @@
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
-    ;; (cl-mpm::g2p mesh mps dt damping :TRIAL)
+    (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
     ))
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))

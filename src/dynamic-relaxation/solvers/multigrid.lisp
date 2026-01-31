@@ -53,7 +53,6 @@
            (cl-mpm:sim-mps sim)
            (lambda (mp)
              (setf (fill-pointer (cl-mpm/particle::mp-cached-nodes mp)) 0)))
-          ;; (setf (cl-mpm::sim-mass-filter sim) (* mass-filter  (expt (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)) 2) ))
           ;; (pre-step sim)
           (let ((mesh (cl-mpm:sim-mesh sim))
                 (mps (cl-mpm:sim-mps sim)))
@@ -63,7 +62,8 @@
               (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim))))
           (let ((coarse-mesh (nth i (cl-mpm::sim-mesh-list sim))))
             (cl-mpm::iterate-over-nodes
-             (nth (1+ i) (cl-mpm::sim-mesh-list sim))
+             ;; (nth (1+ i) (cl-mpm::sim-mesh-list sim))
+             (cl-mpm:sim-mesh sim)
              (lambda (n)
                (when (cl-mpm/mesh::node-active n)
                  (with-accessors ((disp cl-mpm/mesh::node-displacment))
@@ -95,15 +95,15 @@
       (call-next-method)
       (setf mesh m))))
 
-(defmethod pre-step ((sim mpm-sim-dr-multigrid))
-  (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (mps cl-mpm:sim-mps)
-                   (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
-      sim
-    (call-next-method)
-    (setf delocal-counter -1)
-    (progn
-      (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
+;; (defmethod pre-step ((sim mpm-sim-dr-multigrid))
+;;   (with-accessors ((mesh cl-mpm:sim-mesh)
+;;                    (mps cl-mpm:sim-mps)
+;;                    (delocal-counter cl-mpm/damage::sim-damage-delocal-counter-max))
+;;       sim
+;;     (call-next-method)
+;;     (setf delocal-counter -1)
+;;     (progn
+;;       (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))
 
 (defmethod pre-step ((sim mpm-sim-dr-multigrid))
   (with-slots ((mesh cl-mpm::mesh)
@@ -130,10 +130,9 @@
     (if (= current-mesh 0)
         (progn
           (cl-mpm::reset-grid mesh :reset-displacement t)
-          (cl-mpm::reset-node-displacement sim))
+          )
         (progn
           (cl-mpm::reset-grid mesh :reset-displacement nil)))
-
     (cl-mpm::p2g mesh mps)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -148,4 +147,7 @@
     (cl-mpm::apply-bcs mesh bcs dt)
     (midpoint-starter sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (setf initial-setup t)))
+    (setf initial-setup t)
+    (setf (cl-mpm/damage::sim-damage-delocal-counter-max sim) -1)
+    (progn
+      (cl-mpm/damage::update-delocalisation-list (first (last (cl-mpm::sim-mesh-list sim))) mps))))

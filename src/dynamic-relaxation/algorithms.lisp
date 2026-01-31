@@ -232,6 +232,7 @@
                           (substeps 50)
                           (total-steps 0)
                           (damping 1d0)
+                          (sub-conv-steps 200)
                           (conv-criteria 1d-3)
                           (conv-criteria-damage 1d-3)
                           (output-dir "./output/")
@@ -269,7 +270,7 @@
                         :energy-crit energy-crit
                         :dt-scale dt-scale
                         :substeps substeps
-                        :conv-steps 200
+                        :conv-steps sub-conv-steps
                         :damping-factor damping
                         :post-iter-step
                         (lambda (i e o)
@@ -922,23 +923,24 @@
 ;;               )))))
 
 (defun run-quasi-time (sim
-                        &key (output-dir "./output/")
-                          (post-conv-step (lambda (sim)))
-                          (plotter (lambda (sim)))
-                          (dt-scale 0.5d0)
-                          (dt 1d0)
-                          (total-time 1d0)
-                          (substeps 50)
-                          (enable-damage t)
-                          (enable-plastic t)
-                          (max-adaptive-steps 5)
-                          (min-adaptive-steps -1)
-                          (save-vtk-loadstep t)
-                          (save-vtk-conv t)
-                          (save-vtk-dr t)
-                          (damping 1d0)
-                          (elastic-solver 'mpm-sim-dr-ul)
-                          (conv-criteria 1d-3))
+                       &key (output-dir "./output/")
+                         (post-conv-step (lambda (sim)))
+                         (post-load-step (lambda (sim)))
+                         (plotter (lambda (sim)))
+                         (dt-scale 0.5d0)
+                         (dt 1d0)
+                         (total-time 1d0)
+                         (substeps 50)
+                         (enable-damage t)
+                         (enable-plastic t)
+                         (max-adaptive-steps 5)
+                         (min-adaptive-steps -1)
+                         (save-vtk-loadstep t)
+                         (save-vtk-conv t)
+                         (save-vtk-dr t)
+                         (damping 1d0)
+                         (elastic-solver 'mpm-sim-dr-ul)
+                         (conv-criteria 1d-3))
   (let ((result t))
     (uiop:ensure-all-directories-exist (list output-dir))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
@@ -960,7 +962,8 @@
     (let (;(substeps 50)
           (vel-algo (cl-mpm::sim-velocity-algorithm sim))
           (sim-type (class-of sim)))
-      (change-class sim elastic-solver)
+      (when (not (subtypep (type-of sim) elastic-solver))
+        (change-class sim elastic-solver))
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) 0d0)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       (set-mp-plastic-damage sim :enable-plastic nil :enable-damage nil)
@@ -1053,6 +1056,7 @@
                            result nil))
                    (incf sim-time (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                    (funcall plotter sim)
+                   (funcall post-load-step sim)
 
                    (when save-vtk-loadstep
                      (save-vtks sim output-dir step))

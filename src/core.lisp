@@ -1084,7 +1084,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  (check-single-mps sim)
+  ;; (check-single-mps sim)
   ;; (reset-node-displacement sim)
   )
 
