@@ -212,7 +212,7 @@
 
                  ;; (setf split-dir (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
                  (let* ((pos (position max-l abs-l))
-                        (vec (magicl::vector->row-matrix (magicl:column v pos)))
+                        (vec (magicl::vector->column-matrix (magicl:column v pos)))
                         )
                    (setf split-dir (cl-mpm/fastmaths:norm
                                     (cl-mpm/utils:vector-from-list (list (varef vec 0) (varef vec 1) (varef vec 2))))))))
