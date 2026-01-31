@@ -160,7 +160,8 @@
 
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     ;;Viscoelastic corrector
-    (when (> dt 0d0)
+    (when (and (cl-mpm/particle::mp-enable-viscosity mp)
+               (> dt 0d0))
       ;; (pprint "hello")
       (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt 1d12))
 
