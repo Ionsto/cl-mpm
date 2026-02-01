@@ -273,6 +273,11 @@
     :type DOUBLE-FLOAT
     :initarg :damage
     :initform 0d0)
+   (damage-prev-trial
+    :accessor mp-damage-prev-trial
+    :type DOUBLE-FLOAT
+    :initarg :damage
+    :initform 0d0)
    (j-fbar
     :accessor mp-j-fbar
     :initform 1d0)

@@ -322,7 +322,8 @@
                                   (setf damage (get-damage sim))
                                   (setf dconv (if (> damage 0d0)
                                                   (if (> damage-prev 0d0)
-                                                      (abs (/ (- damage damage-prev) damage-prev))
+                                                      (/ (compute-damage-delta sim) damage-prev)
+                                                      ;; (abs (/ (- damage damage-prev) damage-prev))
                                                       sb-ext:double-float-positive-infinity)
                                                   0d0))
                                   (setf damage-prev damage)
@@ -669,6 +670,14 @@
   (cl-mpm/output:save-vtk-cells (merge-pathnames "test_cells.vtk" output-dir) sim)
   )
 
+
+(defun compute-damage-delta (sim)
+  (cl-mpm::reduce-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (abs (- (cl-mpm/particle::mp-damage mp)
+             (cl-mpm/particle::mp-damage-prev-trial mp))))
+   #'+))
 
 (defun converge-staggered (sim
                            criteria

@@ -189,6 +189,7 @@
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
 
+    (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     ;;Viscoelastic corrector
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
