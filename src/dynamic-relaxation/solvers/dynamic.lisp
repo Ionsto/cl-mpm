@@ -167,6 +167,7 @@
                  (initial-setup initial-setup)
                  (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                  (damping cl-mpm::damping-factor)
+               (solve-count cl-mpm/dynamic-relaxation::solve-count)
                  (vel-algo cl-mpm::velocity-algorithm))
         sim
       (unless initial-setup
@@ -182,11 +183,20 @@
       (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-      (update-node-fictious-mass sim)
-      (when ghost-factor
-        (cl-mpm/ghost::apply-ghost sim ghost-factor)
-        (cl-mpm::apply-bcs mesh bcs dt))
-      (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+      (incf solve-count)
+      (let ((mass-update-iter 8))
+        (when (= (mod solve-count mass-update-iter) 0)
+          (update-node-fictious-mass sim))
+        (when ghost-factor
+          (cl-mpm/ghost::apply-ghost sim ghost-factor)
+          (cl-mpm::apply-bcs mesh bcs dt))
+        (when (= (mod solve-count mass-update-iter) 0)
+          (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))))
+      ;; (update-node-fictious-mass sim)
+      ;; (when ghost-factor
+      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
+      ;;   (cl-mpm::apply-bcs mesh bcs dt))
+      ;; (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
@@ -254,9 +264,11 @@
 
        :convergance-criteria
        (lambda (sim f o)
-       (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
-       ;;     (pprint c)
-           (< c conv-crit)))
+       ;; (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+       ;; ;;     (pprint c)
+       ;;     (< c conv-crit))
+         (< o conv-crit)
+         )
 
        ;;   ;; (unless prev-res
        ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
@@ -312,8 +324,11 @@
                (initial-setup initial-setup)
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
-               (vel-algo cl-mpm::velocity-algorithm))
+               (vel-algo cl-mpm::velocity-algorithm)
+               (solve-count cl-mpm/dynamic-relaxation::solve-count)
+               )
       sim
+    (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
     (cl-mpm::reset-grid mesh)
     (cl-mpm::reset-node-displacement sim)
     (cl-mpm::p2g mesh mps)
