@@ -165,7 +165,7 @@
      ))
   )
 
-(defparameter *rs* 0.3d0)
+(defparameter *rs* 0.5d0)
 (defparameter *enable-plastic-damage* t)
 
 (defun setup (&key (refine 1) (mps 2)
@@ -222,7 +222,8 @@
                                                (list
                                                 :enable-fbar t
                                                 :enable-aggregate t
-                                                :split-factor (* 1.2d0 (sqrt 2) 0.33d0)
+                                                :enable-ekl t
+                                                :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :max-split-depth 4
                                                 ;; :refinement refines
                                                 )))
@@ -231,12 +232,12 @@
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
            (gf 10d0)
            ;; (length-scale (* h-fine 2d0))
-           (length-scale (* mesh-resolution 2d0))
+           (length-scale (* mesh-resolution 4d0))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            ;; (ductility (/ (/ 5d0 0.125d0) refine))
-           (ductility 20d0)
+           (ductility 5d0)
            ;; (ductility 2d0)
-           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
+           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-6) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
       (format t "True Water height ~F~%" (- datum offset))
@@ -272,10 +273,11 @@
           :softening 0d0
           :ductility ductility
           :local-length length-scale
-          :delay-time 1d4
+          :delay-time 1d5
           :delay-exponent 2
           :enable-plasticity t
           :enable-damage t
+          :enable-viscosity nil
           :plastic-damage-evolution *enable-plastic-damage*
 
 
@@ -537,8 +539,8 @@
   (loop for dt in (list 1d3)
         do
            (let* ((mps 2)
-                  (H 600d0))
-             (setup :refine 0.25
+                  (H 150d0))
+             (setup :refine 1
                     :friction 0.5d0
                     :bench-length (* 0d0 H)
                     :ice-height H
@@ -546,12 +548,12 @@
                     :hydro-static nil
                     :cryo-static t
                     :melange nil
-                    :aspect 2d0
+                    :aspect 3d0
                     :slope 0d0
-                    :floatation-ratio 0.7d0)
+                    :floatation-ratio 0d0)
              (plot-domain)
              (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+             ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
              (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) nil
                    ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3)
                    (cl-mpm::sim-ghost-factor *sim*) nil
@@ -561,7 +563,8 @@
              (setf lparallel:*debug-tasks-p* nil)
              (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
              (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
-             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+             ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
              (setf (cl-mpm:sim-enable-damage *sim*) nil)
              (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
              (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
@@ -578,6 +581,7 @@
                 ;; :max-adaptive-steps 10
                 :min-adaptive-steps -8
                 :max-adaptive-steps 14
+                :max-damage-inc 0.6d0
                 :substeps 20
                 :total-time 1d7
                 :enable-plastic t
@@ -596,7 +600,7 @@
                 ;; :explicit-damping-factor 1d-3
                 ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
                 :explicit-damping-factor 0d-4
-                :explicit-dt-scale 1d0
+                :explicit-dt-scale 10d0
                 :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                 :post-conv-step (lambda (sim)
                                   (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
@@ -644,3 +648,53 @@
             (* (/ 180 pi) angle-plastic))
     (format t "Plastic residual angle: ~F~%"
             (* (/ 180 pi) angle-plastic-damaged))))
+
+
+(defun find-mp (sim pos)
+  (let ((mp-found nil)
+        (dist-found 0d0))
+    (cl-mpm::iterate-over-mps-serial
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (let ((dist (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.-
+                                          (cl-mpm/particle::mp-position mp)
+                                          pos))))
+         (when (or (not mp-found)
+                   (< dist dist-found))
+           (setf mp-found mp
+                 dist-found dist)))))
+    mp-found))
+
+
+(defun test-dist ()
+  (let* ((mp-a (find-mp *sim* (cl-mpm/utils:vector-from-list (list 270d0 100d0 0d0))))
+         (mp-b (find-mp *sim* (cl-mpm/utils:vector-from-list (list 280d0 100d0 0d0))))
+         (mesh (cl-mpm:sim-mesh *sim*)))
+    (pprint (cl-mpm/damage::diff-squared mp-a mp-b))
+    (pprint (cl-mpm/damage::diff-damaged mesh mp-a mp-b))
+    ))
+
+(defun plot-nonlocal-inter ()
+  (let* ((find-pos (cl-mpm/utils:vector-from-list (list 240d0 80d0 0d0)))
+         (mp (find-mp *sim* find-pos))
+         )
+    (multiple-value-bind (pos weights) (cl-mpm/damage::get-nonlocal-interactions *sim* mp)
+      (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+            (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
+        (loop for p in pos
+              do (format t "~A ~A~%" (cl-mpm/utils:varef p 0) (cl-mpm/utils:varef p 1)))
+        (vgplot:format-plot t "set xrange [~f:~f]" -20d0 20d0)
+        (vgplot:format-plot t "set yrange [~f:~f]" -20d0 20d0)
+        (vgplot:3d-plot x y weights ";;with points lc palette")
+        (vgplot:xlabel "x")
+        (vgplot:ylabel "y")
+        )
+      ;; (with-open-file (out "mp_neighbours.csv" :direction :output :if-exists :supersede)
+      ;;   (format out "x,y,weight~%")
+      ;;   (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
+      ;;         (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
+      ;;     (loop for xi in x
+      ;;           for yi in y
+      ;;           for wi in weights
+      ;;           do (format out "~F,~F,~F~%" xi yi wi))))
+      )))
