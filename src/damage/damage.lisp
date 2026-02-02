@@ -283,7 +283,6 @@
                 (delocalise-damage sim)))
           (localise-damage mesh mps dt))
 
-      ;; (format t "Update damage ~%")
       (cl-mpm:iterate-over-mps
        mps
        (lambda (mp)
@@ -441,7 +440,7 @@
              (final-distance 0d0)
              )
         (declare (double-float h final-distance epsilon))
-        (magicl:.- pos-b pos-a diff)
+        (cl-mpm/fastmaths:fast-.- pos-b pos-a diff)
         (let* ((length (sqrt (diff-squared mp-a mp-b))))
 
           ;; Sample damage at midpoint and integrated with constant damage assumption
@@ -453,30 +452,33 @@
                    ;;Start at point a and step through to b
                    (step-point (cl-mpm/utils::vector-copy pos-a))
                    ;;Resolution of our midpoint integration
-                   (step-size (/ h 1d0))
+                   (step-size (/ h 2d0))
                    )
-              (magicl:scale! step-norm (/ 1d0 length))
+              (cl-mpm/fastmaths:fast-scale! step-norm (/ 1d0 length))
               (multiple-value-bind (steps remainder) (floor length step-size)
                 (when (> steps 0)
                   (let* ((dhstep (cl-mpm/utils::vector-copy step-norm)))
-                    (magicl:scale! dhstep (* 0.5d0 step-size))
+                    (cl-mpm/fastmaths:fast-scale! dhstep (* 0.5d0 step-size))
                     (loop for i fixnum from 0 below steps
                           do
                              (progn
                                (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                                (let ((damage 0d0))
                                  (declare (double-float damage))
-                                 (cl-mpm::iterate-over-neighbours-point-linear-3d
+                                 (cl-mpm::iterate-over-neighbours-point-linear
                                   mesh
                                   step-point
                                   (lambda (m node weight grads)
                                     (declare (double-float damage weight))
+                                    ;; (pprint (cl-mpm/mesh::node-damage node))
                                     (incf damage
                                           (* (node-dam node)
                                              weight))))
+
                                  ;; (print damage)
-                                 (incf final-distance (* step-size
-                                                         (/ 1d0 (max epsilon (sqrt (max 0d0 (min 1d0 (- 1d0 damage)))))))))
+                                 (incf final-distance
+                                       (* step-size
+                                          (/ 1d0 (max epsilon (sqrt (max 0d0 (min 1d0 (- 1d0 damage)))))))))
                                (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                                )
                           )))
@@ -486,17 +488,19 @@
                   (progn
                     (cl-mpm/fastmaths::fast-.+ step-point dhstep step-point)
                     (let ((damage 0d0))
-                      (cl-mpm::iterate-over-neighbours-point-linear-3d
+                      (cl-mpm::iterate-over-neighbours-point-linear
                        mesh
                        step-point
                        (lambda (m node weight grads)
                          (declare (double-float damage weight))
                          (incf damage
                                (* (node-dam node) weight))))
+
                                         ; (print damage)
-                      (incf final-distance (* step-size (/ 1d0
-                                                           (max epsilon
-                                                                (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 damage))))))))))
+                      (incf final-distance (* step-size
+                                              (/ 1d0
+                                                 (max epsilon
+                                                      (the double-float (sqrt (max 0d0 (min 1d0 (- 1d0 damage))))))))))
                     )
                   )
                 )
@@ -1591,3 +1595,50 @@ Calls the function with the mesh mp and node"
     (when (> mass-total 0d0)
       (setf damage-inc (/ damage-inc mass-total)))
     damage-inc))
+
+(defun calculate-debug-ekl (mesh mp length)
+  )
+
+(defun get-nonlocal-interactions (sim mp)
+  (g2p-damage sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (mps cl-mpm:sim-mps)) sim
+    (let ((data-positions (list))
+          (data-weights (list))
+          (damage-inc 0d0)
+          (mass-total 0d0)
+          (length (* 1d0 (cl-mpm/particle::mp-local-length mp))))
+      (declare (double-float damage-inc mass-total))
+      (iterate-over-neighour-mps
+       mesh mp length
+       (lambda (mesh mp mp-other dist)
+         (with-accessors ((d cl-mpm/particle::mp-damage)
+                          (m cl-mpm/particle:mp-volume)
+                          (ll cl-mpm/particle::mp-local-length)
+                          (p cl-mpm/particle:mp-position))
+             mp-other
+           (when t;(< (the double-float d) 1d0)
+             (push (cl-mpm/fastmaths::fast-.-
+                    (cl-mpm/particle::mp-position mp-other)
+                    (cl-mpm/particle::mp-position mp)
+                    ) data-positions)
+             (let ((weight
+                     ;; (weight-func-mps mesh mp mp-other length)
+                     (weight-func-mps-damaged mesh mp mp-other
+
+                                              length
+                                              )
+                     ))
+               (declare (double-float weight m d mass-total damage-inc))
+               (incf mass-total (* weight m))
+               (incf damage-inc
+                     (* (the double-float (cl-mpm/particle::mp-damage-y-local mp-other))
+                        weight m))
+               (push (* weight m) data-weights)
+               )
+             ))
+         ))
+      (when (> mass-total 0d0)
+        (setf damage-inc (/ damage-inc mass-total))
+        (setf data-weights (mapcar (lambda (w) (/ w mass-total)) data-weights)))
+      (values data-positions data-weights))))

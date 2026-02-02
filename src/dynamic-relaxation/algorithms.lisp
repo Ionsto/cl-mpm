@@ -167,7 +167,7 @@
                              (let ((fast-trial-conv oobf-crit)
                                    (damage-iter t)
                                    (save-update nil))
-                               (loop for d from 0 to 1000
+                               (loop for d from 0 to 10
                                      while (and (<= fast-trial-conv oobf-crit)
                                                 damage-iter)
                                      do
@@ -315,7 +315,7 @@
 
                        (let ((fast-trial-conv oobf-crit)
                              (damage-iter t))
-                         (loop for d from 0 to 1000
+                         (loop for d from 0 to 1
                                while (and (<= fast-trial-conv oobf-crit)
                                           damage-iter)
                                do
@@ -337,7 +337,7 @@
                                   (when (< dconv damage-crit)
                                     (setf damage-iter nil))
                                   (format t "Damage ~E - prev damage ~E ~%" damage damage-prev)
-                                  (format t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
+                                  (format t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
                                   (let ((damage-inc (damage-increment-criteria sim)))
                                     (when (> damage-inc max-damage-inc)
                                       (format t "Damage criteria failed ~E~%" damage-inc)
@@ -678,16 +678,20 @@
   )
 
 
+
+
+(declaim (notinline compute-damage-delta))
 (defun compute-damage-delta (sim)
-  (let* ((delta-ds 
+  (let* ((delta-ds
            (cl-mpm::reduce-over-mps
             (cl-mpm:sim-mps sim)
             (lambda (mp)
               (with-accessors ((damage cl-mpm/particle::mp-damage)
                                (damage-prev cl-mpm/particle::mp-damage-prev-trial)
-                               (inc cl-mpm/particle::mp-damage-increment))
+                               (inc cl-mpm/particle::mp-damage-increment)
+                               (mass cl-mpm/particle::mp-mass))
                   mp
-                (abs (- damage damage-prev))))
+                (* mass (abs (- damage damage-prev)))))
             #'+))
          (delta-incs
            (cl-mpm::reduce-over-mps
@@ -695,12 +699,12 @@
             (lambda (mp)
               (with-accessors ((damage cl-mpm/particle::mp-damage)
                                (damage-prev cl-mpm/particle::mp-damage-prev-trial)
-                               (inc cl-mpm/particle::mp-damage-increment))
+                               (inc cl-mpm/particle::mp-damage-increment)
+                               (mass cl-mpm/particle::mp-mass))
                   mp
-                inc))
-            #'+)
-           )
-         )
+                (* mass inc)))
+            #'+)))
+    (format t "dconv ~E - ~E~%" delta-ds delta-incs)
     (if (> delta-incs 0d0)
         (/ delta-ds delta-incs)
         0d0)))

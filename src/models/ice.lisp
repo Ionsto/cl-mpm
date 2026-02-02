@@ -188,8 +188,6 @@
     (declare (magicl:matrix/double-float de stress stress-u strain plastic-strain)
              (double-float coheasion ps-vm-inc ps-vm yield-func E nu phi psi kc-r kt-r g-r damage))
     ;;Train elastic strain - plus trail kirchoff stress
-
-    (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
     (setf stress-u (cl-mpm/constitutive::linear-elastic-mat strain de stress-u))
     ;;Viscoelastic corrector
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
@@ -768,6 +766,7 @@
       (declare (double-float damage damage-inc damage-n critical-damage k ybar tau dt ybar-prev init-stress k-n ybar))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
+        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (let ((k0 init-stress)
               (ps-y (sqrt (* E (expt ps-vm 2)))))
           (when (or t
