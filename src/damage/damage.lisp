@@ -276,7 +276,6 @@
       (if non-local-damage
           (progn
             (when (sim-enable-length-localisation sim)
-              (g2p-damage sim)
               (update-localisation-lengths sim))
             (if (cl-mpm/damage::sim-enable-ekl sim)
                 (delocalise-damage-ekl sim)
