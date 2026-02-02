@@ -192,7 +192,7 @@
 
 
 (defun deriv-partial (k y k0 tau n)
-  (if (> y k0)
+  (if t;(> y k0)
       (/
        (* k0
           (expt

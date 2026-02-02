@@ -167,7 +167,7 @@
                              (let ((fast-trial-conv oobf-crit)
                                    (damage-iter t)
                                    (save-update nil))
-                               (loop for d from 0 to 100
+                               (loop for d from 0 to 1000
                                      while (and (<= fast-trial-conv oobf-crit)
                                                 damage-iter)
                                      do
@@ -175,11 +175,14 @@
                                         (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                                         (setf (cl-mpm:sim-enable-damage sim) nil)
                                         (setf damage (get-damage sim))
-                                        (setf dconv (if (> damage 0d0)
-                                                        (if (> damage-prev 0d0)
-                                                            (/ (compute-damage-delta sim) damage-prev)
-                                                            sb-ext:double-float-positive-infinity)
-                                                        0d0))
+                                        (setf dconv
+                                              (compute-damage-delta sim)
+                                              ;; (if (> damage 0d0)
+                                                    ;;     (if (> damage-prev 0d0)
+                                                    ;;         (/ (compute-damage-delta sim) damage-prev)
+                                                    ;;         sb-ext:double-float-positive-infinity)
+                                                    ;;     0d0)
+                                              )
                                         (setf damage-prev damage)
                                         (unless (>= dconv damage-crit)
                                           (setf damage-iter nil))
@@ -311,7 +314,7 @@
 
                        (let ((fast-trial-conv oobf-crit)
                              (damage-iter t))
-                         (loop for d from 0 to 100
+                         (loop for d from 0 to 1000
                                while (and (<= fast-trial-conv oobf-crit)
                                           damage-iter)
                                do
@@ -320,12 +323,15 @@
                                     (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                   (setf (cl-mpm:sim-enable-damage sim) nil)
                                   (setf damage (get-damage sim))
-                                  (setf dconv (if (> damage 0d0)
-                                                  (if (> damage-prev 0d0)
-                                                      (/ (compute-damage-delta sim) damage-prev)
-                                                      ;; (abs (/ (- damage damage-prev) damage-prev))
-                                                      sb-ext:double-float-positive-infinity)
-                                                  0d0))
+                                  (setf dconv
+                                        (compute-damage-delta sim)
+                                        ;; (if (> damage 0d0)
+                                              ;;     (if (> damage-prev 0d0)
+                                              ;;         (/ (compute-damage-delta sim) damage-prev)
+                                              ;;         ;; (abs (/ (- damage damage-prev) damage-prev))
+                                              ;;         sb-ext:double-float-positive-infinity)
+                                              ;;     0d0)
+                                        )
                                   (setf damage-prev damage)
                                   (when (< dconv damage-crit)
                                     (setf damage-iter nil))
@@ -675,8 +681,16 @@
   (cl-mpm::reduce-over-mps
    (cl-mpm:sim-mps sim)
    (lambda (mp)
-     (abs (- (cl-mpm/particle::mp-damage mp)
-             (cl-mpm/particle::mp-damage-prev-trial mp))))
+     (with-accessors ((damage cl-mpm/particle::mp-damage)
+                      (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                      (inc cl-mpm/particle::mp-damage-increment))
+         mp
+       (if (> inc 0d0)
+           (/
+            (abs (- damage
+                    damage-prev))
+            (abs inc))
+           0d0)))
    #'+))
 
 (defun converge-staggered (sim
