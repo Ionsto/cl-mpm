@@ -322,8 +322,7 @@
 
 (defun update-stress-kirchoff-dynamic-relaxation (mesh mp dt fbar)
   "Update stress for a single mp"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 0) (safety 3) (debug 3)))
+  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt))
   (with-accessors ((stress cl-mpm/particle:mp-stress)
                    (stress-kirchoff cl-mpm/particle::mp-stress-kirchoff)
                    (volume cl-mpm/particle:mp-volume)

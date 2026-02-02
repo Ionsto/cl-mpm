@@ -1,7 +1,6 @@
 (in-package :cl-mpm)
 ;;MP splitting code goes in here
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
-(declaim #.cl-mpm/settings::*optimise-debug*)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 (defun copy-particle (original &rest initargs &key &allow-other-keys)

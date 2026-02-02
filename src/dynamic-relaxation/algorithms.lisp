@@ -315,7 +315,7 @@
 
                        (let ((fast-trial-conv oobf-crit)
                              (damage-iter t))
-                         (loop for d from 0 to 1
+                         (loop for d from 0 to 100
                                while (and (<= fast-trial-conv oobf-crit)
                                           damage-iter)
                                do
