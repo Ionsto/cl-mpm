@@ -172,6 +172,7 @@
                                                 damage-iter)
                                      do
                                         (setf (cl-mpm:sim-enable-damage sim) t)
+                                        ;; (dotimes (i 2))
                                         (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
                                         (setf (cl-mpm:sim-enable-damage sim) nil)
                                         (setf damage (get-damage sim))
@@ -678,20 +679,31 @@
 
 
 (defun compute-damage-delta (sim)
-  (cl-mpm::reduce-over-mps
-   (cl-mpm:sim-mps sim)
-   (lambda (mp)
-     (with-accessors ((damage cl-mpm/particle::mp-damage)
-                      (damage-prev cl-mpm/particle::mp-damage-prev-trial)
-                      (inc cl-mpm/particle::mp-damage-increment))
-         mp
-       (if (> inc 0d0)
-           (/
-            (abs (- damage
-                    damage-prev))
-            (abs inc))
-           0d0)))
-   #'+))
+  (let* ((delta-ds 
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (with-accessors ((damage cl-mpm/particle::mp-damage)
+                               (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                               (inc cl-mpm/particle::mp-damage-increment))
+                  mp
+                (abs (- damage damage-prev))))
+            #'+))
+         (delta-incs
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (with-accessors ((damage cl-mpm/particle::mp-damage)
+                               (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                               (inc cl-mpm/particle::mp-damage-increment))
+                  mp
+                inc))
+            #'+)
+           )
+         )
+    (if (> delta-incs 0d0)
+        (/ delta-ds delta-incs)
+        0d0)))
 
 (defun converge-staggered (sim
                            criteria
