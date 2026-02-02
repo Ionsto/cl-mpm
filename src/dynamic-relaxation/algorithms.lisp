@@ -177,7 +177,7 @@
                                         (setf damage (get-damage sim))
                                         (setf dconv (if (> damage 0d0)
                                                         (if (> damage-prev 0d0)
-                                                            (abs (/ (- damage damage-prev) damage-prev))
+                                                            (/ (compute-damage-delta sim) damage-prev)
                                                             sb-ext:double-float-positive-infinity)
                                                         0d0))
                                         (setf damage-prev damage)

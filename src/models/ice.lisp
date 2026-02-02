@@ -563,7 +563,8 @@
 
           (when (> ybar init-stress)
             (let ((a tau-exp)
-                  (k0 init-stress))
+                  (k0 init-stress)
+                  )
               (incf k
                     (the double-float
                          (*
@@ -769,8 +770,10 @@
         ;;Damage increment holds the delocalised driving factor
         (let ((k0 init-stress)
               (ps-y (sqrt (* E (expt ps-vm 2)))))
-          (when (or (>= ybar-prev k0)
-                    (>= ybar k0))
+          (when (or t
+                    ;(>= ybar-prev k0)
+                    ;(>= ybar k0)
+                    )
             (setf k
                   (max
                    k-n
