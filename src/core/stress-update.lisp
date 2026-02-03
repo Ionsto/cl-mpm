@@ -218,6 +218,7 @@
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                    (stretch-tensor cl-mpm/particle::mp-stretch-tensor)
+                   (delta-vol cl-mpm/particle::mp-delta-volume)
                    (strain-rate cl-mpm/particle:mp-strain-rate))
       mp
     (declare (double-float volume volume-0))
@@ -229,7 +230,8 @@
          strain-n
          (cl-mpm/utils::stretch-to-sym stretch-tensor)
          strain)
-        (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+        (setf delta-vol dj)
+        (setf volume (* volume-n (the double-float delta-vol)))
         (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
         (when (<= volume 0d0)
           (error 'cl-mpm/errors:error-volume-negative))))))
@@ -279,6 +281,7 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0    cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (delta-vol cl-mpm/particle::mp-delta-volume)
                    (df-inc-inv    cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                    ) mp
     (declare (type double-float volume))
@@ -290,8 +293,9 @@
           ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
+          (setf delta-vol dj)
           (setf volume (* volume-n
-                          dj
+                          delta-vol
                           ;; (the double-float (cl-mpm/fastmaths:det-3x3 df))
                           ))
           (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))

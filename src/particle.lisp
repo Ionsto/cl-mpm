@@ -192,6 +192,9 @@
      :type MAGICL:MATRIX/DOUBLE-FLOAT
      :initarg :deformation-gradient
      :initform (cl-mpm/utils:matrix-eye 1d0))
+   (delta-volume
+    :accessor mp-delta-volume
+    :initform 1d0)
    (deformation-gradient-0
        :accessor mp-deformation-gradient-0
        :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -1037,6 +1040,7 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (dvol cl-mpm/particle::mp-delta-volume)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    (position    cl-mpm/particle::mp-position)
@@ -1046,6 +1050,7 @@
       mp
     (cl-mpm/utils:matrix-copy-into def-0 def)
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
+    (setf dvol 1d0)
     (cl-mpm/utils:voigt-copy-into strain-n strain)
     (cl-mpm/utils:vector-copy-into position position-trial)
     (cl-mpm/utils:vector-copy-into fric-force-n fric-force)
@@ -1062,6 +1067,7 @@
                    (def    cl-mpm/particle:mp-deformation-gradient)
                    (def-0 cl-mpm/particle::mp-deformation-gradient-0)
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
+                   (dvol cl-mpm/particle::mp-delta-volume)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
@@ -1071,6 +1077,7 @@
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
     (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
+    (setf dvol 1d0)
     (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))
