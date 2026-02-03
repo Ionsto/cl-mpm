@@ -805,8 +805,8 @@
                                  0d0
                                  nil
                                  nil)))
-             (cl-mpm::iterate-over-corners
-              ;; cl-mpm::iterate-over-midpoints
+             (;;cl-mpm::iterate-over-corners
+              cl-mpm::iterate-over-midpoints
               mesh
               mp
               (lambda (corner-trial)
