@@ -54,12 +54,14 @@
       (setf
        (varef new-size 0)
        (cl-mpm/fastmaths:mag
+        ;; (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
         (cl-mpm/fastmaths::fast-@-matrix-vector
          new-domain
          (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
          ))
        (varef new-size 1)
        (cl-mpm/fastmaths:mag
+        ;; (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))
         (cl-mpm/fastmaths::fast-@-matrix-vector
          new-domain
          (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
@@ -254,8 +256,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  ;; (split-mps-eigenvalue sim)
-  (split-mps-cartesian sim)
+  (split-mps-eigenvalue sim)
+  ;; (split-mps-cartesian sim)
   )
 
 (defun split-mps-criteria (sim criteria)
