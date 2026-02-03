@@ -254,8 +254,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  (split-mps-eigenvalue sim)
-  ;; (split-mps-cartesian sim)
+  ;; (split-mps-eigenvalue sim)
+  (split-mps-cartesian sim)
   )
 
 (defun split-mps-criteria (sim criteria)

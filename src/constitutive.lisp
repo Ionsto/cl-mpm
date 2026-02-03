@@ -606,7 +606,7 @@
 (defun b-norm (b)
   (sqrt (loop for i from 0 below 6
              sum (expt (magicl:tref b i 0) 2))))
-(defun vm-plastic (stress de trial-elastic-strain rho)
+(defun vm-plastic (stress de trial-elastic-strain rho e nu)
   (let* ((tol 1d-9)
          (max-iter 5)
          ;; (sig stress)
@@ -615,6 +615,9 @@
          (j2 (voigt-j2 s))
          (f (vm-yield-func j2 rho))
          (inc 0d0)
+         (K (/ e (* 3 (- 1d0 (* 2 nu)))))
+         (G (/ e (* 2 (+ 1d0 nu))))
+         (p-mod (+ K (* 4/3 G)))
         )
     (declare (dynamic-extent s ))
     (if (> f tol)
@@ -670,9 +673,9 @@
                             (cl-mpm/fastmaths::fast-.--voigt
                              eps-e
                              trial-elastic-strain))))
-          (values sig eps-e f inc)
+          (values sig eps-e f inc K)
           ))
-      (values sig trial-elastic-strain f inc))))
+      (values sig trial-elastic-strain f inc p-mod))))
 
 
 

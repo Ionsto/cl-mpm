@@ -813,7 +813,7 @@
                 ;; (pprint corner-trial)
                 (let* ((disp (compute-corner-displacement mesh mp corner-trial))
                        (corner (cl-mpm/fastmaths:fast-.+ corner-trial disp)))
-                  ;; (break)
+                  (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
                   (let* ((penetration-dist (penetration-distance-point corner datum normal)))
                     (declare (double-float penetration-dist))
                     (when (and

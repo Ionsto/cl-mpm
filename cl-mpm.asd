@@ -135,6 +135,7 @@
                                (:file "damage")
                                (:file "delay-damage")
                                (:file "degredation")
+                               (:file "output")
                                (:file "solver")))
                  (:file "models/damage"))
                )))
@@ -780,3 +781,13 @@
   :description "MPM fast maths operations definitions"
   :serial t
   :components ((:file "examples/ice/ice-cliff-stability")))
+
+(defsystem "cl-mpm/examples/ice/creep"
+  :depends-on ("cl-mpm/example"
+               "cl-mpm/models/chalk"
+               "cl-mpm/models/visco"
+               "cl-mpm/models/ice")
+  :description "Ice creeping flow test"
+  :serial t
+  :components ((:file "examples/ice/creep")))
+

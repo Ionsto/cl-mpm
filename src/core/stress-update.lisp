@@ -290,7 +290,10 @@
           ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-inc def-0))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-inc)
-          (setf volume (* volume-n (the double-float (cl-mpm/fastmaths:det-3x3 df))))
+          (setf volume (* volume-n
+                          dj
+                          ;; (the double-float (cl-mpm/fastmaths:det-3x3 df))
+                          ))
           (setf df-inc-inv (cl-mpm/fastmaths::fast-inv-3x3 df-inc))
           (when (<= volume 0d0)
             (error 'cl-mpm/errors:error-volume-negative))))))

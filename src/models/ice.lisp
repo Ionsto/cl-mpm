@@ -83,7 +83,7 @@
         (setf p-wave-0 (* (+ K (* 4/3 G lam))))))
     stress))
 
-(defclass particle-ice-brittle (particle-elastic-damage  particle-mc)
+(defclass particle-ice-brittle (particle-elastic-damage  particle-mc particle-finite-viscoelastic)
   ((trial-elastic-strain
     :accessor mp-trial-strain
     :type MAGICL:MATRIX/DOUBLE-FLOAT
@@ -126,11 +126,10 @@
    (damage-shear
     :accessor mp-damage-shear
     :initarg :damage-shear
-    :initform 0d0)
-   (enable-viscosity
-    :accessor mp-enable-viscosity
-    :initarg :enable-viscosity
-    :initform t))
+    :initform 0d0))
+  (:default-initargs
+   :enable-viscosity nil
+   :viscosity 1d13)
   (:documentation "An ice damage model with a quasi-brittle damage model"))
 
 (defclass particle-ice-delayed (particle-ice-brittle)
@@ -192,9 +191,7 @@
     ;;Viscoelastic corrector
     (when (and (cl-mpm/particle::mp-enable-viscosity mp)
                (> dt 0d0))
-      ;; (pprint "hello")
-      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt 1d13))
-
+      (cl-mpm/ext::constitutive-viscoelastic stress-u strain de e nu dt (cl-mpm/particle::mp-viscosity mp)))
     (cl-mpm/utils:voigt-copy-into strain trial-elastic-strain)
     (setf p-wave (cl-mpm/particle::compute-p-modulus mp))
     (when enable-plasticity
@@ -215,11 +212,12 @@
                coheasion
                ;; (+ coheasion (* (- 1d0 damage) (/ p 1)))
                )
-            ;; (format t "Effective coheasion ~E ~E~%" coheasion (+ coheasion (/ p 1)))
               ;; (cl-mpm/constitutive::vm-plastic stress-u
               ;;                                  de
               ;;                                  strain
-              ;;                                  coheasion)
+              ;;                                  coheasion
+              ;;                                  e nu
+              ;;                                  )
               ;; (cl-mpm/constitutive::mc-plastic stress-u
               ;;                                  de
               ;;                                  strain
@@ -238,8 +236,8 @@
              )
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
-            (let ((inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  trial-elastic-strain strain)))) 1))
+            (let (;; (inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
+                  ;; trial-elastic-strain strain)))) 1))
                   )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
@@ -776,17 +774,25 @@
             (setf k
                   (max
                    k-n
-                   (+
-                    ;; (if pd-inc ps-y 0d0)
-                    (cl-mpm/damage::huen-integration
-                     k-n
-                     ybar-prev
-                     ybar
-                     k0
-                     tau
-                     tau-exp
-                     dt
-                     ))))))
+                   ;; (cl-mpm/damage::forwards-integration
+                   ;;  k-n
+                   ;;  ybar-prev
+                   ;;  ybar
+                   ;;  k0
+                   ;;  tau
+                   ;;  tau-exp
+                   ;;  dt)
+                   (cl-mpm/damage::huen-integration
+                    k-n
+                    ybar-prev
+                    ybar
+                    k0
+                    tau
+                    tau-exp
+                    dt)))))
+        ;; (setf ybar-prev
+        ;;       ybar)
+        ;; (pprint k)
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 

@@ -347,53 +347,37 @@
   (with-accessors ((dF cl-mpm/particle::mp-deformation-gradient-increment)
                    (domain cl-mpm/particle::mp-domain-size)
                    (true-domain cl-mpm/particle::mp-true-domain)
-                   (D cl-mpm/particle::mp-stretch-tensor))
+                   (D cl-mpm/particle::mp-stretch-tensor)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   (volume cl-mpm/particle::mp-volume)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   )
       mp
-    ;; (setf (varef true-domain 2) 1d0)
-    ;; (setf (magicl:tref df 2 2) 1d0)
-    (multiple-value-bind (u s vt) (magicl:svd dF)
-      (let* ((R (magicl:@ u vt))
-             (U (magicl:@ (magicl:transpose vt) s vt)))
-        ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-        ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
-        (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-        ;; (setf true-domain (magicl:@ true-domain U))
-        ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
-        ;; (setf true-domain (magicl:@ U true-domain))
-        ))
-    ;; (setf true-domain (magicl:@ R true-domain U (magicl:transpose R)))
-    ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-    ;; (setf true-domain (magicl:@ true-domain dF))
-    ;; (setf
-    ;;  (varef domain 0)
-    ;;  (varef
-    ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
-    ;;    true-domain
-    ;;    (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))
-    ;;   0)
-    ;;  (varef domain 1)
-    ;;  (varef
-    ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
-    ;;    true-domain
-    ;;    (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-    ;;   1))
-
-    ;; (setf (varef true-domain 2) 1d0)
-    ;; (setf (magicl:tref df 2 2) 1d0)
-
+    (let ((volume-scaling  (/ (* volume-0 (cl-mpm/fastmaths:det-3x3 def))
+                              volume)))
+      (multiple-value-bind (u s vt) (magicl:svd (cl-mpm/fastmaths:fast-scale! dF volume-scaling))
+        (let* ((R (magicl:@ u vt))
+               (U (magicl:@ (magicl:transpose vt) s vt)))
+          ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
+          ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
+          ;; (setf true-domain (magicl:@ true-domain U))
+          ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+          ;; (setf true-domain (magicl:@ U true-domain))
+          )))
     (setf
      (varef domain 0)
-     ;; (mtref true-domain 0 0)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+     (mtref true-domain 0 0)
+     ;; (cl-mpm/fastmaths:mag
+     ;;  (cl-mpm/fastmaths::fast-@-matrix-vector
+     ;;   true-domain
+     ;;   (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
      (varef domain 1)
-     ;; (mtref true-domain 1 1)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
+     (mtref true-domain 1 1)
+     ;; (cl-mpm/fastmaths:mag
+     ;;  (cl-mpm/fastmaths::fast-@-matrix-vector
+     ;;   true-domain
+     ;;   (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
      )
     ))
 
