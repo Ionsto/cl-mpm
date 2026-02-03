@@ -264,7 +264,8 @@
             (reset-mp-velocity sim)
             (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
             (loop for stagger-i from 0 to 100
-                  while (or (>= dconv damage-crit))
+                  while (or (>= dconv damage-crit)
+                            (>= (cl-mpm::sim-stats-oobf sim) oobf-crit))
                   do
                      (progn
                        ;; (setf (cl-mpm:sim-enable-damage sim) t)
@@ -336,9 +337,9 @@
                                   (setf damage-prev damage)
                                   (when (< dconv damage-crit)
                                     (setf damage-iter nil))
-                                  (format t "Damage ~E - prev damage ~E ~%" damage damage-prev)
                                   (format t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
                                   (let ((damage-inc (damage-increment-criteria sim)))
+                                    (format t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
                                     (when (> damage-inc max-damage-inc)
                                       (format t "Damage criteria failed ~E~%" damage-inc)
                                       (error (make-instance 'error-damage-criteria
@@ -346,7 +347,10 @@
                                                             :max-damage-inc 0d0))))
                                   (when t;damage-iter
                                     (cl-mpm:update-sim sim)
-                                    (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim)))))
+                                    (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
+                                    (format t "fast trial ~E~%" fast-trial-conv)
+                                    )
+                               ))
                        (setf damage-prev damage)
                        (when save-vtk-dr
                          (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)

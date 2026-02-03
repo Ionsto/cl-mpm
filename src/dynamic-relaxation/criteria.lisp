@@ -884,7 +884,7 @@
 
 (defun damage-increment-criteria-mp (sim)
   (let ((damage-max 0d0))
-    (cl-mpm:iterate-over-mps
+    (cl-mpm::iterate-over-mps-serial
      (cl-mpm:sim-mps sim)
      (lambda (mp)
        (when (typep mp 'cl-mpm/particle::particle-damage)

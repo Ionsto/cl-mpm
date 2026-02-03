@@ -790,9 +790,6 @@
                     tau
                     tau-exp
                     dt)))))
-        ;; (setf ybar-prev
-        ;;       ybar)
-        ;; (pprint k)
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
