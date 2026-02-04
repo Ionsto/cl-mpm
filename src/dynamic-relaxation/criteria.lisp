@@ -606,6 +606,7 @@
       (setf oobf (if (> nmax 0d0) sb-ext:double-float-positive-infinity 0d0)))
     oobf))
 
+(declaim (notinline true-intertial-criteria))
 (defun true-intertial-criteria (sim loadstep-dt)
   (if (> loadstep-dt 0d0)
       (destructuring-bind (inertia-norm ext-norm)
@@ -644,40 +645,7 @@
            (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
         (if (> ext-norm 0d0)
             (sqrt (/ inertia-norm ext-norm))
-            (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0)))
-    ;; (let (
-    ;;       (inertia-norm 0d0)
-    ;;       (ext-norm 0d0)
-    ;;       (max-inertia 0d0)
-    ;;       (lock (sb-thread:make-mutex)))
-    ;;   (cl-mpm:iterate-over-nodes
-    ;;    (cl-mpm:sim-mesh sim)
-    ;;    (lambda (n)
-    ;;      (when (and
-    ;;             (cl-mpm/mesh:node-active n)
-    ;;             (not (cl-mpm/mesh::node-agg n)))
-    ;;        (sb-thread:with-mutex (lock)
-    ;;          (incf mass (cl-mpm/mesh:node-mass n))
-    ;;          (setf max-inertia (max max-inertia
-    ;;                                 (/
-    ;;                                  (*
-    ;;                                   (cl-mpm/mesh::node-true-mass n)
-    ;;                                   (cl-mpm/fastmaths::mag
-    ;;                                    (cl-mpm/fastmaths:fast-scale-vector
-    ;;                                     (cl-mpm/mesh::node-displacment n)
-    ;;                                     (expt (/ 1d0 loadstep-dt) 2))))
-    ;;                                  (+ 1d-15
-    ;;                                     (cl-mpm/fastmaths::mag
-    ;;                                      (cl-mpm/mesh::node-external-force n))))))
-    ;;          (incf energy
-    ;;                (*
-    ;;                 (cl-mpm/mesh::node-true-mass n)
-    ;;                 (cl-mpm/fastmaths::mag-squared
-    ;;                  (cl-mpm/fastmaths:fast-scale-vector
-    ;;                   (cl-mpm/mesh::node-displacment n) (expt (/ 1d0 loadstep-dt) 1)))))))))
-    ;;   (format t "Max inertia measure ~E~%" max-inertia)
-    ;;   max-inertia)
-    ))
+            (if (> inertia-norm 0d0) sb-ext:double-float-positive-infinity 0d0)))))
 
 (defgeneric estimate-static-oobf (sim))
 
@@ -771,11 +739,12 @@
          0d0))
    #'max))
 
-(defmethod compute-max-deformation (sim)
+(defun compute-max-deformation (sim)
   ;; (/)
   (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
           (compute-max-deformation-2d sim)
           (compute-max-deformation-3d sim))
+  1d0
   ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
   )
 

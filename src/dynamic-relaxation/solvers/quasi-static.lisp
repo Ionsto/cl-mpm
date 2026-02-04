@@ -164,10 +164,7 @@
      (lambda (n)
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
-       ;(cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
-       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))
-       
-       ))
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     ;; (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (update-node-fictious-mass sim)
     (cl-mpm::filter-cells sim)

@@ -502,10 +502,9 @@
                     )
                   )
                 )
-              ))
-                                         ;(setf final-distance length)
+              )
+            )
           (max 0d0 (* final-distance final-distance)))
-        ;; (diff-squared mp-a mp-b)
         ))))
 
 
@@ -1283,7 +1282,8 @@ Calls the function with the mesh mp and node"
         (mass-total 0d0))
     (declare (double-float damage-inc mass-total))
     (iterate-over-neighour-mps
-     mesh mp length
+     mesh mp
+     (cl-mpm/particle::mp-local-length mp)
      (lambda (mesh mp mp-other dist)
        (with-accessors ((d cl-mpm/particle::mp-damage)
                         (m cl-mpm/particle:mp-volume)

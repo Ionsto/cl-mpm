@@ -622,6 +622,8 @@
                                      (if (and (= i 1) (<= stagger-iters 3))
                                          (progn
                                            (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
+                                           (pprint "Potential adaption")
+                                           (format t "Easy steps ~A~%" prev-steps-easy)
                                            (when (every #'identity prev-steps-easy)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
@@ -1422,6 +1424,5 @@
                          (funcall plotter sim)
                          (when save-vtk-loadstep
                            (save-vtks sim output-dir steps))
-                         (swank.live:update-swank)
-                         )))))
+                         (swank.live:update-swank))))))
     result))

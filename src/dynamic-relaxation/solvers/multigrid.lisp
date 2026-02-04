@@ -136,6 +136,12 @@
     (cl-mpm::p2g mesh mps)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
+    (cl-mpm::iterate-over-nodes
+     mesh
+     (lambda (n)
+       (setf
+        (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
+       (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::filter-cells sim)
     ;; (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (update-node-fictious-mass sim)
