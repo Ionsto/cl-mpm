@@ -3,11 +3,14 @@
    :cl-mpm/example))
 (in-package :cl-mpm/examples/ice-visco)
 
-(sb-ext:restrict-compiler-policy 'speed  3 3)
-(sb-ext:restrict-compiler-policy 'debug  0 0)
-(sb-ext:restrict-compiler-policy 'safety 0 0)
+;; (sb-ext:restrict-compiler-policy 'speed  3 3)
+;; (sb-ext:restrict-compiler-policy 'debug  0 0)
+;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  0 0)
+(sb-ext:restrict-compiler-policy 'debug  3 3)
+(sb-ext:restrict-compiler-policy 'safety 3 3)
 
-(setf *block-compile-default* t)
+;; (setf *block-compile-default* t)
 (defclass cl-mpm/particle::particle-mc-erodable (cl-mpm/particle::particle-mc
                                                     cl-mpm/particle::particle-erosion)
   ())
@@ -81,11 +84,11 @@
       (vgplot:format-plot t "set style fill solid")
       (vgplot:format-plot t "set yrange [~f:~f]" floor-datum ms-y)
       (vgplot:format-plot t "set size ratio ~f" (/ (- ms-y floor-datum) ms-x)))
-    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-                 (cl-mpm:sim-mps *sim*)
-                 (cl-mpm:sim-dt *sim*)
-                 0d0
-                 :TRIAL)
+    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
+    ;;              (cl-mpm:sim-mps *sim*)
+    ;;              (cl-mpm:sim-dt *sim*)
+    ;;              0d0
+    ;;              :TRIAL)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -96,18 +99,25 @@
      ;;                              (cl-mpm/particle:mp-volume mp)))
      :colour-func #'cl-mpm/particle::mp-damage
      )))
+(declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
-                (3d nil)
-                )
+                (ice-height)
+                (aspect 1)
+                (slope 0.1d0)
+                (floatation-ratio 1d0)
+                (3d nil))
   (let* ((density 916.7d0)
+         (water-density 1028d0)
          (mesh-resolution (/ 50d0 refine))
-         (start-height 300d0)
-         (end-height 200d0)
-         (ice-length 2000d0)
+         (end-height ice-height)
+         (ice-length (* ice-height aspect))
+         (start-height (+ ice-height (* slope ice-length)))
+         (ice-height end-height)
          (offset (* mesh-resolution 0))
-         (datum (+ 000d0 offset))
+         ;; (floatation-ratio 1.1d0)
+         (datum (+ (* end-height (/ density water-density) floatation-ratio) offset))
          (depth 500d0)
-         (domain-size (list 4000d0 600d0
+         (domain-size (list (* 2d0 ice-length) (* 2d0 (max start-height end-height))
                             ;(* 2d0 depth)
                             ))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
@@ -122,8 +132,10 @@
                                                'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
                                                :args-list (list
                                                            :enable-fbar t
+                                                           :enable-split nil
+                                                           :split-factor 0.51d0
                                                            :enable-aggregate t)))
-    (setf datum (cl-mpm/buoyancy::round-datum *sim* datum))
+    ;; (setf datum (cl-mpm/buoyancy::round-datum *sim* datum))
     (let* ((E 1d9)
            (angle 60d0)
            (init-c 50d3)
@@ -149,13 +161,22 @@
         ;; :nu 0.325d0
         ;; :rho 100d3
         ;; :enable-plasticity nil
-        'cl-mpm/particle::particle-finite-viscoelastic-ice
-        :E 1d9
+        ;; 'cl-mpm/particle::particle-finite-viscoelastic-ice
+        ;; :E E
+        ;; :nu 0.325d0
+        ;; ;; :nu 0.4d0
+        ;; :visc-factor 111d6
+        ;; :visc-power 3d0
+
+
+        'cl-mpm/particle::particle-finite-viscoelastic
+        :E E
         :nu 0.325d0
-        :visc-factor 111d6
-        :visc-power 1d0
-        :enable-viscosity nil
-        :gravity -9.8d0
+        ;; :nu 0.4d0
+        :viscosity 1d12
+
+        ;; :enable-viscosity nil
+        ;; :gravity -9.8d0
         )))
     (cl-mpm/setup::remove-sdf
      *sim*
@@ -163,7 +184,8 @@
        (cl-mpm/setup::plane-point-point-sdf
         p
         (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
-        (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0)))))
+        (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
+     :refine 2)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left (list 0 nil nil)
@@ -185,22 +207,16 @@
           (* 0.5d0
              (sqrt 1d4)
              (cl-mpm/setup:estimate-critical-damping *sim*)))
-    ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-2)
-    (setf (cl-mpm::sim-enable-fbar *sim*) t)
-    ;; (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
-    (setf (cl-mpm::sim-allow-mp-split *sim*) t)
-    ;; (setf (cl-mpm::sim-velocity-algorithm *sim*) :PIC)
-    (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
     ;; (cl-mpm/setup::initialise-stress-self-weight *sim* datum)
-    (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
-                                                          (lambda (pos)
-                                                            (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
-                                                                               ice-length) ice-length)))
-                                                              (+ offset
-                                                                 (* alpha end-height)
-                                                                 (* (- 1d0 alpha) start-height))))
-                                                          :k-x 1d0
-                                                          :k-z 1d0)
+    ;; (cl-mpm/setup::initialise-stress-self-weight-vardatum *sim*
+    ;;                                                       (lambda (pos)
+    ;;                                                         (let ((alpha (/ (- (cl-mpm/utils::varef pos 0)
+    ;;                                                                            ice-length) ice-length)))
+    ;;                                                           (+ offset
+    ;;                                                              (* alpha end-height)
+    ;;                                                              (* (- 1d0 alpha) start-height))))
+    ;;                                                       :k-x 1d0
+    ;;                                                       :k-z 1d0)
 
 
 
@@ -208,23 +224,23 @@
           (* 0.5d0 (cl-mpm/setup:estimate-elastic-dt *sim*)))
     ;; (setf (cl-mpm::sim-enable-damage *sim*) t)
     (setf *run-sim* t)
-    ;; (if t
-    ;;     (cl-mpm:add-bcs-force-list
-    ;;      *sim*
-    ;;      (cl-mpm/buoyancy::make-bc-buoyancy-clip
-    ;;       *sim*
-    ;;       datum
-    ;;       1000d0
-    ;;       (lambda (pos datum) t)))
-    ;;     (cl-mpm:add-bcs-force-list
-    ;;      *sim*
-    ;;      (cl-mpm/buoyancy::make-bc-buoyancy-body
-    ;;       *sim*
-    ;;       datum
-    ;;       1000d0
-    ;;       (lambda (pos) t))))
+    (if t
+        (cl-mpm:add-bcs-force-list
+         *sim*
+         (cl-mpm/buoyancy::make-bc-buoyancy-clip
+          *sim*
+          datum
+          water-density
+          (lambda (pos datum) t)))
+        (cl-mpm:add-bcs-force-list
+         *sim*
+         (cl-mpm/buoyancy::make-bc-buoyancy-body
+          *sim*
+          datum
+          water-density
+          (lambda (pos) t))))
     (let ((domain-half (* 0.5d0 (first domain-size)))
-          (friction 0.5d0))
+          (friction 0.2d0))
       (defparameter *ocean-floor-bc*
         (cl-mpm/penalty::make-bc-penalty-point-normal
          *sim*
@@ -233,7 +249,7 @@
                                          domain-half
                                          offset
                                          0d0))
-         (* 1d9 0.1d0)
+         (* 1d9 0.01d0)
          friction)))
 
     (when 3d
@@ -308,14 +324,16 @@
                     (>= datum (cl-mpm/utils:varef pos 1))
                     ;; (and (>= (+ offset mesh-resolution) (cl-mpm/utils:varef pos 1)))
                     )))
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *ocean-floor-bc*)
-    (cl-mpm:add-bcs-force-list
-     *sim*
-     *floor-side-bc*
-     ;; *wall-struct-bc*
-     )
+
+    (when (> datum offset)
+      (cl-mpm:add-bcs-force-list
+       *sim*
+       *ocean-floor-bc*))
+    ;; (cl-mpm:add-bcs-force-list
+    ;;  *sim*
+    ;;  *floor-side-bc*
+    ;;  ;; *wall-struct-bc*
+    ;;  )
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*
     ;;  *bc-erode*
@@ -557,21 +575,28 @@
 
 
 (defun test ()
-  (setup :refine 1 :mps 3)
+  (setup :refine 4 :mps 3
+         :ice-height 125d0
+         :aspect 2
+         :slope 0d0
+         :floatation-ratio 0d0
+         )
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  (let ((dt 1d8))
+  (let ((dt (* 1 (* 24 60 60))))
     (cl-mpm::iterate-over-mps
      (cl-mpm:sim-mps *sim*)
      (lambda (mp)
        (setf (cl-mpm/particle::mp-enable-viscosity mp) nil)))
+    (setf (cl-mpm::sim-mass-scale *sim*) 1d0)
     (cl-mpm/dynamic-relaxation::run-quasi-time
      *sim*
      :output-dir "./output/"
      :dt dt
      :dt-scale 1d0;0.25d0
-     :damping 2d0
-     :total-time 1d11
+     :damping 1d0
+     :total-time 1d25
      :substeps 50
+     :conv-criteria 1d-3
      ;; :enable-plastic t
      ;; :enable-damage t
      :max-adaptive-steps 10
@@ -585,25 +610,6 @@
           (setf (cl-mpm/particle::mp-enable-viscosity mp) t)))
        ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
        )))
-  ;; (sb-profile:unprofile)
-  ;; (sb-profile:profile "CL-MPM")
-  ;; (sb-profile:profile "CL-MPM/PARTICLE")
-  ;; (sb-profile:profile "CL-MPM/CONSTITUTIVE")
-  ;; (sb-profile:profile "CL-MPM/MESH")
-  ;; (sb-profile:reset)
-  ;; (time-form
-  ;;  10
-  ;;  (time (cl-mpm:update-sim *sim*)))
-  ;; (let ((iters 10))
-  ;;   (time (dotimes (i iters) (time (cl-mpm:update-sim *sim*)))))
-  ;; (sb-profile:report)
-  ;; (let ((iters 10000000))
-  ;;   (let ((a (cl-mpm/utils:matrix-eye 2d0)))
-  ;;     (time (dotimes (i iters)
-  ;;             (cl-mpm/ext::matrix-sqrt a))))
-  ;;   (let ((a (cl-mpm/utils:matrix-eye 2d0)))
-  ;;     (time (dotimes (i iters)
-  ;;             (matrix-sqrt a)))))
   )
 (defun matrix-sqrt (mat)
   (multiple-value-bind (l v) (cl-mpm/utils::eig mat)

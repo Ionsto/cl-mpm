@@ -84,14 +84,14 @@
                :args-list
                (append
                 (list
-                 :split-factor 0.5d0
+                 :split-factor 0.8d0
                  :enable-fbar t
                  :enable-aggregate t
                  :vel-algo :QUASI-STATIC
                  ;; :vel-algo :BLEND
                  :max-split-depth 6
                  ;; :enable-length-localisation nil
-                 :enable-split t
+                 :enable-split nil
                  :gravity -10d0
                  )
                 (when multigrid-enabled
@@ -520,31 +520,6 @@
 ;; (uiop:quit)
 
 
-;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (defun test ()
-;;     (let ((iters 10000000))
-;;       (let ((a (cl-mpm/utils:vector-zeros)))
-;;         (time
-;;          (lparallel:pdotimes (i iters)
-;;            (magicl:.+ a (cl-mpm/utils:vector-zeros) a))))
-;;       (let ((a (make-array 2 :element-type 'double-float)))
-;;         (time
-;;          (lparallel:pdotimes (i iters)
-;;            (let ((b (make-array 2 :element-type 'double-float)))
-;;              (loop for i fixnum from 0 to 1
-;;                    do (incf (aref a i) (aref b i))))
-;;            )))))
-
-
-;; (cl-mpm::iterate-over-nodes-serial
-;;  (cl-mpm:sim-mesh *sim*)
-;;  (lambda (node)
-;;    (loop for v across (magicl::storage (cl-mpm/mesh::node-velocity node))
-;;          do
-;;             (when (sb-ext::float-nan-p v)
-;;               (format t "Found nan vel~%")
-;;               (pprint node)
-;;               ))))
 
 (defun find-nans ()
   (cl-mpm::iterate-over-nodes
@@ -932,8 +907,8 @@
 
 
 (defun test-load-control ()
-  (setup :mps 2 :refine 1 :multigrid-refine 0)
-  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-9)
+  (setup :mps 3 :refine 0.5 :multigrid-refine 0)
+  (cl-mpm/setup::set-mass-filter *sim* *density* :proportion 1d-15)
   ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul)
   (setf (cl-mpm::sim-gravity *sim*) -10d0)
   ;; (setf (cl-mpm::sim-gravity *sim*) -1000d0)
@@ -942,12 +917,12 @@
    :output-dir (format nil "./output/")
    :plotter #'plot
    :load-steps 10
-   :damping (sqrt 2)
+   :damping 1d0;(sqrt 2)
    :substeps 10
    :criteria 1d-4
    :save-vtk-dr t
    :save-vtk-loadstep t
-   :dt-scale 0.5d0))
+   :dt-scale 1d0))
 
 
 (defun test-3d ()

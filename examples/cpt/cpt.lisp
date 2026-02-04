@@ -21,7 +21,7 @@
 (defun setup (&key (refine 1) (mps 3))
   (let* ((L 10d0)
          (d 1d0)
-         (domain-width 5d0)
+         (domain-width 10d0)
          (h (/ 1d0 refine))
          (height 20d0)
          (domain-height (+ height 4d0))
@@ -52,7 +52,6 @@
       ;; 'cl-mpm/particle::particle-elastic
       ;; :E E
       ;; :nu 0.3d0
-      ;; :rho 20d3
       ;; 'cl-mpm/particle::particle-vm
       ;; :E E
       ;; :nu 0.3d0
@@ -61,7 +60,7 @@
       :E E
       :nu 0.3d0
       :phi (cl-mpm/utils:deg-to-rad 32.8d0)
-      :psi 0d0;(cl-mpm/utils:deg-to-rad 2.8d0)
+      :psi (cl-mpm/utils:deg-to-rad 2.8d0)
       :c 0.3d3
       ;; 'cl-mpm/particle::particle-elastic
       ;; :E E
@@ -200,7 +199,7 @@
      :criteria 1d-3
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :dt-scale 0.5d0
+     :dt-scale 1d0
      :post-conv-step
      (lambda (sim)
        (push current-disp *data-disp*)
@@ -224,7 +223,7 @@
 ;;   (vgplot:plot (reverse *data-disp*) (reverse *data-load*)))
 
 (defun test ()
-  (setup :mps 3 :refine 1)
+  (setup :mps 2 :refine 4)
   (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static)
   (run)
   ;; (run-real-time)

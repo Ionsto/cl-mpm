@@ -373,5 +373,4 @@
    :substeps 10
    :dt-scale 1d0
    :criteria 1d-9
-   :loading-function #'loading-function)
-  )
+   :loading-function #'loading-function))

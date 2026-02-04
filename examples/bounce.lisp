@@ -45,7 +45,8 @@
                ;; (mapcar (lambda (x) (* x e-scale)) size)
                (list 1 (/ L h))
                ;; :sim-type 'cl-mpm/aggregate:mpm-sim-agg-usf
-               :sim-type 'cl-mpm:mpm-sim-usf
+               ;; :sim-type 'cl-mpm:mpm-sim-usf
+               :sim-type 'cl-mpm:mpm-sim-musl
                ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                :args-list
                (append
@@ -292,6 +293,7 @@
                        (format t "Step ~d substep est ~D~%" steps (floor target-time (cl-mpm::sim-dt *sim*)))
                        (cl-mpm/dynamic-relaxation::save-vtks *sim* output-dir steps)
                        (incf dt-accumulator target-time)
+                       (setf dt-accumulator (min (- total-time (cl-mpm::sim-time *sim*)) dt-accumulator))
                        (time
                         (loop while (> dt-accumulator 0d0)
                               do
@@ -309,26 +311,26 @@
                                    ;; (setf (cl-mpm:sim-dt *sim*) (* dt-scale (cl-mpm::calculate-min-dt *sim*)))
                                    ;; (format t "Dt ~E~%" (cl-mpm:sim-dt *sim*))
                                    )
-                          (when (> (cl-mpm::sim-time *sim*) 0.75d0)
-                            (setf (cl-mpm::sim-gravity *sim*) 0d0))
+                          ;; (when (> (cl-mpm::sim-time *sim*) 0.75d0)
+                          ;;   (setf (cl-mpm::sim-gravity *sim*) 0d0))
                           ))
                        ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        ;;   (format t "CFL dt estimate: ~f~%" dt-e)
                        ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
                        ;;   (setf substeps substeps-e))
-                       (plot-domain)
-                       ;; (vgplot:plot
-                       ;;  *data-time* *data-ke* "ke"
-                       ;;  *data-time* *data-se* "se"
-                       ;;  *data-time* *data-gpe* "gpe"
-                       ;;  *data-time*
-                       ;;  (mapcar #'+
-                       ;;          *data-ke*
-                       ;;          *data-se*
-                       ;;          *data-gpe*
-                       ;;          )
-                       ;;  "error"
-                       ;;  )
+                       ;; (plot-domain)
+                       (vgplot:plot
+                        *data-time* *data-ke* "ke"
+                        *data-time* *data-se* "se"
+                        *data-time* *data-gpe* "gpe"
+                        *data-time*
+                        (mapcar #'+
+                                *data-ke*
+                                *data-se*
+                                *data-gpe*
+                                )
+                        "error"
+                        )
                        ;; (vgplot:title (format nil "Time:~F - KE ~E - OOBF ~E - Work ~E"  (cl-mpm::sim-time *sim*) energy oobf work))
                        (swank.live:update-swank)
                        ))))
@@ -338,39 +340,77 @@
 
 (defun test ()
   (setup :mps 2)
-  (run))
+  (run :dt-scale 0.25d0))
 
+(defun make-csv (output-dir filename)
+  (with-open-file (stream (merge-pathnames filename output-dir) :direction :output :if-exists :supersede)
+    (format stream "time, energy~%")
+    (loop for time in *data-time*
+          for ke in *data-ke*
+          for se in *data-se*
+          for gpe in *data-gpe*
+          do
+             (let ((energy (+ ke se gpe)))
+               (format stream "~E, ~E~%" (float time 0e0) (float energy 0e0))))))
 
 (defun test-range ()
   (let* ((classes (list
-                   ;; 'cl-mpm/aggregate::mpm-sim-usf
+                   'cl-mpm/aggregate::mpm-sim-usf
                    ;; 'cl-mpm/aggregate::mpm-sim-agg-usf
-                   ;; 'cl-mpm::mpm-sim-usl
-                   ;; 'cl-mpm::mpm-sim-musl
-                   'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+                   'cl-mpm::mpm-sim-usl
+                   'cl-mpm::mpm-sim-musl
+                   ;; 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
                    ))
          (names (list
-                 ;; "USF"
+                 "USF"
                  ;; "USF-AGG"
-                 ;; "USL"
-                 ;; "MUSL"
-                 "IMPLICIT"
+                 "USL"
+                 "MUSL"
+                 ;; "IMPLICIT"
                  )))
     (loop for c in classes
           for n in names
           do
              (progn
                (let ((output-dir (format nil "output-~A/" n)))
-                 (setup-beam :refine 0.5 :mps 3)
-                 ;; (setup :refine 1 :mps 2)
+                 ;; (setup-beam :refine 0.5 :mps 2)
+                 (setup :refine 1 :mps 2)
                  ;; (setf (cl-mpm::sim-damping-factor *sim*) (* 0.01d0 (cl-mpm/setup:estimate-critical-damping *sim*)))
                  (change-class *sim* c)
                  (run :output-dir output-dir
                       ;; :dt-scale 0.5d0
-                      :dt-scale 1d0
-                      :total-time 100d0
-                      )))))
-  )
+                      :dt-scale 0.5d0
+                      :total-time 10d0
+                      )
+                 (make-csv "./energy-data/" (format nil "energy-~A.csv" n)))))
+    (make-combined-data-file "./energy-data/")))
+
+(defun make-combined-data-file (folder)
+  (let ((file-list (uiop:directory-files (uiop:merge-pathnames* folder))))
+    (with-open-file (stream "./combined-data.csv" :direction :output :if-exists :supersede)
+      (pprint file-list)
+      (let ((energy-list (list))
+            (time-list (list))
+            (name-list (list)))
+        (dolist (f file-list)
+          (when (string= (pathname-type f) "csv")
+            (let ((name (pathname-name f)))
+              (let ((df (lisp-stat:read-csv f)))
+                (push (lisp-stat:column df 'time) time-list)
+                (push (lisp-stat:column df 'energy) energy-list)
+                (push name name-list)))))
+        (pprint name-list)
+        (format stream "time,~{~a,~}~%" name-list)
+        (loop for i from 0 below (length (first time-list))
+              do
+                 (progn
+                                        ;(format stream "~E,~{~E~}~%" (nth i energy-list))
+                   (format stream "~E," (float (aref (first time-list) i) 0e0))
+                   (loop for elist in energy-list
+                         do (format stream "~E," (float (aref elist i) 0e0)))
+                   (format stream "~%")
+                   ))))
+      ))
 
 (defun test-dt-scale ()
   (let* ((dt-scales (list
