@@ -782,14 +782,27 @@
                    ;;  tau
                    ;;  tau-exp
                    ;;  dt)
-                   (cl-mpm/damage::huen-integration
+                   ;; (integrate-substep 0.1d0 1d0 1d0 0.1d0 10d0 1d0 dt 100 #'huen-integration)
+                   (cl-mpm/damage::integrate-substep
                     k-n
                     ybar-prev
                     ybar
                     k0
                     tau
                     tau-exp
-                    dt)))))
+                    dt
+                    100
+                    #'cl-mpm/damage::huen-integration
+                    )
+                   ;; (cl-mpm/damage::huen-integration
+                   ;;  k-n
+                   ;;  ybar-prev
+                   ;;  ybar
+                   ;;  k0
+                   ;;  tau
+                   ;;  tau-exp
+                   ;;  dt)
+                   ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 

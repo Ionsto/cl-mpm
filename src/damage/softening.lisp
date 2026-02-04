@@ -202,9 +202,29 @@
       0d0))
 
 (defun huen-integration (k y-0 y-1 k0 tau n dt)
+  (declare (double-float k y-0 y-1 k0 tau n dt))
   (let* ((dk-0 (deriv-partial k y-0 k0 tau n))
          (dk-1 (deriv-partial (+ k (* dt dk-0)) y-1 k0 tau n)))
     (+ k (* (/ dt 2) (+ dk-0 dk-1)))))
 
 (defun forwards-integration (k y-0 y-1 k0 tau n dt)
+  (declare (double-float k y-0 y-1 k0 tau n dt))
   (+ k (* dt (deriv-partial k y-0 k0 tau n))))
+
+
+(defun integrate-substep (k y-0 y-1 k0 tau n dt iters function)
+  (declare (double-float k y-0 y-1 k0 tau n dt)
+           (function function)
+           ((integer 1 1000000) iters))
+  (let ((kprev k)
+        (knext 0d0))
+    (loop for i from 0 below iters
+          do
+             (setf knext
+                   (funcall function kprev y-0
+                            (+ (* y-0 (- 1d0 (/ (1+ i) iters)))
+                               (* y-1 (/ (1+ i) iters)))
+                            k0 tau n (/ dt iters)))
+             (setf kprev knext))
+    knext))
+
