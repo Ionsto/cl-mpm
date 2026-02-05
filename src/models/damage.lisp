@@ -469,6 +469,7 @@
       (declare (double-float damage damage-inc k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
+        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (let ((k0 init-stress))
           (when (or
                  (>= ybar-prev k0)
@@ -535,6 +536,7 @@
                      (ductility cl-mpm/particle::mp-ductility))
         mp
       (declare (double-float damage damage-inc k ybar dt))
+      (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
         (setf k

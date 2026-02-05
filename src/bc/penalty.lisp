@@ -16,8 +16,8 @@
    #:save-vtk-penalties
    #:bc-penalty-friction))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
-(declaim #.cl-mpm/settings:*optimise-setting*)
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/penalty)
 
 (defclass bc-penalty-structure (bc-penalty)
@@ -916,8 +916,8 @@
                )
            (when t;(early-sweep-intersection bc mp)
              (
-              ;cl-mpm::iterate-over-midpoints
-              cl-mpm::iterate-over-corners
+              cl-mpm::iterate-over-midpoints
+              ;;cl-mpm::iterate-over-corners
               mesh
               mp
               (lambda (corner-trial)
@@ -1292,17 +1292,17 @@
                                  (node-mass cl-mpm/mesh::node-mass)
                                  (node-lock cl-mpm/mesh::node-lock))
                     node
-                  (declare (double-float node-mass node-volume mp-stiffness))
+                  (declare (double-float node-mass node-volume mp-stiffness svp))
                   (when node-active
                     (sb-thread:with-mutex (node-lock)
                       (setf
                        node-mass
                        (+
                         node-mass
-                        (* 2d0
+                        (*
+                         2d0
                            svp
-                           mp-stiffness)
-                        )
+                           mp-stiffness))
                        ;; (max
                        ;;  node-mass
                        ;;  (* 1d0 (/ (*

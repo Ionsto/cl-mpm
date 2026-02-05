@@ -375,7 +375,6 @@
                  (when (not (equal
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle:mp-position mp))
                              (cl-mpm/mesh:position-to-index mesh (cl-mpm/particle::mp-damage-position mp))))
-                   ;; (pprint "Moving MP")
                    (local-list-remove-particle mesh mp)
                    (local-list-add-particle mesh mp))))))))
     ;;Smart in thought, presumably creates lots of garbage
@@ -825,7 +824,7 @@ Calls the function with the mesh mp and node"
        (when (typep mp 'cl-mpm/particle:particle-damage)
          (with-accessors ((damage-ybar cl-mpm/particle::mp-damage-ybar)
                           (damage cl-mpm/particle::mp-damage)
-                          (local-length-t cl-mpm/particle::mp-true-local-length))
+                          (local-length-t cl-mpm/particle::mp-local-length))
              mp
            (setf damage-ybar (calculate-delocalised-damage mesh mp local-length-t)))))))
   (values))

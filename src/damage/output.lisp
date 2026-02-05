@@ -209,22 +209,22 @@
              (cl-mpm/particle::mp-yield-func mp)
              0d0))
 
-        (cl-mpm/output::save-parameter
-         "current-effective-angle"
-         (if (typep mp 'cl-mpm/particle::particle-ice-delayed)
-             (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
-                                       (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
-                                    (tan (cl-mpm/particle::mp-phi mp)))))
-             0d0)
-         )
-        (cl-mpm/output::save-parameter
-         "current-effective-coheasion"
-         (if (typep mp 'cl-mpm/particle::particle-ice-delayed)
-             (*
-              (- 1d0 (cl-mpm/particle::mp-damage-compression mp))
-              (cl-mpm/particle::mp-c mp))
-             0d0)
-         )
+        ;; (cl-mpm/output::save-parameter
+        ;;  "current-effective-angle"
+        ;;  (if (typep mp 'cl-mpm/particle::particle-ice-delayed)
+        ;;      (* (/ 180 pi) (atan (* (/ (- 1d0 (cl-mpm/particle::mp-damage-shear mp))
+        ;;                                (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
+        ;;                             (tan (cl-mpm/particle::mp-phi mp)))))
+        ;;      0d0)
+        ;;  )
+        ;; (cl-mpm/output::save-parameter
+        ;;  "current-effective-coheasion"
+        ;;  (if (typep mp 'cl-mpm/particle::particle-ice-delayed)
+        ;;      (*
+        ;;       (- 1d0 (cl-mpm/particle::mp-damage-compression mp))
+        ;;       (cl-mpm/particle::mp-c mp))
+        ;;      0d0)
+        ;;  )
         ;; (cl-mpm/output::save-parameter
         ;;  "plastic-c"
         ;;  (if (slot-exists-p mp 'cl-mpm/particle::c)

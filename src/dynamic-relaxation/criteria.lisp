@@ -864,3 +864,35 @@
   (damage-increment-criteria-mp sim)
   ;; (damage-increment-criteria-mesh sim :criteria criteria)
   )
+
+(declaim (notinline compute-damage-delta))
+(defun compute-damage-delta (sim)
+  (let* ((delta-ds
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                 (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                                 (inc cl-mpm/particle::mp-damage-increment)
+                                 (mass cl-mpm/particle::mp-mass))
+                    mp
+                  (* mass (abs (- damage damage-prev))))
+                0d0))
+            #'+))
+         (delta-incs
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                  (with-accessors ((damage cl-mpm/particle::mp-damage)
+                                   (damage-prev cl-mpm/particle::mp-damage-prev-trial)
+                                   (inc cl-mpm/particle::mp-damage-increment)
+                                   (mass cl-mpm/particle::mp-mass))
+                      mp
+                    (* mass damage))
+                  0d0))
+            #'+)))
+    (if (> delta-incs 0d0)
+        (/ delta-ds delta-incs)
+        0d0)))

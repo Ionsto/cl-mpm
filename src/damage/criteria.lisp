@@ -11,8 +11,7 @@
               (expt (- s_2 s_3) 2)
               (expt (- s_3 s_1) 2))
              )
-          (* 2d0 (- 1 (/ 1d0 k)) i1)))
-      )))
+          (* 2d0 (- 1 (/ 1d0 k)) i1))))))
 
 (defun criterion-modified-vm (strain k nu)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain)
