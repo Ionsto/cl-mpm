@@ -852,13 +852,13 @@
     damage-max))
 
 (defun damage-increment-criteria-mp (sim)
-  (let ((damage-max 0d0))
-    (cl-mpm::iterate-over-mps-serial
-     (cl-mpm:sim-mps sim)
-     (lambda (mp)
-       (when (typep mp 'cl-mpm/particle::particle-damage)
-         (setf damage-max (max (cl-mpm/particle::mp-damage-increment mp) damage-max)))))
-    damage-max))
+  (cl-mpm::reduce-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (if (typep mp 'cl-mpm/particle::particle-damage)
+         (cl-mpm/particle::mp-damage-increment mp)
+         0d0))
+   #'max))
 
 (defun damage-increment-criteria (sim)
   (damage-increment-criteria-mp sim)
