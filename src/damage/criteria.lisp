@@ -343,7 +343,7 @@
 (defun criterion-j2 (stress)
   (let ((j2 (cl-mpm/constitutive::voigt-j2
              (cl-mpm/utils::deviatoric-voigt stress))))
-     (sqrt j2)))
+    (sqrt (* 3d0 j2))))
 
 (defun modified-vm-criterion (stress nu k)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)

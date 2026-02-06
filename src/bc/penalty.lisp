@@ -39,6 +39,9 @@
     :accessor bc-penalty-datum
     :initarg :datum
     :initform 0d0)
+   (displacement
+    :accessor bc-displacement
+    :initform (cl-mpm/utils:vector-zeros))
    (sim
     :accessor bc-penalty-sim
     :initarg :sim)
@@ -338,6 +341,13 @@
     (let ((new-datum (- (penetration-distance-point new-center 0d0 normal))))
       (setf center-point new-center
             datum new-datum))))
+
+(defgeneric bc-set-displacement (bc disp))
+(defmethod bc-set-displacement ((bc bc-penalty) disp)
+  (with-accessors ((current-disp bc-displacement))
+      bc
+      (bc-increment-center bc (cl-mpm/fastmaths::fast-.- disp current-disp))
+    (cl-mpm/utils:vector-copy-into disp current-disp)))
 
 (defgeneric bc-increment-center (bc delta-center))
 

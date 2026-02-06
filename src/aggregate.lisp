@@ -621,27 +621,37 @@
                      (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                      (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)))))
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-      (iterate-over-nodes
-       mesh
-       (lambda (node)
-         (when (and (cl-mpm/mesh:node-active node)
-                    (or
-                     (cl-mpm/mesh::node-interior node)
-                     (not (cl-mpm/mesh::node-agg node)))
-                    )
-           (with-accessors ((mass node-mass)
-                            (vel node-velocity)
-                            (force node-force)
-                            (internal cl-mpm/mesh::node-interior)
-                            (acc node-acceleration))
-               node
-             (when t;internal
-               (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
-      ;; (unless (equal (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-      ;; (project-velocity sim))
-      (project-velocity sim)
-      ;; (project-displacement sim)
+      ;; (iterate-over-nodes
+      ;;  mesh
+      ;;  (lambda (node)
+      ;;    (when (and (cl-mpm/mesh:node-active node)
+      ;;               (or
+      ;;                (cl-mpm/mesh::node-interior node)
+      ;;                (not (cl-mpm/mesh::node-agg node)))
+      ;;               )
+      ;;      (with-accessors ((mass node-mass)
+      ;;                       (vel node-velocity)
+      ;;                       (force node-force)
+      ;;                       (internal cl-mpm/mesh::node-interior)
+      ;;                       (acc node-acceleration))
+      ;;          node
+      ;;        (when t;internal
+      ;;          (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
+      ;; (project-velocity sim)
+      ;; (project-acceleration sim)
       )
+    (iterate-over-nodes
+     mesh
+     (lambda (node)
+       (when (and (cl-mpm/mesh:node-active node))
+         (with-accessors ((mass node-mass)
+                          (vel node-velocity)
+                          (force node-force)
+                          (internal cl-mpm/mesh::node-interior)
+                          (acc node-acceleration))
+             node
+           (when t
+             (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 
@@ -677,6 +687,23 @@
                 sim
                 (magicl:@ E vel-proj)
                 #'cl-mpm/mesh::node-velocity
+                d)))
+    (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
+
+(defun project-acceleration (sim)
+  (with-accessors ((sim-mps cl-mpm:sim-mps)
+                   (mesh cl-mpm:sim-mesh)
+                   (dt cl-mpm:sim-dt))
+      sim
+    (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+          do
+             (let ((E (sim-global-e sim))
+                   (vel-proj (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-acceleration d)))
+               (apply-internal-bcs sim vel-proj d)
+               (cl-mpm/aggregate::project-global-vec
+                sim
+                (magicl:@ E vel-proj)
+                #'cl-mpm/mesh::node-acceleration
                 d)))
     (cl-mpm::apply-bcs mesh (cl-mpm:sim-bcs sim) dt)))
 

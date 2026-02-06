@@ -126,7 +126,9 @@
         (cl-mpm/fastmaths:fast-.+
          (cl-mpm/fastmaths:fast-scale-vector
           ;; FLIP value
-          (cl-mpm/fastmaths:fast-.+ vel (cl-mpm/fastmaths:fast-scale-vector acc dt))
+          (cl-mpm/fastmaths:fast-.+
+           vel
+           (cl-mpm/fastmaths:fast-scale-vector acc dt))
           (- 1d0 pic-value))
          ;; PIC update
          (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)

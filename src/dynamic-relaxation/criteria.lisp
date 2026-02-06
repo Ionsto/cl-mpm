@@ -877,7 +877,7 @@
                                  (inc cl-mpm/particle::mp-damage-increment)
                                  (mass cl-mpm/particle::mp-mass))
                     mp
-                  (* mass (abs (- damage damage-prev))))
+                  (expt (* mass (- damage damage-prev)) 2))
                 0d0))
             #'+))
          (delta-incs
@@ -890,9 +890,9 @@
                                    (inc cl-mpm/particle::mp-damage-increment)
                                    (mass cl-mpm/particle::mp-mass))
                       mp
-                    (* mass damage))
+                    (expt (* mass damage) 2))
                   0d0))
             #'+)))
     (if (> delta-incs 0d0)
-        (/ delta-ds delta-incs)
+        (sqrt (/ delta-ds delta-incs))
         0d0)))

@@ -192,7 +192,7 @@
 
 
 (defun deriv-partial (k y k0 tau n)
-  (if (> y k0)
+  (if t;(> y k0)
       (/
        (* k0
           (expt
@@ -227,4 +227,24 @@
                             k0 tau n (/ dt iters)))
              (setf kprev knext))
     knext))
+
+(defun auto-refine-substepper (k y-0 y-1 k0 tau n dt function)
+  (let* ((r 1)
+         (k0 (integrate-substep k y-0 y-1 k0 tau n dt r function))
+         (k1 (integrate-substep k y-0 y-1 k0 tau n dt (1+ r) function))
+         (tol 1d-9)
+         )
+    (when (> (max k0 k1) 0d0)
+      (loop for i from 0 to 10000
+            while
+            (and
+             (> (max k0 k1) 0d0)
+             (> (/ (abs (- k0 k1)) (max k0 k1)) tol))
+            do
+               (progn
+                 (incf r 2)
+                 (setf
+                  k0 (integrate-substep k y-0 y-1 k0 tau n dt r function)
+                  k1 (integrate-substep k y-0 y-1 k0 tau n dt (1+ r) function)))))
+    k1))
 

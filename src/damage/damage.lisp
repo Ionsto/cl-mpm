@@ -802,6 +802,7 @@ Calls the function with the mesh mp and node"
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
+    (g2p-damage sim)
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)

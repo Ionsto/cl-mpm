@@ -48,7 +48,7 @@
              (incf node-mass (* mp-mass svp))
              (incf node-volume (* mp-volume svp))
              (incf node-p-wave (* mp-pmod svp))
-             (incf node-damage (* mp-damage svp))
+             (incf node-damage (* mp-damage mp-volume svp))
              (incf node-svp-sum svp)
              (cl-mpm/fastmaths::fast-fmacc node-vel mp-vel (* mp-mass svp))))))))
   (values))

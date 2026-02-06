@@ -8,23 +8,23 @@
 (in-package :cl-mpm/particle)
 
 (defclass particle-concrete (particle-elastic-damage)
-  (;; (fracture-energy
-   ;;  :accessor mp-gf
-   ;;  :initarg :fracture-energy
-   ;;  :initform 1d0)
-   ;; (ductility
-   ;;  :accessor mp-ductility
-   ;;  :initarg :ductility
-   ;;  :initform 0d0)
-   ;; (history-stress
-   ;;  :accessor mp-history-stress
-   ;;  :initform 0d0)
-   ;; (dissipated-energy
-   ;;  :accessor mp-dissipated-energy
-   ;;  :initform 0d0)
-   ;; (dissipated-energy-inc
-   ;;  :accessor mp-dissipated-energy-inc
-   ;;  :initform 0d0)
+  ((fracture-energy
+    :accessor mp-gf
+    :initarg :fracture-energy
+    :initform 1d0)
+   (ductility
+    :accessor mp-ductility
+    :initarg :ductility
+    :initform 0d0)
+   (history-stress
+    :accessor mp-history-stress
+    :initform 0d0)
+   (dissipated-energy
+    :accessor mp-dissipated-energy
+    :initform 0d0)
+   (dissipated-energy-inc
+    :accessor mp-dissipated-energy-inc
+    :initform 0d0)
    )
   (:documentation "A concrete damage model"))
 (defmethod constitutive-model ((mp particle-concrete) strain dt)

@@ -791,9 +791,18 @@
                     tau
                     tau-exp
                     dt
-                    100
+                    1000
                     #'cl-mpm/damage::huen-integration
                     )
+                   ;; (cl-mpm/damage::auto-refine-substepper
+                   ;;  k-n
+                   ;;  ybar-prev
+                   ;;  ybar
+                   ;;  k0
+                   ;;  tau
+                   ;;  tau-exp
+                   ;;  dt
+                   ;;  #'cl-mpm/damage::huen-integration)
                    ;; (cl-mpm/damage::huen-integration
                    ;;  k-n
                    ;;  ybar-prev
