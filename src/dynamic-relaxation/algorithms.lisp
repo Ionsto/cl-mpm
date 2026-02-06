@@ -127,7 +127,7 @@
                                           (max-damage-inc 0.6d0)
                                           (damping 1d0)
                                           (staggered-steps 100)
-                                          (full-stagger nil)
+                                          (true-stagger t)
                                           )
   (let* ((damage-prev (get-damage sim))
          (damage damage-prev)
@@ -145,7 +145,7 @@
           do
              (progn
                (let ((iv 0))
-                 (when full-stagger
+                 (when true-stagger
                    (setf (cl-mpm:sim-enable-damage sim) nil))
                  (cl-mpm/dynamic-relaxation:converge-quasi-static
                   sim
@@ -164,7 +164,7 @@
                   (lambda (i e o)
                     (incf iv)
                     (funcall post-iter-step i e o)
-                    (unless full-stagger
+                    (unless true-stagger
                       (let ((damage-inc (damage-increment-criteria sim)))
                         (when (> damage-inc max-damage-inc)
                           (format t "Damage criteria failed~%")
@@ -257,7 +257,7 @@
                           (enable-damage t)
                           (enable-plastic t)
                           (max-damage-inc 0.6d0)
-                          (true-stagger nil)
+                          (true-stagger t)
                           (plotter (lambda (sim))))
   (let ((total-i 0))
     (handler-case
@@ -347,9 +347,9 @@
                                  do
                                     (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
                                       (setf (cl-mpm:sim-enable-damage sim) t)
-                                      (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
-                                    (when true-stagger
-                                      (setf (cl-mpm:sim-enable-damage sim) nil))
+                                      (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                      (when true-stagger
+                                        (setf (cl-mpm:sim-enable-damage sim) nil)))
                                     (setf damage (get-damage sim))
                                     (setf dconv
                                           (compute-damage-delta sim)

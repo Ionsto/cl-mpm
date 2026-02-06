@@ -645,11 +645,12 @@
                 (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                       (max
                        (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction)))))
-                (vector-push-extend
-                 (make-dr-contact-point
-                  :position (cl-mpm/utils:vector-copy trial-point)
-                  :stiffness (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction))))
-                 (bc-penalty-contact-points bc))
+                (sb-thread:with-mutex (debug-mutex)
+                  (vector-push-extend
+                   (make-dr-contact-point
+                    :position (cl-mpm/utils:vector-copy trial-point)
+                    :stiffness (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction))))
+                   (bc-penalty-contact-points bc)))
 
                 (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
 
@@ -1286,7 +1287,9 @@
   ;; (assemble-penalty-stiffness-matrix sim)
   ;; (pprint "Hello")
   (let ((mesh (cl-mpm:sim-mesh sim)))
+    ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
     (when (> (length (bc-penalty-contact-points bc)) 0)
+      ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
       (lparallel:pdotimes (i (length (bc-penalty-contact-points bc)))
         (let ((contact (aref (bc-penalty-contact-points bc) i)))
           (iterate-over-neighbours-point-linear
@@ -1306,6 +1309,7 @@
                     (+
                      node-mass
                      (*
+                      0.5d0
                       svp
                       (dr-contact-point-stiffness contact))))))))))))))
 

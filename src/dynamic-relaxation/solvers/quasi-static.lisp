@@ -84,7 +84,7 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
-    (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
+    ;; (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
@@ -296,7 +296,7 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (incf solve-count)
-    (let ((mass-update-iter 8))
+    (let ((mass-update-iter 1))
       (when (= (mod solve-count mass-update-iter) 0)
         (update-node-fictious-mass sim))
       (when ghost-factor

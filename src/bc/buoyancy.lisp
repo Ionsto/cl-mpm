@@ -1555,6 +1555,7 @@
     ;; (locate-mps-cells sim (lambda (pos) (funcall clip-func pos datum)))
     (markup-cells-nodes sim bc)
     ;; (compute-stiffness-cells-3d
+    ;;  (cl-mpm:sim-mps sim)
     ;;  (cl-mpm:sim-mesh sim)
     ;;  (lambda (pos) (abs (* (max 0d0 (- datum (varef pos 1))) rho (cl-mpm:sim-gravity sim))))
     ;;  clip-func)
@@ -1567,9 +1568,37 @@
 
   )
 
-(defun compute-stiffness-cells-3d (mesh stiffness-func clip-func)
+(defun compute-stiffness-cells-3d (mps mesh stiffness-func clip-func)
   "Update force on nodes, with virtual stress field from cells"
   (declare (function stiffness-func))
+  (cl-mpm::iterate-over-mps
+   mps
+   (lambda (mp)
+     (when t;(funcall clip)
+       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
+                        (pos cl-mpm/particle::mp-position))
+           mp
+         ;;Iterate over neighbour nodes
+         (cl-mpm::iterate-over-neighbours
+          mesh mp
+          (lambda (mesh mp node svp grads fsvp fgrads)
+            (with-accessors ((node-buoyancy-force cl-mpm/mesh::node-buoyancy-force)
+                             (node-lock  cl-mpm/mesh:node-lock)
+                             (node-boundary cl-mpm/mesh::node-boundary-node)
+                             (node-mass cl-mpm/mesh::node-mass)
+                             (node-active  cl-mpm/mesh:node-active))
+                node
+              (declare (double-float volume svp))
+              (when (and node-active
+                         node-boundary)
+                (sb-thread:with-mutex (node-lock)
+                  (decf
+                   node-mass
+                   (max 0d0 (*
+                             1d0
+                             (funcall
+                              stiffness-func
+                              pos) volume svp))))))))))))
   (cl-mpm::iterate-over-cells
    mesh
    (lambda (cell)
@@ -1604,7 +1633,9 @@
                                1d0
                                (funcall
                                 stiffness-func
-                                (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))) volume svp))))))))))))))
+                                pos
+                                ;; (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))
+                                ) volume svp))))))))))))))
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
   (with-accessors ((datum bc-buoyancy-datum)

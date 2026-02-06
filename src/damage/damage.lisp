@@ -244,6 +244,7 @@
            (calculate-average-damage mesh mp ll)))))
 
 
+
 (defgeneric calculate-damage (sim dt))
 
 (defmethod calculate-damage ((sim mpm-sim-damage) dt)
@@ -1110,6 +1111,14 @@ Calls the function with the mesh mp and node"
 
 
 
+
+(defgeneric compute-dt-damage-inc (mp current-dt damage-inc))
+
+(defmethod compute-dt-damage-inc ((mp cl-mpm/particle::particle) current-dt damage-inc)
+  current-dt)
+
+;; (defmethod compute-dt-damage-inc ((mp cl-mpm/particle::particle-elastic-damage) current-dt damage-inc)
+;;   )
 
 
 (defgeneric compute-damage (mp))
