@@ -16,8 +16,8 @@
    #:save-vtk-penalties
    #:bc-penalty-friction))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
-;; (declaim #.cl-mpm/settings:*optimise-setting*)
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
+(declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/penalty)
 
 (defclass bc-penalty-structure (bc-penalty)
@@ -59,7 +59,7 @@
     :initarg :damping)
    (contact-points
     :accessor bc-penalty-contact-points
-    :initform (list))
+    :initform (make-array 0 :adjustable t :fill-pointer 0))
    (mp-stiffness
     :initform nil
     :accessor bc-mp-stiffness)
@@ -598,6 +598,8 @@
     ;; (cl-mpm/particle::mp-p-modulus mp)
     )))
 
+(defstruct dr-contact-point position stiffness)
+
 (defun apply-penalty-point (mesh bc mp
                             point
                             trial-point
@@ -643,6 +645,11 @@
                 (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                       (max
                        (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction)))))
+                (vector-push-extend
+                 (make-dr-contact-point
+                  :position (cl-mpm/utils:vector-copy trial-point)
+                  :stiffness (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction))))
+                 (bc-penalty-contact-points bc))
 
                 (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
 
@@ -799,7 +806,7 @@
       bc
 
     (reset-load bc)
-    (setf (bc-penalty-contact-points bc) nil)
+    (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
     (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
@@ -850,7 +857,7 @@
                              (contact-disp closest-point) disp
                              (contact-penetration closest-point) penetration-dist))))))))
              (when in-contact
-               (push (contact-point closest-point) (bc-penalty-contact-points bc))
+               ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
                ;; (break)
                (apply-penalty-point mesh bc mp
                                     (contact-point closest-point)
@@ -916,6 +923,7 @@
                    (sim bc-penalty-sim))
       bc
     (reset-load bc)
+    (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
@@ -946,7 +954,7 @@
                                                        (contact-trial-point closest-point)
                                                        (contact-disp closest-point)
                                                        dt)))
-                        (push (contact-point closest-point) (bc-penalty-contact-points bc))
+                        ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
                         (sb-thread:with-mutex (debug-mutex)
                           (incf debug-force load)))))))))))))))
 
@@ -1276,83 +1284,81 @@
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/penalty::bc-penalty))
   ;; (assemble-penalty-stiffness-matrix sim)
-  )
+  ;; (pprint "Hello")
+  (let ((mesh (cl-mpm:sim-mesh sim)))
+    (when (> (length (bc-penalty-contact-points bc)) 0)
+      (lparallel:pdotimes (i (length (bc-penalty-contact-points bc)))
+        (let ((contact (aref (bc-penalty-contact-points bc) i)))
+          (iterate-over-neighbours-point-linear
+           mesh
+           (dr-contact-point-position contact)
+           (lambda (mesh node svp grads)
+             (with-accessors ((node-active cl-mpm/mesh:node-active)
+                              (node-volume cl-mpm/mesh::node-volume)
+                              (node-mass cl-mpm/mesh::node-mass)
+                              (node-lock cl-mpm/mesh::node-lock))
+                 node
+               (declare (double-float node-mass node-volume svp))
+               (when node-active
+                 (sb-thread:with-mutex (node-lock)
+                   (setf
+                    node-mass
+                    (+
+                     node-mass
+                     (*
+                      svp
+                      (dr-contact-point-stiffness contact))))))))))))))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))
 (defun assemble-penalty-stiffness-matrix (sim)
   "For dynamic relaxation, it is helpful to assemble the estimated maximum stiffness onto the mass matrix"
-  (with-accessors ((mps sim-mps)
-                   (mesh sim-mesh)
-                   (dt-scale cl-mpm::sim-dt-scale))
-      sim
-    (let ((nv (expt (mesh-resolution mesh) (mesh-nd mesh))))
-      (cl-mpm::iterate-over-mps
-       mps
-       (lambda (mp)
-         (when t;(cl-mpm/particle::mp-penalty-contact mp)
-           (with-accessors ((mp-stiffness cl-mpm/particle::mp-penalty-stiffness)
-                            (mp-volume cl-mpm/particle::mp-volume))
-               mp
-             (iterate-over-neighbours-point-linear
-              mesh
-              (cl-mpm/particle::mp-penalty-contact-point mp)
-              (lambda (mesh node svp grads)
-                (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                 (node-volume cl-mpm/mesh::node-volume)
-                                 (node-mass cl-mpm/mesh::node-mass)
-                                 (node-lock cl-mpm/mesh::node-lock))
-                    node
-                  (declare (double-float node-mass node-volume mp-stiffness svp))
-                  (when node-active
-                    (sb-thread:with-mutex (node-lock)
-                      (setf
-                       node-mass
-                       (+
-                        node-mass
-                        (*
-                         2d0
-                           svp
-                           mp-stiffness))
-                       ;; (max
-                       ;;  node-mass
-                       ;;  (* 1d0 (/ (*
-                       ;;             ;; node-volume
-                       ;;             svp
-                       ;;             ;; m
-                       ;;             nv
-                       ;;               mp-stiffness) dt-scale)))
-                       )
-                      )))
-                )
+  ;; (with-accessors ((mps sim-mps)
+  ;;                  (mesh sim-mesh)
+  ;;                  (dt-scale cl-mpm::sim-dt-scale))
+  ;;     sim
+  ;;   (let ((nv (expt (mesh-resolution mesh) (mesh-nd mesh))))
+  ;;     (cl-mpm::iterate-over-mps
+  ;;      mps
+  ;;      (lambda (mp)
+  ;;        (when t;(cl-mpm/particle::mp-penalty-contact mp)
+  ;;          (with-accessors ((mp-stiffness cl-mpm/particle::mp-penalty-stiffness)
+  ;;                           (mp-volume cl-mpm/particle::mp-volume))
+  ;;              mp
+  ;;            (iterate-over-neighbours-point-linear
+  ;;             mesh
+  ;;             (cl-mpm/particle::mp-penalty-contact-point mp)
+  ;;             (lambda (mesh node svp grads)
+  ;;               (with-accessors ((node-active cl-mpm/mesh:node-active)
+  ;;                                (node-volume cl-mpm/mesh::node-volume)
+  ;;                                (node-mass cl-mpm/mesh::node-mass)
+  ;;                                (node-lock cl-mpm/mesh::node-lock))
+  ;;                   node
+  ;;                 (declare (double-float node-mass node-volume mp-stiffness svp))
+  ;;                 (when node-active
+  ;;                   (sb-thread:with-mutex (node-lock)
+  ;;                     (setf
+  ;;                      node-mass
+  ;;                      (+
+  ;;                       node-mass
+  ;;                       (*
+  ;;                        2d0
+  ;;                        svp
+  ;;                        mp-stiffness))
+  ;;                      ;; (max
+  ;;                      ;;  node-mass
+  ;;                      ;;  (* 1d0 (/ (*
+  ;;                      ;;             ;; node-volume
+  ;;                      ;;             svp
+  ;;                      ;;             ;; m
+  ;;                      ;;             nv
+  ;;                      ;;               mp-stiffness) dt-scale)))
+  ;;                      )
+  ;;                     )))
+  ;;               )
 
-              )
-             ;; (iterate-over-neighbours
-             ;;  mesh mp
-             ;;  (lambda (mesh mp node svp grads fsvp fgrads)
-             ;;    (with-accessors ((node-active cl-mpm/mesh:node-active)
-             ;;                     (node-volume cl-mpm/mesh::node-volume)
-             ;;                     (node-mass cl-mpm/mesh::node-mass)
-             ;;                     (node-lock cl-mpm/mesh::node-lock))
-             ;;        node
-             ;;      (declare (double-float node-mass node-volume mp-stiffness))
-             ;;      (when node-active
-             ;;        (sb-thread:with-mutex (node-lock)
-             ;;          (setf
-             ;;           node-mass
-             ;;           (+
-             ;;            node-mass
-             ;;            (* svp mp-stiffness))
-             ;;           ;; (max
-             ;;           ;;  node-mass
-             ;;           ;;  (* 1d0 (/ (*
-             ;;           ;;             ;; node-volume
-             ;;           ;;             svp
-             ;;           ;;             ;; m
-             ;;           ;;             nv
-             ;;           ;;               mp-stiffness) dt-scale)))
-             ;;           )
-             ;;          )))))
-             )))))))
+  ;;             )
+  ;; ))))))
+  )
 
 
 (declaim (notinline reset-penalty))
@@ -1362,7 +1368,7 @@
    (lambda (mp)
      (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-penalty-frictional-force mp))
      ;; (setf (cl-mpm/particle::mp-penalty-contact mp) nil)
-     (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
+     ;; (setf (cl-mpm/particle::mp-penalty-stiffness mp) (* 0.99d0 (cl-mpm/particle::mp-penalty-stiffness mp)))
      )))
 
 ;; (defun finalise-penalty (sim)

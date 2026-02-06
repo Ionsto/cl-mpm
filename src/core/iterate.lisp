@@ -405,7 +405,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec (cl-mpm/particle:mp-position mp))
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
@@ -436,7 +436,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec (cl-mpm/particle:mp-position mp))
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)  (tref pos-vec 2 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1)  (varef pos-vec 2)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (loop for dx from 0 to 1
             do (loop for dy from 0 to 1
@@ -478,7 +478,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
@@ -504,7 +504,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1) (varef pos-vec 2)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
@@ -533,7 +533,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (progn
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (pos-vec position)
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh pos-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
@@ -1357,7 +1357,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (cell-vec (cl-mpm/mesh::cell-centroid cell))
            (pos-vec position)
-           (pos (list (tref pos-vec 0 0) (tref pos-vec 1 0) (tref pos-vec 2 0)))
+           (pos (list (varef pos-vec 0) (varef pos-vec 1) (varef pos-vec 2)))
            (pos-index (cl-mpm/mesh:position-to-index-floor mesh cell-vec)))
       (declare (dynamic-extent pos pos-index pos-vec))
       (loop for dx from 0 to 1
