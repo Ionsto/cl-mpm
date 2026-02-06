@@ -744,7 +744,7 @@
   (if (= (cl-mpm/mesh:mesh-nd (cl-mpm:sim-mesh sim)) 2)
           (compute-max-deformation-2d sim)
           (compute-max-deformation-3d sim))
-  1d0
+  ;; 1d0
   ;; (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
   )
 
