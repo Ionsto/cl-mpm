@@ -7,11 +7,6 @@
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
-    ;; (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-    ;;              (cl-mpm:sim-mps *sim*)
-    ;;              (cl-mpm:sim-dt *sim*)
-    ;;              0d0
-    ;;              :QUASI-STATIC)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -69,7 +64,7 @@
                                             height
                                             0d0))
        (/ domain-width 2)
-       (* E 1d1)
+       (* E 1d2)
        0.5d0
        0d0))
     (defparameter *current-inc* 0d0)
