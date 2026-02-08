@@ -1309,7 +1309,7 @@
                     (+
                      node-mass
                      (*
-                      0.5d0
+                      1d0
                       svp
                       (dr-contact-point-stiffness contact))))))))))))))
 

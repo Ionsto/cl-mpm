@@ -153,6 +153,8 @@
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *enable-plastic-damage* nil)
+(defparameter *delay-time* 1d5)
+(defparameter *delay-exponent* 2d0)
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
@@ -265,8 +267,8 @@
           ;; :softening 0d0
           :ductility ductility
           :local-length length-scale
-          :delay-time 1d3
-          :delay-exponent 8d0
+          :delay-time *delay-time*
+          :delay-exponent *delay-exponent*
           :enable-plasticity t
           :enable-damage t
           :enable-viscosity t
@@ -535,7 +537,7 @@
 (defun calving-test ()
   (let* ((mps 2)
          (dt 1d3)
-         (H 100d0))
+         (H 200d0))
     (setup :refine 1
            :multigrid-refines 3
            :friction 0.5d0
@@ -547,7 +549,7 @@
            :melange nil
            :aspect 2d0
            :slope 0d0
-           :floatation-ratio 0d0)
+           :floatation-ratio 0.5d0)
     (plot-domain)
     ;; (break)
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
