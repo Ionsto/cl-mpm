@@ -254,9 +254,7 @@
                  (setf
                   kn0 (integrate-substep k y-0 y-1 dt r function)
                   kn1 (integrate-substep k y-0 y-1 dt (1+ r) function))
-                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1)))
-                 (format t "~E~%" err)
-                 )))
+                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1))))))
     kn1))
 
 (defun secant-solver (k0 y0 y1 dt func)
