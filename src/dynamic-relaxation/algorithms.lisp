@@ -17,9 +17,10 @@
 
 
 
-(deftype plastic-damage-type () (and
-                                 'cl-mpm/particle::particle-damage
-                                 'cl-mpm/particle::particle-plastic))
+(deftype plastic-damage-type () `(and
+                                  cl-mpm/particle::particle-damage
+                                  cl-mpm/particle::particle-plastic))
+
 (defun set-mp-plastic-damage (sim &key (enable-damage t) (enable-plastic t))
   (cl-mpm:iterate-over-mps
    (cl-mpm:sim-mps sim)

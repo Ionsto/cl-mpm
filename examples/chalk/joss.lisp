@@ -27,59 +27,6 @@
     :initarg :damage-rate
     :accessor bc-water-damage-damage-rate)))
 
-;; (defclass bc-erode (cl-mpm/buoyancy::bc-scalar)
-;;   ((damage-rate
-;;     :initform 1d0
-;;     :initarg :damage-rate
-;;     :accessor bc-water-damage-damage-rate)))
-
-;; (defun make-bc-erode (sim datum rate lower-datum upper-datum)
-;;   (with-accessors ((mesh cl-mpm:sim-mesh))
-;;       sim
-;;     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
-;;         mesh
-;;       (make-instance 'bc-erode
-;;                      :index nil
-;;                      :damage-rate rate
-;;                      :damage-volume nil
-;;                      :scalar-func (lambda (pos) (expt (- 1d0 (/ (abs (- (cl-mpm/utils:varef pos 1) datum))
-;;                                                                 (- upper-datum datum)
-;;                                                                 ))
-;;                                                       12))
-;;                      :clip-func (lambda (pos) (and (>= (cl-mpm/utils:varef pos 1) lower-datum)
-;;                                                    (<= (cl-mpm/utils:varef pos 1) upper-datum)
-;;                                                    ))
-;;                      :sim sim))))
-;; (defmethod cl-mpm/bc::apply-bc ((bc bc-erode) node mesh dt)
-;;   (call-next-method)
-;;   ;; (break)
-;;   (with-accessors ((sim cl-mpm/buoyancy::bc-buoyancy-sim))
-;;       bc
-;;     (when (cl-mpm::sim-enable-damage sim)
-;;       (loop for mp across (cl-mpm:sim-mps sim)
-;;             do
-;;                (let ((weathering 0d0))
-;;                  (cl-mpm:iterate-over-neighbours
-;;                   mesh
-;;                   mp
-;;                   (lambda (mesh mp node svp grads fsvp fgrads)
-;;                     (incf weathering (* svp (cl-mpm/mesh::node-boundary-scalar node)))))
-;;                  (setf weathering (* weathering (+ 1d0 (* 8 (cl-mpm/particle:mp-damage mp)))))
-;;                  (setf (cl-mpm/particle::mp-boundary mp) weathering)
-;;                  (setf weathering (min weathering 0d0))
-;;                  (let ((density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))))
-;;                    (setf
-;;                     (cl-mpm/particle::mp-volume mp)
-;;                     (max
-;;                      0d0
-;;                      (-
-;;                       (cl-mpm/particle::mp-volume mp)
-;;                       (abs (*
-;;                             (bc-water-damage-damage-rate bc)
-;;                             weathering dt)))))
-;;                    (setf (cl-mpm/particle::mp-mass mp) (* density (cl-mpm/particle::mp-volume mp))))))
-;;       (cl-mpm::remove-mps-func sim (lambda (mp) (= 0d0 (cl-mpm/particle::mp-mass mp)))))))
-
 (defun make-bc-water-damage (sim datum rate)
   (with-accessors ((mesh cl-mpm:sim-mesh))
       sim
@@ -171,75 +118,8 @@
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar)
   ;; (cl-mpm::update-stress-linear mesh mp dt fbar)
   )
-(in-package :cl-mpm/particle)
-;; (defmethod constitutive-model ((mp cl-mpm/particle::particle-chalk-delayed) strain dt)
-;;   "Strain intergrated elsewhere, just using elastic tensor"
-;;   (with-accessors ((de mp-elastic-matrix)
-;;                    (stress mp-stress)
-;;                    (E mp-E)
-;;                    (nu mp-nu)
-;;                    (phi mp-phi)
-;;                    (psi mp-psi)
-;;                    (c mp-c)
-;;                    (plastic-strain mp-strain-plastic)
-;;                    (ps-vm mp-strain-plastic-vm)
-;;                    (strain mp-strain)
-;;                    (yield-func mp-yield-func)
-;;                    (soft mp-softening)
-;;                    (enabled mp-enable-plasticity)
-;;                    )
-;;       mp
-;;     (declare (double-float soft ps-vm E nu phi psi c))
-;;     ;;Train elastic strain - plus trail kirchoff stress
-;;     (setf stress (cl-mpm/constitutive::linear-elastic-mat strain de stress))
-;;     (when enabled
-;;       (let ((f-r t))
-;;         (loop for i from 0 to 50
-;;               while f-r
-;;               do
-;;                  (progn
-;;                    (multiple-value-bind (sig eps-e f inc)
-;;                        (cl-mpm/ext::constitutive-mohr-coulomb stress
-;;                                                               de
-;;                                                               strain
-;;                                                               E
-;;                                                               nu
-;;                                                               phi
-;;                                                               psi
-;;                                                               c)
-;;                      (setf f-r (> f 1d-5))
-;;                      (setf
-;;                       stress sig
-;;                       strain eps-e
-;;                       yield-func f)
-;;                      (incf ps-vm inc))
-;;                    (setf (mp-plastic-iterations mp) i)
-;;                    (when (> soft 0d0)
-;;                      (with-accessors ((c-0 mp-c-0)
-;;                                       (phi-0 mp-phi-0)
-;;                                       (psi-0 mp-psi-0)
-;;                                       (c-r mp-c-r)
-;;                                       (phi-r mp-phi-r)
-;;                                       (psi-r mp-psi-r))
-;;                          mp
-;;                        (declare (double-float c-0 c-r phi-0 phi-r psi-0 psi-r))
-;;                        (setf
-;;                         c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
-;;                         phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
-;;                      )))))
-;;     stress))
 
 (in-package :cl-mpm/examples/joss)
-
-;; (let ((phi-r (* 15d0 (/ pi 180)))
-;;       (phi-0 (* 50d0 (/ pi 180)))
-;;       (c-0 26d3)
-;;       (c-r 0d0)
-;;       (soft (* 1d-2 1000d0))
-;;       )
-;;   (pprint (* (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- soft ))))) (/ 180 pi)))
-;;   (pprint (+ c-r (* (- c-0 c-r) (exp (- soft)))))
-;;   )
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
   (let ((damage-increment 0d0))
@@ -2443,8 +2323,7 @@
      )))
 
 (defun test-multi ()
-  (setup :mps 3 :refine 4 :notch-length 1d0)
-  ;; (setup-3d)
+  (setup :refine 8 :notch-length 0.5d0)
   ;; (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-9)
   (cl-mpm/setup::set-mass-filter *sim* 1.7d3 :proportion 1d-15)
   (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t)
@@ -2461,7 +2340,7 @@
      :conv-criteria 1d-3
      :substeps 10
      :dt dt
-     :damping 1d0
+     :damping-factor 1d0
      :max-adaptive-steps 10
      :min-adaptive-steps -5
      :steps (round total-time dt)
