@@ -1159,13 +1159,14 @@
                         ;; (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
                         )
                     ;;Lock node
-                    (cl-mpm/fastmaths:fast-zero f-stress)
-                    (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
-                    (cl-mpm/fastmaths:fast-scale-vector
-                     cell-div
-                     (* volume svp)
-                     f-div)
-                    (let* ((f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div)))
+                    ;; (cl-mpm/fastmaths:fast-zero f-stress)
+                    ;; (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
+                    ;; (cl-mpm/fastmaths:fast-scale-vector
+                    ;;  cell-div
+                    ;;  (* volume svp)
+                    ;;  f-div)
+                    (let* (;; (f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div))
+                           )
                       (sb-thread:with-mutex (node-lock)
                         ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
                         ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
