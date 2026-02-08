@@ -787,12 +787,16 @@
                     k-n
                     ybar-prev
                     ybar
-                    k0
-                    tau
-                    tau-exp
                     dt
                     1000
-                    #'cl-mpm/damage::huen-integration
+                    (lambda (k y0 y1 s-dt)
+                      (cl-mpm/damage::huen-integration k
+                                                       y0
+                                                       y1
+                                                       k0
+                                                       tau
+                                                       tau-exp
+                                                       s-dt))
                     )
                    ;; (cl-mpm/damage::auto-refine-substepper
                    ;;  k-n

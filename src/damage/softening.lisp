@@ -212,39 +212,143 @@
   (+ k (* dt (deriv-partial k y-0 k0 tau n))))
 
 
-(defun integrate-substep (k y-0 y-1 k0 tau n dt iters function)
-  (declare (double-float k y-0 y-1 k0 tau n dt)
+(defun integrate-substep (k y-0 y-1 dt iters function)
+  (declare (double-float k y-0 y-1 dt)
            (function function)
            ((integer 1 1000000) iters))
   (let ((kprev k)
-        (knext 0d0))
+        (knext 0d0)
+        (yprev y-0)
+        (ycurrent y-0)
+        (yinc (/ (- y-1 y-0) iters))
+        )
     (loop for i from 0 below iters
           do
+             (incf ycurrent yinc)
              (setf knext
-                   (funcall function kprev y-0
-                            (+ (* y-0 (- 1d0 (/ (1+ i) iters)))
-                               (* y-1 (/ (1+ i) iters)))
-                            k0 tau n (/ dt iters)))
-             (setf kprev knext))
+                   (funcall function
+                            kprev
+                            yprev
+                            ycurrent
+                            (/ dt iters)))
+             (setf kprev knext
+                   yprev ycurrent))
     knext))
 
-(defun auto-refine-substepper (k y-0 y-1 k0 tau n dt function)
+(defun auto-refine-substepper (k y-0 y-1 dt function)
   (let* ((r 1)
-         (k0 (integrate-substep k y-0 y-1 k0 tau n dt r function))
-         (k1 (integrate-substep k y-0 y-1 k0 tau n dt (1+ r) function))
+         (kn0 (integrate-substep k y-0 y-1 dt r function))
+         (kn1 (integrate-substep k y-0 y-1 dt (1+ r) function))
          (tol 1d-9)
+         (err tol)
          )
-    (when (> (max k0 k1) 0d0)
+    (when (> (max kn0 kn1) 0d0)
       (loop for i from 0 to 10000
             while
             (and
-             (> (max k0 k1) 0d0)
-             (> (/ (abs (- k0 k1)) (max k0 k1)) tol))
+             (> (max kn0 kn1) 0d0)
+             (>= err tol))
             do
                (progn
-                 (incf r 2)
+                 (incf r 4)
                  (setf
-                  k0 (integrate-substep k y-0 y-1 k0 tau n dt r function)
-                  k1 (integrate-substep k y-0 y-1 k0 tau n dt (1+ r) function)))))
-    k1))
+                  kn0 (integrate-substep k y-0 y-1 dt r function)
+                  kn1 (integrate-substep k y-0 y-1 dt (1+ r) function))
+                 (setf err (/ (abs (- kn0 kn1)) (max kn0 kn1)))
+                 (format t "~E~%" err)
+                 )))
+    kn1))
 
+(defun secant-solver (k0 y0 y1 dt func)
+  (let ((ymid (* 0.5 (+ y0 y1))))
+    (labels ((kmid (k)
+               (/ (+ k0 k) 2)
+               )
+             (fkn (k)
+               (+
+                k0
+                (max 0d0 (* dt (funcall func (kmid k) ymid)))))
+             (f (k)
+               (-
+                (fkn k)
+                k)))
+      (let* ((kn k0)
+             (kn1 (+ (fkn k0) 1d-3))
+             (rn (f kn))
+             (rn1 (f kn1)))
+        (format t "kn ~E - kn1 ~E~%" kn kn1)
+        (format t "rn ~E - rn1 ~E~%" rn rn1)
+        (loop for i from 0 to 100
+              while (and (> (abs (- rn rn1)) 1d-9)
+                         (> (abs (- kn kn1)) 0d0)
+                         (> (abs rn) 0d0)
+                         (> (abs rn1) 0d0)
+                         )
+              do
+                 (format t "iter ~D - error ~E~%" i (abs (- rn rn1)))
+                 (format t "kn ~E - kn1 ~E~%" kn kn1)
+                 (format t "rn ~E - kn1 ~E~%" rn rn1)
+                 (when (> (abs (- kn kn1)) 0d0)
+                   (let ((inc (*
+                               rn
+                               (/ (- rn rn1)
+                                  (- kn kn1)))))
+                     (setf kn1 kn
+                           rn1 rn)
+                     (setf
+                      kn (- kn inc))
+                     (setf
+                      rn (f kn))
+                     ;; (setf k (- kn inc))
+                     )))
+        (fkn kn)))))
+
+;; (let ((k 5d0)
+;;       (y0 0d0)
+;;       (y1 10d0)
+;;       (n 100d0)
+;;       (tau 1d0)
+;;       (dt 1d0)
+;;       (k0 1d0)
+;;       )
+;;   ;; (pprint (forwards-integration k y0 y1 k0 tau n dt))
+;;   (pprint (huen-integration k y0 y1 k0 tau n dt))
+;;   (pprint (cl-mpm/damage::auto-refine-substepper
+;;            k
+;;            y0
+;;            y1
+;;            dt
+;;            (lambda (k y0 y1 s-dt)
+;;              (cl-mpm/damage::huen-integration k
+;;                                               y0
+;;                                               y1
+;;                                               k0
+;;                                               tau
+;;                                               n
+;;                                               s-dt))
+;;            ))
+;;   ;; (time 
+;;   ;;  (pprint (cl-mpm/damage::integrate-substep
+;;   ;;           k
+;;   ;;           y0
+;;   ;;           y1
+;;   ;;           dt
+;;   ;;           100
+;;   ;;           (lambda (k y0 y1 s-dt)
+;;   ;;             (cl-mpm/damage::huen-integration k
+;;   ;;                                              y0
+;;   ;;                                              y1
+;;   ;;                                              k0
+;;   ;;                                              tau
+;;   ;;                                              n
+;;   ;;                                              s-dt))
+;;   ;;           )))
+
+;;   ;; (pprint (integrate-substep k y0 y1 k0 tau n dt 10000
+
+;;   ;;                            ))
+
+;;   ;; (pprint (secant-solver k y0 y1 dt
+;;   ;;                        (lambda (k y)
+;;   ;;                          (deriv-partial k y k0 tau n))))
+;;   )
