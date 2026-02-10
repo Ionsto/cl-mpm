@@ -13,6 +13,13 @@
      :trial t
      :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp)))))
 
+(defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-elastic) dt)
+  (cl-mpm::update-particle-kirchoff mesh mp dt)
+  (cl-mpm::update-domain-polar-2d mesh mp dt)
+  ;; (cl-mpm::update-domain-max-corner-2d mesh mp dt)
+  ;; (cl-mpm::scale-domain-size mesh mp)
+  )
+
 (defun setup (&key (refine 1) (mps 3))
   (let* ((L 10d0)
          (d 1d0)
@@ -33,7 +40,7 @@
                  :args-list (list :enable-aggregate t
                                   :enable-fbar t
                                   :enable-split t
-                                  :vel-algo :QUASI-STATIC
+                                  :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                   )))
     (cl-mpm:add-mps
      *sim*
@@ -56,17 +63,18 @@
      *sim*
      :left '(0 nil nil))
 
-    (defparameter *penalty*
-      (cl-mpm/penalty::make-bc-penalty-distance-point
-       *sim*
-       (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
-       (cl-mpm/utils:vector-from-list (list (* 0.5d0 domain-width)
-                                            height
-                                            0d0))
-       (/ domain-width 2)
-       (* E 1d2)
-       0.5d0
-       0d0))
+    (let ((friction 0.5d0))
+      (defparameter *penalty*
+        (cl-mpm/penalty::make-bc-penalty-distance-point
+         *sim*
+         (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
+         (cl-mpm/utils:vector-from-list (list (* 0.5d0 domain-width)
+                                              height
+                                              0d0))
+         (/ domain-width 2)
+         (* E 1d2)
+         friction
+         0d0)))
     (defparameter *current-inc* 0d0)
     (cl-mpm:add-bcs-force-list
      *sim*
@@ -77,28 +85,79 @@
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   )
 
-(defun run ()
-  (let* ((lstps 20)
-         (total-disp -5d0)
-         (delta (/ total-disp lstps)))
-    (cl-mpm/dynamic-relaxation::run-load-control
+(defun run-time ()
+  (change-class *sim* 'cl-mpm/aggregate::mpm-sim-agg-usf)
+  ;; (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
+  (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
+  (let ((step 0))
+    (cl-mpm/dynamic-relaxation::run-time
      *sim*
      :output-dir (format nil "./output/")
+     :plotter
+     (lambda (sim)
+       (plot-domain)
+       (vgplot:title (format nil "Step ~D" step))
+       (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+       (incf step))
+     :damping 1d-3
+     :dt 10d0
+     :total-time 1000d0
+     ;; :dt-scale 1d0
+     :dt-scale (/ 0.5d0 (sqrt 1d2))
+     :post-conv-step
+     (lambda (sim)
+       (let ((disp-rate -0.01d0))
+         (defparameter *penalty-controller*
+           (cl-mpm/bc::make-bc-closure
+            nil
+            (lambda ()
+              (cl-mpm/penalty::bc-increment-center
+               *penalty*
+               (cl-mpm/utils:vector-from-list (list 0d0 (* disp-rate (cl-mpm:sim-dt *sim*)) 0d0))))))
+         (cl-mpm::add-bcs-force-list
+          *sim*
+          *penalty-controller*)
+         )))))
+(defun run (&key (output-dir (format nil "./output/")))
+  (let* ((lstps 20)
+         (total-disp -5d0)
+         (delta (/ total-disp lstps))
+         (step 0))
+    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
+    (cl-mpm/dynamic-relaxation::run-load-control
+     *sim*
+     :output-dir output-dir
      :plotter (lambda (sim) (plot-domain))
      :loading-function (lambda (i)
                          (cl-mpm/penalty::bc-increment-center
                           *penalty*
                           (cl-mpm/utils:vector-from-list (list 0d0 delta 0d0))))
+     :post-conv-step (lambda (sim)
+                       (plot-domain)
+                       (vgplot:title (format nil "Step ~D" step))
+                       (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+                       (incf step))
      :load-steps lstps
+     :enable-plastic nil
      :kinetic-damping nil
      :damping 1d0
-     :substeps 50
+     :substeps 10
      :criteria 1d-3
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :dt-scale 0.9d0
-     )))
+     :dt-scale 1d0)))
 
 (defun test ()
   (setup :mps 2 :refine 1)
-  (run))
+  (run)
+  ;; (dolist (r (list 1 2 3))
+  ;;   (dolist (mps (list 2 4))
+  ;;     (setup :mps mps :refine r)
+  ;;     (run :output-dir (format nil "./output-~D-~D/" r mps))))
+  ;; (run-time)
+  )
+
+
+;; (pprint (cl-mpm/fastmaths:mag
+;;          (magicl:@ (cl-mpm/particle::mp-true-domain *mp*)
+;;                    (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0)))))

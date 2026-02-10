@@ -210,3 +210,4 @@
   (let* ((psi (* (- 90d0 (abs angle)) (/ pi 180)))
          (gravity 10d0))
     (format t "~%Estimated acceleration ~F~%" (* gravity (max 0d0 (- (cos psi) (* mu (sin psi)))) ))))
+
