@@ -34,6 +34,13 @@
   ()
   (:documentation "Explicit damage simulation"))
 
+(defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-damage))
+  (with-accessors ((volume cl-mpm/particle::mp-volume)
+                   (stress cl-mpm/particle::mp-undamaged-stress)
+                   (damage-inc cl-mpm/particle::mp-damage-increment)
+                   (strain cl-mpm/particle::mp-strain))
+      mp
+    (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain))))
 
 (defgeneric set-mp-damage (mp d))
 (defmethod set-mp-damage ((mp cl-mpm/particle::particle-damage) d)
@@ -758,6 +765,7 @@ Calls the function with the mesh mp and node"
            lld
            damage))))
 
+
 (defgeneric g2p-damage (sim)
   (:documentation
    "Map damage to grid"))
@@ -803,7 +811,7 @@ Calls the function with the mesh mp and node"
   (with-accessors ((mps cl-mpm::sim-mps)
                    (mesh cl-mpm:sim-mesh))
       sim
-    (g2p-damage sim)
+    ;; (g2p-damage sim)
     (cl-mpm:iterate-over-mps
      mps
      (lambda (mp)

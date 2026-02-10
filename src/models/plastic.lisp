@@ -231,7 +231,6 @@
                       strain eps-e
                       yield-func f
                       p-wave-0 pmod)
-                     ;; (pprint pmod)
                      (setf ps-vm-inc inc)
                      (setf ps-vm (+ ps-vm-1 inc)))
                    (setf (mp-plastic-iterations mp) i)

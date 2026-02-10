@@ -209,6 +209,10 @@
        :accessor mp-deformation-gradient-increment-inverse
        :type MAGICL:MATRIX/DOUBLE-FLOAT
        :initform (cl-mpm/utils:matrix-eye 1d0))
+   (deformation-gradient-strain-increment-inverse
+       :accessor mp-deformation-gradient-strain-increment-inverse
+       :type MAGICL:MATRIX/DOUBLE-FLOAT
+       :initform (cl-mpm/utils:matrix-eye 1d0))
    (gravity
      :type double-float
      :accessor mp-gravity
@@ -1108,4 +1112,9 @@
     (call-next-method)))
 
 
+
+
+(defgeneric compute-mp-energy-release (mp))
+(defmethod compute-mp-energy-release ((mp cl-mpm/particle::particle))
+  0d0)
 

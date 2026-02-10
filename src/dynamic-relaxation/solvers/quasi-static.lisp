@@ -221,7 +221,7 @@
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
-    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+    ;; (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
@@ -303,7 +303,8 @@
         (cl-mpm/ghost::apply-ghost sim ghost-factor)
         (cl-mpm::apply-bcs mesh bcs dt))
       (when (= (mod solve-count mass-update-iter) 0)
-        (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))))
+        ;; (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+        ))
 
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
@@ -344,7 +345,7 @@
                             ;; (magicl:linear-solve ma f)
                                ))
                      (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-                     ;; (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+                     ;; (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
                      (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                      (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
                      ))))
@@ -352,6 +353,7 @@
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
 
     (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+
     (with-accessors ((ke-prev sim-ke-prev)
                      (ke sim-ke)
                      (ke-damping sim-kinetic-damping))

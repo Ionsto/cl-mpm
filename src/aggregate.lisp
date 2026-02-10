@@ -652,6 +652,9 @@
              node
            (when t
              (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
+    ;; (when enable-aggregate
+    ;;   ;; (pprint "Hello")
+    ;;   (project-velocity sim))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 

@@ -126,109 +126,6 @@
 (defparameter *debug-force-count* 0)
 (defparameter *debug-force-mp-count* 0)
 ;;Only vertical condition
-(declaim (notinline apply-force-mps))
-;; (defun apply-force-mps (mesh mps dt normal datum epsilon friction &optional (func-clip (lambda (mp) t))
-;;                                                                     &key (damping 0.1d0))
-;;   "Update force on nodes, with virtual stress field from mps"
-;;   ;;If we lose contact we need to zero out our friction force
-;;   (with-accessors ((nd cl-mpm/mesh::mesh-nd))
-;;       mesh
-;;     (cl-mpm:iterate-over-mps
-;;      mps
-;;      (lambda (mp)
-;;        (let* ((penetration-dist (penetration-distance mp datum normal)))
-;;          (declare (double-float penetration-dist))
-;;          (when (> penetration-dist 0d0)
-;;              (progn
-;;                ;;Contact
-;;                (with-accessors ((volume cl-mpm/particle:mp-volume)
-;;                                 (pressure cl-mpm/particle::mp-pressure)
-;;                                 (mp-vel cl-mpm/particle::mp-velocity)
-;;                                 (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
-;;                                 (mp-mass cl-mpm/particle::mp-mass)
-;;                                 (mp-contact cl-mpm/particle::mp-penalty-contact)
-;;                                 (mp-friction cl-mpm/particle::mp-penalty-frictional-force)
-;;                                 (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
-;;                    mp
-;;                  (let* ((pen-point (penetration-point mp penetration-dist datum normal))
-;;                         (normal-force (* (expt (* epsilon penetration-dist) 1d0)
-;;                                          (expt volume (/ (- nd 1) nd))
-;;                                          )))
-;;                    (when (funcall func-clip
-;;                                   (trial-corner mp normal)
-;;                                   )
-;;                      (sb-thread:with-mutex (*debug-mutex*)
-;;                        (incf *debug-force* (* normal-force 1d0))
-;;                        (incf *debug-force-count* 1))
-;;                      (setf mp-contact t)
-;;                      ;;Iterate over neighbour nodes
-;;                      (let* ((force (cl-mpm/utils:vector-zeros))
-;;                             (rel-vel (cl-mpm/fastmaths:dot normal mp-vel))
-;;                             (rel-disp (cl-mpm/fastmaths:dot normal mp-disp-inc))
-;;                             (tang-disp (cl-mpm/fastmaths:fast-.- mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector normal rel-disp)))
-;;                             (tang-disp-norm-squared (cl-mpm/fastmaths::mag-squared tang-disp))
-;;                             ;; (normal-damping (* damping (sqrt (/ epsilon (/ mp-mass volume)))))
-;;                             (normal-damping (* (/ pi 2) damping (sqrt (* epsilon mp-mass))))
-;;                             ;; (normal-damping (* (/ pi 2) damping (sqrt epsilon)))
-;;                             (damping-force (* normal-damping rel-vel))
-;;                             (force-friction mp-friction)
-;;                             (stick-friction (* friction (abs normal-force))))
-;;                        ;; update trial frictional force
-;;                        (when (> friction 0d0)
-;;                          (pprint mp-disp-inc)
-;;                          (break)
-;;                          (when (> tang-disp-norm-squared 0d0)
-;;                            ;; We have sliding behaviour
-;;                            (let* (;(tang-vel-norm (sqrt tang-vel-norm-squared))
-;;                                   ;; (tang-normal (cl-mpm/fastmaths:norm tang-vel))
-;;                                   ;;Trial friction
-;;                                         ;(trial-friction-force (* (/ epsilon 2d0) tang-vel-norm dt))
-;;                                   )
-;;                              (cl-mpm/fastmaths::fast-fmacc
-;;                               force-friction
-;;                               tang-disp
-;;                               (* -1d0 (/ epsilon 2d0)))))
-;;                          (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
-;;                            (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
-;;                                (progn
-;;                                  ;; (cl-mpm/fastmaths::fast-scale! force-friction
-;;                                  ;;                              (/ (cl-mpm/fastmaths::mag force-friction)
-;;                                  ;;                                 stick-friction))
-;;                                  (setf force-friction
-;;                                        (cl-mpm/fastmaths:fast-scale-vector
-;;                                         (cl-mpm/fastmaths:norm force-friction)
-;;                                         stick-friction))
-;;                                  (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)
-;;                                  )
-;;                                (progn
-;;                                  (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
-;;                                  ))
-;;                            (cl-mpm/fastmaths::fast-.+ force force-friction force))
-;;                          (setf mp-friction force-friction))
-;;                        (setf mp-normal-force (- normal-force damping-force))
-;;                        (cl-mpm/fastmaths::fast-fmacc force
-;;                                                     normal
-;;                                                     (- normal-force damping-force))
-;;                        (cl-mpm::iterate-over-neighbours-point-linear-3d
-;;                         mesh
-;;                         pen-point
-;;                         (lambda (mesh node svp grads)
-;;                           (with-accessors ((node-ext-force cl-mpm/mesh::node-external-force)
-;;                                            (node-lock  cl-mpm/mesh:node-lock)
-;;                                            (node-vel  cl-mpm/mesh:node-velocity)
-;;                                            (node-mass  cl-mpm/mesh:node-mass)
-;;                                            (node-boundary cl-mpm/mesh::node-boundary-node)
-;;                                            (node-boundary-scalar cl-mpm/mesh::node-boundary-scalar)
-;;                                            (node-active  cl-mpm/mesh:node-active))
-;;                               node
-;;                             (declare (double-float volume svp))
-;;                             ;;Lock node for multithreading
-;;                             (when node-active
-;;                               ;;Lock node for multithreading
-;;                               (sb-thread:with-mutex (node-lock)
-;;                                 (cl-mpm/fastmaths::fast-fmacc node-ext-force
-;;                                                              force
-;;                                                              svp)))))))))))))))))
 
 (defun collect-contact-points (mesh mps normal datum)
   (loop for mp across mps
@@ -619,7 +516,7 @@
         bc
       (with-accessors ((volume cl-mpm/particle::mp-volume)
                        (pressure cl-mpm/particle::mp-pressure)
-                       (mp-vel cl-mpm/particle::mp-velocity)
+                       ;; (mp-vel cl-mpm/particle::mp-velocity)
                        ;; (mp-disp-inc cl-mpm/particle::mp-displacement-increment)
                        (mp-mass cl-mpm/particle::mp-mass)
                        (mp-contact cl-mpm/particle::mp-penalty-contact)
@@ -629,8 +526,9 @@
           mp
         (let* ((penetration (penetration-distance-point point datum normal))
                (contact-area (expt volume (/ (- nd 1) nd)))
+               (exponent 2)
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
-                              (expt penetration 1)
+                              (expt penetration exponent)
                               epsilon
                               contact-area)))
           (if (> penetration 0d0)
@@ -649,7 +547,15 @@
                   (vector-push-extend
                    (make-dr-contact-point
                     :position (cl-mpm/utils:vector-copy trial-point)
-                    :stiffness (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction))))
+                    :stiffness (* 2d0
+                                  penetration
+                                  (+
+                                   epsilon
+                                   (cl-mpm/fastmaths:mag mp-friction)
+                                   )
+                                  contact-area
+                                  (* 2d0 (+ 1d0 friction))
+                                  ))
                    (bc-penalty-contact-points bc)))
 
                 (setf (cl-mpm/particle::mp-penalty-contact-point mp) trial-point)
@@ -658,6 +564,12 @@
                        ;; (mp-disp-inc (cl-mpm/fastmaths:fast-scale-vector mp-vel dt))
                        (mp-disp-inc disp-inc)
                        (force (cl-mpm/utils:vector-zeros))
+                       (mp-vel (if (> damping 0d0)
+                                   (compute-point-velocity mesh trial-point)
+                                   (cl-mpm/utils:vector-zeros)))
+                       (mp-mass (if (> damping 0d0)
+                                    (compute-point-mass mesh trial-point)
+                                    0d0))
                        (resultant-vel (cl-mpm/fastmaths:fast-.- mp-vel pen-vel))
                        (rel-vel (cl-mpm/fastmaths:dot normal resultant-vel))
                        (rel-disp (cl-mpm/fastmaths:dot normal mp-disp-inc))
@@ -669,7 +581,7 @@
                        ;;                                     (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
                        ;; (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
 
-                       (normal-damping (* 2d0 damping (sqrt (* epsilon mp-mass)) contact-area))
+                       (normal-damping (* 1d0 damping (sqrt (* epsilon mp-mass)) contact-area))
                        (damping-force (* normal-damping rel-vel))
                        (force-friction mp-friction)
                        (stick-friction (* friction (abs normal-force))))
@@ -773,6 +685,7 @@
 
 (defgeneric reset-load (bc))
 (defmethod reset-load ((bc bc-penalty))
+  (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
   (setf (bc-penalty-load bc) 0d0))
 (defmethod reset-load ((bc bc-penalty-structure))
   (setf (bc-penalty-load bc) 0d0)
@@ -793,6 +706,32 @@
            (cl-mpm/fastmaths:fast-fmacc corner-disp node-disp svp)))))
     corner-disp))
 
+(defun compute-point-velocity (mesh point)
+  (let ((corner-vel (cl-mpm/utils::vector-zeros)))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     point
+     (lambda (mesh node svp grads)
+       (with-accessors ((node-vel cl-mpm/mesh::node-velocity)
+                        (node-active  cl-mpm/mesh:node-active))
+           node
+         (when node-active
+           (cl-mpm/fastmaths:fast-fmacc corner-vel node-vel svp)))))
+    corner-vel))
+
+(defun compute-point-mass (mesh point)
+  (let ((mass 0d0))
+    (cl-mpm::iterate-over-neighbours-point-linear
+     mesh
+     point
+     (lambda (mesh node svp grads)
+       (with-accessors ((node-mass cl-mpm/mesh::node-mass)
+                        (node-active  cl-mpm/mesh:node-active))
+           node
+         (when node-active
+           (incf mass (* node-mass svp))))))
+    mass))
+
 (defmethod cl-mpm/bc::apply-bc ((bc bc-penalty) node mesh dt)
   (with-accessors ((epsilon bc-penalty-epsilon)
                    (friction bc-penalty-friction)
@@ -807,7 +746,6 @@
       bc
 
     (reset-load bc)
-    (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
     (setf mp-stiffness nil)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
@@ -924,7 +862,7 @@
                    (sim bc-penalty-sim))
       bc
     (reset-load bc)
-    (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
+    ;; (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim
@@ -1204,10 +1142,12 @@
   (bc-penalty-contact-points bc))
 
 (defmethod get-contact-points ((bc bc-penalty-structure))
-  (append 
-   (bc-penalty-contact-points bc)
-   (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
-         append (bc-penalty-contact-points bc))))
+  (let ((contact-list (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
+                            collect (get-contact-points sub-bc))))
+    ;; (format t "Contact list ~a~%" contact-list)
+    (apply #'concatenate
+           'vector
+           contact-list)))
 
 
 
@@ -1287,31 +1227,32 @@
   ;; (assemble-penalty-stiffness-matrix sim)
   ;; (pprint "Hello")
   (let ((mesh (cl-mpm:sim-mesh sim)))
-    ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
-    (when (> (length (bc-penalty-contact-points bc)) 0)
-      ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
-      (lparallel:pdotimes (i (length (bc-penalty-contact-points bc)))
-        (let ((contact (aref (bc-penalty-contact-points bc) i)))
-          (iterate-over-neighbours-point-linear
-           mesh
-           (dr-contact-point-position contact)
-           (lambda (mesh node svp grads)
-             (with-accessors ((node-active cl-mpm/mesh:node-active)
-                              (node-volume cl-mpm/mesh::node-volume)
-                              (node-mass cl-mpm/mesh::node-mass)
-                              (node-lock cl-mpm/mesh::node-lock))
-                 node
-               (declare (double-float node-mass node-volume svp))
-               (when node-active
-                 (sb-thread:with-mutex (node-lock)
-                   (setf
-                    node-mass
-                    (+
-                     node-mass
-                     (*
-                      1d0
-                      svp
-                      (dr-contact-point-stiffness contact))))))))))))))
+    (let ((contacts (get-contact-points bc)))
+      ;; (format t "Contacts ~D~%" (length contacts))
+      (when (> (length contacts) 0)
+        ;; (format t "Contacts ~D~%" (length (bc-penalty-contact-points bc)))
+        (lparallel:pdotimes (i (length contacts))
+          (let ((contact (aref contacts i)))
+            (iterate-over-neighbours-point-linear
+             mesh
+             (dr-contact-point-position contact)
+             (lambda (mesh node svp grads)
+               (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                (node-volume cl-mpm/mesh::node-volume)
+                                (node-mass cl-mpm/mesh::node-mass)
+                                (node-lock cl-mpm/mesh::node-lock))
+                   node
+                 (declare (double-float node-mass node-volume svp))
+                 (when node-active
+                   (sb-thread:with-mutex (node-lock)
+                     (setf
+                      node-mass
+                      (+
+                       node-mass
+                       (*
+                        2d0
+                        svp
+                        (dr-contact-point-stiffness contact)))))))))))))))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))
 (defun assemble-penalty-stiffness-matrix (sim)

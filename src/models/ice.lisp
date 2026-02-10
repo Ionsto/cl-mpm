@@ -236,9 +236,9 @@
              )
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
-            (let (;; (inc (expt (* 1/3 (max 0d0 (cl-mpm/utils::trace-voigt (cl-mpm/fastmaths:fast-.-
-                  ;; trial-elastic-strain strain)))) 1))
-                  )
+            (let ((inc (expt (* 1/3 (max 0d0
+                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                                            (cl-mpm/utils::trace-voigt strain)))) 1)))
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
             ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
@@ -857,7 +857,8 @@
            (> damage 0.0d0))
       (let* ((exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-             (pind (- p pressure))
+             ;; (pind (- p pressure))
+             (pind p)
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
@@ -906,7 +907,6 @@
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (cl-mpm/damage::apply-vol-degredation mp)
       (apply-vol-pressure-degredation mp dt (* -1d0
-                                               0d0
                                                ;; (/ 1d0 (magicl:det def))
                                                (/ p 3)
                                                (expt damage 1)))
@@ -916,3 +916,28 @@
   
   )
 
+
+(defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-ice-brittle))
+  (with-accessors ((k cl-mpm/particle::mp-history-stress)
+                   (k-n cl-mpm/particle::mp-history-stress-n)
+                   (volume cl-mpm/particle::mp-volume)
+                   (stress cl-mpm/particle::mp-stress)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   (damage-inc cl-mpm/particle::mp-damage-increment)
+                   (strain cl-mpm/particle::mp-strain))
+      mp
+    (let ((k-saved k)
+          (energy-prev 0d0)
+          (energy-now 0d0)
+          )
+      (setf energy-now (* 0.5d0 (/ 1d0 (magicl:det def)) volume (cl-mpm/fastmaths:dot stress strain)))
+      (setf k k-n)
+      (cl-mpm/damage::compute-damage mp)
+      (cl-mpm/particle::post-damage-step mp 1d0)
+      (setf energy-prev (* 0.5d0 (/ 1d0 (magicl:det def)) volume (cl-mpm/fastmaths:dot stress strain)))
+      (setf k k-saved)
+      (cl-mpm/damage::compute-damage mp)
+      (cl-mpm/constitutive::linear-elastic-mat strain de stress)
+      (cl-mpm/particle::post-damage-step mp 1d0)
+      (max 0d0 (- energy-now energy-prev)))))

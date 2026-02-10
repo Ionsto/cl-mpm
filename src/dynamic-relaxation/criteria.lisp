@@ -896,3 +896,41 @@
     (if (> delta-incs 0d0)
         (sqrt (/ delta-ds delta-incs))
         0d0)))
+
+
+
+
+
+(defun compute-max-damage-energy-crit (sim)
+  (let* ((energy
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              ;; (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) )
+              ;; (cl-mpm/particle::mp-time-averaged-damage-inc mp)
+              (cl-mpm/particle::compute-mp-energy-release mp)
+              ;; (if (typep mp 'cl-mpm/particle::particle-damage)
+              ;;     (with-accessors ((volume cl-mpm/particle::mp-volume)
+              ;;                      (stress cl-mpm/particle::mp-undamaged-stress)
+              ;;                      (damage-inc cl-mpm/particle::mp-damage-increment)
+              ;;                      (strain cl-mpm/particle::mp-strain))
+              ;;         mp
+              ;;       (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain)))
+              ;;     0d0)
+              )
+            #'+))
+         (undamaged-energy
+           (cl-mpm::reduce-over-mps
+            (cl-mpm:sim-mps sim)
+            (lambda (mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                  (with-accessors ((volume cl-mpm/particle::mp-volume)
+                                   (stress cl-mpm/particle::mp-undamaged-stress)
+                                   (strain cl-mpm/particle::mp-strain))
+                      mp
+                    (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain)))
+                  0d0))
+            #'+)))
+    (if (> undamaged-energy 0d0)
+        (/ energy undamaged-energy)
+        0d0)))

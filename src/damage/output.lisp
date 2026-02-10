@@ -116,6 +116,9 @@
         ;;                                (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-strain mp)))
         ;;                                  (loop for sii in l maximize sii)))
 
+        ;; (cl-mpm/output::save-parameter "energy-release" (cl-mpm/particle::compute-mp-energy-release mp))
+
+
 
         (cl-mpm/output::save-parameter "EPS"
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))

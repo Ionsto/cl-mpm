@@ -7,10 +7,15 @@
 (defun scale-domain-size-2d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0))
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (volume cl-mpm/particle::mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0))
       mp
     (declare (magicl::matrix/double-float domain domain-0 def))
-    (let* ((jf  (cl-mpm/fastmaths:det-3x3 def))
+    (let* ((jf
+             (/ volume volume-0)
+             ;; (cl-mpm/fastmaths:det-3x3 def)
+                )
            (jl  (* (varef domain 0) (varef domain 1)))
            (jl0 (* (varef domain-0 0) (varef domain-0 1)))
            (scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
@@ -21,10 +26,14 @@
 (defun scale-domain-size-3d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)
-                   (domain-0 cl-mpm/particle::mp-domain-size-0))
+                   (domain-0 cl-mpm/particle::mp-domain-size-0)
+                   (volume cl-mpm/particle::mp-volume)
+                   (volume-0 cl-mpm/particle::mp-volume-0)
+                   )
       mp
     (declare (magicl::matrix/double-float domain domain-0 def))
-    (let* ((jf  (cl-mpm/fastmaths:det-3x3 def))
+    (let* (;; (jf  (cl-mpm/fastmaths:det-3x3 def))
+           (jf (/ volume volume-0))
            (jl  (* (varef domain 0) (varef domain 1) (varef domain 2)))
            (jl0 (* (varef domain-0 0) (varef domain-0 1) (varef domain-0 2)))
            (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
@@ -347,21 +356,21 @@
   (with-accessors ((dF cl-mpm/particle::mp-deformation-gradient-increment)
                    (domain cl-mpm/particle::mp-domain-size)
                    (true-domain cl-mpm/particle::mp-true-domain)
-                   (D cl-mpm/particle::mp-stretch-tensor)
                    (volume-0 cl-mpm/particle::mp-volume-0)
-                   (volume cl-mpm/particle::mp-volume)
-                   (delta-vol cl-mpm/particle::mp-delta-volume)
-                   )
+                   (volume cl-mpm/particle::mp-volume))
       mp
-    (let (;; (volume-scaling  (sqrt (/ (* volume-0 (cl-mpm/fastmaths:det-3x3 def))
-          ;;                           volume)))
-          (volume-scaling (/ delta-vol (cl-mpm/fastmaths::det-3x3 dF))))
-      (multiple-value-bind (u s vt) (magicl:svd (cl-mpm/fastmaths:fast-scale dF volume-scaling))
-        (let* ((R (magicl:@ u vt))
+    (let ()
+      (multiple-value-bind (u s vt) (magicl:svd dF)
+        (let* (;; (vt (magicl:transpose vt))
+               (R (magicl:@ u vt))
                (U (magicl:@ (magicl:transpose vt) s vt)))
           ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
           ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
+          ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
           (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
+          ;; (setf true-domain (magicl:@ (magicl:transpose R) (magicl:@ true-domain U) R))
+          ;; (setf true-domain (magicl:@ true-domain U))
+          ;; (setf true-domain (magicl:@ R U (magicl:transpose R) true-domain))
           ;; (setf true-domain (magicl:@ true-domain U))
           ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
           ;; (setf true-domain (magicl:@ U true-domain))
@@ -488,16 +497,15 @@
            mesh mp
            (lambda (corner)
              (let ((disp (cl-mpm/utils:vector-zeros)))
-               (iterate-over-neighbours-point-linear-simd
+               (iterate-over-neighbours-point-linear
                 mesh corner
                 (lambda (mesh node svp grads)
                   (declare (double-float dt svp))
                   (with-accessors ((active cl-mpm/mesh::node-active)
-                                   (vel cl-mpm/mesh:node-velocity))
+                                   (n-disp cl-mpm/mesh::node-displacment))
                       node
                     (when active
-                      (cl-mpm/fastmaths:fast-fmacc disp vel (* dt svp))))))
-               ;; (cl-mpm/fastmaths:fast-.+ corner disp disp)
+                      (cl-mpm/fastmaths:fast-fmacc disp n-disp svp)))))
                (loop for i from 0 to 1
                      do
                         (progn

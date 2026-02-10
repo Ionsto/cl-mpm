@@ -870,7 +870,7 @@
   (let ((m (mag-squared a)))
     (declare (double-float m))
     (if (> m 0d0)
-      (magicl::scale a (/ 1d0 (sqrt m)))
+      (cl-mpm/fastmaths:fast-scale a (/ 1d0 (sqrt m)))
       a)))
 
 (defun cross-product (a b)

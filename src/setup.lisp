@@ -668,3 +668,18 @@
                  (cl-mpm/bc::make-outside-bc-varfix
                   mesh
                   left right top bottom front back))))
+
+(defun find-mp (sim pos)
+  (let ((mp-found nil)
+        (dist-found 0d0))
+    (cl-mpm::iterate-over-mps-serial
+     (cl-mpm:sim-mps sim)
+     (lambda (mp)
+       (let ((dist (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.-
+                                          (cl-mpm/particle::mp-position mp)
+                                          pos))))
+         (when (or (not mp-found)
+                   (< dist dist-found))
+           (setf mp-found mp
+                 dist-found dist)))))
+    mp-found))
