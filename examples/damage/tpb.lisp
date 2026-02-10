@@ -363,10 +363,13 @@
     (defparameter *sim*
       (setup-test-column (list domain-length
                                (* shelf-height 2.0)
-                               :epsilon-scale epsilon-scale)
+                               )
                          (list shelf-length shelf-height)
                          offset
-                         (/ 1d0 mesh-size) mps-per-cell))
+                         :e-scale (/ 1d0 mesh-size)
+                         :mp-scale mps-per-cell
+                         :epsilon-scale epsilon-scale
+                         ))
     (let ((cut-depth (* 0.4d0 shelf-height))
           (cut-width (* 1 mesh-size)))
       (format t "Crack width:~F~%" (* 1d0 cut-width))
