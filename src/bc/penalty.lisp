@@ -502,7 +502,8 @@
                             trial-point
                             disp-inc
                             dt)
-  (with-accessors ((nd cl-mpm/mesh:mesh-nd))
+  (with-accessors ((nd cl-mpm/mesh:mesh-nd)
+                   (h cl-mpm/mesh::mesh-resolution))
       mesh
     (with-accessors ((datum bc-penalty-datum)
                      (damping bc-penalty-damping)
@@ -524,11 +525,12 @@
                        (mp-friction-n cl-mpm/particle::mp-penalty-frictional-force-prev)
                        (mp-normal-force cl-mpm/particle::mp-penalty-normal-force))
           mp
-        (let* ((penetration (penetration-distance-point point datum normal))
+        (let* ((penetration
+                 (penetration-distance-point point datum normal))
                (contact-area (expt volume (/ (- nd 1) nd)))
                (exponent 2)
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
-                              (expt penetration exponent)
+                              (* h (expt (/ (max 0d0 penetration) h) exponent))
                               epsilon
                               contact-area)))
           (if (> penetration 0d0)
@@ -548,7 +550,7 @@
                    (make-dr-contact-point
                     :position (cl-mpm/utils:vector-copy trial-point)
                     :stiffness (* 2d0
-                                  penetration
+                                  (* h (expt (/ (max 0d0 penetration) h) (- exponent 1)))
                                   (+
                                    epsilon
                                    (cl-mpm/fastmaths:mag mp-friction)

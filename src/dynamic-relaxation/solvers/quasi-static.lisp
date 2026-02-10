@@ -345,9 +345,9 @@
                             ;; (magicl:linear-solve ma f)
                                ))
                      (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-                     ;; (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
-                     (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-                     (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
+                     (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+                     ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+                     ;; (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
                      ))))
 
       (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
@@ -377,8 +377,9 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm::node-acceleration))
              node
-           (when (or internal
-                     (not agg))
+           (when t
+             ;; (or internal
+             ;;     (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)))
 

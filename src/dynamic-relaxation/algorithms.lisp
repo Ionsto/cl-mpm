@@ -382,12 +382,13 @@
                                                               :text "Damage criteria exeeded"
                                                               :max-damage-inc 0d0))))
                                     (when t;damage-iter
-                                      (dotimes (i 2)
+                                      (dotimes (i 1)
                                         (cl-mpm:update-sim sim))
                                       (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                                       (format t "fast trial ~E~%" fast-trial-conv))
-                                    (incf *total-iter* 1)
-                                    (when (= (mod d 5) 0)
+                                    ;; (incf *total-iter* 1)
+                                    (incf total-i)
+                                    (when t;(= (mod d 5) 0)
                                       (when save-vtk-dr
                                         (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                                         (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
@@ -1240,6 +1241,7 @@
                                       generalised-staggered-solve
                                       sim
                                       :crit criteria
+                                      :damping damping
                                       :output-dir output-dir
                                       :dt-scale dt-scale
                                       :substeps substeps

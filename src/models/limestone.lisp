@@ -137,6 +137,7 @@
       (declare (double-float damage damage-inc critical-damage init-stress ductility k E tau ybar damage-inc dt))
         (progn
           ;;Damage increment holds the delocalised driving factor
+          (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
 
           (setf ybar damage-inc)
 

@@ -348,7 +348,11 @@
                         (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
                         (E (cl-mpm/aggregate::sim-global-e sim))
                         (ma (cl-mpm/aggregate::sim-global-ma sim))
-                        (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+                        (vi
+                          (cl-mpm/aggregate::apply-internal-bcs
+                           sim
+                           (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
+                           d)))
                    (incf num (cl-mpm/fastmaths:dot
                               vi
                               (cl-mpm/aggregate::apply-internal-bcs
