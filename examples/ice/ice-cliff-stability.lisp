@@ -98,6 +98,7 @@
 (defparameter *viscosity* 1d13)
 (defparameter *delay-time* 1d3)
 (defparameter *delay-exponent* 1d0)
+(defparameter *gf* 1000d0)
 (defparameter *length-scaler* 2d0)
 (defparameter *enable-plastic-damage* nil)
 
@@ -169,7 +170,7 @@
     (let* ((angle *angle*)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
-           (gf 100d0)
+           (gf *gf*)
            ;; (length-scale 10d0)
            (length-scale (* mesh-resolution *length-scaler*))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
