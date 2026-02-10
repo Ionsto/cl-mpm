@@ -366,6 +366,16 @@
           (incf (,accessor n)
                 (varef proj-val (cl-mpm/mesh::node-agg-fd n))))))))
 
+(defmacro increment-internal-scalar (sim vector accessor)
+  `(progn
+     (let* ((active-nodes (sim-agg-nodes-fdc ,sim))
+            (proj-val ,vector))
+       (cl-mpm::iterate-over-nodes-array
+        active-nodes
+        (lambda (n)
+          (incf (,accessor n)
+                (varef proj-val (cl-mpm/mesh::node-agg-fdc n))))))))
+
 (defmacro project-global-vec (sim vector accessor dim)
   `(progn
      (let* ((active-nodes (sim-agg-nodes-fd ,sim))

@@ -10,15 +10,9 @@
       (cl-mpm::reduce-over-nodes
        (cl-mpm:sim-mesh sim)
        (lambda (node)
-         (if (and (cl-mpm/mesh:node-active node)
-                  ;; (or
-                  ;;  (not (cl-mpm/mesh::node-agg node))
-                  ;;  ;; (cl-mpm/mesh::node-interior node)
-                  ;;  )
-                  )
+         (if (and (cl-mpm/mesh:node-active node))
              (with-accessors ((active cl-mpm/mesh::node-active)
                               (f-ext cl-mpm/mesh::node-external-force)
-                              ;; (f-int cl-mpm/mesh::node-residual)
                               (res cl-mpm/mesh::node-residual)
                               (node-oobf cl-mpm/mesh::node-oobf)
                               (mass cl-mpm/mesh::node-mass)
@@ -47,7 +41,7 @@
        (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
     (declare (double-float mass energy oobf-num oobf-denom power))
     (let ((oobf 0d0))
-      ;; (format t "~E ~E~%" oobf-num oobf-denom)
+      ;; (format t "OOBF norms ~E ~E~%" oobf-num oobf-denom)
       (if (> oobf-denom 0d0)
           (setf oobf (sqrt (/ oobf-num oobf-denom)))
           (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
@@ -178,42 +172,49 @@
                  (when t
                    (setf node-oobf
                          (if (> oobf 0d0)
-                             (/ (* n-mass (cl-mpm/fastmaths::mag f-int))
+                             (/ (cl-mpm/fastmaths::mag f-int)
+                              ;; (* n-mass (cl-mpm/fastmaths::mag f-int))
                                 oobf-denom)
                              0d0
                              )))
                  (setf node-oobf 0d0)))))
 
-          ;; (when sim-agg
-          ;;   (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-          ;;         do (cl-mpm/aggregate::zero-global-scalar sim cl-mpm/mesh::node-oobf))
-          ;;   (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-          ;;         do (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-          ;;                   ;; (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-          ;;                   (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
-          ;;                   (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d)))
+          (when sim-agg
+            (cl-mpm/aggregate::zero-global-scalar sim cl-mpm/mesh::node-oobf)
+            (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
+                  do (let* ((E (cl-mpm/aggregate::sim-global-e sim))
+                            ;; (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+                            (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
+                            ;; (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                            )
 
-          ;;              (let* ((fagg (cl-mpm/aggregate::apply-internal-bcs
-          ;;                            sim
-          ;;                            (magicl:@ (magicl:transpose E)
-          ;;                                      (cl-mpm/fastmaths::fast-.+
-          ;;                                       f-int
-          ;;                                       f-ext))
-          ;;                            d))
-          ;;                     (fnorm (cl-mpm/fastmaths:fast-.* fagg fagg)))
-          ;;                ;; (pprint fnorm)
-          ;;                (cl-mpm/aggregate::increment-global-scalar sim (magicl:@ E fnorm) cl-mpm/mesh::node-oobf)))))
-          ;; (cl-mpm::iterate-over-nodes
-          ;;  (cl-mpm:sim-mesh sim)
-          ;;  (lambda (node)
-          ;;    (with-accessors ((active cl-mpm/mesh::node-active)
-          ;;                     (agg cl-mpm/mesh::node-agg)
-          ;;                     (node-oobf cl-mpm/mesh::node-oobf))
-          ;;        node
-          ;;      (when (and active
-          ;;               agg)
-          ;;          ;; (setf node-oobf (/ (sqrt (max node-oobf 0d0)) oobf-denom))
-          ;;          ))))
+                       (let* ((fagg (cl-mpm/aggregate::apply-internal-bcs
+                                     sim
+                                     (magicl:@ (magicl:transpose E)
+                                               f-int
+                                               ;; (cl-mpm/fastmaths::fast-.+
+                                               ;;  f-int
+                                               ;;  f-ext)
+                                               )
+                                     d))
+                              (fnorm (cl-mpm/fastmaths:fast-.* fagg fagg)))
+                         ;; (pprint fnorm)
+                         (cl-mpm/aggregate::increment-internal-scalar sim fnorm cl-mpm/mesh::node-oobf)))))
+          ;; (pprint "Set oobf aggregateg")
+          (cl-mpm::iterate-over-nodes
+           (cl-mpm:sim-mesh sim)
+           (lambda (node)
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (agg cl-mpm/mesh::node-agg)
+                              (int cl-mpm/mesh::node-interior)
+                              (node-oobf cl-mpm/mesh::node-oobf))
+                 node
+               (when (and active
+                          agg
+                          ;int
+                          )
+                 (setf node-oobf (/ (sqrt (max node-oobf 0d0)) oobf-denom))
+                 ))))
           )
         (values energy oobf power)
         ))))

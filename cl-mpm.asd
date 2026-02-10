@@ -477,6 +477,13 @@
   :serial t
   :components ((:file "examples/penalty/sliding")))
 
+(defsystem "cl-mpm/examples/penalty/sitting"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/penalty/sitting")))
+
+
+
 (defsystem "cl-mpm/examples/collapse"
   :depends-on ("cl-mpm"
                "cl-mpm/all"

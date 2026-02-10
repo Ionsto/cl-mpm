@@ -1256,6 +1256,7 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
           do (update x 0d0))
     (loop for y from -1d0 to 1d0 by 2d0
           do (update 0d0 y))))
+
 (defun iterate-over-midpoints-3d (mesh mp func)
   (declare (cl-mpm/particle::particle mp)
            (function func))
