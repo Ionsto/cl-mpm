@@ -119,8 +119,8 @@
                    (setf fnorm 0d0
                          load 0d0)
                    (optional-time
-                    ;; nil
-                    t
+                    nil
+                    ;; t
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
@@ -155,7 +155,6 @@
                        (setf fnorm 0d0)
                        (setf fnorm (abs (/ energy-total *work*))))
                    (setf oobf (cl-mpm::sim-stats-oobf sim))
-                   (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim))
                    (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
                            load)
                    (when (if convergance-criteria

@@ -354,18 +354,18 @@
 
     (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
 
-    (with-accessors ((ke-prev sim-ke-prev)
-                     (ke sim-ke)
-                     (ke-damping sim-kinetic-damping))
-        sim
-      (when ke-damping
-        (setf ke (calculate-ke sim))
-        ;; (setf ke (cl-mpm::sim-stats-energy sim))
-        (when (> ke-prev ke)
-          (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-          (cl-mpm::reset-nodes-force sim)
-          (setf ke 0d0))
-        (setf ke-prev ke)))
+    ;; (with-accessors ((ke-prev sim-ke-prev)
+    ;;                  (ke sim-ke)
+    ;;                  (ke-damping sim-kinetic-damping))
+    ;;     sim
+    ;;   (when ke-damping
+    ;;     (setf ke (calculate-ke sim))
+    ;;     ;; (setf ke (cl-mpm::sim-stats-energy sim))
+    ;;     (when (> ke-prev ke)
+    ;;       (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    ;;       (cl-mpm::reset-nodes-force sim)
+    ;;       (setf ke 0d0))
+    ;;     (setf ke-prev ke)))
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)

@@ -187,7 +187,7 @@
                                do
                                   (setf (cl-mpm:sim-enable-damage sim) t)
                                   (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                  ;; (setf (cl-mpm:sim-enable-damage sim) nil)
+                                  (setf (cl-mpm:sim-enable-damage sim) nil)
 
                                   (setf damage (get-damage sim))
                                   (setf dconv
@@ -215,7 +215,7 @@
 
                                         (setf damage-prev damage)
                                         (when damage-iter
-                                          (dotimes (i 1)
+                                          (dotimes (i 2)
                                             (cl-mpm:update-sim sim))
                                           (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                                           (format t "Fast trial oobf ~E~%" fast-trial-conv)
@@ -1044,7 +1044,6 @@
        :damping-factor damping
        :post-iter-step
        (lambda (i e o)
-         (format t "Start post iter~%")
          (save-conv-step sim output-dir *total-iter* 0 0d0 o e)
          (incf *total-iter* substeps)
          (when save-vtk-conv
@@ -1052,7 +1051,6 @@
            (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_conv_nodes__~5,'0d.vtk" i)) sim)
            (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_conv_cells__~5,'0d.vtk" i)) sim))
          (funcall plotter sim)
-         (format t "End post iter~%")
          ))
       (cl-mpm::finalise-loadstep sim)
       (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))

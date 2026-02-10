@@ -98,6 +98,7 @@
 (defparameter *viscosity* 1d13)
 (defparameter *delay-time* 1d3)
 (defparameter *delay-exponent* 1d0)
+(defparameter *length-scaler* 2d0)
 (defparameter *enable-plastic-damage* nil)
 
 (defun setup (&key (refine 1) (mps 2)
@@ -111,19 +112,21 @@
                 (floatation-ratio 0.9)
                 ;; (extra-cliff-height 0)
                 (slope 0d0)
+                (use-penalty t)
+                (stick-base t)
+                (multigrid-refines 1)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
          ;; (density 900d0)
          ;; (water-density 1000d0)
-         (refines 1)
          ;; (refine (/ refine (expt 2 (- refines 1))))
          (mesh-resolution (/ 10d0 refine))
-         (mps (* mps (expt 2 (- refines 1))))
-         (h-fine (/ mesh-resolution (expt 2 (- refines 1))))
+         ;; (mps (* mps (expt 2 (- refines 1))))
+         (h-fine mesh-resolution)
          ;; (mesh-resolution h-fine)
          ;; (h-fine mesh-resolution)
-         (offset (* mesh-resolution 0))
+         (offset (* mesh-resolution (if use-penalty 2 0)))
          ;; (end-height ice-height)
          ;; (start-height ice-height)
 
@@ -150,22 +153,26 @@
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                                                :args-list
                                                (list
                                                 :enable-fbar t
                                                 :enable-aggregate t
-                                                :split-factor (* 1.5d0 0.55d0)
-                                                ;; :refinement refines
+                                                :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
+                                                :refinement multigrid-refines
                                                 )))
+    (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
+    (setf h-fine mesh-resolution)
     (let* ((angle *angle*)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
-           (length-scale (* h-fine 1d0))
-           (ductility 10d0)
+           (gf 100d0)
+           ;; (length-scale 10d0)
+           (length-scale (* mesh-resolution *length-scaler*))
+           (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility)))
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -187,11 +194,9 @@
           block-size
           (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
           density
-                                        ;'cl-mpm/particle::particle-ice-erodable
           'cl-mpm/particle::particle-ice-delayed
           :E 1d9
           :nu 0.24d0
-
 
           :kt-res-ratio rt
           :kc-res-ratio rc
@@ -285,7 +290,7 @@
     (cl-mpm/setup:setup-bcs
      *sim*
      :left '(0 nil 0)
-     :bottom '(0 0 0))
+     :bottom '(nil 0 0))
 
     (setf (cl-mpm:sim-mass-scale *sim*) 1d0)
     (setf (cl-mpm:sim-damping-factor *sim*)
@@ -345,11 +350,21 @@
          0d0
          )))
 
-    (when (> offset 0d0)
+    (when use-penalty
       (cl-mpm:add-bcs-force-list
        *sim*
        *floor-bc*
        ))
+    (unless use-penalty
+      (if stick-base 
+          (cl-mpm/setup:setup-bcs
+           *sim*
+           :left '(0 nil 0)
+           :bottom '(0 0 0))
+          (cl-mpm/setup:setup-bcs
+           *sim*
+           :left '(0 nil 0)
+           :bottom '(nil 0 0))))
     ;; (cl-mpm:add-bcs-force-list
     ;;  *sim*
     ;;  *bc-erode*
@@ -371,9 +386,8 @@
        )))))
 
 (defun stability-qt-test ()
-  (let* ((heights (list 200d0 300d0 400d0 500d0 600d0 700d0 800d0
-                        250d0 350d0 450d0 550d0 650d0 750d0))
-         (floatations (list 1d0 0.975d0 0.95d0 0.9d0 0.85d0 0.8d0 0.75d0 0.7d0 0.65d0 0.6d0 0.55d0 0.5d0)))
+  (let* ((heights (list 50d0))
+         (floatations (list 0d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./analysis_scripts/ice/ice-cliff-stability/data-cliff-stability/"))))
@@ -390,7 +404,8 @@
                           (let* ((mps 2)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
-                            (setup :refine 1d0
+                            (setup :refine 0.5d0
+                                   :multigrid-refines 4
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
@@ -399,7 +414,10 @@
                                    :aspect 2d0
                                    :slope 0d0
                                    :bench-length 0d0
-                                   :floatation-ratio flotation)
+                                   :floatation-ratio flotation
+                                   :use-penalty nil
+                                   :stick-base t
+                                   )
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
                             (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
@@ -417,11 +435,11 @@
                                         :dt-scale 1d0
                                         :conv-criteria 1d-3
                                         :substeps 10
-                                        :enable-damage t
+                                        :enable-damage nil
                                         :enable-plastic t
                                         :min-adaptive-steps -4
                                         :max-adaptive-steps 9
-                                        :save-vtk-dr nil
+                                        :save-vtk-dr t
                                         :save-vtk-loadstep t
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
