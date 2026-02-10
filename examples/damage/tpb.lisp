@@ -78,25 +78,7 @@
         (/ (- (magicl:tref (cl-mpm/mesh::node-force mp) 1 0)) 1)))
 
 (defparameter *target-displacement* 0d0)
-(defun apply-disp-penalty (sim load-mps)
-  (with-accessors ((mps cl-mpm:sim-mps)
-                   (mesh cl-mpm:sim-mesh))
-      sim
-    (let* ((penalty 1d5)
-           (displacement *target-displacement*)
-           (pos
-             (get-disp load-mps))
-           (force (* penalty (- displacement pos))))
-      (incf *current-load* force)
-      (loop for mp in load-mps
-            do
-               (setf (magicl:tref (cl-mpm/particle:mp-body-force mp) 1 0)
-                     (* force (/ 1d0 (* (cl-mpm/particle:mp-volume mp) (length load-mps))))
-                     )))))
-
-                                        ;(defparameter *tip-velocity* -0.02d-3)
 (defparameter *tip-velocity* -0.000d-3)
-
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &optional (e-scale 1) (mp-scale 1))
   (let* ((sim (cl-mpm/setup::make-simple-sim
@@ -280,11 +262,11 @@
         (cl-mpm/setup::setup-bcs
          sim
          :left '(0 nil nil))
-        ;; (cl-mpm::add-bcs
-        ;;  sim
-        ;;  (cl-mpm/bc::make-bc-fixed
-        ;;   right-node-pos
-        ;;   '(nil 0 nil)))
+        (cl-mpm::add-bcs
+         sim
+         (cl-mpm/bc::make-bc-fixed
+          right-node-pos
+          '(0 0 nil)))
         ;; (cl-mpm::add-bcs
         ;;  sim
         ;;  (cl-mpm/bc::make-bc-fixed
@@ -357,9 +339,9 @@
         ;; (cl-mpm/bc:make-bcs-from-list
         ;;  (list
         ;;   *penalty-controller*))
-        (cl-mpm/bc:make-bcs-from-list
-         (list
-          *penalty-point*))
+        ;; (cl-mpm/bc:make-bcs-from-list
+        ;;  (list
+        ;;   *penalty-point*))
         (cl-mpm/bc:make-bcs-from-list
          (list
           *penalty*))))
