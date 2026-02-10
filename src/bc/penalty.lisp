@@ -536,7 +536,9 @@
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
                               ;; (* h (expt (/ (max 0d0 penetration) h) exponent))
                               (max 0d0 penetration)
-                              epsilon)))
+                              epsilon
+                              contact-area
+                              )))
 
           (when (>= (+ penetration (bc-penalty-margin bc)) 0d0)
             ;; (when (< penetration 0d0)
@@ -546,7 +548,7 @@
           (if (>= penetration 0d0)
               (progn
                 (sb-thread:with-mutex (debug-mutex)
-                  (incf debug-load (* normal-force contact-area)))
+                  (incf debug-load normal-force))
                 (setf mp-contact t)
                 ;; (break)
                 (let ((new-stiff (compute-mp-stiffness mp)))
@@ -590,7 +592,9 @@
                       (cl-mpm/fastmaths::fast-fmacc
                        force-friction
                        tang-disp
-                       (* -1d0 (/ epsilon 2d0))))
+                       (* -1d0
+                          contact-area
+                          (/ epsilon 2d0))))
 
                     (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
                       (if (> (cl-mpm/fastmaths::mag force-friction) stick-friction)
@@ -631,10 +635,12 @@
                          (sb-thread:with-mutex (node-lock)
                            (cl-mpm/fastmaths::fast-fmacc node-ext-force
                                                          force-friction
-                                                         (* svp contact-area))
+                                                         svp
+                                                         ;; (* svp contact-area)
+                                                         )
                            (cl-mpm/fastmaths::fast-fmacc node-ext-force
                                                          force
-                                                         (* svp contact-area))
+                                                         svp)
                            (cl-mpm/fastmaths::fast-fmacc node-damp-force
                                                          normal
                                                          (* -1d0 svp damping-force)))))))
@@ -644,7 +650,7 @@
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
-                                  2d0
+                                  4d0
                                   (max
                                    (* epsilon
                                       friction
