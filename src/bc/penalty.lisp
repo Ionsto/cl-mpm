@@ -528,7 +528,7 @@
         (let* ((penetration
                  (penetration-distance-point point datum normal))
                (contact-area (expt volume (/ (- nd 1) nd)))
-               (exponent 2)
+               (exponent 1)
                (normal-force (* ;(signum penetration) (expt (* (abs penetration)) 1.5d0)
                               (* h (expt (/ (max 0d0 penetration) h) exponent))
                               epsilon
