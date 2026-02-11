@@ -652,9 +652,9 @@
                       :stiffness (*
                                   4d0
                                   (max
-                                   (* epsilon
-                                      friction
-                                      (cl-mpm/fastmaths:mag mp-friction))
+                                   ;; (* epsilon
+                                   ;;    friction
+                                   ;;    (cl-mpm/fastmaths:mag mp-friction))
                                    epsilon)
                                   contact-area))
                      (bc-penalty-contact-points bc)))
