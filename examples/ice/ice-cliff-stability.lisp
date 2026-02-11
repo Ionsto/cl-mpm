@@ -148,6 +148,7 @@
     (pprint element-count)
     (defparameter *sim* nil)
     (defparameter *water-height* datum)
+    (defparameter *offset* offset)
     (defparameter *ice-length* ice-length)
     (setf *sim* (cl-mpm/setup::make-simple-sim mesh-resolution element-count
                                                :sim-type
