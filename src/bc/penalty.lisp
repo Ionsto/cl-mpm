@@ -650,13 +650,15 @@
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
-                                  4d0
+                                  1d0
                                   (max
-                                   ;; (* epsilon
+                                   ;; (* ;epsilon
                                    ;;    friction
                                    ;;    (cl-mpm/fastmaths:mag mp-friction))
                                    epsilon)
-                                  contact-area))
+                                  (+ 1d0 friction)
+                                  contact-area
+                                  ))
                      (bc-penalty-contact-points bc)))
 
                   (setf (cl-mpm/particle::mp-penalty-stiffness mp)
@@ -928,135 +930,6 @@
                         ;; (push (contact-point closest-point) (bc-penalty-contact-points bc))
                         (sb-thread:with-mutex (debug-mutex)
                           (incf debug-force load)))))))))))))))
-
-;; (defun calculate-bc-energy-mp (sim bc mp)
-;;   (let ((total-energy 0d0))
-;;     (with-accessors ((epsilon bc-penalty-epsilon)
-;;                      (friction bc-penalty-friction)
-;;                      (damping bc-penalty-damping)
-;;                      (sub-bcs bc-penalty-structure-sub-bcs)
-;;                      (debug-mutex bc-penalty-load-lock)
-;;                      (debug-force bc-penalty-load))
-;;         bc
-;;       (with-accessors ((mps cl-mpm:sim-mps)
-;;                        (mesh cl-mpm:sim-mesh)
-;;                        (dt cl-mpm:sim-dt)
-;;                        )
-;;           sim
-;;         (cl-mpm::iterate-over-corners
-;;          mesh
-;;          mp
-;;          (lambda (corner)
-;;            (cl-mpm/mesh::clamp-point-to-bounds mesh corner)
-;;            (let ((in-contact nil)
-;;                  (closest-point (make-contact :penetration 0d0)))
-;;              (loop for sub-bc in sub-bcs
-;;                    do (with-accessors ((datum bc-penalty-datum)
-;;                                        (normal bc-penalty-normal))
-;;                           sub-bc
-;;                         (let* ((penetration-dist (penetration-distance-point corner datum normal)))
-;;                           (declare (double-float penetration-dist))
-;;                           (when (and
-;;                                  (>= penetration-dist 0d0)
-;;                                  (penalty-contact-valid sub-bc corner))
-;;                             (if in-contact
-;;                                 (cond
-;;                                   ((< (abs penetration-dist) (abs (contact-penetration closest-point)))
-;;                                    (setf closest-point (make-contact
-;;                                                         :point corner
-;;                                                         :datum (bc-penalty-datum sub-bc)
-;;                                                         :penetration penetration-dist
-;;                                                         :normal (bc-penalty-normal sub-bc)
-;;                                                         :sub-bc sub-bc))))
-;;                                 (progn
-;;                                   (setf in-contact t)
-;;                                   (setf closest-point (make-contact
-;;                                                        :point corner
-;;                                                        :datum (bc-penalty-datum sub-bc)
-;;                                                        :penetration penetration-dist
-;;                                                        :normal (bc-penalty-normal sub-bc)
-;;                                                        :sub-bc sub-bc))))))))
-;;              (when in-contact
-;;                (let* ((contact-bc (contact-sub-bc closest-point))
-;;                       (pen (contact-penetration closest-point))
-;;                       (epsilon (bc-penalty-epsilon contact-bc))
-;;                       (nd (cl-mpm/mesh:mesh-nd mesh))
-;;                       (volume (cl-mpm/particle:mp-volume mp))
-;;                       (load (* pen epsilon (expt volume (/ (- nd 1) nd)))))
-;;                  (incf total-energy (expt load 2)))))))))
-;;     total-energy))
-
-;; (defun calculate-bc-energy (sim bc)
-;;   (let ((total-energy 0d0)
-;;         (mutex (sb-thread:make-mutex)))
-;;     (with-accessors ((epsilon bc-penalty-epsilon)
-;;                      (friction bc-penalty-friction)
-;;                      (damping bc-penalty-damping)
-;;                      (sub-bcs bc-penalty-structure-sub-bcs)
-;;                      (debug-mutex bc-penalty-load-lock)
-;;                      (debug-force bc-penalty-load))
-;;         bc
-;;       (with-accessors ((mps cl-mpm:sim-mps)
-;;                        (mesh cl-mpm:sim-mesh)
-;;                        (dt cl-mpm:sim-dt)
-;;                        )
-;;           sim
-;;         (cl-mpm:iterate-over-mps
-;;          mps
-;;          (lambda (mp)
-;;            (incf total-energy (calculate-bc-energy-mp sim bc mp))))))
-;;     total-energy))
-
-;; (defun calculate-mp-energy-gradient-2d (sim bc mp)
-;;   (with-accessors ((pos cl-mpm/particle:mp-position))
-;;       mp
-;;     (let ((dx 1d-7)
-;;           (energy-grads (cl-mpm/utils:vector-zeros))
-;;           (e-0 (calculate-bc-energy-mp sim bc mp))
-;;           (initial-pos (cl-mpm/utils::vector-copy (cl-mpm/particle:mp-position mp))))
-;;       (declare (double-float e-0 dx))
-;;       (loop for d from 0 to 1
-;;             do (progn
-;;                  (incf (cl-mpm/utils:varef pos d) dx)
-;;                  (setf (varef energy-grads d) (/ (- (the double-float (calculate-bc-energy-mp sim bc mp)) e-0) dx))
-;;                  (cl-mpm/utils:vector-copy-into pos initial-pos)))
-;;       energy-grads)))
-
-
-;; (defun apply-penalty-nudge (sim bc)
-;;   (let ((total-energy 0d0)
-;;       (mutex (sb-thread:make-mutex)))
-;;     (with-accessors ((epsilon bc-penalty-epsilon)
-;;                      (friction bc-penalty-friction)
-;;                      (damping bc-penalty-damping)
-;;                      (sub-bcs bc-penalty-structure-sub-bcs)
-;;                      (debug-mutex bc-penalty-load-lock)
-;;                      (debug-force bc-penalty-load))
-;;         bc
-;;       (with-accessors ((mps cl-mpm:sim-mps)
-;;                        (mesh cl-mpm:sim-mesh)
-;;                        (dt cl-mpm:sim-dt)
-;;                        )
-;;           sim
-;;         (cl-mpm:iterate-over-mps
-;;          mps
-;;          (lambda (mp)
-;;            (with-accessors ((pos cl-mpm/particle:mp-position)
-;;                             (energy-old cl-mpm/particle::mp-penalty-energy))
-;;                mp
-;;              (when (> energy-old 0d0)
-;;                (let ((normal (calculate-mp-energy-gradient-2d sim bc mp))
-;;                      (energy-new energy-old)
-;;                      (dstep (/ (- (cl-mpm/mesh:mesh-resolution mesh)) 1000)))
-;;                  (loop for i from 0 to 1
-;;                        while (and (> energy-new (* 0.1d0 energy-old))
-;;                                   (> (cl-mpm/fastmaths:mag normal) 1d-15)
-;;                                   )
-;;                        do (progn
-;;                             (setf normal (calculate-mp-energy-gradient-2d sim bc mp))
-;;                             (setf normal (cl-mpm/fastmaths:fast-scale! (cl-mpm/fastmaths:norm normal) dstep))
-;;                             (setf energy-new (calculate-bc-energy-mp sim bc mp))
-;;                             (cl-mpm/fastmaths:fast-.+ pos normal pos))))))))))))
 
 (defun get-all-bcs (bc-prime)
   (let ((iter-list (list bc-prime))

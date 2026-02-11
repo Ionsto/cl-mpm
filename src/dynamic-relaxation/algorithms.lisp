@@ -354,12 +354,6 @@
                                     (setf damage (get-damage sim))
                                     (setf dconv
                                           (compute-damage-delta sim)
-                                          ;; (if (> damage 0d0)
-                                          ;;     (if (> damage-prev 0d0)
-                                          ;;         (/ (compute-damage-delta sim) damage-prev)
-                                          ;;         ;; (abs (/ (- damage damage-prev) damage-prev))
-                                          ;;         sb-ext:double-float-positive-infinity)
-                                          ;;     0d0)
                                           )
                                     (setf damage-prev damage)
                                     (when (< dconv damage-crit)
@@ -382,19 +376,19 @@
                                                               :text "Damage criteria exeeded"
                                                               :max-damage-inc 0d0))))
                                     (when t;damage-iter
-                                      (dotimes (i 1)
+                                      (dotimes (i 2)
                                         (cl-mpm:update-sim sim))
                                       (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                                       (format t "fast trial ~E~%" fast-trial-conv))
                                     ;; (incf *total-iter* 1)
                                     (incf total-i)
-                                    (when t;(= (mod d 5) 0)
-                                      (when save-vtk-dr
-                                        (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                                        (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                                        (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
-                                        )
-                                      )
+                                    ;; (when t;(= (mod d 5) 0)
+                                    ;;   (when save-vtk-dr
+                                    ;;     (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                                    ;;     (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                                    ;;     (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
+                                    ;;     )
+                                    ;;   )
                                  )))
                        (setf damage-prev damage)
                        (when save-vtk-dr

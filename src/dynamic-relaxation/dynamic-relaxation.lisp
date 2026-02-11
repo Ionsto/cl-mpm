@@ -119,8 +119,8 @@
                    (setf fnorm 0d0
                          load 0d0)
                    (optional-time
-                    nil
-                    ;; t
+                    ;; nil
+                    t
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)

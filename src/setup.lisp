@@ -464,6 +464,26 @@
                   (cl-mpm/particle:mp-volume mp))))
         sb-ext:double-float-positive-infinity)))
 
+
+(defun stress-inverse-2d (stress de)
+  (let* ((de2d (cl-mpm/utils::arb-matrix-from-list
+               (list
+                (mtref de 0 0) (mtref de 1 0) (mtref de 5 0)
+                (mtref de 0 1) (mtref de 1 1) (mtref de 5 1)
+                (mtref de 0 5) (mtref de 1 5) (mtref de 5 5))
+               3 3))
+         (stress-2d (cl-mpm/utils:vector-from-list (list (varef stress 0) (varef stress 1) (varef stress 5))))
+         (strain-2d (magicl:linear-solve de2d stress-2d))
+         )
+    (cl-mpm/utils:voigt-from-list (list (varef strain-2d 0) (varef strain-2d 1) 0d0 0d0 0d0 (varef strain-2d 2)))))
+(defun stress-inverse-3d (stress de)
+  (magicl:linear-solve de stress))
+
+(defun stress-inverse (nd stress de)
+  (if (= nd 2)
+      (stress-inverse-2d stress de)
+      (stress-inverse-3d stress de)))
+
 (defun initialise-stress-self-weight-vardatum (sim
                                                datum-func
                                                &key
@@ -504,7 +524,7 @@
                                                                   sig-y
                                                                   (* k-z sig-y)
                                                                   0d0 0d0 0d0)))
-                    (strains (magicl:linear-solve de stresses)))
+                    (strains (stress-inverse (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) stresses de)))
                (cl-mpm/fastmaths:fast-.+ stress stresses stress)
                (cl-mpm/fastmaths:fast-.+ strain strains strain)
                (voigt-copy-into strain strain-n)
@@ -557,7 +577,7 @@
                                                          sig-y
                                                          sig-y
                                                          0d0 0d0 0d0)))
-                (strains (magicl:linear-solve de stresses)))
+                (strains (stress-inverse stresses de)))
            (cl-mpm/fastmaths:fast-.+ stress stresses stress)
            (cl-mpm/fastmaths:fast-.+ strain strains strain)
            ;; (setf stress stresses

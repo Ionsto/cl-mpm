@@ -27,6 +27,10 @@
    (solve-count
     :initform 0
     :accessor sim-solve-count)
+   (mass-update-count
+    :initform 1
+    :accessor sim-mass-update-count
+    :initarg :mass-update-count)
    (ke
     :initform 0d0
     :accessor sim-ke)

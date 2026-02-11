@@ -1,19 +1,20 @@
 (defpackage :cl-mpm/ghost
   (:use :cl
    :cl-mpm
-   :cl-mpm/particle
+        :cl-mpm/particle
    :cl-mpm/mesh
-   :cl-mpm/utils
+        :cl-mpm/utils
    :cl-mpm/fastmaths
    )
   (:import-from
    :magicl tref .+ .-)
   (:export
    #:apply-ghost))
-(declaim (optimize (debug 3) (safety 3) (speed 0)))
+;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 ;; (declaim (optimize (debug 0) (safety 0) (speed 3)))
                                         ;    #:make-shape-function
 (in-package :cl-mpm/ghost)
+(declaim #.cl-mpm/settings:*optimise-setting*)
 
 
 
