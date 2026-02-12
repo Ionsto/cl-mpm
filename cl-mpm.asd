@@ -787,3 +787,10 @@
   :serial t
   :components ((:file "examples/ice/creep")))
 
+
+;;Fbar tests
+(defsystem "cl-mpm/examples/fbar/rigid-footing"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/fbar/rigid-footing")))
+
