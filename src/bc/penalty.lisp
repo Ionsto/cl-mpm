@@ -585,6 +585,7 @@
                        (stick-friction (* friction (abs normal-force))))
 
                   (cl-mpm/utils:vector-copy-into mp-friction-n force-friction)
+                  (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)
                   ;; update trial frictional force
                   (when (> friction 0d0)
                     (cl-mpm/utils:vector-copy-into mp-friction-n force-friction)
@@ -603,9 +604,9 @@
                                   (cl-mpm/fastmaths:fast-scale-vector
                                    (cl-mpm/fastmaths:norm force-friction)
                                    stick-friction))
-                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t))
+                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil))
                           (progn
-                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) nil)))
+                            (setf (cl-mpm/particle::mp-penalty-friction-stick mp) t)))
                       ;; (cl-mpm/fastmaths::fast-.+ force force-friction force)
                       )
                     (setf mp-friction force-friction))
@@ -651,12 +652,17 @@
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
                                   1d0
-                                  (max
-                                   ;; (* ;epsilon
-                                   ;;    friction
-                                   ;;    (cl-mpm/fastmaths:mag mp-friction))
-                                   epsilon)
-                                  (+ 1d0 friction)
+                                  ;; (max
+                                  ;;  (*
+                                  ;;   epsilon
+                                  ;;   friction
+                                  ;;   (cl-mpm/fastmaths:mag mp-friction))
+                                  ;;  epsilon)
+                                  (sqrt
+                                   (+
+                                    (expt epsilon 2)
+                                    (expt (* epsilon friction) 2)))
+                                  ;; (+ 1d0 friction)
                                   contact-area
                                   ))
                      (bc-penalty-contact-points bc)))
