@@ -41,7 +41,7 @@
 
     (let ()
       (defparameter *floor*
-        (cl-mpm/penalty::make-bc-penalty-distance-point  
+        (cl-mpm/penalty::make-bc-penalty-distance-point
          *sim*
          (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))
          (cl-mpm/utils:vector-from-list (list (* dsize 0.5 ) offset 0d0))
@@ -69,16 +69,16 @@
    :kinetic-damping nil
    :damping 1d0;(sqrt 2d0)
    :substeps 50
-   :criteria 1d-2
+   :criteria 1d-6
    :save-vtk-dr t
    :save-vtk-loadstep t
    :dt-scale 1d0)
   )
 
 (defun test ()
-  (let ((mu 0.1d0))
-    (dolist (r (list 1 2 4))
+  (let ((mu 0.9d0))
+    (dolist (r (list 1 2 4 6))
       (dolist (mps (list 2 4))
         (setup :mps mps :refine r :mu mu
-               :eps-scale 1d2)
+               :eps-scale 1d6)
         (run :output-dir (format nil "./output-~D-~D/" r mps))))))

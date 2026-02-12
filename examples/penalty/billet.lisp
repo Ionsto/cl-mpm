@@ -121,7 +121,6 @@
 (defun run (&key (output-dir (format nil "./output/")))
   (let* ((lstps 20)
          (total-disp -5d0)
-         (delta (/ total-disp lstps))
          (step 0))
     (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
     (cl-mpm/dynamic-relaxation::run-load-control
@@ -129,26 +128,26 @@
      :output-dir output-dir
      :plotter (lambda (sim) (plot-domain))
      :loading-function (lambda (i)
-                         (cl-mpm/penalty::bc-increment-center
+                         (cl-mpm/penalty::bc-set-displacement
                           *penalty*
-                          (cl-mpm/utils:vector-from-list (list 0d0 delta 0d0))))
+                          (cl-mpm/utils:vector-from-list (list 0d0 (* i total-disp) 0d0))))
      :post-conv-step (lambda (sim)
                        (plot-domain)
                        (vgplot:title (format nil "Step ~D" step))
                        (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                        (incf step))
      :load-steps lstps
-     :enable-plastic nil
+     :enable-plastic t
      :kinetic-damping nil
      :damping 1d0
-     :substeps 10
+     :substeps 50
      :criteria 1d-3
      :save-vtk-dr t
      :save-vtk-loadstep t
      :dt-scale 1d0)))
 
 (defun test ()
-  (setup :mps 2 :refine 1)
+  (setup :mps 3 :refine 1)
   (run)
   ;; (dolist (r (list 1 2 3))
   ;;   (dolist (mps (list 2 4))
