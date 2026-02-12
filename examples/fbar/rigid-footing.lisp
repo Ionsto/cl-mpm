@@ -43,7 +43,7 @@
       density
       'cl-mpm/particle::particle-vm
       :E E
-      :nu 0.480d0
+      :nu 0.49d0
       :rho 1d6))
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
@@ -55,7 +55,7 @@
      :bottom '(0 0 nil))
 
     (let ((friction 0d0)
-          (epsilon-scale 1d0)
+          (epsilon-scale 1d3)
           (width 0.5d0))
       (defparameter *penalty*
         (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -93,8 +93,8 @@
           do (format stream "~E,~E~%" (float disp 0e0) (float load 0e0)))))
 (declaim (notinline run))
 (defun run (&key (output-dir (format nil "./output/")))
-  (let* ((lstps 50)
-         (total-disp -5d-3)
+  (let* ((lstps 10)
+         (total-disp -2d-3)
          (current-disp 0d0)
          (step 0))
     (defparameter *data-disp* (list 0d0))
@@ -113,7 +113,9 @@
                           (cl-mpm/utils:vector-from-list (list 0d0 current-disp 0d0))))
      :post-conv-step (lambda (sim)
                        (push current-disp *data-disp*)
-                       (push (cl-mpm/penalty::resolve-load *penalty*) *data-load*)
+                       (let ((load (* 2d0 (cl-mpm/penalty::resolve-load *penalty*))))
+                         (format t "Load ~E~%" load)
+                         (push load *data-load*))
                        (plot-load-disp)
                        ;; (plot-domain)
                        ;; (vgplot:title (format nil "Step ~D" step))
@@ -121,18 +123,21 @@
                        (incf step))
      :load-steps lstps
      :enable-plastic t
-     :damping 1d0;(sqrt 2)
-     :substeps 10
-     :criteria 1d-6
-     :save-vtk-dr t
+     :damping (sqrt 2)
+     :substeps 50
+     :criteria 1d-9
+     :save-vtk-dr nil
      :save-vtk-loadstep t
      :dt-scale 1d0)))
 
 (defun test ()
-  (dolist (fbar (list t nil))
-    (setup :mps 3 :refine 2 :enable-fbar fbar)
-    (run)
-    (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)))
+  (setup :mps 4 :refine 1 :enable-fbar t)
+  (run)
+  (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
+  ;; (dolist (fbar (list t nil))
+  ;;   (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)
+  ;;   )
+  )
 
 
 

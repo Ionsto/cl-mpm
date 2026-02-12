@@ -119,8 +119,8 @@
                    (setf fnorm 0d0
                          load 0d0)
                    (optional-time
-                    ;; nil
-                    t
+                    nil
+                    ;; t
                     (dotimes (j substeps)
                       (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
@@ -387,7 +387,7 @@
 
 
 (defun estimate-ul-enhancement (particle)
-  (with-accessors ((df-inv cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse))
+  (with-accessors ((df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse))
       particle
     (let* ((grads (cl-mpm::gradient-push-forwards-cached (list 1d0 1d0 1d0) df-inv))
            (peak-grad (abs (reduce #'max (mapcar (lambda (x) (expt x 2)) grads)))))

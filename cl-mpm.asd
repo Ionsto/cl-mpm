@@ -326,6 +326,7 @@
   :depends-on ("cl-mpm/all"
                "vgplot"
                "swank.live"
+               "parse-float"
                "lisp-stat")
   :serial t
   :components ((:file "examples/core")))

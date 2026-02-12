@@ -91,7 +91,7 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse mp)))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (mesh mp node svp grads fsvp fgrads)
@@ -123,7 +123,7 @@
   "Map particle forces to the grid for one mp"
   (declare (cl-mpm/mesh::mesh mesh)
            (cl-mpm/particle:particle mp))
-  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse mp)))
+  (let ((df-inv (cl-mpm/particle::mp-deformation-gradient-increment-inverse mp)))
     (iterate-over-neighbours
      mesh mp
      (lambda (mesh mp node svp grads fsvp fgrads)
