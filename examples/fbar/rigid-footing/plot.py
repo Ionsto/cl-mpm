@@ -31,12 +31,15 @@ mpl.rcParams.update(
         "pgf.rcfonts": False,
     }
 )
-width = 5.90666
-height = width / 1.618
+width = 0.5*5.90666
+height = width / 1.3
+#1.618
 
 
 B = 0.5
 C = 1e6
+
+plt.figure(figsize=(width,height))
 
 load_scale = 1/(B*C)
 data = pd.read_csv("data_fbar_T.csv")
@@ -54,4 +57,5 @@ plt.ylabel("Normalised Load")
 plt.xlim(0,5)
 plt.ylim(bottom=0)
 plt.tight_layout()
+plt.savefig("paper.pgf")
 plt.show()

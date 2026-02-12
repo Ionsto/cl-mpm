@@ -44,7 +44,7 @@
       'cl-mpm/particle::particle-vm
       :E E
       :nu 0.48d0
-      :rho 1d6))
+      :rho (* (sqrt 3/2) 1d6)))
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
