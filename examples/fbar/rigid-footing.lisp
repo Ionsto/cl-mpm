@@ -43,7 +43,7 @@
       density
       'cl-mpm/particle::particle-vm
       :E E
-      :nu 0.49d0
+      :nu 0.48d0
       :rho 1d6))
 
     (setf (cl-mpm::sim-gravity *sim*) 0d0)
@@ -55,7 +55,7 @@
      :bottom '(0 0 nil))
 
     (let ((friction 0d0)
-          (epsilon-scale 1d3)
+          (epsilon-scale 1d2)
           (width 0.5d0))
       (defparameter *penalty*
         (cl-mpm/penalty::make-bc-penalty-distance-point
