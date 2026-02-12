@@ -857,8 +857,8 @@
            (> damage 0.0d0))
       (let* ((exponent 1)
              (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-             ;; (pind (- p pressure))
-             (pind p)
+             (pind (- p pressure))
+             ;; (pind p)
              (p-deg 0d0)
              (s (cl-mpm/constitutive::deviatoric-voigt stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
@@ -878,19 +878,11 @@
                (P-0 (+ K (* 4/3 G))))
           (setf K (* K p-deg))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          ;; (when (> (cl-mpm/particle::mp-yield-func mp) 0d0)
-          ;;   (setf K (* K (cos (cl-mpm/particle::mp-phi mp))))
-          ;;   (setf G (* G (sin (cl-mpm/particle::mp-phi mp)))))
-          ;; (setf p-mod (max p-mod (+ K (* 4/3 G))))
-          (setf p-mod
-                (max
-                 (* 1d-9 P-0)
-                 (max (* p-mod p-deg)
-                      (+ K (* 4/3 G)))))
           ;; (setf p-mod
-          ;;       (if (> pind 0d0)
-          ;;           (* p-mod (max (- 1d0 damage-t) 1d-9))
-          ;;           (* p-mod (max (- 1d0 damage-c) 1d-9))))
+          ;;       (max
+          ;;        (* 1d-9 P-0)
+          ;;        (max (* p-mod p-deg)
+          ;;             (+ K (* 4/3 G)))))
           )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

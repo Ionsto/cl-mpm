@@ -172,10 +172,7 @@
                (damage damage))
       mp
     (declare (double-float damage))
-    (setf (cl-mpm/particle::mp-p-modulus mp)
-          (*
-           (cl-mpm/particle::estimate-log-enhancement mp)
-           (cl-mpm/particle::compute-p-modulus mp)))
+    (setf (cl-mpm/particle::mp-p-modulus-0 mp) (cl-mpm/particle::compute-p-modulus mp))
     (cl-mpm/constitutive::linear-elastic-mat strain de stress-undamaged)
     (cl-mpm/utils::voigt-copy-into stress-undamaged stress)
     stress))
@@ -193,10 +190,9 @@
            enable-damage
            (> damage 0.0d0))
       (cl-mpm/fastmaths:fast-scale! stress (- 1d0 damage))
-      (setf (cl-mpm/particle::mp-p-modulus mp)
+      (setf (cl-mpm/particle::mp-p-modulus-0 mp)
             (*
              (- 1d0 damage)
-             (cl-mpm/particle::estimate-log-enhancement mp)
              (cl-mpm/particle::compute-p-modulus mp)))
       )))
 

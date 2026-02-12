@@ -19,7 +19,7 @@
                           (mp-pmod cl-mpm/particle::mp-p-modulus)
                           (def-n cl-mpm/particle::mp-deformation-gradient-0)
                           (def cl-mpm/particle::mp-deformation-gradient)
-                          (df cl-mpm/particle::mp-deformation-gradient-increment)
+                          (df cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
                           )
              mp
            (let ((mp-volume mp-volume)
@@ -45,36 +45,15 @@
                            (type sb-thread:mutex node-lock))
                   (when node-active
                     (sb-thread:with-mutex (node-lock)
-                      (let* (;; (grads (cl-mpm::gradient-push-forwards grads df))
-                             ;; (peak-grad (reduce #'max (mapcar #'abs grads)))
-                             ;; (peak-grad (reduce #'max (mapcar (lambda (x) (/ 1d0 x)) (remove 0d0 grads))))
-                             )
-                        (declare (double-float ul h))
-                        ;; (format t "~A ~%" peak-grad)
-                        ;; (incf node-mass (* 1
-                        ;;                    (expt (cl-mpm/fastmaths::det-3x3 def) -1)
-                        ;;                    mp-pmod
-                        ;;                    svp
-                        ;;                    mp-volume-n
-                        ;;                    (expt h -2)
-                        ;;                    mass-scale))
-                        (incf node-mass (* 2
-                                           (expt (cl-mpm/fastmaths::det-3x3 def) -1)
-                                           mp-pmod
-                                           svp
-                                           mp-volume
-                                           ul
-                                           (expt h -2)
-                                           mass-scale)))
-                      ;; (incf node-mass (/ (* 2
-                      ;;                       mp-pmod
-                      ;;                       svp
-                      ;;                       mp-volume
-                      ;;                       mass-scale)
-                      ;;                    ;; node-true-v
-                      ;;                    (expt                           h 2)
-                      ;;                    ))
-                      ))))))))))))
+                      (declare (double-float ul h))
+                      (incf node-mass (* 2
+                                         (expt (cl-mpm/fastmaths::det-3x3 def) -1)
+                                         mp-pmod
+                                         svp
+                                         mp-volume
+                                         ul
+                                         (expt h -2)
+                                         mass-scale))))))))))))))
 
 (defgeneric update-node-fictious-mass (sim))
 
@@ -198,6 +177,8 @@
                (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                (damping cl-mpm::damping-factor)
                (damping-scale cl-mpm/dynamic-relaxation::damping-scale)
+               (solve-count cl-mpm/dynamic-relaxation::solve-count)
+               (mass-update-iter cl-mpm/dynamic-relaxation::mass-update-count)
                (vel-algo cl-mpm::velocity-algorithm))
       sim
     (unless initial-setup
@@ -217,13 +198,16 @@
     (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-    (update-node-fictious-mass sim)
+    (incf solve-count)
+    (when (= (mod solve-count mass-update-iter) 0)
+      (update-node-fictious-mass sim))
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
+    ;; (cl-mpm::update-nodes sim)
     ;; (with-accessors ((ke-prev sim-ke-prev)
     ;;                  (ke sim-ke))
     ;;     sim
@@ -375,10 +359,14 @@
                           (acc cl-mpm::node-acceleration))
              node
            (when t
-             ;; (or internal
-             ;;     (not agg))
+             (or internal
+                 (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-    ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+    ;; (when enable-aggregate
+    ;;   ;; (cl-mpm/aggregate::project-velocity sim)
+    ;;   ;; (cl-mpm/aggregate::project-displacement sim)
+    ;;   )
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 
 

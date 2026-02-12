@@ -141,12 +141,7 @@
     ;;   (cl-mpm::apply-bcs mesh bcs dt))
 
     (cl-mpm/mpi::mpi-sync-force sim)
-
-    ;; (setf damping-scale 0d0)
-    ;; (setf damping 0d0)
     (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
-    ;; (format t "Rank ~D - ~E~%" (cl-mpi:mpi-comm-rank) damping)
-
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)

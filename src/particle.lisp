@@ -381,26 +381,15 @@
   ()
   (:documentation "A true linear-elastic material point"))
 
-
-;; (defun compute-s-modulus (particle)
-;;   (with-accessors ((de mp-elastic-matrix)
-;;                    (E  mp-E)
-;;                    (E  mp-E)
-;;                    (nu mp-nu))
-;;       particle
-;;     (/ E (+ 21 nu))))
-
 (defun compute-p-modulus (particle)
   (with-accessors ((de mp-elastic-matrix)
                    (E  mp-E)
                    (nu mp-nu))
       particle
-    ;; (multiple-value-bind (l v) (cl-mpm/utils:eig de)
-    ;;   (reduce #'max l))
     ;; 3D case?
     (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))
     ;; 2D case?
-                                        ;(/ E (* (+ 1d0 nu) (- 1d0 nu)))
+    ;; (/ E (* (+ 1d0 nu) (- 1d0 nu)))
     ))
 
 (defun update-p-modulus (particle)
@@ -410,7 +399,8 @@
                    (p mp-p-modulus)
                    (p-0 mp-p-modulus-0))
       particle
-    (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
+    ;; (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
+    (setf p (compute-p-modulus particle))
     (setf p-0 p)))
 
 (defun update-elastic-matrix (particle)
@@ -593,16 +583,9 @@
             (setf (mp-nu p) nu)
         p)))
 
-;; (defun make-particle-elastic-damage (nD E nu &key (pos nil) (volume 1) (mass 1))
-;;     (let ((p (make-particle nD 'particle-elastic-damage :position pos :volume volume :mass mass
-;;                             ) ))
-;;         (progn
-;;             (setf (mp-E p) E)
-;;             (setf (mp-nu p) nu)
-;;         p)))
-
 (defgeneric estimate-stiffness (mp)
     (:documentation "Estimate stiffness P-wave at current state"))
+
 (defmethod estimate-stiffness ((mp particle-elastic))
   (*
    (estimate-log-enhancement mp)
@@ -618,18 +601,9 @@
                    )
       particle
     (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix eps))
-      (let ((lmax
-              (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
+      (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
         (* lmax lmax)))))
 
-
-(defun update-log-p-wave (mp)
-  (setf (mp-p-modulus mp)
-        (*
-         (estimate-log-enhancement mp)
-         (mp-p-modulus-0 mp)
-         ;; (cl-mpm/particle::compute-p-modulus mp)
-         )))
 
 (defgeneric constitutive-model (mp elastic-trial-strain dt)
     (:documentation "Compute new stress state given elastic strain")
@@ -641,11 +615,6 @@
   (with-slots ((de elastic-matrix)
                (stress stress))
       mp
-    ;; (setf (mp-p-modulus mp)
-    ;;       (*
-    ;;        (estimate-log-enhancement mp)
-    ;;        (cl-mpm/particle::compute-p-modulus mp)))
-    (update-log-p-wave mp)
     (cl-mpm/constitutive::linear-elastic-mat strain de stress)))
 
 
