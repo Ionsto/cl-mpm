@@ -48,7 +48,7 @@
        :enable-aggregate t
        :enable-split nil
        :enable-fbar enable-fbar
-       :refinement multigrid-refines
+       ;; :refinement multigrid-refines
        )))
     (setf h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (cl-mpm:add-mps
