@@ -157,7 +157,8 @@
                   :substeps substeps
                   :convergance-criteria (lambda (sim f o)
                                           (and
-                                           (<= o oobf-crit)
+                                           (<= o (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
+                                           ;(<= o oobf-crit)
                                            (convergence-criteria sim)))
                   :conv-steps 1000
                   :damping-factor damping

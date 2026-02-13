@@ -774,30 +774,6 @@
             (setf k
                   (max
                    k-n
-                   ;; (cl-mpm/damage::forwards-integration
-                   ;;  k-n
-                   ;;  ybar-prev
-                   ;;  ybar
-                   ;;  k0
-                   ;;  tau
-                   ;;  tau-exp
-                   ;;  dt)
-                   ;; (integrate-substep 0.1d0 1d0 1d0 0.1d0 10d0 1d0 dt 100 #'huen-integration)
-                   ;; (cl-mpm/damage::integrate-substep
-                   ;;  k-n
-                   ;;  ybar-prev
-                   ;;  ybar
-                   ;;  dt
-                   ;;  1000
-                   ;;  (lambda (k y0 y1 s-dt)
-                   ;;    (cl-mpm/damage::huen-integration k
-                   ;;                                     y0
-                   ;;                                     y1
-                   ;;                                     k0
-                   ;;                                     tau
-                   ;;                                     tau-exp
-                   ;;                                     s-dt))
-                   ;;  )
                    (cl-mpm/damage::auto-refine-substepper
                     k-n
                     ybar-prev
@@ -811,23 +787,6 @@
                                                        tau
                                                        tau-exp
                                                        s-dt)))
-                   ;; (cl-mpm/damage::auto-refine-substepper
-                   ;;  k-n
-                   ;;  ybar-prev
-                   ;;  ybar
-                   ;;  k0
-                   ;;  tau
-                   ;;  tau-exp
-                   ;;  dt
-                   ;;  #'cl-mpm/damage::huen-integration)
-                   ;; (cl-mpm/damage::huen-integration
-                   ;;  k-n
-                   ;;  ybar-prev
-                   ;;  ybar
-                   ;;  k0
-                   ;;  tau
-                   ;;  tau-exp
-                   ;;  dt)
                    ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))

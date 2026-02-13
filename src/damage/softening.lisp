@@ -217,7 +217,6 @@
            (function function)
            ((integer 1 1000000) iters))
   (let ((kprev k)
-        (knext 0d0)
         (yprev y-0)
         (ycurrent y-0)
         (yinc (/ (- y-1 y-0) iters))
@@ -225,15 +224,14 @@
     (loop for i from 0 below iters
           do
              (incf ycurrent yinc)
-             (setf knext
+             (setf kprev
                    (funcall function
                             kprev
                             yprev
                             ycurrent
                             (/ dt iters)))
-             (setf kprev knext
-                   yprev ycurrent))
-    knext))
+             (setf yprev ycurrent))
+    kprev))
 
 (defun auto-refine-substepper (k y-0 y-1 dt function)
   (let* ((r 0)

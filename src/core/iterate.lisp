@@ -705,27 +705,31 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                 (let* ((weightsx (the double-float (cl-mpm/shape-function::shape-gimp distx (* 0.5d0 dox) h)))
                                                        (weightsy (the double-float (cl-mpm/shape-function::shape-gimp disty (* 0.5d0 doy) h)))
                                                        (weight (* weightsx weightsy))
-                                                       (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
-                                                       (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
-                                                       (weight-fbar (* weights-fbar-x weights-fbar-y))
                                                        ;; #+cl-mpm-fbar
                                                        )
-                                                  (when (or (< 0d0 weight) (< 0d0 weight-fbar))
+                                                  (declare (double-float weightsx weightsy weight))
+                                                  (when (< 0d0 weight)
                                                     (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                                           (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx (* 0.5d0 dox) h)))
+                                                           (weights-fbar-y (the double-float (cl-mpm/shape-function::shape-gimp-fbar disty (* 0.5d0 doy) h)))
+                                                           (weight-fbar (* weights-fbar-x weights-fbar-y))
                                                            (gradx (* (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h)
                                                                      (the double-float weightsy)))
                                                            (grady (* (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h)
                                                                      (the double-float weightsx)))
-
-                                                           (gradz 0d0)
-                                                           (grads-fbar
-                                                             (list (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h))
-                                                                   (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 doy) h))
-                                                                   0d0)))
-                                                      (declare (double-float gradx grady))
+                                                           (grad-fx (* weights-fbar-y (cl-mpm/shape-function::shape-gimp-dsvp distx (* 0.5d0 dox) h)))
+                                                           (grad-fy (* weights-fbar-x (cl-mpm/shape-function::shape-gimp-dsvp disty (* 0.5d0 dox) h)))
+                                                           )
+                                                      (declare (double-float gradx grady
+                                                                             grad-fx grad-fy
+                                                                             weight-fbar
+                                                                             weights-fbar-x
+                                                                             weights-fbar-y))
                                                       (funcall func mesh mp node
-                                                               weight (list gradx grady gradz)
-                                                               weight-fbar grads-fbar)))))))))))))))))))))
+                                                               weight
+                                                               (list gradx grady 0d0)
+                                                               weight-fbar
+                                                               (list grad-fx grad-fy 0d0))))))))))))))))))))))
 ;;This is more consise but half as fast
 (defun iterate-over-neighbours-shape-gimp-lisp (mesh mp func)
   "Iterate over a gimp domains neighbours in 3D using simple lisp constructs"

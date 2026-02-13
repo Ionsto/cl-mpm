@@ -695,7 +695,7 @@
 (defsystem "cl-mpm/examples/aggregate-condition"
   :depends-on ("cl-mpm/example"
                "cl-mpm/aggregate")
-  :components ((:file "examples/aggregate-condition")))
+  :components ((:file "examples/aggregate/aggregate-condition")))
 
 
 (defsystem "cl-mpm/iter-test"

@@ -572,6 +572,7 @@
         (values (* 0.5d0 visc-factor (expt effective-strain (* 0.5d0 (- (/ 1d0 visc-power) 1d0)))))
         (values 0d0))))
 
+(declaim (ftype (function (magicl:matrix/double-float) double-float) voigt-j2))
 (defun voigt-j2 (s)
   "Calculate j2 invarient from deviatoric stress"
   (let ((storage (magicl::matrix/double-float-storage s)))
@@ -581,6 +582,7 @@
           (the double-float (expt (aref storage 5) 2))
           ) 2d0)))
 
+(declaim (ftype (function (double-float double-float) double-float) vm-yield-func))
 (defun vm-yield-func (j2 rho)
   (declare (double-float j2 rho))
   (- (/ (the double-float (sqrt (* 2d0 j2))) rho) 1d0))
@@ -607,6 +609,7 @@
   (sqrt (loop for i from 0 below 6
              sum (expt (magicl:tref b i 0) 2))))
 (defun vm-plastic (stress de trial-elastic-strain rho e nu)
+  (declare (double-float e nu rho))
   (let* ((tol 1d-9)
          (max-iter 5)
          ;; (sig stress)
@@ -617,14 +620,13 @@
          (inc 0d0)
          (K (/ e (* 3 (- 1d0 (* 2 nu)))))
          (G (/ e (* 2 (+ 1d0 nu))))
-         (p-mod (+ K (* 4/3 G)))
-        )
+         (p-mod (+ K (* 4/3 G))))
     (declare (dynamic-extent s ))
     (if (> f tol)
       (let ((eps-e (cl-mpm/utils::voigt-copy trial-elastic-strain))
             (df (cl-mpm/utils:voigt-zeros))
             (ddf (cl-mpm/utils:matrix-zeros)))
-        (declare (dynamic-extent df ddf))
+        ;; (declare (dynamic-extent df ddf))
         (multiple-value-bind (ndf nddf) (vm-derivatives sig rho)
           (setf df ndf
                 ddf nddf))
@@ -633,7 +635,7 @@
                (dgam 0d0))
           (loop for iters from 0 to max-iter
                 when (or (> (b-norm b) tol)
-                         (> (abs (magicl:tref b 6 0)) tol))
+                         (> (abs (varef b 6)) tol))
                   do
                      (progn
                        ;; (format t "it:~D f:~F~%" iters (magicl:tref b 6 0))
@@ -651,8 +653,8 @@
                               (dx (magicl:scale! (magicl:@ (magicl:inv A) b) -1d0)))
                          ;;Add just the 6 components of stress
                          (loop for i from 0 below 6
-                               do (incf (magicl:tref eps-e i 0) (magicl:tref dx i 0)))
-                         (incf dgam (magicl:tref dx 6 0))
+                               do (incf (varef eps-e i) (varef dx i)))
+                         (incf dgam (varef dx 6))
                          (setf sig (magicl:@ de eps-e))
                          (setf s (deviatoric-voigt sig))
                          (setf j2 (voigt-j2 s))
@@ -1105,9 +1107,9 @@
                       (setf sig (magicl:@ (magicl:transpose! Q)
                                           (cl-mpm/utils:voigt-from-list
                                            (list
-                                            (magicl:tref sig 0 0)
-                                            (magicl:tref sig 1 0)
-                                            (magicl:tref sig 2 0)
+                                            (varef sig 0)
+                                            (varef sig 1)
+                                            (varef sig 2)
                                             0d0 0d0 0d0))))
 
                       (values

@@ -129,7 +129,7 @@
                    (strain-n mp-strain-n)
                    (yield-func mp-yield-func)
                    (def mp-deformation-gradient)
-                   (p-mod mp-p-modulus)
+                   (p-mod mp-p-modulus-0)
                    (E mp-e)
                    (nu mp-nu)
                    (enable-plasticity mp-enable-plasticity))
@@ -141,20 +141,11 @@
         (setf stress
               sig
               plastic-strain (cl-mpm/fastmaths:fast-.- strain eps-e)
+              p-mod pmod
               yield-func f)
-        (setf ps-vm-inc inc;; (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp))))
-              )
+        (setf ps-vm-inc inc)
         (setf strain eps-e)
-        (setf ps-vm (+ ps-vm-1 ps-vm-inc))
-        ;; (let (;(eps-vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain mp)))))
-        ;;       ;(vm (sqrt (cl-mpm/constitutive::voigt-j2 (cl-mpm/utils:deviatoric-voigt (cl-mpm/particle::mp-strain-plastic mp)))))
-        ;;       (K (/ e (* 3 (- 1d0 (* 2 nu)))))
-        ;;       (G (/ e (* 2 (+ 1d0 nu)))))
-        ;;   ;; (when (>= (cl-mpm/particle::mp-yield-func mp) 0d0)
-        ;;   ;;   (setf G 0d0))
-        ;;   (setf p-mod (+ K (* 4/3 G)))
-        ;;   )
-        ))
+        (setf ps-vm (+ ps-vm-1 ps-vm-inc))))
     (when (> soft 0d0)
       (with-accessors ((rho-r mp-rho-r)
                        (rho-0 mp-rho-0))
@@ -162,8 +153,7 @@
         (declare (double-float rho-0 rho-r))
         (setf
          rho (+ rho-r (* (- rho-0 rho-r) (exp (- (* soft ps-vm))))))))
-    stress
-    ))
+    stress))
 
 (defmethod constitutive-model ((mp particle-mc) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -255,7 +245,7 @@
                         phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
                      )
                    ))))
-    (cl-mpm/particle::update-log-p-wave mp)
+    ;; (cl-mpm/particle::update-log-p-wave mp)
     stress))
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-plastic))

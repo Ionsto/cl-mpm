@@ -96,14 +96,22 @@
                   (bcs-force-list cl-mpm::bcs-force-list))
          sim
        (progn
-         (cl-mpm::update-stress mesh mps dt fbar)
-         (cl-mpm::p2g-force sim)
-         (cl-mpm::apply-bcs mesh bcs-force dt)
+         (setf dt 1d0)
+         (cl-mpm::update-stress mesh mps dt-loadstep fbar)
+         (cl-mpm::p2g-force-fs sim)
+         (cl-mpm::apply-bcs mesh bcs-force dt-loadstep)
          (loop for bcs-f in bcs-force-list
                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-         (when agg
-           (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt)))
-         (cl-mpm::apply-bcs mesh bcs dt))
+         (setf (cl-mpm::sim-damping-factor sim) 0d0)
+         (update-node-fictious-mass sim)
+         (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
+         (cl-mpm::iterate-over-nodes
+          mesh
+          (lambda (n)
+            (when (cl-mpm/mesh:node-active n)
+              (cl-mpm/utils::vector-copy-into (cl-mpm/mesh::node-force n)
+                                              (cl-mpm/mesh::node-residual n)))))
+         (cl-mpm::apply-bcs mesh bcs dt-loadstep))
        ))
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-dr-ul))
   (setf (sim-initial-setup sim) nil)
@@ -144,16 +152,10 @@
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
-    ;; (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (update-node-fictious-mass sim)
-    (cl-mpm::filter-cells sim)
-    (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-cells sim)
-    (when enable-aggregate
-      (cl-mpm/aggregate::update-aggregate-elements sim))
-    (cl-mpm::apply-bcs mesh bcs dt)
-    (midpoint-starter sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
+    ;; (cl-mpm::update-cells sim)
+    ;; (cl-mpm::apply-bcs mesh bcs dt)
+    (midpoint-starter sim)
     (setf initial-setup t)))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
@@ -207,17 +209,6 @@
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
-    ;; (cl-mpm::update-nodes sim)
-    ;; (with-accessors ((ke-prev sim-ke-prev)
-    ;;                  (ke sim-ke))
-    ;;     sim
-    ;;   (setf ke (calculate-ke sim))
-    ;;   ;; (setf ke (cl-mpm::sim-stats-energy sim))
-    ;;   (when (> ke-prev ke)
-    ;;     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    ;;     (cl-mpm::reset-nodes-force sim)
-    ;;     (setf ke 0d0))
-    ;;   (setf ke-prev ke))
     (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))

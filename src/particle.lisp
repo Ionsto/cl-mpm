@@ -382,16 +382,21 @@
   ()
   (:documentation "A true linear-elastic material point"))
 
+(declaim (ftype (function (double-float double-float) double-float) calculate-bulk-modulus))
+(defun calculate-bulk-modulus (E nu)
+  (/ E (* 3 (- 1d0 (* 2 nu)))))
+(declaim (ftype (function (double-float double-float) double-float) calculate-shear-modulus))
+(defun calculate-shear-modulus (E nu)
+  (/ E (* 3 (- 1d0 (* 2 nu)))))
+(declaim (ftype (function (double-float double-float) double-float) calculate-p-wave-modulus))
+(defun calculate-p-wave-modulus (E nu)
+  (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
+
 (defun compute-p-modulus (particle)
-  (with-accessors ((de mp-elastic-matrix)
-                   (E  mp-E)
+  (with-accessors ((E  mp-E)
                    (nu mp-nu))
       particle
-    ;; 3D case?
-    (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu))))
-    ;; 2D case?
-    ;; (/ E (* (+ 1d0 nu) (- 1d0 nu)))
-    ))
+    (calculate-p-wave-modulus E nu)))
 
 (defun update-p-modulus (particle)
   (with-accessors ((de mp-elastic-matrix)

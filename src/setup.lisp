@@ -29,27 +29,7 @@
       (setf (cl-mpm:sim-bcs sim) (cl-mpm/bc:make-outside-bc (cl-mpm:sim-mesh sim)))
       sim)))
 
-(defmethod %post-make-simple-sim ((sim cl-mpm::mpm-sim-multigrid) resolution element-count args-list)
-  (let* ((size (mapcar (lambda (x) (* x resolution)) element-count))
-         ;; (resolution (* resolution (expt 2 (cl-mpm::sim-multigrid-refinement sim))))
-         )
-    (progn
-      (setf (cl-mpm::sim-mesh-list sim) (list)
-            (cl-mpm::sim-bcs-list sim) (list))
-      (dotimes (refine (cl-mpm::sim-multigrid-refinement sim))
-        (let* ((m (cl-mpm::make-mesh size (/ resolution (expt 2 (+ refine 0))) nil))
-               (bcs (cl-mpm/bc:make-outside-bc m)))
-          (push m (cl-mpm::sim-mesh-list sim))
-          (push bcs (cl-mpm::sim-bcs-list sim))))
-      (setf (cl-mpm::sim-mesh-list sim) (reverse (cl-mpm::sim-mesh-list sim))
-            (cl-mpm::sim-bcs-list sim) (reverse (cl-mpm::sim-bcs-list sim)))
 
-      (setf (cl-mpm:sim-mesh sim) (first (last (cl-mpm::sim-mesh-list sim))))
-      (setf (cl-mpm:sim-bcs sim)  (first (last (cl-mpm::sim-bcs-list sim))))
-      ;; (setf (cl-mpm:sim-mesh sim) (first (cl-mpm::sim-mesh-list sim)))
-      ;; (setf (cl-mpm:sim-bcs sim)  (first (cl-mpm::sim-bcs-list sim)))
-
-      sim)))
 
 
 
@@ -674,20 +654,7 @@
     left right top bottom front back)))
 
 
-(defmethod %setup-bcs ((sim cl-mpm::mpm-sim-multigrid)
-                       left
-                       right
-                       top
-                       bottom
-                       front
-                       back)
-  (loop for mesh in (cl-mpm::sim-mesh-list sim)
-        for i from 0
-        do
-           (setf (nth i (cl-mpm::sim-bcs-list sim))
-                 (cl-mpm/bc::make-outside-bc-varfix
-                  mesh
-                  left right top bottom front back))))
+
 
 (defun find-mp (sim pos)
   (let ((mp-found nil)

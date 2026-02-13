@@ -646,12 +646,11 @@
                                                          normal
                                                          (* -1d0 svp damping-force)))))))
                   (sb-thread:with-mutex (debug-mutex)
-                    ;; (format t "Penetration ~E~%" penetration)
                     (vector-push-extend
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
-                                  1d0
+                                  4d0
                                   ;; (max
                                   ;;  (*
                                   ;;   epsilon
@@ -719,9 +718,9 @@
   (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
   (setf (bc-penalty-load bc) 0d0))
 (defmethod reset-load ((bc bc-penalty-structure))
-  (setf (bc-penalty-load bc) 0d0)
   (loop for sub-bc in (bc-penalty-structure-sub-bcs bc)
-        sum (reset-load sub-bc)))
+        sum (reset-load sub-bc))
+  (call-next-method))
 
 (defun compute-corner-displacement (mesh mp corner)
   ;; (cl-mpm/fastmaths:fast-.+ corner (cl-mpm/particle::mp-displacement-increment mp))
@@ -851,7 +850,8 @@
     (let* ((penetration-dist (penetration-distance-point corner datum normal)))
       (declare (double-float penetration-dist))
       (if (and
-           (>= (+ penetration-dist (bc-penalty-margin bc)) 0d0)
+           ;(>= (+ penetration-dist (bc-penalty-margin bc)) 0d0)
+           (> penetration-dist 0d0)
            (penalty-contact-valid bc corner))
           (progn
             (values t
@@ -884,7 +884,7 @@
                      (if in-contact
                          (cond
                            ((or (< (contact-penetration closest-point) 0d0)
-                             (< (abs pen) (abs (contact-penetration closest-point))))
+                                (< (abs pen) (abs (contact-penetration closest-point))))
                             (setf closest-point point)))
                          (progn
                            (setf in-contact t)
@@ -902,7 +902,6 @@
       bc
     ;; (setf (bc-penalty-margin bc) (cl-mpm/mesh:mesh-resolution mesh))
     (reset-load bc)
-    (setf (fill-pointer (bc-penalty-contact-points bc)) 0)
     (with-accessors ((mps cl-mpm:sim-mps)
                      (mesh cl-mpm:sim-mesh))
         sim

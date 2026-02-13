@@ -608,6 +608,7 @@
          ;;     )
          )))
 
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
     (when enable-aggregate
       (let* ((E (cl-mpm/aggregate::sim-global-e sim))
@@ -621,30 +622,10 @@
                     (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
              (apply-internal-bcs sim fa d)
              (let* ((acc
-                      (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))
-                      ;; (magicl:linear-solve ma fa)
-                      ))
+                      (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d))))))
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
-      ;; (iterate-over-nodes
-      ;;  mesh
-      ;;  (lambda (node)
-      ;;    (when (and (cl-mpm/mesh:node-active node)
-      ;;               (or
-      ;;                (cl-mpm/mesh::node-interior node)
-      ;;                (not (cl-mpm/mesh::node-agg node)))
-      ;;               )
-      ;;      (with-accessors ((mass node-mass)
-      ;;                       (vel node-velocity)
-      ;;                       (force node-force)
-      ;;                       (internal cl-mpm/mesh::node-interior)
-      ;;                       (acc node-acceleration))
-      ;;          node
-      ;;        (when t;internal
-      ;;          (cl-mpm::integrate-vel-euler vel acc mass mass-scale dt damping))))))
-      ;; (project-velocity sim)
-      ;; (project-acceleration sim)
+      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )
     (iterate-over-nodes
      mesh

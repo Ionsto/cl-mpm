@@ -38,6 +38,7 @@
     (when pic-update
       (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND))
     (when (typep sim 'mpm-sim-dr)
+      ;; (format t "Set damping scale~%")
       (setf (cl-mpm/dynamic-relaxation::sim-damping-scale sim)
             (if damping-factor
                 damping-factor
@@ -84,9 +85,6 @@
     (let* ((fnorm 0d0)
            (energy-total 0d0)
            (oobf 0d0)
-           (target-time 1d-4)
-           (estimated-t 1d-5)
-           (total-step 0)
            (load 0d0)
            (converged nil))
 
@@ -98,16 +96,8 @@
           (setf (cl-mpm:sim-damping-factor sim) 0d0))
 
       (format t "Substeps ~D~%" substeps)
-      (let ((full-load (list))
-            (full-step (list))
-            (full-enegy (list))
-            (energy-list (list))
-            (power-last 0d0)
-            (power-current 0d0)
-            (energy-first 0d0)
-            (energy-last 0d0)
-            ;; (dt-0 (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
-            )
+      (let ((energy-first 0d0)
+            (energy-last 0d0))
         (setf *work* 0d0)
         (setf (cl-mpm::sim-stats-work sim) 0d0)
         (loop for i from 0 to conv-steps
@@ -116,22 +106,18 @@
                          (not converged))
               do
                  (progn
-                   (setf fnorm 0d0
-                         load 0d0)
+                   (setf fnorm 0d0)
                    (optional-time
                     nil
                     ;; t
                     (dotimes (j substeps)
-                      (setf cl-mpm/penalty::*debug-force* 0d0)
                       (cl-mpm:update-sim sim)
-                      ;; (when damping-factor
-                      ;;   (setf (cl-mpm:sim-damping-factor sim) (* damping-factor (dr-estimate-damping sim))))
+
                       (let ((power (cl-mpm::sim-stats-power sim))
                             (energy (cl-mpm::sim-stats-energy sim)))
                         (incf *work* power)
                         (when kinetic-damping
                           (if (and
-                               ;; (< (* power power-last) 0d0)
                                (> energy-last energy-first)
                                (> energy-last energy))
                               (progn
@@ -141,22 +127,19 @@
                                  mps
                                  (lambda (mp)
                                    (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
-                                (setf power-last 0d0
-                                      energy-first 0d0
+                                (setf energy-first 0d0
                                       energy-last 0d0
                                       energy 0d0))
                               (progn
                                 (setf energy-first energy-last)
-                                (setf power-last power
-                                      energy-last energy)))))))
-                   (setf load cl-mpm/penalty::*debug-force*)
+                                (setf energy-last energy))))
+                        )))
                    (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)
                        (setf fnorm (abs (/ energy-total *work*))))
                    (setf oobf (cl-mpm::sim-stats-oobf sim))
-                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf
-                           load)
+                   (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E~%" i fnorm *work* oobf)
                    (when (if convergance-criteria
                              (funcall convergance-criteria sim fnorm oobf)
                              (and
@@ -341,27 +324,28 @@
            #'+)))
 
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-              do
-                 (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-                        (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
-                        (E (cl-mpm/aggregate::sim-global-e sim))
-                        (ma (cl-mpm/aggregate::sim-global-ma sim))
-                        (vi
-                          (cl-mpm/aggregate::apply-internal-bcs
-                           sim
-                           (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
-                           d)))
-                   (incf num (cl-mpm/fastmaths:dot
-                              vi
-                              (cl-mpm/aggregate::apply-internal-bcs
-                               sim
-                               (magicl:@ (magicl:transpose E)
-                                         (cl-mpm/fastmaths::fast-.-
-                                          res-prev
-                                          res))
-                               d)))
-                   (incf denom (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))))
+        (cl-mpm/aggregate::iterate-over-dimensions-serial
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d)
+           (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
+                  (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
+                  (E (cl-mpm/aggregate::sim-global-e sim))
+                  (ma (cl-mpm/aggregate::sim-global-ma sim))
+                  (vi
+                    (cl-mpm/aggregate::apply-internal-bcs
+                     sim
+                     (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
+                     d)))
+             (incf num (cl-mpm/fastmaths:dot
+                        vi
+                        (cl-mpm/aggregate::apply-internal-bcs
+                         sim
+                         (magicl:@ (magicl:transpose E)
+                                   (cl-mpm/fastmaths::fast-.-
+                                    res-prev
+                                    res))
+                         d)))
+             (incf denom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))))))
       (if (> num 0d0)
           (if (= denom 0d0)
               0d0
