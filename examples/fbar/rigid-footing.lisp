@@ -13,6 +13,10 @@
      :trial t
      :colour-func (lambda (mp) (cl-mpm/particle::mp-index mp)))))
 
+
+(defun get-load ()
+  (* 2d0 (cl-mpm/penalty::resolve-load *penalty*)))
+
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 3)
                 (enable-fbar t)
@@ -28,12 +32,16 @@
          (element-count (mapcar (lambda (x) (round x h)) domain-size))
          (block-size (list height height)))
 
-    (setf *sim* (cl-mpm/setup::make-simple-sim
-                 h
-                 element-count
-                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                 :args-list (list :enable-aggregate t
-                                  :enable-fbar enable-fbar)))
+    (setf
+     *sim*
+     (cl-mpm/setup::make-simple-sim
+      h
+      element-count
+      :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
+      :args-list
+      (list
+       :enable-aggregate t
+       :enable-fbar enable-fbar)))
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
@@ -54,10 +62,11 @@
      :right '(0 nil nil)
      :bottom '(0 0 nil))
 
-    (let ((friction 0d0)
-          (epsilon-scale 1d2)
-          (width 0.5d0))
-      (defparameter *penalty*
+    (let* ((friction 0d0)
+           (epsilon-scale 1d2)
+           (epsilon (* E epsilon-scale))
+           (width 0.5d0))
+      (defparameter *penalty-down*
         (cl-mpm/penalty::make-bc-penalty-distance-point
          *sim*
          (cl-mpm/utils:vector-from-list '(0d0 -1d0 0d0))
@@ -65,10 +74,28 @@
                                               height
                                               0d0))
          (/ width 2)
-         (* E epsilon-scale)
+         epsilon
          friction
-         0d0)))
-
+         0d0))
+      (defparameter *penalty-right*
+        (cl-mpm/penalty::make-bc-penalty-distance-point
+         *sim*
+         (cl-mpm/utils:vector-from-list '(1d0 0d0 0d0))
+         (cl-mpm/utils:vector-from-list (list
+                                         width
+                                         (+ height (/ width 2))
+                                         0d0))
+         (/ width 2)
+         epsilon
+         friction
+         0d0))
+      (defparameter *penalty*
+        (cl-mpm/penalty::make-bc-penalty-structure
+         *sim*
+         epsilon
+         friction
+         0d0
+         (list *penalty-down* *penalty-right*))))
     (cl-mpm:add-bcs-force-list
      *sim*
      *penalty*)
@@ -92,7 +119,10 @@
           for load in data-load
           do (format stream "~E,~E~%" (float disp 0e0) (float load 0e0)))))
 (declaim (notinline run))
-(defun run (&key (output-dir (format nil "./output/")))
+(defun run (&key (output-dir (format nil "./output/"))
+              (csv-dir (format nil "./output/"))
+              (csv-filename (format nil "load-disp.csv"))
+              )
   (let* ((lstps 10)
          (total-disp -2d-3)
          (current-disp 0d0)
@@ -113,17 +143,15 @@
                           (cl-mpm/utils:vector-from-list (list 0d0 current-disp 0d0))))
      :post-conv-step (lambda (sim)
                        (push current-disp *data-disp*)
-                       (let ((load (* 2d0 (cl-mpm/penalty::resolve-load *penalty*))))
+                       (let ((load (get-load)))
                          (format t "Load ~E~%" load)
                          (push load *data-load*))
                        (plot-load-disp)
-                       ;; (plot-domain)
-                       ;; (vgplot:title (format nil "Step ~D" step))
-                       ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
+                       (save-csv csv-dir csv-filename *data-disp* *data-load*)
                        (incf step))
      :load-steps lstps
      :enable-plastic t
-     :damping (sqrt 2)
+     :damping 1d0;(sqrt 2)
      :substeps 50
      :criteria 1d-9
      :save-vtk-dr nil
@@ -131,9 +159,9 @@
      :dt-scale 1d0)))
 
 (defun test ()
-  (setup :mps 4 :refine 1 :enable-fbar t)
+  (setup :mps 2 :refine 1 :enable-fbar t)
   (run)
-  (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
+  ;; (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbaradjust_~A.csv" t) *data-disp* *data-load*)
   ;; (dolist (fbar (list t nil))
   ;;   (save-csv "./examples/fbar/rigid-footing/" (format nil "data_fbar_~A.csv" fbar) *data-disp* *data-load*)
   ;;   )
