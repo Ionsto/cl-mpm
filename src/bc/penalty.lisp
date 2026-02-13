@@ -650,7 +650,7 @@
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
-                                  4d0
+                                  1d0
                                   ;; (max
                                   ;;  (*
                                   ;;   epsilon
