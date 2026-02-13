@@ -92,12 +92,9 @@
               (*
                (+
                 (if pd-inc ps-y 0d0)
-                ;; (+ ps-y init-stress)
-                (cl-mpm/damage::criterion-max-principal-stress stress-pressure)
+                ;; (cl-mpm/damage::criterion-max-principal-stress stress-pressure)
                 ;; (cl-mpm/damage::criterion-j2 stress)
-                ;; (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure (* angle (/ pi 180d0)))
-                ))))
-      )))
+                (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure (* angle (/ pi 180d0))))))))))
 
 
 (declaim (notinline plot-domain))
@@ -128,12 +125,12 @@
      ))
   )
 
-(defparameter *angle* 30d0)
+(defparameter *angle* 35d0)
 (defparameter *angle-r* 10d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
-(defparameter *enable-plastic-damage* nil)
-(defparameter *delay-time* 1d6)
+(defparameter *enable-plastic-damage* t)
+(defparameter *delay-time* 1d3)
 (defparameter *delay-exponent* 1d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
@@ -523,21 +520,21 @@
 
 (defun calving-test ()
   (let* ((mps 3)
-         (dt 1d5)
-         (H 1000d0))
+         (dt 1d3)
+         (H 500d0))
     (setup
-     :refine (expt 2 -4)
+     :refine (expt 2 -3)
      ;; :refine (expt 2 -5)
-     :multigrid-refines 3
+     ;; :multigrid-refines 3
      :friction 0.9d0
-     :bench-length 100;(* 0.5d0 H)
-     :bench-extra-cut 00d0
+     :bench-length (* 1d0 H)
+     :bench-extra-cut 10d0
      :ice-height H
      :mps mps
      :hydro-static nil
      :cryo-static t
      :melange nil
-     :aspect 4d0
+     :aspect 8d0
      :slope 0.05d0
      :floatation-ratio 0.98d0)
     ;; (time
@@ -570,7 +567,7 @@
        :output-dir "./output/"
        :dt dt
        :dt-scale 1d0
-       :damping-factor (float (sqrt 2) 0d0)
+       :damping-factor 1d0;(float (sqrt 2) 0d0)
        :conv-criteria 1d-3
        :conv-load-steps 1
        ;; :min-adaptive-steps -4
@@ -594,20 +591,20 @@
                                             "Dynamic")))
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
-       :explicit-dt-scale 0.25d0
-       :explicit-damping-factor 1d-3
-       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-       ;; :explicit-damping-factor 1d-4
-       ;; :explicit-dt-scale 1d0
-       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+       ;; :explicit-dt-scale 0.25d0
+       ;; :explicit-damping-factor 1d-3
+       ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+       :explicit-damping-factor 1d-4
+       :explicit-dt-scale 10d0
+       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step (lambda (sim)
                          (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
        :setup-quasi-static
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
-          (cl-mpm/aggregate::sim-enable-aggregate sim) nil
-          (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-6)
+          (cl-mpm/aggregate::sim-enable-aggregate sim) t
+          (cl-mpm::sim-ghost-factor *sim*) nil;(* 1d9 1d-6)
           (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
        :setup-dynamic
@@ -734,29 +731,5 @@
         (vgplot:3d-plot x y weights ";;with points lc palette")
         (vgplot:xlabel "x")
         (vgplot:ylabel "y")
-        )
-      ;; (with-open-file (out "mp_neighbours.csv" :direction :output :if-exists :supersede)
-      ;;   (format out "x,y,weight~%")
-      ;;   (let ((x (loop for p in pos collect (cl-mpm/utils:varef p 0)))
-      ;;         (y (loop for p in pos collect (cl-mpm/utils:varef p 1))))
-      ;;     (loop for xi in x
-      ;;           for yi in y
-      ;;           for wi in weights
-      ;;           do (format out "~F,~F,~F~%" xi yi wi))))
-      )))
+        ))))
 
-;; (defun profile ()
-;;    (sb-profile:unprofile)
-;;    (sb-profile:reset)
-   ;; (sb-profile:profile "CL-MPM"
-   ;;                     "CL-MPM/DYNAMIC-RELAXATION")
-;;    (loop repeat 100
-;;          do (progn
-;;               (cl-mpm::update-sim *sim*)
-;;               ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-;;               ;;                                  (cl-mpm:sim-mps *sim*)
-;;               ;;                                  (cl-mpm:sim-dt *sim*)
-;;               ;;                                  25d0)
-;;               ;; (cl-mpm/eigenerosion:update-fracture *sim*)
-;;               ))
-;;    (sb-profile:report))
