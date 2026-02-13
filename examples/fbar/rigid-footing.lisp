@@ -61,8 +61,8 @@
       'cl-mpm/particle::particle-vm
       :E E
       :nu nu
-      ;; :rho (* 1d6 (sqrt 2/3))
-      :rho 1d6
+      :rho (* 1d6 (sqrt 3/2))
+      ;; :rho 1d6
       ;; :rho 1d6
       ;; 'cl-mpm/particle::particle-mc
       ;; :E E
@@ -174,7 +174,7 @@
       :damping 1d0;(sqrt 2d0)
       :substeps 50
       :criteria 1d-6
-      :save-vtk-dr t
+      :save-vtk-dr nil
       :save-vtk-loadstep t
       :dt-scale 1d0))))
 
