@@ -261,8 +261,8 @@
     (progn
       (multiple-value-bind (df df-strain) (calculate-df mesh mp fbar df-inc)
         (progn
-          ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-strain def-0 def))
-          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def-0 def))
+          (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df-strain def-0 def))
+          ;; (setf def (cl-mpm/fastmaths::fast-@-matrix-matrix df def-0 def))
           (cl-mpm/utils:voigt-copy-into strain-n strain)
           (cl-mpm/ext:kirchoff-update strain df-strain)
           (setf volume (* volume-n (the double-float (cl-mpm/fastmaths::det-3x3 df-inc))))
