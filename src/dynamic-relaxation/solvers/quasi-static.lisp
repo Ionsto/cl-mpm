@@ -19,15 +19,12 @@
                           (mp-pmod cl-mpm/particle::mp-p-modulus)
                           (def-n cl-mpm/particle::mp-deformation-gradient-0)
                           (def cl-mpm/particle::mp-deformation-gradient)
-                          (df cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
-                          )
+                          (df cl-mpm/particle::mp-deformation-gradient-increment-inverse))
              mp
            (let ((mp-volume mp-volume)
-                 ;; (mp-pmod mp-pmod)
                  (mp-pmod (cl-mpm/particle::estimate-stiffness mp))
                  (ul (estimate-ul-enhancement mp)))
              (declare (type double-float mp-pmod mp-volume))
-             ;; (cl-mpm/particle::update-log-p-wave mp)
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrads)

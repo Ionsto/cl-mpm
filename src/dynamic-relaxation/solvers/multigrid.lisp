@@ -38,8 +38,8 @@
             (pre-step sim)
             (format t "Solve final step ~A~%" final-step)
             ;; (save-vtks-dr-step sim "./output/" 1000 (* 2 i))
-            ;; (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
-            ;;       (if final-step conv-crit (sqrt conv-crit)))
+            (setf (cl-mpm/dynamic-relaxation::sim-convergence-critera sim)
+                  (if final-step conv-crit (sqrt conv-crit)))
             (format t "Conv crit ~E~%" (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
             (call-next-method
              sim

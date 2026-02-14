@@ -650,45 +650,19 @@
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
                       :stiffness (*
-                                  1d0
-                                  ;; (max
-                                  ;;  (*
-                                  ;;   epsilon
-                                  ;;   friction
-                                  ;;   (cl-mpm/fastmaths:mag mp-friction))
-                                  ;;  epsilon)
-                                  (sqrt
-                                   (+
-                                    (expt epsilon 2)
-                                    (expt (* epsilon friction) 2)))
-                                  ;; (+ 1d0 friction)
-                                  contact-area
-                                  ))
+                                  2d0
+                                  epsilon
+                                  (+ 1d0 (* friction 0.5d0))
+                                  ;; (sqrt
+                                  ;;  (+
+                                  ;;   (expt epsilon 2)
+                                  ;;   (expt (* epsilon friction) 2)))
+                                  contact-area))
                      (bc-penalty-contact-points bc)))
-
                   (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                         (max
                          (cl-mpm/particle::mp-penalty-stiffness mp)
-                         (*
-                          ;; 0.5d0
-                          ;; contact-area
-                          (+
-                           epsilon
-                           ;; (cl-mpm/fastmaths:mag mp-friction)
-                           )
-                          (+ 2d0 friction)
-                          )
-                         ;; (* 2d0
-                         ;;    (* h (expt (/ (max 0d0 penetration) h) (- exponent 1)))
-                         ;;    (+
-                         ;;     epsilon
-                         ;;     ;; (cl-mpm/fastmaths:mag mp-friction)
-                         ;;     )
-                         ;;    ;; contact-area
-                         ;;    (* 2d0 (+ 1d0 friction))
-                         ;;    )
-                         ;; (* 2d0 epsilon contact-area (* 2d0 (+ 1d0 friction)))
-                         ))
+                         (* epsilon (+ 2d0 friction))))
                   normal-force))
               0d0))))))
 

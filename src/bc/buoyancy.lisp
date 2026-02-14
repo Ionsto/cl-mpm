@@ -1185,7 +1185,7 @@
       (with-accessors ((volume cl-mpm/particle::mp-volume-n)
                        ;; (pos cl-mpm/particle::mp-position-trial)
                        (df cl-mpm/particle::mp-deformation-gradient-increment)
-                       (df-inv cl-mpm/particle::mp-deformation-gradient-strain-increment-inverse)
+                       (df-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                        (damage cl-mpm/particle::mp-damage))
           mp
         (when t;(funcall clip-func pos)
@@ -1603,54 +1603,81 @@
   ;;                             stiffness-func
   ;;                             pos) volume svp))))))))))))
   (let ((nd (cl-mpm/mesh::mesh-nd mesh)))
-    (cl-mpm::iterate-over-cells
+    (cl-mpm::iterate-over-nodes
      mesh
-     (lambda (cell)
-       (with-accessors ((pos cl-mpm/mesh::cell-centroid)
-                        (trial-pos cl-mpm/mesh::cell-trial-centroid)
-                        (cell-active cl-mpm/mesh::cell-active)
-                        (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
-                        (cell-pressure cl-mpm/mesh::cell-pressure)
-                        (df cl-mpm/mesh::cell-deformation-gradient)
-                        (disp cl-mpm/mesh::cell-displacement))
-           cell
-         (when cell-active
-           ;; (pprint "hello")
-           (let* ()
-             (cl-mpm::cell-iterate-over-neighbours
-              mesh cell
-              (lambda (mesh cell p volume node svp grads)
-                (with-accessors ((node-pos cl-mpm/mesh::node-position)
-                                 (node-mass cl-mpm/mesh::node-mass)
-                                 (node-lock  cl-mpm/mesh:node-lock)
-                                 (node-active cl-mpm/mesh:node-active)
-                                 (node-boundary cl-mpm/mesh::node-boundary-node)
-                                 (node-volume cl-mpm/mesh::node-volume)
-                                 (node-volume-t cl-mpm/mesh::node-volume-true)
-                                 )
-                    node
-                  (declare (double-float volume svp))
-                  (when (and node-active
-                             node-boundary)
-                    (sb-thread:with-mutex (node-lock)
-                      (incf
-                       node-mass
-                       (*
-                        (- 1d0 (/ node-volume
-                                  node-volume-t))
-                        (max 0d0
-                             (*
-                              0d0
-                              ;; (expt volume (/ (- nd 1) nd))
-                              volume
-                              (abs
-                               (funcall
-                                stiffness-func
-                                ;; trial-pos
-                                (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))
-                                ))
-                              ;; svp
-                              ))))))))))))))))
+     (lambda (node)
+       (with-accessors ((node-pos cl-mpm/mesh::node-position)
+                        (node-mass cl-mpm/mesh::node-mass)
+                        (node-lock  cl-mpm/mesh:node-lock)
+                        (node-active cl-mpm/mesh:node-active)
+                        (node-boundary cl-mpm/mesh::node-boundary-node)
+                        (node-volume cl-mpm/mesh::node-volume)
+                        (node-volume-t cl-mpm/mesh::node-volume-true)
+                        )
+           node
+         (when (and node-active
+                    node-boundary)
+           (sb-thread:with-mutex (node-lock)
+             (incf
+              node-mass
+              (*
+               (sqrt (max 0d0 (- node-volume-t node-volume)))
+               (max 0d0
+                    (*
+                     1d0
+                     (abs
+                      (funcall
+                       stiffness-func
+                       (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))
+    ;; (cl-mpm::iterate-over-cells
+    ;;  mesh
+    ;;  (lambda (cell)
+    ;;    (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+    ;;                     (trial-pos cl-mpm/mesh::cell-trial-centroid)
+    ;;                     (cell-active cl-mpm/mesh::cell-active)
+    ;;                     (cell-buoyancy cl-mpm/mesh::cell-buoyancy)
+    ;;                     (cell-pressure cl-mpm/mesh::cell-pressure)
+    ;;                     (df cl-mpm/mesh::cell-deformation-gradient)
+    ;;                     (disp cl-mpm/mesh::cell-displacement))
+    ;;        cell
+    ;;      (when cell-active
+    ;;        ;; (pprint "hello")
+    ;;        (let* ()
+    ;;          (cl-mpm::cell-iterate-over-neighbours
+    ;;           mesh cell
+    ;;           (lambda (mesh cell p volume node svp grads)
+    ;;             (with-accessors ((node-pos cl-mpm/mesh::node-position)
+    ;;                              (node-mass cl-mpm/mesh::node-mass)
+    ;;                              (node-lock  cl-mpm/mesh:node-lock)
+    ;;                              (node-active cl-mpm/mesh:node-active)
+    ;;                              (node-boundary cl-mpm/mesh::node-boundary-node)
+    ;;                              (node-volume cl-mpm/mesh::node-volume)
+    ;;                              (node-volume-t cl-mpm/mesh::node-volume-true)
+    ;;                              )
+    ;;                 node
+    ;;               (declare (double-float volume svp))
+    ;;               (when (and node-active
+    ;;                          node-boundary)
+    ;;                 (sb-thread:with-mutex (node-lock)
+    ;;                   (incf
+    ;;                    node-mass
+    ;;                    (*
+    ;;                     (- 1d0 (/ node-volume
+    ;;                               node-volume-t))
+    ;;                     (max 0d0
+    ;;                          (*
+    ;;                           1d0
+    ;;                           ;; (expt volume (/ (- nd 1) nd))
+    ;;                           volume
+    ;;                           (abs
+    ;;                            (funcall
+    ;;                             stiffness-func
+    ;;                             ;; trial-pos
+    ;;                             (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node))
+    ;;                             ))
+    ;;                           svp
+    ;;                           ))))))))))))))
+    ))
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
   (with-accessors ((datum bc-buoyancy-datum)
