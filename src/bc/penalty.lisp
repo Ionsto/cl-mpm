@@ -652,7 +652,7 @@
                       :stiffness (*
                                   2d0
                                   epsilon
-                                  (+ 1d0 (* friction 0.5d0))
+                                  (+ 1d0 friction)
                                   ;; (sqrt
                                   ;;  (+
                                   ;;   (expt epsilon 2)
