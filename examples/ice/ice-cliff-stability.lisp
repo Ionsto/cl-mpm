@@ -92,7 +92,7 @@
 
 
 (defparameter *angle* 40d0)
-(defparameter *angle-r* 20d0)
+(defparameter *angle-r* 10d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *viscosity* 1d13)
@@ -115,7 +115,7 @@
                 (slope 0d0)
                 (use-penalty t)
                 (stick-base t)
-                (multigrid-refines 1)
+                (multigrid-refines 0)
                 )
   (let* ((density 918d0)
          (water-density 1028d0)
@@ -155,8 +155,8 @@
                                                ;; 'cl-mpm/damage::mpm-sim-usl-damage
                                                ;; 'cl-mpm/damage::mpm-sim-damage
                                                ;; 'cl-mpm::mpm-sim-usf
-                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
+                                               'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+                                               ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid
                                                ;; 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul-usl
                                                :args-list
                                                (list
@@ -164,7 +164,7 @@
                                                 :enable-aggregate t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :enable-split nil
-                                                :refinement multigrid-refines
+                                                ;; :refinement multigrid-refines
                                                 )))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (setf h-fine mesh-resolution)
@@ -241,15 +241,14 @@
          :k-x 1d0
          :k-z 1d0))
 
-      ;; (unless (= start-height end-height)
-      ;;   (cl-mpm/setup::remove-sdf *sim*
-      ;;                             (lambda (p)
-      ;;                               (cl-mpm/setup::plane-point-point-sdf
-      ;;                                p
-      ;;                                (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
-      ;;                                (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
-      ;;                             :refine 3
-      ;;                             ))
+      (unless (= start-height end-height)
+        (cl-mpm/setup::remove-sdf *sim*
+                                  (lambda (p)
+                                    (cl-mpm/setup::plane-point-point-sdf
+                                     p
+                                     (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
+                                     (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
+                                  :refine 2))
 
 
       (let* ((domain-height (second domain-size))
@@ -388,8 +387,8 @@
        )))))
 
 (defun stability-qt-test ()
-  (let* ((heights (list 50d0))
-         (floatations (list 0d0)))
+  (let* ((heights (list 300d0))
+         (floatations (list 0.7d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./analysis_scripts/ice/ice-cliff-stability/data-cliff-stability/"))))
@@ -406,8 +405,8 @@
                           (let* ((mps 2)
                                  (output-dir (format nil "./output-~f-~f/" height flotation)))
                             (format t "Problem ~f ~f~%" height flotation)
-                            (setup :refine 0.5d0
-                                   :multigrid-refines 4
+                            (setup :refine 0.25d0
+                                   :multigrid-refines 2
                                    :friction 0d0
                                    :ice-height height
                                    :mps mps
@@ -437,7 +436,7 @@
                                         :dt-scale 1d0
                                         :conv-criteria 1d-3
                                         :substeps 10
-                                        :enable-damage nil
+                                        :enable-damage t
                                         :enable-plastic t
                                         :min-adaptive-steps -4
                                         :max-adaptive-steps 9
