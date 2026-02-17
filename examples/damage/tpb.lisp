@@ -50,6 +50,7 @@
                    (def cl-mpm/particle::mp-deformation-gradient)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
+                   (k cl-mpm/particle::mp-compression-ratio)
                    )
       mp
     (declare (double-float E nu))
@@ -59,15 +60,18 @@
                       (cl-mpm/constitutive:linear-elastic-mat strain de)
                       (/ 1d0 (magicl:det def)))))
         (setf y
-              (cl-mpm/damage::tensile-energy-norm strain E de)
+              ;; (cl-mpm/damage::tensile-energy-norm strain E de)
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              (cl-mpm/damage::criterion-modified-vm strain nu k)
               )))))
 
 (defparameter *current-load* 0d0)
 
 (defparameter *target-displacement* 0d0)
 (defparameter *tip-velocity* -0.000d-3)
+;; (defparameter *gf* 48d0)
+
 (declaim (notinline setup-test-column))
 (defun setup-test-column (size block-size offset &key (e-scale 1) (mp-scale 1)
                                                    (epsilon-scale 1d2)
@@ -125,7 +129,6 @@
             :local-length length-scale
             :compression-ratio 8d0
             :ductility ductility
-            ;; :gravity-axis (cl-mpm/utils:vector-zeros)
             ))))
       (setf (cl-mpm::sim-gravity sim) 0d0)
       ;; (calculate-ductility-param 18d9  48d0 5.3d-3 3.4d6)
