@@ -713,8 +713,8 @@
                   ;;     (cl-mpm/mesh::node-interior node))
                   )
          (cl-mpm::update-node node dt))))
-    (when agg
-      (project-displacement sim))
+    ;; (when agg
+    ;;   (project-displacement sim))
     ))
 
 (defun apply-internal-bcs (sim vec d)

@@ -1,13 +1,14 @@
 (defpackage :cl-mpm/examples/tpb
   (:use :cl))
-;; (sb-ext:restrict-compiler-policy 'speed  3 3)
-;; (sb-ext:restrict-compiler-policy 'debug  0 0)
-;; (sb-ext:restrict-compiler-policy 'safety 0 0)
+(sb-ext:restrict-compiler-policy 'speed  3 3)
+(sb-ext:restrict-compiler-policy 'debug  0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+(setf cl-mpm/settings:*optimise-setting* cl-mpm/settings::*optimise-speed*)
 ;; (setf *block-compile-default* t)
-(setf cl-mpm/settings:*optimise-setting* cl-mpm/settings::*optimise-debug*)
-(sb-ext:restrict-compiler-policy 'speed  0 0)
-(sb-ext:restrict-compiler-policy 'debug  3 3)
-(sb-ext:restrict-compiler-policy 'safety 3 3)
+;; (setf cl-mpm/settings:*optimise-setting* cl-mpm/settings::*optimise-debug*)
+;; (sb-ext:restrict-compiler-policy 'speed  0 0)
+;; (sb-ext:restrict-compiler-policy 'debug  3 3)
+;; (sb-ext:restrict-compiler-policy 'safety 3 3)
 (in-package :cl-mpm/examples/tpb)
 
 ;; (ql:quickload :magicl)
@@ -16,27 +17,6 @@
 ;; (asdf:compile-system :cl-mpm :force T)
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
-  (with-accessors ((strain cl-mpm/particle::mp-strain)
-                   (stress cl-mpm/particle::mp-undamaged-stress)
-                   (damage cl-mpm/particle:mp-damage)
-                   (init-stress cl-mpm/particle::mp-initiation-stress)
-                   (critical-damage cl-mpm/particle::mp-critical-damage)
-                   (damage-rate cl-mpm/particle::mp-damage-rate)
-                   (pressure cl-mpm/particle::mp-pressure)
-                   (ybar cl-mpm/particle::mp-damage-ybar)
-                   (y cl-mpm/particle::mp-damage-y-local)
-                   (def cl-mpm/particle::mp-deformation-gradient)
-                   (de cl-mpm/particle::mp-elastic-matrix)
-                   (E cl-mpm/particle::mp-e)
-                   (nu cl-mpm/particle::mp-nu)
-                   (k cl-mpm/particle::mp-compression-ratio)
-                   ) mp
-    (declare (double-float pressure damage E k nu))
-    (progn
-      (setf y
-            (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress (* 40d0 (/ pi 180d0)))))))
 
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic-damage) dt fbar)
@@ -59,6 +39,30 @@
 (defun stop ()
   (setf *run-sim* nil)
   (setf cl-mpm/dynamic-relaxation::*run-convergance* nil))
+
+(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-limestone) dt)
+  (with-accessors (;(stress cl-mpm/particle::mp-undamaged-stress)
+                   (y cl-mpm/particle::mp-damage-y-local)
+                   (strain cl-mpm/particle::mp-strain)
+                   (init-stress cl-mpm/particle::mp-initiation-stress)
+                   (ybar cl-mpm/particle::mp-damage-ybar)
+                   (de cl-mpm/particle::mp-elastic-matrix)
+                   (def cl-mpm/particle::mp-deformation-gradient)
+                   (E cl-mpm/particle::mp-e)
+                   (nu cl-mpm/particle::mp-nu)
+                   )
+      mp
+    (declare (double-float E nu))
+    (progn
+      (let* ((angle 30d0)
+             (stress (cl-mpm/fastmaths:fast-scale!
+                      (cl-mpm/constitutive:linear-elastic-mat strain de)
+                      (/ 1d0 (magicl:det def)))))
+        (setf y
+              (cl-mpm/damage::tensile-energy-norm strain E de)
+              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
+              )))))
 
 (defparameter *current-load* 0d0)
 
@@ -88,14 +92,16 @@
                ;; (length-scale 5.3d-3)
                ;(length-scale (* 5.4d-3 (sqrt 7)))
                (length-scale (* 5.4d-3 1d0))
-               (gf 48d0)
+               (gf (* 1d0 48d0))
+               (E 15.3d9)
                (init-stress 3.45d6)
-               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 15.3d9)))
+               (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E)))
 
           (format t "Estimated ductility ~F~%" ductility)
           (format t "Actual local length ~F~%" (* crack-scale length-scale))
+          (format t "Mesh size ~F~%" (* h-x))
           (format t "Length/Mesh res ~F~%" (/ (* crack-scale length-scale) (* 2d0 h-x)))
-          (cl-mpm/damage::estimate-ductility-jirsek2004 (* 48d0 0.5d0) (* length-scale (sqrt 7)) 3.45d6 15.3d9)
+          ;; (cl-mpm/damage::estimate-ductility-jirsek2004 (* 48d0 0.5d0) (* length-scale (sqrt 7)) 3.45d6 15.3d9)
           (cl-mpm:add-mps
            sim
            (cl-mpm/setup::make-block-mps
@@ -112,9 +118,9 @@
             ;; :local-length length-scale
             ;; :ductility ductility
             'cl-mpm/particle::particle-limestone
-            :E 15.3d9
+            :E E
             :nu 0.15d0
-            :initiation-stress 3.45d6
+            :initiation-stress init-stress
             ;;Material parameter
             :local-length length-scale
             :compression-ratio 8d0
@@ -252,6 +258,7 @@
         (cl-mpm/setup::setup-bcs
          sim
          :left '(0 nil nil))
+
         (cl-mpm::add-bcs
          sim
          (cl-mpm/bc::make-bc-fixed
@@ -329,9 +336,9 @@
         ;; (cl-mpm/bc:make-bcs-from-list
         ;;  (list
         ;;   *penalty-controller*))
-        ;; (cl-mpm/bc:make-bcs-from-list
-        ;;  (list
-        ;;   *penalty-point*))
+        (cl-mpm/bc:make-bcs-from-list
+         (list
+          *penalty-point*))
         (cl-mpm/bc:make-bcs-from-list
          (list
           *penalty*))))
@@ -740,17 +747,15 @@
   (defparameter *displacement* 0d0)
   (let* ((lstps 10)
          (total-disp -0.2d-3)
-         (output-dir (format nil "./output/"))
-         )
-    (setup :refine 0.5 :mps 3)
-
+         (output-dir (format nil "./output-se/")))
+    (setup :refine 1 :mps 3)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)
     (defparameter *data-displacement* '(0d0))
     (defparameter *data-load* '(0d0))
     (cl-mpm/setup::set-mass-filter *sim* 2.2d3 :proportion 1d-15)
     (setf (cl-mpm::sim-nonlocal-damage *sim*) t)
-    (ensure-directories-exist "./output/")
     (setf *disp* 0d0)
     (cl-mpm/dynamic-relaxation::run-adaptive-load-control
      *sim*
@@ -767,8 +772,7 @@
                          )
      :pre-step (lambda ()
                  (output-disp-header output-dir)
-                 (output-disp-data output-dir)
-                 )
+                 (output-disp-data output-dir))
      :post-conv-step (lambda (sim)
                        ;;Save data
                        (push (* 2d0 (cl-mpm/penalty::resolve-load *penalty*)) *data-load*)
@@ -776,11 +780,11 @@
                        (output-disp-data output-dir))
      :load-steps lstps
      :enable-damage t
-     :damping (sqrt 2)
+     :damping 1d0
      :substeps 20
      :criteria 1d-3
      :max-adaptive-steps 10
      :save-vtk-dr t
      :save-vtk-loadstep t
-     :max-damage-inc 0.3d0
-     :dt-scale 0.25d0)))
+     :max-damage-inc 0.6d0
+     :dt-scale 1d0)))

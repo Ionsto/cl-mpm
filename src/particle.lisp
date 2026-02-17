@@ -1046,6 +1046,8 @@
                    (df-inc    cl-mpm/particle::mp-deformation-gradient-increment)
                    (volume    cl-mpm/particle::mp-volume)
                    (volume-n    cl-mpm/particle::mp-volume-n)
+                   (position    cl-mpm/particle::mp-position)
+                   (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
                    (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev))
       mp
@@ -1053,6 +1055,7 @@
     (cl-mpm/utils:matrix-copy-into (cl-mpm/utils:matrix-eye 1d0) df-inc)
     (cl-mpm/utils:voigt-copy-into strain strain-n)
     (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
+    (cl-mpm/utils:vector-copy-into position position-trial)
     (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))

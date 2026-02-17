@@ -13,17 +13,19 @@
              )
           (* 2d0 (- 1 (/ 1d0 k)) i1))))))
 
-(defun criterion-modified-vm (strain k nu)
+(defun criterion-modified-vm (strain k E nu)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d strain)
     (let ((i1 (+ s_1 s_2 s_3))
           (j2 (cl-mpm/constitutive::voigt-j2 (cl-mpm/constitutive::deviatoric-voigt strain)))
           (k-factor (/ (- k 1d0)
                        (- 1d0 (* 2d0 nu))))
           )
-      (* (/ 1d0 (* 2d0 k))
-         (+ (* i1 k-factor)
-            (sqrt (+ (expt (* k-factor i1) 2)
-                     (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2))))))))
+      (*
+       E
+       (/ 1d0 (* 2d0 k))
+       (+ (* i1 k-factor)
+          (sqrt (+ (expt (* k-factor i1) 2)
+                   (* (/ (* 12d0 k) (expt (- 1d0 nu) 2)) j2))))))))
 
 (defun criterion-mc (strain angle E nu)
   (multiple-value-bind (e_1 e_2 e_3) (principal-stresses-3d
@@ -345,21 +347,21 @@
              (cl-mpm/utils::deviatoric-voigt stress))))
     (sqrt (* 3d0 j2))))
 
-(defun modified-vm-criterion (stress nu k)
-  (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
-    (declare (double-float nu k s_1 s_2 s_3))
-    (let* ((j2 (cl-mpm/constitutive::voigt-j2
-                (cl-mpm/utils::deviatoric-voigt stress)))
-           (i1 (+ s_1 s_2 s_3))
-           (k-factor (/ (- k 1d0)
-                        (- 1d0 (* 2d0 nu))))
-           (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
-                   (* (/ 1d0 (* 2d0 k))
-                      (sqrt (+ (expt (* k-factor i1) 2)
-                               (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
-                               ))))))
-      s_1
-      )))
+;; (defun modified-vm-criterion (stress nu k)
+;;   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
+;;     (declare (double-float nu k s_1 s_2 s_3))
+;;     (let* ((j2 (cl-mpm/constitutive::voigt-j2
+;;                 (cl-mpm/utils::deviatoric-voigt stress)))
+;;            (i1 (+ s_1 s_2 s_3))
+;;            (k-factor (/ (- k 1d0)
+;;                         (- 1d0 (* 2d0 nu))))
+;;            (s_1 (+ (* i1 (/ k-factor (* 2d0 k)))
+;;                    (* (/ 1d0 (* 2d0 k))
+;;                       (sqrt (+ (expt (* k-factor i1) 2)
+;;                                (* (/ (* 12 k) (expt (- 1d0 nu) 2))j2)
+;;                                ))))))
+;;       s_1
+;;       )))
 (defun smooth-rankine-criterion (stress)
   (multiple-value-bind (s_1 s_2 s_3) (principal-stresses-3d stress)
      (sqrt
@@ -456,8 +458,13 @@
     (let ((k (/ (+ 1d0 (sin angle))
                 (- 1d0 (sin angle)))))
       (max 0d0
-           (/ (- (* k s1) s3)
-              k)))))
+            (/
+             (max
+              (- (* k s1) s3)
+              (- (* k s1) s2)
+              (- (* k s2) s3))
+             k)
+           ))))
 
 (defun criterion-mohr-coloumb-stress-will (stress angle)
   (multiple-value-bind (s1 s2 s3) (principal-stresses-3d stress)
@@ -532,7 +539,8 @@
               (magicl:@ v
                         (cl-mpm/utils::matrix-from-diag l)
                         (magicl:transpose v))))))
-    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))))
+    (sqrt (max 0d0 (* E (cl-mpm/fastmaths::dot strain+ (magicl:@ de strain+)))))
+    ))
 
 (defun tensile-energy-norm-pressure (strain E nu de pressure)
   (let* ((K (/ E (* 3d0 (- 1d0 (* 2d0 nu)))))
@@ -560,8 +568,14 @@
      s3
      (let ((k (/ (+ 1d0 (sin angle))
                  (- 1d0 (sin angle)))))
-       (/ (- (* k s1) s3)
+       (/
+        (max
+         (- (* k s1) s3)
+         (- (* k s1) s2)
+         (- (* k s2) s3))
           k))
      )))
+
+
 
 
