@@ -63,7 +63,7 @@
               ;; (cl-mpm/damage::tensile-energy-norm strain E de)
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              (cl-mpm/damage::criterion-modified-vm strain nu k)
+              (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
 
 (defparameter *current-load* 0d0)

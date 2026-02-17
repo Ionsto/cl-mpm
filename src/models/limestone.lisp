@@ -99,7 +99,7 @@
                    (k cl-mpm/particle::mp-compression-ratio)
                    ) mp
     (declare (double-float E k nu))
-    (setf y (cl-mpm/damage::criterion-modified-vm strain nu k))))
+    (setf y (cl-mpm/damage::criterion-modified-vm strain k E nu))))
 
 (defmethod cl-mpm/damage::update-damage ((mp cl-mpm/particle::particle-limestone-delayed) dt)
     (with-accessors ((stress cl-mpm/particle:mp-stress)
