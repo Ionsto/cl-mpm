@@ -187,7 +187,7 @@
         (format t "Fixed node ~A ~%" left-node-pos)
         (format t "Roller node ~A ~%" right-node-pos)
 
-        (let* ((hx h-x)
+        (let* ((hx (* 0.5d0 h-x))
                (epsilon (* 15.3d9 epsilon-scale))
                (friction 0d0)
                (damping 0d0)
@@ -195,18 +195,9 @@
                (center (cl-mpm/utils:vector-from-list (list (- (first block-size) hx) (float (+ (second offset) 0d0) 0d0) 0d0)))
                (left (cl-mpm/fastmaths::fast-.+ center (cl-mpm/utils:vector-from-list (list (- hx) 0d0 0d0))))
                (left-down (cl-mpm/fastmaths::fast-.+ left (cl-mpm/utils:vector-from-list (list 0d0 (- hx) 0d0))))
+
                (right (cl-mpm/fastmaths::fast-.+ center (cl-mpm/utils:vector-from-list (list (+ hx) 0d0 0d0))))
                (right-down (cl-mpm/fastmaths::fast-.+ right (cl-mpm/utils:vector-from-list (list 0d0 (- hx) 0d0))))
-               ;; (penlist
-               ;;   (cl-mpm/penalty::make-bc-line-segments
-               ;;    sim
-               ;;    (list
-               ;;     ;; (cl-mpm/utils:vector-from-list (list (- (first block-size) hx) (float (- (second offset) hx) 0d0) 0d0))
-               ;;     ;; (cl-mpm/utils:vector-from-list (list (- (first block-size) hx) (float (+ (second offset) 0d0) 0d0) 0d0))
-               ;;     ;; (cl-mpm/utils:vector-from-list (list (+ (first block-size) hx) (float (+ (second offset) 0d0) 0d0) 0d0))
-               ;;     ;; (cl-mpm/utils:vector-from-list (list (+ (first block-size) hx) (float (- (second offset) hx) 0d0) 0d0))
-               ;;     )
-               ;;    epsilon friction damping))
                (left-smooth
                  (cl-mpm/penalty::make-bc-penalty-smooth-corner
                   sim
@@ -259,11 +250,11 @@
          sim
          :left '(0 nil nil))
 
-        (cl-mpm::add-bcs
-         sim
-         (cl-mpm/bc::make-bc-fixed
-          right-node-pos
-          '(nil 0 nil)))
+        ;; (cl-mpm::add-bcs
+        ;;  sim
+        ;;  (cl-mpm/bc::make-bc-fixed
+        ;;   right-node-pos
+        ;;   '(nil 0 nil)))
         ;; (cl-mpm::add-bcs
         ;;  sim
         ;;  (cl-mpm/bc::make-bc-fixed
