@@ -346,14 +346,14 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm::node-acceleration))
              node
-           (when t
-               ;; (or internal
-               ;;     (not agg))
+           (when ;t
+               (or internal
+                   (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-    ;; (when enable-aggregate
-    ;;   (cl-mpm/aggregate::project-velocity sim)
-    ;;   ;; (cl-mpm/aggregate::project-displacement sim)
-    ;;   )
+    (when enable-aggregate
+      (cl-mpm/aggregate::project-velocity sim)
+      ;; (cl-mpm/aggregate::project-displacement sim)
+      )
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 
