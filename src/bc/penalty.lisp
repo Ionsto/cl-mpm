@@ -588,10 +588,6 @@
                                   2d0
                                   epsilon
                                   (+ 1d0 friction)
-                                  ;; (sqrt
-                                  ;;  (+
-                                  ;;   (expt epsilon 2)
-                                  ;;   (expt (* epsilon friction) 2)))
                                   contact-area))
                      (bc-penalty-contact-points bc)))
                   (setf (cl-mpm/particle::mp-penalty-stiffness mp)
