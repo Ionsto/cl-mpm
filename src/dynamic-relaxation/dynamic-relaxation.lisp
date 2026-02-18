@@ -96,6 +96,7 @@
           (setf (cl-mpm:sim-damping-factor sim) 0d0))
 
       (format t "Substeps ~D~%" substeps)
+
       (let ((energy-first 0d0)
             (energy-last 0d0))
         (setf *work* 0d0)
@@ -176,18 +177,16 @@
            (oobf 0d0)
            (rank (cl-mpi:mpi-comm-rank))
            (load 0d0)
-           (target-time 1d-4)
            (converged nil))
-      (setf (cl-mpm:sim-dt sim)
-            (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
+
+      (setf (cl-mpm::sim-dt-scale sim) dt-scale)
+      (setf (cl-mpm:sim-dt sim) (cl-mpm/setup::estimate-elastic-dt sim :dt-scale dt-scale))
+
       (when (= rank 0)
         (format t "Substeps ~D~%" substeps))
+
       (setf *work* 0d0)
-      (let ((full-load (list))
-            (full-step (list))
-            (energy-list (list))
-            (energy-total 0d0)
-            (power-last 0d0))
+      (let ((power-last 0d0))
         (loop for i from 0 to conv-steps
               while (and *run-convergance*
                          (not converged))
@@ -197,39 +196,23 @@
                      (setf cl-mpm/penalty::*debug-force* 0d0)
                      (cl-mpm:update-sim sim)
                      (let ((power (cl-mpm::sim-stats-power sim)))
-                       (incf *work* power)
-                       (when kinetic-damping
-                         (if (< (* power-last power) 0d0)
-                             (progn
-                               (when (= rank 0)
-                                 (format t "Peak found resetting KE~%"))
-                               (cl-mpm:iterate-over-mps
-                                mps
-                                (lambda (mp)
-                                  (cl-mpm/fastmaths:fast-zero (cl-mpm/particle:mp-velocity mp))))
-                               (setf power-last 0d0))
-                             (setf power-last power)))))
+                       (incf *work* power)))
 
-                   (setf load (cl-mpm/mpi::mpi-sum cl-mpm/penalty::*debug-force*))
-                   (setf energy-total (cl-mpm::sim-stats-energy sim))
                    (if (= *work* 0d0)
                        (setf fnorm 0d0)
-                       (setf fnorm (abs (/ energy-total *work*))))
+                       (setf fnorm (abs (/ (cl-mpm::sim-stats-energy sim) *work*))))
 
                    (setf oobf (cl-mpm::sim-stats-oobf sim))
-                   (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm::calculate-min-dt sim)))
 
                    (when (= 0 rank)
                      (format t "Estimated dt ~E~%" (cl-mpm:sim-dt sim)))
 
-
                    (when (= 0 rank)
                      (format t "Conv step ~D - KE norm: ~E - Work: ~E - OOBF: ~E - Load: ~E~%" i fnorm *work* oobf load))
 
-                   (push energy-total energy-list)
                    (when (and (< fnorm energy-crit)
                               (< oobf oobf-crit)
-                              (if convergance-criteria (funcall convergance-criteria sim) t))
+                              (if convergance-criteria (funcall convergance-criteria sim fnorm oobf) t))
                      (when (= 0 rank)
                        (format t "Took ~D steps to converge~%" i))
                      (setf converged t))

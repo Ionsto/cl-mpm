@@ -613,11 +613,11 @@
 
 
 (defsystem "cl-mpm/examples/uniaxial"
-  :depends-on ("cl-mpm/examples/tpb"
-               "cl-mpm/models/chalk"
-               )
+  :depends-on ("cl-mpm/models/chalk"
+               "cl-mpm/example")
   :serial t
   :components ((:file "examples/damage/uniaxial")))
+
 (defsystem "cl-mpm/examples/brazilian"
   :depends-on ("cl-mpm/examples/tpb")
   :serial t

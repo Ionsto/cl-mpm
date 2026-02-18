@@ -60,7 +60,6 @@
                    (bcs-force-list cl-mpm::sim-bcs-force-list))
       sim
     (map-stiffness sim)
-    ;; (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
@@ -108,8 +107,7 @@
             (when (cl-mpm/mesh:node-active n)
               (cl-mpm/utils::vector-copy-into (cl-mpm/mesh::node-force n)
                                               (cl-mpm/mesh::node-residual n)))))
-         (cl-mpm::apply-bcs mesh bcs dt-loadstep))
-       ))
+         (cl-mpm::apply-bcs mesh bcs dt-loadstep))))
 (defmethod cl-mpm::reset-loadstep ((sim mpm-sim-dr-ul))
   (setf (sim-initial-setup sim) nil)
   (call-next-method))
@@ -297,6 +295,7 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (cl-mpm::calculate-forces-midpoint node 0d0 0d0 mass-scale))))
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
 
     ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
@@ -321,6 +320,7 @@
       ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )
 
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
 
     ;; (with-accessors ((ke-prev sim-ke-prev)
@@ -347,11 +347,11 @@
                           (acc cl-mpm::node-acceleration))
              node
            (when t
-             (or internal
-                 (not agg))
+               ;; (or internal
+               ;;     (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
     ;; (when enable-aggregate
-    ;;   ;; (cl-mpm/aggregate::project-velocity sim)
+    ;;   (cl-mpm/aggregate::project-velocity sim)
     ;;   ;; (cl-mpm/aggregate::project-displacement sim)
     ;;   )
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)

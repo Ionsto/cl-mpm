@@ -622,8 +622,7 @@
                    (cl-mpm/fastmaths::fast-.+ force-int (mpi-object-node-force-int mpi-node) force-int)
                    (cl-mpm/fastmaths::fast-.+ force-ext (mpi-object-node-force-ext mpi-node) force-ext)
                    (cl-mpm/fastmaths::fast-.+ force-damping (mpi-object-node-force-damping mpi-node) force-damping)
-                   (cl-mpm/fastmaths::fast-.+ force-buoyancy (mpi-object-node-force-buoyancy mpi-node) force-buoyancy)
-                   ))
+                   (cl-mpm/fastmaths::fast-.+ force-buoyancy (mpi-object-node-force-buoyancy mpi-node) force-buoyancy)))
                (error "MPI force exchange touched invalid node ~A" index))))))))
 
 (defparameter *damage-mp-send-cache* (make-array 0 :element-type 'cl-mpm::particle :adjustable t :fill-pointer 0))

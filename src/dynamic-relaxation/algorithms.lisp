@@ -39,7 +39,8 @@
      ;;   (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))
      )))
 
-(defun save-timestep-preamble (output-dir)
+(defgeneric save-timestep-preamble (sim output-dir))
+(defmethod save-timestep-preamble (sim output-dir)
   (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
     (format stream "steps,time,damage,plastic,energy,oobf,work,step-type,mass~%")))
 
@@ -66,6 +67,7 @@
   ;; (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
 
+
 (defgeneric save-vtks-dr-step (sim output-dir step iter))
 (defmethod save-vtks-dr-step (sim output-dir step iter)
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d.vtk" step iter)) sim)
@@ -73,18 +75,21 @@
   (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d.vtk" step iter)) sim)
   (cl-mpm/penalty:save-vtk-penalties (merge-pathnames output-dir (format nil "sim_step_p_~5,'0d_~5,'0d.vtk" step iter)) sim))
 
-(defun save-conv-preamble (output-dir)
+(defgeneric save-conv-preamble (sim output-dir))
+(defmethod save-conv-preamble (sim output-dir)
   (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
     (format stream "iter,step,real-time,plastic,damage,oobf,energy~%")))
 
 (defun save-conv-step (sim output-dir total-iter step real-time oobf energy)
   (unless (uiop:file-exists-p (merge-pathnames output-dir "conv.csv"))
-    (save-conv-preamble output-dir))
+    (save-conv-preamble sim output-dir))
   (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
     (format stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
             (if (sb-ext:float-infinity-p oobf) 0d0 oobf) energy)))
 
-(defun save-conv (sim output-dir iter)
+(defgeneric save-conv (sim output-dir iter))
+
+(defmethod save-conv (sim output-dir iter)
   (let ((oobf (cl-mpm::sim-stats-oobf sim))
         (energy (/ (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-work sim)))
         (real-time (cl-mpm::sim-time sim)))
@@ -183,12 +188,12 @@
                              (damage-iter t)
                              (save-update nil))
                          (loop for d from 0 to 1000
-                               while (and (<= fast-trial-conv oobf-crit)
+                               while (and (<= fast-trial-conv (sqrt oobf-crit))
                                           damage-iter)
                                do
                                   (setf (cl-mpm:sim-enable-damage sim) t)
                                   (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                  ;; (setf (cl-mpm:sim-enable-damage sim) nil)
+                                  (setf (cl-mpm:sim-enable-damage sim) nil)
 
                                   (setf damage (get-damage sim))
                                   (setf dconv
@@ -535,8 +540,8 @@
                                                      :criteria-energy conv-criteria
                                                      :criteria-oobf conv-criteria
                                                      :criteria-hist 1d0))
-    (save-timestep-preamble output-dir)
-    (save-conv-preamble output-dir)
+    (save-timestep-preamble sim output-dir)
+    (save-conv-preamble sim output-dir)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
     (setf (cl-mpm:sim-damping-factor sim) 0d0)
@@ -811,7 +816,7 @@
                            (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-  (save-conv-preamble output-dir)
+  (save-conv-preamble sim output-dir)
   (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json") sim)
   (funcall pre-step)
   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
@@ -865,20 +870,11 @@
                          (incf *total-iter* substeps)
                          (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)
                          (funcall plotter sim))))))
-                 ;; (when save-vtk-loadstep
-                 ;;   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
-                 ;;   (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim))
+
                  (cl-mpm::finalise-loadstep sim)
                  (funcall post-conv-step sim)
                  (save-vtks sim output-dir step)
                  (funcall plotter sim)
-                 ;; (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step))
-                 ;;                    :terminal "png size 1920,1080"
-                 ;;                    )
-                 ;; (when save-vtk-loadstep
-                 ;;   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
-                 ;;   (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d.vtk" step)) sim ))
-                 ;; (sleep 0.1d0)
                  (swank.live:update-swank)
               )))))
 
@@ -898,7 +894,7 @@
 ;;                                  (dt-scale 0.5d0))
 ;;   (uiop:ensure-all-directories-exist (list output-dir))
 ;;   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-;;   (save-conv-preamble output-dir)
+;;   (save-conv-preamble sim output-dir)
 ;;   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
 ;;   (with-accessors ((mps cl-mpm:sim-mps))
 ;;       sim
@@ -1002,8 +998,8 @@
                                                      :criteria-oobf conv-criteria
                                                      :criteria-hist 1d0
                                                      ))
-    (save-timestep-preamble output-dir)
-    (save-conv-preamble output-dir)
+    (save-timestep-preamble sim output-dir)
+    (save-conv-preamble sim output-dir)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (setf (cl-mpm:sim-mass-scale sim) 1d0)
     (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
@@ -1185,7 +1181,7 @@
                            (dt-scale 1d0))
   (uiop:ensure-all-directories-exist (list output-dir))
   (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-  (save-conv-preamble output-dir)
+  (save-conv-preamble sim output-dir)
   (cl-mpm/output::save-simulation-parameters (merge-pathnames output-dir "settings.json") sim)
   (funcall pre-step)
   ;; (save-conv-step sim output-dir 0 0 0d0 0d0)
@@ -1321,8 +1317,8 @@
                                                      :criteria-oobf conv-criteria
                                                      :criteria-hist 1d0
                                                      ))
-    (save-timestep-preamble output-dir)
-    (save-conv-preamble output-dir)
+    (save-timestep-preamble sim output-dir)
+    (save-conv-preamble sim output-dir)
     (defparameter *total-iter* 0)
     (when initial-quasi-static
       (cl-mpm:iterate-over-mps

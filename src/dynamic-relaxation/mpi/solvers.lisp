@@ -13,8 +13,7 @@
    :vel-algo :QUASI-STATIC)
   (:documentation "DR psudo-linear step with update stress last update"))
 
-(defclass mpm-sim-quasi-static-mpi (cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
-                                    mpm-sim-dr-mpi)
+(defclass mpm-sim-quasi-static-mpi (mpm-sim-dr-mpi cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul)
   ()
   (:default-initargs
    :vel-algo :QUASI-STATIC)
@@ -22,6 +21,15 @@
 
 (defmethod cl-mpm/dynamic-relaxation::map-stiffness :after ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-mpi))
   (cl-mpm/mpi::mpi-sync-mass sim))
+
+
+(defmethod save-vtks ((sim mpm-sim-dr-mpi) output-dir step)
+  (let ((rank (cl-mpi:mpi-comm-rank)))
+    (when (= rank 0)
+      (format t "Save vtks ~D~%" step))
+    (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" rank step)) sim)
+    (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d_~5,'0d.vtk" rank step)) sim)
+    (cl-mpm/penalty:save-vtk-penalties (uiop:merge-pathnames* output-dir (format nil "sim_p_~5,'0d_~5,'0d.vtk" rank step)) sim )))
 
 (defmethod save-vtks-dr-step ((sim mpm-sim-dr-mpi) output-dir step iter)
   (let ((rank (cl-mpi:mpi-comm-rank)))
@@ -121,28 +129,23 @@
     (cl-mpm/mpi::mpi-sync-displacement sim)
 
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
-    (cl-mpm/damage::calculate-damage sim dt-loadstep)
+    ;; (cl-mpm/damage::calculate-damage sim dt-loadstep)
     (cl-mpm::p2g-force-fs sim)
     (cl-mpm::apply-bcs mesh bcs-force dt)
 
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt))
 
-    (cl-mpm::iterate-over-nodes
-     (cl-mpm::sim-mesh sim)
-     (lambda (n)
-       (setf (cl-mpm/mesh::node-mass n) 0d0)))
+    ;; (cl-mpm::iterate-over-nodes
+    ;;  (cl-mpm::sim-mesh sim)
+    ;;  (lambda (n)
+    ;;    (setf (cl-mpm/mesh::node-mass n) 0d0)))
 
-    (update-node-fictious-mass sim)
-    ;; (cl-mpm/mpi::mpi-sync-mass sim)
-
-    ;; (when ghost-factor
-    ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
-    ;;   (cl-mpm::apply-bcs mesh bcs dt))
+    ;; (update-node-fictious-mass sim)
+    ;; ;; (cl-mpm/mpi::mpi-sync-mass sim)
 
     (cl-mpm/mpi::mpi-sync-force sim)
-    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
-    ;; ;;Update our nodes after force mapping
+    ;; ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
     (cl-mpm::update-dynamic-stats sim)
@@ -239,3 +242,67 @@
               0d0
               (* (sqrt 2) (sqrt (/ num denom))))
           0d0))))
+
+(defun combi-stats-mpi (sim)
+  (destructuring-bind (mass
+                       energy
+                       oobf-num
+                       oobf-denom
+                       power)
+      (cl-mpm::reduce-over-nodes
+       (cl-mpm:sim-mesh sim)
+       (lambda (node)
+         (if (and (cl-mpm/mesh:node-active node)
+                  (cl-mpm/mpi::node-in-computational-domain sim node))
+             (with-accessors ((active cl-mpm/mesh::node-active)
+                              (f-ext cl-mpm/mesh::node-external-force)
+                              (res cl-mpm/mesh::node-residual)
+                              (node-oobf cl-mpm/mesh::node-oobf)
+                              (mass cl-mpm/mesh::node-mass)
+                              (volume cl-mpm/mesh::node-volume)
+                              (volume-t cl-mpm/mesh::node-volume-true)
+                              (vel cl-mpm/mesh::node-velocity)
+                              (disp cl-mpm/mesh::node-displacment)
+                              )
+                 node
+               (declare (double-float mass))
+               (let (;(mass 1d0)
+                     ;; (scale-factor (expt mass 1))
+                     (scale-factor 1d0)
+                     ;; (scale-factor (/ volume volume-t))
+                     )
+                 (list
+                  scale-factor
+                  (* scale-factor (* 0.5d0 mass (cl-mpm/fastmaths::mag-squared vel)))
+                  (* scale-factor (cl-mpm/fastmaths::mag-squared res))
+                  (* scale-factor (cl-mpm/fastmaths::mag-squared f-ext))
+                  (* scale-factor
+                     (cl-mpm/fastmaths:dot
+                      disp f-ext)))))
+             (list 0d0 0d0 0d0 0d0 0d0)))
+       (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
+    (declare (double-float mass energy oobf-num oobf-denom power))
+    (let ((oobf 0d0)
+          (oobf-num (cl-mpm/mpi::mpi-sum oobf-num))
+          (oobf-denom (cl-mpm/mpi::mpi-sum oobf-denom))
+          (mass (cl-mpm/mpi::mpi-sum mass))
+          (power (cl-mpm/mpi::mpi-sum power))
+          (energy (cl-mpm/mpi::mpi-sum energy)))
+      (if (> oobf-denom 0d0)
+          (setf oobf (sqrt (/ oobf-num oobf-denom)))
+          (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
+      (if (> mass 0d0)
+          (values energy oobf power)
+          (values 0d0 0d0 0d0)))))
+
+(defmethod cl-mpm::update-dynamic-stats ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-mpi))
+  (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
+                   (stats-oobf cl-mpm::sim-stats-oobf)
+                   (stats-power cl-mpm::sim-stats-power)
+                   (stats-work cl-mpm::sim-stats-work))
+      sim
+    (multiple-value-bind (e o p) (combi-stats-mpi sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))))
