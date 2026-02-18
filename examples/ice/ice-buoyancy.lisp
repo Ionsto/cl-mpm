@@ -132,7 +132,7 @@
 (defparameter *enable-plastic-damage* t)
 (defparameter *delay-time* 1d3)
 (defparameter *delay-exponent* 1d0)
-(defparameter *enable-viscosity* nil)
+(defparameter *enable-viscosity* t)
 (defparameter *length-scaler* 2d0)
 
 (declaim (notinline setup))
@@ -148,22 +148,15 @@
                 (aspect 1)
                 (floatation-ratio 0.9)
                 (slope 0.1d0)
-                (multigrid-refines 1)
+                (multigrid-refines 0)
                 )
 
-  (let* (;; (refine (/ refine (expt 2 multigrid-refines)))
+  (let* ((refine (* refine (expt 2 (- multigrid-refines))))
          (density 918d0)
          (water-density 1028d0)
-         ;; (density 900d0)
-         ;; (water-density 1000d0)
          (mesh-resolution (/ 10d0 refine))
-         ;; (mps (* mps (expt 2 (- refines 1))))
-         ;; (h-fine (/ mesh-resolution (expt 2 (- refines 1))))
          (h-fine mesh-resolution)
          (offset (* mesh-resolution 2))
-         ;; (end-height ice-height)
-         ;; (start-height ice-height)
-
          (end-height ice-height)
          (ice-length (* ice-height aspect))
          (start-height (+ ice-height (* slope ice-length)))
@@ -171,7 +164,6 @@
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point floatation-ratio))
          (datum (+ water-level offset))
-         ;; (datum (* (round datum mesh-resolution) mesh-resolution))
          (domain-size (list (+ ice-length (* 2 ice-height))
                             (+ (* 1d0 offset)
                                (* start-height 2))))
@@ -189,7 +181,7 @@
                                                (list
                                                 :enable-fbar t
                                                 :enable-aggregate t
-                                                :mass-update-count 4
+                                                :mass-update-count 1
                                                 ;; :enable-ekl t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
                                                 :max-split-depth 8
@@ -519,15 +511,14 @@
 
 
 (defun calving-test ()
-  (let* ((mps 3)
+  (let* ((mps 2)
          (dt 1d3)
-         (H 500d0))
+         (H 700d0))
     (setup
-     :refine (expt 2 -3)
-     ;; :refine (expt 2 -5)
-     ;; :multigrid-refines 3
+     :refine 0.125
+     :multigrid-refines 0
      :friction 0.9d0
-     :bench-length (* 1d0 H)
+     :bench-length (* 0d0 H)
      :bench-extra-cut 10d0
      :ice-height H
      :mps mps
@@ -536,13 +527,7 @@
      :melange nil
      :aspect 8d0
      :slope 0.05d0
-     :floatation-ratio 0.98d0)
-    ;; (time
-    ;;  (cl-mpm/dynamic-relaxation:converge-quasi-static
-    ;;   *sim*
-    ;;   :oobf-crit 1d-3
-    ;;   )
-    ;;  )
+     :floatation-ratio 1d0)
 
     (plot-domain)
 
@@ -595,7 +580,7 @@
        ;; :explicit-damping-factor 1d-3
        ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
        :explicit-damping-factor 1d-4
-       :explicit-dt-scale 10d0
+       :explicit-dt-scale 5d0
        :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step (lambda (sim)
                          (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
@@ -604,7 +589,9 @@
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate sim) t
-          (cl-mpm::sim-ghost-factor *sim*) nil;(* 1d9 1d-6)
+          (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+          ;; (cl-mpm::sim-ghost-factor *sim*) nil(* 1d9 1d-6)
           (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
        :setup-dynamic
@@ -733,3 +720,23 @@
         (vgplot:ylabel "y")
         ))))
 
+
+
+(let (;(angles (loop for angle from 0.01d0 to 90d0 by 0.1d0 collect angle))
+      )
+  (let* ((E 6d0)
+         (nu 0.2d0)
+         (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
+         (eps (cl-mpm/utils:voigt-from-list (list 2d0 0d0 0d0 0d0 0d0 0d0)))
+         (sig (magicl:@ de eps))
+         )
+    (pprint (cl-mpm/damage::tensile-energy-norm eps E de))
+    ;; (vgplot:close-all-plots)
+    ;; (vgplot:plot angles
+    ;;              (mapcar (lambda (a)
+    ;;                        (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
+    ;;                         sig
+    ;;                         (* a (/ pi 180))))
+    ;;                      angles)
+    ;;              "Criterion over angle")
+    ))
