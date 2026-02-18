@@ -58,12 +58,14 @@
       (let* ((angle 30d0)
              (stress (cl-mpm/fastmaths:fast-scale!
                       (cl-mpm/constitutive:linear-elastic-mat strain de)
-                      (/ 1d0 (magicl:det def)))))
+                      1d0
+                      ;; (/ 1d0 (magicl:det def))
+                      )))
         (setf y
               ;; (cl-mpm/damage::tensile-energy-norm strain E de)
+              (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
               ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              ;; (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile stress (* angle (/ pi 180d0)))
-              (cl-mpm/damage::criterion-modified-vm strain k E nu)
+              ;; (cl-mpm/damage::criterion-modified-vm strain k E nu)
               )))))
 
 (defparameter *current-load* 0d0)
@@ -742,7 +744,7 @@
   (let* ((lstps 10)
          (total-disp -0.2d-3)
          (output-dir (format nil "./output-se/")))
-    (setup :refine 1 :mps 3)
+    (setup :refine 5 :mps 2)
     (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
     (setf cl-mpm/damage::*enable-reflect-x* t)
     (setf (cl-mpm::sim-gravity *sim*) 0d4)
