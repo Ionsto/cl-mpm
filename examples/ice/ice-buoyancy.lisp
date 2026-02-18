@@ -164,7 +164,7 @@
          (floating-point (* ice-height (/ density water-density)))
          (water-level (* floating-point floatation-ratio))
          (datum (+ water-level offset))
-         (domain-size (list (+ ice-length (* 2 ice-height))
+         (domain-size (list (+ ice-length (* 4 ice-height))
                             (+ (* 1d0 offset)
                                (* start-height 2))))
          (element-count (mapcar (lambda (x) (round x mesh-resolution)) domain-size))
