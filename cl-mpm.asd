@@ -473,7 +473,7 @@
   :serial t
   :components ((:file "examples/damage/creep")))
 
-(defsystem "cl-mpm/examples/sliding"
+(defsystem "cl-mpm/examples/penalty/sliding"
   :depends-on ("cl-mpm/example")
   :serial t
   :components ((:file "examples/penalty/sliding")))

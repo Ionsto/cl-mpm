@@ -273,10 +273,12 @@
           0d0))))
 (defmethod dr-estimate-damping ((sim cl-mpm/aggregate::mpm-sim-aggregated))
   (with-accessors ((mesh cl-mpm:sim-mesh)
-                   (dt cl-mpm:sim-dt))
+                   ;; (dt cl-mpm:sim-dt)
+                   )
       sim
     (let ((num 0d0)
-          (denom 0d0))
+          (denom 0d0)
+          (dt 1d0))
       (setf
        num
        (cl-mpm::reduce-over-nodes
@@ -300,16 +302,14 @@
              (if (and (cl-mpm/mesh:node-active node)
                       (not (cl-mpm/mesh::node-agg node)))
                  (* (cl-mpm/mesh:node-mass node)
-                    (cl-mpm/fastmaths::dot
-                     (cl-mpm/mesh::node-velocity node)
-                     (cl-mpm/mesh::node-velocity node)))
+                    (cl-mpm/fastmaths::mag-squared (cl-mpm/mesh::node-velocity node)))
                  0d0))
            #'+)))
 
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (cl-mpm/aggregate::iterate-over-dimensions-serial
+        (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
          (cl-mpm/mesh::mesh-nd mesh)
-         (lambda (d)
+         (lambda (d mut)
            (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
                   (res-prev (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual-prev d))
                   (E (cl-mpm/aggregate::sim-global-e sim))
@@ -319,16 +319,19 @@
                      sim
                      (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)
                      d)))
-             (incf num (cl-mpm/fastmaths:dot
-                        vi
-                        (cl-mpm/aggregate::apply-internal-bcs
-                         sim
-                         (magicl:@ (magicl:transpose E)
-                                   (cl-mpm/fastmaths::fast-.-
-                                    res-prev
-                                    res))
-                         d)))
-             (incf denom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))))))
+             (let ((dnum (cl-mpm/fastmaths:dot
+                          vi
+                          (cl-mpm/aggregate::apply-internal-bcs
+                           sim
+                           (magicl:@ (magicl:transpose E)
+                                     (cl-mpm/fastmaths::fast-.-
+                                      res-prev
+                                      res))
+                           d)))
+                   (ddenom (* dt (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))
+               (sb-thread::with-mutex (mut)
+                 (incf num dnum)
+                 (incf denom ddenom)))))))
       (if (> num 0d0)
           (if (= denom 0d0)
               0d0

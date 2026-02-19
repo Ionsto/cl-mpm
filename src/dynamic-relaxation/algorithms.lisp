@@ -477,22 +477,6 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
-                     ;; (setf (cl-mpm/aggregate::sim-enable-aggregate sim) (and (< energy 1d-2) (< oobf 1d-2)))
-
-                     ;; (when enable-mass-scaling
-                     ;;   (let ((res (and (< energy 1d-2)
-                     ;;                   (< oobf 1d-2))))
-                     ;;     (setf (cl-mpm:sim-mass-scale sim)
-                     ;;           (if res
-                     ;;               1d2
-                     ;;               1d0))
-                     ;;     (format t "Accelerate real time ~A~%" res)))
-                     ;; (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
-                     ;; (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time sim target-time :dt-scale dt-scale)
-                     ;;   (format t "CFL dt estimate: ~f~%" dt-e)
-                     ;;   (format t "CFL step count estimate: ~D~%" substeps-e)
-                     ;;   (setf (cl-mpm:sim-dt sim) dt-e)
-                     ;;   (setf substeps substeps-e)u
                      (when (or (>= energy e-crit)
                                (>= oobf oobf-crit))
                        (format t "Inertia passed~%")
@@ -1332,9 +1316,6 @@
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
       (setf (cl-mpm:sim-mass-scale sim) 1d0)
 
-      (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
-      (setf (cl-mpm:sim-damping-factor sim) 0d0)
-
       (setf (cl-mpm:sim-enable-damage sim) nil)
       (let (;(substeps 50)
             (vel-algo (cl-mpm::sim-velocity-algorithm sim))
@@ -1347,7 +1328,7 @@
          sim
          :energy-crit conv-criteria
          :oobf-crit conv-criteria
-         :dt-scale 1d0;dt-scale
+         :dt-scale 1d0
          :conv-steps 10000
          :substeps substeps
          :damping-factor 1d0;damping
@@ -1370,6 +1351,8 @@
     (setf (cl-mpm:sim-damping-factor sim) (*
                                            (sqrt mass-scale)
                                            damping (cl-mpm/setup:estimate-critical-damping sim)))
+    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
+    (setf (cl-mpm:sim-damping-factor sim) 0d0)
     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)

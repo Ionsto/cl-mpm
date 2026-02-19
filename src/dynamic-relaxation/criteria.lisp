@@ -109,53 +109,54 @@
          (lambda (a b) (mapcar (lambda (x y) (declare (double-float x y)) (+ x y)) a b)))
       (declare (double-float energy oobf-num oobf-denom power))
       (when sim-agg
-        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-              do (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
-                        (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
-                        (E (cl-mpm/aggregate::sim-global-e sim))
-                        (ma (cl-mpm/aggregate::sim-global-ma sim))
-                        (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
+        (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d mut)
+           (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
+                  (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                  (E (cl-mpm/aggregate::sim-global-e sim))
+                  (ma (cl-mpm/aggregate::sim-global-ma sim))
+                  (mv (cl-mpm/aggregate::assemble-global-scalar sim #'cl-mpm/mesh::node-mass))
 
-                        (vi (magicl:@
-                             (magicl:transpose E)
-                             (cl-mpm/fastmaths:fast-.*
-                              mv
-                              (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))))
-                        ;; (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d))
+                  (vi (magicl:@
+                       (magicl:transpose E)
+                       (cl-mpm/fastmaths:fast-.*
+                        mv
+                        (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))))
 
-                        (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
+                  (disp (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-displacment d)))
 
-                   ;; (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
-                   (setf
-                    vi
-                    (cl-mpm/aggregate::linear-solve-with-bcs ma vi (cl-mpm/aggregate::assemble-internal-bcs sim d)))
-                   ;; (setf res (cl-mpm/aggregate::apply-internal-bcs sim res d))
-                   ;; (setf f-ext (cl-mpm/aggregate::apply-internal-bcs sim f-ext d))
-                   ;; (setf disp (cl-mpm/aggregate::apply-internal-bcs sim disp d))
-                   ;; (setf vi (magicl:@ (magicl:transpose E) vi))
+             ;; (setf vi (cl-mpm/aggregate::apply-internal-bcs sim vi d))
+             (setf
+              vi
+              (cl-mpm/aggregate::linear-solve-with-bcs ma vi (cl-mpm/aggregate::assemble-internal-bcs sim d)))
 
-                   (incf oobf-num (cl-mpm/fastmaths::mag-squared
-                                   (cl-mpm/aggregate::apply-internal-bcs
-                                    sim
-                                    (magicl:@ (magicl:transpose E) res)
-                                    d
-                                    )))
-                   (incf oobf-denom (cl-mpm/fastmaths::mag-squared
-                                     (cl-mpm/aggregate::apply-internal-bcs
-                                      sim
-                                      (magicl:@ (magicl:transpose E) f-ext)
-                                      d)))
-                   (incf power (cl-mpm/fastmaths:dot
-                                disp f-ext))
-                   (incf energy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))
-                   )))
+             (let ((doobf-num (cl-mpm/fastmaths::mag-squared
+                               (cl-mpm/aggregate::apply-internal-bcs
+                                sim
+                                (magicl:@ (magicl:transpose E) res)
+                                d)))
+                   (doobf-denom (cl-mpm/fastmaths::mag-squared
+                                 (cl-mpm/aggregate::apply-internal-bcs
+                                  sim
+                                  (magicl:@ (magicl:transpose E) f-ext)
+                                  d)))
+                   (dpower (cl-mpm/fastmaths:dot
+                            disp f-ext))
+                   (denergy (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))
+               (sb-thread:with-mutex (mut)
+                 (incf oobf-num doobf-num)
+                 (incf oobf-denom doobf-denom)
+                 (incf power dpower)
+                 (incf energy denergy)))
+             ))))
       (let ((oobf 0d0)
             (oobf-num (sqrt oobf-num))
             (oobf-denom (sqrt oobf-denom)))
         (if (> oobf-denom 0d0)
             (setf oobf (/ oobf-num oobf-denom))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-        (when (> oobf-denom 0d0)
+        (when nil;(> oobf-denom 0d0)
           (cl-mpm::iterate-over-nodes
            (cl-mpm:sim-mesh sim)
            (lambda (node)
@@ -172,34 +173,32 @@
                  (when t
                    (setf node-oobf
                          (if (> oobf 0d0)
-                             (/ (cl-mpm/fastmaths::mag f-int)
-                              ;; (* n-mass (cl-mpm/fastmaths::mag f-int))
-                                oobf-denom)
+                             (cl-mpm/fastmaths::mag-squared f-int)
+                             ;; (/ (cl-mpm/fastmaths::mag f-int)
+                             ;;  ;; (* n-mass (cl-mpm/fastmaths::mag f-int))
+                             ;;    oobf-denom)
                              0d0
                              )))
                  (setf node-oobf 0d0)))))
 
           (when sim-agg
             (cl-mpm/aggregate::zero-global-scalar sim cl-mpm/mesh::node-oobf)
-            (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-                  do (let* ((E (cl-mpm/aggregate::sim-global-e sim))
-                            ;; (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-                            (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
-                            ;; (f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
-                            )
-
-                       (let* ((fagg (cl-mpm/aggregate::apply-internal-bcs
-                                     sim
-                                     (magicl:@ (magicl:transpose E)
-                                               f-int
-                                               ;; (cl-mpm/fastmaths::fast-.+
-                                               ;;  f-int
-                                               ;;  f-ext)
-                                               )
-                                     d))
-                              (fnorm (cl-mpm/fastmaths:fast-.* fagg fagg)))
-                         ;; (pprint fnorm)
-                         (cl-mpm/aggregate::increment-internal-scalar sim fnorm cl-mpm/mesh::node-oobf)))))
+            (cl-mpm/aggregate::iterate-over-dimensions-serial
+             (cl-mpm/mesh::mesh-nd mesh)
+             (lambda (d)
+               (let* ((E (cl-mpm/aggregate::sim-global-e sim))
+                      (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d)))
+                 (let* ((fagg (cl-mpm/aggregate::apply-internal-bcs
+                               sim
+                               (magicl:@ (magicl:transpose E)
+                                         f-int
+                                         ;; (cl-mpm/fastmaths::fast-.+
+                                         ;;  f-int
+                                         ;;  f-ext)
+                                         )
+                               d))
+                        (fnorm (cl-mpm/fastmaths:fast-.* fagg fagg)))
+                   (cl-mpm/aggregate::increment-internal-scalar sim fnorm cl-mpm/mesh::node-oobf))))))
           ;; (pprint "Set oobf aggregateg")
           (cl-mpm::iterate-over-nodes
            (cl-mpm:sim-mesh sim)
@@ -210,7 +209,7 @@
                               (node-oobf cl-mpm/mesh::node-oobf))
                  node
                (when (and active
-                          agg
+                          ;; agg
                           ;int
                           )
                  (setf node-oobf (/ (sqrt (max node-oobf 0d0)) oobf-denom))
@@ -476,11 +475,12 @@
         #'+))
 
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-              do
-                 (let* ((ma (cl-mpm/aggregate::sim-global-ma sim))
-                        (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
-                   (incf ke (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0))))))
+        (cl-mpm/aggregate::iterate-over-dimensions-serial
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d)
+           (let* ((ma (cl-mpm/aggregate::sim-global-ma sim))
+                  (vi (cl-mpm/aggregate::assemble-internal-vec sim #'cl-mpm/mesh::node-velocity d)))
+             (incf ke (* 0.5d0 (cl-mpm/utils::mtref (magicl:@ (magicl:transpose vi) ma vi) 0 0)))))))
       ke)))
 
 (defgeneric estimate-oobf (sim))
@@ -589,21 +589,23 @@
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-              do (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
-                        (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
-                        (E (cl-mpm/aggregate::sim-global-e sim)))
-                   (incf nmax (cl-mpm/fastmaths::mag-squared
-                               (cl-mpm/aggregate::apply-internal-bcs
-                                sim
-                                (magicl:@ (magicl:transpose E) (cl-mpm/fastmaths:fast-.+ f-ext f-int))
-                                d
-                                )))
-                   (incf dmax (cl-mpm/fastmaths::mag-squared
-                               (cl-mpm/aggregate::apply-internal-bcs
-                                sim
-                                (magicl:@ (magicl:transpose E) f-ext)
-                                d)))))))
+        (cl-mpm/aggregate::iterate-over-dimensions-serial
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d)
+           (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
+                  (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                  (E (cl-mpm/aggregate::sim-global-e sim)))
+             (incf nmax (cl-mpm/fastmaths::mag-squared
+                         (cl-mpm/aggregate::apply-internal-bcs
+                          sim
+                          (magicl:@ (magicl:transpose E) (cl-mpm/fastmaths:fast-.+ f-ext f-int))
+                          d
+                          )))
+             (incf dmax (cl-mpm/fastmaths::mag-squared
+                         (cl-mpm/aggregate::apply-internal-bcs
+                          sim
+                          (magicl:@ (magicl:transpose E) f-ext)
+                          d))))))))
     (if (> dmax 0d0)
         (setf oobf (sqrt (/ nmax dmax)))
       ;;Very odd case, we have external force but no internal forces
@@ -811,16 +813,6 @@
                         (cl-mpm/fastmaths:mag vel))
                      0d0)))
              #'+))
-      ;; (when sim-agg
-      ;;   (loop for d from 0 below (cl-mpm/mesh::mesh-nd mesh)
-      ;;         do (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-residual d))
-      ;;                   (vel (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-velocity d))
-      ;;                   )
-      ;;              (setf res (cl-mpm/aggregate::apply-internal-bcs sim res d))
-      ;;              (setf vel (cl-mpm/aggregate::apply-internal-bcs sim res d))
-      ;;              (incf res-norm (abs (cl-mpm/fastmaths:mag res)))
-      ;;              ;; (incf res-norm (abs (cl-mpm/fastmaths:dot res vel)))
-      ;;              )))
     res-norm)))
 
 (defun damage-increment-criteria-mesh (sim)

@@ -243,9 +243,8 @@
                        (setf
                         c (+ c-r (* (- c-0 c-r) (exp (- (* soft ps-vm)))))
                         phi (atan (+ (tan phi-r) (* (- (tan phi-0) (tan phi-r)) (exp (- (* soft ps-vm))))))))
-                     )
-                   ))))
-    ;; (cl-mpm/particle::update-log-p-wave mp)
+                     )))))
+    ;; (cl-mpm/particle::update-p-modulus mp)
     stress))
 
 (defmethod cl-mpm/particle::reset-loadstep-mp ((mp particle-plastic))

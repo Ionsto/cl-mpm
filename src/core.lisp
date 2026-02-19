@@ -294,7 +294,7 @@
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
 
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))
-        (integrate-vel-midpoint vel acc mass mass-scale dt damping)
+        ;; (integrate-vel-midpoint vel acc mass mass-scale dt damping)
 
         (cl-mpm/utils::vector-copy-into residual residual-prev)
         ;(cl-mpm/utils::vector-copy-into force-int residual)
@@ -867,7 +867,10 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
                      (if (and (> vol 0d0)
                               (> pmod 0d0)
                               (> svp-sum 0d0))
-                         (let ((nf (/ mass (* vol (+ (/ pmod svp-sum))))))
+                         (let ((nf (/ mass
+                                      pmod
+                                      ;; (* vol (+ (/ pmod svp-sum)))
+                                      )))
                            nf
                            ;; (* (abs
                            ;;     (/ (cl-mpm/mesh::node-volume node)
@@ -891,27 +894,28 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
      sim
      (lambda (bc)
        (let ((dt-req (cl-mpm/bc::calculate-min-dt-bc sim bc)))
-         (pprint dt-req)
          (when (and
                 dt-req
                 (if min-dt
                  (< dt-req min-dt)
                  t))
            (setf min-dt dt-req)))))
-    min-dt))
+    (if min-dt
+        min-dt
+        sb-ext::most-positive-double-float)))
 
 
 (defgeneric calculate-min-dt (sim)
   (:documentation "A function for calculating an approximate stable timestep"))
-(defmethod calculate-min-dt (sim)
+(defmethod calculate-min-dt ((sim mpm-sim))
   ;; (let ((dt-req (calculate-min-dt-mps sim)))
   ;;   (let ((bc-min-dt (calculate-min-dt-bcs sim)))
   ;;     (when bc-min-dt
   ;;       (setf dt-req (min dt-req bc-min-dt))))
   ;;   dt-req)
-  ;; (calculate-min-dt-bcs sim)
-  (calculate-min-dt-mps sim)
-  )
+  (min
+   ;; (calculate-min-dt-bcs sim)
+   (calculate-min-dt-mps sim)))
 
 (defun calculate-adaptive-time (sim target-time &key (dt-scale 1d0))
   "Given that the system has previously been mapped to, caluclate an estimated dt and substep for a given target time

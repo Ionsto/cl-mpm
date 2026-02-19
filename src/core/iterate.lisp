@@ -227,6 +227,25 @@ Calls func with only the node"
                    (funcall func bc))))))
   (values))
 
+(defun reduce-over-bcs-force (sim map reduce-func)
+  "Helper function for iterating over all nodes in a mesh
+   Calls func with only the node"
+  (declare (type function func))
+  (let ((bcs-f (sim-bcs-force-list sim)))
+    ;; (reduce (lambda (bcs)
+    ;;           (lparallel:pmap-reduce
+    ;;            map
+    ;;            reduce-func
+    ;;            bcs
+    ;;            )))
+    ;; (loop for bcs in bcs-f
+    ;;       do (lparallel:pdotimes (i (array-total-size bcs))
+    ;;            (let ((bc (aref bcs i)))
+    ;;              (when bc
+    ;;                (funcall func bc)))))
+    )
+  (values))
+
 
 
 (declaim (ftype (function

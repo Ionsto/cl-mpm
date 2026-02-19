@@ -1385,9 +1385,40 @@
 
 
 
+(declaim
+ (inline lisp-any/)
+ (ftype (function ((simple-array double-float)
+                   (simple-array double-float)
+                   (simple-array double-float))
+                  (values)) lisp-any/))
+(defun lisp-any/ (a b target)
+  (declare ((simple-array double-float (*)) a b target))
+  (loop for i fixnum from 0 below (length a)
+        do (setf (aref target i) (/ (aref a i) (aref b i))))
+  target)
+
+(defun fast-./ (a b &optional res)
+  (let ((res (if res
+                 res
+                 (cl-mpm/utils::empty-copy a))))
+    (declare (magicl:matrix/double-float a b res))
+    (lisp-any/ (magicl::matrix/double-float-storage a)
+               (magicl::matrix/double-float-storage b)
+               (magicl::matrix/double-float-storage res))
+    res))
+
+
 (defun matrix-reset-identity (matrix)
   (fast-zero matrix)
   (setf (varef matrix 0) 1d0
         (varef matrix 4) 1d0
         (varef matrix 8) 1d0)
   matrix)
+
+
+(defun element-wise-map (vec func)
+  (declare (function func))
+  (let ((s (cl-mpm/utils:fast-storage vec)))
+    (loop for i from 0 below (length s)
+          do (setf (aref s i) (funcall func (aref s i)))))
+  vec)

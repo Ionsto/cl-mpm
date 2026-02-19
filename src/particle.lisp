@@ -405,7 +405,6 @@
                    (p mp-p-modulus)
                    (p-0 mp-p-modulus-0))
       particle
-    ;; (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
     (setf p (compute-p-modulus particle))
     (setf p-0 p)))
 
@@ -415,7 +414,6 @@
                    (nu mp-nu)
                    (p mp-p-modulus))
       particle
-    ;; (setf p (/ E (* (+ 1d0 nu) (- 1d0 nu))))
     (update-p-modulus particle)
     (setf de (cl-mpm/constitutive::linear-elastic-matrix E nu))))
 

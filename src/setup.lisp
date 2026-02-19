@@ -410,6 +410,8 @@
                   (the double-float (cl-mpm/particle:mp-volume mp)))))
         sb-ext:double-float-positive-infinity)))
 
+
+
 (defun estimate-elastic-dt (sim &key (dt-scale 1d0))
   (* dt-scale
      (%estimate-elastic-dt sim)))
@@ -435,13 +437,15 @@
   (with-accessors ((mps cl-mpm:sim-mps))
       sim
     (if (> (length mps) 0)
-        (loop for mp across mps
-              minimize
-              (estimate-critical-damping-mp
-               sim
-               (cl-mpm/particle::mp-e mp)
-               (/ (cl-mpm/particle:mp-mass mp)
-                  (cl-mpm/particle:mp-volume mp))))
+        (/
+         (loop for mp across mps
+               sum
+               (estimate-critical-damping-mp
+                sim
+                (cl-mpm/particle::mp-e mp)
+                (/ (cl-mpm/particle:mp-mass mp)
+                   (cl-mpm/particle:mp-volume mp))))
+         (length mps))
         sb-ext:double-float-positive-infinity)))
 
 

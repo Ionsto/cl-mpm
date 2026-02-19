@@ -20,6 +20,8 @@
 ;; (declaim #.cl-mpm/settings:*optimise-setting*)
 (in-package :cl-mpm/penalty)
 
+(defparameter *friction-epsilon-scale* 1d0)
+
 (defclass bc-penalty-structure (bc-penalty)
   ((sim
     :accessor bc-penalty-sim
@@ -125,7 +127,6 @@
                    normal))))
     corner))
 
-(defparameter *debug-mutex* (sb-thread:make-mutex))
 (defparameter *debug-force* 0d0)
 (defparameter *debug-force-count* 0)
 (defparameter *debug-force-mp-count* 0)
@@ -441,7 +442,7 @@
     ;; (cl-mpm/particle::mp-p-modulus mp)
     )))
 
-(defstruct dr-contact-point position stiffness)
+(defstruct dr-contact-point position stiffness contact-area)
 
 (defun apply-penalty-point (mesh bc mp
                             point
@@ -510,10 +511,6 @@
                                    (cl-mpm/fastmaths:fast-scale-vector normal rel-disp)))
                        (tang-disp-norm-squared (cl-mpm/fastmaths::mag-squared tang-disp))
 
-                       ;; (tang-vel (cl-mpm/fastmaths:fast-.- resultant-vel
-                       ;;                                     (cl-mpm/fastmaths:fast-scale-vector normal rel-vel)))
-                       ;; (tang-vel-norm-squared (cl-mpm/fastmaths::mag-squared tang-vel))
-
                        (normal-damping (* 1d0 damping (sqrt (* epsilon mp-mass)) contact-area))
                        (damping-force (* normal-damping rel-vel))
                        (force-friction (cl-mpm/utils:vector-zeros))
@@ -530,6 +527,7 @@
                        tang-disp
                        (* -1d0
                           contact-area
+                          *friction-epsilon-scale*
                           (/ epsilon 2d0))))
 
                     (when (> (cl-mpm/fastmaths::mag-squared force-friction) 0d0)
@@ -584,6 +582,7 @@
                     (vector-push-extend
                      (make-dr-contact-point
                       :position (cl-mpm/utils:vector-copy trial-point)
+                      :contact-area contact-area
                       :stiffness (*
                                   2d0
                                   epsilon
@@ -943,12 +942,62 @@
                                  ))))))))))
 
 (defmethod cl-mpm/bc::calculate-min-dt-bc (sim (bc bc-penalty))
-  (when (bc-mp-stiffness bc)
-    (*
-     (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
-     (the double-float (sqrt (the double-float (cl-mpm::sim-mass-scale sim))))
-     (/ 1d0 (sqrt (bc-penalty-epsilon bc)))
-     (the double-float (the double-float (bc-mp-stiffness bc))))))
+  (let ((contacts (get-contact-points bc))
+        (min-dt nil)
+        )
+    (when (> (length contacts) 0d0)
+      (let* ((mesh (cl-mpm:sim-mesh sim))
+             (h (cl-mpm/mesh:mesh-resolution mesh))
+             )
+        (dotimes (i (length contacts))
+              (let ((contact (aref contacts i))
+                    (mass 0d0)
+                    (volume 0d0)
+                    (pmod 0d0)
+                    )
+                (iterate-over-neighbours-point-linear
+                 mesh
+                 (dr-contact-point-position contact)
+                 (lambda (mesh node svp grads)
+                   (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                    (node-volume cl-mpm/mesh::node-volume)
+                                    (node-pmod cl-mpm/mesh::node-pwave)
+                                    (node-mass cl-mpm/mesh::node-mass)
+                                    (node-lock cl-mpm/mesh::node-lock))
+                       node
+                     (declare (double-float node-mass node-volume svp))
+                     (when node-active
+                       (sb-thread:with-mutex (node-lock)
+                         ;; (incf node-pmod (abs (* (dr-contact-point-stiffness contact) svp)))
+                         (incf mass (* node-mass svp))
+                         (incf volume (* node-volume svp))
+                         (incf pmod (* node-pmod svp))
+                         )))))
+                (let ((est-dt
+                        (* h
+                           (sqrt
+                            (/
+                             (* (cl-mpm:sim-mass-scale sim) mass)
+                             (+
+                              pmod
+                              (* volume
+                                 (* ;h
+                                    (/
+                                     (dr-contact-point-stiffness contact)
+                                     (dr-contact-point-contact-area contact))))))))))
+                  (if min-dt
+                      (setf min-dt (min min-dt est-dt))
+                      (setf min-dt est-dt))
+                  )))))
+    min-dt)
+  ;; nil
+  ;; (when (bc-mp-stiffness bc)
+  ;;   (*
+  ;;    (the double-float (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
+  ;;    (the double-float (sqrt (the double-float (cl-mpm::sim-mass-scale sim))))
+  ;;    (/ 1d0 (sqrt (bc-penalty-epsilon bc)))
+  ;;    (the double-float (the double-float (bc-mp-stiffness bc)))))
+  )
 
 
 (defgeneric get-contact-points (bc))
@@ -1068,7 +1117,8 @@
                        node-mass
                        (*
                         svp
-                        (dr-contact-point-stiffness contact)))))))))))))
+                        (dr-contact-point-stiffness contact)
+                        ))))))))))))
     ))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))
@@ -1197,6 +1247,7 @@
                 (vector-push-extend
                  (make-dr-contact-point
                   :position (cl-mpm/utils:vector-copy trial-point)
+                  :contact-area contact-area
                   :stiffness (*
                               2d0
                               epsilon
