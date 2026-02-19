@@ -248,6 +248,9 @@
         (cl-mpm/fastmaths::fast-.+-vector force-ext force force)
         ;;Include velocity prop damping
         (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0 mass))
+        ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping (cl-mpm/mesh::node-pwave node) -1d0))
+        ;; (cl-mpm/fastmaths:fast-fmacc force-damp vel (* damping -1d0))
+
         (cl-mpm/fastmaths::fast-.+-vector force-damp force force)
         (cl-mpm/fastmaths::fast-.+-vector force-ghost force force)
         (cl-mpm/fastmaths:fast-fmacc acc force (/ 1d0 (* mass mass-scale)))

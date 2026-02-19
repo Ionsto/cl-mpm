@@ -636,8 +636,8 @@
                       (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d))))))
-      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
       )
+    (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (iterate-over-nodes
      mesh
      (lambda (node)

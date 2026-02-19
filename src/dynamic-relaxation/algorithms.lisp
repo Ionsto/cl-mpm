@@ -1351,8 +1351,6 @@
     (setf (cl-mpm:sim-damping-factor sim) (*
                                            (sqrt mass-scale)
                                            damping (cl-mpm/setup:estimate-critical-damping sim)))
-    (setf (cl-mpm:sim-dt sim) (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
-    (setf (cl-mpm:sim-damping-factor sim) 0d0)
     (setf (cl-mpm:sim-enable-damage sim) enable-damage)
     (cl-mpm:iterate-over-mps
      (cl-mpm:sim-mps sim)
@@ -1363,9 +1361,7 @@
          (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plastic))))
     (funcall post-conv-step sim)
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
-    (setf (cl-mpm:sim-dt sim)
-          (*
-           (cl-mpm/setup:estimate-elastic-dt sim :dt-scale dt-scale)))
+    (setf (cl-mpm:sim-dt sim) (* (cl-mpm/setup:estimate-elastic-dt sim :dt-scale dt-scale)))
     (let* ((sim-time 0d0))
       (let ((total-iter 0)
             (dt-accumulator 0d0))
