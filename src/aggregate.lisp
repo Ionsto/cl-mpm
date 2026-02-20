@@ -417,7 +417,7 @@
                  (setf (mtref e (cl-mpm/mesh::node-agg-fd node) (cl-mpm/mesh::node-agg-fdc node)) 1d0))
                (progn
                  ;;Aggregate -> populate svp
-                 (iterate-over-cell-shape-local
+                 (cl-mpm::iterate-over-cell-shape-local
                   mesh
                   (cl-mpm/mesh::node-agg-interior-cell node)
                   (cl-mpm/mesh::node-position node)

@@ -592,6 +592,7 @@
 
 (defmethod estimate-stiffness ((mp particle-elastic))
   (*
+   (/ 1d0 (cl-mpm/fastmaths::det-3x3 (cl-mpm/particle::mp-deformation-gradient mp)))
    (estimate-log-enhancement mp)
    (mp-p-modulus-0 mp)))
 

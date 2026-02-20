@@ -44,7 +44,6 @@
                     (sb-thread:with-mutex (node-lock)
                       (declare (double-float ul h))
                       (incf node-mass (* 2
-                                         (expt (cl-mpm/fastmaths::det-3x3 def) -1)
                                          mp-pmod
                                          svp
                                          mp-volume
@@ -63,6 +62,7 @@
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (cl-mpm/ghost::apply-ghost-stiffness sim)
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
 
@@ -212,12 +212,14 @@
     (cl-mpm::apply-bcs mesh bcs-force dt)
     (loop for bcs-f in bcs-force-list
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
-    (incf solve-count)
-    (when (= (mod solve-count mass-update-iter) 0)
-      (update-node-fictious-mass sim))
+
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
+
+    (incf solve-count)
+    (when (= (mod solve-count mass-update-iter) 0)
+      (update-node-fictious-mass sim))
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
@@ -329,6 +331,7 @@
                        ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
                (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+
                ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
                ;; (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
                )))))
@@ -351,6 +354,7 @@
     ;;       (cl-mpm::reset-nodes-force sim)
     ;;       (setf ke 0d0))
     ;;     (setf ke-prev ke)))
+
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
@@ -362,12 +366,11 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm::node-acceleration))
              node
-           (when t
-               ;; (or internal
-               ;;     (not agg))
+           (when
+               t
+               ;; (or (not agg)
+                 ;;     internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
-    ;; (when enable-aggregate
-    ;;   (cl-mpm/aggregate::project-velocity sim))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))
 
@@ -376,7 +379,7 @@
 
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-usf))
-  "Update stress first algorithm"
+  "update stress first algorithm"
   (declare (cl-mpm::mpm-sim-usf sim))
   (with-slots ((mesh cl-mpm::mesh)
                (mps cl-mpm::mps)
@@ -412,14 +415,14 @@
         (cl-mpm::update-node-kinematics sim)
 
         (cl-mpm::apply-bcs mesh bcs dt)
-        ;;Trial update displacements
+        ;;trial update displacements
         (cl-mpm::update-nodes sim)
         (cl-mpm::update-cells sim)
 
         (cl-mpm::update-stress mesh mps dt fbar)
         (update-node-fictious-mass sim)
         (setf (cl-mpm:sim-dt sim) 1d0)
-        ;; Map forces onto nodes
+        ;; map forces onto nodes
         (cl-mpm::p2g-force sim)
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list

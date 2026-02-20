@@ -1,6 +1,8 @@
 (in-package :cl-mpm/dynamic-relaxation)
 (declaim #.cl-mpm/settings:*optimise-setting*)
 
+(defparameter *debug-oobf* t)
+
 (defun combi-stats (sim)
   (destructuring-bind (mass
                        energy
@@ -44,28 +46,29 @@
       (if (> oobf-denom 0d0)
           (setf oobf (sqrt (/ oobf-num oobf-denom)))
           (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-      ;; (when (> oobf-denom 0d0)
-      ;;   (cl-mpm::iterate-over-nodes
-      ;;    (cl-mpm:sim-mesh sim)
-      ;;    (lambda (node)
-      ;;      (with-accessors ((active cl-mpm/mesh::node-active)
-      ;;                       (agg cl-mpm/mesh::node-agg)
-      ;;                       ;; (f-ext cl-mpm/mesh::node-external-force)
-      ;;                       (res cl-mpm/mesh::node-residual)
-      ;;                       (n-mass cl-mpm/mesh::node-mass)
-      ;;                       (node-oobf cl-mpm/mesh::node-oobf))
-      ;;          node
-      ;;        (if (and active
-      ;;                   (or
-      ;;                    (not agg) (cl-mpm/mesh::node-interior node)))
-      ;;          (when t
-      ;;            (setf node-oobf
-      ;;                  (if (> oobf 0d0)
-      ;;                      (/ (* n-mass (cl-mpm/fastmaths::mag res))
-      ;;                          oobf-denom)
-      ;;                      0d0
-      ;;                      )))
-      ;;          (setf node-oobf 0d0))))))
+      (when (and *debug-oobf*
+                 (> oobf-denom 0d0))
+        (cl-mpm::iterate-over-nodes
+         (cl-mpm:sim-mesh sim)
+         (lambda (node)
+           (with-accessors ((active cl-mpm/mesh::node-active)
+                            (agg cl-mpm/mesh::node-agg)
+                            ;; (f-ext cl-mpm/mesh::node-external-force)
+                            (res cl-mpm/mesh::node-residual)
+                            (n-mass cl-mpm/mesh::node-mass)
+                            (node-oobf cl-mpm/mesh::node-oobf))
+               node
+             (if (and active
+                        (or
+                         (not agg) (cl-mpm/mesh::node-interior node)))
+               (when t
+                 (setf node-oobf
+                       (if (> oobf 0d0)
+                           (/ (* n-mass (cl-mpm/fastmaths::mag res))
+                               oobf-denom)
+                           0d0
+                           )))
+               (setf node-oobf 0d0))))))
       (if (> mass 0d0)
           ;(values (/ energy mass) oobf (/ power mass))
           (values energy oobf power)
@@ -155,7 +158,8 @@
         (if (> oobf-denom 0d0)
             (setf oobf (/ oobf-num oobf-denom))
             (setf oobf (if (> oobf-num 0d0) sb-ext:double-float-positive-infinity 0d0)))
-        (when nil;(> oobf-denom 0d0)
+        (when (and *debug-oobf*
+                   (> oobf-denom 0d0))
           (cl-mpm::iterate-over-nodes
            (cl-mpm:sim-mesh sim)
            (lambda (node)
@@ -684,17 +688,17 @@
                    (stats-power cl-mpm::sim-stats-power)
                    (stats-work cl-mpm::sim-stats-work))
       sim
-    (if (cl-mpm/aggregate::sim-enable-aggregate sim)
-      (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
-        (setf stats-energy e
-              stats-oobf o
-              stats-power p)
-        (incf stats-work p))
-      (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
-        (setf stats-energy e
-              stats-oobf o
-              stats-power p)
-        (incf stats-work p)))
+    (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats-aggregated sim)
+      (setf stats-energy e
+            stats-oobf o
+            stats-power p)
+      (incf stats-work p))
+    ;; (if (cl-mpm/aggregate::sim-enable-aggregate sim))
+    ;; (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
+    ;;   (setf stats-energy e
+    ;;         stats-oobf o
+    ;;         stats-power p)
+    ;;   (incf stats-work p))
     ;; (setf stats-oobf (res-norm-aggregated sim))
     ))
 

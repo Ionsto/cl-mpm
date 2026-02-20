@@ -354,14 +354,11 @@
                    (enable-viscosity mp-enable-viscosity))
       mp
     ;;Train elastic strain - plus trail kirchoff stress
-    (if enable-viscosity
-        ;; (cl-mpm/models/visco::finite-strain-linear-viscous stress strain de e nu dt viscosity)
-        (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity)
-        (cl-mpm/constitutive:linear-elastic-mat strain de stress))
-    (when (and enable-viscosity
-               (not (= dt 0d0)))
-      (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
-             (G (/ e (* 2 (+ 1d0 nu))))
+    (setf stress (cl-mpm/constitutive:linear-elastic-mat strain de stress))
+    (when (and enable-viscosity (> dt 0d0))
+      (setf strain (cl-mpm/ext::constitutive-viscoelastic stress strain de e nu dt viscosity))
+      (let* ((K (cl-mpm/particle::calculate-bulk-modulus e nu))
+             (G (cl-mpm/particle::calculate-shear-modulus e nu))
              (rho (/ viscosity G))
              (dy (/ dt rho))
              (exp-rho (exp (- dy)))
@@ -369,9 +366,8 @@
              ;; (lam 1d0)
              )
         (declare (double-float K G p-wave-0))
-        (setf p-wave-0 (* (+ K (* 4/3 G lam)))))
-      ;; (cl-mpm/particle::update-p-modulus mp)
-      )
+        (setf p-wave-0 (+ K (* 4/3 G lam)))))
+
     stress))
 
 ;; (let* ((effective-stress 1d4)
