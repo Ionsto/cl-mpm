@@ -75,17 +75,21 @@
     (when enable-aggregate
       (let* ((E (cl-mpm/aggregate::sim-global-e sim))
              (ma (cl-mpm/aggregate::sim-global-ma sim)))
-        (loop for d from 0 below (cl-mpm::mesh-nd mesh)
-              do (let ((f (magicl:@ (magicl:transpose E)
-                                    (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
-                   (cl-mpm/aggregate::apply-internal-bcs sim f d)
-                   (let* ((acc (magicl:linear-solve ma f)))
-                     (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-                     ;; (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
-                     (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-                     (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)))))
+        (cl-mpm/aggregate::iterate-over-dimensions
+         (cl-mpm/mesh:mesh-nd mesh)
+         (lambda (d)
+           (let ((f (magicl:@ (magicl:transpose E)
+                              (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))))
+             (cl-mpm/aggregate::apply-internal-bcs sim f d)
+             (let* ((acc
+                      (cl-mpm/aggregate::linear-solve-with-bcs
+                       ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))))
+               (cl-mpm/aggregate::apply-internal-bcs sim acc d)
+               (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d))))))
 
-      (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt))
+      ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
+      )
+    (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
     (cl-mpm:iterate-over-nodes
      mesh
      (lambda (node)
@@ -97,8 +101,9 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm/mesh::node-acceleration))
              node
-           (when (or internal
-                     (not agg))
+           (when t
+             ;; (or internal
+             ;;     (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)))
 
@@ -111,10 +116,11 @@
                    )
       sim
     (map-stiffness sim)
-    (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
+    ;; (cl-mpm/penalty::assemble-penalty-stiffness-matrix sim)
     (loop for bcs-f in bcs-force-list
           do (loop for bc across bcs-f
                    do (cl-mpm/bc::assemble-bc-stiffness sim bc)))
+    (cl-mpm/ghost::apply-ghost-stiffness sim)
     (when enable-dynamics
       (let ((mass-scale (the double-float (/ 1d0 (cl-mpm::sim-dt-scale sim)))))
         (cl-mpm:iterate-over-nodes
@@ -341,30 +347,10 @@
      (lambda (n)
        (setf
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n))
-       ;;More complicated things need to happen with aggregation?
-       (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))
-       ))
+       (cl-mpm/utils:vector-copy-into (cl-mpm/mesh::node-velocity n) (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (update-node-fictious-mass sim)
-    (cl-mpm::filter-cells sim)
-
-    (cl-mpm::apply-bcs mesh bcs dt)
-    (cl-mpm::update-cells sim)
-    (when enable-aggregate
-      (cl-mpm/aggregate::update-aggregate-elements sim))
-    (cl-mpm::apply-bcs mesh bcs dt)
     (midpoint-starter sim)
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
     (setf initial-setup t)))
 
-;; (defmethod cl-mpm::update-dynamic-stats ((sim mpm-sim-implict-dynamic))
-;;   (with-accessors ((stats-energy cl-mpm::sim-stats-energy)
-;;                    (stats-oobf cl-mpm::sim-stats-oobf)
-;;                    (stats-power cl-mpm::sim-stats-power)
-;;                    (stats-work cl-mpm::sim-stats-work))
-;;       sim
-;;     (multiple-value-bind (e o p) (cl-mpm/dynamic-relaxation::combi-stats sim)
-;;       (setf stats-energy e
-;;             stats-oobf o
-;;             stats-power p)
-;;       (incf stats-work p))))

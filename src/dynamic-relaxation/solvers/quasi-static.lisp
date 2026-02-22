@@ -148,8 +148,6 @@
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    ;; (cl-mpm::update-cells sim)
-    ;; (cl-mpm::apply-bcs mesh bcs dt)
     (midpoint-starter sim)
     (setf initial-setup t)))
 
