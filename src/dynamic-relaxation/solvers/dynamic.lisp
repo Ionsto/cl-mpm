@@ -59,6 +59,7 @@
                    (dt cl-mpm::sim-dt)
                    (dt-loadstep cl-mpm/dynamic-relaxation::sim-dt-loadstep)
                    (enable-dynamics sim-enable-dynamics)
+                   (damping-scale cl-mpm/dynamic-relaxation::sim-damping-scale)
                    (enable-aggregate cl-mpm/aggregate::sim-enable-aggregate))
       sim
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
