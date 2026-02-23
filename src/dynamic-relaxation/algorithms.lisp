@@ -42,12 +42,12 @@
 (defgeneric save-timestep-preamble (sim output-dir))
 (defmethod save-timestep-preamble (sim output-dir)
   (with-open-file (stream (merge-pathnames output-dir "./timesteps.csv") :direction :output :if-exists :supersede)
-    (format stream "steps,time,damage,plastic,energy,oobf,work,step-type,mass~%")))
+    (cl-mpm:sim-format sim stream "steps,time,damage,plastic,energy,oobf,work,step-type,mass~%")))
 
 (defun save-timestep (sim output-dir step type)
   (when (uiop:file-exists-p (merge-pathnames output-dir "timesteps.csv"))
     (with-open-file (stream (merge-pathnames "timesteps.csv" output-dir) :direction :output :if-exists :append)
-      (format stream "~D,~f,~f,~f,~f,~f,~f,~A,~f~%"
+      (cl-mpm:sim-format sim stream "~D,~f,~f,~f,~f,~f,~f,~A,~f~%"
               step
               (cl-mpm::sim-time sim)
               (get-damage sim)
@@ -61,7 +61,7 @@
 
 (defgeneric save-vtks (sim output-dir step))
 (defmethod save-vtks (sim output-dir step)
-  (format t "Save vtks ~D~%" step)
+  (cl-mpm:sim-format sim t "Save vtks ~D~%" step)
   (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" step)) sim)
   (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" step)) sim)
   ;; (cl-mpm/output::save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
@@ -78,13 +78,13 @@
 (defgeneric save-conv-preamble (sim output-dir))
 (defmethod save-conv-preamble (sim output-dir)
   (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :supersede)
-    (format stream "iter,step,real-time,plastic,damage,oobf,energy~%")))
+    (cl-mpm:sim-format sim stream "iter,step,real-time,plastic,damage,oobf,energy~%")))
 
 (defun save-conv-step (sim output-dir total-iter step real-time oobf energy)
   (unless (uiop:file-exists-p (merge-pathnames output-dir "conv.csv"))
     (save-conv-preamble sim output-dir))
   (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
-    (format stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
+    (cl-mpm:sim-format sim stream "~D,~D,~f,~f,~f,~f,~f~%" total-iter step real-time (get-plastic sim) (get-damage sim)
             (if (sb-ext:float-infinity-p oobf) 0d0 oobf) energy)))
 
 (defgeneric save-conv (sim output-dir iter))
@@ -94,7 +94,7 @@
         (energy (/ (cl-mpm::sim-stats-energy sim) (cl-mpm::sim-stats-work sim)))
         (real-time (cl-mpm::sim-time sim)))
     (with-open-file (stream (merge-pathnames output-dir "conv.csv") :direction :output :if-exists :append)
-      (format stream "~D,~D,~f,~f,~f,~f,~f~%" iter 0 real-time (get-plastic sim) (get-damage sim)
+      (cl-mpm:sim-format sim stream "~D,~D,~f,~f,~f,~f,~f~%" iter 0 real-time (get-plastic sim) (get-damage sim)
               oobf energy))))
 
 (defun get-damage (sim)
@@ -174,7 +174,7 @@
                     (unless true-stagger
                       (let ((damage-inc (damage-increment-criteria sim)))
                         (when (> damage-inc max-damage-inc)
-                          (format t "Damage criteria failed~%")
+                          (cl-mpm:sim-format sim t "Damage criteria failed~%")
                           (error (make-instance 'non-convergence-error
                                                 :text "Damage criteria exeeded"
                                                 :ke-norm 0d0
@@ -207,16 +207,16 @@
                                   (setf damage-prev damage)
                                   (unless (>= dconv damage-crit)
                                     (setf damage-iter nil))
-                                  (format t "Damage ~E - prev damage ~E ~%" damage damage-prev)
-                                        (format t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
+                                  (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E ~%" damage damage-prev)
+                                        (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
                                         (let ((damage-inc (damage-increment-criteria sim)))
                                           (when (> damage-inc max-damage-inc)
-                                            (format t "Damage criteria failed~%")
+                                            (cl-mpm:sim-format sim t "Damage criteria failed~%")
                                             (error (make-instance 'non-convergence-error
                                                                   :text "Damage criteria exeeded"
                                                                   :ke-norm 0d0
                                                                   :oobf-norm 0d0))))
-                                        (format t "Def crit ~E~%" (compute-max-deformation sim))
+                                        (cl-mpm:sim-format sim t "Def crit ~E~%" (compute-max-deformation sim))
                                         (convergence-check sim)
 
                                         (setf damage-prev damage)
@@ -224,7 +224,7 @@
                                           (dotimes (i 2)
                                             (cl-mpm:update-sim sim))
                                           (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                          (format t "Fast trial oobf ~E~%" fast-trial-conv)
+                                          (cl-mpm:sim-format sim t "Fast trial oobf ~E~%" fast-trial-conv)
                                           (setf save-update t))
                                )
                                (when save-update
@@ -244,7 +244,7 @@
                            (setf dconv 0d0)
                            ))))
     (when (>= dconv damage-crit)
-      (format t "Failed to converge damage during stagger~%")
+      (cl-mpm:sim-format sim t "Failed to converge damage during stagger~%")
       (error (make-instance 'non-convergence-error
                             :text "Failed to converge damage during stagger"
                             :ke-norm 0d0
@@ -310,16 +310,16 @@
                               (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                               (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_step_cells_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                               ))
-                          (format t "Def crit ~E~%" (compute-max-deformation sim))
+                          (cl-mpm:sim-format sim t "Def crit ~E~%" (compute-max-deformation sim))
                           (let ((max-def (compute-max-deformation sim)))
                             (when (> max-def 2d0)
-                              (format t "Deformation gradient criteria exceeded~%")
+                              (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
                               (error (make-instance 'non-convergence-error
                                                     :text "Deformation gradient J exceeded"
                                                     :ke-norm 0d0
                                                     :oobf-norm 0d0)))
                             (let ((true-intertia (true-intertial-criteria sim (sim-dt-loadstep sim))))
-                              (format t "True intertia ~E~%" true-intertia)
+                              (cl-mpm:sim-format sim t "True intertia ~E~%" true-intertia)
                               (save-conv-step sim output-dir *total-iter* global-step
                                               0d0
                                               o
@@ -328,15 +328,15 @@
                                               )
                               (setf inertia true-intertia)
                               (when (> true-intertia 1d-4)
-                                (format t "Inertia criteria exceeded~%")
+                                (cl-mpm:sim-format sim t "Inertia criteria exceeded~%")
                                 (error (make-instance 'error-inertia-criteria
                                                       :text "True inertia exceeded"
                                                       :inertia-norm true-intertia)))))
                           (unless true-stagger
                             (let ((damage-inc (damage-increment-criteria sim)))
-                              (format t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
+                              (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
                               (when (> damage-inc max-damage-inc)
-                                (format t "Damage criteria failed ~E~%" damage-inc)
+                                (cl-mpm:sim-format sim t "Damage criteria failed ~E~%" damage-inc)
                                 (error (make-instance 'error-damage-criteria
                                                       :text "Damage criteria exeeded"
                                                       :max-damage-inc 0d0)))))
@@ -350,7 +350,7 @@
                            (setf dconv 0d0))
                          (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
                            (loop for d from 0 to 100
-                                 while (and (<= fast-trial-conv (* 2d0 oobf-crit))
+                                 while (and (<= fast-trial-conv (sqrt oobf-crit))
                                             damage-iter)
                                  do
                                     (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
@@ -365,14 +365,14 @@
                                     (setf damage-prev damage)
                                     (when (< dconv damage-crit)
                                       (setf damage-iter nil))
-                                    (format t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
+                                    (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
                                     (let ((damage-inc (damage-increment-criteria sim)
                                             ;; (compute-max-damage-energy-crit sim)
                                             ))
-                                      (format t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
-                                      ;; (format t "Damage energy criterion ~E~%" (compute-max-damage-energy-crit sim))
+                                      (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
+                                      ;; (cl-mpm:sim-format sim t "Damage energy criterion ~E~%" (compute-max-damage-energy-crit sim))
                                       (when (> damage-inc max-damage-inc)
-                                        (format t "Damage criteria failed ~E~%" damage-inc)
+                                        (cl-mpm:sim-format sim t "Damage criteria failed ~E~%" damage-inc)
                                         (when save-vtk-dr
                                           (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_step_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
                                           (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_step_nodes_~5,'0d_~5,'0d_~5,'0d.vtk" global-step *trial-iter* total-i)) sim)
@@ -380,11 +380,11 @@
                                         (error (make-instance 'error-damage-criteria
                                                               :text "Damage criteria exeeded"
                                                               :max-damage-inc 0d0))))
-                                    (when t;damage-iter
+                                    (when damage-iter
                                       (dotimes (i 2)
                                         (cl-mpm:update-sim sim))
                                       (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                      (format t "fast trial ~E~%" fast-trial-conv))
+                                      (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
                                     (incf total-i))))
 
                        (setf damage-prev damage)
@@ -402,7 +402,7 @@
                        ))
             (when (or (> (cl-mpm::sim-stats-oobf sim) oobf-crit)
                       (> dconv damage-crit))
-              (format t "Staggered solve didn't converge ~E ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
+              (cl-mpm:sim-format sim t "Staggered solve didn't converge ~E ~E~%" dconv (cl-mpm::sim-stats-oobf sim))
               (error (make-instance 'non-convergence-error
                                     :text "Staggered solve didn't converge ~E ~E"
                                     :ke-norm  dconv
@@ -446,8 +446,8 @@
          (intertial-passed nil)
          (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
          (substeps (round target-time (cl-mpm:sim-dt sim))))
-    (format t "Substeps ~D~%" substeps)
-    (format t "E crit ~E - OOBF crit ~E~%" e-crit oobf-crit)
+    (cl-mpm:sim-format sim t "Substeps ~D~%" substeps)
+    (cl-mpm:sim-format sim t "E crit ~E - OOBF crit ~E~%" e-crit oobf-crit)
     (time (loop for step from 0 to max-steps
                 while (and (cl-mpm::sim-run-sim sim)
                            (or (>= energy e-crit)
@@ -461,7 +461,7 @@
                      (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_real_nodes_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                      (setf energy 0d0)
                      (setf oobf 0d0)
-                     (format t "Real time step ~d - substeps ~d - time ~E ~%" step substeps target-time)
+                     (cl-mpm:sim-format sim t "Real time step ~d - substeps ~d - time ~E ~%" step substeps target-time)
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim sim)
@@ -479,9 +479,9 @@
 
                      (when (or (>= energy e-crit)
                                (>= oobf oobf-crit))
-                       (format t "Inertia passed~%")
+                       (cl-mpm:sim-format sim t "Inertia passed~%")
                        (setf intertial-passed t))
-                     (format t "Residuals ~E ~E ~%" energy oobf)
+                     (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
                      (setf (cl-mpm::sim-stats-oobf sim) oobf)
                      (save-timestep sim output-dir global-step :DYNAMIC)
                      (funcall plotter sim)
@@ -588,13 +588,13 @@
              (elastic-dt (cl-mpm/setup::estimate-elastic-dt sim))
              (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
              )
-        (format t "Elastic dt ~E, override quasi-static at ~E~%" elastic-dt (* elastic-dt elastic-dt-margin))
+        (cl-mpm:sim-format sim t "Elastic dt ~E, override quasi-static at ~E~%" elastic-dt (* elastic-dt elastic-dt-margin))
         (loop for step from 1 to (+ 1 max-steps)
               while (and (cl-mpm::sim-run-sim sim)
                          (< (cl-mpm::sim-time sim) total-time))
               do
                  (let ((quasi-conv nil))
-                   (format t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt 2 current-adaptivity)))
+                   (cl-mpm:sim-format sim t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt 2 current-adaptivity)))
                    (defparameter *trial-iter* 0)
                    (let ((stagger-iters 0))
                      (loop for i from 0 to max-adaptive-steps
@@ -603,7 +603,7 @@
                                 (let* ((adapted-dt (/ dt (expt 2 current-adaptivity))))
                                   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
                                         (+ (min (- total-time (cl-mpm::sim-time sim)) adapted-dt) 1d-15))
-                                  (format t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
+                                  (cl-mpm:sim-format sim t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                 (setf *trial-iter* i)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
@@ -621,28 +621,28 @@
                                                      )
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
-                                  (format t "Quasi-conv? ~A~%" quasi-conv)
+                                  (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)
                                   (unless quasi-conv
                                     (when (= current-adaptivity max-adaptive-steps)
-                                      (format t "Quasi-time terminated as too many dt refinemets are required~%"))
+                                      (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%"))
                                     (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
-                                      (format t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin))
+                                      (cl-mpm:sim-format sim t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin))
                                     (if (or (= current-adaptivity max-adaptive-steps)
                                             (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt)))
                                         (progn
-                                          ;; (format t "Quasi-time terminated as too many dt refinemets are required~%")
+                                          ;; (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%")
                                           (loop-finish))
                                         (incf current-adaptivity))
                                     (when (> i 4)
-                                      (format t "We've adaptive multiple sucessive times, double jump dt adaption~%")
+                                      (cl-mpm:sim-format sim t "We've adaptive multiple sucessive times, double jump dt adaption~%")
                                       (incf i 1)))))
                            finally (progn
-                                     (format t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
+                                     (cl-mpm:sim-format sim t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
                                      (incf prev-step-iter)
                                      (if (and (= i 1) (<= stagger-iters 3))
                                          (progn
                                            (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
-                                           (format t "Potential adaption easy steps ~A~%" prev-steps-easy)
+                                           (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)
                                            (when (every #'identity prev-steps-easy)
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
@@ -651,7 +651,7 @@
                                          ))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
-                     (format t "Start real-timestepping~%")
+                     (cl-mpm:sim-format sim t "Start real-timestepping~%")
                      (let ((dt-loadstep (* 1d0 (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
                        (change-class sim explicit-dynamic-solver)
@@ -667,7 +667,7 @@
                                        :enable-damage enable-damage
                                        :enable-plastic enable-plastic)
                        (change-class sim quasi-static-solver)
-                       (format t "Finished real-timestepping~%")
+                       (cl-mpm:sim-format sim t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt-loadstep)
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim))
@@ -682,7 +682,7 @@
                    ;; (cl-mpm/output:save-vtk-cells (merge-pathnames output-dir (format nil "sim_cells_~5,'0d.vtk" step)) sim)
                    (swank.live:update-swank)))))
     )
-  (format t "Finished algorithm~%")
+  (cl-mpm:sim-format sim t "Finished algorithm~%")
   )
 
 
@@ -810,7 +810,7 @@
     (let* ((load (cl-mpm:sim-gravity sim)))
       (unless loading-function
         (setf loading-function (lambda (percent)
-                                 (format t "Loading factor ~E~%" percent)
+                                 (cl-mpm:sim-format sim t "Loading factor ~E~%" percent)
                                  (setf (cl-mpm:sim-gravity sim)
                                        (* load percent)))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
@@ -820,7 +820,7 @@
               while (cl-mpm::sim-run-sim sim)
               do
                  (progn
-                   (format t "Load step ~D~%" step)
+                   (cl-mpm:sim-format sim t "Load step ~D~%" step)
                    (defparameter *ke-last* 0d0)
                    ;; (pprint step)
                    (let* ((percent (/ (float step) load-steps)))
@@ -847,7 +847,7 @@
                        (lambda (i energy oobf)
                          (funcall post-iter-step i energy oobf)
                          (setf conv-steps (* substeps i))
-                         (format t "Substep ~D~%" i)
+                         (cl-mpm:sim-format sim t "Substep ~D~%" i)
                          (let ((i (+ 0 i)))
                            (when save-vtk-dr
                              (save-vtks-dr-step sim output-dir step i)))
@@ -886,7 +886,7 @@
 ;;            (total-iter 0))
 ;;       (unless loading-function
 ;;         (setf loading-function (lambda (percent)
-;;                                  (format t "Loading factor ~E~%" percent)
+;;                                  (cl-mpm:sim-format sim t "Loading factor ~E~%" percent)
 ;;                                  (cl-mpm:iterate-over-mps
 ;;                                   mps
 ;;                                   (lambda (mp)
@@ -899,7 +899,7 @@
 ;;               while (cl-mpm::sim-run-sim sim)
 ;;               do
 ;;                  (progn
-;;                    (format t "Load step ~D~%" step)
+;;                    (cl-mpm:sim-format sim t "Load step ~D~%" step)
 ;;                    (defparameter *ke-last* 0d0)
 ;;                    ;; (pprint step)
 ;;                    (funcall loading-function (/ (float step) load-steps))
@@ -924,7 +924,7 @@
 ;;                          (vgplot:title (format nil "Step ~D - substep ~D - KE ~,3E - OOBF ~,3E - damp ~,3E"  step (* i substeps) energy oobf
 ;;                                                (/ (cl-mpm::sim-damping-factor sim)
 ;;                                                   (cl-mpm/setup:estimate-critical-damping sim))))
-;;                          (format t "Substep ~D~%" i)
+;;                          (cl-mpm:sim-format sim t "Substep ~D~%" i)
 ;;                          (let ((i (+ 0 i)))
 ;;                            (when save-vtk-dr
 ;;                              (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d_~5,'0d.vtk" step i)) sim)
@@ -1020,17 +1020,17 @@
          ))
       (cl-mpm::finalise-loadstep sim)
       (cl-mpm::reset-grid (cl-mpm:sim-mesh sim))
-      (format t "Reset grid, finalise loadstep~%")
+      (cl-mpm:sim-format sim t "Reset grid, finalise loadstep~%")
       (setf (cl-mpm::sim-time sim) 0d0)
       (cl-mpm/dynamic-relaxation::reset-mp-velocity sim)
       (setf (cl-mpm::sim-velocity-algorithm sim) vel-algo)
-      (format t "Set plastic-damage~%")
+      (cl-mpm:sim-format sim t "Set plastic-damage~%")
       (set-mp-plastic-damage sim :enable-plastic enable-plastic :enable-damage enable-damage)
-      (format t "Change class~%")
+      (cl-mpm:sim-format sim t "Change class~%")
       (change-class sim sim-type)
-      (format t "Call post-conv~%")
+      (cl-mpm:sim-format sim t "Call post-conv~%")
       (funcall post-conv-step sim)
-      (format t "Start iter~%")
+      (cl-mpm:sim-format sim t "Start iter~%")
       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt)
       (let* ((current-adaptivity 0)
              (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
@@ -1040,7 +1040,7 @@
                          (< sim-time total-time))
               do
                  (let ((quasi-conv nil))
-                   (format t "quasi-timestep ~d - time ~E, dt refine ~d~%" step sim-time current-adaptivity)
+                   (cl-mpm:sim-format sim t "quasi-timestep ~d - time ~E, dt refine ~d~%" step sim-time current-adaptivity)
                    (defparameter *trial-iter* 0)
                    (let ((stagger-iters 0))
                      (loop for i from 0 to max-adaptive-steps
@@ -1049,7 +1049,7 @@
                                 (let* ((adapted-dt (/ dt (expt 2 current-adaptivity))))
                                   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
                                         (+ (min (- total-time sim-time) adapted-dt) 1d-15))
-                                  (format t "trial step ~d, dt refine ~d - dt ~E~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
+                                  (cl-mpm:sim-format sim t "trial step ~d, dt refine ~d - dt ~E~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
                                 (setf *trial-iter* i)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
@@ -1071,11 +1071,11 @@
                                     (if (= current-adaptivity max-adaptive-steps)
                                         (progn
                                           (cl-mpm::reset-node-displacement sim)
-                                          (format t "quasi-time terminated as too many dt refinemets are required~%")
+                                          (cl-mpm:sim-format sim t "quasi-time terminated as too many dt refinemets are required~%")
                                           (loop-finish))
                                         (incf current-adaptivity)))))
                            finally (progn
-                                     (format t "finished with ~d dt adaptions - stagger iters ~d~%" (- i 1) stagger-iters)
+                                     (cl-mpm:sim-format sim t "finished with ~d dt adaptions - stagger iters ~d~%" (- i 1) stagger-iters)
                                      (when (and (= i 1) (< stagger-iters 4))
                                        (setf current-adaptivity
                                              (max min-adaptive-steps
@@ -1114,7 +1114,7 @@
                                       (dt-scale 1d0)
                                       (post-iter-step
                                        (lambda (i e o)
-                                         (format t "Static step ~D - ~E~%" i o))))
+                                         (cl-mpm:sim-format sim t "Static step ~D - ~E~%" i o))))
   "Take a sim, switch it to implicit quasi-static, disable elastic and plastic and converge switch the class back to the original then enable damage and plastic"
   (let ((vel-algo (cl-mpm::sim-velocity-algorithm sim))
         (sim-type (class-of sim)))
@@ -1177,7 +1177,7 @@
            (finished t))
       (unless loading-function
         (setf loading-function (lambda (percent)
-                                 (format t "Loading factor ~E~%" percent)
+                                 (cl-mpm:sim-format sim t "Loading factor ~E~%" percent)
                                  (setf (cl-mpm:sim-gravity sim)
                                        (* load percent)))))
       (setf (cl-mpm::sim-dt-scale sim) dt-scale)
@@ -1191,14 +1191,14 @@
                          (<= current-load 1d0))
               do
                  (progn
-                   (format t "Load step ~D~%" step)
+                   (cl-mpm:sim-format sim t "Load step ~D~%" step)
                    (defparameter *ke-last* 0d0)
                    (let ((conv-steps 0)
                          (i-total 0))
                      (flet ((trial-solve ()
                               (handler-case
                                   (progn
-                                    (format t "Load applied ~E~%" (min 1d0 (+ current-load load-step-size)))
+                                    (cl-mpm:sim-format sim t "Load applied ~E~%" (min 1d0 (+ current-load load-step-size)))
                                     (funcall loading-function (min 1d0 (+ current-load load-step-size)))
                                     (time
                                      (;cl-mpm/dynamic-relaxation:converge-quasi-static
@@ -1218,7 +1218,7 @@
                                         (let ((i i-total))
                                           (funcall post-iter-step i energy oobf)
                                           (setf conv-steps (* substeps i))
-                                          (format t "Substep ~D~%" i)
+                                          (cl-mpm:sim-format sim t "Substep ~D~%" i)
                                           (let ((i (+ 0 i)))
                                             (when save-vtk-dr
                                               (save-vtks-dr-step sim output-dir step i)))
@@ -1226,14 +1226,14 @@
                                           (incf *total-iter* substeps)
                                           (save-conv-step sim output-dir *total-iter* step 0d0 oobf energy)
                                           (funcall plotter sim)))))
-                                    (format t "Generalised solve passed~%")
+                                    (cl-mpm:sim-format sim t "Generalised solve passed~%")
                                     t)
                                 (cl-mpm/errors:error-simulation (c)
                                   (princ c)
                                   (cl-mpm::reset-loadstep sim)
                                   (values nil 0))
                                 (error (c)
-                                  (format t "A non simulation error was thrown!")
+                                  (cl-mpm:sim-format sim t "A non simulation error was thrown!")
                                   (princ c)
                                   (cl-mpm::reset-loadstep sim)
                                   (cl-mpm::sim-run-sim sim) nil
@@ -1243,23 +1243,23 @@
                                while (not quasi-conv)
                                do (progn
                                     (setf load-step-size (* initial-load-step-size (expt 2 (- current-adaptivity))))
-                                    (format t "Load step size ~E adapted by ~D~%" load-step-size current-adaptivity)
+                                    (cl-mpm:sim-format sim t "Load step size ~E adapted by ~D~%" load-step-size current-adaptivity)
                                     (setf quasi-conv (trial-solve))
                                     (unless quasi-conv
-                                      (format t "Failed conv, adapting~%" )
+                                      (cl-mpm:sim-format sim t "Failed conv, adapting~%" )
                                       (incf current-adaptivity))
                                     (if (or (= current-adaptivity max-adaptive-steps))
                                         (progn
                                           (loop-finish))))
                                finally (progn
-                                         (format t "Finished with ~D adaptions- conv ~A~%" (- i 1) quasi-conv)
+                                         (cl-mpm:sim-format sim t "Finished with ~D adaptions- conv ~A~%" (- i 1) quasi-conv)
                                          (when (and (= i 1))
                                            (setf current-adaptivity
                                                  (max min-adaptive-steps
                                                       (- current-adaptivity 1))))
                                          ))
                          (unless quasi-conv;(>= current-adaptivity max-adaptive-steps)
-                           (format t "Solve failed completly~%" )
+                           (cl-mpm:sim-format sim t "Solve failed completly~%" )
                            (setf (cl-mpm::sim-run-sim sim) nil
                                  finished nil))
                          ))))
@@ -1370,11 +1370,11 @@
                                (< sim-time total-time))
                     do
                        (let ()
-                         (format t "Step ~d ~%" steps)
+                         (cl-mpm:sim-format sim t "Step ~d ~%" steps)
                          (cl-mpm/dynamic-relaxation::save-vtks sim output-dir steps)
                          (save-timestep sim output-dir total-iter :DYNAMIC)
                          (incf dt-accumulator dt)
-                         (format t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
+                         (cl-mpm:sim-format sim t "Estimated substeps ~d ~%" (round dt (cl-mpm::sim-dt sim)))
                          (time
                           (loop while (> dt-accumulator 0d0)
                                 do
