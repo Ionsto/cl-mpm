@@ -283,11 +283,12 @@
           do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
 
     (incf solve-count)
-    (when (= (mod solve-count mass-update-iter) 0)
-      (update-node-fictious-mass sim))
     (when ghost-factor
       (cl-mpm/ghost::apply-ghost sim ghost-factor)
       (cl-mpm::apply-bcs mesh bcs dt))
+
+    (when (= (mod solve-count mass-update-iter) 0)
+      (update-node-fictious-mass sim))
 
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)

@@ -529,7 +529,7 @@
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
         (declare (double-float h ghost-factor))
-        (let ((gf (* 4d0 ghost-factor (expt h 4))))
+        (let ((gf (* 4d0 ghost-factor (expt h 3))))
           (cl-mpm::iterate-over-cells
            mesh
            (lambda (cell)
