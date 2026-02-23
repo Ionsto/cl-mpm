@@ -1,16 +1,12 @@
 (defpackage :cl-mpm/examples/beam
   (:use :cl
    :cl-mpm/example
-   :cl-mpm/utils))
+   :cl-mpm/utils
+   ))
 (in-package :cl-mpm/examples/beam)
 (declaim (notinline plot-domain))
 (defun plot-domain ()
   (when *sim*
-    (cl-mpm::g2p (cl-mpm:sim-mesh *sim*)
-                 (cl-mpm:sim-mps *sim*)
-                 (cl-mpm:sim-dt *sim*)
-                 0d0
-                 :QUASI-STATIC)
     (cl-mpm/plotter:simple-plot
      *sim*
      :plot :deformed
@@ -32,8 +28,14 @@
     (setf *sim* (cl-mpm/setup::make-simple-sim
                  mesh-resolution
                  element-count
-                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
-                 :args-list (list :enable-aggregate t)))
+                 ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multi grid
+                 :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
+                 :args-list (list :enable-aggregate t
+                                  :mass-update-count 1
+                                  ;; :refinement 2
+                                  ;; :ghost-factor (* 12d6 1d-3)
+                                  )))
+    (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (cl-mpm:add-mps
      *sim*
      (cl-mpm/setup:make-block-mps
@@ -64,7 +66,7 @@
            )))
       (setf (cl-mpm:sim-gravity *sim*) (/ -100d3 (* 2d0 mass))))
 
-    (cl-mpm/setup::set-mass-filter *sim* 1d0 :proportion 1d-15)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 0d-15)
     (cl-mpm/setup::setup-bcs
      *sim*
      :left '(0 0 nil))
@@ -75,20 +77,20 @@
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
   )
 
-(defun run ()
+(defun run (&key (output-dir "./output/"))
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
-   :output-dir (format nil "./output/")
+   :output-dir output-dir 
    :plotter (lambda (sim) (plot-domain))
-   :load-steps 5
-   :kinetic-damping nil
-   :damping 1d0
+   :load-steps 20
+   :damping (sqrt 2d0)
+   :dt-scale 1d0
    :substeps 100
-   :criteria 1d-9
-   :save-vtk-dr t
+   :criteria 1d-3
+   :save-vtk-dr nil
    :save-vtk-loadstep t
-   :dt-scale 1d0))
+   ))
 
 (defun test ()
-  (setup :mps 2)
+  (setup :mps 3 :refine 1)
   (run))

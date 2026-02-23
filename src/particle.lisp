@@ -387,7 +387,7 @@
   (/ E (* 3 (- 1d0 (* 2 nu)))))
 (declaim (ftype (function (double-float double-float) double-float) calculate-shear-modulus))
 (defun calculate-shear-modulus (E nu)
-  (/ E (* 3 (- 1d0 (* 2 nu)))))
+  (/ E (* 2 (+ 1d0 nu))))
 (declaim (ftype (function (double-float double-float) double-float) calculate-p-wave-modulus))
 (defun calculate-p-wave-modulus (E nu)
   (/ (* (- 1d0 nu) E) (* (+ 1d0 nu) (- 1d0 (* 2d0 nu)))))
@@ -440,9 +440,7 @@
       (setf
        (magicl:tref domain-true 0 0) (varef domain 0)
        (magicl:tref domain-true 1 1) (varef domain 1)
-       (magicl:tref domain-true 2 2) (varef domain 2)))
-    )
-  )
+       (magicl:tref domain-true 2 2) (varef domain 2)))))
 
 (defmethod reinitialize-instance :after ((p particle) &rest initargs &key)
   (with-accessors ((domain mp-domain-size)
