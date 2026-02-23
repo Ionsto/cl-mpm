@@ -278,8 +278,10 @@
       sim
     (declare (fixnum max-split-depth))
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth))
-                                        (remove-if-not (lambda (mp) (split-criteria-variable mp h split-factor)) mps)))
+           (mps-to-split (remove-if-not (lambda (mp)
+                                          (or
+                                           (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
+                                           (split-criteria-variable mp h split-factor))) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor)) mps-to-split)))
       (remove-mps-func sim (lambda (mp) (split-criteria-variable mp h split-factor)))
       (loop for mp across mps-to-split
@@ -290,8 +292,8 @@
 
 (defun split-mps (sim)
   "Split mps that match the split-criteria"
-  ;; (split-mps-eigenvalue sim)
-  (split-mps-cartesian sim)
+  (split-mps-eigenvalue sim)
+  ;; (split-mps-cartesian sim)
   )
 
 (defun split-mps-criteria (sim criteria)
