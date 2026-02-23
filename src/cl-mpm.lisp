@@ -36,6 +36,7 @@
    #:sim-enable-damage
    #:sim-allow-mp-split
    #:sim-settings
+   #:sim-format
    #:post-stress-step
    #:iterate-over-nodes
    #:iterate-over-nodes-serial
@@ -265,3 +266,10 @@
   (:documentation "Explicit simulation with multiple meshes"))
 
 
+
+(defgeneric sim-format (sim stream text &rest args))
+(defmethod sim-format ((sim mpm-sim) stream text &rest args)
+  (declare (string text)
+           (stream stream)
+           (list args))
+  (apply #'format stream text args))
