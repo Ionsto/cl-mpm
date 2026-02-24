@@ -233,7 +233,6 @@
            ;;Set all our neighbours to also be aggregate
            (loop for n in neighbours
                  do (setf (cl-mpm/mesh::cell-agg n) t))))))
-
     ;;Next set any nodes on agg elements to be agg
     (cl-mpm::iterate-over-cells
      mesh

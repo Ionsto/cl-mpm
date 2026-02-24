@@ -746,6 +746,8 @@
               (format fs "POINT_DATA ~d~%" (array-total-size cells))
               (save-parameter-cells "buoyancy" (if (cl-mpm/mesh::cell-boundary cell) 1 0))
               (save-parameter-cells "active" (if (cl-mpm/mesh::cell-active cell) 1 0))
+              (save-parameter-cells "partial" (if (cl-mpm/mesh::cell-partial cell) 1 0))
+              (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))
               (save-parameter-cells "pressure" (cl-mpm/mesh::cell-pressure cell))
               (save-parameter-cells "cell-count" (cl-mpm/mesh::cell-mp-count cell))
               (save-parameter-cells "agg-int" (if (cl-mpm/mesh::cell-interior cell) 1d0 0d0))
