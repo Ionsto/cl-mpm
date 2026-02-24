@@ -257,16 +257,20 @@
                         (pos cl-mpm/mesh::cell-centroid))
            cell
          (when (and active (not partial))
-           (loop for neighbour in neighbours
-                 while (not ghost)
-                 do
-                    (when (and
-                           (cl-mpm/mesh::cell-active neighbour)
-                           (cl-mpm/mesh::cell-partial neighbour))
-                      (setf ghost t)))
-           (when ghost
+           (let ((primary-ghost nil))
              (loop for neighbour in neighbours
-                   do (setf (cl-mpm/mesh::cell-ghost-element neighbour) t)))))))))
+                   while (not ghost)
+                   do
+                      (when (and
+                             (cl-mpm/mesh::cell-active neighbour)
+                             (cl-mpm/mesh::cell-partial neighbour))
+                        (setf ghost t
+                              primary-ghost t
+                              )))
+             (when primary-ghost
+               (loop for neighbour in neighbours
+                     do (setf (cl-mpm/mesh::cell-ghost-element neighbour) t)))
+             )))))))
 
 (defun iterate-over-unicell-nodes (mesh cell gp-loc func)
   (declare (function func))
@@ -618,7 +622,7 @@
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
         (declare (double-float h ghost-factor))
-        (let ((gf (* 4d0 ghost-factor (expt h 4))))
+        (let ((gf (* 1d0 ghost-factor (expt h 3))))
           (cl-mpm::iterate-over-cells
            mesh
            (lambda (cell)

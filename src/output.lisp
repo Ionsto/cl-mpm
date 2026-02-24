@@ -756,7 +756,7 @@
               (save-parameter-cells "def-1" (if (cl-mpm/mesh::cell-def-list cell) (nth 1 (cl-mpm/mesh::cell-def-list cell)) 0))
               ;; (save-parameter-cells "def-2" (if (cl-mpm/mesh::cell-def-list cell) (nth 2 (cl-mpm/mesh::cell-def-list cell)) 0))
               (save-parameter-cells "j" (magicl:det (cl-mpm/mesh::cell-deformation-gradient cell)))
-              (save-parameter-cells "ghost" (if (cl-mpm/mesh::cell-ghost-element cell) 1 0))))))))
+              ))))))
  
 (defun save-vtk-bcs (filename sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)) sim
