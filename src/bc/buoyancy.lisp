@@ -1029,7 +1029,6 @@
                       )))))))))
 
       (when (> dt 0d0)
-        ;; (pprint dt)
         (let ((damping (bc-viscous-damping bc)))
           (cl-mpm:iterate-over-nodes
            mesh
@@ -1049,8 +1048,7 @@
                    (cl-mpm/fastmaths:fast-.-
                     force
                     (cl-mpm/fastmaths:fast-scale-vector
-                                        ;velocity
-                     (cl-mpm/fastmaths::fast-scale-vector 
+                     (cl-mpm/fastmaths::fast-scale-vector
                       disp
                       (/ 1d0 dt))
                      (*

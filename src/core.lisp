@@ -825,10 +825,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   (with-accessors ((lens cl-mpm/particle::mp-domain-size))
       mp
     (declare (double-float h))
-    (let ((h-factor
-            h
-            ;; (* 0.7d0 h)
-                    )
+    (let ((h-factor h)
           (aspect 0.01d0))
       (cond
         ((< h-factor (the double-float (varef lens 0))) :x)
@@ -1096,7 +1093,7 @@ This modifies the dt of the simulation in the process
   (when (cl-mpm::sim-allow-mp-split sim)
     (split-mps sim))
   (check-mps sim)
-  ;; (check-single-mps sim)
+  (check-single-mps sim)
   ;; (reset-node-displacement sim)
   )
 

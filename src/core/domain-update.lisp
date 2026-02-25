@@ -12,10 +12,7 @@
                    (volume-0 cl-mpm/particle::mp-volume-0))
       mp
     (declare (magicl::matrix/double-float domain domain-0 def))
-    (let* ((jf
-             (/ volume volume-0)
-             ;; (cl-mpm/fastmaths:det-3x3 def)
-                )
+    (let* ((jf (/ volume volume-0))
            (jl  (* (varef domain 0) (varef domain 1)))
            (jl0 (* (varef domain-0 0) (varef domain-0 1)))
            (scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
@@ -32,8 +29,7 @@
                    )
       mp
     (declare (magicl::matrix/double-float domain domain-0 def))
-    (let* (;; (jf  (cl-mpm/fastmaths:det-3x3 def))
-           (jf (/ volume volume-0))
+    (let* ((jf (/ volume volume-0))
            (jl  (* (varef domain 0) (varef domain 1) (varef domain 2)))
            (jl0 (* (varef domain-0 0) (varef domain-0 1) (varef domain-0 2)))
            (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))

@@ -27,9 +27,7 @@
             (cl-mpm/utils:vector-copy-into disp vn)
             (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
-            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt))
-            ;; (cl-mpm/fastmaths::fast-.+ inertia-force force force)
-            )
+            (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt)))
           ;;Set acc to f/m
           (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)

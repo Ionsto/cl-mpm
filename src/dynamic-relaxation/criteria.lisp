@@ -561,27 +561,22 @@
        (with-accessors ((active cl-mpm/mesh::node-active)
                         (agg cl-mpm/mesh::node-agg)
                         (interior cl-mpm/mesh::node-interior)
-                        ;; ( cl-mpm/mesh::node-agg)
                         (f-ext cl-mpm/mesh::node-external-force)
                         (f-int cl-mpm/mesh::node-internal-force)
                         (f-damp cl-mpm/mesh::node-damping-force)
                         (f-ghost cl-mpm/mesh::node-ghost-force)
-                        (node-oobf cl-mpm/mesh::node-oobf)
-                        )
+                        (node-oobf cl-mpm/mesh::node-oobf))
            node
-         (when (and active
-                    ;; t
-                    (or
-                     (not agg)
-                     ;; interior
-                     ))
+         (when (and active (not agg))
            (sb-thread:with-mutex (lock)
              (let ((inc
                      (cl-mpm/fastmaths::mag-squared
                       (reduce #'cl-mpm/fastmaths::fast-.+-vector
                               (list
                                f-ext
-                               f-int)))))
+                               f-int
+                               f-ghost
+                               )))))
                (incf node-oobf inc)
                (setf nmax (+
                            nmax
@@ -592,23 +587,29 @@
     (with-accessors ((mesh cl-mpm:sim-mesh))
         sim
       (when (cl-mpm/aggregate::sim-enable-aggregate sim)
-        (cl-mpm/aggregate::iterate-over-dimensions-serial
+        (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
          (cl-mpm/mesh::mesh-nd mesh)
-         (lambda (d)
+         (lambda (d mut)
            (let* ((f-ext (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-external-force d))
                   (f-int (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-internal-force d))
+                  (f-ghost (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-ghost-force d))
                   (E (cl-mpm/aggregate::sim-global-e sim)))
-             (incf nmax (cl-mpm/fastmaths::mag-squared
-                         (cl-mpm/aggregate::apply-internal-bcs
-                          sim
-                          (magicl:@ (magicl:transpose E) (cl-mpm/fastmaths:fast-.+ f-ext f-int))
-                          d
-                          )))
-             (incf dmax (cl-mpm/fastmaths::mag-squared
-                         (cl-mpm/aggregate::apply-internal-bcs
-                          sim
-                          (magicl:@ (magicl:transpose E) f-ext)
-                          d))))))))
+             (let ((d-nmax (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/aggregate::apply-internal-bcs
+                             sim
+                             (magicl:@ (magicl:transpose E)
+                                       (cl-mpm/fastmaths::fast-.+
+                                        f-ghost
+                                        (cl-mpm/fastmaths:fast-.+ f-ext f-int)))
+                             d)))
+                   (d-dmax (cl-mpm/fastmaths::mag-squared
+                            (cl-mpm/aggregate::apply-internal-bcs
+                             sim
+                             (magicl:@ (magicl:transpose E) f-ext)
+                             d))))
+               (sb-thread:with-mutex (mut)
+                 (incf nmax d-nmax)
+                 (incf dmax d-dmax))))))))
     (if (> dmax 0d0)
         (setf oobf (sqrt (/ nmax dmax)))
       ;;Very odd case, we have external force but no internal forces

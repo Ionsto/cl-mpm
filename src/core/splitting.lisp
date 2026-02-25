@@ -184,10 +184,9 @@
   "Some numerical splitting estimates"
   (with-accessors ((def cl-mpm/particle:mp-deformation-gradient)
                    (lens cl-mpm/particle::mp-domain-size)
-                   (lens-0 cl-mpm/particle::mp-domain-size-0)
-                   (split-depth cl-mpm/particle::mp-split-depth))
+                   (lens-0 cl-mpm/particle::mp-domain-size-0))
       mp
-    (when t;(< split-depth *max-split-depth*)
+    (when t
       (let ((h-factor (* factor h)))
         (cond
           ((< h-factor (varef lens 0)) :x)
@@ -279,7 +278,7 @@
     (declare (fixnum max-split-depth))
     (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
            (mps-to-split (remove-if-not (lambda (mp)
-                                          (or
+                                          (and
                                            (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)
                                            (split-criteria-variable mp h split-factor))) mps))
            (split-direction (map 'list (lambda (mp) (split-criteria-variable mp h split-factor)) mps-to-split)))
@@ -316,13 +315,13 @@
                    (mesh cl-mpm:sim-mesh)
                    (max-split-depth cl-mpm::sim-max-split-depth))
       sim
-    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
-           (split-directions (lparallel:pmap '(vector t *) criteria mps))
-           (mps-to-split (delete-if-not #'identity (lparallel:pmap '(vector t *) (lambda (mp crit) (when crit mp)) mps split-directions)))
-           (mps-to-split (delete-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-split))
-           ;; (split-direction (map 'list (lambda (mp) (funcall criteria mp h)) mps-to-split))
+    (let* ((split-directions (lparallel:pmap '(vector t *) criteria mps))
+           (mps-to-delete (delete-if-not #'identity (lparallel:pmap '(vector t *)
+                                                                   (lambda (mp crit)
+                                                                     (if crit mp nil)) mps split-directions)))
+           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-delete))
            )
-      (remove-mps-func sim (lambda (mp) (position mp mps-to-split)))
+      (remove-mps-func sim (lambda (mp) (position mp mps-to-delete)))
       (loop for mp across mps-to-split
             for direction across (remove-if-not #'identity split-directions)
             do (loop for new-mp in (split-vector mp direction)
