@@ -183,6 +183,8 @@
                  (expt
                   (the double-float (/ gather-j (* j-inc j-n)))
                   (/ 1 nd)))
+                (when (= nd 1)
+                  (setf (magicl:tref df 1 1) 1d0))
                 (when (= nd 2)
                   (setf (magicl:tref df 2 2) 1d0))
                 )
@@ -200,6 +202,9 @@
                   (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
                                        (cl-mpm/fastmaths:det-3x3 df-strain)))
                   (the double-float (/ 1d0 nd))))
+                (when (= nd 1)
+                  (setf (magicl:tref df 1 1) 1d0)
+                  (setf (magicl:tref df 2 2) 1d0))
                 (when (= nd 2)
                   (setf (magicl:tref df-strain 2 2) 1d0))))))
       (values df df-strain))))

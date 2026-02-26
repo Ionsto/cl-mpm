@@ -270,6 +270,6 @@
 (defgeneric sim-format (sim stream text &rest args))
 (defmethod sim-format ((sim mpm-sim) stream text &rest args)
   (declare (string text)
-           (stream stream)
+           ((or t stream) stream)
            (list args))
   (apply #'format stream text args))

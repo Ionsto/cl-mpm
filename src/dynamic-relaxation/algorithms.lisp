@@ -461,7 +461,7 @@
                      (cl-mpm/output:save-vtk-nodes (merge-pathnames output-dir (format nil "sim_real_nodes_~5,'0d_~5,'0d.vtk" global-step step)) sim)
                      (setf energy 0d0)
                      (setf oobf 0d0)
-                     (cl-mpm:sim-format sim t "Real time step ~d - substeps ~d - time ~E ~%" step substeps target-time)
+                     (cl-mpm:sim-format sim t "Real time step ~d - substeps ~d - time ~E - dt ~E~%" step substeps target-time (cl-mpm:sim-dt sim))
                      (time
                       (dotimes (i substeps)
                         (cl-mpm::update-sim sim)

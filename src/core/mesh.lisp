@@ -415,6 +415,27 @@
                    :centroid centroid
                    :volume volume
                    )))
+
+(defun make-cell-1d (mesh index h)
+  ;;Get local nodes
+  (let* ((nodes
+           (let ((res nil))
+             (array-operations/utilities:nested-loop (x y z) '(2 1 1)
+               (push (get-node mesh (mapcar #'+ index (list x y z))) res))
+             res))
+         (volume (expt h 1))
+         (centroid (cl-mpm/fastmaths::fast-.+ (cl-mpm/utils:vector-from-list (index-to-position mesh index))
+                                              (magicl:scale! (cl-mpm/utils:vector-from-list (list h 0d0 0d0)) 0.5d0)))
+         )
+    (loop for n in nodes
+          do (incf (node-volume-true n) (/ volume (length nodes))))
+    (make-instance 'cell
+                   :index index
+                   :nodes nodes
+                   :centroid centroid
+                   :volume volume
+                   )))
+
 (defun make-cell-2d (mesh index h)
   ;;Get local nodes
   (let* ((nodes
@@ -520,30 +541,75 @@
         ))
     cells))
 
+(defun make-cells-1d (mesh size h)
+  "Make a 1d mesh of specific size"
+  (let ((nD (mesh-nd mesh))
+        (cells
+          (make-array
+           (list (- (nth 0 size) 1)
+                 1
+                 1))))
+    (loop for x from 0 below (- (nth 0 size) 1)
+      do (setf (aref cells x 0 0) (make-cell-1d mesh (list x 0 0) h)))
+    (array-operations/utilities:nested-loop (i j k) (array-dimensions cells)
+      (let* ((cell (aref cells i j k)))
+        (with-accessors ((neighbours cell-neighbours))
+            cell
+          (setf neighbours (list))
+          (array-operations/utilities:nested-loop (dxx) (list 3)
+            (let ((dx (- dxx 1))
+                  (dy 0)
+                  (dz 0))
+              (unless (and (= dx 0))
+                (let ((di (mapcar #'+ (list i j k) (list dx dy dz))))
+                  (when (in-bounds-cell mesh di)
+                    (push (apply #'aref cells di) neighbours)))))))
+        (with-accessors ((cart-neighbours cell-cartesian-neighbours))
+            cell
+          (setf cart-neighbours (list))
+          (loop for dimension from 0 to nD
+                do (loop for direction in (list -1 1)
+                         do
+                            (let ((di (list i j k)))
+                              (incf (nth dimension di) direction)
+                              (when (in-bounds-cell mesh di)
+                                (push (apply #'aref cells di) cart-neighbours))))))
+        ))
+    cells))
+
 (defun make-mesh (size resolution shape-function)
   "Create a 2D mesh and fill it with nodes"
   (let ((nD (length size)))
-    (if (= nD 2)
-        (setf size (append  size '(0))))
+    (ecase nd
+      (1 (setf size (list (nth 0 size) 0 0)))
+      (2 (setf size (list (nth 0 size) (nth 1 size) 0)))
+      (3 size)
+      (t (error "Only 1D, 2D and 3D meshes are supported")))
     (let* ((size (mapcar (lambda (x) (coerce x 'double-float)) size))
            (resolution (coerce resolution 'double-float))
            (boundary-order 0)
            (meshcount (loop for d in size collect (+ (floor d resolution) 1 (* boundary-order 2))))
            (nodes '()))
       (let ((mesh (make-instance 'mesh
-                                  :nD nD
-                                  :mesh-size size
-                                  :mesh-count meshcount
-                                  :mesh-res resolution
-                                  :nodes nodes
-                                  :shape-func shape-function
-                                  :boundary-order boundary-order
-                                  )))
+                                 :nD nD
+                                 :mesh-size size
+                                 :mesh-count meshcount
+                                 :mesh-res resolution
+                                 :nodes nodes
+                                 :shape-func shape-function
+                                 :boundary-order boundary-order
+                                 )))
         (setf (mesh-nodes mesh)
               (make-nodes mesh meshcount resolution))
-        (if (= nD 2)
-            (setf (mesh-cells mesh) (make-cells-2d mesh meshcount resolution))
-            (setf (mesh-cells mesh) (make-cells mesh meshcount resolution)))
+        (setf
+         (mesh-cells mesh)
+         (ecase nD
+           (1 (make-cells-1d mesh meshcount resolution))
+           (2 (make-cells-2d mesh meshcount resolution))
+           (3 (make-cells mesh meshcount resolution))
+           ;; (setf  )
+           ;; (setf (mesh-cells mesh) (make-cells mesh meshcount resolution))
+           ))
         mesh))))
 
 (defun in-bounds-cell (mesh index)

@@ -345,47 +345,71 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (with-accessors ((nodes cl-mpm/particle::mp-cached-nodes))
       mp
     ;;Simple if statement - we take the hit
-    (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-        (iterate-over-neighbours-shape-gimp-2d
-         mesh mp
-         (lambda (mesh mp node svp grads fsvp fgrads)
-           (destructuring-bind (gx gy gz) grads
-             (declare (ignore gz))
-             (destructuring-bind (gfx gfy gfz) fgrads
-               (declare (ignore gfz))
-               (vector-push-extend
-                (cl-mpm/particle::make-node-cache
-                 node
-                 svp
-                 gx
-                 gy
-                 0d0
-                 fsvp
-                 gfx
-                 gfy
-                 0d0
-                 )
-                nodes)))
-           (funcall func mesh mp node svp grads fsvp fgrads)))
-        (iterate-over-neighbours-shape-gimp-3d
-         mesh mp
-         (lambda (mesh mp node svp grads fsvp fgrads)
-           (destructuring-bind (gx gy gz) grads
-             (destructuring-bind (gfx gfy gfz) fgrads
-               (vector-push-extend
-                (cl-mpm/particle::make-node-cache
-                 node
-                 svp
-                 gx
-                 gy
-                 gz
-                 fsvp
-                 gfx
-                 gfy
-                 gfz
-                 )
-                nodes)))
-           (funcall func mesh mp node svp grads fsvp fgrads))))))
+    (ecase (cl-mpm/mesh:mesh-nd mesh)
+      (1
+       (iterate-over-neighbours-shape-gimp-1d
+        mesh mp
+        (lambda (mesh mp node svp grads fsvp fgrads)
+          (destructuring-bind (gx gy gz) grads
+            (declare (ignore gy gz))
+            (destructuring-bind (gfx gfy gfz) fgrads
+              (declare (ignore gfy gfz))
+              (vector-push-extend
+               (cl-mpm/particle::make-node-cache
+                node
+                svp
+                gx
+                0d0
+                0d0
+                fsvp
+                gfx
+                0d0
+                0d0)
+               nodes)))
+          (funcall func mesh mp node svp grads fsvp fgrads)))
+       )
+      (2
+       (iterate-over-neighbours-shape-gimp-2d
+        mesh mp
+        (lambda (mesh mp node svp grads fsvp fgrads)
+          (destructuring-bind (gx gy gz) grads
+            (declare (ignore gz))
+            (destructuring-bind (gfx gfy gfz) fgrads
+              (declare (ignore gfz))
+              (vector-push-extend
+               (cl-mpm/particle::make-node-cache
+                node
+                svp
+                gx
+                gy
+                0d0
+                fsvp
+                gfx
+                gfy
+                0d0
+                )
+               nodes)))
+          (funcall func mesh mp node svp grads fsvp fgrads))))
+      (3
+       (iterate-over-neighbours-shape-gimp-3d
+        mesh mp
+        (lambda (mesh mp node svp grads fsvp fgrads)
+          (destructuring-bind (gx gy gz) grads
+            (destructuring-bind (gfx gfy gfz) fgrads
+              (vector-push-extend
+               (cl-mpm/particle::make-node-cache
+                node
+                svp
+                gx
+                gy
+                gz
+                fsvp
+                gfx
+                gfy
+                gfz
+                )
+               nodes)))
+          (funcall func mesh mp node svp grads fsvp fgrads)))))))
 
 (declaim (inline iterate-over-neighbours-cached))
 (defun iterate-over-neighbours-cached (mesh mp func)
@@ -483,7 +507,6 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 (defun iterate-over-neighbours-point-linear (mesh position func)
   "Iterate over neighbours of an arbitrary point - using FEM linear basis"
   (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-                                        ;(iterate-over-neighbours-point-linear-simd mesh position func)
       (iterate-over-neighbours-point-linear-2d mesh position func)
       (iterate-over-neighbours-point-linear-3d mesh position func)))
 
@@ -796,6 +819,60 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
                                                       (cl-mpm/shape-function::grads-3d weights-fbar lin-grads)
                                                       )))))))))))))
 
+(defun iterate-over-neighbours-shape-gimp-1d (mesh mp func)
+  "Iterate over gimp neighbours in 3D, unrolled for speed"
+  (declare (type cl-mpm/mesh::mesh mesh)
+           (cl-mpm/particle:particle mp)
+           (function func)
+           (optimize (speed 3) (safety 0) (debug 0))
+           )
+  (progn
+    (with-accessors ((pos-vec cl-mpm/particle:mp-position)
+                     (d0 cl-mpm/particle::mp-domain-size))
+        mp
+      (let ((h (the double-float (cl-mpm/mesh:mesh-resolution mesh))))
+        (flet ((center-id (x) (round x h)))
+          (let* ((pa (magicl::matrix/double-float-storage pos-vec))
+                 (da (magicl::matrix/double-float-storage d0))
+                 (px (the double-float (aref pa 0)))
+                 (ix (the fixnum (truncate (center-id px))))
+                 (cx (- px (* h ix)))
+                 (dox (* 0.5d0 (the double-float (aref da 0))))
+                 (dxf (the fixnum (truncate (ffloor   (- cx dox) h))))
+                 (dxc (the fixnum (truncate (fceiling (+ cx dox) h))))
+                 )
+            (declare ((simple-array double-float *) pa))
+            ;; (declare (dynamic-extent pa))
+            (declare (type double-float h cx dox px)
+                     (type integer dxf dxc ix)
+                     )
+            (loop for dx from dxf to dxc
+                  do (let* ((id (list (the fixnum (+ ix dx))
+                                      0
+                                      0
+                                      )))
+                       (declare (dynamic-extent id))
+                       (when (cl-mpm/mesh:in-bounds mesh id)
+                         (let* ((distx (- cx (* h dx)))
+                                (weightsx (cl-mpm/shape-function::shape-gimp-fast distx dox h))
+                                (weight weightsx)
+                                (weights-fbar-x (the double-float (cl-mpm/shape-function::shape-gimp-fbar distx dox h)))
+                                (weight-fbar weights-fbar-x)
+                                )
+                           (declare ;(type double-float h)
+                            (double-float weight weightsx distx)
+                            )
+                           (when (< 0d0 weight)
+                             (let* ((node (cl-mpm/mesh:get-node mesh id))
+                                    (gradx (cl-mpm/shape-function::shape-gimp-dsvp distx dox h))
+                                    (grads-fbar
+                                      (list
+                                            (cl-mpm/shape-function::shape-gimp-dsvp distx dox h)
+                                            0d0
+                                            0d0)))
+                               (funcall func mesh mp node
+                                        weight (list gradx 0d0 0d0)
+                                        weight-fbar grads-fbar)))))))))))))
 
 
 (defun iterate-over-neighbours-shape-gimp-2d (mesh mp func)
@@ -1311,31 +1388,54 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (let ((dx (- (* dx 2) 1))
         (dy (- (* dy 2) 1))
         (dz (- (* dz 2) 1)))
-    (case nd
+    (ecase nd
+      (1 (* 0.5d0   (+ 1d0 (* dx x))))
       (2 (* 0.25d0  (+ 1d0 (* dx x)) (+ 1d0 (* dy y))))
       (3 (* 0.125d0 (+ 1d0 (* dx x)) (+ 1d0 (* dy y)) (+ 1d0 (* dz z)))))))
 
 (defun weights-local-pos (xi nd dxi)
   (let ((dxi (- (* dxi 2) 1)))
-    (case nd
+    (ecase nd
+      (1 (* 0.5d0 (+ 1d0 (* dxi xi))))
       (2 (* 0.5d0 (+ 1d0 (* dxi xi))))
       (3 (* 0.5d0 (+ 1d0 (* dxi xi)))))))
 
 (defun grads-local-pos (x nd dx h)
-  ;; (cond
-  ;;   ((= dx 0)
-  ;;      (* -0.25 (- 1d0 x)))
-  ;;   ((= dx 1)
-  ;;    (* -0.25 (+ 1d0 x)))
-  ;;   )
   (let ((dx (- (* dx 2) 1)))
     (/
-     (case nd
+     (ecase nd
+       (1 (* -1d0 dx))
        (2 (* -1d0 dx))
        (3 (* -1d0 dx)))
      (* h 1)))
   )
 
+(defun iterate-over-cell-shape-local-1d (mesh cell local-position func)
+  "Iterating over a given cell's basis functions"
+  (declare (cl-mpm/mesh::mesh mesh))
+  (progn
+    (let* ((h (cl-mpm/mesh:mesh-resolution mesh))
+           (nd 1)
+           (pos-vec local-position)
+           (cell-pos (cl-mpm/mesh::cell-centroid cell))
+           (cell-index (cl-mpm/mesh::cell-index cell)))
+      (declare (dynamic-extent cell-index pos-vec))
+      (loop for dx from 0 to 1
+            do (let* ((id (mapcar #'+ cell-index (list dx 0 0))))
+                 ;; (declare (dynamic-extent id))
+                 (when (cl-mpm/mesh:in-bounds mesh id)
+                   (let* ((node (cl-mpm/mesh:get-node mesh id))
+                          (dist-x (* 2d0 (/ (- (varef pos-vec 0) (varef cell-pos 0)) h)))
+                          (weight-x (weights-local-pos dist-x nd dx)))
+                     (let* ((weight weight-x)
+                            (grad-x (grads-local-pos dist-x nd dx h))
+                            (grads (cl-mpm/shape-function::grads-3d
+                                    (list weight-x 1d0 1d0)
+                                    (list grad-x 0d0 0d0))))
+                       (declare
+                        (double-float weight))
+                       (when t;(> weight 0d0)
+                         (funcall func node weight grads))))))))))
 
 (defun iterate-over-cell-shape-local-2d (mesh cell local-position func)
   "Iterating over a given cell's basis functions"
@@ -1410,9 +1510,10 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
 
 (defun iterate-over-cell-shape-local (mesh cell local-position func)
   "Iterating over a given cell's basis functions"
-  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
-      (iterate-over-cell-shape-local-2d mesh cell local-position func)
-      (iterate-over-cell-shape-local-3d mesh cell local-position func)))
+  (ecase (cl-mpm/mesh:mesh-nd mesh)
+    (1 (iterate-over-cell-shape-local-1d mesh cell local-position func))
+    (2 (iterate-over-cell-shape-local-2d mesh cell local-position func))
+    (3 (iterate-over-cell-shape-local-3d mesh cell local-position func))))
 
 
 (defun iterate-over-midpoints (mesh mp func)

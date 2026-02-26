@@ -32,6 +32,7 @@
    #:@-mat-vec
    #:@-tensor-voigt
    #:get-stress
+   #:get-vector
    #:matrix-copy
    #:vector-copy
    #:voigt-copy
@@ -143,11 +144,21 @@
     (magicl:mult mat vec :target result)
     result))
 
+(let ((vector-components '(:x :y :z)))
+  (defun get-vector (vector component)
+    "Get stress component from voigt notation stress vector"
+    (policy-cond:with-expectations (> speed safety)
+        ((assertion (position component vector-components))
+         (assertion (= (length (fast-storage vector)) 3))))
+    (aref (magicl::matrix/double-float-storage vector) (position component vector-components))))
 
 (let ((stress-components '(:xx :yy :zz
                            :yz :xz :xy)))
   (defun get-stress (stress component)
     "Get stress component from voigt notation stress vector"
+    (policy-cond:with-expectations (> speed safety)
+        ((assertion (position component stress-components))
+         (assertion (= (length (fast-storage stress)) 6))))
     (aref (magicl::matrix/double-float-storage stress) (position component stress-components))))
 
 

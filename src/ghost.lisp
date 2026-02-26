@@ -468,19 +468,7 @@
                               (magicl:transpose
                                (cl-mpm/shape-function::assemble-dsvp-3d grads))
                               fact)))
-                      (let (;; (ghost-mat
-                            ;;   (cl-mpm/fastmaths:fast-scale!
-                            ;;    (magicl:@
-                            ;;     dsvp-p
-                            ;;     dsvp-adjuster
-                            ;;     (magicl:transpose dsvp-adjuster)
-                            ;;     (magicl:transpose dsvp-n))
-                            ;;    (*
-                            ;;     -1d0
-                            ;;     (/ (* ghost-factor (expt h 3)) 6)
-                            ;;     face-length
-                            ;;     gp-weight)))
-                            (ghost-force
+                      (let ((ghost-force
                               (cl-mpm/fastmaths:fast-scale!
                                (magicl:@
                                 dsvp

@@ -70,10 +70,24 @@
       sim)))
 
 (defun make-block-mps-fast (offset size mps density constructor &rest args &key (clip-func (lambda (x y z) t)) &allow-other-keys)
-  (if (= (length size) 2)
-      (setf mps (append mps '(1))
-            size (append size '(0))
-            offset (append offset '(0))))
+  (let ((nD (min (length size)
+                 (length mps)
+                 (length offset))))
+    (setf mps
+          (ecase nD
+            (1 (list (nth 0 mps) 1 1))
+            (2 (list (nth 0 mps) (nth 1 mps) 1))
+            (3 mps)))
+    (setf size
+          (ecase nD
+            (1 (list (nth 0 size) 0 0))
+            (2 (list (nth 0 size) (nth 1 size) 0))
+            (3 size)))
+    (setf offset
+          (ecase nD
+            (1 (list (nth 0 offset) 0 0))
+            (2 (list (nth 0 offset) (nth 1 offset) 0))
+            (3 offset))))
   (setf mps (mapcar #'round mps))
   (let*  ((mps-list (make-array (round (reduce #'* mps))))
           (nD 3)
