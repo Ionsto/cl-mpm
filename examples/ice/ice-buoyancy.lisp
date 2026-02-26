@@ -125,15 +125,17 @@
      ))
   )
 
-(defparameter *angle* 35d0)
-(defparameter *angle-r* 10d0)
+(defparameter *angle* 40d0)
+(defparameter *angle-r* 5d0)
+(defparameter *angle-psi* 5d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
-(defparameter *enable-plastic-damage* t)
-(defparameter *delay-time* 1d3)
-(defparameter *delay-exponent* 1d0)
-(defparameter *enable-viscosity* t)
+(defparameter *enable-plastic-damage* nil)
+(defparameter *delay-time* 1d4)
+(defparameter *delay-exponent* 2d0)
+(defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
+(defparameter *gf* 100000d0)
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
@@ -149,6 +151,8 @@
                 (floatation-ratio 0.9)
                 (slope 0.1d0)
                 (multigrid-refines 0)
+                (use-penalty t)
+                (stick-base t)
                 )
 
   (let* ((refine (* refine (expt 2 (- multigrid-refines))))
@@ -156,7 +160,7 @@
          (water-density 1028d0)
          (mesh-resolution (/ 10d0 refine))
          (h-fine mesh-resolution)
-         (offset (* mesh-resolution 2))
+         (offset (* mesh-resolution (if use-penalty 2 0)))
          (end-height ice-height)
          (ice-length (* ice-height aspect))
          (start-height (+ ice-height (* slope ice-length)))
@@ -184,7 +188,7 @@
                                                 :mass-update-count 1
                                                 ;; :enable-ekl t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
-                                                :max-split-depth 8
+                                                :max-split-depth 1
                                                 ;; :refinement multigrid-refines
                                                 )))
 
@@ -193,12 +197,12 @@
     (let* ((angle *angle*)
            (init-stress (* 0.1185d6 1d0))
            (init-c (cl-mpm/damage::mohr-coloumb-tensile-to-coheasion init-stress (* angle (/ pi 180))))
-           (gf 10d0)
+           (gf *gf*)
            ;; (length-scale (* h-fine 2d0))
            (length-scale (* mesh-resolution *length-scaler*))
            (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress E))
            ;; (ductility (/ (/ 5d0 0.125d0) refine))
-           (ductility 10d0)
+           ;; (ductility 100d0)
            ;; (ductility 2d0)
            (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility))
            )
@@ -234,7 +238,7 @@
 
           :initiation-stress init-stress;18d3
           :friction-angle angle
-          :psi (* 0d0 (/ pi 180))
+          :psi (* *angle-psi* (/ pi 180))
           :phi (* angle (/ pi 180))
           :c (* init-c oversize)
 
@@ -346,7 +350,7 @@
                                      p
                                      (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
                                      (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
-                                  :refine 2))
+                                  :refine 1))
       (when hydro-static
         (cl-mpm/setup::initialise-stress-self-weight-vardatum
          *sim*
@@ -376,34 +380,8 @@
           (cl-mpm/setup:remove-sdf
            *sim*
            (cl-mpm/setup::rectangle-sdf (list (first block-size) (+ offset ice-height))
-                                        (list cutback cutout))
-           )
-          ;; (cl-mpm/setup::remove-sdf *sim*
-          ;;                           (lambda (p)
-          ;;                             (cl-mpm/setup::plane-point-point-sdf
-          ;;                              p
-          ;;                              (cl-mpm/utils:vector-from-list (list ice-length datum 0d0))
-          ;;                              (cl-mpm/utils:vector-from-list (list (- ice-length cutback) offset 0d0))))
-          ;;                           :refine 3
-          ;;                           )
-          )
-        ))
+                                        (list cutback cutout))))))
 
-    ;; (setf
-    ;;  (cl-mpm:sim-bcs *sim*)
-    ;;  (cl-mpm/bc::make-outside-bc-varfix
-    ;;   (cl-mpm:sim-mesh *sim*)
-    ;;   '(0 nil 0)
-    ;;   '(0 nil 0)
-    ;;   '(nil 0 nil)
-    ;;   '(nil 0 nil)
-    ;;   '(nil nil 0)
-    ;;   '(nil nil 0)))
-
-    (cl-mpm/setup:setup-bcs
-     *sim*
-     :left '(0 nil 0)
-     :bottom '(nil 0 0))
 
     (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
     (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
@@ -439,7 +417,7 @@
 
     (let ((domain-half (* 0.5d0 (first domain-size)))
           (friction friction)
-          (epsilon-scale 1d0)
+          (epsilon-scale 0.1d0)
           )
       (defparameter *floor-bc*
         (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -467,11 +445,21 @@
                     (and
                      (>= datum (cl-mpm/utils:varef pos 1))
                      (>= (cl-mpm/utils:varef pos 1) (+ offset mesh-resolution) )))))
-    (when (> offset 0d0)
+    (when use-penalty 
       (cl-mpm:add-bcs-force-list
        *sim*
        *floor-bc*
        ))
+    (unless use-penalty
+      (if stick-base 
+          (cl-mpm/setup:setup-bcs
+           *sim*
+           :left '(0 nil 0)
+           :bottom '(0 0 0))
+          (cl-mpm/setup:setup-bcs
+           *sim*
+           :left '(0 nil 0)
+           :bottom '(nil 0 0))))
     (cl-mpm:add-bcs-force-list
      *sim*
      *bc-erode*
@@ -511,13 +499,13 @@
 
 
 (defun calving-test ()
-  (let* ((mps 2)
-         (dt 1d3)
-         (H 700d0))
+  (let* ((mps 3)
+         (dt 1d2)
+         (H 600d0))
     (setup
-     :refine 0.125
+     :refine 0.25
      :multigrid-refines 0
-     :friction 0.9d0
+     :friction 0d0
      :bench-length (* 0d0 H)
      :bench-extra-cut 10d0
      :ice-height H
@@ -525,23 +513,25 @@
      :hydro-static nil
      :cryo-static t
      :melange nil
-     :aspect 8d0
+     :aspect 4d0
      :slope 0.05d0
-     :floatation-ratio 1d0)
+     :floatation-ratio 0.7d0
+     :use-penalty nil
+     :stick-base t
+     )
 
     (plot-domain)
 
     (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
     (setf (cl-mpm/aggregate::sim-enable-aggregate *sim*) t
-          (cl-mpm::sim-ghost-factor *sim*) nil;(* 1d-6 1d9)
-          )
+          (cl-mpm::sim-ghost-factor *sim*) nil)
 
     (setf lparallel:*debug-tasks-p* nil)
     (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
     (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
 
-    (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
-    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
+    (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
 
     (setf (cl-mpm:sim-enable-damage *sim*) nil)
     (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
@@ -560,10 +550,11 @@
        :min-adaptive-steps -14
        :max-adaptive-steps 14
        :max-damage-inc 0.60d0
-       :substeps 50
+       :substeps 20
        :total-time 1d7
        :save-vtk-loadstep t
        :save-vtk-dr t
+       :adaption-constant 4
        :enable-plastic t
        :enable-damage t
        :plotter (lambda (sim)
@@ -576,12 +567,12 @@
                                             "Dynamic")))
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
-       ;; :explicit-dt-scale 0.25d0
-       ;; :explicit-damping-factor 1d-3
-       ;; :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-       :explicit-damping-factor 1d-4
-       :explicit-dt-scale 5d0
-       :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
+       :explicit-dt-scale 0.5d0
+       :explicit-damping-factor 1d-3
+       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+       ;; :explicit-damping-factor 0d-4
+       ;; :explicit-dt-scale 10d0
+       ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step (lambda (sim)
                          (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
        :setup-quasi-static
@@ -591,16 +582,20 @@
           (cl-mpm/aggregate::sim-enable-aggregate sim) t
           (cl-mpm::sim-ghost-factor *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
-          ;; (cl-mpm::sim-ghost-factor *sim*) nil(* 1d9 1d-6)
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
           (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0))
        :setup-dynamic
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
-         (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
-               (cl-mpm::sim-velocity-algorithm sim) :BLEND
-               (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 2d0
-               ))
+         (setf
+          (cl-mpm/aggregate::sim-enable-aggregate sim) t
+          (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
+          (cl-mpm::sim-velocity-algorithm sim) :BLEND
+          ;; (cl-mpm::sim-velocity-algorithm sim) :FLIP
+          (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 5d0))
        ))
     ))
 
@@ -722,21 +717,4 @@
 
 
 
-(let (;(angles (loop for angle from 0.01d0 to 90d0 by 0.1d0 collect angle))
-      )
-  (let* ((E 6d0)
-         (nu 0.2d0)
-         (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
-         (eps (cl-mpm/utils:voigt-from-list (list 2d0 0d0 0d0 0d0 0d0 0d0)))
-         (sig (magicl:@ de eps))
-         )
-    (pprint (cl-mpm/damage::tensile-energy-norm eps E de))
-    ;; (vgplot:close-all-plots)
-    ;; (vgplot:plot angles
-    ;;              (mapcar (lambda (a)
-    ;;                        (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-    ;;                         sig
-    ;;                         (* a (/ pi 180))))
-    ;;                      angles)
-    ;;              "Criterion over angle")
-    ))
+

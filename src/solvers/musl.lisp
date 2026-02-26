@@ -35,10 +35,7 @@
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
         (apply-bcs mesh bcs dt)
-        ;; (setf (cl-mpm:sim-dt sim)
-        ;;       (*
-        ;;        (cl-mpm::sim-dt-scale sim)
-        ;;        (cl-mpm::calculate-min-dt sim)))
+        (filter-cells sim)
         ;;Turn momentum into velocity
         (update-node-kinematics sim)
         (p2g-force sim)
@@ -64,13 +61,6 @@
         (update-nodes sim)
         (apply-bcs mesh bcs dt)
         (update-stress mesh mps dt fbar)
-        (new-loadstep sim)
-
-        ;; (when remove-damage
-        ;;   (remove-material-damaged sim))
-        ;; (when split
-        ;;   (split-mps sim))
-        ;; (check-mps sim)
-        )
+        (new-loadstep sim))
       (incf time dt)
       )))

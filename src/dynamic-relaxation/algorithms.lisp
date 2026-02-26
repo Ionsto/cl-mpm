@@ -312,7 +312,7 @@
                               ))
                           (cl-mpm:sim-format sim t "Def crit ~E~%" (compute-max-deformation sim))
                           (let ((max-def (compute-max-deformation sim)))
-                            (when (> max-def 8d0)
+                            (when (> max-def 2d0)
                               (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
                               (error (make-instance 'non-convergence-error
                                                     :text "Deformation gradient J exceeded"
@@ -503,6 +503,7 @@
                           (total-time 1d0)
                           (max-adaptive-steps 5)
                           (min-adaptive-steps -1)
+                          (adaption-constant 2)
                           (conv-criteria 1d-3)
                           (substeps 50)
                           (enable-damage t)
@@ -586,7 +587,7 @@
              (prev-steps-easy (list t t))
              (prev-step-iter 0)
              (elastic-dt (cl-mpm/setup::estimate-elastic-dt sim))
-             (max-steps (floor total-time (/ dt (expt 2 max-adaptive-steps))))
+             (max-steps (floor total-time (/ dt (expt adaption-constant max-adaptive-steps))))
              )
         (cl-mpm:sim-format sim t "Elastic dt ~E, override quasi-static at ~E~%" elastic-dt (* elastic-dt elastic-dt-margin))
         (loop for step from 1 to (+ 1 max-steps)
@@ -594,13 +595,13 @@
                          (< (cl-mpm::sim-time sim) total-time))
               do
                  (let ((quasi-conv nil))
-                   (cl-mpm:sim-format sim t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt 2 current-adaptivity)))
+                   (cl-mpm:sim-format sim t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt adaption-constant current-adaptivity)))
                    (defparameter *trial-iter* 0)
                    (let ((stagger-iters 0))
                      (loop for i from 0 to max-adaptive-steps
                            while (not quasi-conv)
                            do (progn
-                                (let* ((adapted-dt (/ dt (expt 2 current-adaptivity))))
+                                (let* ((adapted-dt (/ dt (expt adaption-constant current-adaptivity))))
                                   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
                                         (+ (min (- total-time (cl-mpm::sim-time sim)) adapted-dt) 1d-15))
                                   (cl-mpm:sim-format sim t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
