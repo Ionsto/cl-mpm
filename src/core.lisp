@@ -29,20 +29,23 @@
   "Function to check that stresses and positions are sane, deleting mps moving very fast"
   (with-accessors ((mps cl-mpm:sim-mps)
                    (mesh cl-mpm:sim-mesh)
+                   (split-depth sim-max-split-depth)
                    (removal-factor sim-mp-removal-size))
       sim
   (with-accessors ((h cl-mpm/mesh::mesh-resolution))
       mesh
-    (when removal-factor
-      (let ((h (* h removal-factor)))
-        (remove-mps-func
-         sim
-         (lambda (mp)
-           (with-accessors ((damage cl-mpm/particle:mp-damage)
-                            (def cl-mpm/particle::mp-deformation-gradient))
-               mp
-             (or
-              (gimp-removal-criteria mp h))))))))))
+    (let ((h (* h removal-factor)))
+      (remove-mps-func
+       sim
+       (lambda (mp)
+         (with-accessors ((damage cl-mpm/particle:mp-damage)
+                          (def cl-mpm/particle::mp-deformation-gradient))
+             mp
+           (or
+            (> (cl-mpm/particle::mp-split-depth mp) split-depth)
+            (if removal-factor
+                (gimp-removal-criteria mp h)
+                nil)))))))))
 
 (defun check-single-mps (sim)
   "Function to check and remove single material points"
