@@ -319,8 +319,7 @@
            (mps-to-delete (delete-if-not #'identity (lparallel:pmap '(vector t *)
                                                                    (lambda (mp crit)
                                                                      (if crit mp nil)) mps split-directions)))
-           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-delete))
-           )
+           (mps-to-split (remove-if-not (lambda (mp) (< (cl-mpm/particle::mp-split-depth mp) max-split-depth)) mps-to-delete)))
       (remove-mps-func sim (lambda (mp) (position mp mps-to-delete)))
       (loop for mp across mps-to-split
             do (loop for new-mp in (split-vector mp (funcall criteria mp))
