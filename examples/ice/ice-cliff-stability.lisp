@@ -91,8 +91,8 @@
       )))
 
 
-(defparameter *angle* 40d0)
-(defparameter *angle-r* 10d0)
+(defparameter *angle* 30d0)
+(defparameter *angle-r* 1d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *viscosity* 1d13)
@@ -238,8 +238,9 @@
              (+ offset
                 (* alpha end-height)
                 (* (- 1d0 alpha) start-height))))
-         :k-x 1d0
-         :k-z 1d0))
+         ;; :k-x 1d0
+         ;; :k-z 1d0
+         ))
 
       (unless (= start-height end-height)
         (cl-mpm/setup::remove-sdf *sim*
@@ -387,8 +388,8 @@
        )))))
 
 (defun stability-qt-test ()
-  (let* ((heights (list 300d0))
-         (floatations (list 0.7d0)))
+  (let* ((heights (list 400d0))
+         (floatations (list 1d0)))
     (defparameter *stability* (make-array (list (length heights) (length floatations)) :initial-element nil
                                                                                        :element-type t))
     (let ((stability-dir (merge-pathnames (format nil "./analysis_scripts/ice/ice-cliff-stability/data-cliff-stability/"))))
@@ -412,12 +413,12 @@
                                    :mps mps
                                    :hydro-static nil
                                    :cryo-static t
-                                   :aspect 2d0
+                                   :aspect 4d0
                                    :slope 0d0
                                    :bench-length 0d0
                                    :floatation-ratio flotation
                                    :use-penalty nil
-                                   :stick-base t
+                                   :stick-base nil
                                    )
                             (plot-domain)
                             (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
@@ -431,7 +432,7 @@
                                         *sim*
                                         :output-dir output-dir
                                         :dt 1d4
-                                        :total-time 1d6
+                                        :total-time 1d7
                                         ;; :steps 1000
                                         :dt-scale 1d0
                                         :conv-criteria 1d-3
@@ -440,7 +441,7 @@
                                         :enable-plastic t
                                         :min-adaptive-steps -4
                                         :max-adaptive-steps 9
-                                        :save-vtk-dr t
+                                        :save-vtk-dr nil
                                         :save-vtk-loadstep t
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-ul
                                         ;; :elastic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multigrid

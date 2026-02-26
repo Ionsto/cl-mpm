@@ -31,21 +31,28 @@ mpl.rcParams.update(
         "pgf.rcfonts": False,
     }
 )
-width = 0.5*5.90666
+width = 1*5.90666
 height = width / 1.3
-#1.618
 
 
-B = 0.5
+B = 1
 C = 1e6
-
+load_scale = 1/(B*C)
 plt.figure(figsize=(width,height))
 
+top_dir = "./"
+output_regex = re.compile("data_.*")
+output_list = list(filter(output_regex.match,os.listdir(top_dir)))
+output_list.sort()
 load_scale = 1/(B*C)
-data = pd.read_csv("data_fbar_T.csv")
-plt.plot(data["disp"].values*-1e3,load_scale*data["load"].values,label="F-bar")
-data = pd.read_csv("data_fbar_NIL.csv")
-plt.plot(data["disp"].values*-1e3,load_scale*data["load"].values,label="Standard",ls="--")
+for r in output_list:
+    data = pd.read_csv(top_dir+r)
+    plt.plot(data["disp"].values*-1e3,load_scale*data["load"].values,ls="--",label=r)
+
+# data = pd.read_csv("data_fbar_T.csv")
+# plt.plot(data["disp"].values*-1e3,load_scale*data["load"].values,label="F-bar")
+# data = pd.read_csv("data_fbar_NIL.csv")
+# plt.plot(data["disp"].values*-1e3,load_scale*data["load"].values,label="Standard",ls="--")
 
 
 analytic_solution = 2+np.pi

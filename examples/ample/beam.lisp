@@ -30,10 +30,10 @@
                  element-count
                  ;; :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-multi grid
                  :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-quasi-static
-                 :args-list (list :enable-aggregate t
+                 :args-list (list :enable-aggregate nil
                                   :mass-update-count 1
                                   ;; :refinement 2
-                                  ;; :ghost-factor (* 12d6 1d-3)
+                                  :ghost-factor (* 12d6 1d-4)
                                   )))
     (setf mesh-resolution (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
     (cl-mpm:add-mps
@@ -80,17 +80,16 @@
 (defun run (&key (output-dir "./output/"))
   (cl-mpm/dynamic-relaxation::run-load-control
    *sim*
-   :output-dir output-dir 
+   :output-dir output-dir
    :plotter (lambda (sim) (plot-domain))
-   :load-steps 20
+   :load-steps 100
    :damping (sqrt 2d0)
    :dt-scale 1d0
-   :substeps 100
+   :substeps 50
    :criteria 1d-3
-   :save-vtk-dr nil
-   :save-vtk-loadstep t
-   ))
+   :save-vtk-dr t
+   :save-vtk-loadstep t))
 
 (defun test ()
-  (setup :mps 3 :refine 1)
+  (setup :mps 3 :refine 0.5)
   (run))

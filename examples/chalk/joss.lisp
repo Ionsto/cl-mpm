@@ -2280,7 +2280,6 @@
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 0.1d0
              (cl-mpm/setup::estimate-critical-damping *sim*)))
-    (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :dt-scale 0.5d0
@@ -2291,7 +2290,6 @@
      :energy-crit 1d-5
      :post-iter-step
      (lambda (i energy oobf)
-       (cl-mpm/dynamic-relaxation::save-conv *sim* output-dir i)
        (cl-mpm/output:save-vtk (merge-pathnames (format nil "sim_~5,'0d.vtk" i) output-dir) *sim*)
        (cl-mpm/output:save-vtk-nodes (merge-pathnames (format nil "sim_nodes_~5,'0d.vtk" i) output-dir) *sim*)
        (plot *sim*))))
@@ -2367,82 +2365,3 @@
        (setf (cl-mpm/aggregate::sim-enable-aggregate sim) t
              (cl-mpm::sim-ghost-factor sim) nil)))))
 
-
-
-;; (defun test-real-time ()
-;;   (setup :mps 2 :refine 1)
-;;   (let ((dt 1d0)
-;;         (total-time 1000d0)
-;;         (output-dir "./output/")
-;;         )
-;;     (cl-mpm/output::save-simulation-parameters (merge-pathnames "./output/" "settings.json")
-;;                                                *sim*
-;;                                                (list :dt 1d0
-;;                                                      :criteria-energy 1d-3
-;;                                                      :criteria-oobf 1d-3
-;;                                                      :criteria-hist 1d0
-;;                                                      ))
-;;     (setf (cl-mpm::sim-damping-factor *sim*) 0d0)
-;;     (setf (cl-mpm::sim-velocity-algorithm *sim*) :BLEND)
-;;     (change-class *sim* 'cl-mpm/damage::mpm-sim-agg-damage)
-;;     (cl-mpm/dynamic-relaxation::save-timestep-preamble output-dir)
-;;     (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
-;;     (cl-mpm/dynamic-relaxation::step-real-time *sim* 0
-;;                     :output-dir "./output/"
-;;                     :plotter (lambda (sim) (plot sim))
-;;                     :dt-scale 0.9d0
-;;                     :target-time (* 0.5d0 dt)
-;;                     :enable-damage t
-;;                     :enable-plastic t)))
-
-(defun test-implicit-dynamic ()
-  (setup :mps 2 :refine 1 :notch-length 4d0)
-  (let* ((dt 10d0)
-         (total-time 1000d0)
-         (output-dir "./output/")
-         (target-time 10d0)
-         (substeps (floor target-time dt)))
-    (change-class *sim* 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
-    (uiop:ensure-all-directories-exist (list output-dir))
-    (loop for f in (uiop:directory-files (uiop:merge-pathnames* output-dir)) do (uiop:delete-file-if-exists f))
-    (loop for f in (uiop:directory-files (uiop:merge-pathnames* "./outframes/")) do (uiop:delete-file-if-exists f))
-    (cl-mpm/dynamic-relaxation::save-timestep-preamble output-dir)
-    (cl-mpm/dynamic-relaxation::save-conv-preamble output-dir)
-    (cl-mpm/dynamic-relaxation::elastic-static-solution *sim* :substeps 100)
-    (setf (cl-mpm:sim-dt *sim*) dt)
-    (setf (cl-mpm:sim-enable-damage *sim*) t)
-    (loop for steps from 0 to 1000
-     while *run-sim*
-     do
-     (let ((energy 0d0)
-           (work 0d0)
-           (oobf 0d0))
-       (cl-mpm/dynamic-relaxation::save-timestep *sim* output-dir steps :DYNAMIC)
-       (format t "Step ~d ~%" steps)
-       (cl-mpm/output:save-vtk (merge-pathnames output-dir (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-       (cl-mpm/output::save-vtk-nodes (merge-pathnames output-dir (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
-       (time
-        (dotimes (i substeps)
-          (cl-mpm::update-sim *sim*)))
-       (incf *sim-step*)
-       (plot *sim*)
-       (vgplot:title (format nil "Time:~F"  (cl-mpm::sim-time *sim*)))
-       (swank.live:update-swank)
-       ))))
-
-(let* ((E 1d0)
-       (nu 0.49d0)
-       (p-mod (/ E (* (+ 1d0 nu) (- 1d0 nu))))
-       (K (/ E (* 3 (- 1d0 (* 2 nu)))))
-       (G (/ E (* 2 (+ 1d0 nu))))
-       (de (cl-mpm/constitutive::linear-elastic-matrix E nu))
-       (eps (cl-mpm/utils::voigt-from-list (list 1d0 0d0 0d0
-                                                 0d0 0d0 0d0))))
-  (pprint p-mod)
-  (pprint K)
-  (pprint G)
-  (multiple-value-bind (l v) (magicl:eig (cl-mpm/utils:voigt-to-matrix (cl-mpm/utils:voigt-to-mandel (magicl:@ de eps))))
-    (pprint l)
-    ;; (pprint (reduce #'max l))
-    )
-  )

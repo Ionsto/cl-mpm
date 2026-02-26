@@ -24,11 +24,6 @@
 ;; (sb-ext:restrict-compiler-policy 'debug  3 3)
 ;; (sb-ext:restrict-compiler-policy 'safety 0 0)
 
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-elastic) dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-damaged mesh mp dt fbar)
-  ;; (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  (cl-mpm::update-stress-kirchoff-dynamic-relaxation mesh mp dt fbar)
-  )
 
 (defun cl-mpm/damage::length-localisation (local-length local-length-damaged damage)
   (declare (double-float local-length damage))
@@ -134,7 +129,9 @@
                                                            :enable-fbar t
                                                            :enable-split nil
                                                            :split-factor 0.51d0
-                                                           :enable-aggregate t)))
+                                                           :enable-aggregate t
+                                                           ;; :ghost-factor (* 1d9 1d-6)
+                                                           )))
     ;; (setf datum (cl-mpm/buoyancy::round-datum *sim* datum))
     (let* ((E 1d9)
            (angle 60d0)
@@ -156,6 +153,11 @@
         block-size
         (mapcar (lambda (e) (* (/ e mesh-resolution) mps)) block-size)
         density
+
+        ;; 'cl-mpm/particle::particle-elastic
+        ;; :E 1d9
+        ;; :nu 0.325d0
+
         ;; 'cl-mpm/particle::particle-vm
         ;; :E 1d9
         ;; :nu 0.325d0
@@ -171,21 +173,22 @@
 
         'cl-mpm/particle::particle-finite-viscoelastic
         :E E
-        :nu 0.325d0
-        ;; :nu 0.4d0
+        ;; :nu 0.325d0
+        :nu 0.30d0
         :viscosity 1d12
-
-        ;; :enable-viscosity nil
+        :enable-viscosity t
         ;; :gravity -9.8d0
         )))
-    (cl-mpm/setup::remove-sdf
-     *sim*
-     (lambda (p)
-       (cl-mpm/setup::plane-point-point-sdf
-        p
-        (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
-        (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
-     :refine 2)
+    (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    (when (not (= slope 0d0))
+      (cl-mpm/setup::remove-sdf
+       *sim*
+       (lambda (p)
+         (cl-mpm/setup::plane-point-point-sdf
+          p
+          (cl-mpm/utils:vector-from-list (list 0d0 (+ offset start-height) 0d0))
+          (cl-mpm/utils:vector-from-list (list ice-length (+ offset end-height) 0d0))))
+       :refine 2))
     (cl-mpm/setup::setup-bcs
      *sim*
      :left (list 0 nil nil)
@@ -576,17 +579,13 @@
 
 (defun test ()
   (setup :refine 4 :mps 3
-         :ice-height 125d0
+         :ice-height 100d0
          :aspect 2
          :slope 0d0
          :floatation-ratio 0d0
          )
   (format t "MPs ~D~%" (length (cl-mpm:sim-mps *sim*)))
-  (let ((dt (* 1 (* 24 60 60))))
-    (cl-mpm::iterate-over-mps
-     (cl-mpm:sim-mps *sim*)
-     (lambda (mp)
-       (setf (cl-mpm/particle::mp-enable-viscosity mp) nil)))
+  (let ((dt (* 24 (* 60 60))))
     (setf (cl-mpm::sim-mass-scale *sim*) 1d0)
     (cl-mpm/dynamic-relaxation::run-quasi-time
      *sim*
@@ -595,21 +594,13 @@
      :dt-scale 1d0;0.25d0
      :damping 1d0
      :total-time 1d25
-     :substeps 50
+     :substeps 20
      :conv-criteria 1d-3
      ;; :enable-plastic t
      ;; :enable-damage t
      :max-adaptive-steps 10
      :min-adaptive-steps 0
-     :plotter (lambda (sim) (plot-domain))
-     :post-conv-step
-     (lambda (sim)
-       (cl-mpm::iterate-over-mps
-        (cl-mpm:sim-mps *sim*)
-        (lambda (mp)
-          (setf (cl-mpm/particle::mp-enable-viscosity mp) t)))
-       ;; (setf (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 0d0)
-       )))
+     :plotter (lambda (sim) (plot-domain))))
   )
 (defun matrix-sqrt (mat)
   (multiple-value-bind (l v) (cl-mpm/utils::eig mat)

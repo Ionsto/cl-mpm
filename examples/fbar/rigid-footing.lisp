@@ -84,7 +84,7 @@
     (let* ((friction 0d0)
            (epsilon-scale 1d0)
            (epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale))
-           (width 0.5d0))
+           )
       (format t "Penalty parameter ~E~%" epsilon)
       (defparameter *penalty-down*
         (cl-mpm/penalty::make-bc-penalty-distance-point

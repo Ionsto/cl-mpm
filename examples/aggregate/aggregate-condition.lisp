@@ -23,7 +23,7 @@
       (cl-mpm:add-mps
        *sim*
        (cl-mpm/setup:make-block-mps
-        (list offset 0d0 0)
+        (list offset 0 0)
         block-size
         (mapcar (lambda (e) (* (/ e h) mps)) block-size)
         density
@@ -31,8 +31,9 @@
         :E 1d9
         :nu 0.325d0
         )))
-    (cl-mpm/setup::set-mass-filter *sim* density :proportion 0d-15)
-    (setf (cl-mpm:sim-mass-filter *sim*) 0d0)
+    (setf (cl-mpm::sim-gravity *sim*) 0d0)
+    ;; (cl-mpm/setup::set-mass-filter *sim* density :proportion 1d-15)
+    ;; (setf (cl-mpm:sim-mass-filter *sim*) 0d0)
     (cl-mpm/setup::setup-bcs
      *sim*
      :top '(nil nil nil)
@@ -63,31 +64,43 @@
     (defparameter *cond-ma* condition-ma)
     (defparameter *cond-mii* condition-mii)
     (setup)
-    (loop for p across x
-          for i from 0
-          while (cl-mpm::sim-run-sim *sim*)
-          do
-             (cl-mpm::iterate-over-mps
-              (cl-mpm:sim-mps *sim*)
-              (lambda (mp)
-                (incf (cl-mpm/utils::varef (cl-mpm/particle::mp-position mp) 0) dx)))
-             (cl-mpm:update-sim *sim*)
-             ;; (plot-domain)
-             (plot-condition)
-             (let* ((mii (cl-mpm/aggregate::assemble-global-mass-matrix *sim*))
-                    (E (cl-mpm/aggregate::assemble-e *sim*))
-                    (ma (magicl:@  (magicl:transpose E) mii E)))
-               (setf (aref condition-ma i) (condition-number ma)
-                     (aref condition-mii i) (condition-number mii)))
-             (when save-vtk
-               (save-vtks "./output/" i))
-             ;; (multiple-value-bind (ma mii) (cl-mpm/aggregate::assemble-global-full-mass *sim*)
-             ;;   (setf (aref condition-ma i) (condition-number ma)
-             ;;         (aref condition-mii i) (condition-number mii)))
-          )
+    ;; (setf (cl-mpm::sim-mass-filter density))
+    (with-accessors ((mesh cl-mpm:sim-mesh)
+                     (mps cl-mpm:sim-mps)
+                     (bcs cl-mpm:sim-bcs)
+                     (dt cl-mpm:sim-dt))
+        *sim*
+      (loop for p across x
+            for i from 0
+            while (cl-mpm::sim-run-sim *sim*)
+            do
+               (cl-mpm::iterate-over-mps
+                (cl-mpm:sim-mps *sim*)
+                (lambda (mp)
+                  (incf (cl-mpm/utils::varef (cl-mpm/particle::mp-position mp) 0) dx)))
+               (cl-mpm:update-sim *sim*)
+               ;; (cl-mpm::reset-grid mesh)
+               ;; (cl-mpm::p2g mesh mps)
+               ;; (cl-mpm::apply-bcs mesh bcs dt)
+               ;; (cl-mpm::filter-cells *sim*)
+               ;; (cl-mpm::update-node-kinematics *sim*)
+               ;; (cl-mpm::apply-bcs mesh bcs dt)
+
+               (plot-condition)
+               (let* ((mii (cl-mpm/aggregate::assemble-global-mass-matrix *sim*))
+                      (E (cl-mpm/aggregate::assemble-e *sim*))
+                      (ma (magicl:@  (magicl:transpose E) mii E)))
+                 (setf (aref condition-ma i) (condition-number ma)
+                       (aref condition-mii i) (condition-number mii)))
+               (when save-vtk
+                 (save-vtks "./output/" i))
+               ;; (multiple-value-bind (ma mii) (cl-mpm/aggregate::assemble-global-full-mass *sim*)
+               ;;   (setf (aref condition-ma i) (condition-number ma)
+               ;;         (aref condition-mii i) (condition-number mii)))
+            ))
     (vgplot:figure)
     (plot-condition)
-    ;; (save-data)
+    (save-data)
     ))
 
 (defun test-cfl (&key (resolution 10)
@@ -140,7 +153,7 @@
   (map '(vector single-float) (lambda (x) (coerce x 'single-float)) vec))
 
 (defun save-data ()
-  (let* ((output-file (merge-pathnames "./analysis_scripts/aggregate/1d_rigid/data.csv"))
+  (let* ((output-file (merge-pathnames "./examples/aggregate/condition/data_1e-15.csv"))
          (df (lisp-stat:make-df '(:x :ma :m-lumped)
                                 (list
                                  (vec-to-single-float *cond-x*)

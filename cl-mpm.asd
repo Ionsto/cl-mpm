@@ -363,6 +363,12 @@
   :serial t
   :components ((:file "examples/virtual_stress/thick-cylinder")))
 
+(defsystem "cl-mpm/examples/virtual-stress/damping"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/virtual_stress/damping")))
+
+
 
 (defsystem "cl-mpm/plotter"
   :depends-on ("cl-mpm"

@@ -53,9 +53,7 @@
      *sim*
      :left '(nil 0 nil))
 
-    (let* ((epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale))
-           ;; (epsilon (* E 1d2))
-           )
+    (let* ((epsilon (* (cl-mpm/particle::calculate-p-wave-modulus E nu) epsilon-scale)))
       ;; (defparameter *loader*
       ;;   (cl-mpm/penalty::make-bc-penalty-displacment
       ;;    *sim*

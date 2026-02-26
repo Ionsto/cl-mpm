@@ -1398,43 +1398,7 @@
   (vgplot:plot *time* *cfl-max*))
 
 
-(defun profile ()
-  (sb-profile:unprofile)
-  (sb-profile:reset)
-  (sb-profile:profile cl-mpm::update-sim
-                      cl-mpm::reset-grid
-                      cl-mpm::p2g
-                      cl-mpm::filter-grid
-                      cl-mpm::update-nodes
-                      cl-mpm::apply-bcs
-                      cl-mpm::g2p
-                      cl-mpm::update-particle
-                      cl-mpm::update-stress
-                      cl-mpm::iterate-over-neighbours-shape
-                      cl-mpm::iterate-over-neighbours-shape-linear
-                      cl-mpm::p2g-mp
-                      cl-mpm::g2p-mp
-                      cl-mpm::p2g-mp-node
-                      cl-mpm::g2p-mp-node
-                      ;; cl-mpm::update-strain-kirchoff
-                      cl-mpm/damage::calculate-damage
-                      cl-mpm/damage::apply-damage
-                      cl-mpm/damage::delocalise-damage
-                      cl-mpm/damage::create-delocalisation-list
-                      ;; cl-mpm/eigenerosion:update-fracture
-                      ;; cl-mpm/eigenerosion::remove-material-damaged
-                      ;; cl-mpm/eigenerosion::find-neighbours
-                      )
-  (loop repeat 100
-        do (progn
-             (cl-mpm::update-sim *sim*)
-             ;; (cl-mpm/damage::calculate-damage (cl-mpm:sim-mesh *sim*)
-             ;;                                  (cl-mpm:sim-mps *sim*)
-             ;;                                  (cl-mpm:sim-dt *sim*)
-             ;;                                  25d0)
-             ;; (cl-mpm/eigenerosion:update-fracture *sim*)
-             ))
-  (sb-profile:report))
+
 
 (defmacro time-form (it form)
   `(progn

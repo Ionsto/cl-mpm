@@ -7,25 +7,14 @@ import re
 
 from scipy import integrate
 
-def extract_vals(f):
-    output,refine,load = f.split("-")
-    #refine = float(refine)
-    return refine,float(load)
-
-from scipy import integrate
-def calculate_gf(disp,load):
-    i = np.argmax(load)
-    print("Max at {}mm".format(disp[i]*1e3))
-    return integrate.trapz(load[i:],disp[i:])
-
 top_dir = "../../../"
 regex = re.compile(r'^output.*')
 folders = list(filter(regex.search,os.listdir(top_dir)))
 plt.figure(1)
 def get_load(filename):
     mpm = pd.read_csv(top_dir+filename)
+    mpm["time"] = mpm["time"]
     mpm["disp"] = mpm["disp"]
-    mpm["load"] = mpm["load"]
     return mpm
 
 
@@ -34,9 +23,8 @@ folders.sort()
 for i in folders:
     print("loading folder: ",i)
     mpm = get_load("./{}/disp.csv".format(i))
-    if len(mpm["load"]) > 0:
-        plt.plot(mpm["disp"].values*1e3,mpm["load"].values,label=i)
-        print("GF ",i," :",calculate_gf(mpm["disp"],mpm["load"]))
+    if len(mpm["time"]) > 0:
+        plt.plot(mpm["time"].values,mpm["disp"].values,label=i)
 plt.xlabel("Displacement (mm)")
 plt.ylabel("Load (N)")
 plt.legend()
