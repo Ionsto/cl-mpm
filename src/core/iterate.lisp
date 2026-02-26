@@ -1643,9 +1643,8 @@ weight greater than 0, calling func with the mesh, mp, node, svp, and grad"
   (with-accessors ((centroid cl-mpm/mesh::cell-centroid)
                    (volume cl-mpm/mesh::cell-volume))
       cell
-    (
-     iterate-over-neighbours-point-linear-2d
-     ;; iterate-over-neighbours-point-linear
+    (;; iterate-over-neighbours-point-linear-2d
+     iterate-over-neighbours-point-linear
      mesh
      (cl-mpm/mesh::cell-centroid cell)
      (lambda (mesh node weight grads)

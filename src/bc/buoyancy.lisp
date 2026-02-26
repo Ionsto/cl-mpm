@@ -29,7 +29,6 @@
       (cl-mpm/mesh::cell-trial-centroid cell)
       (cl-mpm/mesh::cell-centroid cell)))
 
-;(defgeneric virtual-stress ())
 (defun pressure-at-depth (z datum-true rho g)
   (let* (;; (g -9.8d0)
          (datum datum-true)
@@ -1106,7 +1105,7 @@
    mesh
    (lambda (cell)
      ;;Iterate over a cells nodes
-     (with-accessors ((pos cl-mpm/mesh::cell-centroid)
+     (with-accessors (;(pos cl-mpm/mesh::cell-centroid)
                       ;; (trial-pos cl-mpm/mesh::cell-trial-centroid)
                       ;; (pos cl-mpm/mesh::cell-trial-centroid)
                       (cell-active cl-mpm/mesh::cell-active)
@@ -1116,24 +1115,17 @@
                       (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
-       (when t;(not cell-partial)
+       (when (not cell-partial)
          (let* (;; (pos (cl-mpm/fastmaths:fast-.+ pos disp))
                 ;; (trial-pos pos)
                 (trial-pos (get-cell-position cell))
-                (cell-stress
-                  (calculate-val-cell cell func-stress)
-                  ;; (funcall func-stress trial-pos)
-                  )
-                ;; (cell-stress (cl-mpm/utils::pull-back-voigt-stress cell-stress df))
-                (cell-div (calculate-val-cell cell func-div)
-                          ;(funcall func-div trial-pos)
-                          )
-                (f-stress (cl-mpm/utils:vector-zeros))
-                (f-div (cl-mpm/utils:vector-zeros))
-                ;; (df (cl-mpm/fastmaths:fast-.+ (cl-mpm/utils:matrix-eye 1d0)))
-                (df (get-cell-df mesh pos))
+                ;; (cell-stress (calculate-val-cell cell func-stress))
+                ;; (cell-div (calculate-val-cell cell func-div))
+                ;; (f-stress (cl-mpm/utils:vector-zeros))
+                ;; (f-div (cl-mpm/utils:vector-zeros))
+                ;; (df (get-cell-df mesh pos))
                 )
-           (setf cell-pressure (varef cell-stress 0))
+           ;; (setf cell-pressure (varef cell-stress 0))
            (cl-mpm::cell-iterate-over-neighbours
             mesh cell
             (lambda (mesh cell p volume node svp grads)
@@ -1151,26 +1143,14 @@
                 (declare (double-float volume svp))
                 (when (and node-active
                            node-boundary
-                           (funcall clip-func node-pos)
-                           )
-                  (let (;; (grads (cl-mpm::gradient-push-forwards grads df))
-                        ;; (volume (* volume (cl-mpm/fastmaths::det-3x3 df)))
-                        )
-                    ;;Lock node
-                    ;; (cl-mpm/fastmaths:fast-zero f-stress)
-                    ;; (cl-mpm/forces::det-stress-force-unrolled cell-stress grads (- volume) f-stress)
-                    ;; (cl-mpm/fastmaths:fast-scale-vector
-                    ;;  cell-div
-                    ;;  (* volume svp)
-                    ;;  f-div)
-                    (let* (;; (f-total (cl-mpm/fastmaths::fast-.+ f-stress f-div))
-                           )
-                      (sb-thread:with-mutex (node-lock)
-                        ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
-                        ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
-                        ;; (cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
-                        (incf node-boundary-scalar
-                              (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate)))))))))))))))))
+                           (funcall clip-func node-pos))
+                  ;;Lock node
+                  (sb-thread:with-mutex (node-lock)
+                    ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-stress node-force-ext)
+                    ;; (cl-mpm/fastmaths:fast-.- node-force-ext f-div    node-force-ext)
+                    ;; (cl-mpm/fastmaths:fast-.- node-buoyancy-force f-total node-buoyancy-force)
+                    (incf node-boundary-scalar
+                          (* -1d0 volume svp (the double-float (calculate-val-cell cell #'melt-rate)))))))))))))))
 
 (declaim (notinline apply-force-mps-3d))
 (defun apply-force-mps-3d (mesh mps func-stress func-div clip-func &optional (scalar (lambda (mp) 0d0)))
@@ -1597,8 +1577,7 @@
                      (abs
                       (funcall
                        stiffness-func
-                       (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))
-    ))
+                       (cl-mpm/fastmaths::fast-.+ node-pos (cl-mpm/mesh::node-displacment node)))))))))))))))
 
 (defmethod cl-mpm/bc::assemble-bc-stiffness (sim (bc cl-mpm/buoyancy::bc-pressure))
   (with-accessors ((datum bc-buoyancy-datum)
