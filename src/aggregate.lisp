@@ -795,8 +795,10 @@
              mesh
              (lambda (node)
                (if (and (cl-mpm/mesh::node-active node)
-                        ;; (not (cl-mpm/mesh::node-agg node))
-                        )
+                        (or
+                         (not
+                          (cl-mpm/mesh::node-agg node))
+                         (cl-mpm/mesh::node-interior node)))
                    (with-accessors ((node-active  cl-mpm/mesh:node-active)
                                     (pmod cl-mpm/mesh::node-pwave)
                                     (mass cl-mpm/mesh::node-mass)

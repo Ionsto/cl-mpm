@@ -571,12 +571,19 @@
            (sb-thread:with-mutex (lock)
              (let ((inc
                      (cl-mpm/fastmaths::mag-squared
-                      (reduce #'cl-mpm/fastmaths::fast-.+-vector
-                              (list
-                               f-ext
-                               f-int
-                               f-ghost
-                               )))))
+                      (cl-mpm/fastmaths::fast-.+
+                       f-ext
+                       (cl-mpm/fastmaths::fast-.+
+                        f-int
+                        f-ghost
+                        ))
+                      ;; (reduce #'cl-mpm/fastmaths::fast-.+-vector
+                      ;;         (list
+                      ;;          f-ext
+                      ;;          f-int
+                      ;;          f-ghost
+                      ;;          ))
+                      )))
                (incf node-oobf inc)
                (setf nmax (+
                            nmax

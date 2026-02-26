@@ -28,6 +28,7 @@
                       (when (> mass-filter 0d0)
                         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
 
+                      (cl-mpm::apply-bcs mesh bcs dt)
                       (cl-mpm::filter-cells sim)
                       (cl-mpm::update-node-kinematics sim)
                       (cl-mpm::apply-bcs mesh bcs dt)
@@ -41,14 +42,8 @@
                       (loop for bcs-f in bcs-force-list
                             do (cl-mpm::apply-bcs mesh bcs-f dt))
                       (cl-mpm::update-node-forces sim)
-
-                      ;; (when ghost-factor
-                      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor))
-                      ;; ;Reapply velocity BCs
-
                       (cl-mpm::reset-node-displacement sim)
                       (cl-mpm::update-nodes sim)
-
                       (cl-mpm::apply-bcs mesh bcs dt)
                       (cl-mpm::update-dynamic-stats sim)
                       (cl-mpm::g2p mesh mps dt damping vel-algo)

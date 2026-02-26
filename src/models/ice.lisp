@@ -842,6 +842,7 @@
                  (* 1d-9 P-0)
                  (max (* p-mod p-deg)
                       (+ K (* 4/3 G)))))
+          (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
           )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)

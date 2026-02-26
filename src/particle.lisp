@@ -1046,6 +1046,7 @@
                    (position    cl-mpm/particle::mp-position)
                    (position-trial    cl-mpm/particle::mp-position-trial)
                    (fric-force cl-mpm/particle::mp-penalty-frictional-force)
+                   (p-wave cl-mpm/particle::mp-p-modulus)
                    (fric-force-n cl-mpm/particle::mp-penalty-frictional-force-prev))
       mp
     (cl-mpm/utils:matrix-copy-into def def-0)
@@ -1053,6 +1054,7 @@
     (cl-mpm/utils:voigt-copy-into strain strain-n)
     (cl-mpm/utils:vector-copy-into fric-force fric-force-n)
     (cl-mpm/utils:vector-copy-into position position-trial)
+    (setf p-wave (estimate-stiffness mp))
     (setf volume-n volume)))
 
 (defmethod new-loadstep-mp ((mp particle-damage))

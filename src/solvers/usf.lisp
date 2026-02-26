@@ -37,36 +37,25 @@
 
         (apply-bcs mesh bcs dt)
         (filter-cells sim)
-
-        ;; (setf (cl-mpm:sim-dt sim)
-        ;;       (*
-        ;;        (cl-mpm::sim-dt-scale sim)
-        ;;        (cl-mpm::calculate-min-dt sim)))
-
         (update-node-kinematics sim)
         (apply-bcs mesh bcs dt)
         ;;Trial update displacements
         (update-nodes sim)
         (update-cells sim)
-
         (update-stress mesh mps dt fbar)
         ;; Map forces onto nodes
         (p2g-force sim)
         (when bcs-force-list
           (loop for bcs-f in bcs-force-list
                 do (apply-bcs mesh bcs-f dt)))
-
         (update-node-forces sim)
         (reset-node-displacement sim)
-
         (update-nodes sim)
-
         (apply-bcs mesh bcs dt)
         (update-dynamic-stats sim)
         ;; Also updates mps inline
         (g2p mesh mps dt damping vel-algo)
-        (new-loadstep sim)
-        )
+        (new-loadstep sim))
       (incf time dt))))
 
 
