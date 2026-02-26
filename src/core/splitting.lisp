@@ -323,6 +323,5 @@
            )
       (remove-mps-func sim (lambda (mp) (position mp mps-to-delete)))
       (loop for mp across mps-to-split
-            for direction across (remove-if-not #'identity split-directions)
-            do (loop for new-mp in (split-vector mp direction)
+            do (loop for new-mp in (split-vector mp (funcall criteria mp))
                      do (sim-add-mp sim new-mp))))))
