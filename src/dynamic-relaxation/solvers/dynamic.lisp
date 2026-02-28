@@ -253,6 +253,7 @@
           (res 0d0)
           ;; (conv-crit crit)
           (conv-crit 1d-3)
+          (residual-normaliser nil)
           (substeps 10)
           )
       (;generalised-staggered-solve
@@ -269,10 +270,14 @@
 
        :convergance-criteria
        (lambda (sim f o)
-       ;; (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
-       ;; ;;     (pprint c)
-       ;;     (< c conv-crit))
-         (< o conv-crit)
+         (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+           (if residual-normaliser
+               (setf c (/ c residual-normaliser))
+               (when (> c 0d0)
+                 (setf residual-normaliser c
+                       c 1d0)))
+           ;; (pprint c)
+           (< c conv-crit))
          )
 
        ;;   ;; (unless prev-res

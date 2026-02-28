@@ -618,11 +618,14 @@
                                                      :conv-criteria conv-criteria
                                                      :conv-criteria-damage conv-criteria
                                                      :max-damage-inc max-damage-inc
-                                                     :save-vtk-dr save-vtk-dr
-                                                     )
+                                                     :save-vtk-dr save-vtk-dr)
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)
+                                  (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
+                                    (cl-mpm:sim-format sim t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin)
+                                    (setf quasi-conv nil)
+                                    (loop-finish))
                                   (unless quasi-conv
                                     (when (= current-adaptivity max-adaptive-steps)
                                       (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%"))

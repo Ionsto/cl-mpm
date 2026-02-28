@@ -790,6 +790,7 @@
    (compute-max-deformation sim)
    criteria))
 
+(declaim (notinline res-norm-aggregated))
 (defun res-norm-aggregated (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
@@ -820,11 +821,13 @@
                      ;; (/
                      ;;  (cl-mpm/fastmaths:mag (cl-mpm/fastmaths:fast-.- res res-prev))
                      ;;  (+ 1d-10 (cl-mpm/fastmaths:mag res)))
-                     (* ;mass
-                        (cl-mpm/fastmaths:mag vel))
+                     ;; (* ;mass
+                     ;;  (cl-mpm/fastmaths::mag-squared vel))
+                     ;(cl-mpm/fastmaths::mag-squared res)
+                     (cl-mpm/fastmaths::mag-squared vel)
                      0d0)))
              #'+))
-    res-norm)))
+      (sqrt res-norm))))
 
 (defun damage-increment-criteria-mesh (sim)
   (let ((damage-max 0d0))
