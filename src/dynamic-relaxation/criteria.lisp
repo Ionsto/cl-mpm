@@ -803,15 +803,13 @@
                (with-accessors ((active cl-mpm/mesh::node-active)
                                 (agg cl-mpm/mesh::node-agg)
                                 (internal cl-mpm/mesh::node-interior)
-                                (res cl-mpm/mesh::node-residual)
+                                (res cl-mpm/mesh::node-force)
                                 (mass cl-mpm/mesh::node-mass)
-                                (res-prev cl-mpm/mesh::node-residual-prev)
-                                (vel cl-mpm/mesh::node-velocity)
-                                )
+                                (vel cl-mpm/mesh::node-velocity))
                    node
                  (if (and
                       (or
-                       internal
+                       ;; internal
                        (not agg))
                       active)
                      ;; (loop for r across (cl-mpm/utils:fast-storage res)
@@ -823,10 +821,24 @@
                      ;;  (+ 1d-10 (cl-mpm/fastmaths:mag res)))
                      ;; (* ;mass
                      ;;  (cl-mpm/fastmaths::mag-squared vel))
-                     ;(cl-mpm/fastmaths::mag-squared res)
-                     (cl-mpm/fastmaths::mag-squared vel)
+                     (cl-mpm/fastmaths::mag-squared res)
+                     ;; (cl-mpm/fastmaths::mag-squared vel)
                      0d0)))
              #'+))
+      (when sim-agg
+        (cl-mpm/aggregate::iterate-over-dimensions-with-mutex
+         (cl-mpm/mesh::mesh-nd mesh)
+         (lambda (d mut)
+           (let* ((res (cl-mpm/aggregate::assemble-global-vec sim #'cl-mpm/mesh::node-force d))
+                  (E (cl-mpm/aggregate::sim-global-e sim)))
+             (let ((dres (cl-mpm/fastmaths::mag-squared
+                          (cl-mpm/aggregate::apply-internal-bcs
+                           sim
+                           (magicl:@ (magicl:transpose E) res)
+                           d))))
+               (sb-thread:with-mutex (mut)
+                 (incf res-norm dres)))))))
+
       (sqrt res-norm))))
 
 (defun damage-increment-criteria-mesh (sim)
@@ -871,7 +883,8 @@
    #'max))
 
 (defun damage-increment-criteria (sim)
-  (damage-increment-criteria-mp sim)
+  (compute-max-damage-energy-crit sim)
+  ;; (damage-increment-criteria-mp sim)
   ;; (damage-increment-criteria-mesh sim :criteria criteria)
   )
 
@@ -918,16 +931,16 @@
             (lambda (mp)
               ;; (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) )
               ;; (cl-mpm/particle::mp-time-averaged-damage-inc mp)
-              (cl-mpm/particle::compute-mp-energy-release mp)
-              ;; (if (typep mp 'cl-mpm/particle::particle-damage)
-              ;;     (with-accessors ((volume cl-mpm/particle::mp-volume)
-              ;;                      (stress cl-mpm/particle::mp-undamaged-stress)
-              ;;                      (damage-inc cl-mpm/particle::mp-damage-increment)
-              ;;                      (strain cl-mpm/particle::mp-strain))
-              ;;         mp
-              ;;       (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain)))
-              ;;     0d0)
-              )
+              ;; (cl-mpm/particle::compute-mp-energy-release mp)
+              (if (typep mp 'cl-mpm/particle::particle-damage)
+                  (with-accessors ((volume cl-mpm/particle::mp-volume)
+                                   (stress cl-mpm/particle::mp-undamaged-stress)
+                                   (damage-inc cl-mpm/particle::mp-damage-increment)
+                                   (strain cl-mpm/particle::mp-strain))
+                      mp
+                    (* 0.5d0 volume damage-inc (cl-mpm/fastmaths:dot stress strain)))
+                  0d0
+                  ))
             #'+))
          (undamaged-energy
            (cl-mpm::reduce-over-mps
@@ -936,9 +949,10 @@
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
                                    (stress cl-mpm/particle::mp-undamaged-stress)
+                                   (damage-n cl-mpm/particle::mp-damage-n)
                                    (strain cl-mpm/particle::mp-strain))
                       mp
-                    (* 0.5d0 volume (cl-mpm/fastmaths:dot stress strain)))
+                    (* 0.5d0 volume (- 1d0 damage-n) (cl-mpm/fastmaths:dot stress strain)))
                   0d0))
             #'+)))
     (if (> undamaged-energy 0d0)

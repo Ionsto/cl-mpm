@@ -126,8 +126,8 @@
   )
 
 (defparameter *angle* 40d0)
-(defparameter *angle-r* 5d0)
-(defparameter *angle-psi* 5d0)
+(defparameter *angle-r* 10d0)
+(defparameter *angle-psi* 0d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
 (defparameter *enable-plastic-damage* nil)
@@ -135,7 +135,8 @@
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
 (defparameter *length-scaler* 2d0)
-(defparameter *gf* 100000d0)
+(defparameter *gf* 10000d0)
+(defparameter *pd-oversize* 1d-3)
 
 (declaim (notinline setup))
 (defun setup (&key (refine 1) (mps 2)
@@ -188,7 +189,7 @@
                                                 :mass-update-count 1
                                                 ;; :enable-ekl t
                                                 :split-factor (* 1.2d0 (sqrt 2) (/ 1d0 mps))
-                                                :max-split-depth 1
+                                                :max-split-depth 4
                                                 ;; :refinement multigrid-refines
                                                 )))
 
@@ -204,7 +205,7 @@
            ;; (ductility (/ (/ 5d0 0.125d0) refine))
            ;; (ductility 100d0)
            ;; (ductility 2d0)
-           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 1d-3) ductility))
+           (oversize (cl-mpm/damage::compute-oversize-factor (- 1d0 *pd-oversize*) ductility))
            )
       (format t "Ice length ~F~%" ice-length)
       (format t "Water height ~F~%" water-level)
@@ -501,11 +502,11 @@
 (defun calving-test ()
   (let* ((mps 3)
          (dt 1d2)
-         (H 600d0))
+         (H 200d0))
     (setup
-     :refine 0.25
+     :refine 0.5
      :multigrid-refines 0
-     :friction 0d0
+     :friction 0.5d0
      :bench-length (* 0d0 H)
      :bench-extra-cut 10d0
      :ice-height H
@@ -513,11 +514,11 @@
      :hydro-static nil
      :cryo-static t
      :melange nil
-     :aspect 4d0
-     :slope 0.05d0
-     :floatation-ratio 0.7d0
-     :use-penalty nil
-     :stick-base t
+     :aspect 2d0
+     :slope 0.0d0
+     :floatation-ratio -1d0
+     :use-penalty t
+     :stick-base nil
      )
 
     (plot-domain)
@@ -530,8 +531,8 @@
     (setf (cl-mpm::sim-allow-mp-damage-removal *sim*) nil)
     (setf (cl-mpm::sim-mp-damage-removal-instant *sim*) nil)
 
-    (setf (cl-mpm/damage::sim-enable-ekl *sim*) t)
-    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) nil)
+    (setf (cl-mpm/damage::sim-enable-ekl *sim*) nil)
+    (setf (cl-mpm/damage::sim-enable-length-localisation *sim*) t)
 
     (setf (cl-mpm:sim-enable-damage *sim*) nil)
     (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
@@ -549,12 +550,12 @@
        ;; :max-adaptive-steps 10
        :min-adaptive-steps -14
        :max-adaptive-steps 14
-       :max-damage-inc 0.60d0
+       :adaption-constant 3
+       :max-damage-inc 0.5d0;0.95d0
        :substeps 20
        :total-time 1d7
        :save-vtk-loadstep t
        :save-vtk-dr t
-       :adaption-constant 4
        :enable-plastic t
        :enable-damage t
        :plotter (lambda (sim)
@@ -567,11 +568,11 @@
                                             "Dynamic")))
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
-       :explicit-dt-scale 0.5d0
-       :explicit-damping-factor 1d-3
+       :explicit-dt-scale 0.25d0
+       :explicit-damping-factor 1d-4
        :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
        ;; :explicit-damping-factor 0d-4
-       ;; :explicit-dt-scale 10d0
+       ;; :explicit-dt-scale 5d0
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step (lambda (sim)
                          (setf (cl-mpm/buoyancy::bc-enable *bc-erode*) nil))
@@ -581,6 +582,10 @@
          (setf
           (cl-mpm/aggregate::sim-enable-aggregate sim) t
           (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
+          ;; (cl-mpm/damage::sim-enable-ekl *sim*) t
+          ;; (cl-mpm/damage::sim-enable-length-localisation *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
           ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
           (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC
@@ -593,6 +598,8 @@
           (cl-mpm::sim-ghost-factor *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
           ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
+          ;; (cl-mpm/damage::sim-enable-ekl *sim*) nil
+          ;; (cl-mpm/damage::sim-enable-length-localisation *sim*) t
           (cl-mpm::sim-velocity-algorithm sim) :BLEND
           ;; (cl-mpm::sim-velocity-algorithm sim) :FLIP
           (cl-mpm/buoyancy::bc-viscous-damping *water-bc*) 5d0))

@@ -609,7 +609,6 @@
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
                                                      :total-steps *total-iter*
-                                                     ;; :plotter plotter
                                                      :output-dir output-dir
                                                      :dt-scale dt-scale
                                                      :substeps substeps
