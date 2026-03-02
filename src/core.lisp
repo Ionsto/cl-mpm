@@ -829,11 +829,21 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
       mp
     (declare (double-float h))
     (let ((h-factor h)
-          (aspect 0.01d0))
+          (aspect 0.1d0)
+          (l-max nil)
+          (l-min nil))
+      (loop for i from 0 to 2
+            do
+            (let ((l (varef lens i)))
+              (when (or (not l-max) (> l l-max))
+                (setf l-max l))
+              (when (or (not l-min) (< l l-min))
+                (setf l-min l))))
       (cond
         ((< h-factor (the double-float (varef lens 0))) :x)
         ((< h-factor (the double-float (varef lens 1))) :y)
         ((< h-factor (the double-float (varef lens 2))) :z)
+        ((< l-min (* l-max aspect)) :xy)
         ;; ((= (the double-float (varef lens 0)) 0d0) :x)
         ;; ((= (the double-float (varef lens 1)) 0d0) :y)
         ;; ((= (the double-float (varef lens 2)) 0d0) :z)
