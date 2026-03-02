@@ -66,8 +66,7 @@
                        (if (> oobf 0d0)
                            (/ (* n-mass (cl-mpm/fastmaths::mag res))
                                oobf-denom)
-                           0d0
-                           )))
+                           0d0)))
                (setf node-oobf 0d0))))))
       (if (> mass 0d0)
           ;(values (/ energy mass) oobf (/ power mass))

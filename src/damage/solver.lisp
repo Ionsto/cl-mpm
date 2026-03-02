@@ -157,11 +157,15 @@
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid-velocity mesh mass-filter))
         (cl-mpm::update-node-kinematics sim)
-        ;; (cl-mpm::reset-node-displacement sim)
         (cl-mpm::update-nodes sim)
+        ;; (loop for bcs-f in bcs-force-list
+        ;;       do (cl-mpm::apply-bcs mesh bcs-f dt))
         (cl-mpm::apply-bcs mesh bcs dt)
         (cl-mpm::update-stress mesh mps dt fbar)
         (cl-mpm/damage::calculate-damage sim dt)
+        ;; (cl-mpm::reset-grid-velocity mesh)
+        ;; (cl-mpm::p2g mesh mps)
+
         (cl-mpm::new-loadstep sim))
       (incf time dt)
       )))

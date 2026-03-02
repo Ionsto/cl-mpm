@@ -234,7 +234,7 @@
       (when non-local-damage
         ;;When delocal counter max is -1, we want to update never -> 0 is always
         (unless (= delocal-counter-max -1)
-          (when (= delocal-counter 0)
+          (when (<= delocal-counter 0)
             ;;Ensure they have a home
             ;; (create-delocalisation-list mesh mps)
             (update-delocalisation-list mesh mps)
