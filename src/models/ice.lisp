@@ -836,11 +836,11 @@
                (P-0 (+ K (* 4/3 G))))
           (setf K (* K p-deg))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          ;; (setf p-mod
-          ;;       (max
-          ;;        (* 1d-9 P-0)
-          ;;        (max (* p-mod p-deg)
-          ;;             (+ K (* 4/3 G)))))
+          (setf p-mod
+                (max
+                 (* 1d-9 P-0)
+                 (max (* p-mod p-deg)
+                      (+ K (* 4/3 G)))))
           (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
           )))))
 
