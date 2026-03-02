@@ -14,30 +14,31 @@
     (declare (magicl::matrix/double-float domain domain-0 def))
     (let* ((jf (/ volume volume-0))
            (jl  (* (varef domain 0) (varef domain 1)))
-           (jl0 (* (varef domain-0 0) (varef domain-0 1)))
-           (scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
+           (jl0 (* (varef domain-0 0) (varef domain-0 1))))
       (declare (double-float jf jl0 jl))
-      (setf (varef domain 0) (* (varef domain 0) scaling)
-            (varef domain 1) (* (varef domain 1) scaling)))))
+      (when (> jl 0d0)
+        (let ((scaling (the double-float (expt (the double-float (/ (* jf jl0) jl)) (/ 1d0 2d0)))))
+          (setf (varef domain 0) (* (varef domain 0) scaling)
+                (varef domain 1) (* (varef domain 1) scaling)))))))
 
 (defun scale-domain-size-3d (mp)
   (with-accessors ((def cl-mpm/particle::mp-deformation-gradient)
                    (domain cl-mpm/particle::mp-domain-size)
                    (domain-0 cl-mpm/particle::mp-domain-size-0)
                    (volume cl-mpm/particle::mp-volume)
-                   (volume-0 cl-mpm/particle::mp-volume-0)
-                   )
+                   (volume-0 cl-mpm/particle::mp-volume-0))
       mp
     (declare (magicl::matrix/double-float domain domain-0 def))
     (let* ((jf (/ volume volume-0))
            (jl  (* (varef domain 0) (varef domain 1) (varef domain 2)))
            (jl0 (* (varef domain-0 0) (varef domain-0 1) (varef domain-0 2)))
-           (scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
-      (declare (double-float scaling jf jl0 jl))
-      (setf (varef domain 0) (* (varef domain 0) scaling)
-            (varef domain 1) (* (varef domain 1) scaling)
-            (varef domain 2) (* (varef domain 2) scaling)
-            )))
+           )
+      (declare (double-float jf jl0 jl))
+      (when (> jl 0d0)
+        (let ((scaling (expt (/ (* jf jl0) jl) (/ 1d0 3d0))))
+          (setf (varef domain 0) (* (varef domain 0) scaling)
+                (varef domain 1) (* (varef domain 1) scaling)
+                (varef domain 2) (* (varef domain 2) scaling))))))
   )
 (defun scale-domain-size (mesh mp)
   (if (= 2 (cl-mpm/mesh:mesh-nd mesh))
@@ -360,32 +361,37 @@
         (let* (;; (vt (magicl:transpose vt))
                (R (magicl:@ u vt))
                (U (magicl:@ (magicl:transpose vt) s vt)))
-          ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-          ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
-          ;; (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R)))
-          ;; (setf true-domain (magicl:@ (magicl:transpose R) (magicl:@ true-domain U) R))
-          ;; (setf true-domain (magicl:@ true-domain U))
-          ;; (setf true-domain (magicl:@ R U (magicl:transpose R) true-domain))
-          ;; (setf true-domain (magicl:@ true-domain U))
-          ;; (setf true-domain (magicl:@ R true-domain (magicl:transpose R)))
-          ;; (setf true-domain (magicl:@ U true-domain))
-          )))
-    (setf
-     (varef domain 0)
-     ;; (mtref true-domain 0 0)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
-     (varef domain 1)
-     ;; (mtref true-domain 1 1)
-     (cl-mpm/fastmaths:mag
-      (cl-mpm/fastmaths::fast-@-matrix-vector
-       true-domain
-       (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))
-     )
-    ))
+          (setf true-domain (magicl:@ R (magicl:@ true-domain U) (magicl:transpose R))))))
+    (if nil
+        (setf
+         (varef domain 0)
+         (varef
+          (cl-mpm/fastmaths::fast-@-matrix-vector
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))) 0)
+
+         (varef domain 1)
+         (cl-mpm/utils:varef
+          (cl-mpm/fastmaths::fast-@-matrix-vector
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))) 1))
+
+        (setf
+         (varef domain 0)
+         (cl-mpm/fastmaths:mag
+          (cl-mpm/fastmaths::fast-@-matrix-vector
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+         (varef domain 1)
+         (cl-mpm/fastmaths:mag
+          (cl-mpm/fastmaths::fast-@-matrix-vector
+           true-domain
+           (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))))))))
+
+(defun update-domain-polar (mesh mp dt)
+  (if (= (the fixnum (cl-mpm/mesh:mesh-nd mesh)) 2)
+      (update-domain-polar-2d mesh mp dt)
+      (error "Polar decomposition domain update not implemented for 3D")))
 
 (defun update-domain-corner-2d (mesh mp dt)
   "Use a corner tracking scheme to update domain lengths"

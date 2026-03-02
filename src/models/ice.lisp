@@ -772,7 +772,7 @@
                   (max
                    k-n
                    (+
-                    (if pd-inc ps-y 0d0)
+                    ;; (if pd-inc ps-y 0d0)
                     (cl-mpm/damage::auto-refine-substepper
                      k-n
                      ybar-prev
