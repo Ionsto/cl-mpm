@@ -100,7 +100,7 @@
                do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
          (setf (cl-mpm::sim-damping-factor sim) 0d0)
          (update-node-fictious-mass sim)
-         (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
+         ;; (cl-mpm/aggregate::update-node-forces-agg sim (* -0.5d0 dt))
          (cl-mpm::iterate-over-nodes
           mesh
           (lambda (n)
@@ -148,7 +148,7 @@
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (midpoint-starter sim)
+    ;; (midpoint-starter sim)
     (setf initial-setup t)))
 
 (defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
@@ -160,12 +160,11 @@
      mesh
      (lambda (node)
        (when (and (cl-mpm/mesh:node-active node)
-                  ;; (or (not (cl-mpm/mesh::node-agg node))
-                  ;;     (cl-mpm/mesh::node-interior node))
-                  )
+                  (or (not (cl-mpm/mesh::node-agg node))
+                      (cl-mpm/mesh::node-interior node)))
          (cl-mpm::update-node node dt))))
-    ;; (when agg
-    ;;   (cl-mpm/aggregate::project-displacement sim))
+    (when agg
+      (cl-mpm/aggregate::project-displacement sim))
     ))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
@@ -328,11 +327,12 @@
              (let* ((acc
                       (cl-mpm/aggregate::linear-solve-with-bcs
                        ma f (cl-mpm/aggregate::assemble-internal-bcs sim d))))
-               (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-               (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+               ;; (cl-mpm/aggregate::apply-internal-bcs sim acc d)
+               ;; (cl-mpm/aggregate::project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
 
-               ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
-               ;; (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
+               ;; (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-velocity d)
+               (cl-mpm/aggregate::zero-global sim #'cl-mpm/mesh::node-acceleration d)
+               (cl-mpm/aggregate::project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
                )))))
 
       ;; (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
@@ -365,10 +365,8 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm::node-acceleration))
              node
-           (when
-               t
-               ;; (or (not agg)
-                 ;;     internal)
+           (when (or (not agg)
+                     internal)
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ))

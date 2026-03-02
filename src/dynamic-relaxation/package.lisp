@@ -51,7 +51,10 @@
 (defclass mpm-sim-dr-dynamic (mpm-sim-dr-ul cl-mpm/damage:mpm-sim-damage)
   ((enable-dynamics
     :initform t
-    :accessor sim-enable-dynamics))
+    :accessor sim-enable-dynamics)
+   (true-damping
+    :initform 0d0
+    :accessor sim-true-damping))
   (:documentation "DR implicit-dynamic mpm base class"))
 
 

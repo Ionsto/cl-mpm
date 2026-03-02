@@ -22,12 +22,13 @@
         ;;Backwards euler acceleration
         (let ((vn (cl-mpm/utils:vector-zeros))
               (inertia-force (cl-mpm/utils:vector-zeros)))
-          ;; (cl-mpm/fastmaths:fast-fmacc force-damp vn (* damping -1d0 mass))
+
           (unless (= real-dt 0d0)
             (cl-mpm/utils:vector-copy-into disp vn)
             (cl-mpm/fastmaths:fast-scale! vn (/ 1d0 real-dt))
             (cl-mpm/fastmaths::fast-.- vn vt inertia-force)
             (cl-mpm/fastmaths::fast-scale! inertia-force (/ (- real-mass) real-dt)))
+          (cl-mpm/fastmaths:fast-fmacc force-damp vn (* true-damping -1d0 mass))
           ;;Set acc to f/m
           (cl-mpm/fastmaths::fast-.+ inertia-force force force)
           (cl-mpm/fastmaths::fast-.+-vector force-int force force)
@@ -52,6 +53,7 @@
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (mass-scale cl-mpm::sim-mass-scale)
                    (damping cl-mpm::sim-damping-factor)
+                   (true-damping cl-mpm/dynamic-relaxation::sim-true-damping)
                    (damping-algo cl-mpm::sim-damping-algorithm)
                    (agg-elems cl-mpm/aggregate::sim-agg-elems)
                    (dt cl-mpm::sim-dt)
@@ -66,8 +68,8 @@
      (lambda (node)
        (when (cl-mpm/mesh:node-active node)
          (if enable-dynamics
-             (cl-mpm/dynamic-relaxation::dr-calculate-forces-implicit-dynamic node 0d0 0d0 mass-scale dt-loadstep)
-             (cl-mpm::calculate-forces node 0d0 0d0 mass-scale)))))
+             (cl-mpm/dynamic-relaxation::dr-calculate-forces-implicit-dynamic node true-damping 0d0 mass-scale dt-loadstep)
+             (cl-mpm::calculate-forces node true-damping 0d0 mass-scale)))))
 
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     ;;For each aggregated element set solve mass matrix and velocity
@@ -242,20 +244,15 @@
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
   "Update stress last algorithm"
   (let ((crit (cl-mpm/dynamic-relaxation::sim-convergence-critera sim))
-        (damage-enabled (cl-mpm::sim-enable-damage sim))
         (dt (cl-mpm::sim-dt sim))
         (dt-scale (cl-mpm::sim-dt-scale sim))
-        )
+        (true-damping (cl-mpm::sim-damping-factor sim)))
     (setf (sim-dt-loadstep sim) (* 1d0 dt))
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic)
-    ;; (setf (cl-mpm::sim-dt-scale sim) 0.25d0)
-    (let ((prev-res nil)
-          (res 0d0)
-          ;; (conv-crit crit)
-          (conv-crit 1d-3)
+    (setf (cl-mpm/dynamic-relaxation::sim-true-damping sim) true-damping)
+    (let ((conv-crit 1d-3)
           (residual-normaliser nil)
-          (substeps 10)
-          )
+          (substeps 10))
       (;generalised-staggered-solve
        converge-quasi-static
        sim
@@ -265,40 +262,18 @@
        :oobf-crit crit
        :substeps substeps
        :damping-factor 1d0
-       :conv-steps 10000
+       :conv-steps 100
        :dt-scale 1d0;dt-scale
-
        :convergance-criteria
        (lambda (sim f o)
-         (let ((c (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
+         (let ((c ;; (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)
+                  (cl-mpm/dynamic-relaxation::vel-norm-aggregated sim)))
            (if residual-normaliser
                (setf c (/ c residual-normaliser))
                (when (> c 0d0)
                  (setf residual-normaliser c
                        c 1d0)))
-           ;; (pprint c)
-           (< c conv-crit))
-         )
-
-       ;;   ;; (unless prev-res
-       ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
-       ;; :convergance-criteria
-       ;; (lambda (sim f o)
-       ;;   ;; (unless prev-res
-       ;;   ;;   (setf prev-res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim)))
-       ;;   (setf res (cl-mpm/dynamic-relaxation::res-norm-aggregated sim))
-       ;;   ;; (let* ((conv (if (> prev-res 0d0)
-       ;;   ;;                  (< (/ res prev-res) conv-crit)
-       ;;   ;;                  nil)))
-       ;;   ;;   (format t "Succesion res criteria ~E~%"
-       ;;   ;;           (if (> prev-res 0d0)
-       ;;   ;;               (/ res prev-res)
-       ;;   ;;               0d0))
-       ;;     (setf (cl-mpm::sim-stats-oobf sim) res)
-       ;;     (format t "Succesion res criteria ~E~%" res)
-       ;;     (< res conv-crit)
-       ;;   ;;   conv)
-       ;;   )
+           (< c conv-crit)))
        :post-iter-step (lambda (i e o)
                          (format t "Dynamic substep ~D~%" i)
                          ;; (when (uiop:directory-exists-p "./output/")
@@ -311,6 +286,7 @@
     (setf (cl-mpm::sim-dt-scale sim) dt-scale)
     (change-class sim 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic)
     (setf (cl-mpm::sim-dt sim) dt)
+    (setf (cl-mpm::sim-damping-factor sim) true-damping)
     (cl-mpm::finalise-loadstep sim))
   )
 

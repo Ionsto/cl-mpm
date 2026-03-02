@@ -767,26 +767,25 @@
         (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (let ((k0 init-stress)
               (ps-y (sqrt (* E (expt ps-vm 2)))))
-          (when (or t
-                    ;(>= ybar-prev k0)
-                    ;(>= ybar k0)
-                    )
+          (when (or t)
             (setf k
                   (max
                    k-n
-                   (cl-mpm/damage::auto-refine-substepper
-                    k-n
-                    ybar-prev
-                    ybar
-                    dt
-                    (lambda (k y0 y1 s-dt)
-                      (cl-mpm/damage::huen-integration k
-                                                       y0
-                                                       y1
-                                                       k0
-                                                       tau
-                                                       tau-exp
-                                                       s-dt)))
+                   (+
+                    (if pd-inc ps-y 0d0)
+                    (cl-mpm/damage::auto-refine-substepper
+                     k-n
+                     ybar-prev
+                     ybar
+                     dt
+                     (lambda (k y0 y1 s-dt)
+                       (cl-mpm/damage::huen-integration k
+                                                        y0
+                                                        y1
+                                                        k0
+                                                        tau
+                                                        tau-exp
+                                                        s-dt))))
                    ))))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
@@ -837,11 +836,11 @@
                (P-0 (+ K (* 4/3 G))))
           (setf K (* K p-deg))
           (setf G (* G (- 1d0 (expt damage-s exponent))))
-          (setf p-mod
-                (max
-                 (* 1d-9 P-0)
-                 (max (* p-mod p-deg)
-                      (+ K (* 4/3 G)))))
+          ;; (setf p-mod
+          ;;       (max
+          ;;        (* 1d-9 P-0)
+          ;;        (max (* p-mod p-deg)
+          ;;             (+ K (* 4/3 G)))))
           (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
           )))))
 

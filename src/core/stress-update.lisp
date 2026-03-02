@@ -86,36 +86,6 @@
                  (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel stretch-tensor)))))
           (cl-mpm/fastmaths::fast-scale! stretch-tensor dt))))
 
-(declaim (notinline calculate-strain-rate)
-         (ftype (function (cl-mpm/mesh::mesh  cl-mpm/particle:particle double-float)) calculate-strain-rate))
-(defun calculate-strain-rate-DR (mesh mp dt)
-  "Calculate the strain rate, stretch rate and vorticity"
-  (declare (cl-mpm/mesh::mesh mesh) (cl-mpm/particle:particle mp) (double-float dt)
-           (optimize (speed 3) (safety 0)))
-  (with-accessors ((stretch-tensor cl-mpm/particle::mp-stretch-tensor)
-                   (stretch-tensor-fbar cl-mpm/particle::mp-stretch-tensor-fbar)
-                   (df cl-mpm/particle::mp-deformation-gradient-increment)
-                   ) mp
-    (declare (magicl:matrix/double-float stretch-tensor stretch-tensor-fbar)
-             (double-float dt))
-        (progn
-          (cl-mpm/fastmaths::fast-zero stretch-tensor)
-          (cl-mpm/fastmaths::fast-zero stretch-tensor-fbar)
-          (let ()
-            (iterate-over-neighbours
-             mesh mp
-             (lambda (mesh mp node svp grads fsvp fgrads)
-               (declare (ignore mp svp fsvp))
-               (with-accessors ((node-vel cl-mpm/mesh:node-velocity)
-                                (node-disp cl-mpm/mesh::node-displacment)
-                                (node-active cl-mpm/mesh:node-active))
-                   node
-                 (declare (magicl:matrix/double-float node-vel)
-                          (boolean node-active))
-                 (when node-active
-                   (let* ((grads (cl-mpm::gradient-push-forwards grads df)))
-                     (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-disp stretch-tensor)
-                     (cl-mpm/shape-function::@-combi-assemble-dstretch-3d fgrads node-disp stretch-tensor-fbar))))))))))
 
 (defun make-df (inc)
   (let ((df (cl-mpm/utils::matrix-from-list '(1d0 0d0 0d0
@@ -183,10 +153,12 @@
                  (expt
                   (the double-float (/ gather-j (* j-inc j-n)))
                   (/ 1 nd)))
-                (when (= nd 1)
-                  (setf (magicl:tref df 1 1) 1d0))
-                (when (= nd 2)
-                  (setf (magicl:tref df 2 2) 1d0))
+                (ecase nd
+                    (1 (setf (magicl:tref df 1 1) 1d0))
+                    (2 (progn
+                             (setf (magicl:tref df 1 1) 1d0)
+                             (setf (magicl:tref df 2 2) 1d0)))
+                    (3 nil))
                 )
               )
             ;;Coombs fbar
@@ -202,11 +174,21 @@
                   (the double-float (/ (cl-mpm/fastmaths:det-3x3 df-fbar)
                                        (cl-mpm/fastmaths:det-3x3 df-strain)))
                   (the double-float (/ 1d0 nd))))
-                (when (= nd 1)
-                  (setf (magicl:tref df 1 1) 1d0)
-                  (setf (magicl:tref df 2 2) 1d0))
-                (when (= nd 2)
-                  (setf (magicl:tref df-strain 2 2) 1d0))))))
+                (ecase nd
+                  (1
+                   (progn
+                     (setf (magicl:tref df-strain 1 1) 1d0)
+                     (setf (magicl:tref df-strain 2 2) 1d0))
+                   )
+                  (2 (progn
+                       (setf (magicl:tref df-strain 2 2) 1d0)))
+                  (3 nil))
+                ;; (when (= nd 1)
+                ;;   (setf (magicl:tref df 1 1) 1d0)
+                ;;   (setf (magicl:tref df 2 2) 1d0))
+                ;; (when (= nd 2)
+                ;;   (setf (magicl:tref df-strain 2 2) 1d0))
+                ))))
       (values df df-strain))))
 
 ;;; Strain updates

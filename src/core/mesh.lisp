@@ -818,6 +818,7 @@
                    (boundary node-boundary-node)
                    (damage node-damage)
                    (vel node-velocity)
+                   (disp node-displacment)
                    (acc node-acceleration)
                    (force node-force)
                    (int-force node-internal-force)
@@ -833,6 +834,7 @@
      p-mod 0d0
      mass 0d0)
     (cl-mpm/fastmaths::fast-zero vel)
+    (cl-mpm/fastmaths::fast-zero disp)
     ;; (cl-mpm/fastmaths::fast-zero acc)
     ;; (cl-mpm/fastmaths::fast-zero force)
     ;; (cl-mpm/fastmaths::fast-zero int-force)

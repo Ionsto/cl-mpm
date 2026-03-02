@@ -91,7 +91,7 @@
         (setf y
               (*
                (+
-                (if pd-inc ps-y 0d0)
+                ;; (if pd-inc ps-y 0d0)
                 ;; (cl-mpm/damage::criterion-max-principal-stress stress-pressure)
                 ;; (cl-mpm/damage::criterion-j2 stress)
                 (cl-mpm/damage::criterion-mohr-coloumb-rankine-stress-tensile stress-pressure (* angle (/ pi 180d0))))))))))
@@ -126,11 +126,11 @@
   )
 
 (defparameter *angle* 40d0)
-(defparameter *angle-r* 10d0)
-(defparameter *angle-psi* 0d0)
+(defparameter *angle-r* 5d0)
+(defparameter *angle-psi* 5d0)
 (defparameter *rc* 0d0)
 (defparameter *rs* 1d0)
-(defparameter *enable-plastic-damage* nil)
+(defparameter *enable-plastic-damage* t)
 (defparameter *delay-time* 1d4)
 (defparameter *delay-exponent* 2d0)
 (defparameter *enable-viscosity* nil)
@@ -418,7 +418,7 @@
 
     (let ((domain-half (* 0.5d0 (first domain-size)))
           (friction friction)
-          (epsilon-scale 0.1d0)
+          (epsilon-scale 0.01d0)
           )
       (defparameter *floor-bc*
         (cl-mpm/penalty::make-bc-penalty-distance-point
@@ -502,9 +502,9 @@
 (defun calving-test ()
   (let* ((mps 3)
          (dt 1d2)
-         (H 200d0))
+         (H 400d0))
     (setup
-     :refine 0.5
+     :refine 0.25
      :multigrid-refines 0
      :friction 0.5d0
      :bench-length (* 0d0 H)
@@ -516,7 +516,7 @@
      :melange nil
      :aspect 2d0
      :slope 0.0d0
-     :floatation-ratio -1d0
+     :floatation-ratio 0.5d0
      :use-penalty t
      :stick-base nil
      )
@@ -550,7 +550,7 @@
        ;; :max-adaptive-steps 10
        :min-adaptive-steps -14
        :max-adaptive-steps 14
-       :adaption-constant 3
+       :adaption-constant 4
        :max-damage-inc 0.5d0;0.95d0
        :substeps 20
        :total-time 1d7
@@ -569,9 +569,10 @@
                   (vgplot:print-plot (merge-pathnames (format nil "outframes/frame_~5,'0d.png" step)) :terminal "png size 1920,1080")
                   (incf step))
        :explicit-dt-scale 0.25d0
-       :explicit-damping-factor 1d-4
-       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
-       ;; :explicit-damping-factor 0d-4
+       :explicit-damping-factor 1d-3
+       ;:explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-agg-damage
+       :explicit-dynamic-solver 'cl-mpm/damage::mpm-sim-musl-damage
+       ;; :explicit-damping-factor 1d-5
        ;; :explicit-dt-scale 5d0
        ;; :explicit-dynamic-solver 'cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic
        :post-conv-step (lambda (sim)
@@ -583,7 +584,7 @@
           (cl-mpm/aggregate::sim-enable-aggregate sim) t
           (cl-mpm::sim-ghost-factor *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
-          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
+          ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-3)
           ;; (cl-mpm/damage::sim-enable-ekl *sim*) t
           ;; (cl-mpm/damage::sim-enable-length-localisation *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
@@ -594,8 +595,8 @@
        (lambda (sim)
          (cl-mpm/setup::set-mass-filter *sim* 918d0 :proportion 1d-15)
          (setf
-          (cl-mpm/aggregate::sim-enable-aggregate sim) t
-          (cl-mpm::sim-ghost-factor *sim*) nil
+          ;; (cl-mpm/aggregate::sim-enable-aggregate sim) t
+          ;; (cl-mpm::sim-ghost-factor *sim*) nil
           ;; (cl-mpm/aggregate::sim-enable-aggregate sim) nil
           ;; (cl-mpm::sim-ghost-factor *sim*) (* 1d9 1d-4)
           ;; (cl-mpm/damage::sim-enable-ekl *sim*) nil

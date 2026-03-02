@@ -791,6 +791,33 @@
    criteria))
 
 (declaim (notinline res-norm-aggregated))
+(defun vel-norm-aggregated (sim)
+  (with-accessors ((mesh cl-mpm:sim-mesh)
+                   (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
+      sim
+    (let ((res-norm 0d0))
+      (incf res-norm
+            (cl-mpm::reduce-over-nodes
+             mesh
+             (lambda (node)
+               (with-accessors ((active cl-mpm/mesh::node-active)
+                                (agg cl-mpm/mesh::node-agg)
+                                (internal cl-mpm/mesh::node-interior)
+                                (res cl-mpm/mesh::node-force)
+                                (mass cl-mpm/mesh::node-mass)
+                                (vel cl-mpm/mesh::node-velocity))
+                   node
+                 (if (and
+                      (or
+                       internal
+                       (not agg))
+                      active)
+                     (cl-mpm/fastmaths::mag-squared vel))
+                 0d0))
+             #'+))
+      (sqrt res-norm))))
+
+(declaim (notinline res-norm-aggregated))
 (defun res-norm-aggregated (sim)
   (with-accessors ((mesh cl-mpm:sim-mesh)
                    (sim-agg cl-mpm/aggregate::sim-enable-aggregate))
@@ -883,8 +910,8 @@
    #'max))
 
 (defun damage-increment-criteria (sim)
-  (compute-max-damage-energy-crit sim)
-  ;; (damage-increment-criteria-mp sim)
+  ;; (compute-max-damage-energy-crit sim)
+  (damage-increment-criteria-mp sim)
   ;; (damage-increment-criteria-mesh sim :criteria criteria)
   )
 

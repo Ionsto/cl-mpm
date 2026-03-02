@@ -2,38 +2,6 @@
 (declaim (optimize (debug 0) (safety 0) (speed 3)))
 ;; (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-(defclass mpm-sim-damage (cl-mpm::mpm-sim-usf)
-  ((delocal-counter
-    :accessor sim-damage-delocal-counter
-    :type fixnum
-    :initarg :delocal-counter
-    :initform 0)
-   (delocal-counter-max
-    :accessor sim-damage-delocal-counter-max
-    :type fixnum
-    :initarg :delocal-counter-max
-    :initform 10)
-   (enable-length-localisation
-    :type boolean
-    :accessor sim-enable-length-localisation
-    :initarg :enable-length-localisation
-    :initform nil)
-   (enable-ekl
-    :type boolean
-    :accessor sim-enable-ekl
-    :initarg :enable-ekl
-    :initform nil)
-   )
-  (:documentation "Explicit simulation with update stress first update"))
-
-(defclass mpm-sim-usl-damage (mpm-sim-damage cl-mpm::mpm-sim-usl) ())
-
-(defclass mpm-sim-damage-nd-2 (mpm-sim-damage cl-mpm::mpm-nd-2d) ())
-
-(defclass mpm-sim-agg-damage (mpm-sim-damage cl-mpm/aggregate::mpm-sim-aggregated)
-  ()
-  (:documentation "Explicit damage simulation"))
-
 (defmethod cl-mpm/particle::compute-mp-energy-release ((mp cl-mpm/particle::particle-damage))
   (with-accessors ((volume cl-mpm/particle::mp-volume)
                    (stress cl-mpm/particle::mp-undamaged-stress)

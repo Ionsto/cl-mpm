@@ -79,6 +79,7 @@
       (when (> mass-filter 0d0)
         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
       (cl-mpm::update-node-kinematics sim)
+      (cl-mpm::update-nodes sim)
       (cl-mpm::apply-bcs mesh bcs dt)
       ;; Map forces onto nodes
       (cl-mpm::p2g-force sim)
@@ -107,5 +108,60 @@
       (cl-mpm::update-stress mesh mps dt fbar)
       (cl-mpm/damage::calculate-damage sim dt)
       (cl-mpm::new-loadstep sim)
+      (incf time dt)
+      )))
+
+(defmethod cl-mpm::update-sim ((sim cl-mpm/damage::mpm-sim-musl-damage))
+  "Update stress last algorithm"
+  (with-accessors ((mesh cl-mpm::sim-mesh)
+                   (mps cl-mpm::sim-mps)
+                   (bcs cl-mpm::sim-bcs)
+                   (bcs-force cl-mpm::sim-bcs-force)
+                   (dt cl-mpm::sim-dt)
+                   (mass-filter cl-mpm::sim-mass-filter)
+                   (enable-damage cl-mpm/damage::sim-enable-damage)
+                   (fbar cl-mpm::sim-enable-fbar)
+                   (bcs-force-list cl-mpm::sim-bcs-force-list)
+                   (vel-algo cl-mpm::sim-velocity-algorithm)
+                   (damping cl-mpm::sim-damping-factor)
+                   (time cl-mpm::sim-time))
+      sim
+    (declare (type double-float mass-filter))
+    (progn
+      (cl-mpm::reset-grid mesh)
+      (when (> (length mps) 0)
+        ;; Map momentum to grid
+        (cl-mpm::p2g mesh mps)
+        ;;Reset nodes below our mass-filter
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid mesh mass-filter))
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::filter-cells sim)
+        ;;Turn momentum into velocity
+        (cl-mpm::update-node-kinematics sim)
+        (cl-mpm::update-nodes sim)
+        (cl-mpm::p2g-force sim)
+        (loop for bcs-f in bcs-force-list
+              do (cl-mpm::apply-bcs mesh bcs-f dt))
+        ;; (apply-bcs mesh bcs-force dt)
+        ;;Update our nodes after force mapping
+        (cl-mpm::update-node-forces sim)
+        ;;Apply velocity bcs
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::reset-node-displacement sim)
+        (cl-mpm::update-nodes sim)
+        (cl-mpm::update-dynamic-stats sim)
+        (cl-mpm::g2p mesh mps dt damping vel-algo)
+        (cl-mpm::reset-grid-velocity mesh)
+        (cl-mpm::p2g mesh mps)
+        (when (> mass-filter 0d0)
+          (cl-mpm::filter-grid-velocity mesh mass-filter))
+        (cl-mpm::update-node-kinematics sim)
+        ;; (cl-mpm::reset-node-displacement sim)
+        (cl-mpm::update-nodes sim)
+        (cl-mpm::apply-bcs mesh bcs dt)
+        (cl-mpm::update-stress mesh mps dt fbar)
+        (cl-mpm/damage::calculate-damage sim dt)
+        (cl-mpm::new-loadstep sim))
       (incf time dt)
       )))

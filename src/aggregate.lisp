@@ -425,22 +425,6 @@
                           weight)))))))))
     (values e)))
 
-(defun assemble-internal-identity (sim vec)
-  (let* ((ndofs (length (fast-storage vec)))
-         (m (cl-mpm/utils::arb-matrix ndofs ndofs)))
-    (loop for i from 0 below ndofs
-          do (setf (mtref m i i) (varef vec i)))
-    ;; (cl-mpm::iterate-over-nodes
-    ;;  mesh
-    ;;  (lambda (node)
-    ;;    (when (cl-mpm/mesh:node-active node)
-    ;;      (when (cl-mpm/mesh::node-agg node)
-    ;;        (setf (mtref m
-    ;;                     (cl-mpm/mesh::node-agg-fd node)
-    ;;                     (cl-mpm/mesh::node-agg-fd node))
-    ;;              (varef vec (cl-mpm/mesh::node-agg-fdc node)))))))
-    m))
-
 (defun assemble-global-mass-matrix (sim)
   (let* ((active-nodes (sim-agg-nodes-fd sim))
          (ndofs (length active-nodes))
@@ -634,7 +618,9 @@
              (let* ((acc
                       (linear-solve-with-bcs ma fa (assemble-internal-bcs sim d))))
                (cl-mpm/aggregate::apply-internal-bcs sim acc d)
-               (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d))))))
+               ;; (project-global-vec sim (magicl:@ E acc) #'cl-mpm/mesh::node-acceleration d)
+               (project-int-vec sim acc #'cl-mpm/mesh::node-acceleration d)
+               )))))
       )
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)
     (iterate-over-nodes
