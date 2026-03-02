@@ -385,6 +385,12 @@
                                         (cl-mpm:update-sim sim))
                                       (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                                       (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
+                                    ;; (save-conv-step sim output-dir *total-iter* global-step
+                                    ;;                 0d0
+                                    ;;                 o
+                                    ;;                 0d0
+                                    ;;                 )
+
                                     (incf total-i))))
 
                        (setf damage-prev damage)
@@ -594,8 +600,10 @@
               while (and (cl-mpm::sim-run-sim sim)
                          (< (cl-mpm::sim-time sim) total-time))
               do
-                 (let ((quasi-conv nil))
-                   (cl-mpm:sim-format sim t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity (/ dt (expt adaption-constant current-adaptivity)))
+                 (let ((quasi-conv nil)
+                       )
+                   (cl-mpm:sim-format sim t "Quasi-timestep ~D, dt refine ~D - dt ~E~%" step current-adaptivity
+                                      (/ dt (expt adaption-constant current-adaptivity)))
                    (defparameter *trial-iter* 0)
                    (let ((stagger-iters 0))
                      (loop for i from 0 to max-adaptive-steps
@@ -630,12 +638,10 @@
                                       (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%"))
                                     (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
                                       (cl-mpm:sim-format sim t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin))
-                                    (if (or (= current-adaptivity max-adaptive-steps)
-                                            (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt)))
-                                        (progn
-                                          ;; (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%")
-                                          (loop-finish))
-                                        (incf current-adaptivity))
+                                    (when (or (= current-adaptivity max-adaptive-steps)
+                                              (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt)))
+                                      (loop-finish))
+                                    (incf current-adaptivity)
                                     (when (> i 4)
                                       (cl-mpm:sim-format sim t "We've adaptive multiple sucessive times, double jump dt adaption~%")
                                       (incf i 1)))))
@@ -650,8 +656,7 @@
                                              (setf current-adaptivity
                                                    (max min-adaptive-steps
                                                         (- current-adaptivity 1)))))
-                                         (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil)
-                                         ))))
+                                         (setf (nth (mod prev-step-iter 2) prev-steps-easy) nil)))))
                    (unless quasi-conv
                      ;;We've adapted down to a min
                      (cl-mpm:sim-format sim t "Start real-timestepping~%")

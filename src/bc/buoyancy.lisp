@@ -1115,7 +1115,7 @@
                       (df cl-mpm/mesh::cell-deformation-gradient)
                       (disp cl-mpm/mesh::cell-displacement))
          cell
-       (when (not cell-partial)
+       (when t;(not cell-partial)
          (let* (;; (pos (cl-mpm/fastmaths:fast-.+ pos disp))
                 ;; (trial-pos pos)
                 (trial-pos (get-cell-position cell))
