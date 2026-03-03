@@ -106,7 +106,7 @@
                                  centroid)))
                    (when (or
                           (not closest-elem)
-                          (> volume (* volume-ratio-min volume-t))
+                          ;; (> volume (* volume-ratio-min volume-t))
                           (> dist dist-tr))
                      (setf dist dist-tr
                            closest-elem cell)))))))
@@ -136,7 +136,7 @@
                  (when (and
                         (cl-mpm/mesh::cell-active cell)
                         (not (cl-mpm/mesh::cell-partial cell))
-                        (> volume (* volume-ratio-min volume-t))
+                        ;; (> volume (* volume-ratio-min volume-t))
                         (not (cl-mpm/mesh::cell-agg cell)))
                    (let ((dist-tr (cl-mpm/fastmaths::diff-norm
                                    pos
@@ -150,8 +150,7 @@
                                 (not closest-elem)
                                 (> dist dist-tr))
                            (setf dist dist-tr
-                                 closest-elem cell))))))
-                 )))))))
+                                 closest-elem cell)))))))))))))
     closest-elem))
 
 

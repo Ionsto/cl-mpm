@@ -576,12 +576,6 @@
                         f-int
                         f-ghost
                         ))
-                      ;; (reduce #'cl-mpm/fastmaths::fast-.+-vector
-                      ;;         (list
-                      ;;          f-ext
-                      ;;          f-int
-                      ;;          f-ghost
-                      ;;          ))
                       )))
                (incf node-oobf inc)
                (setf nmax (+
@@ -726,20 +720,7 @@
            (let ((lens-2d (list (cl-mpm/utils:varef lens 0)
                                 (cl-mpm/utils:varef lens 1))))
              (/ (reduce #'max lens-2d)
-                (reduce #'min lens-2d)
-                )))
-         ;; (multiple-value-bind (l v) (cl-mpm::eig (cl-mpm/utils::slice-matrix-2d (df-to-jacobian sim (cl-mpm/mesh::cell-deformation-gradient c))))
-         ;;   ;; ()
-         ;;   (setf (cl-mpm/mesh::cell-def-list c)
-         ;;         (list (- (reduce #'max (mapcar #'abs l)) 1d0)
-         ;;               (- (reduce #'min (mapcar #'abs l)) 1d0)))
-         ;;   (/
-         ;;    (reduce #'max (mapcar #'abs l))
-         ;;    (reduce #'min (mapcar #'abs l))
-         ;;    )
-         ;;   ;; (abs (/ (the double-float (reduce #'max l))
-         ;;   ;;         (the double-float (reduce #'min l))))
-         ;;   )
+                (reduce #'min lens-2d))))
          0d0))
    #'max))
 
@@ -911,7 +892,7 @@
 (defun damage-increment-criteria (sim)
   (compute-max-damage-energy-crit sim)
   ;; (damage-increment-criteria-mp sim)
-  ;; (damage-increment-criteria-mesh sim :criteria criteria)
+  ;; (damage-increment-criteria-mesh sim)
   )
 
 (declaim (notinline compute-damage-delta))
@@ -981,6 +962,7 @@
                     (* 0.5d0 volume (- 1d0 damage-n) (cl-mpm/fastmaths:dot stress strain)))
                   0d0))
             #'+)))
+    (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)
     (if (> undamaged-energy 0d0)
         (/ energy undamaged-energy)
         0d0)))

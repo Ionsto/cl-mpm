@@ -148,7 +148,7 @@
         (cl-mpm/mesh::node-true-mass n) (cl-mpm/mesh:node-mass n)) 
        (cl-mpm/fastmaths:fast-zero (cl-mpm/mesh::node-true-velocity n))))
     (cl-mpm::zero-grid-velocity (cl-mpm:sim-mesh sim))
-    (midpoint-starter sim)
+    ;; (midpoint-starter sim)
     (setf initial-setup t)))
 
 (defmethod cl-mpm::update-nodes ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-ul))
