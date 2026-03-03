@@ -754,7 +754,7 @@
       (declare (double-float penetration-dist))
       (if (and
            ;(>= (+ penetration-dist (bc-penalty-margin bc)) 0d0)
-           (>= penetration-dist 0d0)
+           ;; (>= penetration-dist 0d0)
            (penalty-contact-valid bc corner))
           (progn
             (values t
