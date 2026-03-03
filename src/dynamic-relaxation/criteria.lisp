@@ -788,12 +788,12 @@
                                 (vel cl-mpm/mesh::node-velocity))
                    node
                  (if (and
+                      active
                       (or
                        internal
-                       (not agg))
-                      active)
-                     (cl-mpm/fastmaths::mag-squared vel))
-                 0d0))
+                       (not agg)))
+                     (cl-mpm/fastmaths::mag-squared vel)
+                     0d0)))
              #'+))
       (sqrt res-norm))))
 

@@ -273,6 +273,7 @@
                (when (> c 0d0)
                  (setf residual-normaliser c
                        c 1d0)))
+           (format t "Conv crit: ~E - norm ~E~%" c residual-normaliser)
            (< c conv-crit)))
        :post-iter-step (lambda (i e o)
                          (format t "Dynamic substep ~D~%" i)
