@@ -220,7 +220,6 @@
     :initarg :nodes
     :type list
     :initform '())
-
    (agg-int
     :accessor cell-agg-int
     :initform 0)
@@ -240,6 +239,11 @@
     :initform 0d0)
    (volume
     :accessor cell-volume
+    :initarg :volume
+    :initform 0d0
+    :type double-float)
+   (current-volume
+    :accessor cell-volume-current
     :initarg :volume
     :initform 0d0
     :type double-float)

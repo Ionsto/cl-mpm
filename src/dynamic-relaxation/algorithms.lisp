@@ -313,7 +313,7 @@
                               ))
                           (cl-mpm:sim-format sim t "Def crit ~E~%" (compute-max-deformation sim))
                           (let ((max-def (compute-max-deformation sim)))
-                            (when (> max-def 2d0)
+                            (when (> max-def 4d0)
                               (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
                               (error (make-instance 'non-convergence-error
                                                     :text "Deformation gradient J exceeded"

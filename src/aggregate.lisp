@@ -83,17 +83,18 @@
       (iterate-over-cell-patch-3d sim node ring-size func)))
 
 (defun get-closest-cell (sim node)
-  (let ((closest-elem nil)
-        (dist 0d0)
-        (volume-ratio-min 0.25d0)
-        (pos (cl-mpm/mesh::node-position node)))
+  (let* ((closest-elem nil)
+         (dist 0d0)
+         (volume-ratio-min 0.25d0)
+         (mesh (cl-mpm:sim-mesh sim))
+         (volume-t (expt (cl-mpm/mesh::mesh-resolution mesh) (cl-mpm/mesh:mesh-nd mesh)))
+         (pos (cl-mpm/mesh::node-position node)))
     (flet ((check-cell (cell)
              (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                               (index cl-mpm/mesh::cell-index)
                               (centroid cl-mpm/mesh::cell-centroid)
                               (active cl-mpm/mesh::cell-active)
                               (volume cl-mpm/mesh::cell-volume)
-                              (volume-t cl-mpm/mesh::cell-volume-t)
                               (agg cl-mpm/mesh::cell-agg))
                  cell
                (when (and
@@ -130,7 +131,6 @@
                                 (centroid cl-mpm/mesh::cell-centroid)
                                 (active cl-mpm/mesh::cell-active)
                                 (volume cl-mpm/mesh::cell-volume)
-                                (volume-t cl-mpm/mesh::cell-volume-t)
                                 (agg cl-mpm/mesh::cell-agg))
                    cell
                  (when (and
