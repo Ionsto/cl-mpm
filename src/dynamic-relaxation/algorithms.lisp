@@ -210,6 +210,7 @@
                                   (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E ~%" damage damage-prev)
                                         (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E~%" stagger-i d dconv)
                                         (let ((damage-inc (damage-increment-criteria sim)))
+                                          (format t "Damage inc criteria ~E~%" damage-inc)
                                           (when (> damage-inc max-damage-inc)
                                             (cl-mpm:sim-format sim t "Damage criteria failed~%")
                                             (error (make-instance 'non-convergence-error
