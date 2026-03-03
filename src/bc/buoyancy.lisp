@@ -861,6 +861,12 @@
       ;; (populate-nodes-volume mesh clip-function)
       ;; (populate-nodes-volume-damage mesh clip-function)
       ;; (populate-nodes-domain mesh clip-function)
+
+      (cl-mpm:iterate-over-nodes
+       mesh
+       (lambda (node)
+         (setf (cl-mpm/mesh::node-boundary-scalar node) 0d0)))
+
       (cl-mpm::iterate-over-mps
        mps
        (lambda (mp)
@@ -1032,7 +1038,8 @@
           (cl-mpm:iterate-over-nodes
            mesh
            (lambda (node)
-             (when (cl-mpm/mesh:node-active node)
+             (when (and (cl-mpm/mesh:node-active node)
+                        )
                (with-accessors ((force cl-mpm/mesh::node-damping-force)
                                 (active cl-mpm/mesh:node-active)
                                 (mass cl-mpm/mesh:node-mass)
