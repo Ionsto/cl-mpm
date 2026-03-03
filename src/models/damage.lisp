@@ -108,7 +108,8 @@
                    (damage-n    cl-mpm/particle::mp-damage-n))
       mp
     (setf k-n k
-          damage-n damage)
+          damage-n damage
+          damage-prev damage)
     (call-next-method)))
 
 (defclass particle-elastic-damage-delayed (particle-elastic-damage)

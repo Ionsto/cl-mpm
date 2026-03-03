@@ -801,3 +801,9 @@
   :serial t
   :components ((:file "examples/fbar/rigid-footing")))
 
+;; Slope stability
+(defsystem "cl-mpm/examples/ice/slope-stability"
+  :depends-on ("cl-mpm/example")
+  :serial t
+  :components ((:file "examples/ice/slope-stability")))
+

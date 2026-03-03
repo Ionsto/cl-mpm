@@ -754,7 +754,7 @@
       (declare (double-float penetration-dist))
       (if (and
            ;(>= (+ penetration-dist (bc-penalty-margin bc)) 0d0)
-           (> penetration-dist 0d0)
+           (>= penetration-dist 0d0)
            (penalty-contact-valid bc corner))
           (progn
             (values t
@@ -786,8 +786,10 @@
                    (when inc
                      (if in-contact
                          (cond
-                           ((or (< (contact-penetration closest-point) 0d0)
-                                (< (abs pen) (abs (contact-penetration closest-point))))
+                           ((and ;(<= (contact-penetration closest-point) 0d0)
+                                 ;; (< pen (contact-penetration closest-point))
+                                 (< (abs pen) (abs (contact-penetration closest-point)))
+                                 )
                             (setf closest-point point)))
                          (progn
                            (setf in-contact t)
@@ -1117,8 +1119,7 @@
                        node-mass
                        (*
                         svp
-                        (dr-contact-point-stiffness contact)
-                        ))))))))))))
+                        (dr-contact-point-stiffness contact)))))))))))))
     ))
 
 (declaim (notinline assemble-penalty-stiffness-matrix))

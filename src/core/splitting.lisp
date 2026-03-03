@@ -70,41 +70,13 @@
           (new-domain nil)
           (vec-scaler (cl-mpm/fastmaths:fast-scale-vector (cl-mpm/fastmaths:norm split-vec) 0.5d0))
           )
-      ;; (break)
-      ;; (setf new-size (cl-mpm/fastmaths:fast-.- new-size vec-scaler))
-      ;; (setf new-size-0 (cl-mpm/fastmaths:fast-.- new-size-0 vec-scaler))
       (let ((domain-scaler (make-scaling-matrix split-vec 0.5d0)))
-        ;; (setf (tref domain-scaler 0 0) (- 1d0 (abs (varef vec-scaler 0))))
-        ;; (setf (tref domain-scaler 1 1) (- 1d0 (abs (varef vec-scaler 1))))
-        ;; (setf (tref domain-scaler 2 2) (- 1d0 (abs (varef vec-scaler 2))))
         (setf new-domain (magicl:@ domain-scaler true-domain))
-
         (setf pos-offset (magicl:@
                           true-domain
                           (cl-mpm/fastmaths::fast-scale-vector vec-scaler 0.5d0)))
-
         (setf new-size-0 (magicl:@ domain-scaler lens-0))
         (setf new-size (magicl:@ domain-scaler lens))
-        ;; (setf
-        ;;  (varef new-size 0)
-        ;;  (cl-mpm/fastmaths:mag
-        ;;   ;; (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
-        ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
-        ;;    new-domain
-        ;;    (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))
-        ;;    ))
-        ;;  (varef new-size 1)
-        ;;  (cl-mpm/fastmaths:mag
-        ;;   ;; (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0))
-        ;;   (cl-mpm/fastmaths::fast-@-matrix-vector
-        ;;    new-domain
-        ;;    (cl-mpm/utils:vector-from-list (list 0d0 1d0 0d0)))
-        ;;   ))
-        ;; (cl-mpm/fastmaths::fast-.* lens new-size new-size)
-        ;; (cl-mpm/fastmaths::fast-.* lens-0 new-size-0 new-size-0)
-        ;; (cl-mpm/fastmaths::fast-.* lens pos-offset pos-offset)
-        ;; (setf pos-offset (magicl:@ true-domain vec-scaler))
-        ;; (break)
         (list
          (copy-particle mp
                         :mass (/ mass 2)
