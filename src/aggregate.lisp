@@ -85,13 +85,15 @@
 (defun get-closest-cell (sim node)
   (let ((closest-elem nil)
         (dist 0d0)
-        ;; (mutex (sb-thread:make-mutex))
+        (volume-ratio-min 0.25d0)
         (pos (cl-mpm/mesh::node-position node)))
     (flet ((check-cell (cell)
              (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
                               (index cl-mpm/mesh::cell-index)
                               (centroid cl-mpm/mesh::cell-centroid)
                               (active cl-mpm/mesh::cell-active)
+                              (volume cl-mpm/mesh::cell-volume)
+                              (volume-t cl-mpm/mesh::cell-volume-t)
                               (agg cl-mpm/mesh::cell-agg))
                  cell
                (when (and
@@ -103,12 +105,10 @@
                                  centroid)))
                    (when (or
                           (not closest-elem)
+                          (> volume (* volume-ratio-min volume-t))
                           (> dist dist-tr))
-                     (when (or
-                            (not closest-elem)
-                            (> dist dist-tr))
-                       (setf dist dist-tr
-                             closest-elem cell))))))))
+                     (setf dist dist-tr
+                           closest-elem cell)))))))
       (iterate-over-cell-patch
        sim
        node
@@ -120,32 +120,38 @@
          node
          2
          #'check-cell)
-        (cl-mpm::iterate-over-cells-serial
-         (cl-mpm:sim-mesh sim)
-         (lambda (cell)
-           (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
-                            (index cl-mpm/mesh::cell-index)
-                            (centroid cl-mpm/mesh::cell-centroid)
-                            (active cl-mpm/mesh::cell-active)
-                            (agg cl-mpm/mesh::cell-agg))
-               cell
-             (when (and
-                    (cl-mpm/mesh::cell-active cell)
-                    (not (cl-mpm/mesh::cell-partial cell))
-                    (not (cl-mpm/mesh::cell-agg cell)))
-               (let ((dist-tr (cl-mpm/fastmaths::diff-norm
-                               pos
-                               centroid)))
-                 (when (or
-                        (not closest-elem)
-                        (> dist dist-tr))
-                   ;; (sb-thread:with-mutex (mutex))
-                   (when (or
-                          (not closest-elem)
-                          (> dist dist-tr))
-                     (setf dist dist-tr
-                           closest-elem cell)))))
-             )))))
+        (unless closest-elem
+          (let ((mutex (sb-thread:make-mutex)))
+            (cl-mpm::iterate-over-cells
+             (cl-mpm:sim-mesh sim)
+             (lambda (cell)
+               (with-accessors ((mp-count cl-mpm/mesh::cell-mp-count)
+                                (index cl-mpm/mesh::cell-index)
+                                (centroid cl-mpm/mesh::cell-centroid)
+                                (active cl-mpm/mesh::cell-active)
+                                (volume cl-mpm/mesh::cell-volume)
+                                (volume-t cl-mpm/mesh::cell-volume-t)
+                                (agg cl-mpm/mesh::cell-agg))
+                   cell
+                 (when (and
+                        (cl-mpm/mesh::cell-active cell)
+                        (not (cl-mpm/mesh::cell-partial cell))
+                        (> volume (* volume-ratio-min volume-t))
+                        (not (cl-mpm/mesh::cell-agg cell)))
+                   (let ((dist-tr (cl-mpm/fastmaths::diff-norm
+                                   pos
+                                   centroid)))
+                     ;;Double checked lock
+                     (when (or
+                            (not closest-elem)
+                            (> dist dist-tr))
+                       (sb-thread:with-mutex (mutex)
+                         (when (or
+                                (not closest-elem)
+                                (> dist dist-tr))
+                           (setf dist dist-tr
+                                 closest-elem cell))))))
+                 )))))))
     closest-elem))
 
 
