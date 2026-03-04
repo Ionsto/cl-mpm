@@ -232,7 +232,7 @@
              stress-u sig
              strain eps-e
              yield-func f
-             p-wave pmod
+             p-wave (* 1.0d0 pmod)
              )
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
@@ -839,8 +839,10 @@
           (setf p-mod
                 (max
                  (* 1d-9 P-0)
-                 (max (* p-mod p-deg)
-                      (+ K (* 4/3 G)))))
+                 (* p-deg p-mod)
+                 ;; (max (* p-mod p-deg)
+                 ;;      (+ K (* 4/3 G)))
+                 ))
           (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
           )))))
 

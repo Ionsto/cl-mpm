@@ -394,8 +394,8 @@
        (and
         (cl-mpm/mesh::cell-active cell-a)
         (cl-mpm/mesh::cell-active cell-b))
-       ;; (not (cl-mpm/mesh::cell-partial cell-a))
-       ;; (not (cl-mpm/mesh::cell-partial cell-b))
+       (not (cl-mpm/mesh::cell-partial cell-a))
+       (not (cl-mpm/mesh::cell-partial cell-b))
        (or
         (cl-mpm/mesh::cell-ghost-element cell-a)
         (cl-mpm/mesh::cell-ghost-element cell-b)))
@@ -476,8 +476,8 @@
                                 gradient-terms)
                                (*
                                 -1d0
-                                (/ (* ghost-factor (expt h 3)) 6)
-                                face-length
+                                (/ (* ghost-factor (expt h 4)) 6)
+                                ;; face-length
                                 gp-weight))))
                         (sb-thread:with-mutex (node-lock)
                           (cl-mpm/fastmaths:fast-.+
@@ -610,7 +610,7 @@
                        (h cl-mpm/mesh::mesh-resolution))
           mesh
         (declare (double-float h ghost-factor))
-        (let ((gf (* 4d0 ghost-factor (expt h 3))))
+        (let ((gf (* 1d0 ghost-factor (expt h 3))))
           (cl-mpm::iterate-over-cells
            mesh
            (lambda (cell)

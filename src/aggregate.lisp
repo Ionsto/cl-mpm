@@ -43,8 +43,7 @@
     :accessor sim-global-ma)
    (internal-v
     :initform nil
-    :accessor sim-internal-v)
-   ))
+    :accessor sim-internal-v)))
 
 (defun iterate-over-cell-patch-2d (sim node ring-size func)
   (declare (function func))

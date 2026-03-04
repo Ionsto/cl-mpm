@@ -102,9 +102,8 @@
                           (agg cl-mpm/mesh::node-agg)
                           (acc cl-mpm/mesh::node-acceleration))
              node
-           (when t
-             ;; (or internal
-             ;;     (not agg))
+           (when (or internal
+                     (not agg))
              (cl-mpm::integrate-vel-midpoint vel acc mass mass-scale dt damping))))))
     (cl-mpm::apply-bcs (cl-mpm:sim-mesh sim) (cl-mpm:sim-bcs sim) dt)))
 
@@ -121,8 +120,7 @@
                       (cl-mpm/mesh::node-interior node)))
          (cl-mpm::update-node node dt))))
     (when agg
-      (cl-mpm/aggregate::project-displacement sim))
-    ))
+      (cl-mpm/aggregate::project-displacement sim))))
 
 (defmethod update-node-fictious-mass ((sim cl-mpm/dynamic-relaxation::mpm-sim-dr-dynamic))
   (with-accessors ((mesh cl-mpm::sim-mesh)

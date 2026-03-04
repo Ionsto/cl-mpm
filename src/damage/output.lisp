@@ -224,7 +224,9 @@
          "current-effective-coheasion"
          (if (typep mp 'cl-mpm/particle::particle-ice-delayed)
              (*
-              (- 1d0 (cl-mpm/particle::mp-damage-compression mp))
+              (if (> (cl-mpm/constitutive::voight-trace (cl-mpm/particle::mp-stress mp)) 0d0)
+                  (- 1d0 (cl-mpm/particle::mp-damage-tension mp))
+                  (- 1d0 (cl-mpm/particle::mp-damage-compression mp)))
               (cl-mpm/particle::mp-c mp))
              0d0)
          )

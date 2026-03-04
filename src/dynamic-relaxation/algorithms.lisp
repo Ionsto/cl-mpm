@@ -313,7 +313,7 @@
                               ))
                           (cl-mpm:sim-format sim t "Def crit ~E~%" (compute-max-deformation sim))
                           (let ((max-def (compute-max-deformation sim)))
-                            (when (> max-def 4d0)
+                            (when (> max-def 10d0)
                               (cl-mpm:sim-format sim t "Deformation gradient criteria exceeded~%")
                               (error (make-instance 'non-convergence-error
                                                     :text "Deformation gradient J exceeded"
@@ -386,6 +386,13 @@
                                         (cl-mpm:update-sim sim))
                                       (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
                                       (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
+
+                                    (save-conv-step sim output-dir *total-iter* global-step
+                                                    0d0
+                                                    fast-trial-conv
+                                                    0d0
+                                                    )
+                                    (incf *total-iter*)
                                     ;; (save-conv-step sim output-dir *total-iter* global-step
                                     ;;                 0d0
                                     ;;                 o
@@ -445,8 +452,8 @@
   (setf (cl-mpm:sim-damping-factor sim) (* damping (cl-mpm/setup:estimate-critical-damping sim)))
   (set-mp-plastic-damage sim :enable-damage enable-damage :enable-plastic enable-plastic)
   (setf (cl-mpm:sim-enable-damage sim) enable-damage)
-  (let* ((e-crit criteria)
-         (oobf-crit criteria)
+  (let* ((e-crit    (* 0.5d0 criteria))
+         (oobf-crit (* 0.5d0 criteria))
          (energy e-crit)
          (oobf oobf-crit)
          (work 0d0)
@@ -484,8 +491,8 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
-                     (when (or (>= energy e-crit)
-                               (>= oobf oobf-crit))
+                     (when (or (> energy e-crit)
+                               (> oobf oobf-crit))
                        (cl-mpm:sim-format sim t "Inertia passed~%")
                        (setf intertial-passed t))
                      (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
