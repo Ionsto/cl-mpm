@@ -164,8 +164,7 @@
                       (cl-mpm/mesh::node-interior node)))
          (cl-mpm::update-node node dt))))
     (when agg
-      (cl-mpm/aggregate::project-displacement sim))
-    ))
+      (cl-mpm/aggregate::project-displacement sim))))
 
 (defmethod cl-mpm::update-sim ((sim mpm-sim-dr-ul))
   "Update stress last algorithm"

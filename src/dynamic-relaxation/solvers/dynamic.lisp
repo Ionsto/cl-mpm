@@ -146,7 +146,6 @@
                    (* (/ 2d0 (expt dt-true 2))
                       ;; mass-scale
                       (cl-mpm/mesh::node-true-mass node))))))))
-
     (cl-mpm/aggregate::update-mass-matrix sim)
     (setf dt 1d0)))
 
@@ -188,12 +187,14 @@
                  (initial-setup initial-setup)
                  (enable-aggregate cl-mpm/aggregate::enable-aggregate)
                  (damping cl-mpm::damping-factor)
-               (solve-count cl-mpm/dynamic-relaxation::solve-count)
+                 (mass-update-iter cl-mpm/dynamic-relaxation::mass-update-count)
+                 (solve-count cl-mpm/dynamic-relaxation::solve-count)
                  (vel-algo cl-mpm::velocity-algorithm))
         sim
       (unless initial-setup
         (pre-step sim))
       (setf dt 1d0)
+      (cl-mpm/penalty::reset-penalty sim)
       (cl-mpm::update-nodes sim)
       (cl-mpm::update-cells sim)
       (cl-mpm::reset-nodes-force sim)
@@ -205,19 +206,11 @@
       (loop for bcs-f in bcs-force-list
             do (cl-mpm::apply-bcs mesh bcs-f dt-loadstep))
       (incf solve-count)
-      (let ((mass-update-iter 8))
-        (when (= (mod solve-count mass-update-iter) 0)
-          (update-node-fictious-mass sim))
-        (when ghost-factor
-          (cl-mpm/ghost::apply-ghost sim ghost-factor)
-          (cl-mpm::apply-bcs mesh bcs dt))
-        (when (= (mod solve-count mass-update-iter) 0)
-          (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))))
-      ;; (update-node-fictious-mass sim)
-      ;; (when ghost-factor
-      ;;   (cl-mpm/ghost::apply-ghost sim ghost-factor)
-      ;;   (cl-mpm::apply-bcs mesh bcs dt))
-      ;; (setf damping (* damping-scale (cl-mpm/dynamic-relaxation::dr-estimate-damping sim)))
+      (when ghost-factor
+        (cl-mpm/ghost::apply-ghost sim ghost-factor)
+        (cl-mpm::apply-bcs mesh bcs dt))
+      (when (= (mod solve-count mass-update-iter) 0)
+        (update-node-fictious-mass sim))
       ;; ;;Update our nodes after force mapping
       (cl-mpm::update-node-forces sim)
       (cl-mpm::apply-bcs mesh bcs dt)
@@ -275,8 +268,8 @@
        :energy-crit 1d0;crit
        :oobf-crit crit
        :substeps substeps
-       :damping-factor 1d0
-       :conv-steps 100
+       :damping-factor (sqrt 2)
+       :conv-steps 200
        :dt-scale 1d0;dt-scale
        :convergance-criteria
        (lambda (sim f o)
