@@ -586,9 +586,10 @@
           (when (>= damage 1d0)
             (setf damage-inc 0d0)
             (setf ybar 0d0))
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) damage-inc)
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
-          (incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+          ;(incf (the double-float(cl-mpm/particle::mp-time-averaged-damage-inc mp)) damage-inc)
+          ;; (incf (the double-float(cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+          ;(incf (the double-float(cl-mpm/particle::mp-time-averaged-counter mp)))
+          (setf (cl-mpm/particle::mp-time-averaged-counter mp) 1)
           ;;Transform to log damage
           (incf damage damage-inc)
           ;;Transform to linear damage
@@ -790,8 +791,9 @@
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
-        (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
-        (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
+        (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) (/ damage-inc dt))
+        ;; (incf (the double-float (cl-mpm/particle::mp-time-averaged-damage-inc mp)) (* damage-inc dt))
+        ;; (incf (the double-float (cl-mpm/particle::mp-time-averaged-ybar mp)) ybar)
         (incf (the double-float (cl-mpm/particle::mp-time-averaged-counter mp)))
         ;;Transform to log damage
         (setf damage (max 0d0 (min 1d0 damage))))
@@ -839,7 +841,8 @@
           (setf p-mod
                 (max
                  (* 1d-9 P-0)
-                 (* p-deg p-mod)
+                 ;; p-mod
+                 (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod)
                  ;; (max (* p-mod p-deg)
                  ;;      (+ K (* 4/3 G)))
                  ))

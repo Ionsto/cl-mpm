@@ -269,7 +269,11 @@
                               )))
              (when primary-ghost
                (loop for neighbour in neighbours
-                     do (setf (cl-mpm/mesh::cell-ghost-element neighbour) t)))
+                     do
+                        (when (and
+                               (cl-mpm/mesh::cell-active neighbour)
+                               (not (cl-mpm/mesh::cell-partial neighbour)))
+                          (setf (cl-mpm/mesh::cell-ghost-element neighbour) t))))
              )))))))
 
 (defun iterate-over-unicell-nodes (mesh cell gp-loc func)
@@ -396,7 +400,7 @@
         (cl-mpm/mesh::cell-active cell-b))
        (not (cl-mpm/mesh::cell-partial cell-a))
        (not (cl-mpm/mesh::cell-partial cell-b))
-       (or
+       (and
         (cl-mpm/mesh::cell-ghost-element cell-a)
         (cl-mpm/mesh::cell-ghost-element cell-b)))
     (with-accessors ((h cl-mpm/mesh:mesh-resolution))
@@ -426,7 +430,7 @@
               cell-a
               cell-b
               gp-loc
-              (lambda (cell-p node weight grads fact-p)
+              (lambda (cell-p node weight grads fact)
                 (when (cl-mpm/mesh::node-active node)
                   (with-accessors ((ghost cl-mpm/mesh::node-ghost-force)
                                    (f-int cl-mpm/mesh::node-internal-force)
@@ -437,7 +441,7 @@
                     (let ((dsvp-p (fast-scale!
                                    (magicl:transpose
                                     (cl-mpm/shape-function::assemble-dsvp-3d grads))
-                                   fact-p
+                                   fact
                                    )))
                       (cl-mpm/fastmaths:fast-.+
                        (magicl:@
@@ -445,13 +449,7 @@
                         (magicl:transpose dsvp-p)
                         disp)
                        gradient-terms
-                       gradient-terms)
-                      ;; (pprint
-                      ;;  (magicl:@
-                      ;;   (magicl:transpose dsvp-p)
-                      ;;   disp))
-                      )))))
-             ;; (pprint gradient-terms)
+                       gradient-terms))))))
              (iterate-over-bicell-nodes
               mesh
               cell-a
@@ -499,6 +497,7 @@
                      (nd cl-mpm/mesh:mesh-nd))
         mesh
       (declare (double-float h ghost-factor))
+      (cl-mpm::filter-cells sim)
       (locate-ghost-elements sim)
       (cl-mpm::iterate-over-cells
        mesh

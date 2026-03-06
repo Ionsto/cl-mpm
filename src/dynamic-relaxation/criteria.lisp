@@ -939,9 +939,6 @@
            (cl-mpm::reduce-over-mps
             (cl-mpm:sim-mps sim)
             (lambda (mp)
-              ;; (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) )
-              ;; (cl-mpm/particle::mp-time-averaged-damage-inc mp)
-              ;; (cl-mpm/particle::compute-mp-energy-release mp)
               (if (typep mp 'cl-mpm/particle::particle-damage)
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
                                    (stress cl-mpm/particle::mp-undamaged-stress)
@@ -959,9 +956,10 @@
                   (with-accessors ((volume cl-mpm/particle::mp-volume)
                                    (stress cl-mpm/particle::mp-undamaged-stress)
                                    (damage-n cl-mpm/particle::mp-damage-n)
+                                   (damage cl-mpm/particle::mp-damage)
                                    (strain cl-mpm/particle::mp-strain))
                       mp
-                    (* 0.5d0 volume (- 1d0 damage-n) (cl-mpm/fastmaths:dot stress strain)))
+                    (* 0.5d0 volume (- 1d0 damage) (cl-mpm/fastmaths:dot stress strain)))
                   0d0))
             #'+)))
     (format t "Energy reduction ~E - undamaged energy ~E ~%" energy undamaged-energy)

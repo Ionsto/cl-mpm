@@ -68,13 +68,8 @@
 
         (cl-mpm/output::save-parameter "damage-inc-average"
                                        (if (slot-exists-p mp 'cl-mpm/particle::time-averaged-damage-inc)
-                                           (let ((v (/ (cl-mpm/particle::mp-time-averaged-damage-inc mp)
-                                                       (max 1d0
-                                                            (cl-mpm/particle::mp-time-averaged-counter mp)))))
-                                             (setf (cl-mpm/particle::mp-time-averaged-damage-inc mp) 0d0)
-                                             v)
-                                           0d0
-                                           ))
+                                           (cl-mpm/particle::mp-time-averaged-damage-inc mp)
+                                           0d0))
         (cl-mpm/output::save-parameter "damage-ybar-average"
                                        (if (slot-exists-p mp 'cl-mpm/particle::time-averaged-damage-inc)
                                            (let ((v (/ (cl-mpm/particle::mp-time-averaged-ybar mp)
@@ -90,7 +85,7 @@
         ;;                                    0))
         (cl-mpm/output::save-parameter "pressure" (cl-mpm/particle::mp-pressure mp))
         (cl-mpm/output::save-parameter "boundary" (cl-mpm/particle::mp-boundary mp))
-
+        (cl-mpm/output::save-parameter "p-wave-modulus" (cl-mpm/particle::mp-p-modulus mp))
         (cl-mpm/output::save-parameter "s_1"
                                        (multiple-value-bind (l v) (cl-mpm/utils::eig (cl-mpm/utils:voight-to-matrix (cl-mpm/particle:mp-stress mp)))
 
