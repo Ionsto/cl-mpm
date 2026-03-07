@@ -687,7 +687,7 @@
                        (cl-mpm:sim-format sim t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
                        ;;De-refine our timestepping
-                       (incf current-adaptivity)
+                       (decf current-adaptivity)
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim))
                      (funcall setup-quasi-static sim))
 
