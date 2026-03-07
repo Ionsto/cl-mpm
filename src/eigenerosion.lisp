@@ -26,7 +26,7 @@
           (values energy))))))
 (defun calculate-strain-energy (mps)
   ;; (lparallel:pmapcar #'calculate-strain-energy-mp mps)
-  (lparallel:pdotimes (i (length mps)) 
+  (lparallel:pdotimes (i (length mps))
     (let ((mp (aref mps i)))
       (setf (cl-mpm/particle::mp-strain-energy-density mp) (calculate-strain-energy-mp mp)))))
 (defun weight-func (distance length-parameter)

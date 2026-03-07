@@ -833,6 +833,7 @@
                (cl-mpm/constitutive::voight-eye (- p pressure))
                (cl-mpm/fastmaths:fast-scale! s (- 1d0 (expt damage-s exponent)))
                stress))
+        ;; (setf (cl-mpm/particle::mp-body-force mp) (cl-mpm/utils:vector-from-list (list 0 0 (* (cl-mpm:sim-gra) (1d0 (magicl:det def))))))
         (let* ((K (/ e (* 3 (- 1d0 (* 2 nu)))))
                (G (/ e (* 2 (+ 1d0 nu))))
                (P-0 (+ K (* 4/3 G))))
