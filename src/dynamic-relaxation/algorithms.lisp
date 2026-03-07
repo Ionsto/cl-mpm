@@ -457,7 +457,7 @@
          (energy e-crit)
          (oobf oobf-crit)
          (work 0d0)
-         (intertial-passed nil)
+         (intertial-passed t)
          (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
          (substeps (round target-time (cl-mpm:sim-dt sim))))
     (cl-mpm:sim-format sim t "Substeps ~D~%" substeps)
@@ -491,10 +491,10 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
-                     (when (or (> energy e-crit)
-                               (> oobf oobf-crit))
-                       (cl-mpm:sim-format sim t "Inertia passed~%")
-                       (setf intertial-passed t))
+                     ;; (when (or (> energy e-crit)
+                     ;;           (> oobf oobf-crit))
+                     ;;   (cl-mpm:sim-format sim t "Inertia passed~%")
+                     ;;   (setf intertial-passed t))
                      (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
                      (setf (cl-mpm::sim-stats-oobf sim) oobf)
                      (save-timestep sim output-dir global-step :DYNAMIC)
@@ -621,6 +621,11 @@
                                   (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)
                                         (+ (min (- total-time (cl-mpm::sim-time sim)) adapted-dt) 1d-15))
                                   (cl-mpm:sim-format sim t "Trial step ~D, dt refine ~D - dt ~E ~%" i current-adaptivity (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim)))
+                                (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
+                                  (cl-mpm:sim-format sim t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin)
+                                  (setf quasi-conv nil)
+                                  (loop-finish))
+
                                 (setf *trial-iter* i)
                                 (multiple-value-bind (conv inc-steps)
                                     (step-quasi-time sim step
@@ -637,10 +642,6 @@
                                   (setf quasi-conv conv
                                         stagger-iters inc-steps)
                                   (cl-mpm:sim-format sim t "Quasi-conv? ~A~%" quasi-conv)
-                                  (when (<= (sim-dt-loadstep sim) (* elastic-dt-margin elastic-dt))
-                                    (cl-mpm:sim-format sim t "Quasi-time terminated as we got within ~E of the elastic dt~%" elastic-dt-margin)
-                                    (setf quasi-conv nil)
-                                    (loop-finish))
                                   (unless quasi-conv
                                     (when (= current-adaptivity max-adaptive-steps)
                                       (cl-mpm:sim-format sim t "Quasi-time terminated as too many dt refinemets are required~%"))
@@ -685,7 +686,8 @@
                        (change-class sim quasi-static-solver)
                        (cl-mpm:sim-format sim t "Finished real-timestepping~%")
                        (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
-                       (setf (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim) dt-loadstep)
+                       ;;De-refine our timestepping
+                       (incf current-adaptivity)
                        (cl-mpm/dynamic-relaxation::reset-mp-velocity sim))
                      (funcall setup-quasi-static sim))
 
