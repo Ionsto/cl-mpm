@@ -1034,7 +1034,10 @@
                             mp-head rho)
                       (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
 
-                      (setf (cl-mpm/particle::mp-body-force mp) (* (- 1d0 (cl-mpm/particle::mp-damage mp)) rho (cl-mpm:sim-gravity sim)))
+                      (setf (cl-mpm/particle::mp-body-force mp)
+                            (cl-mpm/utils:vector-from-list (list 0d0
+                                                                 (* (- 1d0 (cl-mpm/particle::mp-damage mp)) rho (cl-mpm:sim-gravity sim))
+                                                                 0d0)))
 
                       ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                       ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
