@@ -1011,13 +1011,14 @@
                           (mp-pfunc cl-mpm/particle::mp-pressure-func)
                           (mp-boundary cl-mpm/particle::mp-boundary)
                           (mp-volume cl-mpm/particle::mp-volume)
+                          (damage cl-mpm/particle::mp-damage)
                           (mp-body-force cl-mpm/particle::mp-body-force))
              mp
            (let ((pos (get-mp-position mp)))
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrad)
-                (declare (double-float mp-boundary svp))
+                (declare (double-float mp-boundary svp damage rho datum))
                 (when t;(cl-mpm/mesh::node-boundary-node node)
                   (when node
                     ;; (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
@@ -1033,16 +1034,11 @@
                       (setf mp-datum datum
                             mp-head rho)
                       (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
-
-                      (setf (cl-mpm/particle::mp-body-force mp)
-                            (cl-mpm/utils:vector-from-list (list 0d0
-                                                                 (* (- 1d0 (cl-mpm/particle::mp-damage mp)) rho (cl-mpm:sim-gravity sim))
-                                                                 0d0)))
-
-                      ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
-                      ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
-                      ;; (setf mp-boundary 1d3)
-                      )))))))))
+                      (setf
+                       (cl-mpm/particle::mp-body-force mp)
+                       (calculate-val-mp-datum-propotional
+                        mp
+                        (lambda (mp) (buoyancy-virtual-div (tref pos 1 0) datum (* damage rho) (cl-mpm:sim-gravity sim))) datum)))))))))))
 
       (when (> dt 0d0)
         (let ((damping (bc-viscous-damping bc)))
