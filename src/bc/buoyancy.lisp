@@ -876,8 +876,11 @@
                        ;; (lambda (mp) (calculate-val-mp mp func-stress))
                        ;; (lambda (mp) (calculate-val-mp mp func-div))
                        (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-                       (lambda (mp) (cl-mpm/fastmaths:fast-scale! (calculate-val-mp-datum-propotional mp func-div datum)
-                                                                  (+ 1d0 (cl-mpm/particle::mp-damage mp))))
+                       (lambda (mp) (cl-mpm/fastmaths:fast-scale!
+                                     (calculate-val-mp-datum-propotional mp func-div datum)
+                                     1d0
+                                     ;; (+ 1d0 (cl-mpm/particle::mp-damage mp))
+                                     ))
                        (lambda (pos) (funcall clip-function pos datum))
                        (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
                        )
@@ -993,6 +996,7 @@
                           )
              mp
            (when t
+             (setf (cl-mpm/particle::mp-body-force mp) (cl-mpm/utils:vector-zeros))
              (setf pressure 0d0)
              (setf mp-datum datum
                    mp-head rho
@@ -1029,6 +1033,9 @@
                       (setf mp-datum datum
                             mp-head rho)
                       (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
+
+                      (setf (cl-mpm/particle::mp-body-force mp) (* (- 1d0 (cl-mpm/particle::mp-damage mp)) rho (cl-mpm:sim-gravity sim)))
+
                       ;; (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
                       ;; (setf mp-boundary (cl-mpm/mesh:mesh-resolution mesh))
                       ;; (setf mp-boundary 1d3)
@@ -1219,9 +1226,7 @@
                            (cl-mpm/fastmaths:fast-.+ node-force-ext f-div    node-force-ext)
                            (cl-mpm/fastmaths:fast-.+ node-buoyancy-force f-total node-buoyancy-force)
                            (incf node-boundary-scalar
-                                 (* volume svp (funcall scalar mp))
-                                 ;; (* volume svp (calculate-val-mp mp #'melt-rate))
-                                 )))))))))))))))
+                                 (* volume svp (funcall scalar mp)))))))))))))))))
 
 (defmethod cl-mpm/bc::apply-bc ((bc bc-scalar) node mesh dt)
   "Arbitrary closure BC"
