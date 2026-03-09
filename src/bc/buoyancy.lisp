@@ -1015,30 +1015,29 @@
                           (mp-body-force cl-mpm/particle::mp-body-force))
              mp
            (let ((pos (get-mp-position mp)))
+             (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
+             (when (typep mp 'cl-mpm/particle::particle-damage)
+               (when (cl-mpm/particle::mp-enable-damage mp)
+                 (setf
+                  (cl-mpm/particle::mp-body-force mp)
+                   (calculate-val-mp-datum-propotional
+                    mp
+                    (lambda (mp) (buoyancy-virtual-div
+                                  (tref pos 1 0)
+                                  datum
+                                  (* damage rho)
+                                  (cl-mpm:sim-gravity sim)))
+                    datum))))
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrad)
                 (declare (double-float mp-boundary svp damage rho datum))
-                (when t;(cl-mpm/mesh::node-boundary-node node)
+                (when t                 ;(cl-mpm/mesh::node-boundary-node node)
                   (when node
-                    ;; (setf pressure (pressure-at-depth (tref pos 1 0) datum rho))
-                    (when (and
-                           t
-                                        ;(cell-clipping (cl-mpm/mesh::node-position node) datum)
-                                        ;(funcall clip-func (cl-mpm/mesh::node-position node) datum)
-                           )
-                      (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
-                      ;; (setf mp-pfunc
-                      ;;       (lambda (p)
-                      ;;         (pressure-at-depth (tref p 1 0) datum rho)))
-                      (setf mp-datum datum
-                            mp-head rho)
-                      (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
-                      (setf
-                       (cl-mpm/particle::mp-body-force mp)
-                       (calculate-val-mp-datum-propotional
-                        mp
-                        (lambda (mp) (buoyancy-virtual-div (tref pos 1 0) datum (* damage rho) (cl-mpm:sim-gravity sim))) datum)))))))))))
+                    (setf mp-datum datum
+                          mp-head rho)
+                    (incf mp-boundary (* -1d0 svp (cl-mpm/mesh::node-boundary-scalar node)))
+                    ))))))))
 
       (when (> dt 0d0)
         (let ((damping (bc-viscous-damping bc)))

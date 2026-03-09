@@ -59,7 +59,7 @@
       sim
     (cl-mpm::reset-grid mesh)
     (cl-mpm::reset-node-displacement sim)
-    (cl-mpm::p2g mesh mps)
+    (cl-mpm::p2g mesh mps vel-algo)
     (cl-mpm/mpi::mpi-sync-momentum sim)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -179,7 +179,7 @@
       sim
     (cl-mpm::reset-grid mesh)
     (cl-mpm::reset-node-displacement sim)
-    (cl-mpm::p2g mesh mps)
+    (cl-mpm::p2g mesh mps vel-algo)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
     (cl-mpm/mpi::mpi-sync-momentum sim)

@@ -70,7 +70,7 @@
               (let ((mesh (cl-mpm:sim-mesh sim))
                     (mps (cl-mpm:sim-mps sim)))
                 (cl-mpm::reset-grid mesh :reset-displacement nil)
-                (cl-mpm::p2g mesh mps)
+                (cl-mpm::p2g mesh mps vel-algo)
                 (when (> mass-filter 0d0)
                   (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim))))
               (let ((coarse-mesh (nth i (cl-mpm::sim-mesh-list sim))))
@@ -145,7 +145,7 @@
         (progn
           (cl-mpm::reset-grid mesh :reset-displacement nil)))
     (setf (cl-mpm/dynamic-relaxation::sim-solve-count sim) 0)
-    (cl-mpm::p2g mesh mps)
+    (cl-mpm::p2g mesh mps vel-algo)
     (when (> mass-filter 0d0)
       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
     (cl-mpm::apply-bcs mesh bcs dt)

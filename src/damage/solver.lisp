@@ -24,7 +24,7 @@
                 (progn
                     (cl-mpm::reset-grid mesh)
                     (when (> (length mps) 0)
-                      (cl-mpm::p2g mesh mps)
+                      (cl-mpm::p2g mesh mps vel-algo)
                       (when (> mass-filter 0d0)
                         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
 
@@ -37,6 +37,7 @@
 
                       (cl-mpm::update-stress mesh mps dt fbar)
                       (cl-mpm/damage::calculate-damage sim dt)
+                      (cl-mpm::update-stiffness-mps sim)
                       ;; ;Map forces onto nodes
                       (cl-mpm::p2g-force sim)
                       (loop for bcs-f in bcs-force-list
@@ -74,7 +75,7 @@
     (progn
       ;; (cl-mpm::check-single-mps sim)
       (cl-mpm::reset-grid mesh)
-      (cl-mpm::p2g mesh mps)
+      (cl-mpm::p2g mesh mps vel-algo)
       ;;Do optional mass filter
       (when (> mass-filter 0d0)
         (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -93,7 +94,7 @@
       (cl-mpm::g2p mesh mps dt damping vel-algo)
       ;;Update stress last
       (cl-mpm::reset-grid-velocity mesh)
-      (cl-mpm::p2g mesh mps)
+      (cl-mpm::p2g mesh mps vel-algo)
       ;; (cl-mpm::check-single-mps sim)
       ;;Do optional mass filter
       (when (> mass-filter 0d0)
@@ -131,7 +132,7 @@
       (cl-mpm::reset-grid mesh)
       (when (> (length mps) 0)
         ;; Map momentum to grid
-        (cl-mpm::p2g mesh mps)
+        (cl-mpm::p2g mesh mps vel-algo)
         ;;Reset nodes below our mass-filter
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid mesh mass-filter))
@@ -153,7 +154,7 @@
         (cl-mpm::update-dynamic-stats sim)
         (cl-mpm::g2p mesh mps dt damping vel-algo)
         (cl-mpm::reset-grid-velocity mesh)
-        (cl-mpm::p2g mesh mps)
+        (cl-mpm::p2g mesh mps vel-algo)
         (when (> mass-filter 0d0)
           (cl-mpm::filter-grid-velocity mesh mass-filter))
         (cl-mpm::update-node-kinematics sim)
@@ -164,7 +165,7 @@
         (cl-mpm::update-stress mesh mps dt fbar)
         (cl-mpm/damage::calculate-damage sim dt)
         ;; (cl-mpm::reset-grid-velocity mesh)
-        ;; (cl-mpm::p2g mesh mps)
+        ;; (cl-mpm::p2g mesh mps vel-algo)
 
         (cl-mpm::new-loadstep sim))
       (incf time dt)

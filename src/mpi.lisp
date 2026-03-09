@@ -810,7 +810,7 @@
                     ;; (exchange-mps sim)
                   (when t;(> (length mps) 0)
                     (cl-mpm::reset-grid mesh)
-                    (cl-mpm::p2g mesh mps)
+                    (cl-mpm::p2g mesh mps vel-algo)
                     (mpi-sync-momentum sim)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -858,7 +858,7 @@
     (declare (type double-float mass-filter))
                 (progn
                   (cl-mpm::reset-grid mesh)
-                  (cl-mpm::p2g mesh mps)
+                  (cl-mpm::p2g mesh mps vel-algo)
                   (mpi-sync-momentum sim)
                   (when (> mass-filter 0d0)
                     (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -914,7 +914,7 @@
     (declare (type double-float mass-filter))
                 (progn
                   (cl-mpm::reset-grid mesh)
-                  (cl-mpm::p2g mesh mps)
+                  (cl-mpm::p2g mesh mps vel-algo)
                   (mpi-sync-momentum sim)
                   (when (> mass-filter 0d0)
                     (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
@@ -932,7 +932,7 @@
 
                   ;;2nd round of mapping for USL
                   (cl-mpm::reset-grid-velocity mesh)
-                  (cl-mpm::p2g mesh mps)
+                  (cl-mpm::p2g mesh mps vel-algo)
                   (mpi-sync-momentum sim)
                   (when (> mass-filter 0d0)
                     (cl-mpm::filter-grid-velocity mesh (cl-mpm::sim-mass-filter sim)))
@@ -980,7 +980,7 @@
                     (exchange-mps sim)
                   (when (> (length mps) 0)
                     (cl-mpm::reset-grid mesh)
-                    (cl-mpm::p2g mesh mps)
+                    (cl-mpm::p2g mesh mps vel-algo)
                     (when (> mass-filter 0d0)
                       (cl-mpm::filter-grid mesh (cl-mpm::sim-mass-filter sim)))
                     (cl-mpm::update-node-kinematics sim)

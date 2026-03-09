@@ -30,7 +30,7 @@
     (progn
       (reset-grid mesh)
       (when (> (length mps) 0)
-        (p2g mesh mps)
+        (p2g mesh mps vel-algo)
 
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
@@ -43,6 +43,7 @@
         (update-nodes sim)
         (update-cells sim)
         (update-stress mesh mps dt fbar)
+        (cl-mpm::update-stiffness-mps sim)
         ;; Map forces onto nodes
         (p2g-force sim)
         (when bcs-force-list
@@ -87,7 +88,7 @@
     (progn
       (reset-grid mesh)
       (when (> (length mps) 0)
-        (p2g mesh mps)
+        (p2g mesh mps vel-algo)
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
         (filter-cells sim)

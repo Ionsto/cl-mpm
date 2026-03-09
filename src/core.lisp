@@ -583,7 +583,6 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;; (cl-mpm::scale-domain-size mesh mp)
   )
 
-(declaim (notinline p2g))
 (defun update-particles (sim)
   "Map particle momentum to the grid"
   (with-accessors ((mps sim-mps)
@@ -994,59 +993,6 @@ This modifies the dt of the simulation in the process
 (defun get-mp (sim index)
   (aref (sim-mps sim) index))
 
-;; (defmethod update-sim ((sim mpm-sim-sd))
-;;   "Update stress first algorithm"
-;;   (with-slots (
-;;                (mesh mesh)
-;;                (mesh-p mesh-p)
-;;                (mps mps)
-;;                (bcs bcs)
-;;                (bcs-p bcs-p)
-;;                (bcs-force bcs-force)
-;;                (bcs-force-list bcs-force-list)
-;;                (dt dt)
-;;                (mass-filter mass-filter)
-;;                (split allow-mp-split)
-;;                (enable-damage enable-damage)
-;;                (nonlocal-damage nonlocal-damage)
-;;                (remove-damage allow-mp-damage-removal)
-;;                (fbar enable-fbar)
-;;                (time time)
-;;                (vel-algo velocity-algorithm)
-;;                )
-;;                 sim
-;;     (declare (double-float mass-filter dt time))
-;;     (progn
-;;       (reset-grid mesh)
-;;       (reset-grid mesh-p)
-;;       (when (> (length mps) 0)
-;;         (p2g mesh mps)
-;;         (p2g mesh-p mps)
-;;         (when (> mass-filter 0d0)
-;;           (filter-grid mesh (sim-mass-filter sim))
-;;           (filter-grid mesh-p (sim-mass-filter sim)))
-;;         (update-node-kinematics mesh dt)
-;;         (update-node-kinematics mesh-p dt)
-;;         (apply-bcs mesh bcs dt)
-;;         (apply-bcs mesh-p bcs-p dt)
-;;         (update-stress-p mesh-p mps dt)
-;;         (update-stress mesh mps dt fbar)
-;;         (p2g-force mesh mps)
-;;         (loop for bcs-f in bcs-force-list
-;;               do (apply-bcs mesh bcs-f dt))
-
-;;         (update-node-forces sim)
-;;         ;; ;; Reapply velocity BCs
-;;         (apply-bcs mesh bcs dt)
-;;         ;; (apply-bcs mesh-p bcs-p dt)
-;;         ;; Also updates mps inline
-;;         (g2p mesh mps dt damping-factor vel-algo)
-;;         (when split
-;;           (split-mps sim))
-;;         (check-mps sim)
-;;         (check-single-mps sim)
-;;         )
-;;       (incf time dt))))
 
 
 (defgeneric update-dynamic-stats (sim))
@@ -1130,4 +1076,9 @@ This modifies the dt of the simulation in the process
                       (varef grads-vec 2))))
     grads))
 
+(defun update-stiffness-mps (sim)
+  (cl-mpm:iterate-over-mps
+   (cl-mpm:sim-mps sim)
+   (lambda (mp)
+     (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp)))))
 

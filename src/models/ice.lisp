@@ -846,7 +846,7 @@
                  ;; (max (* p-mod p-deg)
                  ;;      (+ K (* 4/3 G)))
                  ))
-          (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
+          ;; (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
           )))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
@@ -866,6 +866,10 @@
                                                ;; (/ 1d0 (magicl:det def))
                                                (/ p 3)
                                                (expt damage 1)))
+      ;; (let ((pd  (* -1d0
+      ;;               (/ p 3)
+      ;;               (expt damage 1))))
+      ;;   (setf stress (cl-mpm/utils:voigt-eye pd)))
       )
     ;; (cl-mpm/particle::update-log-p-wave mp)
     )

@@ -30,7 +30,7 @@
       (reset-grid mesh)
       (when (> (length mps) 0)
         ;; Map momentum to grid
-        (p2g mesh mps)
+        (p2g mesh mps vel-algo)
         ;;Reset nodes below our mass-filter
         (when (> mass-filter 0d0)
           (filter-grid mesh (sim-mass-filter sim)))
@@ -53,7 +53,7 @@
         (g2p mesh mps dt damping vel-algo)
         ;;2nd round of momentum mapping
         (reset-grid-velocity mesh)
-        (p2g mesh mps)
+        (p2g mesh mps vel-algo)
         (when (> mass-filter 0d0)
           (filter-grid-velocity mesh (sim-mass-filter sim)))
         (update-node-kinematics sim)

@@ -21,7 +21,7 @@
     (declare (double-float mass-filter dt time))
     (cl-mpm::reset-grid mesh)
     (when (> (length mps) 0)
-      (cl-mpm::p2g mesh mps)
+      (cl-mpm::p2g mesh mps vel-algo)
 
       (when (> mass-filter 0d0)
         (cl-mpm::filter-grid mesh mass-filter))
