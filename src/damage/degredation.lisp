@@ -95,9 +95,7 @@
                    de
                    stress)
                   )
-            (cl-mpm/fastmaths:fast-scale! stress (* 1d0 (cl-mpm/fastmaths:det-3x3 def))))
-          ;; (pprint stress)
-          )))))
+            (cl-mpm/fastmaths:fast-scale! stress (* 1d0 (cl-mpm/fastmaths:det-3x3 def)))))))))
 
 
 (defun apply-vol-degredation (mp)

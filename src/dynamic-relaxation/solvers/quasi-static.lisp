@@ -200,8 +200,6 @@
               ke-prev 0d0)))
     (setf dt 1d0)
     (cl-mpm/penalty::reset-penalty sim)
-    (cl-mpm::update-nodes sim)
-    (cl-mpm::update-cells sim)
     (cl-mpm::reset-nodes-force sim)
     (cl-mpm::update-stress mesh mps dt-loadstep fbar)
     (cl-mpm::p2g-force-fs sim)
@@ -219,6 +217,8 @@
     ;; ;;Update our nodes after force mapping
     (cl-mpm::update-node-forces sim)
     (cl-mpm::apply-bcs mesh bcs dt)
+    (cl-mpm::update-nodes sim)
+    (cl-mpm::update-cells sim)
     (cl-mpm::update-dynamic-stats sim)
     (cl-mpm::g2p mesh mps dt damping :TRIAL)
     (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)))

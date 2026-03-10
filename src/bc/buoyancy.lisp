@@ -876,11 +876,7 @@
                        ;; (lambda (mp) (calculate-val-mp mp func-stress))
                        ;; (lambda (mp) (calculate-val-mp mp func-div))
                        (lambda (mp) (calculate-val-mp-datum-propotional mp func-stress datum))
-                       (lambda (mp) (cl-mpm/fastmaths:fast-scale!
-                                     (calculate-val-mp-datum-propotional mp func-div datum)
-                                     1d0
-                                     ;; (+ 1d0 (cl-mpm/particle::mp-damage mp))
-                                     ))
+                       (lambda (mp) (calculate-val-mp-datum-propotional mp func-div datum))
                        (lambda (pos) (funcall clip-function pos datum))
                        (lambda (mp) (calculate-scalar-val-mp-datum-proportional mp #'melt-rate datum))
                        )
@@ -996,7 +992,7 @@
                           )
              mp
            (when t
-             (setf (cl-mpm/particle::mp-body-force mp) (cl-mpm/utils:vector-zeros))
+             (cl-mpm/fastmaths:fast-zero (cl-mpm/particle::mp-body-force mp))
              (setf pressure 0d0)
              (setf mp-datum datum
                    mp-head rho
@@ -1018,16 +1014,17 @@
              (setf pressure (pressure-at-depth (tref pos 1 0) datum rho (cl-mpm:sim-gravity sim)))
              (when (typep mp 'cl-mpm/particle::particle-damage)
                (when (cl-mpm/particle::mp-enable-damage mp)
-                 (setf
-                  (cl-mpm/particle::mp-body-force mp)
-                   (calculate-val-mp-datum-propotional
-                    mp
-                    (lambda (mp) (buoyancy-virtual-div
-                                  (tref pos 1 0)
-                                  datum
-                                  (* damage rho)
-                                  (cl-mpm:sim-gravity sim)))
-                    datum))))
+                 ;; (cl-mpm/utils:vector-copy-into
+                 ;;  (calculate-val-mp-datum-propotional
+                 ;;   mp
+                 ;;   (lambda (mp) (buoyancy-virtual-div
+                 ;;                 (tref pos 1 0)
+                 ;;                 datum
+                 ;;                 (* damage rho 0d0)
+                 ;;                 (cl-mpm:sim-gravity sim)))
+                 ;;   datum)
+                 ;;  (cl-mpm/particle::mp-body-force mp))
+                 ))
              (cl-mpm::iterate-over-neighbours
               mesh mp
               (lambda (mesh mp node svp grads fsvp fgrad)
@@ -1204,14 +1201,12 @@
                               (funcall clip-func node-pos))
                      (let ((grads
                              (if *trial-position*
-                                 ;(cl-mpm::gradient-push-forwards-cached grads df-inv)
                                  (cl-mpm::gradient-push-forwards-cached grads df-inv)
                                  grads))
                            (volume
                              (if *trial-position*
                                  (* volume (cl-mpm/fastmaths::det-3x3 df))
-                                 volume
-                                 )))
+                                 volume)))
                        (cl-mpm/fastmaths:fast-zero f-stress)
                        (cl-mpm/forces::det-stress-force-unrolled mp-stress grads (- volume) f-stress)
                        (cl-mpm/fastmaths:fast-scale-vector

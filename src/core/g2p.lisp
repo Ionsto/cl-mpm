@@ -80,16 +80,16 @@
              ))))
       (progn
         (cl-mpm/fastmaths:fast-.+ pos disp-inc pos-trial)
-        ;; (let ((pic-value 1d-3))
-        ;;   (cl-mpm/fastmaths:fast-.+
-        ;;    (cl-mpm/fastmaths:fast-scale-vector
-        ;;     (cl-mpm/fastmaths:fast-.+
-        ;;      vel
-        ;;      (cl-mpm/fastmaths:fast-scale-vector acc dt))
-        ;;     (- 1d0 pic-value))
-        ;;    (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
-        ;;    vel))
-        (cl-mpm/fastmaths:fast-fmacc vel acc dt)
+        (let ((pic-value 1d-3))
+          (cl-mpm/fastmaths:fast-.+
+           (cl-mpm/fastmaths:fast-scale-vector
+            (cl-mpm/fastmaths:fast-.+
+             vel
+             (cl-mpm/fastmaths:fast-scale-vector acc dt))
+            (- 1d0 pic-value))
+           (cl-mpm/fastmaths:fast-scale-vector mapped-vel pic-value)
+           vel))
+        ;; (cl-mpm/fastmaths:fast-fmacc vel acc dt)
         ))))
 
 

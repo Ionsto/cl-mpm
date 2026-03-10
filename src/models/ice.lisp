@@ -209,9 +209,7 @@
                nu
                phi
                psi
-               coheasion
-               ;; (+ coheasion (* (- 1d0 damage) (/ p 1)))
-               )
+               coheasion)
               ;; (cl-mpm/constitutive::vm-plastic stress-u
               ;;                                  de
               ;;                                  strain
@@ -232,13 +230,13 @@
              stress-u sig
              strain eps-e
              yield-func f
-             p-wave (* 1.0d0 pmod)
-             )
+             p-wave (* 1.0d0 pmod))
             ;; (when (> f 0d0)
             ;;   (format t "P-wave adjusted ~E - ~E~%" pmod p-wave))
-            (let ((inc (expt (* 1/3 (max 0d0
-                                         (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
-                                            (cl-mpm/utils::trace-voigt strain)))) 1)))
+            (let (;; (inc (expt (* 1/3 (max 0d0
+                  ;;                        (- (cl-mpm/utils::trace-voigt trial-elastic-strain)
+                  ;;                           (cl-mpm/utils::trace-voigt strain)))) 1))
+                  )
               (setf ps-vm (+ ps-vm-1 inc))
               (setf ps-vm-inc inc))
             ;; (cl-mpm/fastmaths:fast-.+ plastic-strain
@@ -274,8 +272,8 @@
     (declare (double-float E visc-factor visc-power))
     (let* (;(viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
            (viscosity (cl-mpm/constitutive::glen-viscosity-strain eng-strain-rate visc-factor visc-power)))
-      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
-      )))
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain))))
+
 (defmethod constitutive-model ((mp particle-m-ice) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
   (with-slots ((E E)
@@ -296,8 +294,7 @@
                (visc-plastic visc-plastic)
                (visc-glen visc-glen)
                (time-averaged-visc time-averaged-visc)
-               (p p-modulus)
-               )
+               (p p-modulus))
       mp
     (declare (double-float E visc-factor visc-power))
     (flet ((inv (x) (/ 1d0 (the double-float x))))
@@ -335,10 +332,7 @@
           stress
           def
           vorticity
-          D
-          ))
-        ))
-    ))
+          D))))))
 
 (defmethod constitutive-model ((mp particle-glen-damage) strain dt)
   "Function for modeling stress intergrated viscoplastic norton-hoff material"
@@ -351,18 +345,12 @@
                (velocity-rate velocity-rate) ;Note strain rate is actually strain increment through dt
                (stress stress)
                (strain strain)
-               (damage damage)
-               )
+               (damage damage))
       mp
     (declare (double-float E visc-factor visc-power))
     (let* ((viscosity (cl-mpm/constitutive::glen-viscosity-strain velocity-rate visc-factor visc-power))
-          ;(viscosity (* viscosity (- 1 (* damage (- 1 0.1)))))
-           (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) visc-power))))
-          )
-      ;; (cl-mpm/constitutive::elasto-glen-damage strain-rate stress E nu de viscosity dt strain damage)
-      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain)
-      )
-    ))
+           (viscosity (* viscosity (max 1d-3 (expt (- 1d0 damage) visc-power)))))
+      (cl-mpm/constitutive::elasto-glen strain-rate stress E nu de viscosity dt strain))))
 
 (defmethod constitutive-model ((mp particle-visco-elasto-plastic-damage) strain dt)
   "Strain intergrated elsewhere, just using elastic tensor"
@@ -805,6 +793,7 @@
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
                    (stress        cl-mpm/particle::mp-stress)
+                   (undamaged-stress-kirchoff cl-mpm/particle::mp-undamaged-stress)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
                    (nu cl-mpm/particle::mp-nu)
@@ -815,13 +804,21 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let* ((exponent 1)
-             (p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
+      (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress-kirchoff (/ 1d0 (magicl:det def))))
+             (exponent 1)
+             (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
              (pind (- p pressure))
              ;; (pind p)
              (p-deg 0d0)
-             (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+             (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s p-deg))
+        ;; (setf stress
+        ;;        (cl-mpm/constitutive::voight-eye (- pressure))
+        ;;       ;; (cl-mpm/fastmaths:fast-.+
+        ;;       ;;  (cl-mpm/constitutive::voight-eye (- p pressure))
+        ;;       ;;  s
+        ;;       ;;  stress)
+        ;;       )
         (setf
          p-deg
          (if (> pind 0d0)
@@ -847,7 +844,8 @@
                  ;;      (+ K (* 4/3 G)))
                  ))
           ;; (setf (cl-mpm/particle::mp-p-modulus mp) (cl-mpm/particle::estimate-stiffness mp))
-          )))))
+          )
+        ))))
 
 (defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-ice-brittle) dt)
   (with-accessors ((p cl-mpm/particle::mp-pressure)
@@ -859,13 +857,15 @@
                    )
       mp
     (when enable-damage
+      ;; (pprint "hello")
       ;; (cl-mpm/damage::apply-tensile-strain-degredation mp)
       ;; (cl-mpm/damage::apply-tensile-stress-degredation mp)
       ;; (cl-mpm/damage::apply-vol-degredation mp)
       (apply-vol-pressure-degredation mp dt (* -1d0
                                                ;; (/ 1d0 (magicl:det def))
-                                               (/ p 3)
-                                               (expt damage 1)))
+                                               (/ p 1)
+                                               damage
+                                               ))
       ;; (let ((pd  (* -1d0
       ;;               (/ p 3)
       ;;               (expt damage 1))))

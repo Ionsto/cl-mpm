@@ -188,8 +188,9 @@
                              (damage-iter t)
                              (save-update nil))
                          (loop for d from 0 to 1000
-                               while (and (<= fast-trial-conv (sqrt oobf-crit))
-                                          damage-iter)
+                               while (and
+                                      ;; (<= fast-trial-conv (sqrt oobf-crit))
+                                      damage-iter)
                                do
                                   (setf (cl-mpm:sim-enable-damage sim) t)
                                   (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
@@ -221,12 +222,12 @@
                                         (convergence-check sim)
 
                                         (setf damage-prev damage)
-                                        (when damage-iter
-                                          (dotimes (i 2)
-                                            (cl-mpm:update-sim sim))
-                                          (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                          (cl-mpm:sim-format sim t "Fast trial oobf ~E~%" fast-trial-conv)
-                                          (setf save-update t))
+                                        ;; (when damage-iter
+                                        ;;   (dotimes (i 2)
+                                        ;;     (cl-mpm:update-sim sim))
+                                        ;;   (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
+                                        ;;   (cl-mpm:sim-format sim t "Fast trial oobf ~E~%" fast-trial-conv)
+                                        ;;   (setf save-update t))
                                )
                                (when save-update
                                  (incf iv)
@@ -303,7 +304,6 @@
                         :post-iter-step
                         (lambda (i e o)
                           (funcall plotter sim)
-                                        ;(vgplot:title (format nil "substep ~D - oobf: ~E" i o))
                           (incf total-i)
                           (when save-vtk-dr
                             (when (= (mod i 1) 0)
@@ -350,26 +350,33 @@
                          (unless (typep sim 'cl-mpm/damage::mpm-sim-damage)
                            (setf dconv 0d0))
                          (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
+                           ;; (loop for k from 0 to 10
+                           ;;       while (and
+                           ;;              (<= fast-trial-conv (sqrt oobf-crit))
+                           ;;              ;damage-iter
+                           ;;              )
+                           ;;       do)
                            (loop for d from 0 to 100
-                                 while (and (<= fast-trial-conv (sqrt oobf-crit))
-                                            damage-iter)
+                                 while (and
+                                        ;; (<= fast-trial-conv (sqrt oobf-crit))
+                                        damage-iter)
                                  do
-                                    (when (typep sim 'cl-mpm/damage::mpm-sim-damage)
-                                      (setf (cl-mpm:sim-enable-damage sim) t)
-                                      (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
-                                      (when true-stagger
-                                        (setf (cl-mpm:sim-enable-damage sim) nil)))
+                                    (setf (cl-mpm:sim-enable-damage sim) t)
+                                    (if (<= d 5)
+                                        (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))
+                                        (dotimes (i 5)
+                                          (cl-mpm/damage::calculate-damage sim (cl-mpm/dynamic-relaxation::sim-dt-loadstep sim))))
+                                    (when true-stagger
+                                      (setf (cl-mpm:sim-enable-damage sim) nil))
                                     (setf damage (get-damage sim))
-                                    (setf dconv
-                                          (compute-damage-delta sim)
-                                          )
+                                    (setf dconv (compute-damage-delta sim))
                                     (setf damage-prev damage)
                                     (when (< dconv damage-crit)
                                       (setf damage-iter nil))
                                     (cl-mpm:sim-format sim t "step ~D/~D - d-conv ~E - ~E~%" stagger-i d dconv fast-trial-conv)
                                     (let ((damage-inc (damage-increment-criteria sim)
-                                            ;; (compute-max-damage-energy-crit sim)
-                                            ))
+                                                      ;; (compute-max-damage-energy-crit sim)
+                                                      ))
                                       (cl-mpm:sim-format sim t "Damage ~E - prev damage ~E - inc ~E~%" damage damage-prev damage-inc)
                                       ;; (cl-mpm:sim-format sim t "Damage energy criterion ~E~%" (compute-max-damage-energy-crit sim))
                                       (when (> damage-inc max-damage-inc)
@@ -381,11 +388,11 @@
                                         (error (make-instance 'error-damage-criteria
                                                               :text "Damage criteria exeeded"
                                                               :max-damage-inc 0d0))))
-                                    (when damage-iter
-                                      (dotimes (i 2)
-                                        (cl-mpm:update-sim sim))
-                                      (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
-                                      (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
+                                    ;; (when damage-iter
+                                    ;;   (dotimes (i 2)
+                                    ;;     (cl-mpm:update-sim sim))
+                                    ;;   (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
+                                    ;;   (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
 
                                     (save-conv-step sim output-dir *total-iter* global-step
                                                     0d0
@@ -399,7 +406,13 @@
                                     ;;                 0d0
                                     ;;                 )
 
-                                    (incf total-i))))
+                                    (incf total-i))
+                           (when t;damage-iter
+                             (dotimes (i 1)
+                               (cl-mpm:update-sim sim))
+                             (setf fast-trial-conv (cl-mpm::sim-stats-oobf sim))
+                             (cl-mpm:sim-format sim t "fast trial ~E~%" fast-trial-conv))
+                           ))
 
                        (setf damage-prev damage)
                        (when save-vtk-dr
@@ -457,7 +470,7 @@
          (energy e-crit)
          (oobf oobf-crit)
          (work 0d0)
-         (intertial-passed t)
+         (intertial-passed nil)
          (dt-0 (* dt-scale (cl-mpm/setup:estimate-elastic-dt sim)))
          (substeps (round target-time (cl-mpm:sim-dt sim))))
     (cl-mpm:sim-format sim t "Substeps ~D~%" substeps)
@@ -491,10 +504,10 @@
                          (setf energy 0d0)
                          (setf energy (abs (/ energy work))))
 
-                     ;; (when (or (> energy e-crit)
-                     ;;           (> oobf oobf-crit))
-                     ;;   (cl-mpm:sim-format sim t "Inertia passed~%")
-                     ;;   (setf intertial-passed t))
+                     (when (or (> energy e-crit)
+                               (> oobf oobf-crit))
+                       (cl-mpm:sim-format sim t "Inertia passed~%")
+                       (setf intertial-passed t))
                      (cl-mpm:sim-format sim t "Residuals ~E ~E ~%" energy oobf)
                      (setf (cl-mpm::sim-stats-oobf sim) oobf)
                      (save-timestep sim output-dir global-step :DYNAMIC)
@@ -525,6 +538,7 @@
                           (save-vtk-dr t)
                           (save-vtk-loadstep t)
                           (max-damage-inc 0.6d0)
+                          (min-damage-inc 0d0)
                           (setup-quasi-static (lambda (sim)))
                           (setup-dynamic (lambda (sim)))
                           (explicit-dynamic-solver 'cl-mpm::mpm-sim-usf))
@@ -657,7 +671,12 @@
                            finally (progn
                                      (cl-mpm:sim-format sim t "Finished with ~D dt adaptions - stagger iters ~D - conv ~A~%" (- i 1) stagger-iters quasi-conv)
                                      (incf prev-step-iter)
-                                     (if (and (= i 1) (<= stagger-iters 3))
+                                     (when (> min-damage-inc 0d0)
+                                       (format t "End of step max damage inc ~E~%" (damage-increment-criteria sim)))
+                                     (if (and (= i 1)
+                                              (if (> min-damage-inc 0d0)
+                                                  (< (damage-increment-criteria sim) min-damage-inc)
+                                                  (<= stagger-iters 3)))
                                          (progn
                                            (setf (nth (mod prev-step-iter (length prev-steps-easy)) prev-steps-easy) t)
                                            (cl-mpm:sim-format sim t "Potential adaption easy steps ~A~%" prev-steps-easy)

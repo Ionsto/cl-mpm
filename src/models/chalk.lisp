@@ -595,6 +595,7 @@
                    (damage-t      cl-mpm/particle::mp-damage-tension)
                    (damage-c      cl-mpm/particle::mp-damage-compression)
                    (damage-s      cl-mpm/particle::mp-damage-shear)
+                   (undamaged-stress-kirchoff cl-mpm/particle::mp-undamaged-stress)
                    (stress        cl-mpm/particle::mp-stress)
                    (p-mod         cl-mpm/particle::mp-p-modulus-0)
                    (E cl-mpm/particle::mp-e)
@@ -606,9 +607,10 @@
     (when (and
            enable-damage
            (> damage 0.0d0))
-      (let ((p (/ (cl-mpm/constitutive::voight-trace stress) 3d0))
-            (p-deg 0d0)
-            (s (cl-mpm/constitutive::deviatoric-voigt stress)))
+      (let* ((undamaged-stress (cl-mpm/fastmaths:fast-scale-voigt undamaged-stress-kirchoff (/ 1d0 (magicl:det def))))
+             (p (/ (cl-mpm/constitutive::voight-trace undamaged-stress) 3d0))
+             (p-deg 0d0)
+             (s (cl-mpm/constitutive::deviatoric-voigt undamaged-stress)))
         (declare (double-float damage-t damage-c damage-s))
         (setf
          p-deg
@@ -630,10 +632,7 @@
           (setf p-mod
                 (max
                  (* 1d-9 P-0)
-                 (max (* p-mod p-deg)
-                      (+ K (* 4/3 G)))))
-          )
-        ))))
+                 (* (max 1d-9 (expt (/ (+ K (* 4/3 G)) P-0) 1)) p-mod))))))))
 
 (defun apply-tensile-vol-degredation (mp dt)
   (with-accessors ((damage        cl-mpm/particle::mp-damage)
@@ -778,22 +777,41 @@
       (declare (double-float damage damage-inc critical-damage k ybar tau dt))
       (when t;(<= damage 1d0)
         ;;Damage increment holds the delocalised driving factor
+        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (setf damage-inc 0d0)
         (let ((a tau-exp)
               (k0 init-stress))
           (when (or (>= ybar-prev k0)
                     (>= ybar k0))
-            (setf
-             k
-             (cl-mpm/damage::huen-integration
-              k-n
-              ybar-prev
-              ybar
-              k0
-              tau
-              tau-exp
-              dt
-              ))))
+            (setf k
+                  (max
+                   k-n
+                   (cl-mpm/damage::auto-refine-substepper
+                    k-n
+                    ybar-prev
+                    ybar
+                    dt
+                    (lambda (k y0 y1 s-dt)
+                      (cl-mpm/damage::huen-integration k
+                                                       y0
+                                                       y1
+                                                       k0
+                                                       tau
+                                                       tau-exp
+                                                       s-dt)))
+                   ))
+            ;; (setf
+            ;;  k
+            ;;  (cl-mpm/damage::huen-integration
+            ;;   k-n
+            ;;   ybar-prev
+            ;;   ybar
+            ;;   k0
+            ;;   tau
+            ;;   tau-exp
+            ;;   dt
+            ;;   ))
+            ))
         (compute-damage mp)
         (setf damage-inc (- damage damage-n))
 
