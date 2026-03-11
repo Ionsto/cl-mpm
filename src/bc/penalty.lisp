@@ -948,52 +948,56 @@
 
 (defmethod cl-mpm/bc::calculate-min-dt-bc (sim (bc bc-penalty))
   (let ((contacts (get-contact-points bc))
-        (min-dt nil)
-        )
+        (min-dt nil))
     (when (> (length contacts) 0d0)
       (let* ((mesh (cl-mpm:sim-mesh sim))
-             (h (cl-mpm/mesh:mesh-resolution mesh))
-             )
+             (h (cl-mpm/mesh:mesh-resolution mesh)))
         (dotimes (i (length contacts))
-              (let ((contact (aref contacts i))
-                    (mass 0d0)
-                    (volume 0d0)
-                    (pmod 0d0)
-                    )
-                (iterate-over-neighbours-point-linear
-                 mesh
-                 (dr-contact-point-position contact)
-                 (lambda (mesh node svp grads)
-                   (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                    (node-volume cl-mpm/mesh::node-volume)
-                                    (node-pmod cl-mpm/mesh::node-pwave)
-                                    (node-mass cl-mpm/mesh::node-mass)
-                                    (node-lock cl-mpm/mesh::node-lock))
-                       node
-                     (declare (double-float node-mass node-volume svp))
-                     (when node-active
-                       (sb-thread:with-mutex (node-lock)
-                         ;; (incf node-pmod (abs (* (dr-contact-point-stiffness contact) svp)))
-                         (incf mass (* node-mass svp))
-                         (incf volume (* node-volume svp))
-                         (incf pmod (* node-pmod svp))
-                         )))))
-                (let ((est-dt
-                        (* h
-                           (sqrt
-                            (/
-                             (* (cl-mpm:sim-mass-scale sim) mass)
-                             (+
-                              pmod
-                              (* volume
-                                 (* ;h
-                                    (/
-                                     (dr-contact-point-stiffness contact)
-                                     (dr-contact-point-contact-area contact))))))))))
-                  (if min-dt
-                      (setf min-dt (min min-dt est-dt))
-                      (setf min-dt est-dt))
-                  )))))
+          ;; (pprint "hello")
+          (let ((contact (aref contacts i))
+                (mass 0d0)
+                (volume 0d0)
+                (pmod 0d0)
+                )
+            (iterate-over-neighbours-point-linear
+             mesh
+             (dr-contact-point-position contact)
+             (lambda (mesh node svp grads)
+               (with-accessors ((node-active cl-mpm/mesh:node-active)
+                                (node-volume cl-mpm/mesh::node-volume)
+                                (node-pmod cl-mpm/mesh::node-pwave)
+                                (node-mass cl-mpm/mesh::node-mass)
+                                (node-lock cl-mpm/mesh::node-lock))
+                   node
+                 (declare (double-float node-mass node-volume svp))
+                 (when node-active
+                   (sb-thread:with-mutex (node-lock)
+                     ;; (incf node-pmod (abs (* (dr-contact-point-stiffness contact) svp)))
+                     (incf mass (* node-mass svp))
+                     (incf volume (* node-volume svp))
+                     (incf pmod (* node-pmod svp))
+                     )))))
+            (let ((est-dt
+                    (*
+                     0.1
+                     h
+                     (sqrt
+                      (/
+                       (* (cl-mpm:sim-mass-scale sim) mass)
+                       (+
+                        pmod
+                        (* volume
+                           (* ;h
+                              (/
+                               (dr-contact-point-stiffness contact)
+                               (dr-contact-point-contact-area contact)
+                               )))))))))
+              ;; (pprint est-dt)
+              (if min-dt
+                  (setf min-dt (min min-dt est-dt))
+                  (setf min-dt est-dt))
+              )))))
+    ;; (pprint min-dt)
     min-dt)
   ;; nil
   ;; (when (bc-mp-stiffness bc)
