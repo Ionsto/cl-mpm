@@ -109,7 +109,7 @@
              (incf node-svp-sum svp)
              (cl-mpm/fastmaths::fast-.- mp-position node-pos dist-vec)
              (cl-mpm/fastmaths::fast-fmacc node-vel
-                                           (magicl:@
+                                           (cl-mpm/fastmaths::fast-@-matrix-vector
                                             mp-vel-grad
                                             dist-vec)
                                            (* -1d0 mp-mass svp))

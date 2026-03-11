@@ -532,6 +532,7 @@
         (progn
           ;;Damage increment holds the delocalised driving factor
           (when t;(< damage 1d0)
+            (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
             (setf k (max k-n ybar))
             (compute-damage mp)
             (setf damage-inc (- damage damage-n))

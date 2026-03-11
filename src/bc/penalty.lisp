@@ -75,6 +75,9 @@
    (velocity
     :accessor bc-penalty-velocity
     :initform (cl-mpm/utils:vector-zeros))
+   (stiffness-scale
+    :accessor bc-penalty-stiffness-scale
+    :initform 1d0)
    (load-lock
     :accessor bc-penalty-load-lock
     :initform (sb-thread:make-mutex)))
@@ -1094,7 +1097,9 @@
   ;; (pprint "Hello")
   (let* ((mesh (cl-mpm:sim-mesh sim))
          (mps (cl-mpm:sim-mps sim))
-         (nd (cl-mpm/mesh::mesh-nd mesh)))
+         (nd (cl-mpm/mesh::mesh-nd mesh))
+         (stiffness-scale (bc-penalty-stiffness-scale bc))
+         )
     (let ((contacts (get-contact-points bc)))
       ;; (format t "Contacts ~D~%" (length contacts))
       (when (> (length contacts) 0)
@@ -1118,6 +1123,7 @@
                       (+
                        node-mass
                        (*
+                        stiffness-scale
                         svp
                         (dr-contact-point-stiffness contact)))))))))))))
     ))

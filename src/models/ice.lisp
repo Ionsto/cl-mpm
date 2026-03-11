@@ -701,6 +701,7 @@
         ;;           (max
         ;;            k-n
         ;;            ybar))))
+        (setf (cl-mpm/particle::mp-damage-prev-trial mp) (cl-mpm/particle::mp-damage mp))
         (setf k
               (max
                k-n
