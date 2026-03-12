@@ -607,7 +607,7 @@
                    (eps mp-strain)
                    )
       particle
-    (multiple-value-bind (l v) (magicl:eig (voigt-to-matrix eps))
+    (multiple-value-bind (l v) (cl-mpm/utils:eig (voigt-to-matrix eps))
       (let ((lmax (reduce #'max (mapcar (lambda (x) (exp (- x))) l))))
         (* lmax lmax)))))
 

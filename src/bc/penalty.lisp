@@ -998,6 +998,7 @@
                         pmod
                         (* volume
                            (* ;h
+                              2d0
                               (/
                                (dr-contact-point-stiffness contact)
                                (dr-contact-point-contact-area contact)
