@@ -946,6 +946,16 @@
                                  (coerce z 'single-float)
                                  ))))))))))
 
+(defmethod cl-mpm/bc::estimate-min-dt-bc (sim (bc bc-penalty))
+  (let ((min-dt nil)
+        (density (cl-mpm::reduce-over-mps
+                  (cl-mpm:sim-mps sim)
+                  (lambda (mp)
+                    (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp)))
+                  #'min)))
+    (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
+       (sqrt (* (cl-mpm:sim-mass-scale sim) (/ density (bc-penalty-epsilon bc)))))))
+
 (defmethod cl-mpm/bc::calculate-min-dt-bc (sim (bc bc-penalty))
   (let ((contacts (get-contact-points bc))
         (min-dt nil))
@@ -979,7 +989,7 @@
                      )))))
             (let ((est-dt
                     (*
-                     0.1
+                     ;; 0.1
                      h
                      (sqrt
                       (/

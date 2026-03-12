@@ -122,8 +122,13 @@
 (defgeneric calculate-min-dt-bc (sim bc)
   (:documentation "Aim to estimate a minimum bc if required, nil if not"))
 (defmethod calculate-min-dt-bc (sim (bc bc))
-  nil)
+  sb-ext:double-float-positive-infinity)
 
+
+(defgeneric estimate-min-dt-bc (sim bc)
+  (:documentation "Aim to estimate a minimum bc if required, nil if not"))
+(defmethod estimate-min-dt-bc (sim (bc bc))
+  sb-ext:double-float-positive-infinity)
 
 (defmethod apply-bc (bc node mesh dt)
   "Natural BC condition is nothing")

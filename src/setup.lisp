@@ -412,17 +412,27 @@
 
 (defgeneric %estimate-elastic-dt (sim))
 (defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))
-  (with-accessors ((mps cl-mpm:sim-mps))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (bcs-force-list cl-mpm:sim-bcs-force-list))
       sim
     (if (> (length mps) 0)
-        (loop for mp across mps
-              minimize
-              (estimate-elastic-dt-mp
-               sim
-               (cl-mpm/particle::mp-p-modulus mp)
-               (/ (the double-float (cl-mpm/particle:mp-mass mp))
-                  (the double-float (cl-mpm/particle:mp-volume mp)))))
+        (progn
+          (min
+           (loop for mp across mps
+                 minimize
+                 (estimate-elastic-dt-mp
+                  sim
+                  (cl-mpm/particle::mp-p-modulus mp)
+                  (/ (the double-float (cl-mpm/particle:mp-mass mp))
+                     (the double-float (cl-mpm/particle:mp-volume mp)))))
+           (loop for bc-list in bcs-force-list
+                 minimize
+                 (loop for bc across bc-list
+                       minimize
+                       (cl-mpm/bc::estimate-min-dt-bc sim bc)))))
         sb-ext:double-float-positive-infinity)))
+
+
 
 
 

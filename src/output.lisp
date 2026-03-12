@@ -568,6 +568,7 @@
         ;; (save-parameter-vector "vel" cl-mpm/particle::mp-velocity)
         (save-parameter "vel_x" (magicl:tref (cl-mpm/particle:mp-velocity mp) 0 0))
         (save-parameter "vel_y" (magicl:tref (cl-mpm/particle:mp-velocity mp) 1 0))
+        (save-parameter "p-wave-modulus" (cl-mpm/particle::mp-p-modulus mp))
         ;; (save-parameter "vel_z" (magicl:tref (cl-mpm/particle:mp-velocity mp) 2 0))
 
         ;; (save-parameter "acc_x" (magicl:tref (cl-mpm/particle::mp-acceleration mp) 0 0))

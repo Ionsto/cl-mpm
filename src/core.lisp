@@ -928,7 +928,7 @@ This allows for a non-physical but viscous damping scheme that is robust to GIMP
   ;;       (setf dt-req (min dt-req bc-min-dt))))
   ;;   dt-req)
   (min
-   ;; (calculate-min-dt-bcs sim)
+   (calculate-min-dt-bcs sim)
    (calculate-min-dt-mps sim)))
 
 (defun calculate-adaptive-time (sim target-time &key (dt-scale 1d0))

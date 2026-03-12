@@ -245,6 +245,9 @@
   (call-next-method))
 
 
+(defmethod cl-mpm::calculate-min-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
+  ;;we dont care about the stiffness from our BC constraints at all!
+  (cl-mpm::calculate-min-dt-mps sim))
 
 (defparameter *total-iter* 0)
 (defparameter *total-step* 0)
