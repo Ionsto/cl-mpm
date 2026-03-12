@@ -410,6 +410,29 @@
           (the double-float (cl-mpm::sim-mass-scale sim))
           (the double-float (/ density p-modulus)))))))
 
+(defun %estimate-elastic-dt-mps (sim)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+      sim
+    (cl-mpm::reduce-over-mps
+     mps
+     (lambda (mp)
+       (estimate-elastic-dt-mp
+        sim
+        (cl-mpm/particle::mp-p-modulus mp)
+        (/ (the double-float (cl-mpm/particle:mp-mass mp))
+           (the double-float (cl-mpm/particle:mp-volume mp)))))
+     #'min)))
+(defun %estimate-elastic-dt-bcs (sim)
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+      sim
+    (loop for bc-list in bcs-force-list
+          minimize
+          (loop for bc across bc-list
+                minimize
+                (cl-mpm/bc::estimate-min-dt-bc sim bc)))))
+
 (defgeneric %estimate-elastic-dt (sim))
 (defmethod %estimate-elastic-dt ((sim cl-mpm:mpm-sim))
   (with-accessors ((mps cl-mpm:sim-mps)
@@ -418,18 +441,8 @@
     (if (> (length mps) 0)
         (progn
           (min
-           (loop for mp across mps
-                 minimize
-                 (estimate-elastic-dt-mp
-                  sim
-                  (cl-mpm/particle::mp-p-modulus mp)
-                  (/ (the double-float (cl-mpm/particle:mp-mass mp))
-                     (the double-float (cl-mpm/particle:mp-volume mp)))))
-           (loop for bc-list in bcs-force-list
-                 minimize
-                 (loop for bc across bc-list
-                       minimize
-                       (cl-mpm/bc::estimate-min-dt-bc sim bc)))))
+           (%estimate-elastic-dt-mps sim)
+           (%estimate-elastic-dt-bcs sim)))
         sb-ext:double-float-positive-infinity)))
 
 
@@ -592,7 +605,7 @@
                                                          sig-y
                                                          sig-y
                                                          0d0 0d0 0d0)))
-                (strains (stress-inverse stresses de)))
+                (strains (stress-inverse (cl-mpm/mesh::mesh-nd (cl-mpm:sim-mesh sim)) stresses de)))
            (cl-mpm/fastmaths:fast-.+ stress stresses stress)
            (cl-mpm/fastmaths:fast-.+ strain strains strain)
            ;; (setf stress stresses

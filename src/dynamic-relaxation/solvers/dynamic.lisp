@@ -249,6 +249,16 @@
   ;;we dont care about the stiffness from our BC constraints at all!
   (cl-mpm::calculate-min-dt-mps sim))
 
+(defmethod cl-mpm/setup::%estimate-elastic-dt ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
+  (with-accessors ((mps cl-mpm:sim-mps)
+                   (bcs-force-list cl-mpm:sim-bcs-force-list))
+      sim
+    (if (> (length mps) 0)
+        (progn
+          (min
+           (cl-mpm/setup::%estimate-elastic-dt-mps sim)))
+        sb-ext:double-float-positive-infinity)))
+
 (defparameter *total-iter* 0)
 (defparameter *total-step* 0)
 (defmethod cl-mpm::update-sim ((sim cl-mpm/dynamic-relaxation::mpm-sim-implict-dynamic))
