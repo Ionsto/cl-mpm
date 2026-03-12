@@ -445,7 +445,7 @@
     ;; (cl-mpm/particle::mp-p-modulus mp)
     )))
 
-(defstruct dr-contact-point position stiffness contact-area)
+(defstruct dr-contact-point position stiffness contact-area density)
 
 (defun apply-penalty-point (mesh bc mp
                             point
@@ -590,7 +590,9 @@
                                   2d0
                                   epsilon
                                   (+ 1d0 friction)
-                                  contact-area))
+                                  contact-area)
+                      :density (/ (cl-mpm/particle::mp-mass mp) (cl-mpm/particle::mp-volume mp))
+                      )
                      (bc-penalty-contact-points bc)))
                   (setf (cl-mpm/particle::mp-penalty-stiffness mp)
                         (max
@@ -964,51 +966,63 @@
              (h (cl-mpm/mesh:mesh-resolution mesh)))
         (dotimes (i (length contacts))
           ;; (pprint "hello")
-          (let ((contact (aref contacts i))
-                (mass 0d0)
-                (volume 0d0)
-                (pmod 0d0)
-                )
-            (iterate-over-neighbours-point-linear
-             mesh
-             (dr-contact-point-position contact)
-             (lambda (mesh node svp grads)
-               (with-accessors ((node-active cl-mpm/mesh:node-active)
-                                (node-volume cl-mpm/mesh::node-volume)
-                                (node-pmod cl-mpm/mesh::node-pwave)
-                                (node-mass cl-mpm/mesh::node-mass)
-                                (node-lock cl-mpm/mesh::node-lock))
-                   node
-                 (declare (double-float node-mass node-volume svp))
-                 (when node-active
-                   (sb-thread:with-mutex (node-lock)
-                     ;; (incf node-pmod (abs (* (dr-contact-point-stiffness contact) svp)))
-                     (incf mass (* node-mass svp))
-                     (incf volume (* node-volume svp))
-                     (incf pmod (* node-pmod svp))
-                     )))))
+          (let ((contact (aref contacts i)))
             (let ((est-dt
-                    (*
-                     ;; 0.1
-                     h
-                     (sqrt
-                      (/
-                       (* (cl-mpm:sim-mass-scale sim) mass)
-                       (+
-                        pmod
-                        (* volume
-                           (* ;h
-                              2d0
-                              (/
-                               (dr-contact-point-stiffness contact)
-                               (dr-contact-point-contact-area contact)
-                               )))))))))
-              ;; (pprint est-dt)
+                    (* (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim))
+                       (sqrt (* (cl-mpm:sim-mass-scale sim) (/ (dr-contact-point-density contact)
+                                                               (/
+                                                                (dr-contact-point-stiffness    contact)
+                                                                (dr-contact-point-contact-area contact)
+                                                                )))))
+                    ))
               (if min-dt
                   (setf min-dt (min min-dt est-dt))
-                  (setf min-dt est-dt))
-              )))))
-    ;; (pprint min-dt)
+                  (setf min-dt est-dt))))
+          ;; (let ((contact (aref contacts i))
+          ;;       (mass 0d0)
+          ;;       (volume 0d0)
+          ;;       (pmod 0d0)
+          ;;       )
+          ;;   (iterate-over-neighbours-point-linear
+          ;;    mesh
+          ;;    (dr-contact-point-position contact)
+          ;;    (lambda (mesh node svp grads)
+          ;;      (with-accessors ((node-active cl-mpm/mesh:node-active)
+          ;;                       (node-volume cl-mpm/mesh::node-volume)
+          ;;                       (node-pmod cl-mpm/mesh::node-pwave)
+          ;;                       (node-mass cl-mpm/mesh::node-mass)
+          ;;                       (node-lock cl-mpm/mesh::node-lock))
+          ;;          node
+          ;;        (declare (double-float node-mass node-volume svp))
+          ;;        (when node-active
+          ;;          (sb-thread:with-mutex (node-lock)
+          ;;            ;; (incf node-pmod (abs (* (dr-contact-point-stiffness contact) svp)))
+          ;;            (incf mass (* node-mass svp))
+          ;;            (incf volume (* node-volume svp))
+          ;;            (incf pmod (* node-pmod svp))
+          ;;            )))))
+          ;;   (let ((est-dt
+          ;;           (*
+          ;;            ;; 0.1
+          ;;            h
+          ;;            (sqrt
+          ;;             (/
+          ;;              (* (cl-mpm:sim-mass-scale sim) mass)
+          ;;              (+
+          ;;               pmod
+          ;;               (* volume
+          ;;                  (* ;h
+          ;;                     1d0
+          ;;                     (/
+          ;;                      (dr-contact-point-stiffness contact)
+          ;;                      (dr-contact-point-contact-area contact)
+          ;;                      )))))))))
+          ;;     ;; (pprint est-dt)
+          ;;     (if min-dt
+          ;;         (setf min-dt (min min-dt est-dt))
+          ;;         (setf min-dt est-dt))
+          ;;     ))
+          )))
     min-dt)
   ;; nil
   ;; (when (bc-mp-stiffness bc)

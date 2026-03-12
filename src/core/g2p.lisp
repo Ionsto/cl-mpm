@@ -46,6 +46,7 @@
                    (pos mp-position)
                    (pos-trial cl-mpm/particle::mp-position-trial)
                    (disp cl-mpm/particle::mp-displacement)
+                   (df-inc-inv cl-mpm/particle::mp-deformation-gradient-increment-inverse)
                    (disp-inc cl-mpm/particle::mp-displacement-increment))
       mp
     (let* ((mapped-vel (cl-mpm/utils:vector-zeros))
@@ -75,7 +76,7 @@
              (cl-mpm/fastmaths::fast-fmacc mapped-vel node-vel svp)
              (cl-mpm/fastmaths::fast-fmacc disp-inc node-disp svp)
              (cl-mpm/fastmaths::fast-fmacc acc node-acc svp)
-             (cl-mpm/shape-function::@-combi-assemble-dstretch-3d grads node-vel vel-grad)
+             (cl-mpm/shape-function::@-combi-assemble-dstretch-3d (cl-mpm::gradient-push-forwards-cached grads df-inc-inv) node-vel vel-grad)
              (incf svp-sum svp)
              ))))
       (progn
