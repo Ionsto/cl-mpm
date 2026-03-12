@@ -77,7 +77,7 @@
 (defsystem "cl-mpm/setup"
   :depends-on ("cl-mpm"
                "cl-mpm/mesh"
-               )
+               "cl-mpm/bc")
   :description "MPM setup system"
   :serial t
   :components ((:file "src/setup")))
@@ -169,6 +169,7 @@
 (defsystem "cl-mpm/dynamic-relaxation"
   :depends-on ("cl-mpm"
                "cl-mpm/penalty"
+               "cl-mpm/setup"
                "cl-mpm/mpi"
                "cl-mpm/damage"
                "cl-mpm/aggregate"
